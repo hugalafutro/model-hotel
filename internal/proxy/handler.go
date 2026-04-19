@@ -1,0 +1,242 @@
+package proxy
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/user/llm-proxy/internal/auth"
+	"github.com/user/llm-proxy/internal/config"
+	"github.com/user/llm-proxy/internal/model"
+	"github.com/user/llm-proxy/internal/provider"
+)
+
+type Handler struct {
+	cfg          *config.Config
+	providerRepo *provider.Repository
+	modelRepo    *model.Repository
+	dbPool       *pgxpool.Pool
+	discovery    *provider.DiscoveryService
+}
+
+func NewHandler(
+	cfg *config.Config,
+	providerRepo *provider.Repository,
+	modelRepo *model.Repository,
+	dbPool *pgxpool.Pool,
+) *Handler {
+	return &Handler{
+		cfg:          cfg,
+		providerRepo: providerRepo,
+		modelRepo:    modelRepo,
+		dbPool:       dbPool,
+		discovery:    provider.NewDiscoveryService(),
+	}
+}
+
+type ChatCompletionResponse struct {
+	ID      string   `json:"id"`
+	Object  string   `json:"object"`
+	Created int64    `json:"created"`
+	Model   string   `json:"model"`
+	Choices []Choice `json:"choices"`
+	Usage   Usage    `json:"usage"`
+}
+
+type Choice struct {
+	Index        int     `json:"index"`
+	Message      Message `json:"message,omitempty"`
+	Delta        Message `json:"delta,omitempty"`
+	FinishReason *string `json:"finish_reason,omitempty"`
+}
+
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+func (h *Handler) Register(r chi.Router) {
+	r.Route("/v1", func(r chi.Router) {
+		r.Use(h.ProxyKeyMiddleware)
+
+		r.Get("/models", h.ListModels)
+		r.Post("/chat/completions", h.ChatCompletions)
+	})
+}
+
+func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		token := ""
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		} else {
+			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		if len(token) < 5 || token[:5] != "llmp_" {
+			http.Error(w, "Invalid proxy key format", http.StatusUnauthorized)
+			return
+		}
+
+		keyHash := auth.HashProxyKey(token)
+
+		query := `SELECT id FROM proxy_keys WHERE key_hash = $1`
+		var keyID string
+		err := h.dbPool.QueryRow(r.Context(), query, keyHash).Scan(&keyID)
+		if err != nil {
+			http.Error(w, "Invalid proxy key", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
+	models, err := h.modelRepo.List(r.Context(), nil)
+	if err != nil {
+		http.Error(w, "failed to list models", http.StatusInternalServerError)
+		return
+	}
+
+	openAIModels := make([]map[string]interface{}, 0, len(models))
+	for _, m := range models {
+		if !m.Enabled {
+			continue
+		}
+		openAIModels = append(openAIModels, map[string]interface{}{
+			"id":      m.ModelID,
+			"object":  "model",
+			"created": m.CreatedAt.Unix(),
+			"owned_by": m.ProviderID.String(),
+		})
+	}
+
+	response := map[string]interface{}{
+		"object": "list",
+		"data":   openAIModels,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
+	var req ChatCompletionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Model == "" {
+		http.Error(w, "model is required", http.StatusBadRequest)
+		return
+	}
+
+	models, err := h.modelRepo.List(r.Context(), nil)
+	if err != nil {
+		http.Error(w, "failed to query models", http.StatusInternalServerError)
+		return
+	}
+
+	var targetModel *model.Model
+	for _, m := range models {
+		if m.ModelID == req.Model && m.Enabled {
+			targetModel = m
+			break
+		}
+	}
+
+	if targetModel == nil {
+		http.Error(w, "model not found or disabled", http.StatusNotFound)
+		return
+	}
+
+	prov, err := h.providerRepo.Get(r.Context(), targetModel.ProviderID)
+	if err != nil {
+		http.Error(w, "provider not found", http.StatusInternalServerError)
+		return
+	}
+
+	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, h.cfg.MasterKey)
+	if err != nil {
+		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
+		return
+	}
+
+	targetURL := prov.BaseURL + "/v1/chat/completions"
+
+	proxyReqBody, err := json.Marshal(req)
+	if err != nil {
+		http.Error(w, "failed to marshal request", http.StatusInternalServerError)
+		return
+	}
+
+	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(proxyReqBody))
+	if err != nil {
+		http.Error(w, "failed to create proxy request", http.StatusInternalServerError)
+		return
+	}
+
+	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
+	proxyReq.Header.Set("Content-Type", "application/json")
+
+	startTime := time.Now()
+	resp, err := http.DefaultClient.Do(proxyReq)
+	if err != nil {
+		http.Error(w, "failed to call provider", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	latency := time.Since(startTime).Milliseconds()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
+		return
+	}
+
+	if req.Stream {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		io.Copy(w, resp.Body)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+
+		var chatResp ChatCompletionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
+			requestID := generateRequestID()
+			w.Header().Set("X-Request-ID", requestID)
+
+			query := `
+				INSERT INTO request_logs (provider_id, model_id, request_id, status_code, latency_ms, tokens_prompt, tokens_completion, streaming)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			`
+			h.dbPool.Exec(r.Context(), query,
+				prov.ID, req.Model, requestID, resp.StatusCode, latency,
+				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream,
+			)
+		}
+
+		json.NewEncoder(w).Encode(chatResp)
+	}
+}
+
+func generateRequestID() string {
+	return fmt.Sprintf("req_%d", time.Now().UnixNano())
+}
