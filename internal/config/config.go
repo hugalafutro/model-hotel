@@ -10,12 +10,15 @@ import (
 )
 
 type Config struct {
-	Port               string
-	DatabaseURL        string
-	MasterKey          string
-	DiscoveryInterval  time.Duration
-	DataDir            string
-	AllowHTTPProviders bool
+  Port               string
+  DatabaseURL        string
+  MasterKey          string
+  DiscoveryInterval  time.Duration
+  DataDir            string
+  AllowHTTPProviders bool
+  RateLimitEnabled   bool
+  MaxRequestSize     int64
+  CORSOrigins        []string
 }
 
 func Load() (*Config, error) {
@@ -30,6 +33,9 @@ func Load() (*Config, error) {
 		DiscoveryInterval:  parseDuration(getEnvWithDefault("DISCOVERY_INTERVAL", "30m")),
 		DataDir:            getEnvWithDefault("DATA_DIR", "./data"),
 		AllowHTTPProviders: getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
+		RateLimitEnabled:   getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
+		MaxRequestSize:     getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB
+		CORSOrigins:        parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -77,6 +83,35 @@ func getBoolEnvWithDefault(key string, defaultValue bool) bool {
 		return false
 	}
 	return defaultValue
+}
+
+func getIntEnvWithDefault(key string, defaultValue int64) int64 {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	var result int64
+	if _, err := fmt.Sscanf(value, "%d", &result); err != nil {
+		return defaultValue
+	}
+	return result
+}
+
+func parseCORSOrigins(value string) []string {
+	if value == "" {
+		return []string{}
+	}
+
+	origins := strings.Split(value, ",")
+	var result []string
+	for _, origin := range origins {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func parseDuration(s string) time.Duration {

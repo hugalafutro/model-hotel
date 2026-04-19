@@ -34,29 +34,27 @@ func (h *Handler) Pool() *db.DB {
 }
 
 func (h *Handler) Register(r chi.Router) {
-	r.Route("/api", func(r chi.Router) {
-		r.Use(h.AuthMiddleware)
+	r.Use(h.AuthMiddleware)
 
-		r.Route("/providers", func(r chi.Router) {
-			r.Post("/", h.CreateProvider)
-			r.Get("/", h.ListProviders)
-			r.Get("/{id}", h.GetProvider)
-			r.Put("/{id}", h.UpdateProvider)
-			r.Delete("/{id}", h.DeleteProvider)
-		})
-
-		r.Route("/keys", func(r chi.Router) {
-			r.Post("/", h.CreateProxyKey)
-			r.Get("/", h.ListProxyKeys)
-			r.Delete("/{id}", h.RevokeProxyKey)
-		})
-
-		h.RegisterModels(r)
-		h.RegisterProviderDiscovery(r)
-		h.RegisterLogs(r)
-
-		NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
+	r.Route("/providers", func(r chi.Router) {
+		r.Post("/", h.CreateProvider)
+		r.Get("/", h.ListProviders)
+		r.Get("/{id}", h.GetProvider)
+		r.Put("/{id}", h.UpdateProvider)
+		r.Delete("/{id}", h.DeleteProvider)
 	})
+
+	r.Route("/keys", func(r chi.Router) {
+		r.Post("/", h.CreateProxyKey)
+		r.Get("/", h.ListProxyKeys)
+		r.Delete("/{id}", h.RevokeProxyKey)
+	})
+
+	h.RegisterModels(r)
+	h.RegisterProviderDiscovery(r)
+	h.RegisterLogs(r)
+
+	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 }
 
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
@@ -96,13 +94,28 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Name) > 100 {
+		http.Error(w, "name must be less than 100 characters", http.StatusBadRequest)
+		return
+	}
+
 	if req.BaseURL == "" {
 		http.Error(w, "base_url is required", http.StatusBadRequest)
 		return
 	}
 
+	if len(req.BaseURL) > 500 {
+		http.Error(w, "base_url must be less than 500 characters", http.StatusBadRequest)
+		return
+	}
+
 	if req.APIKey == "" {
 		http.Error(w, "api_key is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.APIKey) > 500 {
+		http.Error(w, "api_key must be less than 500 characters", http.StatusBadRequest)
 		return
 	}
 
