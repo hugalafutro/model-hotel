@@ -1,0 +1,44 @@
+# Binaries
+/server
+/llm-proxy
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+vendor/
+
+# Node
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Data
+data/
+.data/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Plans - keep in repo but listed so it's clear
+# plans/ is tracked in git
