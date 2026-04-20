@@ -1,7 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState } from 'react'
-import { useToast } from '../context/ToastContext'
 import { StaticHeaderNoArrow, Row, EmptyRow } from '../components/DataTable'
 
 function formatTPS(t: number | null): string {
@@ -10,21 +9,8 @@ function formatTPS(t: number | null): string {
 }
 
 export function Logs() {
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ model_id: '', status_code: '' })
-  const [configOpen, setConfigOpen] = useState(false)
-  const [retention, setRetention] = useState<string | null>(null)
-  const [deleteSelection, setDeleteSelection] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState(false)
-
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  })
-
-  const effectiveRetention = retention ?? (settings?.log_retention || 'off')
 
   const { data: logsData, isLoading } = useQuery({
     queryKey: ['logs', page, filters],
@@ -36,47 +22,11 @@ export function Logs() {
     }),
   })
 
-  const purgeMutation = useMutation({
-    mutationFn: (olderThan: string) => api.logs.purge(olderThan),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['logs'] })
-      toast('Logs deleted', 'success')
-      setConfirmDelete(false)
-      setDeleteSelection('')
-    },
-    onError: (err: Error) => {
-      toast(`Failed to delete logs: ${err.message}`, 'error')
-      setConfirmDelete(false)
-    },
-  })
-
-  const saveRetention = () => {
-    const val = effectiveRetention === 'off' ? '' : effectiveRetention
-    api.settings.update({ log_retention: val }).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
-      setRetention(null)
-      toast(`Log retention set to ${effectiveRetention === 'off' ? 'disabled' : effectiveRetention}`, 'success')
-    })
-  }
-
-  const handleDelete = () => {
-    if (!deleteSelection) return
-    purgeMutation.mutate(deleteSelection)
-  }
-
   const getStatusBg = (statusCode: number) => {
     if (statusCode >= 200 && statusCode < 300) return 'bg-green-900/30 text-green-400'
     if (statusCode >= 400 && statusCode < 500) return 'bg-yellow-900/30 text-yellow-400'
     if (statusCode >= 500) return 'bg-red-900/30 text-red-400'
     return 'bg-gray-700 text-gray-300'
-  }
-
-  const deleteLabels: Record<string, string> = {
-    '1h': 'older than 1 hour',
-    '1d': 'older than 1 day',
-    '1w': 'older than 1 week',
-    '1m': 'older than 1 month',
-    'all': 'ALL logs',
   }
 
   if (isLoading) {
@@ -94,89 +44,7 @@ export function Logs() {
           <h1 className="text-3xl font-bold text-white">Request Logs</h1>
           <p className="text-gray-400 mt-1">View and analyze request history</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setConfigOpen(!configOpen)}
-          className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm cursor-pointer"
-        >
-          {configOpen ? 'Close Config' : 'Config'}
-        </button>
       </div>
-
-      {configOpen && (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-5">
-          <div>
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Log Retention</h3>
-            <p className="text-xs text-gray-500 mb-3">Automatically delete logs older than the selected period. Runs hourly.</p>
-            <div className="flex items-center gap-2">
-              <select
-                value={effectiveRetention}
-                onChange={(e) => setRetention(e.target.value)}
-                className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
-              >
-                <option value="off">Disabled</option>
-                <option value="1d">1 day</option>
-                <option value="1w">1 week</option>
-                <option value="1m">1 month (max)</option>
-              </select>
-              <button
-                type="button"
-                onClick={saveRetention}
-                className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm cursor-pointer"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-gray-700">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Delete Logs</h3>
-            {!confirmDelete ? (
-              <div className="flex items-center gap-2">
-                <select
-                  value={deleteSelection}
-                  onChange={(e) => setDeleteSelection(e.target.value)}
-                  className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
-                >
-                  <option value="">Select range...</option>
-                  <option value="1h">Older than 1 hour</option>
-                  <option value="1d">Older than 1 day</option>
-                  <option value="1w">Older than 1 week</option>
-                  <option value="1m">Older than 1 month</option>
-                  <option value="all">All logs</option>
-                </select>
-                <button
-                  type="button"
-                  disabled={!deleteSelection}
-                  onClick={() => setConfirmDelete(true)}
-                  className="px-3 py-1.5 bg-red-900/50 text-red-400 border border-red-700/50 rounded-lg hover:brightness-125 transition-colors text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Delete
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-red-400">Delete {deleteLabels[deleteSelection]}?</span>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={purgeMutation.isPending}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm cursor-pointer disabled:opacity-50"
-                >
-                  {purgeMutation.isPending ? 'Deleting...' : 'Yes, delete'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setConfirmDelete(false); setDeleteSelection('') }}
-                  className="px-3 py-1.5 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">

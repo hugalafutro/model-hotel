@@ -258,7 +258,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
           <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap break-all">{snippetContent}</pre>
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
+        <div className="flex items-center justify-between mt-4 pt-4">
           <button
             type="button"
             onClick={() => onToggle(model.id, !model.enabled)}

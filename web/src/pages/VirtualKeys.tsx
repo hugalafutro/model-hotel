@@ -142,9 +142,9 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer text-lg leading-none"
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors cursor-pointer text-xl leading-none"
         >
-          ✕
+          &times;
         </button>
         <h2 className="text-xl font-bold text-white mb-4">Virtual Key Details</h2>
 
