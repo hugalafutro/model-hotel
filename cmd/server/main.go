@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"embed"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +22,93 @@ import (
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/proxy"
 )
+
+//go:embed all:static
+var staticFiles embed.FS
+
+type SPAHandler struct {
+	fileServer http.Handler
+	indexHTML  []byte
+	staticDir  string // empty if using embedded FS
+	useEmbed   bool
+}
+
+func NewSPAHandler() *SPAHandler {
+	// Try embedded filesystem first (production)
+	subFS, err := fs.Sub(staticFiles, "static")
+	if err == nil {
+		indexHTML, readErr := fs.ReadFile(subFS, "index.html")
+		if readErr == nil && len(indexHTML) > 0 {
+			log.Println("Using embedded static files")
+			return &SPAHandler{
+				fileServer: http.FileServer(http.FS(subFS)),
+				indexHTML:  indexHTML,
+				useEmbed:   true,
+			}
+		}
+	}
+
+	// Fall back to filesystem (for development)
+	staticDir := "./web/dist"
+	indexHTML, err := os.ReadFile(staticDir + "/index.html")
+	if err != nil {
+		log.Printf("WARNING: Could not read frontend files: %v", err)
+		return &SPAHandler{
+			indexHTML: []byte("<!DOCTYPE html><html><body><h1>LLM-Proxy</h1><p>Frontend not available. Run <code>cd web && npm run build</code></p></body></html>"),
+			useEmbed:  false,
+			staticDir: staticDir,
+		}
+	}
+
+	log.Println("Using filesystem static files from " + staticDir)
+	return &SPAHandler{
+		fileServer: http.FileServer(http.Dir(staticDir)),
+		indexHTML:  indexHTML,
+		useEmbed:   false,
+		staticDir:  staticDir,
+	}
+}
+
+func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+
+	// Don't intercept API or proxy routes
+	if strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/v1") || path == "/health" {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Try to serve static assets (js, css, images, etc.) 
+	if path != "/" {
+		cleanPath := strings.TrimPrefix(path, "/")
+		if cleanPath != "" {
+			var exists bool
+			if h.useEmbed {
+				subFS, _ := fs.Sub(staticFiles, "static")
+				if f, err := fs.Stat(subFS, cleanPath); err == nil && !f.IsDir() {
+					exists = true
+				}
+			} else {
+				if _, err := os.Stat(h.staticDir + "/" + cleanPath); err == nil {
+					exists = true
+				}
+			}
+
+			if exists {
+				if strings.Contains(cleanPath, "-") && (strings.HasSuffix(cleanPath, ".js") || strings.HasSuffix(cleanPath, ".css")) {
+					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				}
+				h.fileServer.ServeHTTP(w, r)
+				return
+			}
+		}
+	}
+
+	// SPA fallback: serve index.html
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(h.indexHTML)
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -53,7 +143,7 @@ func main() {
 
 	r := chi.NewRouter()
 
-	// Security middleware
+	// Global middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -67,28 +157,30 @@ func main() {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
-			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';")
 			next.ServeHTTP(w, r)
 		})
 	})
 
-	// CORS for frontend
+	// CORS middleware
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			allowedOrigins := []string{
-				"http://localhost:5173",
-				"http://localhost:8081",
-				"http://localhost:3000",
+			if origin == "" {
+				next.ServeHTTP(w, r)
+				return
 			}
 
 			allowed := false
-			for _, allowedOrigin := range allowedOrigins {
-				if origin == allowedOrigin {
+			for _, pattern := range cfg.CORSOrigins {
+				if origin == pattern {
 					allowed = true
 					break
 				}
+			}
+
+			// Allow any HTTPS origin (production deployments)
+			if strings.HasPrefix(origin, "https://") {
+				allowed = true
 			}
 
 			if allowed {
@@ -96,10 +188,11 @@ func main() {
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Max-Age", "86400")
 			}
 
 			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 
@@ -110,9 +203,15 @@ func main() {
 	// Request size limit
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024) // 10MB
+			r.Body = http.MaxBytesReader(w, r.Body, cfg.MaxRequestSize)
 			next.ServeHTTP(w, r)
 		})
+	})
+
+	// Health check
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("OK"))
 	})
 
 	// API routes
@@ -127,13 +226,9 @@ func main() {
 		proxyHandler.Register(r)
 	})
 
-	// Root endpoint for health check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
-
-	// Static file serving for frontend (catch-all)
-	r.Handle("/*", http.FileServer(http.Dir("./web/dist")))
+	// SPA handler for frontend
+	spaHandler := NewSPAHandler()
+	r.Get("/*", spaHandler.ServeHTTP)
 
 	server := &http.Server{
 		Addr:    cfg.Port,
@@ -160,43 +255,4 @@ func main() {
 	}
 
 	log.Println("Server stopped")
-}
-
-// Simple rate limiter implementation
-type RateLimiter struct {
-	clients map[string]int
-}
-
-func NewRateLimiter() *RateLimiter {
-	return &RateLimiter{
-		clients: make(map[string]int),
-	}
-}
-
-func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clientIP := r.RemoteAddr
-
-		// Simple in-memory rate limiting
-		// In production, use Redis or similar
-		count := rl.clients[clientIP]
-		if count >= 100 {
-			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
-			return
-		}
-
-		rl.clients[clientIP] = count + 1
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (rl *RateLimiter) Cleanup() {
-	// Reset rate limits every minute
-	ticker := time.NewTicker(1 * time.Minute)
-	go func() {
-		for range ticker.C {
-			rl.clients = make(map[string]int)
-		}
-	}()
 }

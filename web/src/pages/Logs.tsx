@@ -19,17 +19,17 @@ export function Logs() {
     }),
   })
 
-  const getStatusColor = (statusCode: number) => {
-    if (statusCode >= 200 && statusCode < 300) return 'text-green-600'
-    if (statusCode >= 400 && statusCode < 500) return 'text-yellow-600'
-    if (statusCode >= 500) return 'text-red-600'
-    return 'text-gray-600'
+  const getStatusBg = (statusCode: number) => {
+    if (statusCode >= 200 && statusCode < 300) return 'bg-green-900/30 text-green-400'
+    if (statusCode >= 400 && statusCode < 500) return 'bg-yellow-900/30 text-yellow-400'
+    if (statusCode >= 500) return 'bg-red-900/30 text-red-400'
+    return 'bg-gray-700 text-gray-300'
   }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     )
   }
@@ -37,8 +37,8 @@ export function Logs() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Request Logs</h1>
-        <p className="text-gray-600 mt-1">View and analyze request history</p>
+        <h1 className="text-3xl font-bold text-white">Request Logs</h1>
+        <p className="text-gray-400 mt-1">View and analyze request history</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -48,14 +48,14 @@ export function Logs() {
             placeholder="Filter by model ID..."
             value={filters.model_id}
             onChange={(e) => setFilters({ ...filters, model_id: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
         </div>
         <div className="md:w-48">
           <select
             value={filters.status_code}
             onChange={(e) => setFilters({ ...filters, status_code: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="">All Status Codes</option>
             <option value="200">200 OK</option>
@@ -67,58 +67,60 @@ export function Logs() {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead className="bg-gray-750">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Timestamp
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Model
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Latency
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Tokens
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Streaming
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-700">
             {logsData?.entries && logsData.entries.length > 0 ? (
               logsData.entries.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50">
+                <tr key={log.id} className="hover:bg-gray-750">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {new Date(log.created_at).toLocaleString()}
-                    </div>
+                    <span className="text-sm text-gray-300">
+                      {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{log.model_id || '-'}</div>
+                    <span className="text-sm text-white">{log.model_id || '-'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${getStatusColor(log.status_code)}`}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBg(log.status_code)}`}>
                       {log.status_code}
-                    </div>
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{log.latency_ms}ms</div>
+                    <span className="text-sm text-gray-300">{log.latency_ms}ms</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {log.tokens_prompt + log.tokens_completion} tokens
-                    </div>
+                    <span className="text-sm text-gray-300">
+                      {log.tokens_prompt + log.tokens_completion > 0
+                        ? `${log.tokens_prompt}+${log.tokens_completion}`
+                        : '-'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      log.streaming ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      log.streaming ? 'bg-blue-900/30 text-blue-400' : 'bg-gray-700 text-gray-400'
                     }`}>
                       {log.streaming ? 'Yes' : 'No'}
                     </span>
@@ -145,14 +147,14 @@ export function Logs() {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
             <button
               onClick={() => setPage(p => Math.min(Math.ceil(logsData.total / 20), p + 1))}
               disabled={page * 20 >= logsData.total}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>

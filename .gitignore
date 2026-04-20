@@ -41,4 +41,4 @@ Thumbs.db
 *.log
 
 # Plans - keep in repo but listed so it's clear
-# plans/ is tracked in git
+# plans/ is tracked in gitweb/dist/

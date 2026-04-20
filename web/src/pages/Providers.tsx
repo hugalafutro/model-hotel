@@ -5,6 +5,7 @@ import { useState } from 'react'
 export function Providers() {
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<CreateProviderRequest>({
     name: '',
     base_url: '',
@@ -22,6 +23,10 @@ export function Providers() {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       setShowModal(false)
       setFormData({ name: '', base_url: '', api_key: '' })
+      setError(null)
+    },
+    onError: (err: Error) => {
+      setError(err.message)
     },
   })
 
@@ -34,13 +39,14 @@ export function Providers() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     createMutation.mutate(formData)
   }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     )
   }
@@ -49,51 +55,49 @@ export function Providers() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Providers</h1>
-          <p className="text-gray-600 mt-1">Manage your LLM provider configurations</p>
+          <h1 className="text-3xl font-bold text-white">Providers</h1>
+          <p className="text-gray-400 mt-1">Manage your LLM provider configurations</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
-          Add Provider
+          + Add Provider
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {providers?.map((provider) => (
-          <div key={provider.id} className="bg-white rounded-lg shadow p-6">
+          <div key={provider.id} className="bg-gray-800 border border-gray-700 rounded-xl p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{provider.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">{provider.base_url}</p>
+                <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
+                <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  provider.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {provider.enabled ? 'Active' : 'Inactive'}
-                </span>
-              </div>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                provider.enabled ? 'bg-green-900/50 text-green-400 border border-green-700' : 'bg-red-900/50 text-red-400 border border-red-700'
+              }`}>
+                {provider.enabled ? 'Active' : 'Inactive'}
+              </span>
             </div>
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">API Key</span>
-                <span className="font-mono">{provider.masked_key}</span>
+                <span className="font-mono text-gray-300">{provider.masked_key}</span>
               </div>
               {provider.last_discovered_at && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Last Discovery</span>
-                  <span>{new Date(provider.last_discovered_at).toLocaleString()}</span>
+                  <span className="text-gray-300">{new Date(provider.last_discovered_at).toLocaleString()}</span>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 pt-4 border-t flex justify-end space-x-2">
+            <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
               <button
                 onClick={() => deleteMutation.mutate(provider.id)}
-                className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/30 rounded transition-colors"
               >
                 Delete
               </button>
@@ -102,19 +106,26 @@ export function Providers() {
         ))}
 
         {providers?.length === 0 && (
-          <div className="col-span-full text-center py-12 bg-white rounded-lg shadow">
+          <div className="col-span-full text-center py-12 bg-gray-800 border border-gray-700 rounded-xl">
             <p className="text-gray-500">No providers configured. Add your first provider to get started.</p>
           </div>
         )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add Provider</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-white mb-4">Add Provider</h2>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Name
                 </label>
                 <input
@@ -122,13 +133,13 @@ export function Providers() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="e.g., OpenAI"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Base URL
                 </label>
                 <input
@@ -136,13 +147,13 @@ export function Providers() {
                   required
                   value={formData.base_url}
                   onChange={(e) => setFormData({ ...formData, base_url: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="https://api.openai.com/v1"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   API Key
                 </label>
                 <input
@@ -150,7 +161,7 @@ export function Providers() {
                   required
                   value={formData.api_key}
                   onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="sk-..."
                 />
               </div>
@@ -161,8 +172,9 @@ export function Providers() {
                   onClick={() => {
                     setShowModal(false)
                     setFormData({ name: '', base_url: '', api_key: '' })
+                    setError(null)
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
@@ -171,7 +183,7 @@ export function Providers() {
                   disabled={createMutation.isPending}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  {createMutation.isPending ? 'Creating...' : 'Add Provider'}
+                  {createMutation.isPending ? 'Adding...' : 'Add Provider'}
                 </button>
               </div>
             </form>

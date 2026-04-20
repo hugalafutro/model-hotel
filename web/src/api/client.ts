@@ -1,6 +1,14 @@
-const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:8081';
+const API_BASE = '';
 
 let adminToken: string | null = null;
+
+export function setAdminToken(token: string) {
+  adminToken = token;
+}
+
+export function getAdminToken(): string | null {
+  return adminToken;
+}
 
 export interface Provider {
   id: string;
@@ -68,16 +76,13 @@ export interface Stats {
   total_tokens_completion: number;
 }
 
-export const setAdminToken = (token: string) => {
-  adminToken = token;
-};
-
-function getAuthHeaders() {
-  if (!adminToken) {
+function getAuthHeaders(): Record<string, string> {
+  const token = adminToken || localStorage.getItem('adminToken');
+  if (!token) {
     throw new Error('Admin token not set');
   }
   return {
-    'Authorization': `Bearer ${adminToken}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 }
@@ -88,7 +93,10 @@ export const api = {
       const response = await fetch(`${API_BASE}/api/providers`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to fetch providers');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch providers: ${response.status} ${text}`);
+      }
       return response.json();
     },
     create: async (data: CreateProviderRequest): Promise<Provider> => {
@@ -97,7 +105,10 @@ export const api = {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('Failed to create provider');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to create provider: ${response.status} ${text}`);
+      }
       return response.json();
     },
     delete: async (id: string): Promise<void> => {
@@ -105,7 +116,20 @@ export const api = {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to delete provider');
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to delete provider');
+      }
+    },
+    discover: async (id: string): Promise<any> => {
+      const response = await fetch(`${API_BASE}/api/providers/${id}/discover`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to discover models: ${response.status} ${text}`);
+      }
+      return response.json();
     },
   },
 
@@ -114,7 +138,10 @@ export const api = {
       const response = await fetch(`${API_BASE}/api/keys`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to fetch keys');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch keys: ${response.status} ${text}`);
+      }
       return response.json();
     },
     create: async (name: string): Promise<ProxyKey> => {
@@ -123,7 +150,10 @@ export const api = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ name }),
       });
-      if (!response.ok) throw new Error('Failed to create key');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to create key: ${response.status} ${text}`);
+      }
       return response.json();
     },
     delete: async (id: string): Promise<void> => {
@@ -131,7 +161,9 @@ export const api = {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to delete key');
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to delete key');
+      }
     },
   },
 
@@ -143,7 +175,10 @@ export const api = {
       const response = await fetch(url, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to fetch models');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch models: ${response.status} ${text}`);
+      }
       return response.json();
     },
   },
@@ -170,7 +205,10 @@ export const api = {
       const response = await fetch(`${API_BASE}/api/logs?${searchParams}`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to fetch logs');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch logs: ${response.status} ${text}`);
+      }
       return response.json();
     },
   },
@@ -180,7 +218,10 @@ export const api = {
       const response = await fetch(`${API_BASE}/api/stats`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error('Failed to fetch stats');
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch stats: ${response.status} ${text}`);
+      }
       return response.json();
     },
   },
