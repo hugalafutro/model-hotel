@@ -203,11 +203,11 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 		var inPricePerMill *float64
 		var outPricePerMill *float64
-		if m.Pricing.Prompt > 0 {
+		{
 			v := m.Pricing.Prompt
 			inPricePerMill = &v
 		}
-		if m.Pricing.Completion > 0 {
+		{
 			v := m.Pricing.Completion
 			outPricePerMill = &v
 		}
