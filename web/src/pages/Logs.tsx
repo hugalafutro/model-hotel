@@ -243,13 +243,13 @@ export function Logs() {
                       : '-'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {log.duration_ms > 0 ? `${log.duration_ms}ms` : '-'}
+                    {log.duration_ms > 0 ? `${(log.duration_ms / 1000).toFixed(1)}s` : '-'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
                     {formatTPS(log.tokens_per_second)}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {log.proxy_overhead_ms > 0 ? `${log.proxy_overhead_ms}ms` : '-'}
+                    {log.proxy_overhead_ms > 0 ? `${(log.proxy_overhead_ms / 1000).toFixed(1)}s` : '-'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
                     {log.virtual_key_name || '-'}
