@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/model"
+	"github.com/user/llm-proxy/internal/util"
 )
 
 type DiscoveryService struct {
@@ -42,11 +42,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}
 
-	baseURL := strings.TrimSuffix(provider.BaseURL, "/")
-	if strings.HasSuffix(baseURL, "/v1") {
-		baseURL = strings.TrimSuffix(baseURL, "/v1")
-	}
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/v1/models", nil)
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -73,7 +70,6 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 	models := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
 		capabilities := model.Capability{
-			Vision:    hasVisionCapability(m.ID),
 			Streaming: true,
 		}
 
@@ -86,28 +82,10 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			DisplayName:  m.ID,
 			Capabilities: string(capJSON),
 			Params:       "{}",
+			OwnedBy:      m.OwnedBy,
 			Enabled:      true,
 		})
 	}
 
 	return models, nil
-}
-
-func hasVisionCapability(modelID string) bool {
-	visionPrefixes := []string{
-		"gpt-4-vision",
-		"gpt-4o",
-		"claude-3",
-		"claude-3.5",
-		"claude-4",
-		"gemini",
-	}
-
-	for _, prefix := range visionPrefixes {
-		if strings.HasPrefix(modelID, prefix) {
-			return true
-		}
-	}
-
-	return false
 }

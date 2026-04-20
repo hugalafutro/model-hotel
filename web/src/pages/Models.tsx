@@ -2,6 +2,19 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState } from 'react'
 
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  return `${diffDay}d ago`
+}
+
 export function Models() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProvider, setSelectedProvider] = useState<string>('')
@@ -15,8 +28,6 @@ export function Models() {
     queryKey: ['providers'],
     queryFn: () => api.providers.list(),
   })
-
-  const providerMap = new Map(providers?.map(p => [p.id, p.name]) || [])
 
   const filteredModels = models?.filter((model) =>
     model.model_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -35,7 +46,7 @@ export function Models() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white">Models</h1>
-        <p className="text-gray-400 mt-1">View and manage discovered LLM models</p>
+        <p className="text-gray-400 mt-1">Discovered LLM models from your providers</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -72,10 +83,10 @@ export function Models() {
                 Model ID
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Display Name
+                Provider
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Provider
+                Last Discovered
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Status
@@ -90,10 +101,10 @@ export function Models() {
                     <span className="text-sm font-medium text-white">{model.model_id}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-300">{model.display_name || model.model_id}</span>
+                    <span className="text-sm text-gray-300">{model.provider_name || model.provider_id.substring(0, 8)}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-300">{providerMap.get(model.provider_id) || model.provider_id.substring(0, 8)}</span>
+                    <span className="text-sm text-gray-400">{formatRelativeTime(model.last_seen_at)}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${
@@ -109,7 +120,7 @@ export function Models() {
                 <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                   {searchQuery || selectedProvider
                     ? 'No models match your search criteria'
-                    : 'No models discovered yet. Configure providers and run discovery.'}
+                    : 'No models discovered yet. Add a provider and discover models.'}
                 </td>
               </tr>
             )}

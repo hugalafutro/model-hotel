@@ -12,6 +12,7 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Providers', href: '/providers', icon: '🔌' },
     { name: 'Models', href: '/models', icon: '🤖' },
     { name: 'Logs', href: '/logs', icon: '📝' },
+    { name: 'Settings', href: '/settings', icon: '⚙️' },
   ]
 
   const isActive = (path: string) => location.pathname === path

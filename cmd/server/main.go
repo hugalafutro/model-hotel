@@ -21,6 +21,7 @@ import (
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/proxy"
+	"github.com/user/llm-proxy/internal/settings"
 )
 
 //go:embed all:static
@@ -230,12 +231,13 @@ func main() {
 	spaHandler := NewSPAHandler()
 	r.Get("/*", spaHandler.ServeHTTP)
 
-	// Startup: run initial discovery for all enabled providers
-	go func() {
+	// Startup: run initial discovery for all enabled providers (if enabled)
+	settingsRepo := settings.NewRepository(database.Pool())
+	runDiscovery := func() {
 		ctx := context.Background()
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
-			log.Printf("Startup discovery: failed to list providers: %v", err)
+			log.Printf("Discovery: failed to list providers: %v", err)
 			return
 		}
 		discoverySvc := provider.NewDiscoveryService()
@@ -245,57 +247,39 @@ func main() {
 			}
 			models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
 			if err != nil {
-				log.Printf("Startup discovery: failed for provider %s: %v", p.Name, err)
+				log.Printf("Discovery: failed for provider %s: %v", p.Name, err)
 				continue
 			}
 			existingModelIDs := make([]string, 0, len(models))
 			for _, m := range models {
 				if err := modelRepo.Upsert(ctx, m); err != nil {
-					log.Printf("Startup discovery: failed to upsert model %s: %v", m.ModelID, err)
+					log.Printf("Discovery: failed to upsert model %s: %v", m.ModelID, err)
 				} else {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
 				}
 			}
 			if err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs); err != nil {
-				log.Printf("Startup discovery: failed to disable missing models for %s: %v", p.Name, err)
+				log.Printf("Discovery: failed to disable missing models for %s: %v", p.Name, err)
 			}
-			log.Printf("Startup discovery: discovered %d models for provider %s", len(models), p.Name)
+			log.Printf("Discovery: discovered %d models for provider %s", len(models), p.Name)
 		}
-	}()
+	}
 
-	// Periodic discovery every 6 hours
+	if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
+		go runDiscovery()
+	}
+
+	// Periodic discovery based on settings interval
 	go func() {
-		ticker := time.NewTicker(6 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			ctx := context.Background()
-			providers, err := providerRepo.List(ctx)
-			if err != nil {
-				log.Printf("Periodic discovery: failed to list providers: %v", err)
+		for {
+			interval := settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
+			if interval == 0 {
+				time.Sleep(1 * time.Minute)
 				continue
 			}
-			discoverySvc := provider.NewDiscoveryService()
-			for _, p := range providers {
-				if !p.Enabled {
-					continue
-				}
-				models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
-				if err != nil {
-					log.Printf("Periodic discovery: failed for provider %s: %v", p.Name, err)
-					continue
-				}
-				existingModelIDs := make([]string, 0, len(models))
-				for _, m := range models {
-					if err := modelRepo.Upsert(ctx, m); err != nil {
-						log.Printf("Periodic discovery: failed to upsert model %s: %v", m.ModelID, err)
-					} else {
-						existingModelIDs = append(existingModelIDs, m.ModelID)
-					}
-				}
-				if err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs); err != nil {
-					log.Printf("Periodic discovery: failed to disable missing models for %s: %v", p.Name, err)
-				}
-				log.Printf("Periodic discovery: discovered %d models for provider %s", len(models), p.Name)
+			time.Sleep(interval)
+			if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
+				runDiscovery()
 			}
 		}
 	}()

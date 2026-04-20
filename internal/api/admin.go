@@ -53,6 +53,7 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterModels(r)
 	h.RegisterProviderDiscovery(r)
 	h.RegisterLogs(r)
+	h.RegisterSettings(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 }

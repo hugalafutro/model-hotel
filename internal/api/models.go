@@ -12,12 +12,14 @@ import (
 type ModelResponse struct {
 	ID           string `json:"id"`
 	ModelID      string `json:"model_id"`
-	DisplayName  string `json:"display_name"`
+	DisplayName string  `json:"display_name"`
 	ProviderID   string `json:"provider_id"`
 	ProviderName string `json:"provider_name"`
 	Capabilities string `json:"capabilities"`
+	OwnedBy     string `json:"owned_by"`
 	Enabled      bool   `json:"enabled"`
 	CreatedAt    string `json:"created_at"`
+	LastSeenAt   string `json:"last_seen_at"`
 }
 
 func (h *Handler) RegisterModels(r chi.Router) {
@@ -52,12 +54,14 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		responses[i] = ModelResponse{
 			ID:           m.ID.String(),
 			ModelID:      m.ModelID,
-			DisplayName:  m.DisplayName,
+			DisplayName: m.DisplayName,
 			ProviderID:   m.ProviderID.String(),
 			ProviderName: m.ProviderName,
 			Capabilities: m.Capabilities,
+			OwnedBy:     m.OwnedBy,
 			Enabled:      m.Enabled,
 			CreatedAt:    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			LastSeenAt:   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
 		}
 	}
 

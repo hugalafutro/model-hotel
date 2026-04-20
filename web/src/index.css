@@ -1,1 +1,110 @@
 @import "tailwindcss";
+
+html.light {
+  color-scheme: light;
+}
+
+html.light body,
+html.light #root {
+  background-color: #f3f4f6;
+}
+
+html.light .bg-gray-750 {
+  background-color: #e5e7eb;
+}
+
+html.light .bg-gray-800 {
+  background-color: #ffffff;
+}
+
+html.light .bg-gray-900 {
+  background-color: #f3f4f6;
+}
+
+html.light .bg-gray-700 {
+  background-color: #e5e7eb;
+}
+
+html.light .border-gray-600 {
+  border-color: #d1d5db;
+}
+
+html.light .border-gray-700 {
+  border-color: #e5e7eb;
+}
+
+html.light .text-white {
+  color: #111827;
+}
+
+html.light .text-gray-300 {
+  color: #374151;
+}
+
+html.light .text-gray-400 {
+  color: #6b7280;
+}
+
+html.light .text-gray-500 {
+  color: #9ca3af;
+}
+
+html.light .placeholder-gray-400::placeholder {
+  color: #9ca3af;
+}
+
+html.light .hover\:bg-gray-700:hover {
+  background-color: #d1d5db;
+}
+
+html.light .hover\:bg-gray-600:hover {
+  background-color: #e5e7eb;
+}
+
+html.light .hover\:bg-gray-750:hover {
+  background-color: #f3f4f6;
+}
+
+html.light .bg-blue-900\/50 {
+  background-color: rgba(30, 64, 175, 0.1);
+}
+
+html.light .text-blue-400 {
+  color: #2563eb;
+}
+
+html.light .bg-green-900\/50 {
+  background-color: rgba(6, 78, 59, 0.1);
+}
+
+html.light .text-green-400 {
+  color: #059669;
+}
+
+html.light .bg-red-900\/50 {
+  background-color: rgba(127, 29, 29, 0.1);
+}
+
+html.light .text-red-400 {
+  color: #dc2626;
+}
+
+html.light .border-green-700 {
+  border-color: #059669;
+}
+
+html.light .border-red-700 {
+  border-color: #dc2626;
+}
+
+html.light .text-green-400 {
+  color: #059669;
+}
+
+html.light .bg-red-900\/30:hover {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+html.light .bg-blue-900\/30:hover {
+  background-color: rgba(37, 99, 235, 0.1);
+}

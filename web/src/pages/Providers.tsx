@@ -1,12 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, CreateProviderRequest } from '../api/client'
+import { api } from '../api/client'
 import { useState } from 'react'
 
 export function Providers() {
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState<CreateProviderRequest>({
+  const [formData, setFormData] = useState<{
+    name: string;
+    base_url: string;
+    api_key: string;
+  }>({
     name: '',
     base_url: '',
     api_key: '',
@@ -15,6 +19,11 @@ export function Providers() {
   const { data: providers, isLoading } = useQuery({
     queryKey: ['providers'],
     queryFn: () => api.providers.list(),
+  })
+
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
   })
 
   const discoverMutation = useMutation({
@@ -26,18 +35,21 @@ export function Providers() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateProviderRequest) => api.providers.create(data),
+    mutationFn: (data: { name: string; base_url: string; api_key: string }) => api.providers.create(data),
     onSuccess: async (newProvider) => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       setShowModal(false)
       setFormData({ name: '', base_url: '', api_key: '' })
       setError(null)
-      try {
-        await api.providers.discover(newProvider.id)
-        queryClient.invalidateQueries({ queryKey: ['models'] })
-        queryClient.invalidateQueries({ queryKey: ['providers'] })
-      } catch {
-        // discovery failure is non-fatal
+      const shouldDiscover = settings?.discovery_on_provider_create !== 'false'
+      if (shouldDiscover) {
+        try {
+          await api.providers.discover(newProvider.id)
+          queryClient.invalidateQueries({ queryKey: ['models'] })
+          queryClient.invalidateQueries({ queryKey: ['providers'] })
+        } catch {
+          // discovery failure is non-fatal
+        }
       }
     },
     onError: (err: Error) => {
@@ -49,6 +61,7 @@ export function Providers() {
     mutationFn: (id: string) => api.providers.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
+      queryClient.invalidateQueries({ queryKey: ['models'] })
     },
   })
 
@@ -172,6 +185,7 @@ export function Providers() {
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="https://api.openai.com/v1"
                 />
+                <p className="text-gray-500 text-xs mt-1">Full API base URL including any path prefix. Models will be discovered from {'<base_url>'}/models</p>
               </div>
 
               <div>

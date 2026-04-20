@@ -14,6 +14,7 @@ import (
 	"github.com/user/llm-proxy/internal/config"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
+	"github.com/user/llm-proxy/internal/util"
 )
 
 type Handler struct {
@@ -177,7 +178,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetURL := prov.BaseURL + "/v1/chat/completions"
+	targetURL := util.SanitizeBaseURL(prov.BaseURL) + "/chat/completions"
 
 	proxyReqBody, err := json.Marshal(req)
 	if err != nil {

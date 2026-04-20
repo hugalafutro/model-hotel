@@ -10,19 +10,20 @@ import (
 )
 
 type Model struct {
-	ID           uuid.UUID  `json:"id"`
-	ProviderID   uuid.UUID  `json:"provider_id"`
-	ModelID      string     `json:"model_id"`
-	DisplayName  string     `json:"display_name"`
-	Capabilities string     `json:"capabilities"`
-	Params       string     `json:"params"`
-	Enabled      bool       `json:"enabled"`
-	CreatedAt    time.Time  `json:"created_at"`
-	ProviderName string     `json:"provider_name"`
+	ID          uuid.UUID `json:"id"`
+	ProviderID  uuid.UUID `json:"provider_id"`
+	ModelID     string    `json:"model_id"`
+	DisplayName string    `json:"display_name"`
+	Capabilities string   `json:"capabilities"`
+	Params      string    `json:"params"`
+	OwnedBy     string    `json:"owned_by"`
+	Enabled     bool      `json:"enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+	ProviderName string   `json:"provider_name"`
 }
 
 type Capability struct {
-	Vision   bool `json:"vision"`
 	Streaming bool `json:"streaming"`
 }
 
@@ -36,22 +37,24 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	query := `
-		INSERT INTO models (id, provider_id, model_id, display_name, capabilities, params, enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO models (id, provider_id, model_id, display_name, capabilities, params, owned_by, enabled, last_seen_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
 		ON CONFLICT (provider_id, model_id)
 		DO UPDATE SET
 			display_name = EXCLUDED.display_name,
 			capabilities = EXCLUDED.capabilities,
 			params = EXCLUDED.params,
-			enabled = true
-		RETURNING id, provider_id, model_id, display_name, capabilities, params, enabled, created_at
+			owned_by = EXCLUDED.owned_by,
+			enabled = true,
+			last_seen_at = now()
+		RETURNING id, provider_id, model_id, COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(owned_by, ''), enabled, created_at, last_seen_at
 	`
 
 	err := r.pool.QueryRow(ctx, query,
-		m.ID, m.ProviderID, m.ModelID, m.DisplayName, m.Capabilities, m.Params, m.Enabled,
+		m.ID, m.ProviderID, m.ModelID, m.DisplayName, m.Capabilities, m.Params, m.OwnedBy, m.Enabled,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.DisplayName, &m.Capabilities,
-		&m.Params, &m.Enabled, &m.CreatedAt,
+		&m.Params, &m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	return err
@@ -59,7 +62,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 
 func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model, error) {
 	query := `
-		SELECT m.id, m.provider_id, m.model_id, COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), m.enabled, m.created_at, p.name
+		SELECT m.id, m.provider_id, m.model_id, COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name
 		FROM models m
 		JOIN providers p ON m.provider_id = p.id
 	`
@@ -68,7 +71,7 @@ func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model,
 		query += " WHERE m.provider_id = $1"
 	}
 
-	query += " ORDER BY m.created_at DESC"
+	query += " ORDER BY m.model_id ASC"
 
 	var rows pgx.Rows
 	var err error
@@ -89,7 +92,7 @@ func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model,
 		var m Model
 		err := rows.Scan(
 			&m.ID, &m.ProviderID, &m.ModelID, &m.DisplayName, &m.Capabilities,
-			&m.Params, &m.Enabled, &m.CreatedAt, &m.ProviderName,
+			&m.Params, &m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
 		)
 		if err != nil {
 			return nil, err
@@ -102,7 +105,7 @@ func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model,
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	query := `
-		SELECT m.id, m.provider_id, m.model_id, COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), m.enabled, m.created_at, p.name
+		SELECT m.id, m.provider_id, m.model_id, COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name
 		FROM models m
 		JOIN providers p ON m.provider_id = p.id
 		WHERE m.id = $1
@@ -111,7 +114,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	var m Model
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.DisplayName, &m.Capabilities,
-		&m.Params, &m.Enabled, &m.CreatedAt, &m.ProviderName,
+		&m.Params, &m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
 	)
 
 	if err != nil {

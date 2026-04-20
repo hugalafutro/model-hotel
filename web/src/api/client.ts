@@ -1,3 +1,5 @@
+import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats } from './types'
+
 const API_BASE = '';
 
 let adminToken: string | null = null;
@@ -8,72 +10,6 @@ export function setAdminToken(token: string) {
 
 export function getAdminToken(): string | null {
   return adminToken;
-}
-
-export interface Provider {
-  id: string;
-  name: string;
-  base_url: string;
-  masked_key: string;
-  enabled: boolean;
-  last_discovered_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateProviderRequest {
-  name: string;
-  base_url: string;
-  api_key: string;
-}
-
-export interface ProxyKey {
-  id: string;
-  name: string;
-  created_at: string;
-  key?: string;
-}
-
-export interface Model {
-  id: string;
-  model_id: string;
-  display_name: string;
-  provider_id: string;
-  capabilities: string;
-  enabled: boolean;
-  created_at: string;
-}
-
-export interface LogEntry {
-  id: string;
-  provider_id: string;
-  model_id: string;
-  request_id: string;
-  status_code: number;
-  latency_ms: number;
-  tokens_prompt: number;
-  tokens_completion: number;
-  streaming: boolean;
-  error_message: string;
-  created_at: string;
-}
-
-export interface LogsResponse {
-  entries: LogEntry[];
-  total: number;
-  page: number;
-  per_page: number;
-}
-
-export interface Stats {
-  total_requests_last_24h: number;
-  total_requests_last_7d: number;
-  by_model: Record<string, number>;
-  by_provider: Record<string, number>;
-  avg_latency_ms: number;
-  error_rate: number;
-  total_tokens_prompt: number;
-  total_tokens_completion: number;
 }
 
 function getAuthHeaders(): Record<string, string> {
@@ -221,6 +157,31 @@ export const api = {
       if (!response.ok) {
         const text = await response.text();
         throw new Error(`Failed to fetch stats: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+  },
+
+  settings: {
+    get: async (): Promise<Record<string, string>> => {
+      const response = await fetch(`${API_BASE}/api/settings`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch settings: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    update: async (settings: Record<string, string>): Promise<Record<string, string>> => {
+      const response = await fetch(`${API_BASE}/api/settings`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(settings),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to update settings: ${response.status} ${text}`);
       }
       return response.json();
     },
