@@ -1,8 +1,3 @@
-export interface Setting {
-  key: string
-  value: string
-}
-
 export interface Provider {
   id: string;
   name: string;
@@ -27,13 +22,35 @@ export interface ProxyKey {
   key?: string;
 }
 
+export interface ModelCapabilities {
+  streaming?: boolean;
+  vision?: boolean;
+  video_input?: boolean;
+  audio_input?: boolean;
+  reasoning?: boolean;
+  tool_calling?: boolean;
+  parallel_tool_calls?: boolean;
+  structured_output?: boolean;
+  pdf_upload?: boolean;
+}
+
 export interface Model {
   id: string;
   model_id: string;
+  name: string;
+  description: string;
   display_name: string;
   provider_id: string;
   provider_name: string;
   capabilities: string;
+  params: string;
+  modality: string;
+  input_modalities: string;
+  output_modalities: string;
+  context_length: number | null;
+  max_output_tokens: number | null;
+  input_price_per_million: number | null;
+  output_price_per_million: number | null;
   owned_by: string;
   enabled: boolean;
   created_at: string;

@@ -10,16 +10,26 @@ import (
 )
 
 type ModelResponse struct {
-	ID           string `json:"id"`
-	ModelID      string `json:"model_id"`
-	DisplayName string  `json:"display_name"`
-	ProviderID   string `json:"provider_id"`
-	ProviderName string `json:"provider_name"`
-	Capabilities string `json:"capabilities"`
-	OwnedBy     string `json:"owned_by"`
-	Enabled      bool   `json:"enabled"`
-	CreatedAt    string `json:"created_at"`
-	LastSeenAt   string `json:"last_seen_at"`
+	ID                    string  `json:"id"`
+	ModelID               string  `json:"model_id"`
+	Name                  string  `json:"name"`
+	Description           string  `json:"description"`
+	DisplayName           string  `json:"display_name"`
+	ProviderID           string  `json:"provider_id"`
+	ProviderName          string  `json:"provider_name"`
+	Capabilities          string  `json:"capabilities"`
+	Params                string  `json:"params"`
+	Modality              string  `json:"modality"`
+	InputModalities       string  `json:"input_modalities"`
+	OutputModalities      string  `json:"output_modalities"`
+	ContextLength         *int    `json:"context_length"`
+	MaxOutputTokens       *int    `json:"max_output_tokens"`
+	InputPricePerMillion  *float64 `json:"input_price_per_million"`
+	OutputPricePerMillion *float64 `json:"output_price_per_million"`
+	OwnedBy               string  `json:"owned_by"`
+	Enabled               bool    `json:"enabled"`
+	CreatedAt             string  `json:"created_at"`
+	LastSeenAt            string  `json:"last_seen_at"`
 }
 
 func (h *Handler) RegisterModels(r chi.Router) {
@@ -52,16 +62,26 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	responses := make([]ModelResponse, len(models))
 	for i, m := range models {
 		responses[i] = ModelResponse{
-			ID:           m.ID.String(),
-			ModelID:      m.ModelID,
-			DisplayName: m.DisplayName,
-			ProviderID:   m.ProviderID.String(),
-			ProviderName: m.ProviderName,
-			Capabilities: m.Capabilities,
-			OwnedBy:     m.OwnedBy,
-			Enabled:      m.Enabled,
-			CreatedAt:    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			LastSeenAt:   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                    m.ID.String(),
+			ModelID:               m.ModelID,
+			Name:                  m.Name,
+			Description:           m.Description,
+			DisplayName:           m.DisplayName,
+			ProviderID:            m.ProviderID.String(),
+			ProviderName:          m.ProviderName,
+			Capabilities:          m.Capabilities,
+			Params:                m.Params,
+			Modality:              m.Modality,
+			InputModalities:       m.InputModalities,
+			OutputModalities:      m.OutputModalities,
+			ContextLength:         m.ContextLength,
+			MaxOutputTokens:       m.MaxOutputTokens,
+			InputPricePerMillion:  m.InputPricePerMillion,
+			OutputPricePerMillion: m.OutputPricePerMillion,
+			OwnedBy:               m.OwnedBy,
+			Enabled:               m.Enabled,
+			CreatedAt:             m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			LastSeenAt:            m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
 		}
 	}
 
