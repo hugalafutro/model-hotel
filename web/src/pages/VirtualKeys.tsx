@@ -1,8 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useToast } from '../context/ToastContext'
 import type { VirtualKey } from '../api/types'
+
+type VKSortField = 'name' | 'key' | 'created' | 'tokens' | 'last_used'
+type SortDir = 'asc' | 'desc'
+
+function VKSortHeader({ label, field, sort, onSort }: { label: string; field: VKSortField; sort: { field: VKSortField; dir: SortDir }; onSort: (f: VKSortField) => void }) {
+  const active = sort.field === field
+  return (
+    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none hover:text-gray-200 text-gray-400 whitespace-nowrap" onClick={() => onSort(field)}>
+      {label} <span className="inline-block w-3 text-center">{active ? (sort.dir === 'asc' ? '↑' : '↓') : ' '}</span>
+    </th>
+  )
+}
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return 'Never'
@@ -206,11 +218,37 @@ export function VirtualKeys() {
   const { toast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null)
+  const [sort, setSort] = useState<{ field: VKSortField; dir: SortDir }>({ field: 'name', dir: 'asc' })
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ['virtualKeys'],
     queryFn: () => api.virtualKeys.list(),
   })
+
+  const handleSort = useCallback((field: VKSortField) => {
+    setSort(prev => ({
+      field,
+      dir: prev.field === field && prev.dir === 'asc' ? 'desc' : 'asc',
+    }))
+  }, [])
+
+  const sortedKeys = useMemo(() => {
+    if (!keys) return []
+    const dir = sort.dir === 'asc' ? 1 : -1
+    return [...keys].sort((a, b) => {
+      switch (sort.field) {
+        case 'name': return dir * a.name.localeCompare(b.name)
+        case 'created': return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        case 'tokens': return dir * (a.tokens_used - b.tokens_used)
+        case 'last_used': {
+          const aT = a.last_used_at ? new Date(a.last_used_at).getTime() : 0
+          const bT = b.last_used_at ? new Date(b.last_used_at).getTime() : 0
+          return dir * (aT - bT)
+        }
+        default: return 0
+      }
+    })
+  }, [keys, sort])
 
   if (isLoading) {
     return (
@@ -236,7 +274,7 @@ export function VirtualKeys() {
         </button>
       </div>
 
-      {keys && keys.length > 0 ? (
+      {sortedKeys.length > 0 ? (
         <div className="border border-gray-700/50 rounded-xl overflow-hidden">
           <table className="w-full table-fixed">
             <colgroup>
@@ -248,15 +286,15 @@ export function VirtualKeys() {
             </colgroup>
             <thead>
               <tr className="bg-gray-800/80">
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Key</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Created</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Tokens</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Last Used</th>
+                <VKSortHeader label="Name" field="name" sort={sort} onSort={handleSort} />
+                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Key <span className="inline-block w-3" /></th>
+                <VKSortHeader label="Created" field="created" sort={sort} onSort={handleSort} />
+                <VKSortHeader label="Tokens" field="tokens" sort={sort} onSort={handleSort} />
+                <VKSortHeader label="Last Used" field="last_used" sort={sort} onSort={handleSort} />
               </tr>
             </thead>
             <tbody>
-              {keys.map((vk, idx) => (
+              {sortedKeys.map((vk, idx) => (
                 <tr key={vk.id} className={`${idx % 2 === 1 ? 'bg-white/[0.03]' : ''} hover:bg-gray-700/30 transition-colors`}>
                   <td className="px-4 py-3">
                     <button
@@ -276,7 +314,7 @@ export function VirtualKeys() {
                       {vk.key_preview}
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{new Date(vk.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-sm text-gray-400">{new Date(vk.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3 text-sm text-gray-400 font-mono">{formatNumber(vk.tokens_used)}</td>
                   <td className="px-4 py-3 text-sm text-gray-400">{formatRelativeTime(vk.last_used_at)}</td>
                 </tr>
