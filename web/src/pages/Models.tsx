@@ -95,6 +95,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
   const [discovering, setDiscovering] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testError, setTestError] = useState(false)
+  const [snippetTab, setSnippetTab] = useState<'curl' | 'zed'>('curl')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -148,13 +149,20 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
 
   const curlCmd = `curl -X POST ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model.model_id}","messages":[{"role":"user","content":"Hello"}]}'`
 
-  const copyCurl = () => {
-    navigator.clipboard.writeText(curlCmd).then(() => {
-      onToast('Copied curl command', 'info')
-    }).catch(() => {
-      onToast('Failed to copy', 'error')
-    })
-  }
+  const zedJson = JSON.stringify({
+    name: model.model_id,
+    display_name: model.name,
+    max_tokens: model.context_length,
+    max_output_tokens: model.max_output_tokens,
+    capabilities: {
+      tools: hasCap(caps, 'tool_calling'),
+      images: hasCap(caps, 'vision'),
+      parallel_tool_calls: hasCap(caps, 'parallel_tool_calls'),
+      prompt_cache_key: false,
+    },
+  }, null, 2)
+
+  const snippetContent = snippetTab === 'curl' ? curlCmd : zedJson
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
@@ -231,16 +239,31 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
 
         <div className="mt-4 pt-4 border-t border-gray-700">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">cURL</span>
+            <div className="flex items-center gap-1">
+              {(['curl', 'zed'] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setSnippetTab(tab)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-medium uppercase tracking-wider cursor-pointer transition-all ${
+                    snippetTab === tab
+                      ? 'bg-slate-700/60 text-slate-200 border border-slate-600/50'
+                      : 'text-slate-500 hover:text-slate-400 border border-transparent'
+                  }`}
+                >
+                  {tab === 'curl' ? 'cURL' : 'ZED'}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
-              onClick={copyCurl}
+              onClick={() => { navigator.clipboard.writeText(snippetContent); onToast('Copied to clipboard', 'info') }}
               className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer"
             >
               Copy
             </button>
           </div>
-          <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap break-all">{curlCmd}</pre>
+          <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap break-all">{snippetContent}</pre>
         </div>
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
