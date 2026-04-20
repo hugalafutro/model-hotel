@@ -237,7 +237,7 @@ export function VirtualKeys() {
       </div>
 
       {keys && keys.length > 0 ? (
-        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl overflow-hidden">
+        <div className="border border-gray-700/50 rounded-xl overflow-hidden">
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-[28%]" />
@@ -247,7 +247,7 @@ export function VirtualKeys() {
               <col className="w-[14%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-gray-700/50">
+              <tr className="bg-gray-800/80">
                 <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Name</th>
                 <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Key</th>
                 <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Created</th>
@@ -257,7 +257,7 @@ export function VirtualKeys() {
             </thead>
             <tbody>
               {keys.map((vk, idx) => (
-                <tr key={vk.id} className={`${idx % 2 === 1 ? 'bg-gray-800/40' : ''} hover:bg-gray-700/30 transition-colors`}>
+                <tr key={vk.id} className={`${idx % 2 === 1 ? 'bg-white/[0.03]' : ''} hover:bg-gray-700/30 transition-colors`}>
                   <td className="px-4 py-3">
                     <button
                       type="button"
