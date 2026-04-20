@@ -11,12 +11,17 @@ export function Models() {
     queryFn: () => api.models.list(selectedProvider || undefined),
   })
 
+  const { data: providers } = useQuery({
+    queryKey: ['providers'],
+    queryFn: () => api.providers.list(),
+  })
+
+  const providerMap = new Map(providers?.map(p => [p.id, p.name]) || [])
+
   const filteredModels = models?.filter((model) =>
     model.model_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (model.display_name && model.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
   ) || []
-
-  const uniqueProviders = Array.from(new Set(models?.map(m => m.provider_id) || []))
 
   if (isLoading) {
     return (
@@ -50,9 +55,9 @@ export function Models() {
             className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="">All Providers</option>
-            {uniqueProviders.map((providerId) => (
-              <option key={providerId} value={providerId}>
-                {providerId.substring(0, 8)}...
+            {providers?.map((provider) => (
+              <option key={provider.id} value={provider.id}>
+                {provider.name}
               </option>
             ))}
           </select>
@@ -88,7 +93,7 @@ export function Models() {
                     <span className="text-sm text-gray-300">{model.display_name || model.model_id}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-400 font-mono">{model.provider_id.substring(0, 8)}...</span>
+                    <span className="text-sm text-gray-300">{providerMap.get(model.provider_id) || model.provider_id.substring(0, 8)}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${

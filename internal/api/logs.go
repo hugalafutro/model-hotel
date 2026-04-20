@@ -33,7 +33,6 @@ type LogsResponse struct {
 
 func (h *Handler) RegisterLogs(r chi.Router) {
 	r.Route("/logs", func(r chi.Router) {
-		r.Use(h.AuthMiddleware)
 		r.Get("/", h.ListLogs)
 	})
 }

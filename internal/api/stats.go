@@ -39,7 +39,6 @@ type StatsResponse struct {
 
 func (h *StatsHandler) Register(r chi.Router) {
 	r.Route("/stats", func(r chi.Router) {
-		r.Use(h.AuthMiddleware)
 		r.Get("/", h.GetStats)
 	})
 }
@@ -175,27 +174,4 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 	}
 
 	return stats, nil
-}
-
-func (h *StatsHandler) AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
-			return
-		}
-
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token := authHeader[7:]
-			if !h.adminMgr.Validate(token) {
-				http.Error(w, "Invalid admin token", http.StatusUnauthorized)
-				return
-			}
-		} else {
-			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }

@@ -230,6 +230,76 @@ func main() {
 	spaHandler := NewSPAHandler()
 	r.Get("/*", spaHandler.ServeHTTP)
 
+	// Startup: run initial discovery for all enabled providers
+	go func() {
+		ctx := context.Background()
+		providers, err := providerRepo.List(ctx)
+		if err != nil {
+			log.Printf("Startup discovery: failed to list providers: %v", err)
+			return
+		}
+		discoverySvc := provider.NewDiscoveryService()
+		for _, p := range providers {
+			if !p.Enabled {
+				continue
+			}
+			models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
+			if err != nil {
+				log.Printf("Startup discovery: failed for provider %s: %v", p.Name, err)
+				continue
+			}
+			existingModelIDs := make([]string, 0, len(models))
+			for _, m := range models {
+				if err := modelRepo.Upsert(ctx, m); err != nil {
+					log.Printf("Startup discovery: failed to upsert model %s: %v", m.ModelID, err)
+				} else {
+					existingModelIDs = append(existingModelIDs, m.ModelID)
+				}
+			}
+			if err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs); err != nil {
+				log.Printf("Startup discovery: failed to disable missing models for %s: %v", p.Name, err)
+			}
+			log.Printf("Startup discovery: discovered %d models for provider %s", len(models), p.Name)
+		}
+	}()
+
+	// Periodic discovery every 6 hours
+	go func() {
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			ctx := context.Background()
+			providers, err := providerRepo.List(ctx)
+			if err != nil {
+				log.Printf("Periodic discovery: failed to list providers: %v", err)
+				continue
+			}
+			discoverySvc := provider.NewDiscoveryService()
+			for _, p := range providers {
+				if !p.Enabled {
+					continue
+				}
+				models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
+				if err != nil {
+					log.Printf("Periodic discovery: failed for provider %s: %v", p.Name, err)
+					continue
+				}
+				existingModelIDs := make([]string, 0, len(models))
+				for _, m := range models {
+					if err := modelRepo.Upsert(ctx, m); err != nil {
+						log.Printf("Periodic discovery: failed to upsert model %s: %v", m.ModelID, err)
+					} else {
+						existingModelIDs = append(existingModelIDs, m.ModelID)
+					}
+				}
+				if err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs); err != nil {
+					log.Printf("Periodic discovery: failed to disable missing models for %s: %v", p.Name, err)
+				}
+				log.Printf("Periodic discovery: discovered %d models for provider %s", len(models), p.Name)
+			}
+		}
+	}()
+
 	server := &http.Server{
 		Addr:    cfg.Port,
 		Handler: r,

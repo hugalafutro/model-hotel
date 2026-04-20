@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,7 +42,11 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", provider.BaseURL+"/v1/models", nil)
+	baseURL := strings.TrimSuffix(provider.BaseURL, "/")
+	if strings.HasSuffix(baseURL, "/v1") {
+		baseURL = strings.TrimSuffix(baseURL, "/v1")
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/v1/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -89,18 +94,17 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 }
 
 func hasVisionCapability(modelID string) bool {
-	visionModels := []string{
-		"gpt-4-vision-preview",
+	visionPrefixes := []string{
+		"gpt-4-vision",
 		"gpt-4o",
-		"gpt-4o-mini",
-		"claude-3-opus",
-		"claude-3-sonnet",
-		"claude-3-haiku",
-		"claude-3.5-sonnet",
+		"claude-3",
+		"claude-3.5",
+		"claude-4",
+		"gemini",
 	}
 
-	for _, v := range visionModels {
-		if modelID == v {
+	for _, prefix := range visionPrefixes {
+		if strings.HasPrefix(modelID, prefix) {
 			return true
 		}
 	}

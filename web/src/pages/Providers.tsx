@@ -17,13 +17,28 @@ export function Providers() {
     queryFn: () => api.providers.list(),
   })
 
+  const discoverMutation = useMutation({
+    mutationFn: (id: string) => api.providers.discover(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['providers'] })
+      queryClient.invalidateQueries({ queryKey: ['models'] })
+    },
+  })
+
   const createMutation = useMutation({
     mutationFn: (data: CreateProviderRequest) => api.providers.create(data),
-    onSuccess: () => {
+    onSuccess: async (newProvider) => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       setShowModal(false)
       setFormData({ name: '', base_url: '', api_key: '' })
       setError(null)
+      try {
+        await api.providers.discover(newProvider.id)
+        queryClient.invalidateQueries({ queryKey: ['models'] })
+        queryClient.invalidateQueries({ queryKey: ['providers'] })
+      } catch {
+        // discovery failure is non-fatal
+      }
     },
     onError: (err: Error) => {
       setError(err.message)
@@ -94,7 +109,14 @@ export function Providers() {
               )}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
+            <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end space-x-2">
+              <button
+                onClick={() => discoverMutation.mutate(provider.id)}
+                disabled={discoverMutation.isPending}
+                className="px-3 py-1.5 text-sm text-blue-400 hover:bg-blue-900/30 rounded transition-colors disabled:opacity-50"
+              >
+                {discoverMutation.isPending ? 'Discovering...' : 'Discover Models'}
+              </button>
               <button
                 onClick={() => deleteMutation.mutate(provider.id)}
                 className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/30 rounded transition-colors"

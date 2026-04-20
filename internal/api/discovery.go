@@ -18,7 +18,6 @@ type DiscoveryService interface {
 
 func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	r.Route("/providers/{id}/discover", func(r chi.Router) {
-		r.Use(h.AuthMiddleware)
 		r.Post("/", h.DiscoverProviderModels)
 	})
 }

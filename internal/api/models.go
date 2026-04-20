@@ -14,6 +14,7 @@ type ModelResponse struct {
 	ModelID      string `json:"model_id"`
 	DisplayName  string `json:"display_name"`
 	ProviderID   string `json:"provider_id"`
+	ProviderName string `json:"provider_name"`
 	Capabilities string `json:"capabilities"`
 	Enabled      bool   `json:"enabled"`
 	CreatedAt    string `json:"created_at"`
@@ -21,7 +22,6 @@ type ModelResponse struct {
 
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
-		r.Use(h.AuthMiddleware)
 		r.Get("/", h.ListModels)
 	})
 }
@@ -54,6 +54,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 			ModelID:      m.ModelID,
 			DisplayName:  m.DisplayName,
 			ProviderID:   m.ProviderID.String(),
+			ProviderName: m.ProviderName,
 			Capabilities: m.Capabilities,
 			Enabled:      m.Enabled,
 			CreatedAt:    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
