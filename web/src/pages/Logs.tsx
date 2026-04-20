@@ -15,7 +15,7 @@ export function Logs() {
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ model_id: '', status_code: '' })
   const [configOpen, setConfigOpen] = useState(false)
-  const [retention, setRetention] = useState('')
+  const [retention, setRetention] = useState<string | null>(null)
   const [deleteSelection, setDeleteSelection] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -24,7 +24,7 @@ export function Logs() {
     queryFn: () => api.settings.get(),
   })
 
-  const currentRetention = settings?.log_retention || 'off'
+  const effectiveRetention = retention ?? (settings?.log_retention || 'off')
 
   const { data: logsData, isLoading } = useQuery({
     queryKey: ['logs', page, filters],
@@ -51,11 +51,11 @@ export function Logs() {
   })
 
   const saveRetention = () => {
-    const val = retention || 'off'
-    api.settings.update({ log_retention: val === 'off' ? '' : val }).then(() => {
+    const val = effectiveRetention === 'off' ? '' : effectiveRetention
+    api.settings.update({ log_retention: val }).then(() => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
-      toast(`Log retention set to ${val === 'off' ? 'disabled' : val}`, 'success')
-      setRetention('')
+      setRetention(null)
+      toast(`Log retention set to ${effectiveRetention === 'off' ? 'disabled' : effectiveRetention}`, 'success')
     })
   }
 
@@ -110,7 +110,7 @@ export function Logs() {
             <p className="text-xs text-gray-500 mb-3">Automatically delete logs older than the selected period. Runs hourly.</p>
             <div className="flex items-center gap-2">
               <select
-                value={currentRetention}
+                value={effectiveRetention}
                 onChange={(e) => setRetention(e.target.value)}
                 className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
               >
@@ -126,9 +126,6 @@ export function Logs() {
               >
                 Save
               </button>
-              {currentRetention && currentRetention !== 'off' && (
-                <span className="text-xs text-gray-500">Current: {currentRetention}</span>
-              )}
             </div>
           </div>
 

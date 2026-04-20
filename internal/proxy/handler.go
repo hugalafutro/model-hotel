@@ -268,10 +268,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 			`
-			h.dbPool.Exec(r.Context(), query,
+			_, logErr := h.dbPool.Exec(r.Context(), query,
 				prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, overhead, tps,
 				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream, vkName, prompt,
 			)
+			if logErr != nil {
+				fmt.Printf("Proxy log insert failed: %v\n", logErr)
+			}
 
 			authToken := r.Header.Get("Authorization")
 			if len(authToken) > 7 && authToken[:7] == "Bearer " {

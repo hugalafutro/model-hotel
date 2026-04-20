@@ -262,10 +262,13 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
-	h.dbPool.Pool().Exec(r.Context(), logQuery,
+	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode, duration, duration, duration, tps,
 		chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", testPrompt,
 	)
+	if logErr != nil {
+		fmt.Printf("TestModel log insert failed: %v\n", logErr)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(TestModelResponse{
