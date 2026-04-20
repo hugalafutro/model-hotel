@@ -97,7 +97,7 @@ export function Layout({ children }: LayoutProps) {
                   to={item.href}
                   className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
                     isActive(item.href)
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-indigo-500/80 text-white'
                       : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                   }`}
                 >

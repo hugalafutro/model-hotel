@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState } from 'react'
+import { StaticHeaderNoArrow, Row, EmptyRow } from '../components/DataTable'
 
 export function Logs() {
   const [page, setPage] = useState(1)
@@ -29,7 +30,7 @@ export function Logs() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
       </div>
     )
   }
@@ -48,14 +49,14 @@ export function Logs() {
             placeholder="Filter by model ID..."
             value={filters.model_id}
             onChange={(e) => setFilters({ ...filters, model_id: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           />
         </div>
         <div className="md:w-48">
           <select
             value={filters.status_code}
             onChange={(e) => setFilters({ ...filters, status_code: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           >
             <option value="">All Status Codes</option>
             <option value="200">200 OK</option>
@@ -67,72 +68,48 @@ export function Logs() {
         </div>
       </div>
 
-      <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-gray-750">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Timestamp
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Model
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Latency
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Tokens
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                Streaming
-              </th>
+      <div className="border border-gray-700/50 rounded-xl overflow-hidden">
+        <table className="w-full table-fixed">
+          <thead>
+            <tr className="bg-gray-800/80">
+              <StaticHeaderNoArrow>Timestamp</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Model</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Status</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Latency</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Tokens</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Streaming</StaticHeaderNoArrow>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700">
+          <tbody>
             {logsData?.entries && logsData.entries.length > 0 ? (
-              logsData.entries.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-750">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-300">
-                      {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
-                    </span>
+              logsData.entries.map((log, idx) => (
+                <Row key={log.id} index={idx}>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                    {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-white">{log.model_id || '-'}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBg(log.status_code)}`}>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-white">{log.model_id || '-'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusBg(log.status_code)}`}>
                       {log.status_code}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-300">{log.latency_ms}ms</span>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">{log.latency_ms}ms</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                    {log.tokens_prompt + log.tokens_completion > 0
+                      ? `${log.tokens_prompt}+${log.tokens_completion}`
+                      : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-300">
-                      {log.tokens_prompt + log.tokens_completion > 0
-                        ? `${log.tokens_prompt}+${log.tokens_completion}`
-                        : '-'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      log.streaming ? 'bg-blue-900/30 text-blue-400' : 'bg-gray-700 text-gray-400'
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      log.streaming ? 'bg-indigo-900/30 text-indigo-400' : 'bg-gray-700 text-gray-400'
                     }`}>
                       {log.streaming ? 'Yes' : 'No'}
                     </span>
                   </td>
-                </tr>
+                </Row>
               ))
             ) : (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                  No logs found
-                </td>
-              </tr>
+              <EmptyRow colSpan={6} message="No logs found" />
             )}
           </tbody>
         </table>

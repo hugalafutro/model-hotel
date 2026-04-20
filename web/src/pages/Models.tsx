@@ -3,6 +3,8 @@ import { api } from '../api/client'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import type { Model, ModelCapabilities } from '../api/types'
 import { useToast } from '../context/ToastContext'
+import { SortableHeader, Row, EmptyRow } from '../components/DataTable'
+import type { SortState } from '../components/DataTable'
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -67,17 +69,7 @@ function CapBadge({ caps, capKey }: { caps: ModelCapabilities | null; capKey: Ca
 }
 
 type SortField = 'name' | 'capabilities' | 'provider' | 'discovered' | 'context' | 'output' | 'status'
-type SortDir = 'asc' | 'desc'
 type StatusFilter = 'enabled' | 'disabled'
-
-function SortHeader({ label, field, sort, onSort }: { label: string; field: SortField; sort: { field: SortField; dir: SortDir }; onSort: (f: SortField) => void }) {
-  const active = sort.field === field
-  return (
-    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none hover:text-gray-200 text-gray-400 whitespace-nowrap" onClick={() => onSort(field)}>
-      {label} <span className="inline-block w-3 text-center">{active ? (sort.dir === 'asc' ? '↑' : '↓') : ' '}</span>
-    </th>
-  )
-}
 
 function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToast }: {
   model: Model
@@ -302,8 +294,8 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
               onClick={handleDiscover}
               className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                 cooldown > 0 || discovering
-                  ? 'bg-blue-900/20 text-blue-500/50 border-blue-700/20 cursor-not-allowed'
-                  : 'bg-blue-900/40 text-blue-300 border-blue-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(59,130,246,0.2)]'
+                  ? 'bg-indigo-900/20 text-indigo-500/50 border-indigo-700/20 cursor-not-allowed'
+                  : 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
               }`}
             >
               {discovering ? 'Updating...' : cooldown > 0 ? `Update (${cooldown}s)` : 'Update info'}
@@ -329,7 +321,7 @@ export function Models() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [detailModel, setDetailModel] = useState<Model | null>(null)
-  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'name', dir: 'asc' })
+  const [sort, setSort] = useState<SortState<SortField>>({ field: 'name', dir: 'asc' })
   const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('enabled')
 
@@ -449,7 +441,7 @@ export function Models() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
       </div>
     )
   }
@@ -481,14 +473,14 @@ export function Models() {
             placeholder="Search models..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           />
         </div>
         <div className="md:w-64">
           <select
             value={selectedProvider}
             onChange={(e) => setSelectedProvider(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           >
             <option value="">All Providers</option>
             {providers?.map((provider) => (
@@ -513,7 +505,7 @@ export function Models() {
           </colgroup>
           <thead>
             <tr className="bg-gray-800/80">
-              <SortHeader label="Model" field="name" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} />
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
                 <span className="inline-flex items-center gap-1.5 flex-wrap">
                   Capabilities
@@ -544,10 +536,10 @@ export function Models() {
                   )}
                 </span>
               </th>
-              <SortHeader label="Provider" field="provider" sort={sort} onSort={handleSort} />
-              <SortHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} />
-              <SortHeader label="Ctx" field="context" sort={sort} onSort={handleSort} />
-              <SortHeader label="Max Out" field="output" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Provider" field="provider" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} />
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
                 <span className="inline-flex items-center gap-1.5">
                   Status
@@ -582,10 +574,10 @@ export function Models() {
               sortedAndFiltered.map((model, idx) => {
                 const caps = parseCapabilities(model.capabilities)
                 return (
-                  <tr key={model.id} className={`${idx % 2 === 1 ? 'bg-white/[0.03]' : ''} hover:bg-gray-700/30 transition-colors`}>
+                  <Row key={model.id} index={idx}>
                     <td className="px-4 py-1.5">
                       <div className="flex flex-col">
-                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-blue-400 hover:text-blue-300 cursor-pointer transition-colors">
+                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors">
                           {model.name || model.model_id}
                         </button>
                         <button
@@ -614,17 +606,13 @@ export function Models() {
                         {model.enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </td>
-                  </tr>
+                  </Row>
                 )
               })
             ) : (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                  {searchQuery || selectedProvider || capFilter.size > 0
-                    ? 'No models match your filters'
-                    : 'No models discovered yet. Add a provider and discover models.'}
-                </td>
-              </tr>
+              <EmptyRow colSpan={7} message={searchQuery || selectedProvider || capFilter.size > 0
+                ? 'No models match your filters'
+                : 'No models discovered yet. Add a provider and discover models.'} />
             )}
           </tbody>
         </table>

@@ -3,18 +3,10 @@ import { api } from '../api/client'
 import { useState, useMemo, useCallback } from 'react'
 import { useToast } from '../context/ToastContext'
 import type { VirtualKey } from '../api/types'
+import { SortableHeader, StaticHeader, Row } from '../components/DataTable'
+import type { SortState } from '../components/DataTable'
 
 type VKSortField = 'name' | 'key' | 'created' | 'tokens' | 'last_used'
-type SortDir = 'asc' | 'desc'
-
-function VKSortHeader({ label, field, sort, onSort }: { label: string; field: VKSortField; sort: { field: VKSortField; dir: SortDir }; onSort: (f: VKSortField) => void }) {
-  const active = sort.field === field
-  return (
-    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none hover:text-gray-200 text-gray-400 whitespace-nowrap" onClick={() => onSort(field)}>
-      {label} <span className="inline-block w-3 text-center">{active ? (sort.dir === 'asc' ? '↑' : '↓') : ' '}</span>
-    </th>
-  )
-}
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return 'Never'
@@ -99,7 +91,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
                   placeholder="e.g., My App"
                 />
               </div>
@@ -114,7 +106,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {createMutation.isPending ? 'Creating...' : 'Create Key'}
                 </button>
@@ -218,7 +210,7 @@ export function VirtualKeys() {
   const { toast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null)
-  const [sort, setSort] = useState<{ field: VKSortField; dir: SortDir }>({ field: 'name', dir: 'asc' })
+  const [sort, setSort] = useState<SortState<VKSortField>>({ field: 'name', dir: 'asc' })
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ['virtualKeys'],
@@ -253,7 +245,7 @@ export function VirtualKeys() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400" />
       </div>
     )
   }
@@ -268,7 +260,7 @@ export function VirtualKeys() {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium cursor-pointer"
+          className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors font-medium cursor-pointer"
         >
           + Create Key
         </button>
@@ -286,21 +278,21 @@ export function VirtualKeys() {
             </colgroup>
             <thead>
               <tr className="bg-gray-800/80">
-                <VKSortHeader label="Name" field="name" sort={sort} onSort={handleSort} />
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Key <span className="inline-block w-3" /></th>
-                <VKSortHeader label="Created" field="created" sort={sort} onSort={handleSort} />
-                <VKSortHeader label="Tokens" field="tokens" sort={sort} onSort={handleSort} />
-                <VKSortHeader label="Last Used" field="last_used" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Name" field="name" sort={sort} onSort={handleSort} />
+                <StaticHeader>Key</StaticHeader>
+                <SortableHeader label="Created" field="created" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Tokens" field="tokens" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Last Used" field="last_used" sort={sort} onSort={handleSort} />
               </tr>
             </thead>
             <tbody>
               {sortedKeys.map((vk, idx) => (
-                <tr key={vk.id} className={`${idx % 2 === 1 ? 'bg-white/[0.03]' : ''} hover:bg-gray-700/30 transition-colors`}>
+                <Row key={vk.id} index={idx}>
                   <td className="px-4 py-3">
                     <button
                       type="button"
                       onClick={() => setSelectedKey(vk)}
-                      className="text-gray-200 hover:text-blue-400 transition-colors cursor-pointer text-sm"
+                      className="text-gray-200 hover:text-indigo-400 transition-colors cursor-pointer text-sm"
                     >
                       {vk.name}
                     </button>
@@ -317,7 +309,7 @@ export function VirtualKeys() {
                   <td className="px-4 py-3 text-sm text-gray-400">{new Date(vk.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3 text-sm text-gray-400 font-mono">{formatNumber(vk.tokens_used)}</td>
                   <td className="px-4 py-3 text-sm text-gray-400">{formatRelativeTime(vk.last_used_at)}</td>
-                </tr>
+                </Row>
               ))}
             </tbody>
           </table>

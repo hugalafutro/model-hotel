@@ -49,7 +49,7 @@ export function Settings() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
       </div>
     )
   }
@@ -81,7 +81,7 @@ export function Settings() {
               id="discovery-interval"
               value={discoveryInterval}
               onChange={(e) => updateMutation.mutate({ discovery_interval: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
             >
               {DISCOVERY_INTERVALS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -99,7 +99,7 @@ export function Settings() {
               type="button"
               onClick={() => updateMutation.mutate({ discovery_on_startup: discoveryOnStartup ? 'false' : 'true' })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                discoveryOnStartup ? 'bg-blue-600' : 'bg-gray-600'
+                discoveryOnStartup ? 'bg-indigo-500' : 'bg-gray-600'
               }`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -117,7 +117,7 @@ export function Settings() {
               type="button"
               onClick={() => updateMutation.mutate({ discovery_on_provider_create: discoveryOnCreate ? 'false' : 'true' })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                discoveryOnCreate ? 'bg-blue-600' : 'bg-gray-600'
+                discoveryOnCreate ? 'bg-indigo-500' : 'bg-gray-600'
               }`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -141,7 +141,7 @@ export function Settings() {
               type="button"
               onClick={() => setTheme('dark')}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
-                theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                theme === 'dark' ? 'bg-indigo-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
               }`}
             >
               Dark
@@ -150,7 +150,7 @@ export function Settings() {
               type="button"
               onClick={() => setTheme('light')}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
-                theme === 'light' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                theme === 'light' ? 'bg-indigo-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
               }`}
             >
               Light
@@ -226,7 +226,7 @@ function ProviderDiscoveryList() {
             type="button"
             onClick={() => discoverMutation.mutate(p.id)}
             disabled={discoverMutation.isPending}
-            className="px-3 py-1 text-sm text-blue-400 hover:bg-blue-900/30 rounded transition-colors disabled:opacity-50"
+            className="px-3 py-1 text-sm text-indigo-400 hover:bg-blue-900/30 rounded transition-colors disabled:opacity-50"
           >
             Discover Now
           </button>
