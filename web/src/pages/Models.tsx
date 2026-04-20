@@ -66,7 +66,7 @@ function CapBadge({ caps, capKey }: { caps: ModelCapabilities | null; capKey: Ca
   )
 }
 
-type SortField = 'name' | 'provider' | 'discovered' | 'status'
+type SortField = 'name' | 'capabilities' | 'provider' | 'discovered' | 'context' | 'output' | 'status'
 type SortDir = 'asc' | 'desc'
 type StatusFilter = 'enabled' | 'disabled'
 
@@ -413,6 +413,8 @@ export function Models() {
         case 'name': return dir * (a.name || a.model_id).localeCompare(b.name || b.model_id)
         case 'provider': return dir * a.provider_name.localeCompare(b.provider_name)
         case 'discovered': return dir * (new Date(a.last_seen_at).getTime() - new Date(b.last_seen_at).getTime())
+        case 'context': return dir * ((a.context_length ?? 0) - (b.context_length ?? 0))
+        case 'output': return dir * ((a.max_output_tokens ?? 0) - (b.max_output_tokens ?? 0))
         case 'status': return dir * (a.enabled === b.enabled ? 0 : a.enabled ? -1 : 1)
         default: return 0
       }
@@ -478,11 +480,13 @@ export function Models() {
       <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
         <table className="min-w-full table-fixed divide-y divide-gray-700">
           <colgroup>
-            <col className="w-[28%]" />
-            <col className="w-[32%]" />
-            <col className="w-[15%]" />
-            <col className="w-[13%]" />
+            <col className="w-[22%]" />
+            <col className="w-[26%]" />
             <col className="w-[12%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[11%]" />
           </colgroup>
           <thead>
             <tr>
@@ -519,6 +523,8 @@ export function Models() {
               </th>
               <SortHeader label="Provider" field="provider" sort={sort} onSort={handleSort} />
               <SortHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} />
+              <SortHeader label="Ctx" field="context" sort={sort} onSort={handleSort} />
+              <SortHeader label="Max Out" field="output" sort={sort} onSort={handleSort} />
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
                 <span className="inline-flex items-center gap-1.5">
                   Status
@@ -578,6 +584,8 @@ export function Models() {
                     </td>
                     <td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">{model.provider_name}</td>
                     <td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-400">{formatRelativeTime(model.last_seen_at)}</td>
+                    <td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">{model.context_length ? model.context_length.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">{model.max_output_tokens ? model.max_output_tokens.toLocaleString() : '-'}</td>
                     <td className="px-4 py-1.5 whitespace-nowrap">
                       <span className={`px-2 py-0.5 text-xs rounded-full ${model.enabled ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
                         {model.enabled ? 'Enabled' : 'Disabled'}
@@ -588,7 +596,7 @@ export function Models() {
               })
             ) : (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   {searchQuery || selectedProvider || capFilter.size > 0
                     ? 'No models match your filters'
                     : 'No models discovered yet. Add a provider and discover models.'}
