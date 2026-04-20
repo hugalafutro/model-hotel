@@ -261,6 +261,10 @@ func main() {
 			if err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs); err != nil {
 				log.Printf("Discovery: failed to disable missing models for %s: %v", p.Name, err)
 			}
+			now := time.Now()
+			if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
+				log.Printf("Discovery: failed to update last_discovered_at for %s: %v", p.Name, err)
+			}
 			log.Printf("Discovery: discovered %d models for provider %s", len(models), p.Name)
 		}
 	}

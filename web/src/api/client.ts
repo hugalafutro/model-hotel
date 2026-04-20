@@ -117,6 +117,18 @@ export const api = {
       }
       return response.json();
     },
+    update: async (id: string, data: { enabled?: boolean }): Promise<Model> => {
+      const response = await fetch(`${API_BASE}/api/models/${id}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to update model: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
   },
 
   logs: {

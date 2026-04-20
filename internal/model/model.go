@@ -175,3 +175,12 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 	_, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
 	return err
 }
+
+func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {
+	query := `UPDATE models SET enabled = $1 WHERE id = $2`
+	_, err := r.pool.Exec(ctx, query, enabled, id)
+	if err != nil {
+		return nil, err
+	}
+	return r.Get(ctx, id)
+}

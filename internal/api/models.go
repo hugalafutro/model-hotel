@@ -35,6 +35,7 @@ type ModelResponse struct {
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
 		r.Get("/", h.ListModels)
+		r.Patch("/{id}", h.UpdateModel)
 	})
 }
 
@@ -87,4 +88,58 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responses)
+}
+
+func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "invalid model ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	modelRepo := model.NewRepository(h.dbPool.Pool())
+
+	if req.Enabled != nil {
+		m, err := modelRepo.SetEnabled(r.Context(), id, *req.Enabled)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		resp := ModelResponse{
+			ID:                    m.ID.String(),
+			ModelID:               m.ModelID,
+			Name:                  m.Name,
+			Description:           m.Description,
+			DisplayName:           m.DisplayName,
+			ProviderID:            m.ProviderID.String(),
+			ProviderName:          m.ProviderName,
+			Capabilities:          m.Capabilities,
+			Params:                m.Params,
+			Modality:              m.Modality,
+			InputModalities:       m.InputModalities,
+			OutputModalities:      m.OutputModalities,
+			ContextLength:         m.ContextLength,
+			MaxOutputTokens:       m.MaxOutputTokens,
+			InputPricePerMillion:  m.InputPricePerMillion,
+			OutputPricePerMillion: m.OutputPricePerMillion,
+			OwnedBy:               m.OwnedBy,
+			Enabled:               m.Enabled,
+			CreatedAt:             m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			LastSeenAt:            m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	http.Error(w, "no fields to update", http.StatusBadRequest)
 }
