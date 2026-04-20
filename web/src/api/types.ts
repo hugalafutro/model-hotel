@@ -99,3 +99,20 @@ export interface VirtualKey {
   last_used_at: string | null;
   created_at: string;
 }
+
+export interface SystemStats {
+  app: {
+    heap_alloc_mb: number;
+    sys_memory_mb: number;
+    goroutines: number;
+    gc_cycles: number;
+    memory_current_bytes: number;
+    memory_limit_bytes: number;
+    in_container: boolean;
+  };
+  db: {
+    size_mb: number;
+    connections: number;
+    cache_hit_ratio: number;
+  };
+}

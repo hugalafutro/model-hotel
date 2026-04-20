@@ -1,0 +1,195 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"os"
+	"runtime"
+	"runtime/metrics"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type SystemHandler struct {
+	pool *pgxpool.Pool
+}
+
+func NewSystemHandler(pool *pgxpool.Pool) *SystemHandler {
+	return &SystemHandler{pool: pool}
+}
+
+func (h *SystemHandler) Register(r chi.Router) {
+	r.Route("/system", func(r chi.Router) {
+		r.Get("/", h.GetSystem)
+	})
+}
+
+type SystemStats struct {
+	App AppStats `json:"app"`
+	DB  DBStats  `json:"db"`
+}
+
+type AppStats struct {
+	HeapAllocMB   float64 `json:"heap_alloc_mb"`
+	SysMemoryMB   float64 `json:"sys_memory_mb"`
+	Goroutines    int     `json:"goroutines"`
+	GCCycles      uint64  `json:"gc_cycles"`
+	MemoryCurrent int64   `json:"memory_current_bytes"`
+	MemoryLimit   int64   `json:"memory_limit_bytes"`
+	InContainer   bool    `json:"in_container"`
+}
+
+type DBStats struct {
+	SizeMB       float64 `json:"size_mb"`
+	Connections  int     `json:"connections"`
+	CacheHitRatio float64 `json:"cache_hit_ratio"`
+}
+
+var (
+	cachedSystem     *SystemStats
+	cachedSystemTime time.Time
+	cachedSystemMu   sync.Mutex
+)
+
+const systemCacheTTL = 5 * time.Second
+
+func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
+	cachedSystemMu.Lock()
+	if cachedSystem != nil && time.Since(cachedSystemTime) < systemCacheTTL {
+		result := *cachedSystem
+		cachedSystemMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+		return
+	}
+	cachedSystemMu.Unlock()
+
+	stats, err := h.collect(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	cachedSystemMu.Lock()
+	cachedSystem = stats
+	cachedSystemTime = time.Now()
+	cachedSystemMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
+	stats := &SystemStats{}
+
+	samples := []metrics.Sample{
+		{Name: "/memory/classes/heap/objects:bytes"},
+		{Name: "/memory/classes/total:bytes"},
+		{Name: "/gc/cycles/total:gc-cycles"},
+	}
+	metrics.Read(samples)
+
+	heapAlloc := getInt64(samples[0])
+	sysMemory := getInt64(samples[1])
+	gcCycles := getUint64(samples[2])
+
+	memCurrent, memLimit, inContainer := readCgroupMemory()
+
+	stats.App = AppStats{
+		HeapAllocMB:   float64(heapAlloc) / 1024 / 1024,
+		SysMemoryMB:   float64(sysMemory) / 1024 / 1024,
+		Goroutines:    runtime.NumGoroutine(),
+		GCCycles:      gcCycles,
+		MemoryCurrent: memCurrent,
+		MemoryLimit:   memLimit,
+		InContainer:   inContainer,
+	}
+
+	var dbSize int64
+	err := h.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&dbSize)
+	if err != nil {
+		dbSize = 0
+	}
+
+	var connCount int
+	err = h.pool.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity`).Scan(&connCount)
+	if err != nil {
+		connCount = 0
+	}
+
+	var cacheHitRatio float64
+	err = h.pool.QueryRow(ctx, `
+		SELECT CASE WHEN blks_hit + blks_read = 0 THEN 0
+			    ELSE round(100.0 * blks_hit / (blks_hit + blks_read), 2)
+			END
+		FROM pg_stat_database WHERE datname = current_database()
+	`).Scan(&cacheHitRatio)
+	if err != nil {
+		cacheHitRatio = 0
+	}
+
+	stats.DB = DBStats{
+		SizeMB:        float64(dbSize) / 1024 / 1024,
+		Connections:   connCount,
+		CacheHitRatio: cacheHitRatio,
+	}
+
+	return stats, nil
+}
+
+func getInt64(s metrics.Sample) int64 {
+	switch s.Value.Kind() {
+	case metrics.KindUint64:
+		return int64(s.Value.Uint64())
+	case metrics.KindFloat64:
+		return int64(s.Value.Float64())
+	default:
+		return 0
+	}
+}
+
+func getUint64(s metrics.Sample) uint64 {
+	if s.Value.Kind() == metrics.KindUint64 {
+		return s.Value.Uint64()
+	}
+	return 0
+}
+
+func readCgroupMemory() (current, limit int64, inContainer bool) {
+	currentBytes, err := os.ReadFile("/sys/fs/cgroup/memory.current")
+	if err == nil {
+		val := strings.TrimSpace(string(currentBytes))
+		if v, e := parseInt(val); e == nil {
+			current = v
+			inContainer = true
+		}
+	}
+
+	limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory.max")
+	if err == nil {
+		val := strings.TrimSpace(string(limitBytes))
+		if val == "max" {
+			limit = 0
+		} else if v, e := parseInt(val); e == nil {
+			limit = v
+		}
+	}
+
+	return current, limit, inContainer
+}
+
+func parseInt(s string) (int64, error) {
+	var n int64
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			break
+		}
+		n = n*10 + int64(c-'0')
+	}
+	return n, nil
+}

@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey } from './types'
+import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats } from './types'
 
 const API_BASE = '';
 
@@ -251,6 +251,19 @@ export const api = {
       if (!response.ok && response.status !== 204) {
         throw new Error('Failed to delete virtual key');
       }
+    },
+  },
+
+  system: {
+    get: async (): Promise<SystemStats> => {
+      const response = await fetch(`${API_BASE}/api/system`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch system stats: ${response.status} ${text}`);
+      }
+      return response.json();
     },
   },
 };

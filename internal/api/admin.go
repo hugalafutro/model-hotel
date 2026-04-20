@@ -60,6 +60,7 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterVirtualKeys(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
+	NewSystemHandler(h.dbPool.Pool()).Register(r)
 }
 
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {

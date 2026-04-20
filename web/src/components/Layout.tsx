@@ -1,4 +1,61 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
+
+function formatMB(mb: number): string {
+  if (mb < 1) return `${mb.toFixed(1)} MB`
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`
+  return `${Math.round(mb)} MB`
+}
+
+function SystemStatus() {
+  const { data: stats } = useQuery({
+    queryKey: ['system'],
+    queryFn: () => api.system.get(),
+    refetchInterval: 10000,
+    retry: false,
+  })
+
+  const appMem = stats?.app?.in_container && stats?.app?.memory_limit_bytes
+    ? formatMB(stats.app.memory_current_bytes / 1024 / 1024) + ' / ' + formatMB(stats.app.memory_limit_bytes / 1024 / 1024)
+    : stats?.app
+      ? formatMB(stats.app.heap_alloc_mb) + ' heap'
+      : '-'
+
+  return (
+    <div className="space-y-1.5 text-[11px] font-mono">
+      <div className="flex justify-between items-center text-gray-500">
+        <span>API Status</span>
+        <span className="flex items-center text-green-400">
+          <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5" />
+          Online
+        </span>
+      </div>
+      {stats?.app && (
+        <div className="flex justify-between items-center text-gray-500">
+          <span>App</span>
+          <span className="text-gray-400">
+            {appMem}
+            <span className="text-gray-600 mx-1">|</span>
+            {stats.app.goroutines} goroutines
+          </span>
+        </div>
+      )}
+      {stats?.db && (
+        <div className="flex justify-between items-center text-gray-500">
+          <span>DB</span>
+          <span className="text-gray-400">
+            {formatMB(stats.db.size_mb)}
+            <span className="text-gray-600 mx-1">|</span>
+            {stats.db.connections} conn
+            <span className="text-gray-600 mx-1">|</span>
+            {stats.db.cache_hit_ratio}%
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface LayoutProps {
   children: React.ReactNode
@@ -55,19 +112,11 @@ export function Layout({ children }: LayoutProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full px-4 py-2 mb-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm"
+            className="w-full px-4 py-2 mb-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm cursor-pointer"
           >
             Logout
           </button>
-          <div className="text-sm text-gray-500">
-            <div className="flex justify-between items-center">
-              <span>API Status</span>
-              <span className="flex items-center text-green-400">
-                <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                Online
-              </span>
-            </div>
-          </div>
+          <SystemStatus />
         </div>
       </aside>
 
