@@ -88,3 +88,13 @@ export interface Stats {
   total_tokens_prompt: number;
   total_tokens_completion: number;
 }
+
+export interface VirtualKey {
+  id: string;
+  name: string;
+  key?: string;
+  key_preview: string;
+  tokens_used: number;
+  last_used_at: string | null;
+  created_at: string;
+}

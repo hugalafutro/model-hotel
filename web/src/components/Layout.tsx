@@ -12,6 +12,7 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: '📊' },
     { name: 'Providers', href: '/providers', icon: '🔌' },
     { name: 'Models', href: '/models', icon: '🤖' },
+    { name: 'Virtual Keys', href: '/virtual-keys', icon: '🔑' },
     { name: 'Logs', href: '/logs', icon: '📝' },
     { name: 'Settings', href: '/settings', icon: '⚙️' },
   ]

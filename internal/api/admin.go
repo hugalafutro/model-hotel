@@ -11,21 +11,24 @@ import (
 	"github.com/user/llm-proxy/internal/config"
 	"github.com/user/llm-proxy/internal/db"
 	"github.com/user/llm-proxy/internal/provider"
+	"github.com/user/llm-proxy/internal/virtualkey"
 )
 
 type Handler struct {
-	cfg      *config.Config
-	db       *provider.Repository
-	dbPool   *db.DB
-	adminMgr *admin.Manager
+	cfg            *config.Config
+	db             *provider.Repository
+	dbPool         *db.DB
+	adminMgr       *admin.Manager
+	virtualKeyRepo *virtualkey.Repository
 }
 
-func NewHandler(cfg *config.Config, providerRepo *provider.Repository, database *db.DB, adminMgr *admin.Manager) *Handler {
+func NewHandler(cfg *config.Config, providerRepo *provider.Repository, database *db.DB, adminMgr *admin.Manager, vkRepo *virtualkey.Repository) *Handler {
 	return &Handler{
-		cfg:      cfg,
-		db:       providerRepo,
-		dbPool:   database,
-		adminMgr: adminMgr,
+		cfg:            cfg,
+		db:             providerRepo,
+		dbPool:         database,
+		adminMgr:       adminMgr,
+		virtualKeyRepo: vkRepo,
 	}
 }
 
@@ -54,6 +57,7 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterProviderDiscovery(r)
 	h.RegisterLogs(r)
 	h.RegisterSettings(r)
+	h.RegisterVirtualKeys(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 }

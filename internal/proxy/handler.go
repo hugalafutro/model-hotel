@@ -15,14 +15,16 @@ import (
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/util"
+	"github.com/user/llm-proxy/internal/virtualkey"
 )
 
 type Handler struct {
-	cfg          *config.Config
-	providerRepo *provider.Repository
-	modelRepo    *model.Repository
-	dbPool       *pgxpool.Pool
-	discovery    *provider.DiscoveryService
+	cfg            *config.Config
+	providerRepo   *provider.Repository
+	modelRepo      *model.Repository
+	dbPool         *pgxpool.Pool
+	discovery      *provider.DiscoveryService
+	virtualKeyRepo *virtualkey.Repository
 }
 
 func NewHandler(
@@ -30,13 +32,15 @@ func NewHandler(
 	providerRepo *provider.Repository,
 	modelRepo *model.Repository,
 	dbPool *pgxpool.Pool,
+	virtualKeyRepo *virtualkey.Repository,
 ) *Handler {
 	return &Handler{
-		cfg:          cfg,
-		providerRepo: providerRepo,
-		modelRepo:    modelRepo,
-		dbPool:       dbPool,
-		discovery:    provider.NewDiscoveryService(),
+		cfg:            cfg,
+		providerRepo:   providerRepo,
+		modelRepo:      modelRepo,
+		dbPool:         dbPool,
+		discovery:      provider.NewDiscoveryService(),
+		virtualKeyRepo: virtualKeyRepo,
 	}
 }
 
@@ -84,6 +88,17 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			token = authHeader[7:]
 		} else {
 			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		if len(token) >= 3 && token[:3] == "sk-" {
+			keyHash := virtualkey.Hash(token)
+			_, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
+			if err != nil {
+				http.Error(w, "Invalid virtual key", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 
@@ -232,6 +247,16 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				prov.ID, req.Model, requestID, resp.StatusCode, latency,
 				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream,
 			)
+
+			authToken := r.Header.Get("Authorization")
+			if len(authToken) > 7 && authToken[:7] == "Bearer " {
+				bearer := authToken[7:]
+				if len(bearer) >= 3 && bearer[:3] == "sk-" {
+					vkHash := virtualkey.Hash(bearer)
+					totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
+					h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens)
+				}
+			}
 		}
 
 		json.NewEncoder(w).Encode(chatResp)

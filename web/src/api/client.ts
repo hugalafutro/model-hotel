@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats } from './types'
+import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey } from './types'
 
 const API_BASE = '';
 
@@ -207,6 +207,50 @@ export const api = {
         throw new Error(`Failed to update settings: ${response.status} ${text}`);
       }
       return response.json();
+    },
+  },
+
+  virtualKeys: {
+    list: async (): Promise<VirtualKey[]> => {
+      const response = await fetch(`${API_BASE}/api/virtual-keys`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch virtual keys: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    create: async (name: string): Promise<VirtualKey> => {
+      const response = await fetch(`${API_BASE}/api/virtual-keys`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to create virtual key: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    get: async (id: string): Promise<VirtualKey> => {
+      const response = await fetch(`${API_BASE}/api/virtual-keys/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch virtual key: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    delete: async (id: string): Promise<void> => {
+      const response = await fetch(`${API_BASE}/api/virtual-keys/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to delete virtual key');
+      }
     },
   },
 };

@@ -22,6 +22,7 @@ import (
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/proxy"
 	"github.com/user/llm-proxy/internal/settings"
+	"github.com/user/llm-proxy/internal/virtualkey"
 )
 
 //go:embed all:static
@@ -141,6 +142,7 @@ func main() {
 
 	providerRepo := provider.NewRepository(database.Pool())
 	modelRepo := model.NewRepository(database.Pool())
+	virtualKeyRepo := virtualkey.NewRepository(database.Pool())
 
 	r := chi.NewRouter()
 
@@ -217,13 +219,13 @@ func main() {
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
-		apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr)
+		apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo)
 		apiHandler.Register(r)
 	})
 
 	// Proxy routes
 	r.Route("/v1", func(r chi.Router) {
-		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool())
+		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo)
 		proxyHandler.Register(r)
 	})
 
