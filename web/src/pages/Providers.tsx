@@ -87,6 +87,7 @@ export function Providers() {
           <p className="text-gray-400 mt-1">Manage your LLM provider configurations</p>
         </div>
         <button
+          type="button"
           onClick={() => setShowModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
@@ -124,6 +125,7 @@ export function Providers() {
 
             <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end space-x-2">
               <button
+                type="button"
                 onClick={() => discoverMutation.mutate(provider.id)}
                 disabled={discoverMutation.isPending}
                 className="px-3 py-1.5 text-sm text-blue-400 hover:bg-blue-900/30 rounded transition-colors disabled:opacity-50"
@@ -131,6 +133,7 @@ export function Providers() {
                 {discoverMutation.isPending ? 'Discovering...' : 'Discover Models'}
               </button>
               <button
+                type="button"
                 onClick={() => deleteMutation.mutate(provider.id)}
                 className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/30 rounded transition-colors"
               >
@@ -160,10 +163,11 @@ export function Providers() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="provider-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Name
                 </label>
                 <input
+                  id="provider-name"
                   type="text"
                   required
                   value={formData.name}
@@ -174,10 +178,11 @@ export function Providers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="provider-base-url" className="block text-sm font-medium text-gray-300 mb-1">
                   Base URL
                 </label>
                 <input
+                  id="provider-base-url"
                   type="url"
                   required
                   value={formData.base_url}
@@ -189,10 +194,11 @@ export function Providers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="provider-api-key" className="block text-sm font-medium text-gray-300 mb-1">
                   API Key
                 </label>
                 <input
+                  id="provider-api-key"
                   type="password"
                   required
                   value={formData.api_key}

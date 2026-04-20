@@ -1,19 +1,26 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, setAdminToken } from '../api/client'
-import { useEffect, useState } from 'react'
+import { useState, useCallback } from 'react'
 
 export function Dashboard() {
   const [adminToken, setAdminTokenInput] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('adminToken')
+  })
 
-  useEffect(() => {
+  const initializeToken = useCallback(() => {
     const token = localStorage.getItem('adminToken')
     if (token) {
       setAdminToken(token)
-      setIsLoggedIn(true)
     }
   }, [])
+
+  useState(() => {
+    if (isLoggedIn) {
+      initializeToken()
+    }
+  })
 
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['stats'],
@@ -21,18 +28,6 @@ export function Dashboard() {
     enabled: isLoggedIn,
     retry: 1,
   })
-
-  // If stats query fails with auth error, log out
-  useEffect(() => {
-    if (statsError && isLoggedIn) {
-      const errMsg = statsError.message || ''
-      if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('Admin token')) {
-        localStorage.removeItem('adminToken')
-        setIsLoggedIn(false)
-        setError('Session expired. Please log in again.')
-      }
-    }
-  }, [statsError, isLoggedIn])
 
   const handleLogin = () => {
     if (!adminToken.trim()) {
@@ -49,6 +44,15 @@ export function Dashboard() {
     localStorage.removeItem('adminToken')
     setIsLoggedIn(false)
     setError(null)
+  }
+
+  if (statsError && isLoggedIn) {
+    const errMsg = statsError.message || ''
+    if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('Admin token')) {
+      localStorage.removeItem('adminToken')
+      setIsLoggedIn(false)
+      setError('Session expired. Please log in again.')
+    }
   }
 
   if (!isLoggedIn) {
@@ -68,10 +72,11 @@ export function Dashboard() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="admin-token" className="block text-sm font-medium text-gray-300 mb-2">
                 Admin Token
               </label>
               <input
+                id="admin-token"
                 type="password"
                 value={adminToken}
                 onChange={(e) => setAdminTokenInput(e.target.value)}
@@ -81,6 +86,7 @@ export function Dashboard() {
               />
             </div>
             <button
+              type="button"
               onClick={handleLogin}
               className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
@@ -112,6 +118,7 @@ export function Dashboard() {
             <p className="text-gray-400 mt-1">Overview of your LLM proxy usage</p>
           </div>
           <button
+            type="button"
             onClick={handleLogout}
             className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
           >
@@ -126,11 +133,11 @@ export function Dashboard() {
   }
 
   const statCards = [
-    { label: 'Requests (24h)', value: stats?.total_requests_last_24h || 0, icon: '📊' },
-    { label: 'Requests (7d)', value: stats?.total_requests_last_7d || 0, icon: '📈' },
-    { label: 'Avg Latency', value: `${stats?.avg_latency_ms || 0}ms`, icon: '⚡' },
-    { label: 'Error Rate', value: `${((stats?.error_rate || 0) * 100).toFixed(1)}%`, icon: '❌' },
-    { label: 'Total Tokens', value: (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0), icon: '🎯' },
+    { id: 'req24h', label: 'Requests (24h)', value: stats?.total_requests_last_24h || 0, icon: '📊' },
+    { id: 'req7d', label: 'Requests (7d)', value: stats?.total_requests_last_7d || 0, icon: '📈' },
+    { id: 'latency', label: 'Avg Latency', value: `${stats?.avg_latency_ms || 0}ms`, icon: '⚡' },
+    { id: 'errors', label: 'Error Rate', value: `${((stats?.error_rate || 0) * 100).toFixed(1)}%`, icon: '❌' },
+    { id: 'tokens', label: 'Total Tokens', value: (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0), icon: '🎯' },
   ]
 
   return (
@@ -141,6 +148,7 @@ export function Dashboard() {
           <p className="text-gray-400 mt-1">Overview of your LLM proxy usage</p>
         </div>
         <button
+          type="button"
           onClick={handleLogout}
           className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
         >
@@ -149,8 +157,8 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {statCards.map((card, index) => (
-          <div key={index} className="bg-gray-800 border border-gray-700 rounded-xl p-5">
+        {statCards.map((card) => (
+          <div key={card.id} className="bg-gray-800 border border-gray-700 rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-2xl">{card.icon}</span>
               <span className="text-xs text-gray-500 uppercase tracking-wide">{card.label}</span>

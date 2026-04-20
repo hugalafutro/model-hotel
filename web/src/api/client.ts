@@ -56,7 +56,7 @@ export const api = {
         throw new Error('Failed to delete provider');
       }
     },
-    discover: async (id: string): Promise<any> => {
+    discover: async (id: string): Promise<{discovered: number}> => {
       const response = await fetch(`${API_BASE}/api/providers/${id}/discover`, {
         method: 'POST',
         headers: getAuthHeaders(),

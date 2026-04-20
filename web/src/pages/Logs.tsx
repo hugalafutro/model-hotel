@@ -145,6 +145,7 @@ export function Logs() {
           </div>
           <div className="flex space-x-2">
             <button
+              type="button"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -152,6 +153,7 @@ export function Logs() {
               Previous
             </button>
             <button
+              type="button"
               onClick={() => setPage(p => Math.min(Math.ceil(logsData.total / 20), p + 1))}
               disabled={page * 20 >= logsData.total}
               className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"

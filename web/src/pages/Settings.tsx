@@ -68,10 +68,11 @@ export function Settings() {
 
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="discovery-interval" className="block text-sm font-medium text-gray-300 mb-2">
               Discovery Interval
             </label>
             <select
+              id="discovery-interval"
               value={discoveryInterval}
               onChange={(e) => updateMutation.mutate({ discovery_interval: e.target.value })}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
@@ -89,6 +90,7 @@ export function Settings() {
               <p className="text-gray-500 text-xs mt-0.5">Run discovery for all providers when the server starts</p>
             </div>
             <button
+              type="button"
               onClick={() => updateMutation.mutate({ discovery_on_startup: discoveryOnStartup ? 'false' : 'true' })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 discoveryOnStartup ? 'bg-blue-600' : 'bg-gray-600'
@@ -106,6 +108,7 @@ export function Settings() {
               <p className="text-gray-500 text-xs mt-0.5">Automatically discover models when a new provider is added</p>
             </div>
             <button
+              type="button"
               onClick={() => updateMutation.mutate({ discovery_on_provider_create: discoveryOnCreate ? 'false' : 'true' })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 discoveryOnCreate ? 'bg-blue-600' : 'bg-gray-600'
@@ -129,6 +132,7 @@ export function Settings() {
           </div>
           <div className="flex rounded-lg overflow-hidden border border-gray-600">
             <button
+              type="button"
               onClick={() => setTheme('dark')}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -137,6 +141,7 @@ export function Settings() {
               Dark
             </button>
             <button
+              type="button"
               onClick={() => setTheme('light')}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 theme === 'light' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
@@ -209,6 +214,7 @@ function ProviderDiscoveryList() {
             </div>
           </div>
           <button
+            type="button"
             onClick={() => discoverMutation.mutate(p.id)}
             disabled={discoverMutation.isPending}
             className="px-3 py-1 text-sm text-blue-400 hover:bg-blue-900/30 rounded transition-colors disabled:opacity-50"

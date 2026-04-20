@@ -53,14 +53,14 @@ function ModelDetailModal({ model, onClose }: { model: Model; onClose: () => voi
   const outputMods = (() => { try { return JSON.parse(model.output_modalities) as string[] } catch { return [] } })()
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()} onKeyDown={undefined}>
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-xl font-bold text-white">{model.name || model.model_id}</h2>
             <p className="text-sm text-gray-400 mt-1 font-mono">{model.model_id}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
         </div>
 
         {model.description && (
@@ -174,8 +174,8 @@ export function Models() {
 
   const filteredModels = models?.filter((model) =>
     model.model_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (model.name && model.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (model.display_name && model.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    model.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    model.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
   if (isLoading) {
@@ -280,6 +280,7 @@ export function Models() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <button
+                        type="button"
                         onClick={() => setDetailModel(model)}
                         className="px-3 py-1 text-sm text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
                       >
