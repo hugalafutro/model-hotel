@@ -44,18 +44,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastItem({ toast, onDone }: { toast: Toast; onDone: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 2000)
+    const t = setTimeout(onDone, 4000)
     return () => clearTimeout(t)
   }, [onDone])
 
   const colors = {
-    success: 'bg-emerald-600 text-white border-emerald-500',
-    error: 'bg-red-600 text-white border-red-500',
-    info: 'bg-gray-700 text-white border-gray-600',
+    success: 'bg-emerald-900/70 text-emerald-200 border-emerald-700/60',
+    error: 'bg-red-900/70 text-red-200 border-red-700/60',
+    info: 'bg-slate-700/80 text-slate-200 border-slate-600/60',
   }
 
   return (
-    <div className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium ${colors[toast.type]}`}>
+    <div onClick={onDone} className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line ${colors[toast.type]}`}>
       {toast.message}
     </div>
   )

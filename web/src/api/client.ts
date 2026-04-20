@@ -129,6 +129,17 @@ export const api = {
       }
       return response.json();
     },
+    test: async (id: string): Promise<{success: boolean; ttft_ms: number; duration_ms: number; response: string; error?: string}> => {
+      const response = await fetch(`${API_BASE}/api/models/${id}/test`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Test failed: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
   },
 
   logs: {

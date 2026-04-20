@@ -79,14 +79,23 @@ function SortHeader({ label, field, sort, onSort }: { label: string; field: Sort
   )
 }
 
-function ModelDetailModal({ model, onClose, onToggle, onDiscover }: { model: Model; onClose: () => void; onToggle: (id: string, enabled: boolean) => void; onDiscover: (providerId: string) => Promise<unknown> }) {
+function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToast }: {
+  model: Model
+  onClose: () => void
+  onToggle: (id: string, enabled: boolean) => void
+  onDiscover: (providerId: string) => Promise<unknown>
+  onTest: (id: string) => Promise<{success: boolean; ttft_ms: number; duration_ms: number; response: string; error?: string}>
+  onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+}) {
   const caps = parseCapabilities(model.capabilities)
   const params = parseParams(model.params)
   const inputMods = (() => { try { return JSON.parse(model.input_modalities) as string[] } catch { return [] } })()
   const outputMods = (() => { try { return JSON.parse(model.output_modalities) as string[] } catch { return [] } })()
   const [cooldown, setCooldown] = useState(0)
   const [discovering, setDiscovering] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval>>()
+  const [testing, setTesting] = useState(false)
+  const [testError, setTestError] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     return () => {
@@ -112,6 +121,39 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover }: { model: Mod
     } finally {
       setDiscovering(false)
     }
+  }
+
+  const handleTest = async () => {
+    if (testing) return
+    setTesting(true)
+    setTestError(false)
+    try {
+      const result = await onTest(model.id)
+      if (result.success) {
+        const content = result.response.replace(/\n/g, ' ').slice(0, 80)
+        onToast(`Success | Response: ${content} | TTFT: ${result.ttft_ms}ms | Duration: ${result.duration_ms}ms`, 'success')
+      } else {
+        setTestError(true)
+        onToast(`Test failed: ${result.error || 'Unknown error'}`, 'error')
+        setTimeout(() => setTestError(false), 3000)
+      }
+    } catch (err) {
+      setTestError(true)
+      onToast(`Test failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
+      setTimeout(() => setTestError(false), 3000)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const curlCmd = `curl -X POST ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model.model_id}","messages":[{"role":"user","content":"Hello"}]}'`
+
+  const copyCurl = () => {
+    navigator.clipboard.writeText(curlCmd).then(() => {
+      onToast('Copied curl command', 'info')
+    }).catch(() => {
+      onToast('Failed to copy', 'error')
+    })
   }
 
   return (
@@ -187,6 +229,20 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover }: { model: Mod
           </div>
         )}
 
+        <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">cURL</span>
+            <button
+              type="button"
+              onClick={copyCurl}
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer"
+            >
+              Copy
+            </button>
+          </div>
+          <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap break-all">{curlCmd}</pre>
+        </div>
+
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
           <button
             type="button"
@@ -197,20 +253,39 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover }: { model: Mod
                 : 'bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)]'
             }`}
           >
-            {model.enabled ? 'Enabled (click to disable)' : 'Disabled (click to enable)'}
+            {model.enabled ? 'Enabled' : 'Disabled'}
           </button>
-          <button
-            type="button"
-            disabled={cooldown > 0 || discovering}
-            onClick={handleDiscover}
-            className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-              cooldown > 0 || discovering
-                ? 'bg-blue-900/20 text-blue-500/50 border-blue-700/20 cursor-not-allowed'
-                : 'bg-blue-900/40 text-blue-300 border-blue-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(59,130,246,0.2)]'
-            }`}
-          >
-            {discovering ? 'Updating...' : cooldown > 0 ? `Update info (${cooldown}s)` : 'Update info'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={testing}
+              onClick={handleTest}
+              className={`px-3 py-1.5 text-xs rounded-full border transition-all flex items-center gap-1.5 ${
+                testError
+                  ? 'bg-red-900/50 text-red-300 border-red-700/50'
+                  : testing
+                    ? 'bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait'
+                    : 'bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(245,158,11,0.2)]'
+              }`}
+            >
+              {testing && (
+                <span className="inline-block w-3 h-3 border-2 border-amber-400/50 border-t-amber-300 rounded-full animate-spin" />
+              )}
+              {testing ? 'Testing...' : 'Test'}
+            </button>
+            <button
+              type="button"
+              disabled={cooldown > 0 || discovering}
+              onClick={handleDiscover}
+              className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                cooldown > 0 || discovering
+                  ? 'bg-blue-900/20 text-blue-500/50 border-blue-700/20 cursor-not-allowed'
+                  : 'bg-blue-900/40 text-blue-300 border-blue-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(59,130,246,0.2)]'
+              }`}
+            >
+              {discovering ? 'Updating...' : cooldown > 0 ? `Update (${cooldown}s)` : 'Update info'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -272,6 +347,10 @@ export function Models() {
     toast(`Discovered ${result?.discovered ?? 'new'} models`, 'success')
     return result
   }, [queryClient, toast])
+
+  const handleTest = useCallback(async (id: string) => {
+    return api.models.test(id)
+  }, [])
 
   const copyModelId = useCallback((modelId: string) => {
     navigator.clipboard.writeText(modelId).then(() => {
@@ -532,6 +611,8 @@ export function Models() {
           onClose={() => setDetailModel(null)}
           onToggle={handleToggleModel}
           onDiscover={handleDiscover}
+          onTest={handleTest}
+          onToast={toast}
         />
       )}
     </div>
