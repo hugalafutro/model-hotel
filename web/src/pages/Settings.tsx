@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useTheme } from '../context/ThemeContext'
+import { useToast } from '../context/ToastContext'
 
 const DISCOVERY_INTERVALS = [
   { value: '30m', label: '30 minutes' },
@@ -26,6 +27,7 @@ function formatRelativeTime(dateStr: string): string {
 
 export function Settings() {
   const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
   const queryClient = useQueryClient()
 
   const { data: settings, isLoading } = useQuery({
@@ -37,6 +39,10 @@ export function Settings() {
     mutationFn: (updates: Record<string, string>) => api.settings.update(updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      toast('Settings saved', 'success')
+    },
+    onError: (err: Error) => {
+      toast(`Failed to save: ${err.message}`, 'error')
     },
   })
 
@@ -159,16 +165,12 @@ export function Settings() {
         <ProviderDiscoveryList />
       </div>
 
-      {updateMutation.isPending && (
-        <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
-          Saving...
-        </div>
-      )}
-    </div>
+      </div>
   )
 }
 
 function ProviderDiscoveryList() {
+  const { toast } = useToast()
   const { data: providers, isLoading } = useQuery({
     queryKey: ['providers'],
     queryFn: () => api.providers.list(),
@@ -182,10 +184,17 @@ function ProviderDiscoveryList() {
   const queryClient = useQueryClient()
 
   const discoverMutation = useMutation({
-    mutationFn: (id: string) => api.providers.discover(id),
-    onSuccess: () => {
+    mutationFn: async (id: string) => {
+      toast('Discovering models...', 'info')
+      return api.providers.discover(id)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       queryClient.invalidateQueries({ queryKey: ['models'] })
+      toast(`Discovered ${data?.discovered ?? 'new'} models`, 'success')
+    },
+    onError: (err: Error) => {
+      toast(`Discovery failed: ${err.message}`, 'error')
     },
   })
 

@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState } from 'react'
+import { useToast } from '../context/ToastContext'
 
 export function Providers() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<{
@@ -27,10 +29,17 @@ export function Providers() {
   })
 
   const discoverMutation = useMutation({
-    mutationFn: (id: string) => api.providers.discover(id),
-    onSuccess: () => {
+    mutationFn: async (id: string) => {
+      toast('Discovering models...', 'info')
+      return api.providers.discover(id)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       queryClient.invalidateQueries({ queryKey: ['models'] })
+      toast(`Discovered ${data?.discovered ?? 'new'} models`, 'success')
+    },
+    onError: (err: Error) => {
+      toast(`Discovery failed: ${err.message}`, 'error')
     },
   })
 
@@ -41,19 +50,23 @@ export function Providers() {
       setShowModal(false)
       setFormData({ name: '', base_url: '', api_key: '' })
       setError(null)
+      toast(`Provider "${newProvider.name}" added`, 'success')
       const shouldDiscover = settings?.discovery_on_provider_create !== 'false'
       if (shouldDiscover) {
         try {
-          await api.providers.discover(newProvider.id)
+          toast('Discovering models...', 'info')
+          const result = await api.providers.discover(newProvider.id)
           queryClient.invalidateQueries({ queryKey: ['models'] })
           queryClient.invalidateQueries({ queryKey: ['providers'] })
+          toast(`Discovered ${result?.discovered ?? 'new'} models`, 'success')
         } catch {
-          // discovery failure is non-fatal
+          toast('Auto-discovery failed', 'error')
         }
       }
     },
     onError: (err: Error) => {
       setError(err.message)
+      toast(`Failed to add provider: ${err.message}`, 'error')
     },
   })
 
@@ -62,6 +75,10 @@ export function Providers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       queryClient.invalidateQueries({ queryKey: ['models'] })
+      toast('Provider deleted', 'success')
+    },
+    onError: (err: Error) => {
+      toast(`Failed to delete: ${err.message}`, 'error')
     },
   })
 

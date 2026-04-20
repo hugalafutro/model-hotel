@@ -266,7 +266,21 @@ func main() {
 	}
 
 	if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
-		go runDiscovery()
+		recentlyDiscovered := false
+		providers, err := providerRepo.List(context.Background())
+		if err == nil {
+			for _, p := range providers {
+				if p.LastDiscoveredAt != nil && time.Since(*p.LastDiscoveredAt) < 5*time.Minute {
+					recentlyDiscovered = true
+					break
+				}
+			}
+		}
+		if recentlyDiscovered {
+			log.Println("Skipping startup discovery: last discovery was within 5 minutes")
+		} else {
+			go runDiscovery()
+		}
 	}
 
 	// Periodic discovery based on settings interval
