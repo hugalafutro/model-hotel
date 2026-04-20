@@ -12,6 +12,7 @@ type VirtualKey struct {
 	ID         uuid.UUID  `json:"id"`
 	Name       string     `json:"name"`
 	KeyHash    string     `json:"-"`
+	KeyPreview string     `json:"key_preview"`
 	TokensUsed int64      `json:"tokens_used"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	CreatedAt  time.Time  `json:"created_at"`
@@ -39,14 +40,14 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-var columns = []string{"id", "name", "key_hash", "tokens_used", "last_used_at", "created_at"}
+var columns = []string{"id", "name", "key_hash", "key_preview", "tokens_used", "last_used_at", "created_at"}
 
-func (r *Repository) Create(ctx context.Context, name, keyHash string) (*VirtualKey, error) {
+func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO virtual_keys (name, key_hash) VALUES ($1, $2) RETURNING id, name, key_hash, tokens_used, last_used_at, created_at`,
-		name, keyHash,
-	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt)
+		`INSERT INTO virtual_keys (name, key_hash, key_preview) VALUES ($1, $2, $3) RETURNING id, name, key_hash, key_preview, tokens_used, last_used_at, created_at`,
+		name, keyHash, keyPreview,
+	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +56,7 @@ func (r *Repository) Create(ctx context.Context, name, keyHash string) (*Virtual
 
 func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, name, key_hash, tokens_used, last_used_at, created_at FROM virtual_keys ORDER BY created_at DESC`)
+		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at FROM virtual_keys ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 	var keys []*VirtualKey
 	for rows.Next() {
 		var vk VirtualKey
-		if err := rows.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt); err != nil {
+		if err := rows.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt); err != nil {
 			return nil, err
 		}
 		keys = append(keys, &vk)
@@ -75,8 +76,8 @@ func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, key_hash, tokens_used, last_used_at, created_at FROM virtual_keys WHERE id = $1`, id,
-	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt)
+		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at FROM virtual_keys WHERE id = $1`, id,
+	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +105,8 @@ func (r *Repository) AddTokens(ctx context.Context, keyHash string, tokens int) 
 func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, key_hash, tokens_used, last_used_at, created_at FROM virtual_keys WHERE key_hash = $1`, keyHash,
-	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt)
+		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at FROM virtual_keys WHERE key_hash = $1`, keyHash,
+	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

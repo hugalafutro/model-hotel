@@ -8,7 +8,7 @@ import (
 )
 
 func Generate() (string, error) {
-	key := make([]byte, 32)
+	key := make([]byte, 16)
 	if _, err := io.ReadFull(cryptoRand.Reader, key); err != nil {
 		return "", err
 	}

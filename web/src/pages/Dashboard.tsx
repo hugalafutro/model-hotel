@@ -144,7 +144,7 @@ export function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Usage by Model</h3>
           {stats && Object.keys(stats.by_model).length > 0 ? (
@@ -175,6 +175,25 @@ export function Dashboard() {
                   <div key={provider} className="flex justify-between items-center">
                     <span className="text-gray-300 truncate">{provider}</span>
                     <span className="font-semibold text-white">{count}</span>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No usage data available</p>
+          )}
+        </div>
+
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Usage by Virtual Key</h3>
+          {stats && Object.keys(stats.by_virtual_key).length > 0 ? (
+            <div className="space-y-3">
+              {Object.entries(stats.by_virtual_key)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 5)
+                .map(([name, tokens]) => (
+                  <div key={name} className="flex justify-between items-center">
+                    <span className="text-gray-300 truncate">{name}</span>
+                    <span className="font-semibold text-white">{tokens.toLocaleString()} tokens</span>
                   </div>
                 ))}
             </div>

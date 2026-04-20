@@ -83,6 +83,7 @@ export interface Stats {
   total_requests_last_7d: number;
   by_model: Record<string, number>;
   by_provider: Record<string, number>;
+  by_virtual_key: Record<string, number>;
   avg_latency_ms: number;
   error_rate: number;
   total_tokens_prompt: number;

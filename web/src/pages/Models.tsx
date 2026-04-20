@@ -582,10 +582,10 @@ export function Models() {
               sortedAndFiltered.map((model) => {
                 const caps = parseCapabilities(model.capabilities)
                 return (
-                  <tr key={model.id} className="hover:bg-gray-750">
+                  <tr key={model.id} className="hover:bg-gray-700/20 transition-colors">
                     <td className="px-4 py-1.5">
                       <div className="flex flex-col">
-                        <button type="button" onClick={() => setDetailModel(model)} className="text-left hover:underline text-sm font-medium text-blue-400">
+                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-blue-400 hover:text-blue-300 cursor-pointer transition-colors">
                           {model.name || model.model_id}
                         </button>
                         <button

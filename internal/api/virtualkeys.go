@@ -30,20 +30,11 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 		lastUsed = &s
 	}
 
-	preview := ""
-	if rawKey != "" {
-		if len(rawKey) > 8 {
-			preview = rawKey[:4] + "..." + rawKey[len(rawKey)-4:]
-		} else {
-			preview = rawKey[:2] + "..."
-		}
-	}
-
 	return virtualkey.VirtualKeyResponse{
 		ID:         vk.ID.String(),
 		Name:       vk.Name,
 		Key:        cond(rawKey, includeKey),
-		KeyPreview: cond(preview, rawKey != ""),
+		KeyPreview: vk.KeyPreview,
 		TokensUsed: vk.TokensUsed,
 		LastUsedAt: lastUsed,
 		CreatedAt:  vk.CreatedAt.Format(time.RFC3339),
@@ -76,8 +67,9 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyHash := virtualkey.Hash(rawKey)
+	keyPreview := rawKey[:5] + "..." + rawKey[len(rawKey)-2:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview)
 	if err != nil {
 		http.Error(w, "failed to create virtual key", http.StatusInternalServerError)
 		return

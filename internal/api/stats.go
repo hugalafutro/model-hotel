@@ -31,6 +31,7 @@ type StatsResponse struct {
 	TotalRequestsLast7d  int                    `json:"total_requests_last_7d"`
 	ByModel              map[string]int         `json:"by_model"`
 	ByProvider           map[string]int         `json:"by_provider"`
+	ByVirtualKey         map[string]int64       `json:"by_virtual_key"`
 	AvgLatencyMs         int                    `json:"avg_latency_ms"`
 	ErrorRate            float64                `json:"error_rate"`
 	TotalTokensPrompt    int                    `json:"total_tokens_prompt"`
@@ -56,8 +57,9 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, error) {
 	stats := &StatsResponse{
-		ByModel:    make(map[string]int),
-		ByProvider: make(map[string]int),
+		ByModel:       make(map[string]int),
+		ByProvider:    make(map[string]int),
+		ByVirtualKey:  make(map[string]int64),
 	}
 
 	now := time.Now()
@@ -136,6 +138,29 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 			continue
 		}
 		stats.ByProvider[providerName] = count
+	}
+
+	query = `
+		SELECT vk.name, vk.tokens_used
+		FROM virtual_keys vk
+		WHERE vk.tokens_used > 0
+		ORDER BY vk.tokens_used DESC
+		LIMIT 10
+	`
+
+	rows, err = h.dbPool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var tokens int64
+		if err := rows.Scan(&name, &tokens); err != nil {
+			continue
+		}
+		stats.ByVirtualKey[name] = tokens
 	}
 
 	query = `
