@@ -101,10 +101,14 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	query := `
-		SELECT id, provider_id, model_id, request_id, request_hash, status_code,
-		       latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second,
-		       tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt,
-		       error_message, created_at
+		SELECT id, provider_id, model_id, request_id,
+		       COALESCE(request_hash, ''), status_code,
+		       COALESCE(latency_ms, 0), COALESCE(duration_ms, 0),
+		       COALESCE(ttft_ms, 0), COALESCE(proxy_overhead_ms, 0),
+		       tokens_per_second,
+		       COALESCE(tokens_prompt, 0), COALESCE(tokens_completion, 0),
+		       COALESCE(streaming, false), COALESCE(virtual_key_name, ''),
+		       COALESCE(prompt, ''), COALESCE(error_message, ''), created_at
 		FROM request_logs
 		WHERE 1=1
 	`
