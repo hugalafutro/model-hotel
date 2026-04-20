@@ -2,10 +2,13 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"context"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +20,10 @@ import (
 	"github.com/user/llm-proxy/internal/util"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
+
+type contextKey string
+
+const virtualKeyNameKey contextKey = "virtual_key_name"
 
 type Handler struct {
 	cfg            *config.Config
@@ -93,12 +100,13 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 
 		if len(token) >= 3 && token[:3] == "sk-" {
 			keyHash := virtualkey.Hash(token)
-			_, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
+			vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
 			if err != nil {
 				http.Error(w, "Invalid virtual key", http.StatusUnauthorized)
 				return
 			}
-			next.ServeHTTP(w, r)
+			ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
@@ -236,16 +244,33 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		var chatResp ChatCompletionResponse
 		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
-			requestID := generateRequestID()
-			w.Header().Set("X-Request-ID", requestID)
+			reqHash := generateRequestHash()
+			w.Header().Set("X-Request-ID", reqHash)
+
+			totalDuration := time.Since(startTime).Milliseconds()
+			var tps float64
+			if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
+				tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
+			}
+			overhead := totalDuration - latency
+			if overhead < 0 {
+				overhead = 0
+			}
+
+			vkName := ""
+			if v := r.Context().Value(virtualKeyNameKey); v != nil {
+				vkName = v.(string)
+			}
+
+			prompt := extractPrompt(req.Messages)
 
 			query := `
-				INSERT INTO request_logs (provider_id, model_id, request_id, status_code, latency_ms, tokens_prompt, tokens_completion, streaming)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 			`
 			h.dbPool.Exec(r.Context(), query,
-				prov.ID, req.Model, requestID, resp.StatusCode, latency,
-				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream,
+				prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, overhead, tps,
+				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream, vkName, prompt,
 			)
 
 			authToken := r.Header.Get("Authorization")
@@ -263,6 +288,27 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func generateRequestID() string {
-	return fmt.Sprintf("req_%d", time.Now().UnixNano())
+func generateRequestHash() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func extractPrompt(messages []Message) string {
+	if len(messages) == 0 {
+		return ""
+	}
+	last := messages[len(messages)-1]
+	var content string
+	switch v := last.Content.(type) {
+	case string:
+		content = v
+	default:
+		b, _ := json.Marshal(v)
+		content = string(b)
+	}
+	if len(content) > 500 {
+		content = content[:497] + "..."
+	}
+	return content
 }

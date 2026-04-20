@@ -304,6 +304,35 @@ func main() {
 		}
 	}()
 
+	// Log retention cleanup
+	go func() {
+		for {
+			time.Sleep(1 * time.Hour)
+			retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
+			if retention == "" {
+				continue
+			}
+			var cutoff time.Time
+			switch retention {
+			case "1h":
+				cutoff = time.Now().Add(-1 * time.Hour)
+			case "1d":
+				cutoff = time.Now().Add(-24 * time.Hour)
+			case "1w":
+				cutoff = time.Now().Add(-7 * 24 * time.Hour)
+			case "1m":
+				cutoff = time.Now().Add(-30 * 24 * time.Hour)
+			default:
+				continue
+			}
+			tag, err := database.Pool().Exec(context.Background(),
+				`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
+			if err == nil {
+				log.Printf("Log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
+			}
+		}
+	}()
+
 	server := &http.Server{
 		Addr:    cfg.Port,
 		Handler: r,

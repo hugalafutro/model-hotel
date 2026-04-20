@@ -11,17 +11,24 @@ import (
 )
 
 type LogEntry struct {
-	ID                string    `json:"id"`
-	ProviderID        string    `json:"provider_id"`
-	ModelID           string    `json:"model_id"`
-	RequestID         string    `json:"request_id"`
-	StatusCode        int       `json:"status_code"`
-	LatencyMs         int       `json:"latency_ms"`
-	TokensPrompt      int       `json:"tokens_prompt"`
-	TokensCompletion  int       `json:"tokens_completion"`
-	Streaming         bool      `json:"streaming"`
-	ErrorMessage      string    `json:"error_message"`
-	CreatedAt         time.Time `json:"created_at"`
+	ID               string    `json:"id"`
+	ProviderID       string    `json:"provider_id"`
+	ModelID          string    `json:"model_id"`
+	RequestID        string    `json:"request_id"`
+	RequestHash      string    `json:"request_hash"`
+	StatusCode       int       `json:"status_code"`
+	LatencyMs        int       `json:"latency_ms"`
+	DurationMs       int       `json:"duration_ms"`
+	TTFTMs           int       `json:"ttft_ms"`
+	ProxyOverheadMs  int       `json:"proxy_overhead_ms"`
+	TokensPerSecond  *float64  `json:"tokens_per_second"`
+	TokensPrompt     int       `json:"tokens_prompt"`
+	TokensCompletion int       `json:"tokens_completion"`
+	Streaming        bool      `json:"streaming"`
+	VirtualKeyName   string    `json:"virtual_key_name"`
+	Prompt           string    `json:"prompt"`
+	ErrorMessage     string    `json:"error_message"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 type LogsResponse struct {
@@ -34,7 +41,52 @@ type LogsResponse struct {
 func (h *Handler) RegisterLogs(r chi.Router) {
 	r.Route("/logs", func(r chi.Router) {
 		r.Get("/", h.ListLogs)
+		r.Delete("/purge", h.PurgeLogs)
 	})
+}
+
+type PurgeLogsRequest struct {
+	OlderThan string `json:"older_than"`
+}
+
+func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
+	var req PurgeLogsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var cutoff time.Time
+	switch req.OlderThan {
+	case "1h":
+		cutoff = time.Now().Add(-1 * time.Hour)
+	case "1d":
+		cutoff = time.Now().Add(-24 * time.Hour)
+	case "1w":
+		cutoff = time.Now().Add(-7 * 24 * time.Hour)
+	case "1m":
+		cutoff = time.Now().Add(-30 * 24 * time.Hour)
+	case "all":
+		_, err := h.dbPool.Pool().Exec(r.Context(), `DELETE FROM request_logs`)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	default:
+		http.Error(w, "invalid older_than value, use: 1h, 1d, 1w, 1m, all", http.StatusBadRequest)
+		return
+	}
+
+	_, err := h.dbPool.Pool().Exec(r.Context(),
+		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
@@ -49,8 +101,10 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	query := `
-		SELECT id, provider_id, model_id, request_id, status_code, latency_ms,
-		       tokens_prompt, tokens_completion, streaming, error_message, created_at
+		SELECT id, provider_id, model_id, request_id, request_hash, status_code,
+		       latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second,
+		       tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt,
+		       error_message, created_at
 		FROM request_logs
 		WHERE 1=1
 	`
@@ -120,8 +174,10 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		var entry LogEntry
 		err := rows.Scan(
 			&entry.ID, &entry.ProviderID, &entry.ModelID, &entry.RequestID,
-			&entry.StatusCode, &entry.LatencyMs, &entry.TokensPrompt,
-			&entry.TokensCompletion, &entry.Streaming, &entry.ErrorMessage,
+			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
+			&entry.TTFTMs, &entry.ProxyOverheadMs, &entry.TokensPerSecond,
+			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
+			&entry.VirtualKeyName, &entry.Prompt, &entry.ErrorMessage,
 			&entry.CreatedAt,
 		)
 		if err != nil {

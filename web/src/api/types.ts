@@ -62,11 +62,18 @@ export interface LogEntry {
   provider_id: string;
   model_id: string;
   request_id: string;
+  request_hash: string;
   status_code: number;
   latency_ms: number;
+  duration_ms: number;
+  ttft_ms: number;
+  proxy_overhead_ms: number;
+  tokens_per_second: number | null;
   tokens_prompt: number;
   tokens_completion: number;
   streaming: boolean;
+  virtual_key_name: string;
+  prompt: string;
   error_message: string;
   created_at: string;
 }

@@ -170,6 +170,17 @@ export const api = {
       }
       return response.json();
     },
+    purge: async (olderThan: string): Promise<void> => {
+      const response = await fetch(`${API_BASE}/api/logs/purge`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ older_than: olderThan }),
+      });
+      if (!response.ok && response.status !== 204) {
+        const text = await response.text();
+        throw new Error(`Failed to purge logs: ${response.status} ${text}`);
+      }
+    },
   },
 
   stats: {

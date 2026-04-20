@@ -2,6 +2,8 @@ package api
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -191,10 +193,12 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	testPrompt := "Respond only with `Hi`"
+
 	body := map[string]interface{}{
 		"model": m.ModelID,
 		"messages": []map[string]string{
-			{"role": "user", "content": "Respond only with `Hi`"},
+			{"role": "user", "content": testPrompt},
 		},
 		"max_tokens": 10,
 	}
@@ -213,9 +217,9 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-	duration := time.Since(start).Milliseconds()
 
 	respBody, _ := io.ReadAll(resp.Body)
+	duration := time.Since(start).Milliseconds()
 
 	if resp.StatusCode != http.StatusOK {
 		errMsg := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody))
@@ -233,6 +237,10 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+		} `json:"usage"`
 	}
 	json.Unmarshal(respBody, &chatResp)
 
@@ -240,6 +248,24 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	if len(chatResp.Choices) > 0 {
 		content = chatResp.Choices[0].Message.Content
 	}
+
+	reqHashBytes := make([]byte, 8)
+	rand.Read(reqHashBytes)
+	reqHash := hex.EncodeToString(reqHashBytes)
+
+	var tps float64
+	if chatResp.Usage.CompletionTokens > 0 && duration > 0 {
+		tps = float64(chatResp.Usage.CompletionTokens) / float64(duration) * 1000
+	}
+
+	logQuery := `
+		INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+	`
+	h.dbPool.Pool().Exec(r.Context(), logQuery,
+		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode, duration, duration, duration, tps,
+		chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", testPrompt,
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(TestModelResponse{
