@@ -115,16 +115,9 @@ export function Providers() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {providers?.map((provider) => (
           <div key={provider.id} className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
-                <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
-              </div>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                provider.enabled ? 'bg-green-900/50 text-green-400 border border-green-700' : 'bg-red-900/50 text-red-400 border border-red-700'
-              }`}>
-                {provider.enabled ? 'Active' : 'Inactive'}
-              </span>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
+              <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
             </div>
 
             <div className="space-y-2 text-sm">
@@ -140,19 +133,23 @@ export function Providers() {
               )}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end space-x-2">
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => discoverMutation.mutate(provider.id)}
                 disabled={discoverMutation.isPending}
-                className="px-3 py-1.5 text-sm text-indigo-400 hover:bg-indigo-900/30 rounded transition-colors disabled:opacity-50"
+                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                  discoverMutation.isPending
+                    ? 'bg-indigo-900/20 text-indigo-500/50 border-indigo-700/20 cursor-not-allowed'
+                    : 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
+                }`}
               >
                 {discoverMutation.isPending ? 'Discovering...' : 'Discover Models'}
               </button>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(provider.id)}
-                className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] cursor-pointer transition-all"
               >
                 Delete
               </button>

@@ -138,7 +138,14 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md relative">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer text-lg leading-none"
+        >
+          ✕
+        </button>
         <h2 className="text-xl font-bold text-white mb-4">Virtual Key Details</h2>
 
         <div className="space-y-3 mb-6">
@@ -164,7 +171,7 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
           </div>
         </div>
 
-        <div className="pt-4 border-t border-gray-700 flex justify-between items-center">
+        <div className="flex justify-start items-center">
           {!confirmDelete ? (
             <button
               type="button"
@@ -193,13 +200,6 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
               </button>
             </div>
           )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors cursor-pointer"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>
@@ -297,14 +297,8 @@ export function VirtualKeys() {
                       {vk.name}
                     </button>
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => { navigator.clipboard.writeText(vk.key_preview); toast('Key preview copied (full key not available after creation)', 'info') }}
-                      className="text-gray-400 font-mono text-xs hover:text-gray-200 transition-colors cursor-pointer"
-                    >
-                      {vk.key_preview}
-                    </button>
+                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">
+                    {vk.key_preview}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-400">{new Date(vk.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3 text-sm text-gray-400 font-mono">{formatNumber(vk.tokens_used)}</td>
