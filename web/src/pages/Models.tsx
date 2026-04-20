@@ -577,12 +577,12 @@ export function Models() {
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700/50">
+          <tbody>
             {sortedAndFiltered.length > 0 ? (
-              sortedAndFiltered.map((model) => {
+              sortedAndFiltered.map((model, idx) => {
                 const caps = parseCapabilities(model.capabilities)
                 return (
-                  <tr key={model.id} className="hover:bg-gray-700/20 transition-colors">
+                  <tr key={model.id} className={`${idx % 2 === 1 ? 'bg-gray-800/40' : ''} hover:bg-gray-700/30 transition-colors`}>
                     <td className="px-4 py-1.5">
                       <div className="flex flex-col">
                         <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-blue-400 hover:text-blue-300 cursor-pointer transition-colors">

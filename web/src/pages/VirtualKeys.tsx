@@ -255,9 +255,9 @@ export function VirtualKeys() {
                 <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Last Used</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700/30">
-              {keys.map((vk) => (
-                <tr key={vk.id} className="hover:bg-gray-700/20 transition-colors">
+            <tbody>
+              {keys.map((vk, idx) => (
+                <tr key={vk.id} className={`${idx % 2 === 1 ? 'bg-gray-800/40' : ''} hover:bg-gray-700/30 transition-colors`}>
                   <td className="px-4 py-3">
                     <button
                       type="button"

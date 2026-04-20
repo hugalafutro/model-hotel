@@ -1,0 +1,1 @@
+ALTER TABLE virtual_keys ADD COLUMN IF NOT EXISTS key_preview TEXT NOT NULL DEFAULT '';
