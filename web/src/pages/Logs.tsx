@@ -217,7 +217,6 @@ export function Logs() {
               <StaticHeaderNoArrow>T/s</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Overhead</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Key</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Prompt</StaticHeaderNoArrow>
             </tr>
           </thead>
           <tbody>
@@ -255,13 +254,10 @@ export function Logs() {
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
                     {log.virtual_key_name || '-'}
                   </td>
-                  <td className="px-3 py-2 text-xs text-gray-500 truncate max-w-[120px]" title={log.prompt}>
-                    {log.prompt || '-'}
-                  </td>
                 </Row>
               ))
             ) : (
-              <EmptyRow colSpan={10} message="No logs found" />
+              <EmptyRow colSpan={9} message="No logs found" />
             )}
           </tbody>
         </table>

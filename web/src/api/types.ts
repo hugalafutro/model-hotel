@@ -73,7 +73,6 @@ export interface LogEntry {
   tokens_completion: number;
   streaming: boolean;
   virtual_key_name: string;
-  prompt: string;
   error_message: string;
   created_at: string;
 }

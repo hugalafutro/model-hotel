@@ -26,7 +26,6 @@ type LogEntry struct {
 	TokensCompletion int       `json:"tokens_completion"`
 	Streaming        bool      `json:"streaming"`
 	VirtualKeyName   string    `json:"virtual_key_name"`
-	Prompt           string    `json:"prompt"`
 	ErrorMessage     string    `json:"error_message"`
 	CreatedAt        time.Time `json:"created_at"`
 }
@@ -108,7 +107,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		       tokens_per_second,
 		       COALESCE(tokens_prompt, 0), COALESCE(tokens_completion, 0),
 		       COALESCE(streaming, false), COALESCE(virtual_key_name, ''),
-		       COALESCE(prompt, ''), COALESCE(error_message, ''), created_at
+		       COALESCE(error_message, ''), created_at
 		FROM request_logs
 		WHERE 1=1
 	`
@@ -181,7 +180,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 			&entry.TTFTMs, &entry.ProxyOverheadMs, &entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
-			&entry.VirtualKeyName, &entry.Prompt, &entry.ErrorMessage,
+			&entry.VirtualKeyName, &entry.ErrorMessage,
 			&entry.CreatedAt,
 		)
 		if err != nil {

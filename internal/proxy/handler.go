@@ -230,6 +230,23 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+
+		reqHash := generateRequestHash()
+		totalDuration := time.Since(startTime).Milliseconds()
+		vkName := ""
+		if v := r.Context().Value(virtualKeyNameKey); v != nil {
+			vkName = v.(string)
+		}
+		errMsg := string(body)
+		if len(errMsg) > 500 {
+			errMsg = errMsg[:500]
+		}
+		h.dbPool.Exec(r.Context(), `
+			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, error_message, streaming, virtual_key_name)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, errMsg, req.Stream, vkName,
+		)
+
 		http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
 		return
 	}
@@ -262,15 +279,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				vkName = v.(string)
 			}
 
-			prompt := extractPrompt(req.Messages)
-
 			query := `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, prompt)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 			`
 			_, logErr := h.dbPool.Exec(r.Context(), query,
 				prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, overhead, tps,
-				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream, vkName, prompt,
+				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream, vkName,
 			)
 			if logErr != nil {
 				fmt.Printf("Proxy log insert failed: %v\n", logErr)
@@ -295,23 +310,4 @@ func generateRequestHash() string {
 	b := make([]byte, 8)
 	rand.Read(b)
 	return hex.EncodeToString(b)
-}
-
-func extractPrompt(messages []Message) string {
-	if len(messages) == 0 {
-		return ""
-	}
-	last := messages[len(messages)-1]
-	var content string
-	switch v := last.Content.(type) {
-	case string:
-		content = v
-	default:
-		b, _ := json.Marshal(v)
-		content = string(b)
-	}
-	if len(content) > 500 {
-		content = content[:497] + "..."
-	}
-	return content
 }
