@@ -1,6 +1,6 @@
 # LLM-Proxy
 
-A production-ready multi-provider LLM proxy that aggregates multiple OpenAI-compatible LLM providers behind a single endpoint.
+A multi-provider LLM proxy that aggregates multiple OpenAI-compatible LLM providers behind a single endpoint.
 
 ## Features
 
