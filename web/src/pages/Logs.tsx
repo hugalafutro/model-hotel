@@ -145,17 +145,17 @@ export function Logs() {
         <table className="w-full table-fixed">
           <thead>
             <tr className="bg-gray-800/80">
-              <StaticHeaderNoArrow>Time</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Hash</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Model</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Provider</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Status</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Tokens</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>T/s</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>TTFT</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Duration</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Overhead</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Key</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Timestamp of the request">Time</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Unique hash of the request body">Hash</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Model ID used for the request">Model</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Provider handling the request">Provider</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="HTTP status code of the response">Status</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Prompt + completion tokens (if available)">Tokens</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Tokens generated per second">T/s</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Time to first token">TTFT</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Total request duration">Duration</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Proxy overhead (parsing, lookups, etc)">Overhead</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow tooltip="Virtual key used for authentication">Key</StaticHeaderNoArrow>
             </tr>
           </thead>
           <tbody>

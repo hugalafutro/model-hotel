@@ -9,35 +9,38 @@ export interface SortState<F> {
 
 const HEADER_BASE = 'px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap'
 
-export function SortableHeader<F extends string>({ label, field, sort, onSort }: {
+export function SortableHeader<F extends string>({ label, field, sort, onSort, tooltip }: {
   label: string
   field: F
   sort: SortState<F>
   onSort: (f: F) => void
+  tooltip?: string
 }) {
   const active = sort.field === field
   return (
     <th
-      className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
-      onClick={() => onSort(field)}
+      className={`${HEADER_BASE} select-none hover:text-gray-200`}
+      title={tooltip}
     >
-      {label} <span className="inline-block w-3 text-center">{active ? (sort.dir === 'asc' ? '↑' : '↓') : ' '}</span>
+      <span className="cursor-pointer" onClick={() => onSort(field)}>
+        {label} <span className="inline-block w-3 text-center">{active ? (sort.dir === 'asc' ? '↑' : '↓') : ' '}</span>
+      </span>
     </th>
   )
 }
 
-export function StaticHeader({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function StaticHeader({ children, className = '', tooltip }: { children: ReactNode; className?: string; tooltip?: string }) {
   return (
-    <th className={`${HEADER_BASE} ${className}`}>
+    <th className={`${HEADER_BASE} ${className}`} title={tooltip}>
       {children}
       <span className="inline-block w-3" />
     </th>
   )
 }
 
-export function StaticHeaderNoArrow({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function StaticHeaderNoArrow({ children, className = '', tooltip }: { children: ReactNode; className?: string; tooltip?: string }) {
   return (
-    <th className={`${HEADER_BASE} ${className}`}>
+    <th className={`${HEADER_BASE} ${className}`} title={tooltip}>
       {children}
     </th>
   )

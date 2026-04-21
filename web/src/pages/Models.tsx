@@ -526,10 +526,24 @@ export function Models() {
           </colgroup>
           <thead>
             <tr className="bg-gray-800/80">
-              <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} />
+              <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} tooltip="Model name and ID" />
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                <span className="inline-flex items-center gap-1.5 flex-wrap">
-                  Capabilities
+                Capabilities
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                Provider
+              </th>
+              <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} tooltip="When the model was last seen/discovered" />
+              <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} tooltip="Maximum context length in tokens" />
+              <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} tooltip="Maximum output tokens" />
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                Status
+              </th>
+            </tr>
+            <tr className="bg-gray-800/40">
+              <th className="px-4 py-1.5"></th>
+              <th className="px-4 py-1.5">
+                <span className="inline-flex items-center gap-1 flex-wrap">
                   {CAP_META.filter(m => existingCaps.has(m.key)).map(m => {
                     const isActive = capFilter.has(m.key)
                     const isAvailable = pillAvailability.get(m.key) ?? false
@@ -557,17 +571,21 @@ export function Models() {
                   )}
                 </span>
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                <span className="inline-flex items-center gap-1.5 flex-wrap">
-                  Provider
+              <th className="px-4 py-1.5">
+                <span className="inline-flex items-center gap-1 flex-wrap">
                   {providers?.map(provider => {
                     const isNanoGPT = provider.base_url.includes('nano-gpt.com')
+                    const isDeepSeek = provider.base_url.includes('deepseek.com')
                     const isSelected = selectedProvider === provider.id
                     const baseStyle = isNanoGPT
                       ? 'bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30'
+                      : isDeepSeek
+                      ? 'bg-[#36aaff]/20 text-[#36aaff] border-[#36aaff]/50 hover:bg-[#36aaff]/30'
                       : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                     const activeStyle = isNanoGPT
                       ? 'bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]'
+                      : isDeepSeek
+                      ? 'bg-[#36aaff] text-white border-[#36aaff] shadow-[0_0_6px_1px_rgba(54,170,255,0.35)]'
                       : 'bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]'
                     return (
                       <button
@@ -591,12 +609,11 @@ export function Models() {
                   )}
                 </span>
               </th>
-              <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} />
-              <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} />
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                <span className="inline-flex items-center gap-1.5">
-                  Status
+              <th className="px-4 py-1.5"></th>
+              <th className="px-4 py-1.5"></th>
+              <th className="px-4 py-1.5"></th>
+              <th className="px-4 py-1.5">
+                <span className="inline-flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => { setStatusFilter('enabled'); setCurrentPage(1) }}

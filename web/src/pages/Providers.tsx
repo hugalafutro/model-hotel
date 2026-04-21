@@ -33,10 +33,19 @@ function formatTimeUntil(ts: number): string {
   return `in ${hours} ${hourLabel}`
 }
 
-function NanoGPTQuotaModal({ usage, onClose, onRefresh, isRefreshing }: { usage: NanoGPTUsage; onClose: () => void; onRefresh: () => void; isRefreshing: boolean }) {
+function NanoGPTQuotaModal({ usage, onClose, onRefresh, isRefreshing, onToast }: { usage: NanoGPTUsage; onClose: () => void; onRefresh: () => Promise<unknown>; isRefreshing: boolean; onToast: (msg: string, type: 'success' | 'error' | 'info') => void }) {
   const weeklyLimit = usage.limits.weeklyInputTokens ?? 0
   const weeklyUsed = usage.weeklyInputTokens?.used ?? 0
   const weeklyPercent = weeklyLimit > 0 ? (weeklyUsed / weeklyLimit) * 100 : 0
+
+  const handleRefresh = async () => {
+    try {
+      await onRefresh()
+      onToast('Quota refreshed', 'success')
+    } catch {
+      onToast('Failed to refresh quota', 'error')
+    }
+  }
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
@@ -62,10 +71,11 @@ function NanoGPTQuotaModal({ usage, onClose, onRefresh, isRefreshing }: { usage:
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onRefresh}
+              onClick={handleRefresh}
               disabled={isRefreshing}
               className="text-gray-400 hover:text-white text-lg leading-none p-1 rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
               aria-label="Refresh"
+              title="Refresh quota info"
             >
               <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -202,7 +212,7 @@ export function Providers() {
     refetchInterval: 60 * 60 * 1000,
   })
 
-  const { data: deepseekBalanceData } = useQuery({
+  const { data: deepseekBalanceData, refetch: refetchDeepseekBalance } = useQuery({
     queryKey: ['deepseek-balance', deepseekProviderId],
     queryFn: () => api.providers.getBalance(deepseekProviderId!),
     enabled: Boolean(deepseekProviderId),
@@ -354,9 +364,20 @@ export function Providers() {
               {provider.base_url.includes('deepseek.com') && deepseekBalanceData && (
                 <button
                   type="button"
-                  onClick={() => setDeepseekCurrency(c => c === 'USD' ? 'CNY' : 'USD')}
-                  className="px-2 py-1.5 rounded-full bg-green-900/20 text-green-400 border border-green-700/50 text-xs font-medium cursor-pointer hover:bg-green-900/30 transition-colors"
-                  title="Click to toggle USD/CNY"
+                  onClick={async () => {
+                    if (deepseekCurrency === 'CNY') {
+                      setDeepseekCurrency('USD')
+                    } else {
+                      try {
+                        await refetchDeepseekBalance()
+                        toast('Balance refreshed', 'success')
+                      } catch {
+                        toast('Failed to refresh balance', 'error')
+                      }
+                    }
+                  }}
+                  className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
+                  title="Click to toggle USD/CNY, or refresh balance"
                 >
                   {deepseekBalanceData.balance_infos.find(b => b.currency === deepseekCurrency)?.total_balance ?? '-'} {deepseekCurrency}
                 </button>
@@ -503,6 +524,7 @@ export function Providers() {
           onClose={() => setQuotaUsage(null)}
           onRefresh={refetch}
           isRefreshing={isRefetching}
+          onToast={toast}
         />
       )}
     </div>

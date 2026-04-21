@@ -279,11 +279,11 @@ export function VirtualKeys() {
             </colgroup>
             <thead>
               <tr className="bg-gray-800/80">
-                <SortableHeader label="Name" field="name" sort={sort} onSort={handleSort} />
-                <StaticHeader>Key</StaticHeader>
-                <SortableHeader label="Created" field="created" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Tokens" field="tokens" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Last Used" field="last_used" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Name" field="name" sort={sort} onSort={handleSort} tooltip="Display name for the virtual key" />
+                <StaticHeader tooltip="Preview of the API key (full key only shown once on creation)">Key</StaticHeader>
+                <SortableHeader label="Created" field="created" sort={sort} onSort={handleSort} tooltip="When the key was created" />
+                <SortableHeader label="Tokens" field="tokens" sort={sort} onSort={handleSort} tooltip="Total tokens consumed using this key" />
+                <SortableHeader label="Last Used" field="last_used" sort={sort} onSort={handleSort} tooltip="When the key was last used for a request" />
               </tr>
             </thead>
             <tbody>
