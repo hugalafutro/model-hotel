@@ -411,22 +411,32 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if resp.StatusCode != http.StatusOK {
+        // Compute VK id from VK name if available
+        vkID := ""
+        if vkName != "" {
+            // best-effort lookup of VK id by name
+            var id string
+            errVK := h.dbPool.Pool().QueryRow(r.Context(), `SELECT id FROM virtual_keys WHERE name = $1 ORDER BY created_at DESC LIMIT 1`, vkName).Scan(&id)
+            if errVK == nil {
+                vkID = id
+            }
+        }
+        if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			errMsg := string(body)
 			if len(errMsg) > 500 {
 				errMsg = errMsg[:500]
 			}
-			h.dbPool.Exec(r.Context(), `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, error_message, streaming, virtual_key_name, failover_attempt)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-				float64(time.Since(startTime).Microseconds())/1000.0,
-				proxyOverhead,
-				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-				errMsg, req.Stream, vkName, attempt,
-			)
+            h.dbPool.Exec(r.Context(), `
+                INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+                candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+                float64(time.Since(startTime).Microseconds())/1000.0,
+                proxyOverhead,
+                parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+                errMsg, req.Stream, vkName, vkID, attempt,
+            )
 			http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
 			return
 		}
