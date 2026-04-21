@@ -17,6 +17,9 @@ web/node_modules/
 web/dist/
 web/.vite/
 
+# Generated frontend assets (built by Docker or manually with cd web && npm run build)
+cmd/server/static/assets/
+
 # Data
 data/
 .data/
