@@ -10,27 +10,28 @@ import (
 )
 
 type Model struct {
-	ID                    uuid.UUID `json:"id"`
-	ProviderID            uuid.UUID `json:"provider_id"`
-	ModelID               string    `json:"model_id"`
-	Name                  string    `json:"name"`
-	Description           string    `json:"description"`
-	DisplayName           string    `json:"display_name"`
-	Capabilities          string    `json:"capabilities"`
-	Params                string    `json:"params"`
-	Modality              string    `json:"modality"`
-	InputModalities       string    `json:"input_modalities"`
-	OutputModalities      string    `json:"output_modalities"`
-	ContextLength         *int      `json:"context_length"`
-	MaxOutputTokens       *int      `json:"max_output_tokens"`
-	InputPricePerMillion  *float64  `json:"input_price_per_million"`
-	OutputPricePerMillion *float64  `json:"output_price_per_million"`
-	OwnedBy               string    `json:"owned_by"`
-	Enabled               bool      `json:"enabled"`
-	CreatedAt             time.Time `json:"created_at"`
-	LastSeenAt            time.Time `json:"last_seen_at"`
-	ProviderName          string    `json:"provider_name"`
-	ProviderEnabled       bool      `json:"provider_enabled"`
+	ID                           uuid.UUID `json:"id"`
+	ProviderID                   uuid.UUID `json:"provider_id"`
+	ModelID                      string    `json:"model_id"`
+	Name                         string    `json:"name"`
+	Description                  string    `json:"description"`
+	DisplayName                  string    `json:"display_name"`
+	Capabilities                 string    `json:"capabilities"`
+	Params                       string    `json:"params"`
+	Modality                     string    `json:"modality"`
+	InputModalities              string    `json:"input_modalities"`
+	OutputModalities             string    `json:"output_modalities"`
+	ContextLength                *int      `json:"context_length"`
+	MaxOutputTokens              *int      `json:"max_output_tokens"`
+	InputPricePerMillion         *float64  `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit *float64  `json:"input_price_per_million_cache_hit"`
+	OutputPricePerMillion       *float64  `json:"output_price_per_million"`
+	OwnedBy                      string    `json:"owned_by"`
+	Enabled                      bool      `json:"enabled"`
+	CreatedAt                    time.Time `json:"created_at"`
+	LastSeenAt                   time.Time `json:"last_seen_at"`
+	ProviderName                 string    `json:"provider_name"`
+	ProviderEnabled              bool      `json:"provider_enabled"`
 }
 
 type Capability struct {
@@ -53,14 +54,14 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, output_price_per_million, COALESCE(owned_by, ''), enabled, created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, created_at, COALESCE(last_seen_at, created_at)`
 
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	query := `
-		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, output_price_per_million, owned_by, enabled, last_seen_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now())
+		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, owned_by, enabled, last_seen_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now())
 		ON CONFLICT (provider_id, model_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
@@ -74,6 +75,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			context_length = EXCLUDED.context_length,
 			max_output_tokens = EXCLUDED.max_output_tokens,
 			input_price_per_million = EXCLUDED.input_price_per_million,
+			input_price_per_million_cache_hit = EXCLUDED.input_price_per_million_cache_hit,
 			output_price_per_million = EXCLUDED.output_price_per_million,
 			owned_by = EXCLUDED.owned_by,
 			enabled = EXCLUDED.enabled,
@@ -83,11 +85,11 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	err := r.pool.QueryRow(ctx, query,
 		m.ID, m.ProviderID, m.ModelID, m.Name, m.Description, m.DisplayName, m.Capabilities, m.Params,
 		m.Modality, m.InputModalities, m.OutputModalities,
-		m.ContextLength, m.MaxOutputTokens, m.InputPricePerMillion, m.OutputPricePerMillion, m.OwnedBy, m.Enabled,
+		m.ContextLength, m.MaxOutputTokens, m.InputPricePerMillion, m.InputPricePerMillionCacheHit, m.OutputPricePerMillion, m.OwnedBy, m.Enabled,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
 		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt,
 	)
 
@@ -101,7 +103,7 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 		if err := rows.Scan(
 			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
+			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
 			&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 		); err != nil {
 			return nil, err
@@ -156,7 +158,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
 		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 

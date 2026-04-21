@@ -33,27 +33,29 @@ const virtualKeyIDKey contextKey = "virtual_key_id"
 const virtualKeyHashKey contextKey = "virtual_key_hash"
 
 type requestLogData struct {
-	id                 string
-	providerID         uuid.UUID
-	modelID            string
-	requestHash        string
-	providerName       string
-	statusCode         int
-	durationMs         float64
-	proxyOverheadMs    float64
-	parseMs            float64
-	modelLookupMs      float64
-	providerLookupMs   float64
-	keyDecryptMs       float64
-	ttftMs             float64
-	tokensPerSecond    float64
-	tokensPrompt       int
-	tokensCompletion   int
-	streaming          bool
-	virtualKeyName     string
-	virtualKeyID       string
-	errorMessage      string
-	failoverAttempt    int
+	id                      string
+	providerID              uuid.UUID
+	modelID                 string
+	requestHash             string
+	providerName            string
+	statusCode              int
+	durationMs              float64
+	proxyOverheadMs         float64
+	parseMs                 float64
+	modelLookupMs           float64
+	providerLookupMs        float64
+	keyDecryptMs            float64
+	ttftMs                  float64
+	tokensPerSecond         float64
+	tokensPrompt            int
+	tokensCompletion        int
+	tokensPromptCacheHit    int
+	tokensPromptCacheMiss   int
+	streaming               bool
+	virtualKeyName          string
+	virtualKeyID            string
+	errorMessage           string
+	failoverAttempt         int
 }
 
 type Handler struct {
@@ -191,9 +193,11 @@ type Message struct {
 }
 
 type Usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens            int `json:"prompt_tokens"`
+	CompletionTokens        int `json:"completion_tokens"`
+	TotalTokens             int `json:"total_tokens"`
+	PromptCacheHitTokens    int `json:"prompt_cache_hit_tokens,omitempty"`
+	PromptCacheMissTokens   int `json:"prompt_cache_miss_tokens,omitempty"`
 }
 
 func (h *Handler) Register(r chi.Router) {
@@ -327,13 +331,16 @@ func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
 			tokens_per_second = $11,
 			tokens_prompt = $12,
 			tokens_completion = $13,
-			error_message = $14,
-			failover_attempt = $15
+			tokens_prompt_cache_hit = $14,
+			tokens_prompt_cache_miss = $15,
+			error_message = $16,
+			failover_attempt = $17
 		WHERE id = $1`,
 		log.id, log.providerID, log.statusCode, log.durationMs,
 		log.proxyOverheadMs, log.parseMs, log.modelLookupMs, log.providerLookupMs,
 		log.keyDecryptMs, log.ttftMs, log.tokensPerSecond, log.tokensPrompt,
-		log.tokensCompletion, log.errorMessage, log.failoverAttempt,
+		log.tokensCompletion, log.tokensPromptCacheHit, log.tokensPromptCacheMiss,
+		log.errorMessage, log.failoverAttempt,
 	)
 }
 
@@ -349,6 +356,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 	scanner := bufio.NewScanner(resp.Body)
 	var promptTokens, completionTokens int
+	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
 	clientDisconnected := false
 
@@ -384,6 +392,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if chunk.Usage != nil {
 					promptTokens = chunk.Usage.PromptTokens
 					completionTokens = chunk.Usage.CompletionTokens
+					if chunk.Usage.PromptCacheHitTokens > 0 {
+						promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
+						promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
+					}
 				}
 				if chunk.Error != nil {
 					lastErrMsg = chunk.Error.Message
@@ -418,6 +430,8 @@ logUpdate:
 	logData.tokensPerSecond = tps
 	logData.tokensPrompt = promptTokens
 	logData.tokensCompletion = completionTokens
+	logData.tokensPromptCacheHit = promptCacheHitTokens
+	logData.tokensPromptCacheMiss = promptCacheMissTokens
 	logData.errorMessage = errMsg
 	logData.failoverAttempt = attempt
 	h.updateRequestLog(r.Context(), logData)
@@ -453,6 +467,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPerSecond = tps
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
 		logData.tokensCompletion = chatResp.Usage.CompletionTokens
+		if chatResp.Usage.PromptCacheHitTokens > 0 {
+			logData.tokensPromptCacheHit = chatResp.Usage.PromptCacheHitTokens
+			logData.tokensPromptCacheMiss = chatResp.Usage.PromptTokens - chatResp.Usage.PromptCacheHitTokens
+		}
 		logData.failoverAttempt = attempt
 		h.updateRequestLog(r.Context(), logData)
 

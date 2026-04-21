@@ -24,6 +24,9 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	r.Route("/providers/{id}/usage", func(r chi.Router) {
 		r.Get("/", h.GetProviderUsage)
 	})
+	r.Route("/providers/{id}/balance", func(r chi.Router) {
+		r.Get("/", h.GetProviderBalance)
+	})
 }
 
 func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request) {
@@ -120,4 +123,30 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(usage)
+}
+
+func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	providerID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+
+	prov, err := h.db.Get(r.Context(), providerID)
+	if err != nil {
+		http.Error(w, "provider not found", http.StatusNotFound)
+		return
+	}
+
+	discovery := provider.NewDiscoveryService()
+
+	balance, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
+	if err != nil {
+		http.Error(w, "failed to fetch balance: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(balance)
 }
