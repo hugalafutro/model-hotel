@@ -77,7 +77,7 @@ export function Logs() {
   const getStatusBg = (statusCode: number, errorMessage?: string) => {
     if (isCancelled(errorMessage)) return 'bg-yellow-900/30 text-yellow-400'
     if (statusCode >= 200 && statusCode < 300) return 'bg-green-900/30 text-green-400'
-    if (statusCode >= 400 && statusCode < 500) return 'bg-yellow-900/30 text-yellow-400'
+    if (statusCode >= 400 && statusCode < 500) return 'bg-orange-900/30 text-orange-400'
     if (statusCode >= 500) return 'bg-red-900/30 text-red-400'
     return 'bg-gray-700 text-gray-300'
   }
