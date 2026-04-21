@@ -252,8 +252,7 @@ function LoggingSettings() {
           <p className="text-gray-500 text-xs mt-1">Automatically delete logs older than this period</p>
         </div>
 
-        <div className="border-t border-gray-700 pt-4">
-          <p className="text-sm font-medium text-gray-300 mb-2">Purge Logs</p>
+        <div>
           {!confirmDelete ? (
             <button
               type="button"
@@ -350,7 +349,7 @@ function ProviderDiscoveryList() {
         <p className="text-gray-500 text-sm">No providers configured yet.</p>
       )}
       {providers?.map(p => (
-        <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0">
+        <div key={p.id} className="flex items-center justify-between py-2">
           <div className="flex items-center gap-3">
             <span className={`w-2 h-2 rounded-full ${p.enabled ? 'bg-green-400' : 'bg-gray-500'}`} />
             <div>

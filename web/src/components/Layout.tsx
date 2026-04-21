@@ -49,7 +49,7 @@ function SystemStatus() {
             <span className="text-gray-600 mx-1">|</span>
             {stats.db.connections} conn
             <span className="text-gray-600 mx-1">|</span>
-            {stats.db.cache_hit_ratio}%
+            Hit {stats.db.cache_hit_ratio}%
           </span>
         </div>
       )}
