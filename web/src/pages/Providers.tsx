@@ -1,7 +1,140 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import type { NanoGPTUsage } from '../api/types'
 import { useToast } from '../context/ToastContext'
+
+function formatTokens(n: number | null | undefined): string {
+  if (n == null) return '-'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toString()
+}
+
+function formatTimestamp(ts: number): string {
+  return new Date(ts).toLocaleString()
+}
+
+function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: () => void }) {
+  const weeklyLimit = usage.limits.weeklyInputTokens ?? 0
+  const weeklyUsed = usage.weeklyInputTokens?.used ?? 0
+  const weeklyPercent = weeklyLimit > 0 ? (weeklyUsed / weeklyLimit) * 100 : 0
+
+  return (
+    <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
+      <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={onClose} aria-label="Close dialog" />
+      <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-white">NanoGPT Subscription</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              {usage.active ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                  Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                  Inactive
+                </span>
+              )}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-300">Weekly Token Quota</span>
+              <span className="text-sm text-gray-400">{formatTokens(weeklyUsed)} / {formatTokens(weeklyLimit)}</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-3">
+              <div
+                className="bg-[#0690a8] h-3 rounded-full transition-all"
+                style={{ width: `${Math.min(weeklyPercent, 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{weeklyPercent.toFixed(1)}% used. Resets {usage.weeklyInputTokens?.resetAt ? formatTimestamp(usage.weeklyInputTokens.resetAt) : 'N/A'}</p>
+          </div>
+
+          {usage.dailyImages && (
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-300">Daily Images</span>
+                <span className="text-sm text-gray-400">{usage.dailyImages.used} / {usage.limits.dailyImages ?? '∞'}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-3">
+                <div
+                  className="bg-purple-500 h-3 rounded-full transition-all"
+                  style={{ width: `${Math.min(usage.dailyImages.percentUsed * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">{usage.dailyImages.percentUsed.toFixed(1)}% used. Resets {usage.dailyImages.resetAt ? formatTimestamp(usage.dailyImages.resetAt) : 'N/A'}</p>
+            </div>
+          )}
+
+          {usage.dailyInputTokens && (
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-300">Daily Input Tokens</span>
+                <span className="text-sm text-gray-400">{formatTokens(usage.dailyInputTokens.used)} / {usage.limits.dailyInputTokens ? formatTokens(usage.limits.dailyInputTokens) : '∞'}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-3">
+                <div
+                  className="bg-amber-500 h-3 rounded-full transition-all"
+                  style={{ width: `${Math.min(usage.dailyInputTokens.percentUsed * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">{usage.dailyInputTokens.percentUsed.toFixed(1)}% used. Resets {usage.dailyInputTokens.resetAt ? formatTimestamp(usage.dailyInputTokens.resetAt) : 'N/A'}</p>
+            </div>
+          )}
+
+          <div className="border-t border-gray-700 pt-4">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">Subscription Details</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-gray-500">Provider</span>
+                <p className="text-gray-200 capitalize">{usage.provider}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Status</span>
+                <p className="text-gray-200 capitalize">{usage.providerStatus}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Period End</span>
+                <p className="text-gray-200">{new Date(usage.period.currentPeriodEnd).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Allow Overage</span>
+                <p className="text-gray-200">{usage.allowOverage ? 'Yes' : 'No'}</p>
+              </div>
+            </div>
+          </div>
+
+          {usage.cancelAtPeriodEnd && (
+            <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+              <p className="text-sm text-yellow-300">
+                Subscription will cancel at period end ({new Date(usage.period.currentPeriodEnd).toLocaleDateString()})
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-gray-700 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-[#0690a8] text-white rounded-lg hover:bg-[#057a8f] transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function Providers() {
   const queryClient = useQueryClient()
@@ -9,6 +142,7 @@ export function Providers() {
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [discoveringId, setDiscoveringId] = useState<string | null>(null)
+  const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null)
   const [formData, setFormData] = useState<{
     name: string;
     base_url: string;
@@ -29,6 +163,16 @@ export function Providers() {
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.settings.get(),
+  })
+
+  const nanogptProviderId = useMemo(() => {
+    return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
+  }, [providers])
+
+  const { data: nanogptUsage } = useQuery({
+    queryKey: ['nanogpt-usage', nanogptProviderId],
+    queryFn: () => api.providers.getUsage(nanogptProviderId!),
+    enabled: !!nanogptProviderId,
   })
 
   const discoverMutation = useMutation({
@@ -133,14 +277,32 @@ export function Providers() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {providers?.map((provider) => (
+        {providers?.map((provider) => {
+          const isNanoGPT = provider.base_url.includes('nano-gpt.com')
+          const weeklyUsed = isNanoGPT ? nanogptUsage?.weeklyInputTokens?.used : null
+          const weeklyLimit = isNanoGPT ? nanogptUsage?.limits?.weeklyInputTokens : null
+          const showQuotaBadge = isNanoGPT && weeklyUsed != null && weeklyLimit && nanogptUsage
+
+          return (
           <div key={provider.id} className="bg-gray-800 border border-gray-700 rounded-xl p-6">
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
-                {provider.model_count > 0 && (
-                  <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{provider.model_count} Models</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {provider.model_count > 0 && (
+                    <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{provider.model_count} Models</span>
+                  )}
+                  {showQuotaBadge && (
+                    <button
+                      type="button"
+                      onClick={() => nanogptUsage && setQuotaUsage(nanogptUsage)}
+                      className="px-2 py-0.5 rounded-full bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 text-xs font-medium cursor-pointer hover:bg-[#0690a8]/30 transition-colors"
+                      title="View quota details"
+                    >
+                      {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
             </div>
@@ -182,7 +344,8 @@ export function Providers() {
               </button>
             </div>
           </div>
-        ))}
+          )
+        })}
 
         {providers?.length === 0 && (
           <div className="col-span-full text-center py-12 bg-gray-800 border border-gray-700 rounded-xl">
@@ -289,6 +452,13 @@ export function Providers() {
             </form>
           </div>
         </div>
+      )}
+
+      {quotaUsage && (
+        <NanoGPTQuotaModal
+          usage={quotaUsage}
+          onClose={() => setQuotaUsage(null)}
+        />
       )}
     </div>
   )

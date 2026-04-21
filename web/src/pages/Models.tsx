@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import type { Model, ModelCapabilities, NanoGPTUsage } from '../api/types'
+import type { Model, ModelCapabilities } from '../api/types'
 import { useToast } from '../context/ToastContext'
 import { SortableHeader, Row, EmptyRow } from '../components/DataTable'
 import type { SortState } from '../components/DataTable'
@@ -22,17 +22,6 @@ function formatRelativeTime(dateStr: string): string {
 function formatNumber(n: number | null | undefined): string {
   if (n == null) return '-'
   return n.toLocaleString()
-}
-
-function formatTokens(n: number | null | undefined): string {
-  if (n == null) return '-'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toString()
-}
-
-function formatTimestamp(ts: number): string {
-  return new Date(ts).toLocaleString()
 }
 
 function parseCapabilities(raw: string): ModelCapabilities | null {
@@ -318,127 +307,6 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
   )
 }
 
-function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: () => void }) {
-  const weeklyLimit = usage.limits.weeklyInputTokens ?? 0
-  const weeklyUsed = usage.weeklyInputTokens?.used ?? 0
-  const weeklyPercent = weeklyLimit > 0 ? (weeklyUsed / weeklyLimit) * 100 : 0
-
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-      <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={onClose} aria-label="Close dialog" />
-      <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-white">NanoGPT Subscription</h2>
-            <p className="text-sm text-gray-400 mt-1">
-              {usage.active ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-400"></span>
-                  Active
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                  Inactive
-                </span>
-              )}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
-        </div>
-
-        <div className="space-y-6">
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-300">Weekly Token Quota</span>
-              <span className="text-sm text-gray-400">{formatTokens(weeklyUsed)} / {formatTokens(weeklyLimit)}</span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-3">
-              <div
-                className="bg-indigo-500 h-3 rounded-full transition-all"
-                style={{ width: `${Math.min(weeklyPercent, 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{weeklyPercent.toFixed(1)}% used. Resets {usage.weeklyInputTokens?.resetAt ? formatTimestamp(usage.weeklyInputTokens.resetAt) : 'N/A'}</p>
-          </div>
-
-          {usage.dailyImages && (
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-300">Daily Images</span>
-                <span className="text-sm text-gray-400">{usage.dailyImages.used} / {usage.limits.dailyImages ?? '∞'}</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-3">
-                <div
-                  className="bg-purple-500 h-3 rounded-full transition-all"
-                  style={{ width: `${Math.min(usage.dailyImages.percentUsed * 100, 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">{usage.dailyImages.percentUsed.toFixed(1)}% used. Resets {usage.dailyImages.resetAt ? formatTimestamp(usage.dailyImages.resetAt) : 'N/A'}</p>
-            </div>
-          )}
-
-          {usage.dailyInputTokens && (
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-300">Daily Input Tokens</span>
-                <span className="text-sm text-gray-400">{formatTokens(usage.dailyInputTokens.used)} / {usage.limits.dailyInputTokens ? formatTokens(usage.limits.dailyInputTokens) : '∞'}</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-3">
-                <div
-                  className="bg-amber-500 h-3 rounded-full transition-all"
-                  style={{ width: `${Math.min(usage.dailyInputTokens.percentUsed * 100, 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">{usage.dailyInputTokens.percentUsed.toFixed(1)}% used. Resets {usage.dailyInputTokens.resetAt ? formatTimestamp(usage.dailyInputTokens.resetAt) : 'N/A'}</p>
-            </div>
-          )}
-
-          <div className="border-t border-gray-700 pt-4">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Subscription Details</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-gray-500">Provider</span>
-                <p className="text-gray-200 capitalize">{usage.provider}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Status</span>
-                <p className="text-gray-200 capitalize">{usage.providerStatus}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Period End</span>
-                <p className="text-gray-200">{new Date(usage.period.currentPeriodEnd).toLocaleDateString()}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Allow Overage</span>
-                <p className="text-gray-200">{usage.allowOverage ? 'Yes' : 'No'}</p>
-              </div>
-            </div>
-          </div>
-
-          {usage.cancelAtPeriodEnd && (
-            <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
-              <p className="text-sm text-yellow-300">
-                Subscription will cancel at period end ({new Date(usage.period.currentPeriodEnd).toLocaleDateString()})
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-gray-700 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function matchesAllCaps(caps: ModelCapabilities | null, keys: Set<CapKey>): boolean {
   if (keys.size === 0) return true
   for (const k of keys) {
@@ -456,7 +324,6 @@ export function Models() {
   const [sort, setSort] = useState<SortState<SortField>>({ field: 'name', dir: 'asc' })
   const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('enabled')
-  const [quotaProviderId, setQuotaProviderId] = useState<string | null>(null)
 
   const { data: models, isLoading } = useQuery({
     queryKey: ['models', selectedProvider],
@@ -466,22 +333,6 @@ export function Models() {
   const { data: providers } = useQuery({
     queryKey: ['providers'],
     queryFn: () => api.providers.list(),
-  })
-
-  const nanogptProviderId = useMemo(() => {
-    return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
-  }, [providers])
-
-  const { data: nanogptUsage } = useQuery({
-    queryKey: ['nanogpt-usage', nanogptProviderId],
-    queryFn: () => api.providers.getUsage(nanogptProviderId!),
-    enabled: !!nanogptProviderId,
-  })
-
-  const { data: quotaUsage } = useQuery({
-    queryKey: ['nanogpt-usage-modal', quotaProviderId],
-    queryFn: () => api.providers.getUsage(quotaProviderId!),
-    enabled: !!quotaProviderId,
   })
 
   const toggleMutation = useMutation({
@@ -642,62 +493,6 @@ export function Models() {
         </div>
       </div>
 
-      {providers && providers.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedProvider('')}
-            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              selectedProvider === ''
-                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-700/50'
-                : 'bg-gray-800/60 text-gray-400 border-gray-700/40 hover:bg-gray-700/60 hover:text-gray-300'
-            }`}
-          >
-            All
-            <span className="ml-1.5 text-[10px] opacity-70">{models?.length ?? 0}</span>
-          </button>
-          {providers.map(provider => {
-            const count = models?.filter(m => m.provider_id === provider.id).length ?? 0
-            const isNanoGPT = provider.base_url.includes('nano-gpt.com')
-            const isSelected = selectedProvider === provider.id
-            const weeklyUsed = isNanoGPT ? nanogptUsage?.weeklyInputTokens?.used : null
-            const weeklyLimit = isNanoGPT ? nanogptUsage?.limits?.weeklyInputTokens : null
-            const showQuotaBadge = isNanoGPT && weeklyUsed != null && weeklyLimit
-
-            return (
-              <button
-                key={provider.id}
-                type="button"
-                onClick={() => {
-                  if (isNanoGPT) {
-                    setQuotaProviderId(provider.id)
-                  } else {
-                    setSelectedProvider(provider.id)
-                  }
-                }}
-                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  isSelected
-                    ? 'bg-indigo-500/20 text-indigo-300 border-indigo-700/50'
-                    : 'bg-gray-800/60 text-gray-400 border-gray-700/40 hover:bg-gray-700/60 hover:text-gray-300'
-                }`}
-              >
-                {provider.name}
-                <span className="ml-1.5 text-[10px] opacity-70">{count}</span>
-                {showQuotaBadge && (
-                  <span
-                    onClick={(e) => { e.stopPropagation(); setQuotaProviderId(provider.id) }}
-                    className="ml-1.5 px-1.5 py-0.5 rounded-full bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 text-[10px] font-medium cursor-pointer hover:bg-indigo-900/60 transition-colors"
-                    title="View quota details"
-                  >
-                    {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
       <div className="border border-gray-700 rounded-xl overflow-hidden">
         <table className="min-w-full table-fixed">
           <colgroup>
@@ -742,7 +537,40 @@ export function Models() {
                   )}
                 </span>
               </th>
-              <SortableHeader label="Provider" field="provider" sort={sort} onSort={handleSort} />
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  Provider
+                  {providers?.map(provider => {
+                    const isNanoGPT = provider.base_url.includes('nano-gpt.com')
+                    const isSelected = selectedProvider === provider.id
+                    const baseStyle = isNanoGPT
+                      ? 'bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30'
+                      : 'bg-black text-white border-white/50 hover:bg-black/80'
+                    const activeStyle = isNanoGPT
+                      ? 'bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]'
+                      : 'bg-black text-white border-white shadow-[0_0_6px_1px_rgba(255,255,255,0.35)]'
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setSelectedProvider(isSelected ? '' : provider.id)}
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${isSelected ? activeStyle : baseStyle}`}
+                      >
+                        {provider.name}
+                      </button>
+                    )
+                  })}
+                  {selectedProvider && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProvider('')}
+                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
+              </th>
               <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} />
               <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} />
               <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} />
@@ -838,13 +666,6 @@ export function Models() {
           onDiscover={handleDiscover}
           onTest={handleTest}
           onToast={toast}
-        />
-      )}
-
-      {quotaProviderId && quotaUsage && (
-        <NanoGPTQuotaModal
-          usage={quotaUsage}
-          onClose={() => setQuotaProviderId(null)}
         />
       )}
     </div>
