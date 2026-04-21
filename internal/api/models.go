@@ -260,14 +260,25 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		tps = float64(chatResp.Usage.CompletionTokens) / float64(duration) * 1000
 	}
 
-	logQuery := `
-		INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, failover_attempt)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-	`
-	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
-		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode, duration, duration, duration, tps,
-		chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "", proxyOverheadMs, 0.0, 0.0, 0.0, keyDecryptMs, 0,
-	)
+    logQuery := `
+        INSERT INTO request_logs (
+            provider_id, model_id, request_id, request_hash, status_code,
+            latency_ms, duration_ms, ttft_ms,
+            proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
+            tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, failover_attempt
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+    `
+    proxyOverheadMs := duration
+    parseMs := duration
+    modelLookupMs := duration
+    providerLookupMs := duration
+    keyDecryptMs := keyDecryptMs
+    _, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
+        m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode, duration, duration, duration,
+        proxyOverheadMs, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+        tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", 0,
+    )
 	if logErr != nil {
 		fmt.Printf("TestModel log insert failed: %v\n", logErr)
 	}
