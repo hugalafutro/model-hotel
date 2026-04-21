@@ -184,7 +184,7 @@ export function Logs() {
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
                       {isCancelled(log.error_message)
-                        ? `Cancelled after ${log.duration_ms >= 1000 ? `${(log.duration_ms / 1000).toFixed(1)}s` : `${log.duration_ms.toFixed(0)}ms`}`
+                        ? 'Interrupted'
                         : (log.tokens_prompt + log.tokens_completion > 0
                           ? `${log.tokens_prompt}+${log.tokens_completion}`
                           : '-')}
