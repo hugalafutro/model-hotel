@@ -347,7 +347,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var lastErr string
+	var lastProviderID *uuid.UUID
 	for attempt, candidate := range candidates {
+		lastProviderID = &candidate.provider.ID
 		providerLookupMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		keyDecryptStart := time.Now()
@@ -550,10 +552,14 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	providerID := uuid.Nil
+	if lastProviderID != nil {
+		providerID = *lastProviderID
+	}
 	h.dbPool.Exec(r.Context(), `
 		INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-		uuid.Nil, req.Model, generateRequestHash(), generateRequestHash(), 502,
+		providerID, req.Model, generateRequestHash(), generateRequestHash(), 502,
 		float64(time.Since(startTime).Microseconds())/1000.0,
 		float64(time.Since(startTime).Microseconds())/1000.0,
 		parseMs, modelLookupMs, 0, 0,
