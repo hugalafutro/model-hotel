@@ -445,36 +445,70 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Accel-Buffering", "no")
 
 			var buf bytes.Buffer
-			tee := io.TeeReader(resp.Body, &buf)
-			io.Copy(w, tee)
+			flusher, canFlush := w.(http.Flusher)
+
+			scanner := bufio.NewScanner(resp.Body)
+			var promptTokens, completionTokens int
+			var lastErrMsg string
+
+			for scanner.Scan() {
+				line := scanner.Bytes()
+				buf.Write(line)
+				buf.Write([]byte("\n"))
+
+				if canFlush {
+					flusher.Flush()
+				}
+				w.Write(line)
+				w.Write([]byte("\n"))
+				if canFlush {
+					flusher.Flush()
+				}
+
+				if strings.HasPrefix(string(line), "data: ") {
+					payload := strings.TrimPrefix(string(line), "data: ")
+					if payload == "[DONE]" {
+						break
+					}
+					var chunk struct {
+						Usage   *Usage   `json:"usage"`
+						Error   *struct{ Message string } `json:"error"`
+					}
+					if json.Unmarshal([]byte(payload), &chunk) == nil {
+						if chunk.Usage != nil {
+							promptTokens = chunk.Usage.PromptTokens
+							completionTokens = chunk.Usage.CompletionTokens
+						}
+						if chunk.Error != nil {
+							lastErrMsg = chunk.Error.Message
+						}
+					}
+				}
+			}
 
 			totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-			usage := extractStreamingUsage(buf.String())
-			var promptTokens, completionTokens int
-			if usage != nil {
-				promptTokens = usage.PromptTokens
-				completionTokens = usage.CompletionTokens
-			}
 			var tps float64
 			if completionTokens > 0 && totalDuration > 0 {
 				tps = float64(completionTokens) / float64(totalDuration) * 1000
 			}
 
+			errMsg := lastErrMsg
+			if errMsg == "" && scanner.Err() != nil {
+				errMsg = scanner.Err().Error()
+			}
+
 			h.dbPool.Exec(r.Context(), `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, error_message)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
 				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
 				totalDuration,
 				proxyOverhead,
 				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-				ttft, tps, promptTokens, completionTokens, true, vkName, vkID, attempt,
+				ttft, tps, promptTokens, completionTokens, true, vkName, vkID, attempt, errMsg,
 			)
 
 			if vkHash != "" {
-				totalTokens := 0
-				if usage != nil {
-					totalTokens = usage.TotalTokens
-				}
+				totalTokens := promptTokens + completionTokens
 				if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
 					fmt.Printf("AddTokens (stream) failed: %v\n", err)
 				}
