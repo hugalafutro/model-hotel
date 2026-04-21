@@ -33,7 +33,7 @@ function formatTimeUntil(ts: number): string {
   return `in ${hours} ${hourLabel}`
 }
 
-function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: () => void }) {
+function NanoGPTQuotaModal({ usage, onClose, onRefresh, isRefreshing }: { usage: NanoGPTUsage; onClose: () => void; onRefresh: () => void; isRefreshing: boolean }) {
   const weeklyLimit = usage.limits.weeklyInputTokens ?? 0
   const weeklyUsed = usage.weeklyInputTokens?.used ?? 0
   const weeklyPercent = weeklyLimit > 0 ? (weeklyUsed / weeklyLimit) * 100 : 0
@@ -59,7 +59,20 @@ function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: (
               )}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="text-gray-400 hover:text-white text-lg leading-none p-1 rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
+              title="Refresh"
+            >
+              <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -177,10 +190,11 @@ export function Providers() {
     return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
   }, [providers])
 
-  const { data: nanogptUsage } = useQuery({
+  const { data: nanogptUsage, refetch, isRefetching } = useQuery({
     queryKey: ['nanogpt-usage', nanogptProviderId],
     queryFn: () => api.providers.getUsage(nanogptProviderId!),
     enabled: !!nanogptProviderId,
+    refetchInterval: 60 * 60 * 1000,
   })
 
   const discoverMutation = useMutation({
@@ -466,6 +480,8 @@ export function Providers() {
         <NanoGPTQuotaModal
           usage={quotaUsage}
           onClose={() => setQuotaUsage(null)}
+          onRefresh={refetch}
+          isRefreshing={isRefetching}
         />
       )}
     </div>
