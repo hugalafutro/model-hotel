@@ -68,7 +68,14 @@ export function Logs() {
     }),
   })
 
-  const getStatusBg = (statusCode: number) => {
+  const isCancelled = (errorMessage?: string) => {
+    if (!errorMessage) return false
+    const msg = errorMessage.toLowerCase()
+    return msg.includes('cancel') || msg.includes('disconnect') || msg.includes('context canceled')
+  }
+
+  const getStatusBg = (statusCode: number, errorMessage?: string) => {
+    if (isCancelled(errorMessage)) return 'bg-yellow-900/30 text-yellow-400'
     if (statusCode >= 200 && statusCode < 300) return 'bg-green-900/30 text-green-400'
     if (statusCode >= 400 && statusCode < 500) return 'bg-yellow-900/30 text-yellow-400'
     if (statusCode >= 500) return 'bg-red-900/30 text-red-400'
@@ -171,17 +178,19 @@ export function Logs() {
                       {log.provider_name === 'Deleted' ? <span className="text-red-400 italic">Deleted</span> : (log.provider_name || '-')}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code)}`}>
+                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code, log.error_message)}`}>
                         {log.status_code}
                       </span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                      {log.tokens_prompt + log.tokens_completion > 0
-                        ? `${log.tokens_prompt}+${log.tokens_completion}`
-                        : '-'}
+                      {isCancelled(log.error_message)
+                        ? `Cancelled after ${log.duration_ms >= 1000 ? `${(log.duration_ms / 1000).toFixed(1)}s` : `${log.duration_ms.toFixed(0)}ms`}`
+                        : (log.tokens_prompt + log.tokens_completion > 0
+                          ? `${log.tokens_prompt}+${log.tokens_completion}`
+                          : '-')}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                      {formatTPS(log.tokens_per_second)}
+                      {isCancelled(log.error_message) ? '-' : formatTPS(log.tokens_per_second)}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
                       {log.ttft_ms > 0 ? formatMs(log.ttft_ms) : '-'}
