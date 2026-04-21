@@ -18,9 +18,9 @@ type LogEntry struct {
     RequestID         string    `json:"request_id"`
     RequestHash       string    `json:"request_hash"`
     StatusCode        int       `json:"status_code"`
-    LatencyMs         int       `json:"latency_ms"`
+    LatencyMs         float64   `json:"latency_ms"`
     DurationMs        float64   `json:"duration_ms"`
-    TTFTMs            int       `json:"ttft_ms"`
+    TTFTMs            float64   `json:"ttft_ms"`
     ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
     ParseMs           float64   `json:"parse_ms"`
     ModelLookupMs     float64   `json:"model_lookup_ms"`
@@ -86,7 +86,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    _, err := h.dbPool.Exec(r.Context(),
+    _, err := h.dbPool.Pool().Exec(r.Context(),
         `DELETE FROM request_logs WHERE created_at < $1`, cutoff)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -116,8 +116,15 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.parse_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
                rl.tokens_per_second,
                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
-               COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), rl.virtual_key_id,
-               CASE WHEN rl.virtual_key_id IS NOT NULL AND vk.id IS NULL THEN true ELSE false END AS virtual_key_deleted,
+COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
+                CASE
+                    WHEN rl.virtual_key_name IS NULL OR rl.virtual_key_name = '' THEN false
+                    WHEN (rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '') AND vk.id IS NULL THEN true
+                    WHEN (rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '') AND NOT EXISTS (
+                        SELECT 1 FROM virtual_keys vk2 WHERE vk2.name = rl.virtual_key_name AND vk2.created_at <= rl.created_at
+                    ) THEN true
+                    ELSE false
+                END AS virtual_key_deleted,
                COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), rl.created_at
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
@@ -168,7 +175,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	var total int
 	countQuery := "SELECT COUNT(*) FROM (" + query + ") as count_query"
-    err := h.dbPool.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+    err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, args...).Scan(&total)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

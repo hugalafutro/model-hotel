@@ -24,10 +24,10 @@ interface OverheadBreakdown {
 function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="presentation">
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 min-w-[320px] shadow-2xl" onClick={e => e.stopPropagation()} role="presentation">
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 min-w-[320px] shadow-2xl" role="document">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Proxy Overhead Breakdown</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
         </div>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
@@ -136,9 +136,10 @@ export function Logs() {
               <StaticHeaderNoArrow>Provider</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Status</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Tokens</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Duration</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>T/s</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Overhead</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>TTFT</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Dur.</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Ovh.</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Key</StaticHeaderNoArrow>
             </tr>
           </thead>
@@ -172,14 +173,18 @@ export function Logs() {
                         : '-'}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                      {log.duration_ms > 0 ? `${(log.duration_ms / 1000).toFixed(1)}s` : '-'}
+                      {formatTPS(log.tokens_per_second)}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                      {formatTPS(log.tokens_per_second)}
+                      {log.ttft_ms > 0 ? formatMs(log.ttft_ms) : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                      {log.duration_ms > 0 ? (log.duration_ms >= 1000 ? `${(log.duration_ms / 1000).toFixed(1)}s` : `${log.duration_ms.toFixed(0)}ms`) : '-'}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
                       {log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0 ? (
                         <button
+                          type="button"
                           className={`${hasOverhead ? 'text-indigo-400 hover:text-indigo-300 cursor-pointer' : 'text-gray-400'}`}
                           onClick={() => hasOverhead ? setOverheadBreakdown({
                             proxy_overhead_ms: log.proxy_overhead_ms,
@@ -207,7 +212,7 @@ export function Logs() {
                 )
               })
             ) : (
-              <EmptyRow colSpan={10} message="No logs found" />
+              <EmptyRow colSpan={11} message="No logs found" />
             )}
           </tbody>
         </table>

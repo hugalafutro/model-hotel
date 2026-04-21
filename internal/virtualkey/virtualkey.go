@@ -102,6 +102,13 @@ func (r *Repository) AddTokens(ctx context.Context, keyHash string, tokens int) 
 	return err
 }
 
+func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE virtual_keys SET last_used_at = now() WHERE key_hash = $1`,
+		keyHash)
+	return err
+}
+
 func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,

@@ -211,9 +211,33 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
-    start2 := time.Now()
-    resp, err := http.DefaultClient.Do(proxyReq)
+reqHashBytes := make([]byte, 8)
+	rand.Read(reqHashBytes)
+	reqHash := hex.EncodeToString(reqHashBytes)
+
+	startRequest := time.Now()
+	resp, err := http.DefaultClient.Do(proxyReq)
 	if err != nil {
+		logQuery := `
+			INSERT INTO request_logs (
+				provider_id, model_id, request_id, request_hash, status_code,
+				latency_ms, duration_ms, ttft_ms,
+				proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
+				error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		`
+		durationMs := float64(time.Since(start).Milliseconds())
+		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
+			m.ProviderID, m.ModelID, reqHash, reqHash, 502,
+			durationMs, durationMs, durationMs,
+			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
+			err.Error(), false, "admin", nil, 0,
+		)
+		if logErr != nil {
+			fmt.Printf("TestModel log insert failed: %v\n", logErr)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(TestModelResponse{Error: err.Error()})
 		return
@@ -221,13 +245,34 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-    duration := time.Since(start2).Milliseconds()
+	duration := time.Since(startRequest).Milliseconds()
 
 	if resp.StatusCode != http.StatusOK {
 		errMsg := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody))
-		if len(errMsg) > 300 {
-			errMsg = errMsg[:300]
+		if len(errMsg) > 500 {
+			errMsg = errMsg[:500]
 		}
+
+		logQuery := `
+			INSERT INTO request_logs (
+				provider_id, model_id, request_id, request_hash, status_code,
+				latency_ms, duration_ms, ttft_ms,
+				proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
+				error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		`
+		durationMs := float64(duration)
+		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
+			m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
+			durationMs, durationMs, durationMs,
+			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
+			errMsg, 0, 0, 0, false, "admin", nil, 0,
+		)
+		if logErr != nil {
+			fmt.Printf("TestModel log insert failed: %v\n", logErr)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(TestModelResponse{DurationMs: duration, Error: errMsg})
 		return
@@ -251,33 +296,27 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		content = chatResp.Choices[0].Message.Content
 	}
 
-	reqHashBytes := make([]byte, 8)
-	rand.Read(reqHashBytes)
-	reqHash := hex.EncodeToString(reqHashBytes)
-
 	var tps float64
 	if chatResp.Usage.CompletionTokens > 0 && duration > 0 {
 		tps = float64(chatResp.Usage.CompletionTokens) / float64(duration) * 1000
 	}
 
-    logQuery := `
-        INSERT INTO request_logs (
-            provider_id, model_id, request_id, request_hash, status_code,
-            latency_ms, duration_ms, ttft_ms,
-            proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
-            tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, failover_attempt
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-    `
-    proxyOverheadMs = float64(duration)
-    parseMs := float64(duration)
-    modelLookupMs := float64(duration)
-    providerLookupMs := float64(duration)
-    _, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
-        m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode, duration, duration, duration,
-        proxyOverheadMs, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-        tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", 0,
-    )
+	logQuery := `
+		INSERT INTO request_logs (
+			provider_id, model_id, request_id, request_hash, status_code,
+			latency_ms, duration_ms, ttft_ms,
+			proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
+			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+	`
+	durationMs := float64(duration)
+	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
+		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
+		durationMs, durationMs, durationMs,
+		proxyOverheadMs, 0, 0, 0, keyDecryptMs,
+		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", nil, 0,
+	)
 	if logErr != nil {
 		fmt.Printf("TestModel log insert failed: %v\n", logErr)
 	}

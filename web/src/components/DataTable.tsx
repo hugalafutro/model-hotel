@@ -45,7 +45,7 @@ export function StaticHeaderNoArrow({ children, className = '' }: { children: Re
 
 export function Row({ index, children }: { index: number; children: ReactNode }) {
   return (
-    <tr className={`${index % 2 === 1 ? 'bg-white/[0.03]' : ''} hover:bg-gray-700/30 transition-colors`}>
+    <tr className={`${index % 2 === 1 ? 'bg-white/3' : ''} hover:bg-gray-700/30 transition-colors`}>
       {children}
     </tr>
   )

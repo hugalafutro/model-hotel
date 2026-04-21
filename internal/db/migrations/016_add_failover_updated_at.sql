@@ -1,0 +1,1 @@
+ALTER TABLE model_failover_groups ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
