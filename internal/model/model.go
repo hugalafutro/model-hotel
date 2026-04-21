@@ -88,7 +88,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	return err

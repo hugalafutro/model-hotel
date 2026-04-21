@@ -32,7 +32,6 @@ type Handler struct {
 	providerRepo   *provider.Repository
 	modelRepo      *model.Repository
 	dbPool         *pgxpool.Pool
-	discovery      *provider.DiscoveryService
 	virtualKeyRepo *virtualkey.Repository
 }
 
@@ -48,9 +47,13 @@ func NewHandler(
 		providerRepo:   providerRepo,
 		modelRepo:      modelRepo,
 		dbPool:         dbPool,
-		discovery:      provider.NewDiscoveryService(),
 		virtualKeyRepo: virtualKeyRepo,
 	}
+}
+
+type ChatCompletionRequest struct {
+	Model  string `json:"model"`
+	Stream bool   `json:"stream,omitempty"`
 }
 
 type ChatCompletionResponse struct {
@@ -67,6 +70,11 @@ type Choice struct {
 	Message      Message `json:"message,omitempty"`
 	Delta        Message `json:"delta,omitempty"`
 	FinishReason *string `json:"finish_reason,omitempty"`
+}
+
+type Message struct {
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
 }
 
 type Usage struct {
