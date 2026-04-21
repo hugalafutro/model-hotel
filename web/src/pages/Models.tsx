@@ -384,6 +384,7 @@ export function Models() {
       else next.add(key)
       return next
     })
+    setCurrentPage(1)
   }, [])
 
   const handleSort = (field: SortField) => {
@@ -440,10 +441,6 @@ export function Models() {
     return { sortedAndFiltered: filtered, pillAvailability: availability, existingCaps: capsInData }
   }, [models, searchQuery, sort, capFilter, statusFilter])
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, selectedProvider, capFilter, statusFilter])
-
   const totalPages = Math.ceil(sortedAndFiltered.length / pageSize)
   const paginatedModels = sortedAndFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
@@ -482,7 +479,7 @@ export function Models() {
             placeholder="Search models..."
             autoFocus={true}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
             className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           />
           <select
@@ -503,7 +500,7 @@ export function Models() {
         <div className="md:w-64">
           <select
             value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value)}
+            onChange={(e) => { setSelectedProvider(e.target.value); setCurrentPage(1) }}
             className="hidden w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           >
             <option value="">All Providers</option>
@@ -552,7 +549,7 @@ export function Models() {
                   {capFilter.size > 0 && (
                     <button
                       type="button"
-                      onClick={() => setCapFilter(new Set())}
+                      onClick={() => { setCapFilter(new Set()); setCurrentPage(1) }}
                       className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
                     >
                       ✕
@@ -576,7 +573,7 @@ export function Models() {
                       <button
                         key={provider.id}
                         type="button"
-                        onClick={() => setSelectedProvider(isSelected ? '' : provider.id)}
+                        onClick={() => { setSelectedProvider(isSelected ? '' : provider.id); setCurrentPage(1) }}
                         className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${isSelected ? activeStyle : baseStyle}`}
                       >
                         {provider.name}
@@ -586,7 +583,7 @@ export function Models() {
                   {selectedProvider && (
                     <button
                       type="button"
-                      onClick={() => setSelectedProvider('')}
+                      onClick={() => { setSelectedProvider(''); setCurrentPage(1) }}
                       className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
                     >
                       ✕
@@ -602,7 +599,7 @@ export function Models() {
                   Status
                   <button
                     type="button"
-                    onClick={() => setStatusFilter('enabled')}
+                    onClick={() => { setStatusFilter('enabled'); setCurrentPage(1) }}
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
                       statusFilter === 'enabled'
                         ? 'bg-green-900/40 text-green-300 border-green-700/50 shadow-[0_0_6px_1px_rgba(34,197,94,0.35)]'
@@ -613,7 +610,7 @@ export function Models() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setStatusFilter('disabled')}
+                    onClick={() => { setStatusFilter('disabled'); setCurrentPage(1) }}
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
                       statusFilter === 'disabled'
                         ? 'bg-red-900/40 text-red-300 border-red-700/50 shadow-[0_0_6px_1px_rgba(239,68,68,0.35)]'
