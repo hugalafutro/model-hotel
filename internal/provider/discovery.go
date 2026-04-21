@@ -87,7 +87,7 @@ type NanoGPTDetailedResponse struct {
 }
 
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, masterKey)
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}

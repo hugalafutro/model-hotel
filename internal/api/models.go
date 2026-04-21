@@ -187,7 +187,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, h.cfg.MasterKey)
+	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 	if err != nil {
 		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
 		return

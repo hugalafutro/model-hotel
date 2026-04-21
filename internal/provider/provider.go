@@ -15,6 +15,7 @@ type Provider struct {
 	BaseURL           string     `json:"base_url"`
 	EncryptedKey      []byte     `json:"-"`
 	KeyNonce          []byte     `json:"-"`
+	KeySalt           []byte     `json:"-"`
 	Enabled           bool       `json:"enabled"`
 	LastDiscoveredAt  *time.Time `json:"last_discovered_at"`
 	CreatedAt         time.Time  `json:"created_at"`
@@ -53,16 +54,16 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encryptedKey []byte, keyNonce []byte) (*Provider, error) {
+func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	query := `
-		INSERT INTO providers (name, base_url, encrypted_key, key_nonce, enabled)
-		VALUES ($1, $2, $3, $4, true)
-		RETURNING id, name, base_url, encrypted_key, key_nonce, enabled, last_discovered_at, created_at, updated_at
+		INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, enabled)
+		VALUES ($1, $2, $3, $4, $5, true)
+		RETURNING id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, last_discovered_at, created_at, updated_at
 	`
 
 	var p Provider
-	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.Enabled,
+	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt).Scan(
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.Enabled,
 		&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -72,12 +73,10 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 	return &p, nil
 }
 
+const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, last_discovered_at, created_at, updated_at`
+
 func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
-	query := `
-		SELECT id, name, base_url, encrypted_key, key_nonce, enabled, last_discovered_at, created_at, updated_at
-		FROM providers
-		ORDER BY created_at DESC
-	`
+	query := `SELECT ` + providerColumns + ` FROM providers ORDER BY created_at DESC`
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -89,7 +88,7 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 	for rows.Next() {
 		var p Provider
 		err := rows.Scan(
-			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.Enabled,
+			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.Enabled,
 			&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
 		)
 		if err != nil {
@@ -102,15 +101,11 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 }
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
-	query := `
-		SELECT id, name, base_url, encrypted_key, key_nonce, enabled, last_discovered_at, created_at, updated_at
-		FROM providers
-		WHERE id = $1
-	`
+	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = $1`
 
 	var p Provider
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.Enabled,
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.Enabled,
 		&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -120,22 +115,22 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	return &p, nil
 }
 
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProviderRequest, encryptedKey []byte, keyNonce []byte) (*Provider, error) {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	query := `
 		UPDATE providers
 		SET name = COALESCE($1, name),
 		    base_url = COALESCE($2, base_url),
 		    encrypted_key = COALESCE($3, encrypted_key),
 		    key_nonce = COALESCE($4, key_nonce),
-		    enabled = COALESCE($5, enabled),
+		    key_salt = COALESCE($5, key_salt),
+		    enabled = COALESCE($6, enabled),
 		    updated_at = now()
-		WHERE id = $6
-		RETURNING id, name, base_url, encrypted_key, key_nonce, enabled, last_discovered_at, created_at, updated_at
-	`
+		WHERE id = $7
+		RETURNING ` + providerColumns
 
 	var p Provider
-	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, req.Enabled, id).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.Enabled,
+	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, req.Enabled, id).Scan(
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.Enabled,
 		&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {

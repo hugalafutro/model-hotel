@@ -136,13 +136,13 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.db.Create(r.Context(), req, encryptedKey.Ciphertext, encryptedKey.Nonce)
+	p, err := h.db.Create(r.Context(), req, encryptedKey.Ciphertext, encryptedKey.Nonce, encryptedKey.Salt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	go auth.WarmKeyCache(p.ID, p.EncryptedKey, p.KeyNonce, h.cfg.MasterKey)
+	go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
 
 	response := provider.ToResponse(p)
 	response.MaskedKey = provider.MaskAPIKey(req.APIKey)
@@ -208,6 +208,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 
 	var encryptedKey []byte
 	var keyNonce []byte
+	var keySalt []byte
 
 	if req.APIKey != nil {
 		enc, err := auth.Encrypt(*req.APIKey, h.cfg.MasterKey)
@@ -217,9 +218,10 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 		encryptedKey = enc.Ciphertext
 		keyNonce = enc.Nonce
+		keySalt = enc.Salt
 	}
 
-	p, err := h.db.Update(r.Context(), id, req, encryptedKey, keyNonce)
+	p, err := h.db.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			http.Error(w, "provider not found", http.StatusNotFound)

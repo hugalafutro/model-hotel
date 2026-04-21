@@ -133,6 +133,7 @@ export function Logs() {
               <StaticHeaderNoArrow>Time</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Hash</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Model</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Provider</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Status</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Tokens</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Duration</StaticHeaderNoArrow>
@@ -156,6 +157,9 @@ export function Logs() {
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate" title={log.model_id}>
                       {log.model_id || '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
+                      {log.provider_name === 'Deleted' ? <span className="text-red-400 italic">Deleted</span> : (log.provider_name || '-')}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
                       <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code)}`}>
@@ -198,7 +202,7 @@ export function Logs() {
                 )
               })
             ) : (
-              <EmptyRow colSpan={9} message="No logs found" />
+              <EmptyRow colSpan={10} message="No logs found" />
             )}
           </tbody>
         </table>

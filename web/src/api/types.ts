@@ -60,6 +60,7 @@ export interface Model {
 export interface LogEntry {
   id: string;
   provider_id: string;
+  provider_name: string;
   model_id: string;
   request_id: string;
   request_hash: string;

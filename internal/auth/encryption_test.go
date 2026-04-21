@@ -21,13 +21,40 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatalf("Expected nonce length %d, got %d", nonceLength, len(encrypted.Nonce))
 	}
 
-	decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, masterKey)
+	decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
 	if err != nil {
 		t.Fatalf("Decrypt failed: %v", err)
 	}
 
 	if decrypted != plaintext {
 		t.Errorf("Decrypted text doesn't match original. Expected %q, got %q", plaintext, decrypted)
+	}
+}
+
+func TestV1BackwardCompatibility(t *testing.T) {
+	masterKey := "test-master-key-123"
+	plaintext := "my-v1-api-key"
+
+	v1Key := deriveKeyV1(masterKey)
+	kp, err := encryptWithKey(plaintext, v1Key)
+	if err != nil {
+		t.Fatalf("encryptWithKey failed: %v", err)
+	}
+
+	decrypted, err := Decrypt(kp.Ciphertext, kp.Nonce, nil, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt with nil salt failed: %v", err)
+	}
+	if decrypted != plaintext {
+		t.Errorf("v1 decrypt mismatch: expected %q, got %q", plaintext, decrypted)
+	}
+
+	decrypted2, err := Decrypt(kp.Ciphertext, kp.Nonce, []byte{}, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt with empty salt failed: %v", err)
+	}
+	if decrypted2 != plaintext {
+		t.Errorf("v1 decrypt (empty salt) mismatch: expected %q, got %q", plaintext, decrypted2)
 	}
 }
 
@@ -50,7 +77,7 @@ func TestDifferentMasterKeys(t *testing.T) {
 		t.Error("Different master keys should produce different ciphertexts")
 	}
 
-	_, err = Decrypt(encrypted1.Ciphertext, encrypted1.Nonce, masterKey2)
+	_, err = Decrypt(encrypted1.Ciphertext, encrypted1.Nonce, encrypted1.Salt, masterKey2)
 	if err == nil {
 		t.Error("Decrypting with wrong master key should fail")
 	}

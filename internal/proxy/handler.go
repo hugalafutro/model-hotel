@@ -246,7 +246,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	providerLookupMs := float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
 
 	keyDecryptStart := time.Now()
-	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, h.cfg.MasterKey)
+	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 	if err != nil {
 		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
 		return

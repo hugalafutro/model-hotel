@@ -13,6 +13,7 @@ import (
 type LogEntry struct {
 	ID                string    `json:"id"`
 	ProviderID        string    `json:"provider_id"`
+	ProviderName      string    `json:"provider_name"`
 	ModelID           string    `json:"model_id"`
 	RequestID         string    `json:"request_id"`
 	RequestHash       string    `json:"request_hash"`
@@ -104,16 +105,17 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	query := `
-		SELECT id, provider_id, model_id, request_id,
-		       COALESCE(request_hash, ''), status_code,
-		       COALESCE(latency_ms, 0), COALESCE(duration_ms, 0),
-		       COALESCE(ttft_ms, 0), COALESCE(proxy_overhead_ms, 0),
-		       COALESCE(parse_ms, 0), COALESCE(model_lookup_ms, 0), COALESCE(provider_lookup_ms, 0), COALESCE(key_decrypt_ms, 0),
-		       tokens_per_second,
-		       COALESCE(tokens_prompt, 0), COALESCE(tokens_completion, 0),
-		       COALESCE(streaming, false), COALESCE(virtual_key_name, ''),
-		       COALESCE(error_message, ''), created_at
-		FROM request_logs
+		SELECT rl.id, COALESCE(rl.provider_id::text, ''), COALESCE(p.name, 'Deleted'),
+		       rl.model_id, rl.request_id,
+		       COALESCE(rl.request_hash, ''), rl.status_code,
+		       COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
+		       COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
+		       COALESCE(rl.parse_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
+		       rl.tokens_per_second,
+		       COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
+		       COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''),
+		       COALESCE(rl.error_message, ''), rl.created_at
+		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		WHERE 1=1
 	`
 
@@ -121,7 +123,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	argIndex := 1
 
 	if modelID != "" {
-		query += " AND model_id = $" + toString(argIndex)
+		query += " AND rl.model_id = $" + toString(argIndex)
 		args = append(args, modelID)
 		argIndex++
 	}
@@ -129,14 +131,14 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	if providerID != "" {
 		providerUUID, err := uuid.Parse(providerID)
 		if err == nil {
-			query += " AND provider_id = $" + toString(argIndex)
+			query += " AND rl.provider_id = $" + toString(argIndex)
 			args = append(args, providerUUID)
 			argIndex++
 		}
 	}
 
 	if statusCode > 0 {
-		query += " AND status_code = $" + toString(argIndex)
+		query += " AND rl.status_code = $" + toString(argIndex)
 		args = append(args, statusCode)
 		argIndex++
 	}
@@ -144,7 +146,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	if fromDate != "" {
 		parsedFrom, err := time.Parse(time.RFC3339, fromDate)
 		if err == nil {
-			query += " AND created_at >= $" + toString(argIndex)
+			query += " AND rl.created_at >= $" + toString(argIndex)
 			args = append(args, parsedFrom)
 			argIndex++
 		}
@@ -153,7 +155,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	if toDate != "" {
 		parsedTo, err := time.Parse(time.RFC3339, toDate)
 		if err == nil {
-			query += " AND created_at <= $" + toString(argIndex)
+			query += " AND rl.created_at <= $" + toString(argIndex)
 			args = append(args, parsedTo)
 			argIndex++
 		}
@@ -167,7 +169,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query += " ORDER BY created_at DESC LIMIT $" + toString(argIndex) + " OFFSET $" + toString(argIndex+1)
+	query += " ORDER BY rl.created_at DESC LIMIT $" + toString(argIndex) + " OFFSET $" + toString(argIndex+1)
 	args = append(args, perPage, offset)
 
 	rows, err := h.dbPool.Pool().Query(r.Context(), query, args...)
@@ -181,7 +183,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var entry LogEntry
 		err := rows.Scan(
-			&entry.ID, &entry.ProviderID, &entry.ModelID, &entry.RequestID,
+			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
 			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,

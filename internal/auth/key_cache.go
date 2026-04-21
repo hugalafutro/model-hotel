@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type cacheEntry struct {
@@ -22,9 +20,11 @@ var (
 
 const keyCacheTTL = 5 * time.Minute
 
-func DeriveKeyCached(masterKey string) []byte {
+func deriveKeyCached(masterKey string, salt []byte) []byte {
+	ck := cacheKey(masterKey, salt)
+
 	keyCacheMu.RLock()
-	if entry, ok := keyCache[masterKey]; ok && time.Now().Before(entry.expiresAt) {
+	if entry, ok := keyCache[ck]; ok && time.Now().Before(entry.expiresAt) {
 		key := make([]byte, len(entry.key))
 		copy(key, entry.key)
 		keyCacheMu.RUnlock()
@@ -32,10 +32,15 @@ func DeriveKeyCached(masterKey string) []byte {
 	}
 	keyCacheMu.RUnlock()
 
-	key := DeriveKey(masterKey)
+	var key []byte
+	if len(salt) == 0 {
+		key = deriveKeyV1(masterKey)
+	} else {
+		key = deriveKeyV2(masterKey, salt)
+	}
 
 	keyCacheMu.Lock()
-	keyCache[masterKey] = cacheEntry{
+	keyCache[ck] = cacheEntry{
 		key:       key,
 		expiresAt: time.Now().Add(keyCacheTTL),
 	}
@@ -46,8 +51,8 @@ func DeriveKeyCached(masterKey string) []byte {
 	return result
 }
 
-func DecryptCached(ciphertext, nonce []byte, masterKey string) (string, error) {
-	key := DeriveKeyCached(masterKey)
+func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
+	key := deriveKeyCached(masterKey, salt)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -67,7 +72,7 @@ func DecryptCached(ciphertext, nonce []byte, masterKey string) (string, error) {
 	return string(plaintext), nil
 }
 
-func WarmKeyCache(providerID uuid.UUID, encryptedKey, keyNonce []byte, masterKey string) {
-	DeriveKeyCached(masterKey)
-	DecryptCached(encryptedKey, keyNonce, masterKey)
+func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
+	deriveKeyCached(masterKey, keySalt)
+	DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
 }

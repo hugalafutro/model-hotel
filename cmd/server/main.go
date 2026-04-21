@@ -302,7 +302,7 @@ func main() {
 			if !p.Enabled {
 				continue
 			}
-			auth.WarmKeyCache(p.ID, p.EncryptedKey, p.KeyNonce, cfg.MasterKey)
+			auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
 		}
 		log.Println("Key cache warmed for all enabled providers")
 	}()

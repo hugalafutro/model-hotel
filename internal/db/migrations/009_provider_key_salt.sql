@@ -1,0 +1,1 @@
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS key_salt BYTEA;
