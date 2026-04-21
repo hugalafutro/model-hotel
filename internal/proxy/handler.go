@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
@@ -341,10 +340,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	failoverTimeout := h.settingsRepo.GetDuration(context.Background(), "failover_timeout", 10*time.Second)
-	maxRateLimitRetries := 0
-	if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(context.Background(), "failover_retries_on_rate_limit", "0")); err == nil {
-		maxRateLimitRetries = v
-	}
 
 	var lastErr string
 	var lastProviderID *uuid.UUID
@@ -380,60 +375,32 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 
-		if h.shouldFailover(resp.StatusCode) && attempt < len(candidates)-1 {
+		hasMoreCandidates := attempt < len(candidates)-1
+		shouldFailoverNow := h.shouldFailover(resp.StatusCode) && hasMoreCandidates
+
+		if shouldFailoverNow {
 			io.ReadAll(resp.Body)
 			resp.Body.Close()
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
-
-			if resp.StatusCode == 429 && maxRateLimitRetries > 0 {
-				retried := false
-				for retry := 0; retry < maxRateLimitRetries; retry++ {
-					retryReq, retryErr := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(proxyReqBody))
-					if retryErr != nil {
-						break
-					}
-					retryReq.Header.Set("Authorization", "Bearer "+apiKey)
-					retryReq.Header.Set("Content-Type", "application/json")
-					retryResp, retryErr := streamingClient.Do(retryReq)
-					if retryErr != nil {
-						continue
-					}
-					if retryResp.StatusCode == 429 {
-						retryResp.Body.Close()
-						continue
-					}
-					if retryResp.StatusCode >= 500 {
-						retryResp.Body.Close()
-						break
-					}
-					resp = retryResp
-					retried = true
-					break
-				}
-				if !retried {
-					continue
-				}
-			} else {
-				continue
-			}
+			continue
 		}
 
-        if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			errMsg := string(body)
 			if len(errMsg) > 500 {
 				errMsg = errMsg[:500]
 			}
-            h.dbPool.Exec(r.Context(), `
-                INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-                candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-                float64(time.Since(startTime).Microseconds())/1000.0,
-                proxyOverhead,
-                parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-                ttft, errMsg, req.Stream, vkName, vkID, attempt,
-            )
+			h.dbPool.Exec(r.Context(), `
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+				float64(time.Since(startTime).Microseconds())/1000.0,
+				proxyOverhead,
+				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+				ttft, errMsg, req.Stream, vkName, vkID, attempt,
+			)
 			http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
 			return
 		}
@@ -544,9 +511,26 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						fmt.Printf("AddTokens (non-stream) failed: %v\n", err)
 					}
 				}
-			}
 
-			json.NewEncoder(w).Encode(chatResp)
+				json.NewEncoder(w).Encode(chatResp)
+			} else {
+				body, _ := io.ReadAll(resp.Body)
+				errMsg := string(body)
+				if len(errMsg) > 500 {
+					errMsg = errMsg[:500]
+				}
+				totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+				h.dbPool.Exec(r.Context(), `
+					INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+					candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+					totalDuration,
+					proxyOverhead,
+					parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+					ttft, fmt.Sprintf("response decode error: %s", errMsg), false, vkName, vkID, attempt,
+				)
+				http.Error(w, errMsg, resp.StatusCode)
+			}
 		}
 
 		return
