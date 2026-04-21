@@ -116,7 +116,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		       rl.tokens_per_second,
 		       COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
 		       COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''),
-		       COALESCE(rl.virtual_key_name, '') != '' AND vk.id IS NULL,
+		       CASE WHEN rl.virtual_key_name <> '' AND vk.id IS NULL THEN true ELSE false END AS virtual_key_deleted,
 		       COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), rl.created_at
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_name = vk.name
