@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage } from './types'
+import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance } from './types'
 
 const API_BASE = '';
 
@@ -74,6 +74,16 @@ export const api = {
       if (!response.ok) {
         const text = await response.text();
         throw new Error(`Failed to fetch usage: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    getBalance: async (id: string): Promise<DeepSeekBalance> => {
+      const response = await fetch(`${API_BASE}/api/providers/${id}/balance`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch balance: ${response.status} ${text}`);
       }
       return response.json();
     },

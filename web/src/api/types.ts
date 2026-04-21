@@ -51,6 +51,7 @@ export interface Model {
   context_length: number | null;
   max_output_tokens: number | null;
   input_price_per_million: number | null;
+  input_price_per_million_cache_hit: number | null;
   output_price_per_million: number | null;
   owned_by: string;
   enabled: boolean;
@@ -77,6 +78,8 @@ export interface LogEntry {
   tokens_per_second: number | null;
   tokens_prompt: number;
   tokens_completion: number;
+  tokens_prompt_cache_hit: number;
+  tokens_prompt_cache_miss: number;
   streaming: boolean;
   virtual_key_name: string;
   virtual_key_deleted?: boolean;
@@ -175,4 +178,16 @@ export interface NanoGPTUsage {
   weeklyInputTokens: NanoGPTUsageTokenInfo | null;
   state: string;
   graceUntil: string | null;
+}
+
+export interface DeepSeekBalanceInfo {
+  currency: 'CNY' | 'USD';
+  total_balance: string;
+  granted_balance: string;
+  topped_up_balance: string;
+}
+
+export interface DeepSeekBalance {
+  is_available: boolean;
+  balance_infos: DeepSeekBalanceInfo[];
 }

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState, useMemo } from 'react'
-import type { NanoGPTUsage } from '../api/types'
+import type { NanoGPTUsage, DeepSeekBalance } from '../api/types'
 import { useToast } from '../context/ToastContext'
 
 function formatTokens(n: number | null | undefined): string {
@@ -164,6 +164,8 @@ export function Providers() {
   const [error, setError] = useState<string | null>(null)
   const [discoveringId, setDiscoveringId] = useState<string | null>(null)
   const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null)
+  const [deepseekBalance, setDeepseekBalance] = useState<DeepSeekBalance | null>(null)
+  const [deepseekCurrency, setDeepseekCurrency] = useState<'USD' | 'CNY'>('USD')
   const [formData, setFormData] = useState<{
     name: string;
     base_url: string;
@@ -190,10 +192,25 @@ export function Providers() {
     return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
   }, [providers])
 
+  const nanogptProviderId = useMemo(() => {
+    return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
+  }, [providers])
+
+  const deepseekProviderId = useMemo(() => {
+    return providers?.find(p => p.base_url.includes('deepseek.com'))?.id
+  }, [providers])
+
   const { data: nanogptUsage, refetch, isRefetching } = useQuery({
     queryKey: ['nanogpt-usage', nanogptProviderId],
     queryFn: () => api.providers.getUsage(nanogptProviderId!),
     enabled: Boolean(nanogptProviderId),
+    refetchInterval: 60 * 60 * 1000,
+  })
+
+  const { data: deepseekBalanceData, refetch: refetchDeepseekBalance } = useQuery({
+    queryKey: ['deepseek-balance', deepseekProviderId],
+    queryFn: () => api.providers.getBalance(deepseekProviderId!),
+    enabled: Boolean(deepseekProviderId),
     refetchInterval: 60 * 60 * 1000,
   })
 
@@ -266,6 +283,7 @@ export function Providers() {
       nanogpt: 'https://api.nano-gpt.com/v1',
       'z-ai': 'https://api.z.ai/api/paas/v4',
       openai: 'https://api.openai.com/v1',
+      deepseek: 'https://api.deepseek.com/v1',
     }
     setFormData(prev => ({
       ...prev,
@@ -338,6 +356,16 @@ export function Providers() {
                   {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
                 </button>
               )}
+              {provider.base_url.includes('deepseek.com') && deepseekBalanceData && (
+                <button
+                  type="button"
+                  onClick={() => setDeepseekCurrency(c => c === 'USD' ? 'CNY' : 'USD')}
+                  className="px-2 py-1.5 rounded-full bg-green-900/20 text-green-400 border border-green-700/50 text-xs font-medium cursor-pointer hover:bg-green-900/30 transition-colors"
+                  title="Click to toggle USD/CNY"
+                >
+                  {deepseekBalanceData.balance_infos.find(b => b.currency === deepseekCurrency)?.total_balance ?? '-'} {deepseekCurrency}
+                </button>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -398,6 +426,7 @@ export function Providers() {
                   <option value="openai">OpenAI Compatible</option>
                   <option value="nanogpt">NanoGPT</option>
                   <option value="z-ai">Z.ai</option>
+                  <option value="deepseek">DeepSeek</option>
                 </select>
               </div>
 
