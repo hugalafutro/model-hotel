@@ -324,6 +324,8 @@ export function Models() {
   const [sort, setSort] = useState<SortState<SortField>>({ field: 'name', dir: 'asc' })
   const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('enabled')
+  const [pageSize, setPageSize] = useState(25)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data: models, isLoading } = useQuery({
     queryKey: ['models', selectedProvider],
@@ -438,6 +440,13 @@ export function Models() {
     return { sortedAndFiltered: filtered, pillAvailability: availability, existingCaps: capsInData }
   }, [models, searchQuery, sort, capFilter, statusFilter])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedProvider, capFilter, statusFilter])
+
+  const totalPages = Math.ceil(sortedAndFiltered.length / pageSize)
+  const paginatedModels = sortedAndFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -467,15 +476,29 @@ export function Models() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
+        <div className="flex-1 flex gap-2">
           <input
             type="text"
             placeholder="Search models..."
             autoFocus={true}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           />
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+          >
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={75}>75 / page</option>
+            <option value={100}>100 / page</option>
+            <option value={125}>125 / page</option>
+            <option value={150}>150 / page</option>
+            <option value={175}>175 / page</option>
+            <option value={200}>200 / page</option>
+          </select>
         </div>
         <div className="md:w-64">
           <select
@@ -604,8 +627,8 @@ export function Models() {
             </tr>
           </thead>
           <tbody>
-            {sortedAndFiltered.length > 0 ? (
-              sortedAndFiltered.map((model, idx) => {
+            {paginatedModels.length > 0 ? (
+              paginatedModels.map((model, idx) => {
                 const caps = parseCapabilities(model.capabilities)
                 return (
                   <Row key={model.id} index={idx}>
@@ -653,8 +676,60 @@ export function Models() {
       </div>
 
       {models && models.length > 0 && (
-        <div className="text-sm text-gray-500 text-center">
-          Showing {sortedAndFiltered.length} of {models.length} models
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedAndFiltered.length)} of {sortedAndFiltered.length} models
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                let pageNum: number
+                if (totalPages <= 7) {
+                  pageNum = i + 1
+                } else if (currentPage <= 4) {
+                  pageNum = i + 1
+                  if (i === 6) pageNum = totalPages
+                } else if (currentPage >= totalPages - 3) {
+                  pageNum = totalPages - 6 + i
+                  if (i === 0) pageNum = 1
+                } else {
+                  pageNum = currentPage - 3 + i
+                  if (i === 0) pageNum = 1
+                  if (i === 6) pageNum = totalPages
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-2 py-1 text-xs rounded border ${
+                      currentPage === pageNum
+                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
 
