@@ -23,8 +23,8 @@ interface OverheadBreakdown {
 
 function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 min-w-[320px] shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="presentation">
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 min-w-[320px] shadow-2xl" onClick={e => e.stopPropagation()} role="presentation">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Proxy Overhead Breakdown</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
@@ -200,7 +200,7 @@ export function Logs() {
                         ? <span className="text-red-400 italic">Deleted</span>
                         : (log.virtual_key_name && log.virtual_key_name.toLowerCase() === 'admin' 
                           ? 'admin'
-                          : (log.virtual_key_name || (log.virtual_key_id ? log.virtual_key_id : '-')))
+                          : (log.virtual_key_name || log.virtual_key_id || '-'))
                       }
                     </td>
                   </Row>

@@ -86,8 +86,8 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.dbPool.Pool().Exec(r.Context(),
-		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
+    _, err := h.dbPool.Exec(r.Context(),
+        `DELETE FROM request_logs WHERE created_at < $1`, cutoff)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -168,7 +168,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	var total int
 	countQuery := "SELECT COUNT(*) FROM (" + query + ") as count_query"
-	err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, args...).Scan(&total)
+    err := h.dbPool.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

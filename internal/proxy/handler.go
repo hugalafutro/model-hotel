@@ -416,7 +416,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
         if vkName != "" {
             // best-effort lookup of VK id by name
             var id string
-            errVK := h.dbPool.Pool().QueryRow(r.Context(), `SELECT id FROM virtual_keys WHERE name = $1 ORDER BY created_at DESC LIMIT 1`, vkName).Scan(&id)
+            errVK := h.dbPool.QueryRow(r.Context(), `SELECT id FROM virtual_keys WHERE name = $1 ORDER BY created_at DESC LIMIT 1`, vkName).Scan(&id)
             if errVK == nil {
                 vkID = id
             }
