@@ -310,21 +310,6 @@ export function Providers() {
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
-                <div className="flex items-center gap-2">
-                  {provider.model_count > 0 && (
-                    <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{provider.model_count} Models</span>
-                  )}
-                  {showQuotaBadge && (
-                    <button
-                      type="button"
-                      onClick={() => nanogptUsage && setQuotaUsage(nanogptUsage)}
-                      className="px-2 py-0.5 rounded-full bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 text-xs font-medium cursor-pointer hover:bg-[#0690a8]/30 transition-colors"
-                      title="View quota details"
-                    >
-                      {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
-                    </button>
-                  )}
-                </div>
               </div>
               <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
             </div>
@@ -342,28 +327,40 @@ export function Providers() {
               )}
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => discoverMutation.mutate(provider.id)}
-                disabled={discoveringId !== null}
-                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-                  discoveringId === provider.id
-                    ? 'bg-indigo-900/20 text-indigo-500/50 border-indigo-700/20 cursor-not-allowed'
-                    : discoveringId !== null
-                    ? 'bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed'
-                    : 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
-                }`}
-              >
-                {discoveringId === provider.id ? 'Discovering...' : 'Discover Models'}
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteMutation.mutate(provider.id)}
-                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] cursor-pointer transition-all"
-              >
-                Delete
-              </button>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {showQuotaBadge && (
+                <button
+                  type="button"
+                  onClick={() => nanogptUsage && setQuotaUsage(nanogptUsage)}
+                  className="px-2 py-1.5 rounded-full bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 text-xs font-medium cursor-pointer hover:bg-[#0690a8]/30 transition-colors"
+                  title="View quota details"
+                >
+                  {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
+                </button>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => discoverMutation.mutate(provider.id)}
+                  disabled={discoveringId !== null}
+                  className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                    discoveringId === provider.id
+                      ? 'bg-indigo-900/20 text-indigo-500/50 border-indigo-700/20 cursor-not-allowed'
+                      : discoveringId !== null
+                      ? 'bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed'
+                      : 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
+                  }`}
+                >
+                  {discoveringId === provider.id ? 'Discovering...' : 'Discover Models'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate(provider.id)}
+                  className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] cursor-pointer transition-all"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
           )
