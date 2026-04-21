@@ -31,6 +31,7 @@ type LogEntry struct {
 	TokensCompletion  int       `json:"tokens_completion"`
 	Streaming         bool      `json:"streaming"`
 	VirtualKeyName    string    `json:"virtual_key_name"`
+	VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
 	ErrorMessage      string    `json:"error_message"`
 	FailoverAttempt   int       `json:"failover_attempt"`
 	CreatedAt         time.Time `json:"created_at"`
@@ -115,8 +116,10 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		       rl.tokens_per_second,
 		       COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
 		       COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''),
+		       COALESCE(rl.virtual_key_name, '') != '' AND vk.id IS NULL,
 		       COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), rl.created_at
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
+		LEFT JOIN virtual_keys vk ON rl.virtual_key_name = vk.name
 		WHERE 1=1
 	`
 
@@ -190,7 +193,8 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
-			&entry.VirtualKeyName, &entry.ErrorMessage,
+			&entry.VirtualKeyName, &entry.VirtualKeyDeleted,
+			&entry.ErrorMessage,
 			&entry.FailoverAttempt, &entry.CreatedAt,
 		)
 		if err != nil {

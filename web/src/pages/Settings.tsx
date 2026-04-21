@@ -316,9 +316,11 @@ function ProviderDiscoveryList() {
   })
 
   const queryClient = useQueryClient()
+  const [discoveringId, setDiscoveringId] = useState<string | null>(null)
 
   const discoverMutation = useMutation({
     mutationFn: async (id: string) => {
+      setDiscoveringId(id)
       toast('Discovering models...', 'info')
       return api.providers.discover(id)
     },
@@ -329,6 +331,9 @@ function ProviderDiscoveryList() {
     },
     onError: (err: Error) => {
       toast(`Discovery failed: ${err.message}`, 'error')
+    },
+    onSettled: () => {
+      setDiscoveringId(null)
     },
   })
 
@@ -359,14 +364,16 @@ function ProviderDiscoveryList() {
           <button
             type="button"
             onClick={() => discoverMutation.mutate(p.id)}
-            disabled={discoverMutation.isPending}
+            disabled={discoveringId !== null}
             className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-              discoverMutation.isPending
+              discoveringId === p.id
                 ? 'bg-indigo-900/20 text-indigo-500/50 border-indigo-700/20 cursor-not-allowed'
+                : discoveringId !== null
+                ? 'bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed'
                 : 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
             }`}
           >
-            {discoverMutation.isPending ? 'Discovering...' : 'Discover Now'}
+            {discoveringId === p.id ? 'Discovering...' : 'Discover Now'}
           </button>
         </div>
       ))}

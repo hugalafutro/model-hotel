@@ -81,8 +81,8 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
 }) {
   const caps = parseCapabilities(model.capabilities)
   const params = parseParams(model.params)
-  const inputMods = (() => { try { return JSON.parse(model.input_modalities) as string[] } catch { return [] } })()
-  const outputMods = (() => { try { return JSON.parse(model.output_modalities) as string[] } catch { return [] } })()
+  const inputMods = (() => { try { const v = JSON.parse(model.input_modalities); return Array.isArray(v) ? v : [v] } catch { return [] } })()
+  const outputMods = (() => { try { const v = JSON.parse(model.output_modalities); return Array.isArray(v) ? v : [v] } catch { return [] } })()
   const [cooldown, setCooldown] = useState(0)
   const [discovering, setDiscovering] = useState(false)
   const [testing, setTesting] = useState(false)

@@ -76,7 +76,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			input_price_per_million = EXCLUDED.input_price_per_million,
 			output_price_per_million = EXCLUDED.output_price_per_million,
 			owned_by = EXCLUDED.owned_by,
-			enabled = models.enabled,
+			enabled = EXCLUDED.enabled,
 			last_seen_at = now()
 		RETURNING ` + upsertColumns
 
