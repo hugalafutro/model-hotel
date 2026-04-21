@@ -545,10 +545,10 @@ export function Models() {
                     const isSelected = selectedProvider === provider.id
                     const baseStyle = isNanoGPT
                       ? 'bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30'
-                      : 'bg-black text-white border-white/50 hover:bg-black/80'
+                      : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                     const activeStyle = isNanoGPT
                       ? 'bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]'
-                      : 'bg-black text-white border-white shadow-[0_0_6px_1px_rgba(255,255,255,0.35)]'
+                      : 'bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]'
                     return (
                       <button
                         key={provider.id}
