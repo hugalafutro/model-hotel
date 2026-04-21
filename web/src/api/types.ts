@@ -79,6 +79,7 @@ export interface LogEntry {
   streaming: boolean;
   virtual_key_name: string;
   error_message: string;
+  failover_attempt: number;
   created_at: string;
 }
 

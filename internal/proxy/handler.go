@@ -10,15 +10,19 @@ import (
 	"io"
 	"net/http"
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
+	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
+	"github.com/user/llm-proxy/internal/settings"
 	"github.com/user/llm-proxy/internal/util"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
@@ -33,6 +37,8 @@ type Handler struct {
 	modelRepo      *model.Repository
 	dbPool         *pgxpool.Pool
 	virtualKeyRepo *virtualkey.Repository
+	failoverRepo   *failover.Repository
+	settingsRepo   *settings.Repository
 }
 
 func NewHandler(
@@ -41,6 +47,8 @@ func NewHandler(
 	modelRepo *model.Repository,
 	dbPool *pgxpool.Pool,
 	virtualKeyRepo *virtualkey.Repository,
+	failoverRepo *failover.Repository,
+	settingsRepo *settings.Repository,
 ) *Handler {
 	return &Handler{
 		cfg:            cfg,
@@ -48,7 +56,87 @@ func NewHandler(
 		modelRepo:      modelRepo,
 		dbPool:         dbPool,
 		virtualKeyRepo: virtualKeyRepo,
+		failoverRepo:   failoverRepo,
+		settingsRepo:   settingsRepo,
 	}
+}
+
+type modelCandidate struct {
+	model    *model.Model
+	provider *provider.Provider
+	apiKey   string
+}
+
+func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]modelCandidate, float64, error) {
+	modelLookupStart := time.Now()
+
+	allModels, err := h.modelRepo.GetByModelID(ctx, modelID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(allModels) == 0 {
+		return nil, 0, nil
+	}
+
+	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+
+	fg, fgErr := h.failoverRepo.GetByModel(ctx, modelID)
+
+	if fgErr == nil && len(fg.PriorityOrder) > 0 {
+		candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
+		for _, modelUUID := range fg.PriorityOrder {
+			m, err := h.modelRepo.Get(ctx, modelUUID)
+			if err != nil || !m.Enabled || !m.ProviderEnabled {
+				continue
+			}
+			prov, err := h.providerRepo.Get(ctx, m.ProviderID)
+			if err != nil || !prov.Enabled {
+				continue
+			}
+			apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+			if err != nil {
+				continue
+			}
+			candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
+		}
+		return candidates, modelLookupMs, nil
+	}
+
+	candidates := make([]modelCandidate, 0, len(allModels))
+	for _, m := range allModels {
+		prov, err := h.providerRepo.Get(ctx, m.ProviderID)
+		if err != nil || !prov.Enabled {
+			continue
+		}
+		apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+		if err != nil {
+			continue
+		}
+		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
+	}
+	return candidates, modelLookupMs, nil
+}
+
+func (h *Handler) shouldFailover(statusCode int) bool {
+	if statusCode >= 500 {
+		return true
+	}
+	if statusCode == 429 {
+		return h.settingsRepo.GetBool(context.Background(), "failover_on_rate_limit", true)
+	}
+	return false
+}
+
+type failoverAttemptResult struct {
+	provider      *provider.Provider
+	statusCode    int
+	errorMessage  string
+	respBody      []byte
+	streamBuf     *bytes.Buffer
+	usage         *Usage
+	promptTokens  int
+	compTokens    int
+	isStream      bool
 }
 
 type ChatCompletionRequest struct {
@@ -144,8 +232,14 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	seen := make(map[string]bool)
 	openAIModels := make([]map[string]interface{}, 0, len(models))
 	for _, m := range models {
+		if seen[m.ModelID] {
+			continue
+		}
+		seen[m.ModelID] = true
+
 		ownedBy := m.OwnedBy
 		if ownedBy == "" {
 			ownedBy = m.ProviderName
@@ -216,46 +310,15 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	modelLookupStart := time.Now()
-	models, err := h.modelRepo.ListEnabled(r.Context())
+	candidates, modelLookupMs, err := h.resolveCandidates(r.Context(), req.Model)
 	if err != nil {
-		http.Error(w, "failed to query models", http.StatusInternalServerError)
+		http.Error(w, "failed to resolve model", http.StatusInternalServerError)
 		return
 	}
-
-	var targetModel *model.Model
-	for _, m := range models {
-		if m.ModelID == req.Model {
-			targetModel = m
-			break
-		}
-	}
-
-	if targetModel == nil {
+	if len(candidates) == 0 {
 		http.Error(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
-	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
-
-	providerLookupStart := time.Now()
-	prov, err := h.providerRepo.Get(r.Context(), targetModel.ProviderID)
-	if err != nil {
-		http.Error(w, "provider not found", http.StatusInternalServerError)
-		return
-	}
-	providerLookupMs := float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
-
-	keyDecryptStart := time.Now()
-	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-	if err != nil {
-		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
-		return
-	}
-	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
-
-	proxyOverhead := float64(time.Since(startTime).Microseconds()) / 1000.0
-
-	targetURL := util.SanitizeBaseURL(prov.BaseURL) + "/chat/completions"
 
 	var proxyReqBody []byte
 	if req.Stream {
@@ -273,125 +336,195 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		proxyReqBody = bodyBytes
 	}
 
-	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(proxyReqBody))
-	if err != nil {
-		http.Error(w, "failed to create proxy request", http.StatusInternalServerError)
-		return
-	}
-
-	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(proxyReq)
-	if err != nil {
-		http.Error(w, "failed to call provider", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
 	vkName := ""
 	if v := r.Context().Value(virtualKeyNameKey); v != nil {
 		vkName = v.(string)
 	}
 
-	logBase := func() []interface{} {
-		return []interface{}{
-			prov.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-			float64(time.Since(startTime).Microseconds()) / 1000.0,
-			proxyOverhead,
-			parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-		}
+	failoverTimeout := h.settingsRepo.GetDuration(context.Background(), "failover_timeout", 10*time.Second)
+	maxRateLimitRetries := 0
+	if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(context.Background(), "failover_retries_on_rate_limit", "0")); err == nil {
+		maxRateLimitRetries = v
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		errMsg := string(body)
-		if len(errMsg) > 500 {
-			errMsg = errMsg[:500]
-		}
-		h.dbPool.Exec(r.Context(), `
-			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, error_message, streaming, virtual_key_name)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-			append(logBase(), errMsg, req.Stream, vkName)...,
-		)
+	var lastErr string
+	for attempt, candidate := range candidates {
+		providerLookupMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
-		http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
+		keyDecryptStart := time.Now()
+		apiKey := candidate.apiKey
+		keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
+
+		proxyOverhead := float64(time.Since(startTime).Microseconds()) / 1000.0
+		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
+
+		proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(proxyReqBody))
+		if err != nil {
+			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
+			continue
+		}
+		proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
+		proxyReq.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: failoverTimeout}
+		resp, err := client.Do(proxyReq)
+		if err != nil {
+			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
+			continue
+		}
+
+		if h.shouldFailover(resp.StatusCode) && attempt < len(candidates)-1 {
+			io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
+
+			if resp.StatusCode == 429 && maxRateLimitRetries > 0 {
+				retried := false
+				for retry := 0; retry < maxRateLimitRetries; retry++ {
+					retryReq, retryErr := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(proxyReqBody))
+					if retryErr != nil {
+						break
+					}
+					retryReq.Header.Set("Authorization", "Bearer "+apiKey)
+					retryReq.Header.Set("Content-Type", "application/json")
+					retryResp, retryErr := client.Do(retryReq)
+					if retryErr != nil {
+						continue
+					}
+					if retryResp.StatusCode == 429 {
+						retryResp.Body.Close()
+						continue
+					}
+					if retryResp.StatusCode >= 500 {
+						retryResp.Body.Close()
+						break
+					}
+					resp = retryResp
+					retried = true
+					break
+				}
+				if !retried {
+					continue
+				}
+			} else {
+				continue
+			}
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			errMsg := string(body)
+			if len(errMsg) > 500 {
+				errMsg = errMsg[:500]
+			}
+			h.dbPool.Exec(r.Context(), `
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, error_message, streaming, virtual_key_name, failover_attempt)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+				float64(time.Since(startTime).Microseconds())/1000.0,
+				proxyOverhead,
+				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+				errMsg, req.Stream, vkName, attempt,
+			)
+			http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
+			return
+		}
+
+		defer resp.Body.Close()
+
+		if req.Stream {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Connection", "keep-alive")
+			w.Header().Set("X-Accel-Buffering", "no")
+
+			var buf bytes.Buffer
+			tee := io.TeeReader(resp.Body, &buf)
+			io.Copy(w, tee)
+
+			totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+			usage := extractStreamingUsage(buf.String())
+			var promptTokens, completionTokens int
+			if usage != nil {
+				promptTokens = usage.PromptTokens
+				completionTokens = usage.CompletionTokens
+			}
+			var tps float64
+			if completionTokens > 0 && totalDuration > 0 {
+				tps = float64(completionTokens) / float64(totalDuration) * 1000
+			}
+
+			h.dbPool.Exec(r.Context(), `
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, failover_attempt)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+				totalDuration,
+				proxyOverhead,
+				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+				totalDuration, tps, promptTokens, completionTokens, true, vkName, attempt,
+			)
+
+			if usage != nil && usage.TotalTokens > 0 {
+				authToken := r.Header.Get("Authorization")
+				if len(authToken) > 7 && authToken[:7] == "Bearer " {
+					bearer := authToken[7:]
+					if len(bearer) >= 3 && bearer[:3] == "sk-" {
+						vkHash := virtualkey.Hash(bearer)
+						h.virtualKeyRepo.AddTokens(r.Context(), vkHash, usage.TotalTokens)
+					}
+				}
+			}
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			var chatResp ChatCompletionResponse
+			if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
+				totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+				var tps float64
+				if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
+					tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
+				}
+
+				_, logErr := h.dbPool.Exec(r.Context(), `
+					INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, failover_attempt)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+					candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+					totalDuration,
+					proxyOverhead,
+					parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+					totalDuration, tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, vkName, attempt,
+				)
+				if logErr != nil {
+					fmt.Printf("Proxy log insert failed: %v\n", logErr)
+				}
+
+				authToken := r.Header.Get("Authorization")
+				if len(authToken) > 7 && authToken[:7] == "Bearer " {
+					bearer := authToken[7:]
+					if len(bearer) >= 3 && bearer[:3] == "sk-" {
+						vkHash := virtualkey.Hash(bearer)
+						totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
+						h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens)
+					}
+				}
+			}
+
+			json.NewEncoder(w).Encode(chatResp)
+		}
+
 		return
 	}
 
-	if req.Stream {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Connection", "keep-alive")
-		w.Header().Set("X-Accel-Buffering", "no")
-
-		var buf bytes.Buffer
-		tee := io.TeeReader(resp.Body, &buf)
-		io.Copy(w, tee)
-
-		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-
-		usage := extractStreamingUsage(buf.String())
-		var promptTokens, completionTokens int
-		if usage != nil {
-			promptTokens = usage.PromptTokens
-			completionTokens = usage.CompletionTokens
-		}
-
-		var tps float64
-		if completionTokens > 0 && totalDuration > 0 {
-			tps = float64(completionTokens) / float64(totalDuration) * 1000
-		}
-
-		h.dbPool.Exec(r.Context(), `
-			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-			append(logBase(), totalDuration, tps, promptTokens, completionTokens, true, vkName)...,
-		)
-
-		if usage != nil && usage.TotalTokens > 0 {
-			authToken := r.Header.Get("Authorization")
-			if len(authToken) > 7 && authToken[:7] == "Bearer " {
-				bearer := authToken[7:]
-				if len(bearer) >= 3 && bearer[:3] == "sk-" {
-					vkHash := virtualkey.Hash(bearer)
-					h.virtualKeyRepo.AddTokens(r.Context(), vkHash, usage.TotalTokens)
-				}
-			}
-		}
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-
-		var chatResp ChatCompletionResponse
-		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
-			totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-			var tps float64
-			if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
-				tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
-			}
-
-			_, logErr := h.dbPool.Exec(r.Context(), `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-				append(logBase(), totalDuration, tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, vkName)...,
-			)
-			if logErr != nil {
-				fmt.Printf("Proxy log insert failed: %v\n", logErr)
-			}
-
-			authToken := r.Header.Get("Authorization")
-			if len(authToken) > 7 && authToken[:7] == "Bearer " {
-				bearer := authToken[7:]
-				if len(bearer) >= 3 && bearer[:3] == "sk-" {
-					vkHash := virtualkey.Hash(bearer)
-					totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
-					h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens)
-				}
-			}
-		}
-
-		json.NewEncoder(w).Encode(chatResp)
-	}
+	h.dbPool.Exec(r.Context(), `
+		INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, error_message, streaming, virtual_key_name, failover_attempt)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+		uuid.Nil, req.Model, generateRequestHash(), generateRequestHash(), 502,
+		float64(time.Since(startTime).Microseconds())/1000.0,
+		float64(time.Since(startTime).Microseconds())/1000.0,
+		parseMs, modelLookupMs, 0, 0,
+		fmt.Sprintf("all providers failed: %s", lastErr), req.Stream, vkName, len(candidates)-1,
+	)
+	http.Error(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
 }
 
 func extractStreamingUsage(data string) *Usage {

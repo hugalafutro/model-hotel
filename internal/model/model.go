@@ -167,6 +167,18 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	return &m, nil
 }
 
+func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model, error) {
+	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.model_id = $1 AND m.enabled = true AND p.enabled = true ORDER BY p.created_at ASC`
+
+	rows, err := r.pool.Query(ctx, query, modelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanModels(rows)
+}
+
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM models WHERE id = $1`
 	result, err := r.pool.Exec(ctx, query, id)

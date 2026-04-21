@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 )
@@ -62,6 +63,18 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	if err := modelRepo.DisableMissingModels(r.Context(), providerID, existingModelIDs); err != nil {
 		http.Error(w, "failed to disable missing models: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	seenModelIDs := make(map[string]bool)
+	for _, mid := range existingModelIDs {
+		seenModelIDs[mid] = true
+	}
+	for modelID := range seenModelIDs {
+		if err := failoverRepo.SyncForModel(r.Context(), modelID); err != nil {
+			http.Error(w, "failed to sync failover group: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	now := time.Now()

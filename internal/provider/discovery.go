@@ -130,15 +130,18 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		capJSON, _ := json.Marshal(model.Capability{Streaming: true})
 
 		models = append(models, &model.Model{
-			ID:           uuid.New(),
-			ProviderID:   provider.ID,
-			ModelID:      m.ID,
-			Name:         m.ID,
-			DisplayName:  m.ID,
-			Capabilities: string(capJSON),
-			Params:       "{}",
-			OwnedBy:      m.OwnedBy,
-			Enabled:      true,
+			ID:               uuid.New(),
+			ProviderID:       provider.ID,
+			ModelID:          m.ID,
+			Name:             m.ID,
+			DisplayName:      m.ID,
+			Capabilities:     string(capJSON),
+			Params:           "{}",
+			Modality:         "text",
+			InputModalities:  "[]",
+			OutputModalities: "[]",
+			OwnedBy:          m.OwnedBy,
+			Enabled:          true,
 		})
 	}
 

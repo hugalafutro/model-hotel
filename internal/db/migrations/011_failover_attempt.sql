@@ -1,0 +1,1 @@
+ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS failover_attempt INT DEFAULT 0;

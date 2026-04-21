@@ -19,6 +19,7 @@ import (
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
 	"github.com/user/llm-proxy/internal/db"
+	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/proxy"
@@ -144,6 +145,8 @@ func main() {
 	providerRepo := provider.NewRepository(database.Pool())
 	modelRepo := model.NewRepository(database.Pool())
 	virtualKeyRepo := virtualkey.NewRepository(database.Pool())
+	settingsRepo := settings.NewRepository(database.Pool())
+	failoverRepo := failover.NewRepository(database.Pool())
 
 	r := chi.NewRouter()
 
@@ -226,7 +229,7 @@ func main() {
 
 	// Proxy routes
 	r.Route("/v1", func(r chi.Router) {
-		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo)
+		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo)
 		proxyHandler.Register(r)
 	})
 
@@ -235,7 +238,6 @@ func main() {
 	r.Get("/*", spaHandler.ServeHTTP)
 
 	// Startup: run initial discovery for all enabled providers (if enabled)
-	settingsRepo := settings.NewRepository(database.Pool())
 	runDiscovery := func() {
 		ctx := context.Background()
 		providers, err := providerRepo.List(ctx)
@@ -269,6 +271,22 @@ func main() {
 				log.Printf("Discovery: failed to update last_discovered_at for %s: %v", p.Name, err)
 			}
 			log.Printf("Discovery: discovered %d models for provider %s", len(models), p.Name)
+		}
+
+		seenModelIDs := make(map[string]bool)
+		for _, p := range providers {
+			if !p.Enabled {
+				continue
+			}
+			models, _ := modelRepo.List(ctx, &p.ID)
+			for _, m := range models {
+				seenModelIDs[m.ModelID] = true
+			}
+		}
+		for modelID := range seenModelIDs {
+			if err := failoverRepo.SyncForModel(ctx, modelID); err != nil {
+				log.Printf("Discovery: failed to sync failover for model %s: %v", modelID, err)
+			}
 		}
 	}
 
