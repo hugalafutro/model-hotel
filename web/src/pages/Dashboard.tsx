@@ -29,6 +29,12 @@ export function Dashboard() {
     retry: 1,
   })
 
+  const { data: models } = useQuery({
+    queryKey: ['models'],
+    queryFn: () => api.models.list(),
+    enabled: isLoggedIn,
+  })
+
   const handleLogin = () => {
     if (!adminToken.trim()) {
       setError('Please enter an admin token')
@@ -121,7 +127,8 @@ export function Dashboard() {
   const statCards = [
     { id: 'req24h', label: 'Requests (24h)', value: stats?.total_requests_last_24h || 0, icon: '📊' },
     { id: 'req7d', label: 'Requests (7d)', value: stats?.total_requests_last_7d || 0, icon: '📈' },
-    { id: 'latency', label: 'Avg Latency', value: `${((stats?.avg_latency_ms || 0) / 1000).toFixed(1)}s`, icon: '⚡' },
+    { id: 'models', label: 'Total Models', value: models?.length || 0, icon: '🤖' },
+    { id: 'latency', label: 'Avg Latency', value: `${(stats?.avg_latency_ms || 0).toFixed(1)}ms`, icon: '⚡' },
     { id: 'errors', label: 'Error Rate', value: `${((stats?.error_rate || 0) * 100).toFixed(1)}%`, icon: '❌' },
     { id: 'tokens', label: 'Total Tokens', value: (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0), icon: '🎯' },
   ]
@@ -133,7 +140,7 @@ export function Dashboard() {
         <p className="text-gray-400 mt-1">Overview of your LLM proxy usage</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {statCards.map((card) => (
           <div key={card.id} className="bg-gray-800 border border-gray-700 rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">

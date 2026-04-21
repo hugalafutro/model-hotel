@@ -63,7 +63,7 @@ export function Logs() {
       page,
       per_page: 20,
       model_id: filters.model_id || undefined,
-      status_code: filters.status_code ? parseInt(filters.status_code) : undefined,
+      status_code: filters.status_code || undefined,
     }),
   })
 
@@ -113,10 +113,8 @@ export function Logs() {
           >
             <option value="">All Status</option>
             <option value="200">200 OK</option>
-            <option value="400">400 Bad Request</option>
-            <option value="401">401 Unauthorized</option>
-            <option value="404">404 Not Found</option>
-            <option value="500">500 Server Error</option>
+            <option value="4xx">4XX</option>
+            <option value="5xx">5XX</option>
           </select>
         </div>
       </div>
@@ -134,7 +132,7 @@ export function Logs() {
               <StaticHeaderNoArrow>T/s</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>TTFT</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Dur.</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Ovh.</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Overhead</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Key</StaticHeaderNoArrow>
             </tr>
           </thead>

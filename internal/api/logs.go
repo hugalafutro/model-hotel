@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -101,7 +102,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	perPage := getIntQueryParam(r, "per_page", 20)
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
-	statusCode := getIntQueryParam(r, "status_code", 0)
+	statusCodeStr := r.URL.Query().Get("status_code")
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
 
@@ -149,10 +150,16 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		}
 	}
 
-	if statusCode > 0 {
-		query += " AND rl.status_code = $" + toString(argIndex)
-		args = append(args, statusCode)
-		argIndex++
+	if statusCodeStr != "" {
+		if statusCodeStr == "4xx" {
+			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
+		} else if statusCodeStr == "5xx" {
+			query += " AND rl.status_code >= 500"
+		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode > 0 {
+			query += " AND rl.status_code = $" + toString(argIndex)
+			args = append(args, statusCode)
+			argIndex++
+		}
 	}
 
 	if fromDate != "" {

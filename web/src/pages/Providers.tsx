@@ -18,7 +18,7 @@ export function Providers() {
     name: '',
     base_url: '',
     api_key: '',
-    provider_type: 'custom',
+    provider_type: 'openai',
   })
 
   const { data: providers, isLoading } = useQuery({
@@ -139,7 +139,7 @@ export function Providers() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
                 {provider.model_count > 0 && (
-                  <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{provider.model_count}</span>
+                  <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{provider.model_count} Models</span>
                 )}
               </div>
               <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
@@ -213,10 +213,9 @@ export function Providers() {
                   onChange={(e) => handleProviderTypeChange(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
                 >
-                  <option value="custom">Custom</option>
+                  <option value="openai">OpenAI Compatible</option>
                   <option value="nanogpt">NanoGPT</option>
                   <option value="z-ai">Z.ai</option>
-                  <option value="openai">OpenAI Compatible</option>
                 </select>
               </div>
 

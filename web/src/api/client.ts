@@ -148,7 +148,7 @@ export const api = {
       per_page?: number;
       model_id?: string;
       provider_id?: string;
-      status_code?: number;
+      status_code?: string;
       from?: string;
       to?: string;
     } = {}): Promise<LogsResponse> => {
@@ -157,7 +157,7 @@ export const api = {
       if (params.per_page) searchParams.append('per_page', params.per_page.toString());
       if (params.model_id) searchParams.append('model_id', params.model_id);
       if (params.provider_id) searchParams.append('provider_id', params.provider_id);
-      if (params.status_code) searchParams.append('status_code', params.status_code.toString());
+      if (params.status_code) searchParams.append('status_code', params.status_code);
       if (params.from) searchParams.append('from', params.from);
       if (params.to) searchParams.append('to', params.to);
 
