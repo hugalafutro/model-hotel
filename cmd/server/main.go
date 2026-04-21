@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/user/llm-proxy/internal/admin"
 	"github.com/user/llm-proxy/internal/api"
+	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
 	"github.com/user/llm-proxy/internal/db"
 	"github.com/user/llm-proxy/internal/model"
@@ -288,6 +289,23 @@ func main() {
 			go runDiscovery()
 		}
 	}
+
+	// Pre-warm API key decryption cache for all enabled providers
+	go func() {
+		ctx := context.Background()
+		providers, err := providerRepo.List(ctx)
+		if err != nil {
+			log.Printf("Key cache warm: failed to list providers: %v", err)
+			return
+		}
+		for _, p := range providers {
+			if !p.Enabled {
+				continue
+			}
+			auth.WarmKeyCache(p.ID, p.EncryptedKey, p.KeyNonce, cfg.MasterKey)
+		}
+		log.Println("Key cache warmed for all enabled providers")
+	}()
 
 	// Periodic discovery based on settings interval
 	go func() {

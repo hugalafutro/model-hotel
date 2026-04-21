@@ -8,6 +8,11 @@ function formatTPS(t: number | null): string {
   return t.toFixed(1)
 }
 
+function formatMs(v: number | null | undefined, decimals: number = 1): string {
+  if (v == null || v === 0) return '-'
+  return v.toFixed(decimals) + 'ms'
+}
+
 interface OverheadBreakdown {
   proxy_overhead_ms: number
   parse_ms: number
@@ -27,24 +32,24 @@ function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; o
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Request parsing</span>
-            <span className="text-gray-200 font-mono">{breakdown.parse_ms}ms</span>
+            <span className="text-gray-200 font-mono">{formatMs(breakdown.parse_ms)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Model lookup</span>
-            <span className="text-gray-200 font-mono">{breakdown.model_lookup_ms}ms</span>
+            <span className="text-gray-200 font-mono">{formatMs(breakdown.model_lookup_ms)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Provider lookup</span>
-            <span className="text-gray-200 font-mono">{breakdown.provider_lookup_ms}ms</span>
+            <span className="text-gray-200 font-mono">{formatMs(breakdown.provider_lookup_ms)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Key decryption</span>
-            <span className="text-gray-200 font-mono">{breakdown.key_decrypt_ms}ms</span>
+            <span className="text-gray-200 font-mono">{formatMs(breakdown.key_decrypt_ms)}</span>
           </div>
           <div className="border-t border-gray-700 my-2" />
           <div className="flex justify-between text-sm font-semibold">
             <span className="text-gray-300">Total overhead</span>
-            <span className="text-indigo-400 font-mono">{breakdown.proxy_overhead_ms}ms</span>
+            <span className="text-indigo-400 font-mono">{formatMs(breakdown.proxy_overhead_ms)}</span>
           </div>
         </div>
       </div>
@@ -180,7 +185,7 @@ export function Logs() {
                             key_decrypt_ms: log.key_decrypt_ms || 0,
                           }) : undefined}
                         >
-                          {log.proxy_overhead_ms}ms
+                          {formatMs(log.proxy_overhead_ms)}
                         </button>
                       ) : (
                         <span className="text-gray-400">-</span>

@@ -18,13 +18,13 @@ type LogEntry struct {
 	RequestHash       string    `json:"request_hash"`
 	StatusCode        int       `json:"status_code"`
 	LatencyMs         int       `json:"latency_ms"`
-	DurationMs        int       `json:"duration_ms"`
+	DurationMs        float64   `json:"duration_ms"`
 	TTFTMs            int       `json:"ttft_ms"`
-	ProxyOverheadMs   int       `json:"proxy_overhead_ms"`
-	ParseMs           int       `json:"parse_ms"`
-	ModelLookupMs     int       `json:"model_lookup_ms"`
-	ProviderLookupMs  int       `json:"provider_lookup_ms"`
-	KeyDecryptMs      int       `json:"key_decrypt_ms"`
+	ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
+	ParseMs           float64   `json:"parse_ms"`
+	ModelLookupMs     float64   `json:"model_lookup_ms"`
+	ProviderLookupMs  float64   `json:"provider_lookup_ms"`
+	KeyDecryptMs      float64   `json:"key_decrypt_ms"`
 	TokensPerSecond   *float64  `json:"tokens_per_second"`
 	TokensPrompt      int       `json:"tokens_prompt"`
 	TokensCompletion  int       `json:"tokens_completion"`

@@ -17,7 +17,7 @@ const (
 	nonceLength = 12
 	salt        = "llm-proxy-fixed-salt-v1"
 	timeCost    = 1
-	memory      = 64 * 1024
+	memory      = 8 * 1024
 	threads     = 4
 )
 

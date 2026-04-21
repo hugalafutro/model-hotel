@@ -203,7 +203,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body.Close()
-	parseMs := time.Since(startTime).Milliseconds()
+	parseMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
@@ -235,7 +235,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
-	modelLookupMs := time.Since(modelLookupStart).Milliseconds()
+	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
 	providerLookupStart := time.Now()
 	prov, err := h.providerRepo.Get(r.Context(), targetModel.ProviderID)
@@ -243,7 +243,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "provider not found", http.StatusInternalServerError)
 		return
 	}
-	providerLookupMs := time.Since(providerLookupStart).Milliseconds()
+	providerLookupMs := float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
 
 	keyDecryptStart := time.Now()
 	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, h.cfg.MasterKey)
@@ -251,9 +251,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
 		return
 	}
-	keyDecryptMs := time.Since(keyDecryptStart).Milliseconds()
+	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
 
-	proxyOverhead := time.Since(startTime).Milliseconds()
+	proxyOverhead := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 	targetURL := util.SanitizeBaseURL(prov.BaseURL) + "/chat/completions"
 
@@ -297,7 +297,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	logBase := func() []interface{} {
 		return []interface{}{
 			prov.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-			time.Since(startTime).Milliseconds(),
+			float64(time.Since(startTime).Microseconds()) / 1000.0,
 			proxyOverhead,
 			parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
 		}
@@ -329,7 +329,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		tee := io.TeeReader(resp.Body, &buf)
 		io.Copy(w, tee)
 
-		totalDuration := time.Since(startTime).Milliseconds()
+		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		usage := extractStreamingUsage(buf.String())
 		var promptTokens, completionTokens int
@@ -364,7 +364,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		var chatResp ChatCompletionResponse
 		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
-			totalDuration := time.Since(startTime).Milliseconds()
+			totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 			var tps float64
 			if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
 				tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000

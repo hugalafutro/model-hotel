@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type cacheEntry struct {
@@ -63,4 +65,9 @@ func DecryptCached(ciphertext, nonce []byte, masterKey string) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+func WarmKeyCache(providerID uuid.UUID, encryptedKey, keyNonce []byte, masterKey string) {
+	DeriveKeyCached(masterKey)
+	DecryptCached(encryptedKey, keyNonce, masterKey)
 }
