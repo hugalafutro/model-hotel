@@ -339,8 +339,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		vkHash = v.(string)
 	}
 
-	failoverTimeout := h.settingsRepo.GetDuration(context.Background(), "failover_timeout", 10*time.Second)
-
 	var lastErr string
 	var lastProviderID *uuid.UUID
 	for attempt, candidate := range candidates {
@@ -365,7 +363,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		streamingClient := &http.Client{
 			Transport: &http.Transport{
-				ResponseHeaderTimeout: failoverTimeout,
+				ResponseHeaderTimeout: 0,
 			},
 		}
 		resp, err := streamingClient.Do(proxyReq)
