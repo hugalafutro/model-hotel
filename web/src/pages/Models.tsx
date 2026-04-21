@@ -526,24 +526,13 @@ export function Models() {
           </colgroup>
           <thead>
             <tr className="bg-gray-800/80">
-              <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} tooltip="Model name and ID" />
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                Capabilities
+              <th className="px-4 py-2 text-left">
+                <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} tooltip="Model name and ID" />
+                <div className="flex flex-wrap gap-1 mt-1"></div>
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                Provider
-              </th>
-              <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} tooltip="When the model was last seen/discovered" />
-              <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} tooltip="Maximum context length in tokens" />
-              <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} tooltip="Maximum output tokens" />
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                Status
-              </th>
-            </tr>
-            <tr className="bg-gray-800/40">
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5">
-                <span className="inline-flex items-center gap-1 flex-wrap">
+              <th className="px-4 py-2 text-left">
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-400">Capabilities</span>
+                <div className="flex flex-wrap gap-1 mt-1">
                   {CAP_META.filter(m => existingCaps.has(m.key)).map(m => {
                     const isActive = capFilter.has(m.key)
                     const isAvailable = pillAvailability.get(m.key) ?? false
@@ -569,10 +558,11 @@ export function Models() {
                       ✕
                     </button>
                   )}
-                </span>
+                </div>
               </th>
-              <th className="px-4 py-1.5">
-                <span className="inline-flex items-center gap-1 flex-wrap">
+              <th className="px-4 py-2 text-left">
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-400">Provider</span>
+                <div className="flex flex-wrap gap-1 mt-1">
                   {providers?.map(provider => {
                     const isNanoGPT = provider.base_url.includes('nano-gpt.com')
                     const isDeepSeek = provider.base_url.includes('deepseek.com')
@@ -607,13 +597,23 @@ export function Models() {
                       ✕
                     </button>
                   )}
-                </span>
+                </div>
               </th>
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5">
-                <span className="inline-flex items-center gap-1">
+              <th className="px-4 py-2 text-left">
+                <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} tooltip="When the model was last seen/discovered" />
+                <div className="flex flex-wrap gap-1 mt-1"></div>
+              </th>
+              <th className="px-4 py-2 text-left">
+                <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} tooltip="Maximum context length in tokens" />
+                <div className="flex flex-wrap gap-1 mt-1"></div>
+              </th>
+              <th className="px-4 py-2 text-left">
+                <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} tooltip="Maximum output tokens" />
+                <div className="flex flex-wrap gap-1 mt-1"></div>
+              </th>
+              <th className="px-4 py-2 text-left">
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-400">Status</span>
+                <div className="flex flex-wrap gap-1 mt-1">
                   <button
                     type="button"
                     onClick={() => { setStatusFilter('enabled'); setCurrentPage(1) }}
@@ -636,7 +636,7 @@ export function Models() {
                   >
                     Disabled
                   </button>
-                </span>
+                </div>
               </th>
             </tr>
           </thead>
