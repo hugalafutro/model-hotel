@@ -162,17 +162,28 @@ curl http://localhost:8081/api/logs \
 ```
 llm-proxy/
 ├── cmd/server/          # Backend entry point
+│   ├── main.go          # Server startup
+│   └── spa.go           # Frontend static file serving
 ├── internal/
-│   ├── config/         # Configuration management
-│   ├── auth/           # Encryption and authentication
-│   ├── admin/          # Admin token management
-│   ├── provider/       # Provider operations and discovery
-│   ├── model/          # Model management
-│   ├── proxy/          # Proxy handler and filtering
-│   ├── api/            # REST API handlers
-│   ├── db/             # Database and migrations
-│   └── logging/        # Request logging
-├── web/                # React frontend
+│   ├── config/          # Configuration management
+│   ├── auth/            # Encryption and authentication
+│   ├── admin/           # Admin token management
+│   ├── provider/        # Provider operations
+│   │   ├── repository.go
+│   │   ├── discovery.go       # Model discovery logic
+│   │   └── discovery_types.go # Discovery API types
+│   ├── model/           # Model management
+│   ├── proxy/           # Proxy request handling
+│   │   ├── handler.go   # Main proxy handler
+│   │   ├── types.go     # Proxy types (requests, responses)
+│   │   └── helpers.go   # Helper functions
+│   ├── api/             # REST API handlers
+│   ├── db/              # Database and migrations
+│   ├── failover/        # Failover logic
+│   ├── settings/        # Settings repository
+│   ├── virtualkey/      # Virtual key management
+│   └── util/            # Utilities
+├── web/                 # React frontend
 │   ├── src/
 │   │   ├── components/  # UI components
 │   │   ├── pages/       # Dashboard pages
