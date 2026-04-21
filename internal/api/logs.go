@@ -110,7 +110,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
     query := `
         SELECT rl.id, COALESCE(rl.provider_id::text, ''), COALESCE(p.name, 'Deleted'),
-               rl.model_id, rl.request_id,
+               rl.model_id, COALESCE(rl.request_id, ''),
                COALESCE(rl.request_hash, ''), rl.status_code,
                COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
                COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
@@ -201,17 +201,17 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	entries := make([]LogEntry, 0)
 	for rows.Next() {
 		var entry LogEntry
-        err := rows.Scan(
-            &entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
-            &entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-            &entry.TTFTMs, &entry.ProxyOverheadMs,
-            &entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-            &entry.TokensPerSecond,
-            &entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
-            &entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
-            &entry.ErrorMessage,
-            &entry.FailoverAttempt, &entry.CreatedAt,
-        )
+		err := rows.Scan(
+			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
+			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
+			&entry.TTFTMs, &entry.ProxyOverheadMs,
+			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+			&entry.TokensPerSecond,
+			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
+			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
+			&entry.ErrorMessage,
+			&entry.FailoverAttempt, &entry.CreatedAt,
+		)
 		if err != nil {
 			continue
 		}

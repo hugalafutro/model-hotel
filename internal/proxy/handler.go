@@ -32,6 +32,30 @@ const virtualKeyNameKey contextKey = "virtual_key_name"
 const virtualKeyIDKey contextKey = "virtual_key_id"
 const virtualKeyHashKey contextKey = "virtual_key_hash"
 
+type requestLogData struct {
+	id                 string
+	providerID         uuid.UUID
+	modelID            string
+	requestHash        string
+	providerName       string
+	statusCode         int
+	durationMs         float64
+	proxyOverheadMs    float64
+	parseMs            float64
+	modelLookupMs      float64
+	providerLookupMs   float64
+	keyDecryptMs       float64
+	ttftMs             float64
+	tokensPerSecond    float64
+	tokensPrompt       int
+	tokensCompletion   int
+	streaming          bool
+	virtualKeyName     string
+	virtualKeyID       string
+	errorMessage      string
+	failoverAttempt    int
+}
+
 type Handler struct {
 	cfg            *config.Config
 	providerRepo   *provider.Repository
@@ -277,6 +301,191 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func (h *Handler) insertRequestLog(_ context.Context, log *requestLogData) error {
+	log.id = uuid.New().String()
+	log.requestHash = generateRequestHash()
+	_, err := h.dbPool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, log.virtualKeyID, log.failoverAttempt,
+	)
+	return err
+}
+
+func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
+	h.dbPool.Exec(context.Background(), `
+		UPDATE request_logs SET
+			provider_id = $2,
+			status_code = $3,
+			duration_ms = $4,
+			proxy_overhead_ms = $5,
+			parse_ms = $6,
+			model_lookup_ms = $7,
+			provider_lookup_ms = $8,
+			key_decrypt_ms = $9,
+			ttft_ms = $10,
+			tokens_per_second = $11,
+			tokens_prompt = $12,
+			tokens_completion = $13,
+			error_message = $14,
+			failover_attempt = $15
+		WHERE id = $1`,
+		log.id, log.providerID, log.statusCode, log.durationMs,
+		log.proxyOverheadMs, log.parseMs, log.modelLookupMs, log.providerLookupMs,
+		log.keyDecryptMs, log.ttftMs, log.tokensPerSecond, log.tokensPrompt,
+		log.tokensCompletion, log.errorMessage, log.failoverAttempt,
+	)
+}
+
+func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, canFlush := w.(http.Flusher)
+
+	scanner := bufio.NewScanner(resp.Body)
+	var promptTokens, completionTokens int
+	var lastErrMsg string
+	clientDisconnected := false
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+
+		select {
+		case <-r.Context().Done():
+			clientDisconnected = true
+			goto logUpdate
+		default:
+		}
+
+		if canFlush {
+			flusher.Flush()
+		}
+		w.Write(line)
+		w.Write([]byte("\n"))
+		if canFlush {
+			flusher.Flush()
+		}
+
+		if strings.HasPrefix(string(line), "data: ") {
+			payload := strings.TrimPrefix(string(line), "data: ")
+			if payload == "[DONE]" {
+				break
+			}
+			var chunk struct {
+				Usage *Usage   `json:"usage"`
+				Error *struct{ Message string } `json:"error"`
+			}
+			if json.Unmarshal([]byte(payload), &chunk) == nil {
+				if chunk.Usage != nil {
+					promptTokens = chunk.Usage.PromptTokens
+					completionTokens = chunk.Usage.CompletionTokens
+				}
+				if chunk.Error != nil {
+					lastErrMsg = chunk.Error.Message
+				}
+			}
+		}
+	}
+
+logUpdate:
+	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+	var tps float64
+	if completionTokens > 0 && totalDuration > 0 {
+		tps = float64(completionTokens) / float64(totalDuration) * 1000
+	}
+
+	errMsg := lastErrMsg
+	if errMsg == "" && scanner.Err() != nil {
+		errMsg = scanner.Err().Error()
+	}
+	if clientDisconnected {
+		errMsg = "client disconnected"
+	}
+
+	logData.statusCode = resp.StatusCode
+	logData.durationMs = totalDuration
+	logData.proxyOverheadMs = proxyOverhead
+	logData.parseMs = parseMs
+	logData.modelLookupMs = modelLookupMs
+	logData.providerLookupMs = providerLookupMs
+	logData.keyDecryptMs = keyDecryptMs
+	logData.ttftMs = ttft
+	logData.tokensPerSecond = tps
+	logData.tokensPrompt = promptTokens
+	logData.tokensCompletion = completionTokens
+	logData.errorMessage = errMsg
+	logData.failoverAttempt = attempt
+	h.updateRequestLog(r.Context(), logData)
+
+	if vkHash != "" && !clientDisconnected {
+		totalTokens := promptTokens + completionTokens
+		if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
+			fmt.Printf("AddTokens (stream) failed: %v\n", err)
+		}
+	}
+}
+
+func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	var chatResp ChatCompletionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
+		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+		var tps float64
+		if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
+			tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
+		}
+
+		logData.statusCode = resp.StatusCode
+		logData.durationMs = totalDuration
+		logData.proxyOverheadMs = proxyOverhead
+		logData.parseMs = parseMs
+		logData.modelLookupMs = modelLookupMs
+		logData.providerLookupMs = providerLookupMs
+		logData.keyDecryptMs = keyDecryptMs
+		logData.ttftMs = ttft
+		logData.tokensPerSecond = tps
+		logData.tokensPrompt = chatResp.Usage.PromptTokens
+		logData.tokensCompletion = chatResp.Usage.CompletionTokens
+		logData.failoverAttempt = attempt
+		h.updateRequestLog(r.Context(), logData)
+
+		if vkHash != "" {
+			totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
+			if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
+				fmt.Printf("AddTokens (non-stream) failed: %v\n", err)
+			}
+		}
+
+		json.NewEncoder(w).Encode(chatResp)
+	} else {
+		body, _ := io.ReadAll(resp.Body)
+		errMsg := string(body)
+		if len(errMsg) > 500 {
+			errMsg = errMsg[:500]
+		}
+		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+		logData.statusCode = resp.StatusCode
+		logData.durationMs = totalDuration
+		logData.proxyOverheadMs = proxyOverhead
+		logData.parseMs = parseMs
+		logData.modelLookupMs = modelLookupMs
+		logData.providerLookupMs = providerLookupMs
+		logData.keyDecryptMs = keyDecryptMs
+		logData.ttftMs = ttft
+		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
+		logData.failoverAttempt = attempt
+		h.updateRequestLog(r.Context(), logData)
+		http.Error(w, errMsg, resp.StatusCode)
+	}
+}
+
 func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
@@ -299,12 +508,47 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	vkName := ""
+	var vkID string
+	var vkHash string
+	if v := r.Context().Value(virtualKeyNameKey); v != nil {
+		vkName = v.(string)
+	}
+	if v := r.Context().Value(virtualKeyIDKey); v != nil {
+		vkID = v.(string)
+	}
+	if v := r.Context().Value(virtualKeyHashKey); v != nil {
+		vkHash = v.(string)
+	}
+
+	logData := &requestLogData{
+		modelID:        req.Model,
+		streaming:      req.Stream,
+		virtualKeyName: vkName,
+		virtualKeyID:   vkID,
+		failoverAttempt: 0,
+	}
+	if err := h.insertRequestLog(r.Context(), logData); err != nil {
+		fmt.Printf("Failed to insert initial request log: %v\n", err)
+	}
+
 	candidates, modelLookupMs, err := h.resolveCandidates(r.Context(), req.Model)
 	if err != nil {
+		logData.statusCode = 500
+		logData.errorMessage = "failed to resolve model"
+		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+		logData.parseMs = parseMs
+		h.updateRequestLog(r.Context(), logData)
 		http.Error(w, "failed to resolve model", http.StatusInternalServerError)
 		return
 	}
 	if len(candidates) == 0 {
+		logData.statusCode = 404
+		logData.errorMessage = "model not found or disabled"
+		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+		logData.parseMs = parseMs
+		logData.modelLookupMs = modelLookupMs
+		h.updateRequestLog(r.Context(), logData)
 		http.Error(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
@@ -325,24 +569,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		proxyReqBody = bodyBytes
 	}
 
-	vkName := ""
-	var vkID *string
-	var vkHash string
-	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName = v.(string)
-	}
-	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		s := v.(string)
-		vkID = &s
-	}
-	if v := r.Context().Value(virtualKeyHashKey); v != nil {
-		vkHash = v.(string)
-	}
-
 	var lastErr string
-	var lastProviderID *uuid.UUID
 	for attempt, candidate := range candidates {
-		lastProviderID = &candidate.provider.ID
+		logData.providerID = candidate.provider.ID
 		providerLookupMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		keyDecryptStart := time.Now()
@@ -380,6 +609,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			io.ReadAll(resp.Body)
 			resp.Body.Close()
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
+			logData.failoverAttempt = attempt
 			continue
 		}
 
@@ -390,163 +620,39 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			if len(errMsg) > 500 {
 				errMsg = errMsg[:500]
 			}
-			h.dbPool.Exec(r.Context(), `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-				float64(time.Since(startTime).Microseconds())/1000.0,
-				proxyOverhead,
-				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-				ttft, errMsg, req.Stream, vkName, vkID, attempt,
-			)
+			logData.statusCode = resp.StatusCode
+			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+			logData.proxyOverheadMs = proxyOverhead
+			logData.parseMs = parseMs
+			logData.modelLookupMs = modelLookupMs
+			logData.providerLookupMs = providerLookupMs
+			logData.keyDecryptMs = keyDecryptMs
+			logData.ttftMs = ttft
+			logData.errorMessage = errMsg
+			logData.failoverAttempt = attempt
+			h.updateRequestLog(r.Context(), logData)
 			http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
 			return
 		}
 
-		defer resp.Body.Close()
-
 		if req.Stream {
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.Header().Set("Cache-Control", "no-cache")
-			w.Header().Set("Connection", "keep-alive")
-			w.Header().Set("X-Accel-Buffering", "no")
-
-			var buf bytes.Buffer
-			flusher, canFlush := w.(http.Flusher)
-
-			scanner := bufio.NewScanner(resp.Body)
-			var promptTokens, completionTokens int
-			var lastErrMsg string
-
-			for scanner.Scan() {
-				line := scanner.Bytes()
-				buf.Write(line)
-				buf.Write([]byte("\n"))
-
-				if canFlush {
-					flusher.Flush()
-				}
-				w.Write(line)
-				w.Write([]byte("\n"))
-				if canFlush {
-					flusher.Flush()
-				}
-
-				if strings.HasPrefix(string(line), "data: ") {
-					payload := strings.TrimPrefix(string(line), "data: ")
-					if payload == "[DONE]" {
-						break
-					}
-					var chunk struct {
-						Usage   *Usage   `json:"usage"`
-						Error   *struct{ Message string } `json:"error"`
-					}
-					if json.Unmarshal([]byte(payload), &chunk) == nil {
-						if chunk.Usage != nil {
-							promptTokens = chunk.Usage.PromptTokens
-							completionTokens = chunk.Usage.CompletionTokens
-						}
-						if chunk.Error != nil {
-							lastErrMsg = chunk.Error.Message
-						}
-					}
-				}
-			}
-
-			totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-			var tps float64
-			if completionTokens > 0 && totalDuration > 0 {
-				tps = float64(completionTokens) / float64(totalDuration) * 1000
-			}
-
-			errMsg := lastErrMsg
-			if errMsg == "" && scanner.Err() != nil {
-				errMsg = scanner.Err().Error()
-			}
-
-			h.dbPool.Exec(r.Context(), `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, error_message)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
-				candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-				totalDuration,
-				proxyOverhead,
-				parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-				ttft, tps, promptTokens, completionTokens, true, vkName, vkID, attempt, errMsg,
-			)
-
-			if vkHash != "" {
-				totalTokens := promptTokens + completionTokens
-				if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
-					fmt.Printf("AddTokens (stream) failed: %v\n", err)
-				}
-			}
-		} else {
-			w.Header().Set("Content-Type", "application/json")
-			var chatResp ChatCompletionResponse
-			if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
-				totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-				var tps float64
-				if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
-					tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
-				}
-
-				_, logErr := h.dbPool.Exec(r.Context(), `
-					INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
-					candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-					totalDuration,
-					proxyOverhead,
-					parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-					ttft, tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, vkName, vkID, attempt,
-				)
-				if logErr != nil {
-					fmt.Printf("Proxy log insert failed: %v\n", logErr)
-				}
-
-				if vkHash != "" {
-					totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
-					if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
-						fmt.Printf("AddTokens (non-stream) failed: %v\n", err)
-					}
-				}
-
-				json.NewEncoder(w).Encode(chatResp)
-			} else {
-				body, _ := io.ReadAll(resp.Body)
-				errMsg := string(body)
-				if len(errMsg) > 500 {
-					errMsg = errMsg[:500]
-				}
-				totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-				h.dbPool.Exec(r.Context(), `
-					INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-					candidate.provider.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
-					totalDuration,
-					proxyOverhead,
-					parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
-					ttft, fmt.Sprintf("response decode error: %s", errMsg), false, vkName, vkID, attempt,
-				)
-				http.Error(w, errMsg, resp.StatusCode)
-			}
+			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft, vkHash, attempt)
+			return
 		}
 
+		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft, vkHash, attempt)
 		return
 	}
 
-	providerID := uuid.Nil
-	if lastProviderID != nil {
-		providerID = *lastProviderID
-	}
-	h.dbPool.Exec(r.Context(), `
-		INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-		providerID, req.Model, generateRequestHash(), generateRequestHash(), 502,
-		float64(time.Since(startTime).Microseconds())/1000.0,
-		float64(time.Since(startTime).Microseconds())/1000.0,
-		parseMs, modelLookupMs, 0, 0,
-		0, fmt.Sprintf("all providers failed: %s", lastErr), req.Stream, vkName, vkID, len(candidates)-1,
-	)
+	logData.providerID = uuid.Nil
+	logData.statusCode = 502
+	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+	logData.proxyOverheadMs = logData.durationMs
+	logData.parseMs = parseMs
+	logData.modelLookupMs = modelLookupMs
+	logData.errorMessage = fmt.Sprintf("all providers failed: %s", lastErr)
+	logData.failoverAttempt = len(candidates) - 1
+	h.updateRequestLog(r.Context(), logData)
 	http.Error(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
 }
 
