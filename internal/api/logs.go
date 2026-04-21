@@ -11,30 +11,31 @@ import (
 )
 
 type LogEntry struct {
-	ID                string    `json:"id"`
-	ProviderID        string    `json:"provider_id"`
-	ProviderName      string    `json:"provider_name"`
-	ModelID           string    `json:"model_id"`
-	RequestID         string    `json:"request_id"`
-	RequestHash       string    `json:"request_hash"`
-	StatusCode        int       `json:"status_code"`
-	LatencyMs         int       `json:"latency_ms"`
-	DurationMs        float64   `json:"duration_ms"`
-	TTFTMs            int       `json:"ttft_ms"`
-	ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
-	ParseMs           float64   `json:"parse_ms"`
-	ModelLookupMs     float64   `json:"model_lookup_ms"`
-	ProviderLookupMs  float64   `json:"provider_lookup_ms"`
-	KeyDecryptMs      float64   `json:"key_decrypt_ms"`
-	TokensPerSecond   *float64  `json:"tokens_per_second"`
-	TokensPrompt      int       `json:"tokens_prompt"`
-	TokensCompletion  int       `json:"tokens_completion"`
-	Streaming         bool      `json:"streaming"`
-	VirtualKeyName    string    `json:"virtual_key_name"`
-	VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
-	ErrorMessage      string    `json:"error_message"`
-	FailoverAttempt   int       `json:"failover_attempt"`
-	CreatedAt         time.Time `json:"created_at"`
+    ID                string    `json:"id"`
+    ProviderID        string    `json:"provider_id"`
+    ProviderName      string    `json:"provider_name"`
+    ModelID           string    `json:"model_id"`
+    RequestID         string    `json:"request_id"`
+    RequestHash       string    `json:"request_hash"`
+    StatusCode        int       `json:"status_code"`
+    LatencyMs         int       `json:"latency_ms"`
+    DurationMs        float64   `json:"duration_ms"`
+    TTFTMs            int       `json:"ttft_ms"`
+    ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
+    ParseMs           float64   `json:"parse_ms"`
+    ModelLookupMs     float64   `json:"model_lookup_ms"`
+    ProviderLookupMs  float64   `json:"provider_lookup_ms"`
+    KeyDecryptMs      float64   `json:"key_decrypt_ms"`
+    TokensPerSecond   *float64  `json:"tokens_per_second"`
+    TokensPrompt      int       `json:"tokens_prompt"`
+    TokensCompletion  int       `json:"tokens_completion"`
+    Streaming         bool      `json:"streaming"`
+    VirtualKeyName    string    `json:"virtual_key_name"`
+    VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
+    VirtualKeyID      string    `json:"virtual_key_id"`
+    ErrorMessage      string    `json:"error_message"`
+    FailoverAttempt   int       `json:"failover_attempt"`
+    CreatedAt         time.Time `json:"created_at"`
 }
 
 type LogsResponse struct {
@@ -106,22 +107,22 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	offset := (page - 1) * perPage
 
-	query := `
-		SELECT rl.id, COALESCE(rl.provider_id::text, ''), COALESCE(p.name, 'Deleted'),
-		       rl.model_id, rl.request_id,
-		       COALESCE(rl.request_hash, ''), rl.status_code,
-		       COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
-		       COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
-		       COALESCE(rl.parse_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-		       rl.tokens_per_second,
-		       COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
-		       COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''),
-		       CASE WHEN rl.virtual_key_name <> '' AND vk.id IS NULL THEN true ELSE false END AS virtual_key_deleted,
-		       COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), rl.created_at
-		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
-		LEFT JOIN virtual_keys vk ON rl.virtual_key_name = vk.name
-		WHERE 1=1
-	`
+    query := `
+        SELECT rl.id, COALESCE(rl.provider_id::text, ''), COALESCE(p.name, 'Deleted'),
+               rl.model_id, rl.request_id,
+               COALESCE(rl.request_hash, ''), rl.status_code,
+               COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
+               COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
+               COALESCE(rl.parse_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
+               rl.tokens_per_second,
+               COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
+               COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), rl.virtual_key_id,
+               CASE WHEN rl.virtual_key_id IS NOT NULL AND vk.id IS NULL THEN true ELSE false END AS virtual_key_deleted,
+               COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), rl.created_at
+        FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
+        LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
+        WHERE 1=1
+    `
 
 	args := []interface{}{}
 	argIndex := 1
@@ -186,17 +187,17 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	entries := make([]LogEntry, 0)
 	for rows.Next() {
 		var entry LogEntry
-		err := rows.Scan(
-			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
-			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-			&entry.TTFTMs, &entry.ProxyOverheadMs,
-			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-			&entry.TokensPerSecond,
-			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
-			&entry.VirtualKeyName, &entry.VirtualKeyDeleted,
-			&entry.ErrorMessage,
-			&entry.FailoverAttempt, &entry.CreatedAt,
-		)
+        err := rows.Scan(
+            &entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
+            &entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
+            &entry.TTFTMs, &entry.ProxyOverheadMs,
+            &entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+            &entry.TokensPerSecond,
+            &entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
+            &entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
+            &entry.ErrorMessage,
+            &entry.FailoverAttempt, &entry.CreatedAt,
+        )
 		if err != nil {
 			continue
 		}
