@@ -215,24 +215,57 @@ export function Logs() {
           <div className="text-sm text-gray-500">
             Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, logsData.total)} of {logsData.total} entries
           </div>
-          <div className="flex space-x-2">
-            <button
-              type="button"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage(p => Math.min(Math.ceil(logsData.total / 20), p + 1))}
-              disabled={page * 20 >= logsData.total}
-              className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
-            >
-              Next
-            </button>
-          </div>
+          {Math.ceil(logsData.total / 20) > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              {Array.from({ length: Math.min(7, Math.ceil(logsData.total / 20)) }, (_, i) => {
+                const totalPages = Math.ceil(logsData.total / 20)
+                let pageNum: number
+                if (totalPages <= 7) {
+                  pageNum = i + 1
+                } else if (page <= 4) {
+                  pageNum = i + 1
+                  if (i === 6) pageNum = totalPages
+                } else if (page >= totalPages - 3) {
+                  pageNum = totalPages - 6 + i
+                  if (i === 0) pageNum = 1
+                } else {
+                  pageNum = page - 3 + i
+                  if (i === 0) pageNum = 1
+                  if (i === 6) pageNum = totalPages
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setPage(pageNum)}
+                    className={`px-2 py-1 text-xs rounded border ${
+                      page === pageNum
+                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(Math.ceil(logsData.total / 20), p + 1))}
+                disabled={page * 20 >= logsData.total}
+                className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
