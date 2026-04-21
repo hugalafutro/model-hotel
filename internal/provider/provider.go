@@ -44,6 +44,7 @@ type ProviderResponse struct {
 	LastDiscoveredAt *time.Time `json:"last_discovered_at"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
+	ModelCount       int        `json:"model_count"`
 }
 
 type Repository struct {
@@ -169,6 +170,7 @@ func ToResponse(p *Provider) ProviderResponse {
 		LastDiscoveredAt: p.LastDiscoveredAt,
 		CreatedAt:        p.CreatedAt,
 		UpdatedAt:        p.UpdatedAt,
+		ModelCount:       0,
 	}
 }
 

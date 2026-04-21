@@ -480,7 +480,7 @@ export function Models() {
           <select
             value={selectedProvider}
             onChange={(e) => setSelectedProvider(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="hidden w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           >
             <option value="">All Providers</option>
             {providers?.map((provider) => (
@@ -491,6 +491,41 @@ export function Models() {
           </select>
         </div>
       </div>
+
+      {providers && providers.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedProvider('')}
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              selectedProvider === ''
+                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-700/50'
+                : 'bg-gray-800/60 text-gray-400 border-gray-700/40 hover:bg-gray-700/60 hover:text-gray-300'
+            }`}
+          >
+            All
+            <span className="ml-1.5 text-[10px] opacity-70">{models?.length ?? 0}</span>
+          </button>
+          {providers.map(provider => {
+            const count = models?.filter(m => m.provider_id === provider.id).length ?? 0
+            return (
+              <button
+                key={provider.id}
+                type="button"
+                onClick={() => setSelectedProvider(provider.id)}
+                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  selectedProvider === provider.id
+                    ? 'bg-indigo-500/20 text-indigo-300 border-indigo-700/50'
+                    : 'bg-gray-800/60 text-gray-400 border-gray-700/40 hover:bg-gray-700/60 hover:text-gray-300'
+                }`}
+              >
+                {provider.name}
+                <span className="ml-1.5 text-[10px] opacity-70">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <div className="border border-gray-700 rounded-xl overflow-hidden">
         <table className="min-w-full table-fixed">

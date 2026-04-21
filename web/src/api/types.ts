@@ -7,6 +7,7 @@ export interface Provider {
   last_discovered_at: string | null;
   created_at: string;
   updated_at: string;
+  model_count: number;
 }
 
 export interface CreateProviderRequest {

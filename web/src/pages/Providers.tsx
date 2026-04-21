@@ -13,10 +13,12 @@ export function Providers() {
     name: string;
     base_url: string;
     api_key: string;
+    provider_type: string;
   }>({
     name: '',
     base_url: '',
     api_key: '',
+    provider_type: 'custom',
   })
 
   const { data: providers, isLoading } = useQuery({
@@ -53,7 +55,7 @@ export function Providers() {
     onSuccess: async (newProvider) => {
       queryClient.invalidateQueries({ queryKey: ['providers'] })
       setShowModal(false)
-      setFormData({ name: '', base_url: '', api_key: '' })
+      setFormData({ name: '', base_url: '', api_key: '', provider_type: 'custom' })
       setError(null)
       toast(`Provider "${newProvider.name}" added`, 'success')
       const shouldDiscover = settings?.discovery_on_provider_create !== 'false'
@@ -90,7 +92,20 @@ export function Providers() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    createMutation.mutate(formData)
+    createMutation.mutate({ name: formData.name, base_url: formData.base_url, api_key: formData.api_key })
+  }
+
+  const handleProviderTypeChange = (type: string) => {
+    const baseUrls: Record<string, string> = {
+      nanogpt: 'https://api.nano-gpt.com/v1',
+      'z-ai': 'https://api.z.ai/api/paas/v4',
+      openai: 'https://api.openai.com/v1',
+    }
+    setFormData(prev => ({
+      ...prev,
+      provider_type: type,
+      base_url: baseUrls[type] || prev.base_url,
+    }))
   }
 
   if (isLoading) {
@@ -121,7 +136,12 @@ export function Providers() {
         {providers?.map((provider) => (
           <div key={provider.id} className="bg-gray-800 border border-gray-700 rounded-xl p-6">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
+                {provider.model_count > 0 && (
+                  <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{provider.model_count}</span>
+                )}
+              </div>
               <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
             </div>
 
@@ -184,6 +204,23 @@ export function Providers() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
+                <label htmlFor="provider-type" className="block text-sm font-medium text-gray-300 mb-1">
+                  Type
+                </label>
+                <select
+                  id="provider-type"
+                  value={formData.provider_type}
+                  onChange={(e) => handleProviderTypeChange(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                >
+                  <option value="custom">Custom</option>
+                  <option value="nanogpt">NanoGPT</option>
+                  <option value="z-ai">Z.ai</option>
+                  <option value="openai">OpenAI Compatible</option>
+                </select>
+              </div>
+
+              <div>
                 <label htmlFor="provider-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Name
                 </label>
@@ -235,7 +272,7 @@ export function Providers() {
                   type="button"
                   onClick={() => {
                     setShowModal(false)
-                    setFormData({ name: '', base_url: '', api_key: '' })
+                    setFormData({ name: '', base_url: '', api_key: '', provider_type: 'custom' })
                     setError(null)
                   }}
                   className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"

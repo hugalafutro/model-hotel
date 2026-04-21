@@ -159,9 +159,28 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, COUNT(*) FROM models GROUP BY provider_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	modelCounts := make(map[string]int)
+	for rows.Next() {
+		var providerID string
+		var count int
+		if err := rows.Scan(&providerID, &count); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		modelCounts[providerID] = count
+	}
+
 	responses := make([]provider.ProviderResponse, len(providers))
 	for i, p := range providers {
 		responses[i] = provider.ToResponse(p)
+		responses[i].ModelCount = modelCounts[p.ID.String()]
 	}
 
 	w.Header().Set("Content-Type", "application/json")
