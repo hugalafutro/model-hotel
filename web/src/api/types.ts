@@ -131,3 +131,48 @@ export interface SystemStats {
     cache_hit_ratio: number;
   };
 }
+
+export interface NanoGPTUsageLimits {
+  weeklyInputTokens: number | null;
+  dailyInputTokens: number | null;
+  dailyImages: number | null;
+}
+
+export interface NanoGPTUsageTokenInfo {
+  used: number;
+  remaining: number;
+  percentUsed: number;
+  resetAt: number;
+}
+
+export interface NanoGPTUsageDailyImages {
+  used: number;
+  remaining: number;
+  percentUsed: number;
+  resetAt: number;
+}
+
+export interface NanoGPTUsagePeriod {
+  currentPeriodEnd: string;
+}
+
+export interface NanoGPTUsage {
+  active: boolean;
+  provider: string;
+  providerStatus: string;
+  providerStatusRaw: string;
+  stripeSubscriptionId: string;
+  cancellationReason: string | null;
+  canceledAt: string | null;
+  endedAt: string | null;
+  cancelAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  limits: NanoGPTUsageLimits;
+  allowOverage: boolean;
+  period: NanoGPTUsagePeriod;
+  dailyImages: NanoGPTUsageDailyImages | null;
+  dailyInputTokens: NanoGPTUsageTokenInfo | null;
+  weeklyInputTokens: NanoGPTUsageTokenInfo | null;
+  state: string;
+  graceUntil: string | null;
+}

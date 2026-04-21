@@ -87,6 +87,51 @@ type NanoGPTDetailedResponse struct {
 	Data   []NanoGPTModel `json:"data"`
 }
 
+type NanoGPTUsageLimits struct {
+	WeeklyInputTokens *int64 `json:"weeklyInputTokens"`
+	DailyInputTokens  *int64 `json:"dailyInputTokens"`
+	DailyImages       *int64 `json:"dailyImages"`
+}
+
+type NanoGPTUsageTokenInfo struct {
+	Used       int64  `json:"used"`
+	Remaining  int64  `json:"remaining"`
+	PercentUsed float64 `json:"percentUsed"`
+	ResetAt    int64  `json:"resetAt"`
+}
+
+type NanoGPTUsageDailyImages struct {
+	Used        int64   `json:"used"`
+	Remaining   int64   `json:"remaining"`
+	PercentUsed float64 `json:"percentUsed"`
+	ResetAt     int64   `json:"resetAt"`
+}
+
+type NanoGPTUsagePeriod struct {
+	CurrentPeriodEnd string `json:"currentPeriodEnd"`
+}
+
+type NanoGPTUsageResponse struct {
+	Active             bool                  `json:"active"`
+	Provider           string                `json:"provider"`
+	ProviderStatus     string                `json:"providerStatus"`
+	ProviderStatusRaw  string                `json:"providerStatusRaw"`
+	StripeSubscription string                `json:"stripeSubscriptionId"`
+	CancellationReason *string               `json:"cancellationReason"`
+	CanceledAt        *string               `json:"canceledAt"`
+	EndedAt           *string               `json:"endedAt"`
+	CancelAt          *string               `json:"cancelAt"`
+	CancelAtPeriodEnd bool                  `json:"cancelAtPeriodEnd"`
+	Limits            NanoGPTUsageLimits    `json:"limits"`
+	AllowOverage      bool                  `json:"allowOverage"`
+	Period            NanoGPTUsagePeriod    `json:"period"`
+	DailyImages       *NanoGPTUsageDailyImages `json:"dailyImages"`
+	DailyInputTokens  *NanoGPTUsageTokenInfo `json:"dailyInputTokens"`
+	WeeklyInputTokens *NanoGPTUsageTokenInfo `json:"weeklyInputTokens"`
+	State             string                `json:"state"`
+	GraceUntil        *string               `json:"graceUntil"`
+}
+
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
@@ -242,6 +287,42 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 	}
 
 	return models, nil
+}
+
+func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provider, masterKey string) (*NanoGPTUsageResponse, error) {
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+	}
+
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	usageURL := baseURL + "/usage"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", usageURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch usage: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var usage NanoGPTUsageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &usage, nil
 }
 
 func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {

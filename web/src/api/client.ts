@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats } from './types'
+import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage } from './types'
 
 const API_BASE = '';
 
@@ -64,6 +64,16 @@ export const api = {
       if (!response.ok) {
         const text = await response.text();
         throw new Error(`Failed to discover models: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    getUsage: async (id: string): Promise<NanoGPTUsage> => {
+      const response = await fetch(`${API_BASE}/api/providers/${id}/usage`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch usage: ${response.status} ${text}`);
       }
       return response.json();
     },

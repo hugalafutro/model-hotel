@@ -21,6 +21,9 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	r.Route("/providers/{id}/discover", func(r chi.Router) {
 		r.Post("/", h.DiscoverProviderModels)
 	})
+	r.Route("/providers/{id}/usage", func(r chi.Router) {
+		r.Get("/", h.GetProviderUsage)
+	})
 }
 
 func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request) {
@@ -91,4 +94,30 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	providerID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+
+	prov, err := h.db.Get(r.Context(), providerID)
+	if err != nil {
+		http.Error(w, "provider not found", http.StatusNotFound)
+		return
+	}
+
+	discovery := provider.NewDiscoveryService()
+
+	usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
+	if err != nil {
+		http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(usage)
 }
