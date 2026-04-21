@@ -196,12 +196,12 @@ export function Logs() {
                       )}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
-                      { (log.virtual_key_name && log.virtual_key_name.toLowerCase() === 'admin')
+                      { log.virtual_key_deleted
+                        ? <span className="text-red-400 italic">Deleted</span>
+                        : (log.virtual_key_name && log.virtual_key_name.toLowerCase() === 'admin' 
                           ? 'admin'
-                          : (log.virtual_key_deleted
-                              ? <span className="text-red-400 italic">Deleted</span>
-                              : (log.virtual_key_name || '-'))
-                        }
+                          : (log.virtual_key_name || (log.virtual_key_id ? log.virtual_key_id : '-')))
+                      }
                     </td>
                   </Row>
                 )
