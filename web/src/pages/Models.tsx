@@ -527,7 +527,7 @@ export function Models() {
           <thead>
             <tr className="bg-gray-800/80">
               <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} tooltip="Model name and ID" />
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Capabilities</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Capabilities</th>
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Provider</th>
               <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} tooltip="When the model was last seen/discovered" />
               <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} tooltip="Maximum context length in tokens" />
@@ -537,7 +537,7 @@ export function Models() {
             <tr className="bg-gray-800/40">
               <th className="px-4 py-2"></th>
               <th className="px-4 py-2">
-                <span className="inline-flex items-center gap-1 flex-wrap">
+                <span className="flex flex-wrap gap-1">
                   {CAP_META.filter(m => existingCaps.has(m.key)).map(m => {
                     const isActive = capFilter.has(m.key)
                     const isAvailable = pillAvailability.get(m.key) ?? false
@@ -566,7 +566,7 @@ export function Models() {
                 </span>
               </th>
               <th className="px-4 py-2">
-                <span className="inline-flex items-center gap-1 flex-wrap">
+                <span className="flex flex-wrap gap-1">
                   {providers?.map(provider => {
                     const isNanoGPT = provider.base_url.includes('nano-gpt.com')
                     const isDeepSeek = provider.base_url.includes('deepseek.com')
@@ -607,7 +607,7 @@ export function Models() {
               <th className="px-4 py-2"></th>
               <th className="px-4 py-2"></th>
               <th className="px-4 py-2">
-                <span className="inline-flex items-center gap-1">
+                <span className="flex flex-wrap gap-1">
                   <button
                     type="button"
                     onClick={() => { setStatusFilter('enabled'); setCurrentPage(1) }}
