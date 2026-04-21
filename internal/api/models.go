@@ -211,8 +211,8 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
-	start := time.Now()
-	resp, err := http.DefaultClient.Do(proxyReq)
+    start2 := time.Now()
+    resp, err := http.DefaultClient.Do(proxyReq)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(TestModelResponse{Error: err.Error()})
@@ -221,7 +221,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	duration := time.Since(start).Milliseconds()
+    duration := time.Since(start2).Milliseconds()
 
 	if resp.StatusCode != http.StatusOK {
 		errMsg := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody))
@@ -269,11 +269,10 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     `
-    proxyOverheadMs := duration
-    parseMs := duration
-    modelLookupMs := duration
-    providerLookupMs := duration
-    keyDecryptMs := keyDecryptMs
+    proxyOverheadMs = float64(duration)
+    parseMs := float64(duration)
+    modelLookupMs := float64(duration)
+    providerLookupMs := float64(duration)
     _, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
         m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode, duration, duration, duration,
         proxyOverheadMs, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
