@@ -15,6 +15,24 @@ function formatTimestamp(ts: number): string {
   return new Date(ts).toLocaleString()
 }
 
+function formatTimeUntil(ts: number): string {
+  const now = Date.now()
+  const diff = ts - now
+  if (diff <= 0) return 'now'
+
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const days = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+
+  if (days > 0) {
+    const dayLabel = days === 1 ? 'day' : 'days'
+    const hourLabel = remainingHours === 1 ? 'hour' : 'hours'
+    return `in ${days} ${dayLabel}, ${remainingHours} ${hourLabel}`
+  }
+  const hourLabel = hours === 1 ? 'hour' : 'hours'
+  return `in ${hours} ${hourLabel}`
+}
+
 function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: () => void }) {
   const weeklyLimit = usage.limits.weeklyInputTokens ?? 0
   const weeklyUsed = usage.weeklyInputTokens?.used ?? 0
@@ -56,7 +74,7 @@ function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: (
                 style={{ width: `${Math.min(weeklyPercent, 100)}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">{weeklyPercent.toFixed(1)}% used. Resets {usage.weeklyInputTokens?.resetAt ? formatTimestamp(usage.weeklyInputTokens.resetAt) : 'N/A'}</p>
+            <p className="text-xs text-gray-500 mt-1">{weeklyPercent.toFixed(1)}% used. Resets {usage.weeklyInputTokens?.resetAt ? `${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}` : 'N/A'}</p>
           </div>
 
           {usage.dailyImages && (
@@ -71,7 +89,7 @@ function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: (
                   style={{ width: `${Math.min(usage.dailyImages.percentUsed * 100, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">{usage.dailyImages.percentUsed.toFixed(1)}% used. Resets {usage.dailyImages.resetAt ? formatTimestamp(usage.dailyImages.resetAt) : 'N/A'}</p>
+              <p className="text-xs text-gray-500 mt-1">{usage.dailyImages.percentUsed.toFixed(1)}% used. Resets {usage.dailyImages.resetAt ? `${formatTimestamp(usage.dailyImages.resetAt)} - ${formatTimeUntil(usage.dailyImages.resetAt)}` : 'N/A'}</p>
             </div>
           )}
 
@@ -87,7 +105,7 @@ function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: (
                   style={{ width: `${Math.min(usage.dailyInputTokens.percentUsed * 100, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">{usage.dailyInputTokens.percentUsed.toFixed(1)}% used. Resets {usage.dailyInputTokens.resetAt ? formatTimestamp(usage.dailyInputTokens.resetAt) : 'N/A'}</p>
+              <p className="text-xs text-gray-500 mt-1">{usage.dailyInputTokens.percentUsed.toFixed(1)}% used. Resets {usage.dailyInputTokens.resetAt ? `${formatTimestamp(usage.dailyInputTokens.resetAt)} - ${formatTimeUntil(usage.dailyInputTokens.resetAt)}` : 'N/A'}</p>
             </div>
           )}
 
