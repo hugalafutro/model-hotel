@@ -85,7 +85,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-screen bg-gray-900">
       <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col shrink-0">
-        <div className="p-6 border-b border-gray-700">
+        <div className="p-6">
           <h1 className="text-xl font-bold text-white">LLM-Proxy</h1>
           <p className="text-sm text-gray-400 mt-1">Multi-Provider LLM Proxy</p>
         </div>
@@ -108,7 +108,7 @@ export function Layout({ children }: LayoutProps) {
             ))}
           </ul>
         </nav>
-        <div className="p-4 border-t border-gray-700 shrink-0">
+        <div className="p-4 shrink-0">
           <button
             type="button"
             onClick={handleLogout}
