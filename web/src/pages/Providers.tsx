@@ -109,7 +109,7 @@ function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: (
             </div>
           )}
 
-          <div className="border-t border-gray-700 pt-4">
+          <div>
             <h3 className="text-sm font-medium text-gray-300 mb-3">Subscription Details</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
@@ -138,16 +138,6 @@ function NanoGPTQuotaModal({ usage, onClose }: { usage: NanoGPTUsage; onClose: (
               </p>
             </div>
           )}
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-gray-700 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-[#0690a8] text-white rounded-lg hover:bg-[#057a8f] transition-colors"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>
