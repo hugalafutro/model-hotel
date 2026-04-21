@@ -54,14 +54,15 @@ function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; o
 
 export function Logs() {
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [filters, setFilters] = useState({ model_id: '', status_code: '' })
   const [overheadBreakdown, setOverheadBreakdown] = useState<OverheadBreakdown | null>(null)
 
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ['logs', page, filters],
+    queryKey: ['logs', page, pageSize, filters],
     queryFn: () => api.logs.list({
       page,
-      per_page: 20,
+      per_page: pageSize,
       model_id: filters.model_id || undefined,
       status_code: filters.status_code || undefined,
     }),
@@ -96,14 +97,28 @@ export function Logs() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
+        <div className="flex-1 flex gap-2">
           <input
             type="text"
             placeholder="Filter by model ID..."
             value={filters.model_id}
             onChange={(e) => { setFilters({ ...filters, model_id: e.target.value }); setPage(1) }}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
           />
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+          >
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={75}>75 / page</option>
+            <option value={100}>100 / page</option>
+            <option value={125}>125 / page</option>
+            <option value={150}>150 / page</option>
+            <option value={175}>175 / page</option>
+            <option value={200}>200 / page</option>
+          </select>
         </div>
         <div className="md:w-48">
           <select
@@ -213,9 +228,9 @@ export function Logs() {
       {logsData && logsData.total > 0 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
-            Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, logsData.total)} of {logsData.total} entries
+            Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, logsData.total)} of {logsData.total} entries
           </div>
-          {Math.ceil(logsData.total / 20) > 1 && (
+          {Math.ceil(logsData.total / pageSize) > 1 && (
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -225,8 +240,8 @@ export function Logs() {
               >
                 Prev
               </button>
-              {Array.from({ length: Math.min(7, Math.ceil(logsData.total / 20)) }, (_, i) => {
-                const totalPages = Math.ceil(logsData.total / 20)
+              {Array.from({ length: Math.min(7, Math.ceil(logsData.total / pageSize)) }, (_, i) => {
+                const totalPages = Math.ceil(logsData.total / pageSize)
                 let pageNum: number
                 if (totalPages <= 7) {
                   pageNum = i + 1
@@ -258,8 +273,8 @@ export function Logs() {
               })}
               <button
                 type="button"
-                onClick={() => setPage(p => Math.min(Math.ceil(logsData.total / 20), p + 1))}
-                disabled={page * 20 >= logsData.total}
+                onClick={() => setPage(p => Math.min(Math.ceil(logsData.total / pageSize), p + 1))}
+                disabled={page * pageSize >= logsData.total}
                 className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
