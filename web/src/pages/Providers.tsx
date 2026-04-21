@@ -174,7 +174,6 @@ export function Providers() {
   const [error, setError] = useState<string | null>(null)
   const [discoveringId, setDiscoveringId] = useState<string | null>(null)
   const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null)
-  const [deepseekCurrency, setDeepseekCurrency] = useState<'USD' | 'CNY'>('USD')
   const [formData, setFormData] = useState<{
     name: string;
     base_url: string;
@@ -365,21 +364,17 @@ export function Providers() {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (deepseekCurrency === 'CNY') {
-                      setDeepseekCurrency('USD')
-                    } else {
-                      try {
-                        await refetchDeepseekBalance()
-                        toast('Balance refreshed', 'success')
-                      } catch {
-                        toast('Failed to refresh balance', 'error')
-                      }
+                    try {
+                      await refetchDeepseekBalance()
+                      toast('Balance refreshed', 'success')
+                    } catch {
+                      toast('Failed to refresh balance', 'error')
                     }
                   }}
                   className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
-                  title="Click to toggle USD/CNY, or refresh balance"
+                  title="Refresh balance"
                 >
-                  {deepseekBalanceData.balance_infos.find(b => b.currency === deepseekCurrency)?.total_balance ?? '-'} {deepseekCurrency}
+                  {deepseekBalanceData.balance_infos.find(b => b.currency === 'USD')?.total_balance ?? '-'} USD
                 </button>
               )}
               <div className="flex gap-2">
