@@ -8,9 +8,54 @@ function formatTPS(t: number | null): string {
   return t.toFixed(1)
 }
 
+interface OverheadBreakdown {
+  proxy_overhead_ms: number
+  parse_ms: number
+  model_lookup_ms: number
+  provider_lookup_ms: number
+  key_decrypt_ms: number
+}
+
+function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 min-w-[320px] shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-white">Proxy Overhead Breakdown</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Request parsing</span>
+            <span className="text-gray-200 font-mono">{breakdown.parse_ms}ms</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Model lookup</span>
+            <span className="text-gray-200 font-mono">{breakdown.model_lookup_ms}ms</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Provider lookup</span>
+            <span className="text-gray-200 font-mono">{breakdown.provider_lookup_ms}ms</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Key decryption</span>
+            <span className="text-gray-200 font-mono">{breakdown.key_decrypt_ms}ms</span>
+          </div>
+          <div className="border-t border-gray-700 my-2" />
+          <div className="flex justify-between text-sm font-semibold">
+            <span className="text-gray-300">Total overhead</span>
+            <span className="text-indigo-400 font-mono">{breakdown.proxy_overhead_ms}ms</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function Logs() {
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ model_id: '', status_code: '' })
+  const [overheadBreakdown, setOverheadBreakdown] = useState<OverheadBreakdown | null>(null)
 
   const { data: logsData, isLoading } = useQuery({
     queryKey: ['logs', page, filters],
@@ -39,6 +84,10 @@ export function Logs() {
 
   return (
     <div className="space-y-4">
+      {overheadBreakdown && (
+        <OverheadModal breakdown={overheadBreakdown} onClose={() => setOverheadBreakdown(null)} />
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-white">Request Logs</h1>
@@ -89,41 +138,60 @@ export function Logs() {
           </thead>
           <tbody>
             {logsData?.entries && logsData.entries.length > 0 ? (
-              logsData.entries.map((log, idx) => (
-                <Row key={log.id} index={idx}>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
-                    {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400" title={log.request_hash}>
-                    {log.request_hash ? log.request_hash.slice(0, 8) : '-'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate" title={log.model_id}>
-                    {log.model_id || '-'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code)}`}>
-                      {log.status_code}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {log.tokens_prompt + log.tokens_completion > 0
-                      ? `${log.tokens_prompt}+${log.tokens_completion}`
-                      : '-'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {log.duration_ms > 0 ? `${(log.duration_ms / 1000).toFixed(1)}s` : '-'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {formatTPS(log.tokens_per_second)}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0 ? `${log.proxy_overhead_ms}ms` : '-'}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
-                    {log.virtual_key_name || '-'}
-                  </td>
-                </Row>
-              ))
+              logsData.entries.map((log, idx) => {
+                const hasOverhead = log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0
+                  && (log.parse_ms > 0 || log.model_lookup_ms > 0 || log.provider_lookup_ms > 0 || log.key_decrypt_ms > 0)
+                return (
+                  <Row key={log.id} index={idx}>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+                      {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400" title={log.request_hash}>
+                      {log.request_hash ? log.request_hash.slice(0, 8) : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate" title={log.model_id}>
+                      {log.model_id || '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code)}`}>
+                        {log.status_code}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                      {log.tokens_prompt + log.tokens_completion > 0
+                        ? `${log.tokens_prompt}+${log.tokens_completion}`
+                        : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                      {log.duration_ms > 0 ? `${(log.duration_ms / 1000).toFixed(1)}s` : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                      {formatTPS(log.tokens_per_second)}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
+                      {log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0 ? (
+                        <button
+                          className={`${hasOverhead ? 'text-indigo-400 hover:text-indigo-300 cursor-pointer' : 'text-gray-400'}`}
+                          onClick={() => hasOverhead ? setOverheadBreakdown({
+                            proxy_overhead_ms: log.proxy_overhead_ms,
+                            parse_ms: log.parse_ms || 0,
+                            model_lookup_ms: log.model_lookup_ms || 0,
+                            provider_lookup_ms: log.provider_lookup_ms || 0,
+                            key_decrypt_ms: log.key_decrypt_ms || 0,
+                          }) : undefined}
+                        >
+                          {log.proxy_overhead_ms}ms
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+                      {log.virtual_key_name || '-'}
+                    </td>
+                  </Row>
+                )
+              })
             ) : (
               <EmptyRow colSpan={9} message="No logs found" />
             )}

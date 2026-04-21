@@ -11,23 +11,27 @@ import (
 )
 
 type LogEntry struct {
-	ID               string    `json:"id"`
-	ProviderID       string    `json:"provider_id"`
-	ModelID          string    `json:"model_id"`
-	RequestID        string    `json:"request_id"`
-	RequestHash      string    `json:"request_hash"`
-	StatusCode       int       `json:"status_code"`
-	LatencyMs        int       `json:"latency_ms"`
-	DurationMs       int       `json:"duration_ms"`
-	TTFTMs           int       `json:"ttft_ms"`
-	ProxyOverheadMs  int       `json:"proxy_overhead_ms"`
-	TokensPerSecond  *float64  `json:"tokens_per_second"`
-	TokensPrompt     int       `json:"tokens_prompt"`
-	TokensCompletion int       `json:"tokens_completion"`
-	Streaming        bool      `json:"streaming"`
-	VirtualKeyName   string    `json:"virtual_key_name"`
-	ErrorMessage     string    `json:"error_message"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	ProviderID        string    `json:"provider_id"`
+	ModelID           string    `json:"model_id"`
+	RequestID         string    `json:"request_id"`
+	RequestHash       string    `json:"request_hash"`
+	StatusCode        int       `json:"status_code"`
+	LatencyMs         int       `json:"latency_ms"`
+	DurationMs        int       `json:"duration_ms"`
+	TTFTMs            int       `json:"ttft_ms"`
+	ProxyOverheadMs   int       `json:"proxy_overhead_ms"`
+	ParseMs           int       `json:"parse_ms"`
+	ModelLookupMs     int       `json:"model_lookup_ms"`
+	ProviderLookupMs  int       `json:"provider_lookup_ms"`
+	KeyDecryptMs      int       `json:"key_decrypt_ms"`
+	TokensPerSecond   *float64  `json:"tokens_per_second"`
+	TokensPrompt      int       `json:"tokens_prompt"`
+	TokensCompletion  int       `json:"tokens_completion"`
+	Streaming         bool      `json:"streaming"`
+	VirtualKeyName    string    `json:"virtual_key_name"`
+	ErrorMessage      string    `json:"error_message"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type LogsResponse struct {
@@ -104,6 +108,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(request_hash, ''), status_code,
 		       COALESCE(latency_ms, 0), COALESCE(duration_ms, 0),
 		       COALESCE(ttft_ms, 0), COALESCE(proxy_overhead_ms, 0),
+		       COALESCE(parse_ms, 0), COALESCE(model_lookup_ms, 0), COALESCE(provider_lookup_ms, 0), COALESCE(key_decrypt_ms, 0),
 		       tokens_per_second,
 		       COALESCE(tokens_prompt, 0), COALESCE(tokens_completion, 0),
 		       COALESCE(streaming, false), COALESCE(virtual_key_name, ''),
@@ -178,7 +183,9 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(
 			&entry.ID, &entry.ProviderID, &entry.ModelID, &entry.RequestID,
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-			&entry.TTFTMs, &entry.ProxyOverheadMs, &entry.TokensPerSecond,
+			&entry.TTFTMs, &entry.ProxyOverheadMs,
+			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
 			&entry.VirtualKeyName, &entry.ErrorMessage,
 			&entry.CreatedAt,

@@ -203,6 +203,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body.Close()
+	parseMs := time.Since(startTime).Milliseconds()
 
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
@@ -215,6 +216,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	modelLookupStart := time.Now()
 	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
 		http.Error(w, "failed to query models", http.StatusInternalServerError)
@@ -233,18 +235,25 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
+	modelLookupMs := time.Since(modelLookupStart).Milliseconds()
 
+	providerLookupStart := time.Now()
 	prov, err := h.providerRepo.Get(r.Context(), targetModel.ProviderID)
 	if err != nil {
 		http.Error(w, "provider not found", http.StatusInternalServerError)
 		return
 	}
+	providerLookupMs := time.Since(providerLookupStart).Milliseconds()
 
-	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, h.cfg.MasterKey)
+	keyDecryptStart := time.Now()
+	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, h.cfg.MasterKey)
 	if err != nil {
 		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
 		return
 	}
+	keyDecryptMs := time.Since(keyDecryptStart).Milliseconds()
+
+	proxyOverhead := time.Since(startTime).Milliseconds()
 
 	targetURL := util.SanitizeBaseURL(prov.BaseURL) + "/chat/completions"
 
@@ -273,8 +282,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
-	proxyOverhead := time.Since(startTime).Milliseconds()
-
 	resp, err := http.DefaultClient.Do(proxyReq)
 	if err != nil {
 		http.Error(w, "failed to call provider", http.StatusBadGateway)
@@ -287,18 +294,25 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		vkName = v.(string)
 	}
 
+	logBase := func() []interface{} {
+		return []interface{}{
+			prov.ID, req.Model, generateRequestHash(), generateRequestHash(), resp.StatusCode,
+			time.Since(startTime).Milliseconds(),
+			proxyOverhead,
+			parseMs, modelLookupMs, providerLookupMs, keyDecryptMs,
+		}
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		reqHash := generateRequestHash()
-		totalDuration := time.Since(startTime).Milliseconds()
 		errMsg := string(body)
 		if len(errMsg) > 500 {
 			errMsg = errMsg[:500]
 		}
 		h.dbPool.Exec(r.Context(), `
-			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, error_message, streaming, virtual_key_name)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-			prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, errMsg, req.Stream, vkName,
+			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, error_message, streaming, virtual_key_name)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			append(logBase(), errMsg, req.Stream, vkName)...,
 		)
 
 		http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
@@ -316,7 +330,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		io.Copy(w, tee)
 
 		totalDuration := time.Since(startTime).Milliseconds()
-		reqHash := generateRequestHash()
 
 		usage := extractStreamingUsage(buf.String())
 		var promptTokens, completionTokens int
@@ -331,10 +344,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h.dbPool.Exec(r.Context(), `
-			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-			prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, proxyOverhead, tps,
-			promptTokens, completionTokens, true, vkName,
+			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+			append(logBase(), totalDuration, tps, promptTokens, completionTokens, true, vkName)...,
 		)
 
 		if usage != nil && usage.TotalTokens > 0 {
@@ -352,22 +364,16 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		var chatResp ChatCompletionResponse
 		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
-			reqHash := generateRequestHash()
-			w.Header().Set("X-Request-ID", reqHash)
-
 			totalDuration := time.Since(startTime).Milliseconds()
 			var tps float64
 			if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
 				tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
 			}
 
-			query := `
-				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-			`
-			_, logErr := h.dbPool.Exec(r.Context(), query,
-				prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, proxyOverhead, tps,
-				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, vkName,
+			_, logErr := h.dbPool.Exec(r.Context(), `
+				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, duration_ms, proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, ttft_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+				append(logBase(), totalDuration, tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, vkName)...,
 			)
 			if logErr != nil {
 				fmt.Printf("Proxy log insert failed: %v\n", logErr)

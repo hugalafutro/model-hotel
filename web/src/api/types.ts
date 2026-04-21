@@ -68,6 +68,10 @@ export interface LogEntry {
   duration_ms: number;
   ttft_ms: number;
   proxy_overhead_ms: number;
+  parse_ms: number;
+  model_lookup_ms: number;
+  provider_lookup_ms: number;
+  key_decrypt_ms: number;
   tokens_per_second: number | null;
   tokens_prompt: number;
   tokens_completion: number;
