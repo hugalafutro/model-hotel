@@ -15,12 +15,12 @@ type Model struct {
 	ModelID               string    `json:"model_id"`
 	Name                  string    `json:"name"`
 	Description           string    `json:"description"`
-	DisplayName          string    `json:"display_name"`
+	DisplayName           string    `json:"display_name"`
 	Capabilities          string    `json:"capabilities"`
 	Params                string    `json:"params"`
 	Modality              string    `json:"modality"`
 	InputModalities       string    `json:"input_modalities"`
-	OutputModalities       string    `json:"output_modalities"`
+	OutputModalities      string    `json:"output_modalities"`
 	ContextLength         *int      `json:"context_length"`
 	MaxOutputTokens       *int      `json:"max_output_tokens"`
 	InputPricePerMillion  *float64  `json:"input_price_per_million"`
@@ -30,6 +30,7 @@ type Model struct {
 	CreatedAt             time.Time `json:"created_at"`
 	LastSeenAt            time.Time `json:"last_seen_at"`
 	ProviderName          string    `json:"provider_name"`
+	ProviderEnabled       bool      `json:"provider_enabled"`
 }
 
 type Capability struct {
@@ -52,7 +53,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
 
 const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, output_price_per_million, COALESCE(owned_by, ''), enabled, created_at, COALESCE(last_seen_at, created_at)`
 
@@ -87,10 +88,27 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	return err
+}
+
+func scanModels(rows pgx.Rows) ([]*Model, error) {
+	var models []*Model
+	for rows.Next() {
+		var m Model
+		if err := rows.Scan(
+			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
+			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
+			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
+			&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		); err != nil {
+			return nil, err
+		}
+		models = append(models, &m)
+	}
+	return models, nil
 }
 
 func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model, error) {
@@ -116,21 +134,19 @@ func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model,
 	}
 	defer rows.Close()
 
-	var models []*Model
-	for rows.Next() {
-		var m Model
-		if err := rows.Scan(
-			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
-			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
-		); err != nil {
-			return nil, err
-		}
-		models = append(models, &m)
-	}
+	return scanModels(rows)
+}
 
-	return models, nil
+func (r *Repository) ListEnabled(ctx context.Context) ([]*Model, error) {
+	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.enabled = true AND p.enabled = true ORDER BY m.model_id ASC`
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanModels(rows)
 }
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
@@ -141,7 +157,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
+		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -74,12 +76,10 @@ type Usage struct {
 }
 
 func (h *Handler) Register(r chi.Router) {
-	r.Route("/v1", func(r chi.Router) {
-		r.Use(h.ProxyKeyMiddleware)
+	r.Use(h.ProxyKeyMiddleware)
 
-		r.Get("/models", h.ListModels)
-		r.Post("/chat/completions", h.ChatCompletions)
-	})
+	r.Get("/models", h.ListModels)
+	r.Post("/chat/completions", h.ChatCompletions)
 }
 
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
@@ -130,7 +130,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 }
 
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
-	models, err := h.modelRepo.List(r.Context(), nil)
+	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
 		http.Error(w, "failed to list models", http.StatusInternalServerError)
 		return
@@ -138,15 +138,43 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	openAIModels := make([]map[string]interface{}, 0, len(models))
 	for _, m := range models {
-		if !m.Enabled {
-			continue
+		ownedBy := m.OwnedBy
+		if ownedBy == "" {
+			ownedBy = m.ProviderName
 		}
-		openAIModels = append(openAIModels, map[string]interface{}{
+
+		item := map[string]interface{}{
 			"id":      m.ModelID,
 			"object":  "model",
 			"created": m.CreatedAt.Unix(),
-			"owned_by": m.ProviderID.String(),
-		})
+			"owned_by": ownedBy,
+		}
+
+		if m.ContextLength != nil {
+			item["context_length"] = *m.ContextLength
+		}
+		if m.MaxOutputTokens != nil {
+			item["max_output_tokens"] = *m.MaxOutputTokens
+		}
+		if m.DisplayName != "" {
+			item["name"] = m.DisplayName
+		} else if m.Name != "" {
+			item["name"] = m.Name
+		}
+		if m.Description != "" {
+			item["description"] = m.Description
+		}
+		if m.Modality != "" {
+			item["modality"] = m.Modality
+		}
+		if m.InputPricePerMillion != nil {
+			item["input_price_per_million"] = *m.InputPricePerMillion
+		}
+		if m.OutputPricePerMillion != nil {
+			item["output_price_per_million"] = *m.OutputPricePerMillion
+		}
+
+		openAIModels = append(openAIModels, item)
 	}
 
 	response := map[string]interface{}{
@@ -159,8 +187,17 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "failed to read request body", http.StatusBadRequest)
+		return
+	}
+	r.Body.Close()
+
 	var req ChatCompletionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -170,7 +207,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	models, err := h.modelRepo.List(r.Context(), nil)
+	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
 		http.Error(w, "failed to query models", http.StatusInternalServerError)
 		return
@@ -178,7 +215,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var targetModel *model.Model
 	for _, m := range models {
-		if m.ModelID == req.Model && m.Enabled {
+		if m.ModelID == req.Model {
 			targetModel = m
 			break
 		}
@@ -203,10 +240,20 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	targetURL := util.SanitizeBaseURL(prov.BaseURL) + "/chat/completions"
 
-	proxyReqBody, err := json.Marshal(req)
-	if err != nil {
-		http.Error(w, "failed to marshal request", http.StatusInternalServerError)
-		return
+	var proxyReqBody []byte
+	if req.Stream {
+		var raw map[string]interface{}
+		if json.Unmarshal(bodyBytes, &raw) == nil {
+			raw["stream_options"] = map[string]interface{}{
+				"include_usage": true,
+			}
+			if b, err := json.Marshal(raw); err == nil {
+				proxyReqBody = b
+			}
+		}
+	}
+	if proxyReqBody == nil {
+		proxyReqBody = bodyBytes
 	}
 
 	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(proxyReqBody))
@@ -218,7 +265,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
-	startTime := time.Now()
+	proxyOverhead := time.Since(startTime).Milliseconds()
+
 	resp, err := http.DefaultClient.Do(proxyReq)
 	if err != nil {
 		http.Error(w, "failed to call provider", http.StatusBadGateway)
@@ -226,17 +274,15 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	latency := time.Since(startTime).Milliseconds()
+	vkName := ""
+	if v := r.Context().Value(virtualKeyNameKey); v != nil {
+		vkName = v.(string)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-
 		reqHash := generateRequestHash()
 		totalDuration := time.Since(startTime).Milliseconds()
-		vkName := ""
-		if v := r.Context().Value(virtualKeyNameKey); v != nil {
-			vkName = v.(string)
-		}
 		errMsg := string(body)
 		if len(errMsg) > 500 {
 			errMsg = errMsg[:500]
@@ -255,7 +301,44 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
-		io.Copy(w, resp.Body)
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		var buf bytes.Buffer
+		tee := io.TeeReader(resp.Body, &buf)
+		io.Copy(w, tee)
+
+		totalDuration := time.Since(startTime).Milliseconds()
+		reqHash := generateRequestHash()
+
+		usage := extractStreamingUsage(buf.String())
+		var promptTokens, completionTokens int
+		if usage != nil {
+			promptTokens = usage.PromptTokens
+			completionTokens = usage.CompletionTokens
+		}
+
+		var tps float64
+		if completionTokens > 0 && totalDuration > 0 {
+			tps = float64(completionTokens) / float64(totalDuration) * 1000
+		}
+
+		h.dbPool.Exec(r.Context(), `
+			INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, proxyOverhead, tps,
+			promptTokens, completionTokens, true, vkName,
+		)
+
+		if usage != nil && usage.TotalTokens > 0 {
+			authToken := r.Header.Get("Authorization")
+			if len(authToken) > 7 && authToken[:7] == "Bearer " {
+				bearer := authToken[7:]
+				if len(bearer) >= 3 && bearer[:3] == "sk-" {
+					vkHash := virtualkey.Hash(bearer)
+					h.virtualKeyRepo.AddTokens(r.Context(), vkHash, usage.TotalTokens)
+				}
+			}
+		}
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -269,23 +352,14 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
 				tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
 			}
-			overhead := totalDuration - latency
-			if overhead < 0 {
-				overhead = 0
-			}
-
-			vkName := ""
-			if v := r.Context().Value(virtualKeyNameKey); v != nil {
-				vkName = v.(string)
-			}
 
 			query := `
 				INSERT INTO request_logs (provider_id, model_id, request_id, request_hash, status_code, latency_ms, duration_ms, ttft_ms, proxy_overhead_ms, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 			`
 			_, logErr := h.dbPool.Exec(r.Context(), query,
-				prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, overhead, tps,
-				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, req.Stream, vkName,
+				prov.ID, req.Model, reqHash, reqHash, resp.StatusCode, totalDuration, totalDuration, totalDuration, proxyOverhead, tps,
+				chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, vkName,
 			)
 			if logErr != nil {
 				fmt.Printf("Proxy log insert failed: %v\n", logErr)
@@ -304,6 +378,28 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		json.NewEncoder(w).Encode(chatResp)
 	}
+}
+
+func extractStreamingUsage(data string) *Usage {
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	var lastUsage *Usage
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		payload := strings.TrimPrefix(line, "data: ")
+		if payload == "[DONE]" {
+			break
+		}
+		var chunk struct {
+			Usage *Usage `json:"usage"`
+		}
+		if json.Unmarshal([]byte(payload), &chunk) == nil && chunk.Usage != nil {
+			lastUsage = chunk.Usage
+		}
+	}
+	return lastUsage
 }
 
 func generateRequestHash() string {

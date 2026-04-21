@@ -91,35 +91,35 @@ export function Logs() {
             {logsData?.entries && logsData.entries.length > 0 ? (
               logsData.entries.map((log, idx) => (
                 <Row key={log.id} index={idx}>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                     {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs font-mono text-gray-400" title={log.request_hash}>
+                  <td className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400" title={log.request_hash}>
                     {log.request_hash ? log.request_hash.slice(0, 8) : '-'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-200 truncate" title={log.model_id}>
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate" title={log.model_id}>
                     {log.model_id || '-'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code)}`}>
                       {log.status_code}
                     </span>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
                     {log.tokens_prompt + log.tokens_completion > 0
                       ? `${log.tokens_prompt}+${log.tokens_completion}`
                       : '-'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
                     {log.duration_ms > 0 ? `${(log.duration_ms / 1000).toFixed(1)}s` : '-'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
                     {formatTPS(log.tokens_per_second)}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                    {log.proxy_overhead_ms > 0 ? `${(log.proxy_overhead_ms / 1000).toFixed(1)}s` : '-'}
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                    {log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0 ? `${log.proxy_overhead_ms}ms` : '-'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                     {log.virtual_key_name || '-'}
                   </td>
                 </Row>
