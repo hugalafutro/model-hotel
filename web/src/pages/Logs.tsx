@@ -131,7 +131,7 @@ export function Logs() {
               <StaticHeaderNoArrow>Tokens</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>T/s</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>TTFT</StaticHeaderNoArrow>
-              <StaticHeaderNoArrow>Dur.</StaticHeaderNoArrow>
+              <StaticHeaderNoArrow>Duration</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Overhead</StaticHeaderNoArrow>
               <StaticHeaderNoArrow>Key</StaticHeaderNoArrow>
             </tr>

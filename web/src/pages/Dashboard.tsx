@@ -125,10 +125,10 @@ export function Dashboard() {
   }
 
   const statCards = [
+    { id: 'models', label: 'Total Models', value: models?.length || 0, icon: '🤖' },
     { id: 'req24h', label: 'Requests (24h)', value: stats?.total_requests_last_24h || 0, icon: '📊' },
     { id: 'req7d', label: 'Requests (7d)', value: stats?.total_requests_last_7d || 0, icon: '📈' },
-    { id: 'models', label: 'Total Models', value: models?.length || 0, icon: '🤖' },
-    { id: 'latency', label: 'Avg Latency', value: `${(stats?.avg_latency_ms || 0).toFixed(1)}ms`, icon: '⚡' },
+    { id: 'latency', label: 'Avg Duration', value: `${(stats?.avg_latency_ms || 0).toFixed(1)}ms`, icon: '⚡' },
     { id: 'errors', label: 'Error Rate', value: `${((stats?.error_rate || 0) * 100).toFixed(1)}%`, icon: '❌' },
     { id: 'tokens', label: 'Total Tokens', value: (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0), icon: '🎯' },
   ]

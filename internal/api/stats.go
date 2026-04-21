@@ -164,7 +164,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 	}
 
 	query = `
-		SELECT AVG(latency_ms) as avg_latency
+		SELECT AVG(duration_ms) as avg_duration
 		FROM request_logs
 		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
 	`
