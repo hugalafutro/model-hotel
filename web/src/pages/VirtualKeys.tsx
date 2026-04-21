@@ -60,7 +60,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
               <code className="text-sm text-green-400 font-mono break-all">{createdKey.key}</code>
               <button
                 type="button"
-                onClick={() => { navigator.clipboard.writeText(createdKey.key!); onToast('Copied to clipboard', 'info') }}
+                onClick={() => { if (createdKey.key) { navigator.clipboard.writeText(createdKey.key); onToast('Copied to clipboard', 'info') } }}
                 className="px-2 py-1 rounded text-xs font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer shrink-0"
               >
                 Copy
