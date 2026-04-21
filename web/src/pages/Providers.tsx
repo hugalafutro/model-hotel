@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState, useMemo } from 'react'
-import type { NanoGPTUsage, DeepSeekBalance } from '../api/types'
+import type { NanoGPTUsage } from '../api/types'
 import { useToast } from '../context/ToastContext'
 
 function formatTokens(n: number | null | undefined): string {
@@ -164,7 +164,6 @@ export function Providers() {
   const [error, setError] = useState<string | null>(null)
   const [discoveringId, setDiscoveringId] = useState<string | null>(null)
   const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null)
-  const [deepseekBalance, setDeepseekBalance] = useState<DeepSeekBalance | null>(null)
   const [deepseekCurrency, setDeepseekCurrency] = useState<'USD' | 'CNY'>('USD')
   const [formData, setFormData] = useState<{
     name: string;
@@ -192,10 +191,6 @@ export function Providers() {
     return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
   }, [providers])
 
-  const nanogptProviderId = useMemo(() => {
-    return providers?.find(p => p.base_url.includes('nano-gpt.com'))?.id
-  }, [providers])
-
   const deepseekProviderId = useMemo(() => {
     return providers?.find(p => p.base_url.includes('deepseek.com'))?.id
   }, [providers])
@@ -207,7 +202,7 @@ export function Providers() {
     refetchInterval: 60 * 60 * 1000,
   })
 
-  const { data: deepseekBalanceData, refetch: refetchDeepseekBalance } = useQuery({
+  const { data: deepseekBalanceData } = useQuery({
     queryKey: ['deepseek-balance', deepseekProviderId],
     queryFn: () => api.providers.getBalance(deepseekProviderId!),
     enabled: Boolean(deepseekProviderId),
