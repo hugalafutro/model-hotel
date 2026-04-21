@@ -535,8 +535,8 @@ export function Models() {
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Status</th>
             </tr>
             <tr className="bg-gray-800/40">
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5">
+              <th className="px-4 py-2"></th>
+              <th className="px-4 py-2">
                 <span className="inline-flex items-center gap-1 flex-wrap">
                   {CAP_META.filter(m => existingCaps.has(m.key)).map(m => {
                     const isActive = capFilter.has(m.key)
@@ -565,7 +565,7 @@ export function Models() {
                   )}
                 </span>
               </th>
-              <th className="px-4 py-1.5">
+              <th className="px-4 py-2">
                 <span className="inline-flex items-center gap-1 flex-wrap">
                   {providers?.map(provider => {
                     const isNanoGPT = provider.base_url.includes('nano-gpt.com')
@@ -603,10 +603,10 @@ export function Models() {
                   )}
                 </span>
               </th>
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5"></th>
-              <th className="px-4 py-1.5">
+              <th className="px-4 py-2"></th>
+              <th className="px-4 py-2"></th>
+              <th className="px-4 py-2"></th>
+              <th className="px-4 py-2">
                 <span className="inline-flex items-center gap-1">
                   <button
                     type="button"
