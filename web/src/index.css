@@ -587,6 +587,24 @@ html[data-ui-style="glassmorphism-lite"] .ui-input {
   background: var(--surface-input);
 }
 
+html[data-ui-style="glassmorphism-lite"].dark select.ui-input option {
+  background-color: #0a0b14;
+  color: var(--text-primary);
+}
+
+html[data-ui-style="glassmorphism-lite"].light select.ui-input option {
+  background-color: #f0f1f7;
+  color: var(--text-primary);
+}
+
+[data-ui-style] select.ui-input.ui-input-sm {
+  width: auto;
+  min-width: 0;
+  padding: 0.375rem 2rem 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  appearance: auto;
+}
+
 /* =============================================
    TABLES
    ============================================= */

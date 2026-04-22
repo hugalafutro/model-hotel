@@ -202,23 +202,6 @@ export function Logs() {
                         }}
                         className="ui-input"
                     />
-                    <select
-                        value={pageSize}
-                        onChange={(e) => {
-                            setPageSize(Number(e.target.value));
-                            setPage(1);
-                        }}
-                        className="ui-input text-sm"
-                    >
-                        <option value={25}>25 / page</option>
-                        <option value={50}>50 / page</option>
-                        <option value={75}>75 / page</option>
-                        <option value={100}>100 / page</option>
-                        <option value={125}>125 / page</option>
-                        <option value={150}>150 / page</option>
-                        <option value={175}>175 / page</option>
-                        <option value={200}>200 / page</option>
-                    </select>
                 </div>
                 <div className="md:w-48">
                     <select
@@ -440,78 +423,97 @@ export function Logs() {
                         {Math.min(page * pageSize, logsData.total)} of{" "}
                         {logsData.total} entries
                     </div>
-                    {Math.ceil(logsData.total / pageSize) > 1 && (
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setPage((p) => Math.max(1, p - 1))
-                                }
-                                disabled={page === 1}
-                                className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Prev
-                            </button>
-                            {Array.from(
-                                {
-                                    length: Math.min(
-                                        7,
-                                        Math.ceil(logsData.total / pageSize),
-                                    ),
-                                },
-                                (_, i) => {
-                                    const totalPages = Math.ceil(
-                                        logsData.total / pageSize,
-                                    );
-                                    let pageNum: number;
-                                    if (totalPages <= 7) {
-                                        pageNum = i + 1;
-                                    } else if (page <= 4) {
-                                        pageNum = i + 1;
-                                        if (i === 6) pageNum = totalPages;
-                                    } else if (page >= totalPages - 3) {
-                                        pageNum = totalPages - 6 + i;
-                                        if (i === 0) pageNum = 1;
-                                    } else {
-                                        pageNum = page - 3 + i;
-                                        if (i === 0) pageNum = 1;
-                                        if (i === 6) pageNum = totalPages;
+                    <div className="flex items-center gap-3">
+                        <select
+                            value={pageSize}
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setPage(1);
+                            }}
+                            className="ui-input ui-input-sm"
+                        >
+                            <option value={25}>25 / page</option>
+                            <option value={50}>50 / page</option>
+                            <option value={75}>75 / page</option>
+                            <option value={100}>100 / page</option>
+                            <option value={125}>125 / page</option>
+                            <option value={150}>150 / page</option>
+                            <option value={175}>175 / page</option>
+                            <option value={200}>200 / page</option>
+                        </select>
+                        {Math.ceil(logsData.total / pageSize) > 1 && (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
                                     }
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            type="button"
-                                            onClick={() => setPage(pageNum)}
-                                            className={`px-2 py-1 text-xs rounded border ${
-                                                page === pageNum
-                                                    ? "bg-(--accent) text-white border-(--accent)"
-                                                    : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
-                                            }`}
-                                        >
-                                            {pageNum}
-                                        </button>
-                                    );
-                                },
-                            )}
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setPage((p) =>
-                                        Math.min(
-                                            Math.ceil(
-                                                logsData.total / pageSize,
-                                            ),
-                                            p + 1,
+                                    disabled={page === 1}
+                                    className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Prev
+                                </button>
+                                {Array.from(
+                                    {
+                                        length: Math.min(
+                                            7,
+                                            Math.ceil(logsData.total / pageSize),
                                         ),
-                                    )
-                                }
-                                disabled={page * pageSize >= logsData.total}
-                                className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    )}
+                                    },
+                                    (_, i) => {
+                                        const totalPages = Math.ceil(
+                                            logsData.total / pageSize,
+                                        );
+                                        let pageNum: number;
+                                        if (totalPages <= 7) {
+                                            pageNum = i + 1;
+                                        } else if (page <= 4) {
+                                            pageNum = i + 1;
+                                            if (i === 6) pageNum = totalPages;
+                                        } else if (page >= totalPages - 3) {
+                                            pageNum = totalPages - 6 + i;
+                                            if (i === 0) pageNum = 1;
+                                        } else {
+                                            pageNum = page - 3 + i;
+                                            if (i === 0) pageNum = 1;
+                                            if (i === 6) pageNum = totalPages;
+                                        }
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                type="button"
+                                                onClick={() => setPage(pageNum)}
+                                                className={`px-2 py-1 text-xs rounded border ${
+                                                    page === pageNum
+                                                        ? "bg-(--accent) text-white border-(--accent)"
+                                                        : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    },
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) =>
+                                            Math.min(
+                                                Math.ceil(
+                                                    logsData.total / pageSize,
+                                                ),
+                                                p + 1,
+                                            ),
+                                        )
+                                    }
+                                    disabled={page * pageSize >= logsData.total}
+                                    className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
