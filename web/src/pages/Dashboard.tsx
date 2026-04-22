@@ -190,7 +190,7 @@ function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors
    PROVIDER DOUGHNUT
    ===================================================== */
 function ProviderDoughnut({ items }: { items: { name: string; count: number; share: number }[] }) {
-  const colors = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa']
+  const colors = ['#818cf8', '#059669', '#fbbf24', '#f87171', '#a78bfa']
 
   if (items.length === 0) {
     return <div className="ui-card p-6 text-center text-sm text-(--text-muted) py-12">No provider data</div>
@@ -266,7 +266,7 @@ function TokenSplitBar({ prompt, completion }: { prompt: number; completion: num
         </div>
         <div
           className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider"
-          style={{ width: `${completionPct}%`, backgroundColor: '#34d399' }}
+          style={{ width: `${completionPct}%`, backgroundColor: '#059669' }}
         >
           {completionPct > 12 ? `Completion ${completionPct.toFixed(0)}%` : ''}
         </div>
@@ -278,7 +278,7 @@ function TokenSplitBar({ prompt, completion }: { prompt: number; completion: num
           <span className="font-medium text-(--text-primary) ml-1">{prompt.toLocaleString()}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#34d399' }} />
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#059669' }} />
           <span className="text-(--text-tertiary)">Completion</span>
           <span className="font-medium text-(--text-primary) ml-1">{completion.toLocaleString()}</span>
         </div>
