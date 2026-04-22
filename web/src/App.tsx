@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Dashboard } from './pages/Dashboard'
@@ -72,27 +72,12 @@ function LoginScreen() {
 }
 
 function AppContent() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken')
-    if (token) {
-      setAdminToken(token)
-      setIsAuthenticated(true)
-    }
-    setIsLoading(false)
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
-      </div>
-    )
+  const token = localStorage.getItem('adminToken')
+  if (token) {
+    setAdminToken(token)
   }
 
-  if (!isAuthenticated) {
+  if (!token) {
     return <LoginScreen />
   }
 
