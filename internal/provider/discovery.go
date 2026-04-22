@@ -46,6 +46,10 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		return d.discoverDeepSeek(ctx, provider, apiKey)
 	}
 
+	if strings.Contains(provider.BaseURL, "ollama.com") {
+		return d.discoverOllama(ctx, provider, apiKey)
+	}
+
 	return d.discoverOpenAI(ctx, provider, apiKey)
 }
 
@@ -447,4 +451,152 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 	}
 
 	return &balance, nil
+}
+
+func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	apiBase := strings.TrimSuffix(strings.TrimSuffix(baseURL, "/"), "/v1")
+
+	tagsURL := apiBase + "/api/tags"
+	req, err := http.NewRequestWithContext(ctx, "GET", tagsURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tagsResp OllamaTagsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	type showResult struct {
+		index   int
+		modelID string
+		show    *OllamaShowResponse
+		err     error
+	}
+
+	results := make([]showResult, len(tagsResp.Models))
+	sem := make(chan struct{}, 5)
+	var wg sync.WaitGroup
+
+	showCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+
+	for i, m := range tagsResp.Models {
+		wg.Add(1)
+		go func(idx int, modelName string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			show, err := d.ollamaShowModel(showCtx, apiBase, apiKey, modelName)
+			results[idx] = showResult{index: idx, modelID: modelName, show: show, err: err}
+		}(i, m.Name)
+	}
+	wg.Wait()
+
+	models := make([]*model.Model, 0, len(tagsResp.Models))
+	for _, r := range results {
+		if r.err != nil {
+			continue
+		}
+
+		m := d.buildOllamaModel(provider, r.modelID, r.show)
+		models = append(models, m)
+	}
+
+	return models, nil
+}
+
+func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey, modelName string) (*OllamaShowResponse, error) {
+	showURL := apiBase + "/api/show"
+	body := fmt.Sprintf(`{"model":"%s"}`, modelName)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", showURL, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("show failed for %s: status %d: %s", modelName, resp.StatusCode, string(respBody))
+	}
+
+	var showResp OllamaShowResponse
+	if err := json.NewDecoder(resp.Body).Decode(&showResp); err != nil {
+		return nil, err
+	}
+	return &showResp, nil
+}
+
+func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, show *OllamaShowResponse) *model.Model {
+	caps := model.Capability{Streaming: true}
+	modality := "text"
+	inputMods := `["text"]`
+
+	for _, c := range show.Capabilities {
+		switch c {
+		case "tools":
+			caps.ToolCalling = true
+		case "thinking":
+			caps.Reasoning = true
+		case "vision":
+			caps.Vision = true
+			modality = "vision"
+			inputMods = `["text","image"]`
+		}
+	}
+	capJSON, _ := json.Marshal(caps)
+
+	var contextLength *int
+	for k, v := range show.ModelInfo {
+		if strings.HasSuffix(k, ".context_length") {
+			if f, ok := v.(float64); ok {
+				cl := int(f)
+				contextLength = &cl
+				break
+			}
+		}
+	}
+
+	ownedBy := show.Details.Family
+	if ownedBy == "" {
+		ownedBy = "ollama"
+	}
+
+	return &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       provider.ID,
+		ModelID:          modelID,
+		Name:             modelID,
+		DisplayName:      modelID,
+		Capabilities:     string(capJSON),
+		Params:           "{}",
+		Modality:         modality,
+		InputModalities:  inputMods,
+		OutputModalities: "[]",
+		ContextLength:    contextLength,
+		OwnedBy:          ownedBy,
+		Enabled:          true,
+	}
 }
