@@ -112,6 +112,7 @@ export interface Stats {
   by_virtual_key: Record<string, number>
   avg_latency_ms: number
   error_rate: number
+  avg_overhead_ms: number
   total_tokens_prompt: number
   total_tokens_completion: number
 }

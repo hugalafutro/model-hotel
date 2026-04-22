@@ -495,7 +495,7 @@ export function Dashboard() {
           <p className="text-(--text-tertiary) mt-1">Real-time overview of your LLM proxy traffic and performance</p>
         </div>
         <div className="flex gap-4">
-          <Gauge label="Latency" value={(stats?.avg_latency_ms || 0)}   decimals={1} suffix="ms" color={accents.latency} />
+          <Gauge label="Avg Overhead" value={((stats?.avg_overhead_ms || 0) / 1000)} decimals={1} suffix="s" color={accents.latency} />
           <Gauge label="Error Rate" value={((stats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
         </div>
       </div>
@@ -523,9 +523,9 @@ export function Dashboard() {
         />
         <StatCard
           label="Avg Duration"
-          value={stats?.avg_latency_ms || 0}
+          value={(stats?.avg_latency_ms || 0) / 1000}
           decimals={1}
-          suffix="ms"
+          suffix="s"
           icon={Clock}
           accent={accents.latency}
         />

@@ -34,6 +34,7 @@ type StatsResponse struct {
 	ByVirtualKey         map[string]int64 `json:"by_virtual_key"`
 	AvgLatencyMs         float64          `json:"avg_latency_ms"`
 	ErrorRate            float64          `json:"error_rate"`
+	AvgOverheadMs        float64          `json:"avg_overhead_ms"`
 	TotalTokensPrompt    int              `json:"total_tokens_prompt"`
 	TotalTokensCompletion int             `json:"total_tokens_completion"`
 }
@@ -215,6 +216,17 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.ErrorRate)
 	if err != nil {
 		stats.ErrorRate = 0
+	}
+
+	query = `
+		SELECT COALESCE(AVG(proxy_overhead_ms), 0) as avg_overhead
+		FROM request_logs
+		WHERE created_at >= $1 AND proxy_overhead_ms > 0
+	`
+
+	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.AvgOverheadMs)
+	if err != nil {
+		stats.AvgOverheadMs = 0
 	}
 
 	query = `
