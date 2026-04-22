@@ -5,10 +5,10 @@ import {
   Bot,
   Activity,
   TrendingUp,
-  AlertTriangle,
   Target,
   Clock,
   ArrowUpRight,
+  PlugZap,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -503,6 +503,12 @@ export function Dashboard() {
       { /* Stat cards */ }
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard
+          label="Total Providers"
+          value={Object.keys(stats?.by_provider || {}).length}
+          icon={PlugZap}
+          accent={accents.errors}
+        />
+        <StatCard
           label="Total Models"
           value={models?.length || 0}
           icon={Bot}
@@ -528,14 +534,6 @@ export function Dashboard() {
           suffix="s"
           icon={Clock}
           accent={accents.latency}
-        />
-        <StatCard
-          label="Error Rate"
-          value={((stats?.error_rate || 0) * 100)}
-          decimals={1}
-          suffix="%"
-          icon={AlertTriangle}
-          accent={accents.errors}
         />
         <StatCard
           label="Total Tokens"
