@@ -1,105 +1,37 @@
 import { useQuery } from '@tanstack/react-query'
-import { api, setAdminToken } from '../api/client'
-import { useState, useCallback } from 'react'
+import { api } from '../api/client'
 
 export function Dashboard() {
-  const [adminToken, setAdminTokenInput] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('adminToken')
-  })
-
-  const initializeToken = useCallback(() => {
-    const token = localStorage.getItem('adminToken')
-    if (token) {
-      setAdminToken(token)
-    }
-  }, [])
-
-  useState(() => {
-    if (isLoggedIn) {
-      initializeToken()
-    }
-  })
-
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['stats'],
     queryFn: () => api.stats.get(),
-    enabled: isLoggedIn,
     retry: 1,
   })
 
   const { data: models } = useQuery({
     queryKey: ['models'],
     queryFn: () => api.models.list(),
-    enabled: isLoggedIn,
   })
 
-  const handleLogin = () => {
-    if (!adminToken.trim()) {
-      setError('Please enter an admin token')
-      return
-    }
-    setError(null)
-    localStorage.setItem('adminToken', adminToken.trim())
-    setAdminToken(adminToken.trim())
-    setIsLoggedIn(true)
-  }
+  useQuery({
+    queryKey: ['check-auth'],
+    queryFn: async () => {
+      const response = await fetch('/api/stats', { headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` } })
+      if (response.status === 401) {
+        localStorage.removeItem('adminToken')
+        window.location.reload()
+      }
+      return null
+    },
+    enabled: !!statsError,
+  })
 
-  if (statsError && isLoggedIn) {
+  if (statsError) {
     const errMsg = statsError.message || ''
     if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('Admin token')) {
       localStorage.removeItem('adminToken')
-      setIsLoggedIn(false)
-      setError('Session expired. Please log in again.')
+      window.location.reload()
     }
-  }
-
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="bg-gray-800 shadow-2xl rounded-2xl p-8 w-full max-w-md border border-gray-700">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">LLM-Proxy</h1>
-            <p className="text-gray-400">Multi-Provider LLM Proxy Dashboard</p>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="admin-token" className="block text-sm font-medium text-gray-300 mb-2">
-                Admin Token
-              </label>
-              <input
-                id="admin-token"
-                type="password"
-                value={adminToken}
-                onChange={(e) => setAdminTokenInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
-                placeholder="Enter your admin token"
-                autoFocus={true}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleLogin}
-              className="w-full bg-indigo-500 text-white py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium"
-            >
-              Sign In
-            </button>
-            <p className="text-sm text-gray-500 text-center">
-              Get your admin token from the server logs
-            </p>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   if (statsLoading) {
