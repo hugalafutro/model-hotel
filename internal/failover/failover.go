@@ -3,6 +3,7 @@ package failover
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -267,7 +268,93 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 	return groups, nil
 }
 
+var commonPrefixes = []string{
+	"zai-org/",
+	"deepseek/",
+	"meta-llama/",
+	"mistralai/",
+	"openai/",
+	"anthropic/",
+	"google/",
+	"allenai/",
+	"bigscience/",
+	"facebook/",
+	"microsoft/",
+	"nvidia/",
+	"stabilityai/",
+	"tiiuae/",
+	"databricks/",
+	"EleutherAI/",
+	"mosaicml/",
+	"togethercomputer/",
+}
+
+func stripPrefix(modelID string) string {
+	for _, prefix := range commonPrefixes {
+		if strings.HasPrefix(modelID, prefix) {
+			return strings.TrimPrefix(modelID, prefix)
+		}
+	}
+	return modelID
+}
+
 func (r *Repository) SyncAllModels(ctx context.Context) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.id, m.model_id, m.provider_id
+		FROM models m
+		JOIN providers p ON m.provider_id = p.id
+		WHERE m.enabled = true AND p.enabled = true
+		ORDER BY m.model_id, p.created_at ASC
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type modelInfo struct {
+		uuid       uuid.UUID
+		modelID    string
+		providerID uuid.UUID
+	}
+	
+	baseToModels := make(map[string][]modelInfo)
+	for rows.Next() {
+		var id, providerID uuid.UUID
+		var modelID string
+		if err := rows.Scan(&id, &modelID, &providerID); err != nil {
+			continue
+		}
+		base := stripPrefix(modelID)
+		baseToModels[base] = append(baseToModels[base], modelInfo{
+			uuid:       id,
+			modelID:    modelID,
+			providerID: providerID,
+		})
+	}
+
+	for base, models := range baseToModels {
+		if len(models) <= 1 {
+			r.Delete(ctx, base)
+			continue
+		}
+
+		priorityOrder := make([]uuid.UUID, len(models))
+		entryEnabled := make(map[string]bool)
+		for i, m := range models {
+			priorityOrder[i] = m.uuid
+			entryEnabled[m.uuid.String()] = true
+		}
+
+		autoCreated := true
+		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, nil, nil, nil, &autoCreated)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) SyncAllModelsLegacy(ctx context.Context) error {
 	rows, err := r.pool.Query(ctx, `
 		SELECT DISTINCT m.model_id
 		FROM models m
