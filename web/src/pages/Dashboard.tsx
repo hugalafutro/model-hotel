@@ -24,13 +24,25 @@ import {
 } from 'recharts'
 
 /* =====================================================
+   NUMBER FORMATTERS
+   ===================================================== */
+function formatCompact(n: number): string {
+  if (n === 0) return '0'
+  const abs = Math.abs(n)
+  if (abs >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (abs >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return n.toFixed(1)
+}
+
+/* =====================================================
    ANIMATED COUNTER
    ===================================================== */
-function AnimatedValue({ value, decimals = 0, suffix = '', duration = 1200 }: {
+function AnimatedValue({ value, decimals = 0, suffix = '', duration = 1200, formatter }: {
   value: number
   decimals?: number
   suffix?: string
   duration?: number
+  formatter?: (val: number) => string
 }) {
   const [display, setDisplay] = useState(0)
   const startRef = useRef<number | null>(null)
@@ -59,7 +71,17 @@ function AnimatedValue({ value, decimals = 0, suffix = '', duration = 1200 }: {
     return () => cancelAnimationFrame(raf)
   }, [value, duration, display])
 
-  return <span>{display.toFixed(decimals)}{suffix}</span>
+  const formatted = formatter ? formatter(display) : display.toFixed(decimals)
+  return (
+    <span style={{ textTransform: 'none' }}>
+      {formatted}
+      {suffix && (
+        <span className="text-sm font-normal text-(--text-muted) ml-1" style={{ textTransform: 'none' }}>
+          {suffix}
+        </span>
+      )}
+    </span>
+  )
 }
 
 /* =====================================================
@@ -74,6 +96,7 @@ function StatCard({
   accent,
   sparkline,
   sparklineTooltip,
+  formatter,
 }: {
   label: string
   value: number
@@ -83,6 +106,7 @@ function StatCard({
   accent: string
   sparkline?: number // 0-1 ratio for tiny horizontal fill
   sparklineTooltip?: string
+  formatter?: (val: number) => string
 }) {
   return (
     <div className="ui-card p-5 group">
@@ -94,8 +118,8 @@ function StatCard({
           {label}
         </span>
       </div>
-      <p className="text-2xl font-bold text-(--text-primary)">
-        <AnimatedValue value={value} decimals={decimals} suffix={suffix} />
+      <p className="text-xl font-bold text-(--text-primary)" style={{ textTransform: 'none' }}>
+        <AnimatedValue value={value} decimals={decimals} suffix={suffix} formatter={formatter} />
       </p>
       {sparkline != null && (
         <div
@@ -262,8 +286,8 @@ function TokenSplitBar({ prompt, completion, total }: { prompt: number; completi
         <Target size={18} className="text-(--accent)" />
         Token Mix
       </h3>
-      <p className="text-2xl font-bold text-(--text-primary) mb-4">
-        <AnimatedValue value={total} />
+      <p className="text-2xl font-bold text-(--text-primary) mb-4" style={{ textTransform: 'none' }}>
+        {total.toLocaleString()} <span className="text-sm font-normal text-(--text-muted)">Tokens</span>
       </p>
       <div className="flex rounded-lg overflow-hidden h-6">
         <div
@@ -467,8 +491,6 @@ export function Dashboard() {
   const sparkReq = totalRequests7d > 0 ? req24h / totalRequests7d : 0
 
   const totalTokens = (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0)
-  const tok24h = totalTokens || 1
-  const promptTokens = stats?.total_tokens_prompt || 0
 
   const acData = (() => {
     if (!tsData?.points) return []
@@ -553,12 +575,10 @@ export function Dashboard() {
         <StatCard
           label="Avg Tokens (24h)"
           value={stats?.avg_tokens_per_request || 0}
-          decimals={1}
-          suffix=" tok/req"
+          suffix="T/Rq"
           icon={Target}
           accent={accents.tokens}
-          sparkline={tok24h > 0 ? promptTokens / tok24h : 0}
-          sparklineTooltip="Prompt tokens as share of total (prompt + completion)"
+          formatter={formatCompact}
         />
       </div>
 
