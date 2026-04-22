@@ -100,6 +100,7 @@ function FailoverGroupCard({
   onReorder: (newOrder: string[]) => void
   onDelete: () => void
 }) {
+  const { toast } = useToast()
   const enabledCount = group.entries.filter(e => e.enabled).length
   const totalCount = group.entries.length
 
@@ -120,6 +121,12 @@ function FailoverGroupCard({
     }
   }
 
+  const handleCopyModel = () => {
+    const modelRef = `hotel/${group.display_model}`
+    navigator.clipboard.writeText(modelRef)
+    toast(`Copied ${modelRef}`, 'success')
+  }
+
   return (
     <div
       className={`bg-gray-800 border rounded-lg p-3 ${
@@ -127,7 +134,10 @@ function FailoverGroupCard({
       }`}
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <div
+          onClick={handleCopyModel}
+          className="flex items-center gap-2 min-w-0 select-none"
+        >
           <h3 className="text-white font-medium text-sm truncate">hotel/{group.display_model}</h3>
           {group.auto_created && (
             <span className="text-xs text-gray-500 shrink-0">auto</span>
