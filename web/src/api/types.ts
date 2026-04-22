@@ -105,15 +105,37 @@ export interface LogsResponse {
 }
 
 export interface Stats {
-  total_requests_last_24h: number;
-  total_requests_last_7d: number;
-  by_model: Record<string, number>;
-  by_provider: Record<string, number>;
-  by_virtual_key: Record<string, number>;
-  avg_latency_ms: number;
-  error_rate: number;
-  total_tokens_prompt: number;
-  total_tokens_completion: number;
+  total_requests_last_24h: number
+  total_requests_last_7d: number
+  by_model: Record<string, number>
+  by_provider: Record<string, number>
+  by_virtual_key: Record<string, number>
+  avg_latency_ms: number
+  error_rate: number
+  total_tokens_prompt: number
+  total_tokens_completion: number
+}
+
+export interface TimeSeriesPoint {
+  bucket: string
+  count: number
+  tokens: number
+  errors: number
+  latency_ms: number
+}
+
+export interface TimeSeriesStats {
+  points: TimeSeriesPoint[]
+}
+
+export interface ProviderDistributionItem {
+  name: string
+  count: number
+  share: number
+}
+
+export interface ProviderDistributionStats {
+  items: ProviderDistributionItem[]
 }
 
 export interface VirtualKey {

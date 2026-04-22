@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, UpdateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance, FailoverGroup, CreateFailoverGroupRequest, UpdateFailoverGroupRequest, CandidateModel } from './types'
+import type { Provider, CreateProviderRequest, UpdateProviderRequest, ProxyKey, Model, LogsResponse, Stats, TimeSeriesStats, ProviderDistributionStats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance, FailoverGroup, CreateFailoverGroupRequest, UpdateFailoverGroupRequest, CandidateModel } from './types'
 
 const API_BASE = '';
 
@@ -219,12 +219,32 @@ export const api = {
     get: async (): Promise<Stats> => {
       const response = await fetch(`${API_BASE}/api/stats`, {
         headers: getAuthHeaders(),
-      });
+      })
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Failed to fetch stats: ${response.status} ${text}`);
+        const text = await response.text()
+        throw new Error(`Failed to fetch stats: ${response.status} ${text}`)
       }
-      return response.json();
+      return response.json()
+    },
+    getTimeSeries: async (): Promise<TimeSeriesStats> => {
+      const response = await fetch(`${API_BASE}/api/stats/timeseries`, {
+        headers: getAuthHeaders(),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`Failed to fetch time-series stats: ${response.status} ${text}`)
+      }
+      return response.json()
+    },
+    getProviderDistribution: async (): Promise<ProviderDistributionStats> => {
+      const response = await fetch(`${API_BASE}/api/stats/provider-distribution`, {
+        headers: getAuthHeaders(),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`Failed to fetch provider distribution: ${response.status} ${text}`)
+      }
+      return response.json()
     },
   },
 

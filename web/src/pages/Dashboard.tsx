@@ -1,6 +1,388 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import {
+  Bot,
+  Activity,
+  TrendingUp,
+  AlertTriangle,
+  Target,
+  Clock,
+  ArrowUpRight,
+} from 'lucide-react'
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 
+/* =====================================================
+   ANIMATED COUNTER
+   ===================================================== */
+function AnimatedValue({ value, decimals = 0, suffix = '', duration = 1200 }: {
+  value: number
+  decimals?: number
+  suffix?: string
+  duration?: number
+}) {
+  const [display, setDisplay] = useState(0)
+  const startRef = useRef<number | null>(null)
+  const fromRef = useRef(0)
+  const toRef = useRef(value)
+
+  useEffect(() => {
+    fromRef.current = display
+    toRef.current = value
+    startRef.current = null
+
+    let raf: number
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+
+    const tick = (ts: number) => {
+      if (startRef.current === null) startRef.current = ts
+      const elapsed = ts - startRef.current
+      const p = Math.min(elapsed / duration, 1)
+      const eased = ease(p)
+      const current = fromRef.current + (toRef.current - fromRef.current) * eased
+      setDisplay(current)
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value, duration])
+
+  return <span>{display.toFixed(decimals)}{suffix}</span>
+}
+
+/* =====================================================
+   STAT CARD
+   ===================================================== */
+function StatCard({
+  label,
+  value,
+  decimals,
+  suffix,
+  icon: Icon,
+  accent,
+  sparkline,
+}: {
+  label: string
+  value: number
+  decimals?: number
+  suffix?: string
+  icon: React.ElementType
+  accent: string
+  sparkline?: number // 0-1 ratio for tiny horizontal fill
+}) {
+  return (
+    <div className="ui-card p-5 group">
+      <div className="flex items-center justify-between mb-2">
+        <div className="w-9 h-9 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${accent}18` }}>
+          <Icon size={18} style={{ color: accent }} />
+        </div>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          {label}
+        </span>
+      </div>
+      <p className="text-2xl font-bold text-[var(--text-primary)]">
+        <AnimatedValue value={value} decimals={decimals} suffix={suffix} />
+      </p>
+      {sparkline != null && (
+        <div className="mt-3 h-1 rounded-full overflow-hidden bg-[var(--border-subtle)]">
+          <div
+            className="h-full rounded-full transition-all duration-1000"
+            style={{ width: `${Math.max(0, Math.min(1, sparkline)) * 100}%`, backgroundColor: accent }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* =====================================================
+   TIME-SERIES AREA CHART
+   ===================================================== */
+function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors: number }[] }) {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#818cf8'
+  const grid = getComputedStyle(document.documentElement).getPropertyValue('--border-subtle').trim() || 'rgba(255,255,255,0.04)'
+  const text = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#7a7e8c'
+
+  if (data.length === 0) {
+    return (
+      <div className="ui-card p-6">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+          <Activity size={18} className="text-[var(--accent)]" />
+          Requests / Hour
+        </h3>
+        <p className="text-sm text-[var(--text-muted)] text-center py-12">No time-series data yet. Requests will appear here once traffic flows.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ui-card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
+          <Activity size={18} className="text-[var(--accent)]" />
+          Requests / Hour
+        </h3>
+        <span className="text-xs text-[var(--text-muted)]">Last 24 hours</span>
+      </div>
+      <div className="h-60">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="reqArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={accent} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={accent} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+            <XAxis
+              dataKey="hour"
+              tick={{ fontSize: 10, fill: text }}
+              tickLine={false}
+              axisLine={false}
+              interval={4}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: text }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'var(--surface-elevated)',
+                border: '1px solid var(--border-default)',
+                borderRadius: '10px',
+                fontSize: '12px',
+              }}
+              labelStyle={{ color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              itemStyle={{ color: 'var(--text-primary)', fontSize: '13px' }}
+              formatter={(value: any) => [Number(value).toLocaleString(), 'Requests']}
+            />
+            <Area
+              type="monotone"
+              dataKey="total"
+              stroke={accent}
+              strokeWidth={2}
+              fill="url(#reqArea)"
+              dot={false}
+              activeDot={{ r: 4, fill: accent, strokeWidth: 0 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+/* =====================================================
+   PROVIDER DOUGHNUT
+   ===================================================== */
+function ProviderDoughnut({ items }: { items: { name: string; count: number; share: number }[] }) {
+  const colors = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa']
+
+  if (items.length === 0) {
+    return <div className="ui-card p-6 text-center text-sm text-[var(--text-muted)] py-12">No provider data</div>
+  }
+
+  return (
+    <div className="ui-card p-6">
+      <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+        <TrendingUp size={18} className="text-[var(--accent)]" />
+        Provider Breakdown
+      </h3>
+      <div className="flex items-center gap-6">
+        <div className="w-[140px] h-[140px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={items}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={65}
+                paddingAngle={2}
+                dataKey="share"
+                stroke="none"
+              >
+                {items.map((_, i) => (
+                  <Cell key={i} fill={colors[i % colors.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex-1 space-y-2">
+          {items.map((it, i) => (
+            <div key={it.name} className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
+                <span className="text-sm text-[var(--text-secondary)] truncate">{it.name}</span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-sm font-medium text-[var(--text-primary)]">{it.share}%</span>
+                <span className="text-xs text-[var(--text-muted)] ml-1">({it.count})</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* =====================================================
+   TOKEN SPLIT BAR
+   ===================================================== */
+function TokenSplitBar({ prompt, completion }: { prompt: number; completion: number }) {
+  const total = prompt + completion
+  if (total === 0) return null
+  const promptPct = (prompt / total) * 100
+  const completionPct = (completion / total) * 100
+
+  return (
+    <div className="ui-card p-6">
+      <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+        <Target size={18} className="text-[var(--accent)]" />
+        Token Mix
+      </h3>
+      <div className="flex rounded-lg overflow-hidden h-6">
+        <div
+          className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider"
+          style={{ width: `${promptPct}%`, backgroundColor: '#818cf8' }}
+        >
+          {promptPct > 12 ? `Prompt ${promptPct.toFixed(0)}%` : ''}
+        </div>
+        <div
+          className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider"
+          style={{ width: `${completionPct}%`, backgroundColor: '#34d399' }}
+        >
+          {completionPct > 12 ? `Completion ${completionPct.toFixed(0)}%` : ''}
+        </div>
+      </div>
+      <div className="flex justify-between mt-3 text-sm">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#818cf8' }} />
+          <span className="text-[var(--text-tertiary)]">Prompt</span>
+          <span className="font-medium text-[var(--text-primary)] ml-1">{prompt.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#34d399' }} />
+          <span className="text-[var(--text-tertiary)]">Completion</span>
+          <span className="font-medium text-[var(--text-primary)] ml-1">{completion.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* =====================================================
+   USAGE BAR PANEL
+   ===================================================== */
+function UsageBarPanel({
+  title,
+  icon: Icon,
+  entries,
+}: {
+  title: string
+  icon: React.ElementType
+  entries: { label: string; value: number; suffix?: string }[]
+}) {
+  const max = entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0
+
+  return (
+    <div className="ui-card p-6">
+      <div className="flex items-center gap-2 mb-5">
+        <Icon size={18} className="text-[var(--accent)]" />
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-sm text-[var(--text-muted)] text-center py-8">No usage data available</p>
+      ) : (
+        <div className="space-y-3.5">
+          {entries.map((entry) => {
+            const pct = max > 0 ? (entry.value / max) * 100 : 0
+            return (
+              <div key={entry.label} className="space-y-1.5">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-[var(--text-secondary)] truncate max-w-[70%]">{entry.label}</span>
+                  <span className="font-semibold text-[var(--text-primary)] ml-2 shrink-0">
+                    {entry.value.toLocaleString()}{entry.suffix || ''}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden bg-[var(--border-subtle)]">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: 'var(--accent)',
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* =====================================================
+   GAUGE
+   ===================================================== */
+function Gauge({ label, value, decimals, suffix, color }: {
+  label: string
+  value: number
+  decimals: number
+  suffix: string
+  color: string
+}) {
+  const radius = 36
+  const circumference = 2 * Math.PI * radius
+  const pathArc = circumference / 2
+  const pct = Math.min(Math.max(value, 0), 100)
+  const dashOffset = pathArc - (pathArc * pct) / 100
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-28 h-14">
+        <svg className="w-full h-full" viewBox="0 0 100 60">
+          <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--border-subtle)" strokeWidth="8" strokeLinecap="round" />
+          <path
+            d="M 10 50 A 40 40 0 0 1 90 50"
+            fill="none"
+            stroke={color}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={pathArc}
+            strokeDashoffset={dashOffset}
+            style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+          />
+        </svg>
+        <div className="absolute inset-x-0 bottom-0 text-center">
+          <p className="text-base font-bold text-[var(--text-primary)]">{value.toFixed(decimals)}{suffix}</p>
+        </div>
+      </div>
+      <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mt-2">{label}</p>
+    </div>
+  )
+}
+
+/* =====================================================
+   DASHBOARD
+   ===================================================== */
 export function Dashboard() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['stats'],
@@ -13,10 +395,20 @@ export function Dashboard() {
     queryFn: () => api.models.list(),
   })
 
+  const { data: tsData } = useQuery({
+    queryKey: ['stats-timeseries'],
+    queryFn: () => api.stats.getTimeSeries(),
+  })
+
+  const { data: provDist } = useQuery({
+    queryKey: ['stats-provider-distribution'],
+    queryFn: () => api.stats.getProviderDistribution(),
+  })
+
   useQuery({
     queryKey: ['check-auth'],
     queryFn: async () => {
-      const response = await fetch('/api/stats', { headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` } })
+      const response = await fetch('/api/stats', { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } })
       if (response.status === 401) {
         localStorage.removeItem('adminToken')
         window.location.reload()
@@ -56,91 +448,123 @@ export function Dashboard() {
     )
   }
 
-  const statCards = [
-    { id: 'models', label: 'Total Models', value: models?.length || 0, icon: '🤖' },
-    { id: 'req24h', label: 'Requests (24h)', value: stats?.total_requests_last_24h || 0, icon: '📊' },
-    { id: 'req7d', label: 'Requests (7d)', value: stats?.total_requests_last_7d || 0, icon: '📈' },
-    { id: 'latency', label: 'Avg Duration', value: `${(stats?.avg_latency_ms || 0).toFixed(1)}ms`, icon: '⚡' },
-    { id: 'errors', label: 'Error Rate', value: `${((stats?.error_rate || 0) * 100).toFixed(1)}%`, icon: '❌' },
-    { id: 'tokens', label: 'Total Tokens', value: (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0), icon: '🎯' },
-  ]
+  // Derived values
+  const totalRequests7d = stats?.total_requests_last_7d || 1
+  const req24h = stats?.total_requests_last_24h || 0
+  const sparkReq = totalRequests7d > 0 ? req24h / totalRequests7d : 0
+
+  const totalTokens = (stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0)
+  const tok24h = totalTokens || 1
+  const promptTokens = stats?.total_tokens_prompt || 0
+
+  const acData = (() => {
+    if (!tsData?.points) return []
+    return tsData.points.map((p) => {
+      const d = new Date(p.bucket)
+      return {
+        hour: d.getHours().toString().padStart(2, '0') + ':00',
+        total: p.count,
+        errors: p.errors,
+        tokens: p.tokens,
+        latency: Math.round(p.latency_ms),
+      }
+    })
+  })()
+
+  // Format usage panels
+  const byModel = stats ? Object.entries(stats.by_model).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v })) : []
+  const byProvider = stats ? Object.entries(stats.by_provider).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v })) : []
+  const byVK = stats ? Object.entries(stats.by_virtual_key).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v, suffix: ' tokens' })) : []
+
+  // Card accent colors (subtle tints in light, slightly brighter in dark)
+  const accents = {
+    models: '#818cf8',
+    requests: '#0ea5e9',
+    latency: '#f59e0b',
+    errors: '#ef4444',
+    tokens: '#22c55e',
+    sparkline: '#818cf8',
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-gray-400 mt-1">Overview of your LLM proxy usage</p>
+      { /* Page header */ }
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Dashboard</h1>
+          <p className="text-[var(--text-tertiary)] mt-1">Real-time overview of your LLM proxy traffic and performance</p>
+        </div>
+        <div className="flex gap-4">
+          <Gauge label="Latency" value={(stats?.avg_latency_ms || 0)} decimals={0} suffix="ms" color={accents.latency} />
+          <Gauge label="Error Rate" value={((stats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
+        </div>
       </div>
 
+      { /* Stat cards */ }
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-        {statCards.map((card) => (
-          <div key={card.id} className="ui-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-2xl">{card.icon}</span>
-              <span className="text-xs text-gray-500 uppercase tracking-wide">{card.label}</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{card.value}</p>
-          </div>
-        ))}
+        <StatCard
+          label="Total Models"
+          value={models?.length || 0}
+          icon={Bot}
+          accent={accents.models}
+        />
+        <StatCard
+          label="Requests (24h)"
+          value={req24h}
+          icon={Activity}
+          accent={accents.requests}
+          sparkline={sparkReq}
+        />
+        <StatCard
+          label="Requests (7d)"
+          value={stats?.total_requests_last_7d || 0}
+          icon={TrendingUp}
+          accent={accents.requests}
+        />
+        <StatCard
+          label="Avg Duration"
+          value={stats?.avg_latency_ms || 0}
+          decimals={1}
+          suffix="ms"
+          icon={Clock}
+          accent={accents.latency}
+        />
+        <StatCard
+          label="Error Rate"
+          value={((stats?.error_rate || 0) * 100)}
+          decimals={1}
+          suffix="%"
+          icon={AlertTriangle}
+          accent={accents.errors}
+        />
+        <StatCard
+          label="Total Tokens"
+          value={totalTokens}
+          icon={Target}
+          accent={accents.tokens}
+          sparkline={tok24h > 0 ? promptTokens / tok24h : 0}
+        />
       </div>
 
+      { /* Time-series chart — full width */ }
+      <TimeSeriesChart data={acData} />
+
+      { /* Charts row: doughnut + token split */ }
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ProviderDoughnut items={provDist?.items || []} />
+        {totalTokens > 0 && (
+          <TokenSplitBar
+            prompt={stats?.total_tokens_prompt || 0}
+            completion={stats?.total_tokens_completion || 0}
+          />
+        )}
+      </div>
+
+      { /* Bottom row: three usage panels with horizontal bars */ }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="ui-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Usage by Model</h3>
-          {stats && Object.keys(stats.by_model).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.by_model)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([model, count]) => (
-                  <div key={model} className="flex justify-between items-center">
-                    <span className="text-gray-300 truncate">{model}</span>
-                    <span className="font-semibold text-white">{count}</span>
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No usage data available</p>
-          )}
-        </div>
-
-        <div className="ui-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Usage by Provider</h3>
-          {stats && Object.keys(stats.by_provider).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.by_provider)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([provider, count]) => (
-                  <div key={provider} className="flex justify-between items-center">
-                    <span className="text-gray-300 truncate">{provider}</span>
-                    <span className="font-semibold text-white">{count}</span>
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No usage data available</p>
-          )}
-        </div>
-
-        <div className="ui-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Usage by Virtual Key</h3>
-          {stats && Object.keys(stats.by_virtual_key).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.by_virtual_key)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([name, tokens]) => (
-                  <div key={name} className="flex justify-between items-center">
-                    <span className="text-gray-300 truncate">{name}</span>
-                    <span className="font-semibold text-white">{tokens.toLocaleString()} tokens</span>
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No usage data available</p>
-          )}
-        </div>
+        <UsageBarPanel title="Top Models" icon={ArrowUpRight} entries={byModel} />
+        <UsageBarPanel title="Top Providers" icon={ArrowUpRight} entries={byProvider} />
+        <UsageBarPanel title="Top Virtual Keys" icon={ArrowUpRight} entries={byVK} />
       </div>
     </div>
   )
