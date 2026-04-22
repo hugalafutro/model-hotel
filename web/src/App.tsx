@@ -51,7 +51,7 @@ function LoginScreen() {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
               placeholder="Enter your admin token"
               autoFocus={true}
             />
@@ -59,7 +59,7 @@ function LoginScreen() {
           <button
             type="button"
             onClick={handleLogin}
-            className="w-full bg-indigo-500 text-white py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium"
+            className="w-full bg-[var(--accent)] text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium"
           >
             Sign In
           </button>

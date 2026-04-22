@@ -44,7 +44,7 @@ function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; o
           <div className="border-t border-gray-700 my-2" />
           <div className="flex justify-between text-sm font-semibold">
             <span className="text-gray-300">Total overhead</span>
-            <span className="text-indigo-400 font-mono">{formatMs(breakdown.proxy_overhead_ms)}</span>
+            <span className="text-[var(--accent)] font-mono">{formatMs(breakdown.proxy_overhead_ms)}</span>
           </div>
         </div>
       </div>
@@ -87,7 +87,7 @@ export function Logs() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--accent)' }} />
       </div>
     )
   }
@@ -124,12 +124,12 @@ export function Logs() {
             placeholder="Filter by model ID..."
             value={filters.model_id}
             onChange={(e) => { setFilters({ ...filters, model_id: e.target.value }); setPage(1) }}
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
           />
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
           >
             <option value={25}>25 / page</option>
             <option value={50}>50 / page</option>
@@ -145,7 +145,7 @@ export function Logs() {
           <select
             value={filters.status_code}
             onChange={(e) => { setFilters({ ...filters, status_code: e.target.value }); setPage(1) }}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
           >
             <option value="">All Status</option>
             <option value="200">200 OK</option>
@@ -216,7 +216,7 @@ export function Logs() {
                       {log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0 ? (
                         <button
                           type="button"
-                          className={`${hasOverhead ? 'text-indigo-400 hover:text-indigo-300 cursor-pointer' : 'text-gray-400'}`}
+                          className={`${hasOverhead ? 'text-[var(--accent)] hover:text-[var(--accent-hover)] cursor-pointer' : 'text-gray-400'}`}
                           onClick={() => hasOverhead ? setOverheadBreakdown({
                             proxy_overhead_ms: log.proxy_overhead_ms,
                             parse_ms: log.parse_ms || 0,
@@ -286,7 +286,7 @@ export function Logs() {
                     onClick={() => setPage(pageNum)}
                     className={`px-2 py-1 text-xs rounded border ${
                       page === pageNum
-                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
                         : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                     }`}
                   >
