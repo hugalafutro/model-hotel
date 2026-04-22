@@ -137,6 +137,17 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
 		&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
 	)
+	if err == nil {
+		cacheProvider(&p)
+		return &p, nil
+	}
+
+	normalized := NormalizeName(name)
+	normalizedQuery := `SELECT ` + providerColumns + ` FROM providers WHERE REPLACE(name, ' ', '-') = $1`
+	err = r.pool.QueryRow(ctx, normalizedQuery, normalized).Scan(
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+		&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -219,7 +219,7 @@ function CreateGroupModal({
   })
 
   const filteredCandidates = candidates.filter(c =>
-    `${c.provider_name}/${c.model_id}`.toLowerCase().includes(search.toLowerCase())
+    `${c.provider_name.replace(/ /g, "-")}/${c.model_id}`.toLowerCase().includes(search.toLowerCase())
   )
 
   const grouped = filteredCandidates.reduce((acc, c) => {

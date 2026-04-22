@@ -7,6 +7,14 @@ import { SortableHeader, Row, EmptyRow } from "../components/DataTable";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import type { SortState } from "../components/DataTable";
 
+function normalizeProviderName(name: string): string {
+    return name.replace(/ /g, "-");
+}
+
+function proxyModelID(providerName: string, modelId: string): string {
+    return normalizeProviderName(providerName) + "/" + modelId;
+}
+
 function formatRelativeTime(dateStr: string): string {
     const date = new Date(dateStr);
     const now = new Date();
@@ -414,13 +422,13 @@ function ModelDetailModal({
         }
     };
 
-    const proxyModelID = model.provider_name + "/" + model.model_id;
+    const pMid = proxyModelID(model.provider_name, model.model_id);
 
-    const curlCmd = `curl -X POST ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${proxyModelID}","messages":[{"role":"user","content":"Hello"}]}'`;
+    const curlCmd = `curl -X POST ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${pMid}","messages":[{"role":"user","content":"Hello"}]}'`;
 
     const zedJson = JSON.stringify(
         {
-            name: proxyModelID,
+            name: pMid,
             display_name: model.name,
             max_tokens: model.context_length,
             max_output_tokens: model.max_output_tokens,
@@ -456,10 +464,10 @@ function ModelDetailModal({
                 <div className="flex justify-between items-start mb-4">
                     <div>
                         <h2 className="text-xl font-bold text-white">
-                            {model.display_name || model.name || proxyModelID}
+                            {model.display_name || model.name || pMid}
                         </h2>
                         <p className="text-sm text-gray-400 mt-1 font-mono">
-                            {proxyModelID}
+                            {pMid}
                         </p>
                     </div>
                     <button
@@ -1056,8 +1064,8 @@ export function Models() {
         useMemo(() => {
             const baseFiltered =
                 models?.filter(
-                    (model) =>
-                        (model.provider_name + "/" + model.model_id)
+                        (model) =>
+                        proxyModelID(model.provider_name, model.model_id)
                             .toLowerCase()
                             .includes(searchQuery.toLowerCase()) ||
                         model.name
@@ -1110,8 +1118,8 @@ export function Models() {
                     case "name":
                         return (
                             dir *
-                            (a.name || a.provider_name + "/" + a.model_id).localeCompare(
-                                b.name || b.provider_name + "/" + b.model_id,
+                            (a.name || proxyModelID(a.provider_name, a.model_id)).localeCompare(
+                                b.name || proxyModelID(b.provider_name, b.model_id),
                             )
                         );
                     case "provider":
@@ -1447,19 +1455,19 @@ export function Models() {
                                                     className="text-left text-sm font-medium text-white hover:text-gray-200 cursor-pointer transition-colors"
                                                 >
                                                     {model.name ||
-                                                        model.provider_name + "/" + model.model_id}
+                                                        proxyModelID(model.provider_name, model.model_id)}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className="text-left text-[11px] text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-all hover:drop-shadow-[0_0_6px_var(--accent)]"
                                                     onClick={() =>
                                                         copyModelId(
-                                                            model.provider_name + "/" + model.model_id,
+                                                            proxyModelID(model.provider_name, model.model_id),
                                                         )
                                                     }
                                                     title="Click to copy model ID"
                                                 >
-                                                    {model.provider_name + "/" + model.model_id}
+                                                    {proxyModelID(model.provider_name, model.model_id)}
                                                 </button>
                                             </div>
                                         </td>

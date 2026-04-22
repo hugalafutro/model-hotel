@@ -280,7 +280,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 			ownedBy = m.ProviderName
 		}
 
-		modelID := m.ProviderName + "/" + m.ModelID
+		modelID := provider.NormalizeName(m.ProviderName) + "/" + m.ModelID
 
 		item := map[string]interface{}{
 			"id":       modelID,

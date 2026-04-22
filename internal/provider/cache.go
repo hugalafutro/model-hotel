@@ -1,11 +1,17 @@
 package provider
 
 import (
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+func NormalizeName(name string) string {
+	s := strings.ReplaceAll(name, " ", "-")
+	return s
+}
 
 type providerCacheEntry struct {
 	provider  *Provider
@@ -13,9 +19,10 @@ type providerCacheEntry struct {
 }
 
 var (
-	providerByIDCache   = make(map[uuid.UUID]providerCacheEntry)
-	providerByNameCache = make(map[string]providerCacheEntry)
-	providerCacheMu     sync.RWMutex
+	providerByIDCache         = make(map[uuid.UUID]providerCacheEntry)
+	providerByNameCache       = make(map[string]providerCacheEntry)
+	providerByNormalNameCache = make(map[string]providerCacheEntry)
+	providerCacheMu           sync.RWMutex
 )
 
 const providerCacheTTL = 5 * time.Minute
@@ -31,6 +38,7 @@ func cacheProvider(p *Provider) {
 	providerCacheMu.Lock()
 	providerByIDCache[p.ID] = entry
 	providerByNameCache[p.Name] = entry
+	providerByNormalNameCache[NormalizeName(p.Name)] = entry
 	providerCacheMu.Unlock()
 }
 
@@ -47,6 +55,9 @@ func GetCachedByID(id uuid.UUID) (*Provider, bool) {
 func GetCachedByName(name string) (*Provider, bool) {
 	providerCacheMu.RLock()
 	entry, ok := providerByNameCache[name]
+	if !ok {
+		entry, ok = providerByNormalNameCache[name]
+	}
 	providerCacheMu.RUnlock()
 	if !ok || time.Now().After(entry.expiresAt) {
 		return nil, false
@@ -58,6 +69,7 @@ func InvalidateProviderCache() {
 	providerCacheMu.Lock()
 	providerByIDCache = make(map[uuid.UUID]providerCacheEntry)
 	providerByNameCache = make(map[string]providerCacheEntry)
+	providerByNormalNameCache = make(map[string]providerCacheEntry)
 	providerCacheMu.Unlock()
 }
 
