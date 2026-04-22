@@ -24,26 +24,33 @@ func NewFailoverHandler(failoverRepo *failover.Repository, modelRepo *model.Repo
 }
 
 type FailoverEntryResponse struct {
-	ModelUUID     string  `json:"model_uuid"`
-	ModelID       string  `json:"model_id"`
-	ProviderID    string  `json:"provider_id"`
-	ProviderName  string  `json:"provider_name"`
-	DisplayName   string  `json:"display_name"`
-	Enabled       bool    `json:"enabled"`
-	ContextLength *int    `json:"context_length"`
-	OwnedBy       string  `json:"owned_by"`
+	ModelUUID     string `json:"model_uuid"`
+	ModelID       string `json:"model_id"`
+	ProviderID    string `json:"provider_id"`
+	ProviderName  string `json:"provider_name"`
+	DisplayName   string `json:"display_name"`
+	Enabled       bool   `json:"enabled"`
+	ContextLength *int   `json:"context_length"`
+	OwnedBy       string `json:"owned_by"`
 }
 
 type FailoverGroupResponse struct {
-	ID           string                `json:"id"`
-	DisplayModel string                `json:"display_model"`
-	DisplayName  *string               `json:"display_name"`
-	Description  string                `json:"description"`
-	GroupEnabled bool                  `json:"group_enabled"`
-	AutoCreated  bool                  `json:"auto_created"`
-	Entries      []FailoverEntryResponse `json:"entries"`
-	CreatedAt    string                `json:"created_at"`
-	UpdatedAt    string                `json:"updated_at"`
+	ID           string                   `json:"id"`
+	DisplayModel string                   `json:"display_model"`
+	DisplayName  *string                  `json:"display_name"`
+	Description  string                   `json:"description"`
+	GroupEnabled bool                     `json:"group_enabled"`
+	AutoCreated  bool                     `json:"auto_created"`
+	Entries      []FailoverEntryResponse  `json:"entries"`
+	CreatedAt    string                   `json:"created_at"`
+	UpdatedAt    string                   `json:"updated_at"`
+}
+
+type FailoverGroupBrief struct {
+	ID            string `json:"id"`
+	DisplayModel  string `json:"display_model"`
+	Position      int    `json:"position"`
+	TotalEntries  int    `json:"total_entries"`
 }
 
 func (h *FailoverHandler) Register(r chi.Router) {
@@ -52,6 +59,7 @@ func (h *FailoverHandler) Register(r chi.Router) {
 		r.Post("/", h.Create)
 		r.Post("/sync", h.Sync)
 		r.Get("/candidates", h.Candidates)
+		r.Get("/by-model/{model_uuid}", h.GetByModelUUID)
 		r.Get("/{id}", h.Get)
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
@@ -285,6 +293,39 @@ func (h *FailoverHandler) Candidates(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(candidates)
+}
+
+func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request) {
+	modelUUIDStr := chi.URLParam(r, "model_uuid")
+	modelUUID, err := uuid.Parse(modelUUIDStr)
+	if err != nil {
+		http.Error(w, "invalid model UUID", http.StatusBadRequest)
+		return
+	}
+
+	groups, err := h.failoverRepo.List(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	for _, g := range groups {
+		for i, entryUUID := range g.PriorityOrder {
+			if entryUUID == modelUUID {
+				resp := FailoverGroupBrief{
+					ID:           g.ID.String(),
+					DisplayModel: g.DisplayModel,
+					Position:     i + 1,
+					TotalEntries: len(g.PriorityOrder),
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp)
+				return
+			}
+		}
+	}
+
+	http.Error(w, "model not in any failover group", http.StatusNotFound)
 }
 
 func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.FailoverGroup) (FailoverGroupResponse, error) {
