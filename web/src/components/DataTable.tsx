@@ -7,7 +7,7 @@ export interface SortState<F> {
   dir: SortDir
 }
 
-const HEADER_BASE = 'px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap'
+const HEADER_BASE = 'px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text'
 
 export function SortableHeader<F extends string>({ label, field, sort, onSort, tooltip }: {
   label: string
@@ -48,7 +48,7 @@ export function StaticHeaderNoArrow({ children, className = '', tooltip }: { chi
 
 export function Row({ index, children }: { index: number; children: ReactNode }) {
   return (
-    <tr className={`${index % 2 === 1 ? 'bg-white/3' : ''} hover:bg-gray-700/30 transition-colors`}>
+    <tr className={`${index % 2 === 1 ? 'bg-white/3' : ''}   hover:bg-[var(--surface-hover)] transition-colors`}>
       {children}
     </tr>
   )

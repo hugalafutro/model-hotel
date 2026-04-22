@@ -23,7 +23,7 @@ interface OverheadBreakdown {
 function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="presentation">
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 min-w-[320px] shadow-2xl" role="document">
+      <div className="ui-card p-5 min-w-[320px] shadow-2xl" role="document">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Proxy Overhead Breakdown</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
@@ -124,12 +124,12 @@ export function Logs() {
             placeholder="Filter by model ID..."
             value={filters.model_id}
             onChange={(e) => { setFilters({ ...filters, model_id: e.target.value }); setPage(1) }}
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+            className="ui-input"
           />
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+            className="ui-input text-sm"
           >
             <option value={25}>25 / page</option>
             <option value={50}>50 / page</option>
@@ -145,7 +145,7 @@ export function Logs() {
           <select
             value={filters.status_code}
             onChange={(e) => { setFilters({ ...filters, status_code: e.target.value }); setPage(1) }}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+            className="ui-input"
           >
             <option value="">All Status</option>
             <option value="200">200 OK</option>
@@ -155,7 +155,7 @@ export function Logs() {
         </div>
       </div>
 
-      <div className="border border-gray-700/50 rounded-xl overflow-hidden">
+      <div className="ui-card overflow-hidden">
         <table className="w-full table-fixed">
           <thead>
             <tr className="bg-gray-800/80">

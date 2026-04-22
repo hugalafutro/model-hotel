@@ -28,7 +28,7 @@ function LoginScreen() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 shadow-2xl rounded-2xl p-8 w-full max-w-md border border-gray-700">
+      <div className="bg-gray-800 shadow-2xl ui-card p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">LLM-Proxy</h1>
           <p className="text-gray-400">Multi-Provider LLM Proxy Dashboard</p>
@@ -51,7 +51,7 @@ function LoginScreen() {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+              className="ui-input"
               placeholder="Enter your admin token"
               autoFocus={true}
             />

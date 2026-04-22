@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
 type Theme = 'dark' | 'light'
+type UIStyle = 'clean-saas' | 'cyber-terminal' | 'glassmorphism-lite'
 
 interface AccentPreset {
   name: string
@@ -21,6 +22,8 @@ const ACCENT_PRESETS: AccentPreset[] = [
 interface ThemeContextType {
   theme: Theme
   setTheme: (theme: Theme) => void
+  uiStyle: UIStyle
+  setUIStyle: (style: UIStyle) => void
   accentColor: string
   setAccentColor: (color: string) => void
   accentPresets: AccentPreset[]
@@ -29,6 +32,8 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'dark',
   setTheme: () => {},
+  uiStyle: 'clean-saas',
+  setUIStyle: () => {},
   accentColor: '#818cf8',
   setAccentColor: () => {},
   accentPresets: ACCENT_PRESETS,
@@ -58,12 +63,12 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
 function applyAccentColor(color: string, theme: Theme) {
   const hsl = hexToHSL(color)
   const root = document.documentElement
-  
+
   const baseLightness = theme === 'dark' ? 70 : 50
   const hoverLightness = theme === 'dark' ? 75 : 55
   const lightAlpha = theme === 'dark' ? 0.2 : 0.15
   const lighterAlpha = theme === 'dark' ? 0.1 : 0.08
-  
+
   root.style.setProperty('--accent', `hsl(${hsl.h}, ${hsl.s}%, ${baseLightness}%)`)
   root.style.setProperty('--accent-hover', `hsl(${hsl.h}, ${hsl.s}%, ${hoverLightness}%)`)
   root.style.setProperty('--accent-light', `hsla(${hsl.h}, ${hsl.s}%, ${baseLightness}%, ${lightAlpha})`)
@@ -77,6 +82,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return 'dark'
   })
 
+  const [uiStyle, setUIStyleState] = useState<UIStyle>(() => {
+    const stored = localStorage.getItem('uiStyle')
+    if (stored === 'clean-saas' || stored === 'cyber-terminal' || stored === 'glassmorphism-lite') return stored
+    return 'clean-saas'
+  })
+
   const [accentColor, setAccentColorState] = useState<string>(() => {
     return localStorage.getItem('accentColor') || '#818cf8'
   })
@@ -84,12 +95,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.remove('light', 'dark')
     document.documentElement.classList.add(theme)
+    document.documentElement.setAttribute('data-ui-style', uiStyle)
     localStorage.setItem('theme', theme)
+    localStorage.setItem('uiStyle', uiStyle)
     applyAccentColor(accentColor, theme)
-  }, [theme, accentColor])
+  }, [theme, uiStyle, accentColor])
 
   const setTheme = (t: Theme) => {
     setThemeState(t)
+  }
+
+  const setUIStyle = (s: UIStyle) => {
+    setUIStyleState(s)
   }
 
   const setAccentColor = (color: string) => {
@@ -98,7 +115,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, accentColor, setAccentColor, accentPresets: ACCENT_PRESETS }}>
+    <ThemeContext.Provider value={{ theme, setTheme, uiStyle, setUIStyle, accentColor, setAccentColor, accentPresets: ACCENT_PRESETS }}>
       {children}
     </ThemeContext.Provider>
   )

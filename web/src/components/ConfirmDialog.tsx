@@ -9,7 +9,7 @@ export function ConfirmDialog({ title, fields, onConfirm, onCancel }: ConfirmDia
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-[60]">
       <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={onCancel} aria-label="Close dialog" />
-      <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm">
+      <div className="relative ui-card p-6 w-full max-w-sm">
         <h2 className="text-lg font-bold text-white mb-3">{title}</h2>
         <p className="text-sm text-gray-300 mb-1">Discard changes to:</p>
         <ul className="text-sm text-gray-400 mb-5 list-disc list-inside">

@@ -259,7 +259,7 @@ function CreateGroupModal({
         onClick={onClose}
         aria-label="Close dialog"
       />
-      <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
+      <div className="relative ui-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-4">
           <h2 className="text-xl font-bold text-white">Create Failover Group</h2>
           <button
@@ -284,7 +284,7 @@ function CreateGroupModal({
               autoFocus
               value={displayModel}
               onChange={e => setDisplayModel(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+              className="ui-input"
               placeholder="e.g., glm-5"
             />
             <p className="text-gray-500 text-xs mt-1">
@@ -301,7 +301,7 @@ function CreateGroupModal({
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+              className="ui-input"
               placeholder="e.g., GLM-5 Failover"
             />
           </div>
@@ -314,7 +314,7 @@ function CreateGroupModal({
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none mb-2"
+              className="ui-input mb-2"
               placeholder="Search providers/models..."
             />
             <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
@@ -358,7 +358,7 @@ function CreateGroupModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+              className="ui-btn-secondary"
             >
               Cancel
             </button>
@@ -476,7 +476,7 @@ export function FailoverGroups() {
             type="button"
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+            className="ui-btn-secondary disabled:opacity-50"
           >
             {syncMutation.isPending ? 'Syncing...' : 'Sync'}
           </button>
@@ -543,7 +543,7 @@ export function FailoverGroups() {
             onClick={() => setDeleteGroup(null)}
             aria-label="Close dialog"
           />
-          <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm">
+          <div className="relative ui-card p-6 w-full max-w-sm">
             <h2 className="text-lg font-bold text-white mb-2">Delete Failover Group</h2>
             <p className="text-sm text-gray-300 mb-4">
               Are you sure you want to delete <span className="text-white font-medium">hotel/{deleteGroup.display_model}</span>? This cannot be undone.
@@ -552,7 +552,7 @@ export function FailoverGroups() {
               <button
                 type="button"
                 onClick={() => setDeleteGroup(null)}
-                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+                className="ui-btn-secondary"
               >
                 Cancel
               </button>

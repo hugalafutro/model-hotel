@@ -74,7 +74,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {statCards.map((card) => (
-          <div key={card.id} className="bg-gray-800 border border-gray-700 rounded-xl p-5">
+          <div key={card.id} className="ui-card p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-2xl">{card.icon}</span>
               <span className="text-xs text-gray-500 uppercase tracking-wide">{card.label}</span>
@@ -85,7 +85,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+        <div className="ui-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Usage by Model</h3>
           {stats && Object.keys(stats.by_model).length > 0 ? (
             <div className="space-y-3">
@@ -104,7 +104,7 @@ export function Dashboard() {
           )}
         </div>
 
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+        <div className="ui-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Usage by Provider</h3>
           {stats && Object.keys(stats.by_provider).length > 0 ? (
             <div className="space-y-3">
@@ -123,7 +123,7 @@ export function Dashboard() {
           )}
         </div>
 
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+        <div className="ui-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Usage by Virtual Key</h3>
           {stats && Object.keys(stats.by_virtual_key).length > 0 ? (
             <div className="space-y-3">

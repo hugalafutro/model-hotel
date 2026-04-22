@@ -51,7 +51,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
+      <div className="ui-card p-6 w-full max-w-md">
         {createdKey ? (
           <>
             <h2 className="text-xl font-bold text-white mb-4">Virtual Key Created</h2>
@@ -71,7 +71,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors cursor-pointer"
+                className="ui-btn-secondary cursor-pointer"
               >
                 Done
               </button>
@@ -92,7 +92,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                   autoFocus={true}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
+                  className="ui-input"
                   placeholder="e.g., My App"
                 />
               </div>
@@ -100,14 +100,14 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors cursor-pointer"
+                  className="ui-btn-secondary cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {createMutation.isPending ? 'Creating...' : 'Create Key'}
                 </button>
@@ -139,7 +139,7 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md relative">
+      <div className="ui-card p-6 w-full max-w-md relative">
         <button
           type="button"
           onClick={onClose}
@@ -246,7 +246,7 @@ export function VirtualKeys() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border---accent)" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border(--accent)" />
       </div>
     )
   }
@@ -261,14 +261,14 @@ export function VirtualKeys() {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors font-medium cursor-pointer"
+          className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors font-medium cursor-pointer"
         >
           + Create Key
         </button>
       </div>
 
       {sortedKeys.length > 0 ? (
-        <div className="border border-gray-700/50 rounded-xl overflow-hidden">
+        <div className="ui-card overflow-hidden">
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-[28%]" />
@@ -293,7 +293,7 @@ export function VirtualKeys() {
                     <button
                       type="button"
                       onClick={() => setSelectedKey(vk)}
-                      className="text-gray-200 hover:text---accent) transition-colors cursor-pointer text-sm"
+                      className="text-gray-200 hover:text-(--accent) transition-colors cursor-pointer text-sm"
                     >
                       {vk.name}
                     </button>
@@ -310,7 +310,7 @@ export function VirtualKeys() {
           </table>
         </div>
       ) : (
-        <div className="text-center py-12 bg-gray-800/50 border border-gray-700/50 rounded-xl">
+        <div className="text-center py-12 ui-card">
           <p className="text-gray-500">No virtual keys. Create one to start using the proxy.</p>
         </div>
       )}

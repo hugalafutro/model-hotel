@@ -1,5 +1,705 @@
 @import "tailwindcss";
 
+/* =============================================
+   BASE TOKENS — Shared structural variables
+   ============================================= */
+
+:root {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'ui-monospace', 'SFMono-Regular', Menlo, Monaco, monospace;
+
+  --radius-card: 0.75rem;
+  --radius-button: 0.5rem;
+  --radius-pill: 9999px;
+  --shadow-card: none;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-glow: 0 0 20px var(--accent-light);
+}
+
+/* =============================================
+   STYLE 1: CLEAN SAAS
+   ============================================= */
+
+html[data-ui-style="clean-saas"].dark {
+  --surface-bg: #0b0c0f;
+  --surface-elevated: #14161c;
+  --surface-elevated-hover: #1a1d26;
+  --surface-input: #1e2028;
+  --surface-sidebar: #101116;
+  --surface-hover: rgba(255,255,255,0.04);
+
+  --text-primary: #f0f0f5;
+  --text-secondary: #b0b3c0;
+  --text-tertiary: #7a7e8c;
+  --text-muted: #4a4f5c;
+
+  --border-default: rgba(255,255,255,0.06);
+  --border-subtle: rgba(255,255,255,0.03);
+  --border-input: rgba(255,255,255,0.10);
+
+  --radius-card: 14px;
+  --radius-button: 9999px;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.35), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+html[data-ui-style="clean-saas"].light {
+  --surface-bg: #f8f9fb;
+  --surface-elevated: #ffffff;
+  --surface-elevated-hover: #f4f5f7;
+  --surface-input: #f1f2f5;
+  --surface-sidebar: #ffffff;
+  --surface-hover: rgba(0,0,0,0.03);
+
+  --text-primary: #111318;
+  --text-secondary: #4a4f5c;
+  --text-tertiary: #7a7e8c;
+  --text-muted: #a5a9b4;
+
+  --border-default: rgba(0,0,0,0.06);
+  --border-subtle: rgba(0,0,0,0.03);
+  --border-input: rgba(0,0,0,0.10);
+
+  --radius-card: 14px;
+  --radius-button: 9999px;
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.08), 0 0 0 1px rgba(0,0,0,0.03);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.08), 0 0 0 1px rgba(0,0,0,0.03);
+}
+
+html[data-ui-style="clean-saas"] {
+  --nav-icon: var(--text-tertiary);
+}
+
+/* =============================================
+   STYLE 2: CYBER TERMINAL  (dark only)
+   ============================================= */
+
+html[data-ui-style="cyber-terminal"].dark {
+  --surface-bg: #020203;
+  --surface-elevated: transparent;
+  --surface-elevated-hover: rgba(255,255,255,0.02);
+  --surface-input: #0a0a0c;
+  --surface-sidebar: #030405;
+  --surface-hover: rgba(255,255,255,0.03);
+
+  --text-primary: #e0e0e5;
+  --text-secondary: #a0a5b5;
+  --text-tertiary: #5a6075;
+  --text-muted: #3a4050;
+
+  --border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+  --border-subtle: rgba(255,255,255,0.03);
+  --border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.18);
+
+  --radius-card: 2px;
+  --radius-button: 2px;
+  --shadow-card: 0 0 0 1px var(--border-default), inset 0 0 20px rgba(var(--accent-rgb, 129, 140, 248), 0.03);
+  --shadow-md: 0 0 0 1px var(--border-default), 0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.08);
+  --shadow-glow: 0 0 15px rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+
+  --nav-icon: var(--accent);
+}
+
+html[data-ui-style="cyber-terminal"].light {
+  /* Force dark for cyber terminal */
+  --surface-bg: #020203;
+  --surface-elevated: transparent;
+  --surface-elevated-hover: rgba(255,255,255,0.02);
+  --surface-input: #0a0a0c;
+  --surface-sidebar: #030405;
+  --surface-hover: rgba(255,255,255,0.03);
+
+  --text-primary: #e0e0e5;
+  --text-secondary: #a0a5b5;
+  --text-tertiary: #5a6075;
+  --text-muted: #3a4050;
+
+  --border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+  --border-subtle: rgba(255,255,255,0.03);
+  --border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.18);
+
+  --radius-card: 2px;
+  --radius-button: 2px;
+  --shadow-card: 0 0 0 1px var(--border-default), inset 0 0 20px rgba(var(--accent-rgb, 129, 140, 248), 0.03);
+  --shadow-md: 0 0 0 1px var(--border-default), 0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.08);
+  --shadow-glow: 0 0 15px rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+
+  --nav-icon: var(--accent);
+}
+
+/* =============================================
+   STYLE 3: GLASSMORPHISM LITE
+   ============================================= */
+
+html[data-ui-style="glassmorphism-lite"].dark {
+  --surface-bg: #03040a;
+  --surface-elevated: rgba(255,255,255,0.04);
+  --surface-elevated-hover: rgba(255,255,255,0.07);
+  --surface-input: rgba(255,255,255,0.05);
+  --surface-sidebar: rgba(255,255,255,0.03);
+  --surface-hover: rgba(255,255,255,0.06);
+
+  --text-primary: #f0f1f7;
+  --text-secondary: #b8bcd0;
+  --text-tertiary: #7a80a0;
+  --text-muted: #4a5070;
+
+  --border-default: rgba(255,255,255,0.08);
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-input: rgba(255,255,255,0.12);
+
+  --radius-card: 20px;
+  --radius-button: 12px;
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  --shadow-md: 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  --shadow-glow: 0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.2);
+
+  --nav-icon: var(--text-secondary);
+}
+
+html[data-ui-style="glassmorphism-lite"].light {
+  --surface-bg: #f0f1f7;
+  --surface-elevated: rgba(255,255,255,0.60);
+  --surface-elevated-hover: rgba(255,255,255,0.75);
+  --surface-input: rgba(255,255,255,0.50);
+  --surface-sidebar: rgba(255,255,255,0.50);
+  --surface-hover: rgba(0,0,0,0.04);
+
+  --text-primary: #111318;
+  --text-secondary: #4a4f5c;
+  --text-tertiary: #7a7e8c;
+  --text-muted: #a5a9b4;
+
+  --border-default: rgba(0,0,0,0.06);
+  --border-subtle: rgba(0,0,0,0.03);
+  --border-input: rgba(0,0,0,0.10);
+
+  --radius-card: 20px;
+  --radius-button: 12px;
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5);
+  --shadow-md: 0 12px 40px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.5);
+  --shadow-glow: 0 0 30px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
+
+  --nav-icon: var(--text-secondary);
+}
+
+html[data-ui-style="glassmorphism-lite"] {
+  backdrop-filter: blur(20px);
+}
+
+/* =============================================
+   ACCENT RGB HELPER — needed for glow effects
+   ============================================= */
+
+html[data-ui-style="cyber-terminal"],
+html[data-ui-style="glassmorphism-lite"] {
+  --accent-rgb: 129, 140, 248;
+}
+
+/* =============================================
+   GLOBAL OVERRIDES — map Tailwind gray scales
+   ============================================= */
+
+[data-ui-style] .bg-gray-900 {
+  background-color: var(--surface-bg) !important;
+}
+
+[data-ui-style] .bg-gray-800 {
+  background-color: var(--surface-elevated) !important;
+}
+
+[data-ui-style] .bg-gray-750 {
+  background-color: var(--surface-sidebar) !important;
+}
+
+[data-ui-style] .bg-gray-700 {
+  background-color: var(--surface-input) !important;
+}
+
+[data-ui-style] .bg-gray-600 {
+  background-color: var(--surface-elevated-hover) !important;
+}
+
+[data-ui-style] .text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-ui-style] .text-gray-300 {
+  color: var(--text-secondary) !important;
+}
+
+[data-ui-style] .text-gray-400 {
+  color: var(--text-tertiary) !important;
+}
+
+[data-ui-style] .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+[data-ui-style] .text-gray-600 {
+  color: var(--text-muted) !important;
+}
+
+[data-ui-style] .border-gray-700 {
+  border-color: var(--border-default) !important;
+}
+
+[data-ui-style] .border-gray-600 {
+  border-color: var(--border-input) !important;
+}
+
+[data-ui-style] .hover\:bg-gray-700:hover {
+  background-color: var(--surface-hover) !important;
+}
+
+[data-ui-style] .hover\:bg-gray-600:hover {
+  background-color: var(--surface-elevated-hover) !important;
+}
+
+[data-ui-style] .hover\:bg-gray-750:hover {
+  background-color: var(--surface-elevated-hover) !important;
+}
+
+[data-ui-style] .placeholder-gray-400::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* =============================================
+   SHARED UI SURFACE CLASSES (used in Layout.tsx)
+   ============================================= */
+
+[data-ui-style] .ui-surface-bg {
+  background-color: var(--surface-bg);
+}
+
+[data-ui-style] .ui-sidebar {
+  background-color: var(--surface-sidebar);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+}
+
+[data-ui-style] .ui-sidebar-title {
+  color: var(--text-primary);
+}
+
+[data-ui-style] .ui-sidebar-subtitle {
+  color: var(--text-muted);
+}
+
+[data-ui-style] .ui-main {
+  background-color: var(--surface-bg);
+}
+
+[data-ui-style] .system-status {
+  color: var(--text-tertiary);
+}
+
+/* =============================================
+   NAVIGATION LINKS
+   ============================================= */
+
+.sidebar-link {
+  border-radius: var(--radius-button);
+}
+
+.sidebar-link-active {
+  background-color: var(--accent-light);
+  color: var(--accent) !important;
+}
+
+.sidebar-link-inactive {
+  color: var(--text-tertiary) !important;
+}
+
+.sidebar-link-inactive:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary) !important;
+}
+
+/* Cyber Terminal nav overrides */
+html[data-ui-style="cyber-terminal"] .sidebar-link {
+  border-radius: 0;
+  border-left: 2px solid transparent;
+}
+
+html[data-ui-style="cyber-terminal"] .sidebar-link-active {
+  background-color: transparent;
+  border-left-color: var(--accent);
+  box-shadow: inset 4px 0 12px rgba(var(--accent-rgb), 0.15);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-sidebar-title,
+html[data-ui-style="cyber-terminal"] h1,
+html[data-ui-style="cyber-terminal"] h2,
+html[data-ui-style="cyber-terminal"] h3,
+html[data-ui-style="cyber-terminal"] .font-bold {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-sidebar-subtitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+}
+
+/* Glassmorphism sidebar */
+html[data-ui-style="glassmorphism-lite"] .ui-sidebar {
+  border-right: 1px solid var(--border-default);
+  background: linear-gradient(180deg, var(--surface-sidebar) 0%, transparent 100%);
+  backdrop-filter: blur(20px);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-link {
+  border-radius: 10px;
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-link-active {
+  background: linear-gradient(90deg, var(--accent-light) 0%, transparent 100%);
+}
+
+/* Clean SaaAS pill nav */
+html[data-ui-style="clean-saas"] .sidebar-link-active {
+  border-radius: var(--radius-pill);
+}
+
+html[data-ui-style="clean-saas"] .sidebar-link {
+  border-radius: var(--radius-pill);
+}
+
+/* =============================================
+   LOGOUT BUTTON
+   ============================================= */
+
+.sidebar-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-button);
+  background-color: var(--surface-input);
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border-subtle);
+}
+
+.sidebar-logout:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+html[data-ui-style="cyber-terminal"] .sidebar-logout {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-logout {
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-default);
+}
+
+/* =============================================
+   CARDS AND PANELS
+   ============================================= */
+
+[data-ui-style] .ui-card {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+[data-ui-style] .ui-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+html[data-ui-style="clean-saas"] .ui-card {
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+html[data-ui-style="clean-saas"] .ui-card:hover {
+  transform: translateY(-1px);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-card {
+  border-radius: 2px;
+  border: 1px solid var(--border-default);
+  box-shadow: inset 0 0 30px rgba(var(--accent-rgb), 0.03), 0 0 0 1px var(--border-subtle);
+  background-color: var(--surface-elevated);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-card:hover {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 30px rgba(var(--accent-rgb), 0.05), 0 0 0 1px var(--accent), 0 0 15px rgba(var(--accent-rgb), 0.08);
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-card {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-default);
+}
+
+/* =============================================
+   BUTTONS
+   ============================================= */
+
+[data-ui-style] .ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-button);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+[data-ui-style] .ui-btn-primary {
+  background-color: var(--accent);
+  color: white;
+}
+
+[data-ui-style] .ui-btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-glow);
+}
+
+[data-ui-style] .ui-btn-secondary {
+  background-color: var(--surface-input);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+[data-ui-style] .ui-btn-secondary:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+html[data-ui-style="clean-saas"] .ui-btn {
+  border-radius: var(--radius-pill);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn {
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-primary {
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.15);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-primary:hover {
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-secondary {
+  border: 1px solid var(--border-default);
+  background-color: transparent;
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-btn {
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* =============================================
+   INPUTS & SELECTS
+   ============================================= */
+
+[data-ui-style] .ui-input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  background-color: var(--surface-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-button);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+
+[data-ui-style] .ui-input::placeholder {
+  color: var(--text-muted);
+}
+
+[data-ui-style] .ui-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-lighter);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-input {
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-input:focus {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 8px rgba(var(--accent-rgb), 0.2);
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-input {
+  backdrop-filter: blur(8px);
+  background: var(--surface-input);
+}
+
+/* =============================================
+   TABLES
+   ============================================= */
+
+[data-ui-style] .ui-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+[data-ui-style] .ui-table thead tr {
+  background-color: var(--surface-sidebar);
+}
+
+[data-ui-style] .ui-table th {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-default);
+}
+
+[data-ui-style] .ui-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+[data-ui-style] .ui-table tbody tr:hover {
+  background-color: var(--surface-hover);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-table th {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-table td {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-table tbody tr:hover {
+  background-color: rgba(var(--accent-rgb), 0.05);
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-table {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-table thead tr {
+  background: linear-gradient(180deg, var(--surface-sidebar) 0%, transparent 100%);
+}
+
+/* =============================================
+   STATUS BADGES
+   ============================================= */
+
+[data-ui-style] .ui-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-badge {
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* =============================================
+   PAGE HEADERS
+   ============================================= */
+
+html[data-ui-style="cyber-terminal"] h1,
+html[data-ui-style="cyber-terminal"] h2 {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+html[data-ui-style="cyber-terminal"] h1 {
+  text-transform: uppercase;
+}
+
+/* =============================================
+   CYBER TERMINAL TEXTURE BACKGROUND
+   ============================================= */
+
+html[data-ui-style="cyber-terminal"] body {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-surface-bg {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
+/* Ensure sidebar in cyber terminal blends */
+html[data-ui-style="cyber-terminal"] .ui-sidebar {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.02) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
+/* =============================================
+   GLASSMORPHISM MAIN BACKGROUND
+   ============================================= */
+
+html[data-ui-style="glassmorphism-lite"] .ui-surface-bg {
+  background: radial-gradient(ellipse at 20% 30%, rgba(var(--accent-rgb), 0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 70%, rgba(var(--accent-rgb), 0.05) 0%, transparent 50%),
+              var(--surface-bg);
+}
+
+/* =============================================
+   LIGHT MODE OVERRIDES  (existing light compat)
+   ============================================= */
+
 html.light {
   color-scheme: light;
 }
@@ -9,20 +709,24 @@ html.light #root {
   background-color: #f3f4f6;
 }
 
-html.light .bg-gray-750 {
-  background-color: #e5e7eb;
+html.light .bg-gray-900 {
+  background-color: #f3f4f6;
 }
 
 html.light .bg-gray-800 {
   background-color: #ffffff;
 }
 
-html.light .bg-gray-900 {
-  background-color: #f3f4f6;
+html.light .bg-gray-750 {
+  background-color: #e5e7eb;
 }
 
 html.light .bg-gray-700 {
   background-color: #e5e7eb;
+}
+
+html.light .bg-gray-600 {
+  background-color: #d1d5db;
 }
 
 html.light .border-gray-600 {
@@ -46,6 +750,10 @@ html.light .text-gray-400 {
 }
 
 html.light .text-gray-500 {
+  color: #9ca3af;
+}
+
+html.light .text-gray-600 {
   color: #9ca3af;
 }
 

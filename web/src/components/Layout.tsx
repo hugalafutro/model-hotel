@@ -1,6 +1,16 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
+import {
+  LayoutDashboard,
+  PlugZap,
+  Bot,
+  Hotel,
+  KeyRound,
+  ScrollText,
+  Settings,
+  LogOut,
+} from 'lucide-react'
 
 function formatMB(mb: number): string {
   if (mb < 1) return `${mb.toFixed(1)} MB`
@@ -23,8 +33,8 @@ function SystemStatus() {
       : '-'
 
   return (
-    <div className="space-y-1.5 text-[11px] font-mono">
-      <div className="flex justify-between items-center text-gray-500">
+    <div className="space-y-1.5 text-[11px] font-mono system-status">
+      <div className="flex justify-between items-center text-[var(--text-tertiary)]">
         <span>API Status</span>
         <span className="flex items-center text-green-400">
           <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5" />
@@ -32,23 +42,23 @@ function SystemStatus() {
         </span>
       </div>
       {stats?.app && (
-        <div className="flex justify-between items-center text-gray-500">
+        <div className="flex justify-between items-center text-[var(--text-tertiary)]">
           <span>App</span>
-          <span className="text-gray-400">
+          <span className="text-[var(--text-secondary)]">
             {appMem}
-            <span className="text-gray-600 mx-1">|</span>
+            <span className="text-(--text-muted) mx-1">|</span>
             {stats.app.goroutines} goroutines
           </span>
         </div>
       )}
       {stats?.db && (
-        <div className="flex justify-between items-center text-gray-500">
+        <div className="flex justify-between items-center text-[var(--text-tertiary)]">
           <span>DB</span>
-          <span className="text-gray-400">
+          <span className="text-[var(--text-secondary)]">
             {formatMB(stats.db.size_mb)}
-            <span className="text-gray-600 mx-1">|</span>
+            <span className="text-(--text-muted) mx-1">|</span>
             {stats.db.connections} conn
-            <span className="text-gray-600 mx-1">|</span>
+            <span className="text-(--text-muted) mx-1">|</span>
             Hit {stats.db.cache_hit_ratio}%
           </span>
         </div>
@@ -66,13 +76,13 @@ export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate()
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-    { name: 'Providers', href: '/providers', icon: '🔌' },
-    { name: 'Models', href: '/models', icon: '🤖' },
-    { name: 'Failover', href: '/failover', icon: '🏨' },
-    { name: 'Virtual Keys', href: '/virtual-keys', icon: '🔑' },
-    { name: 'Logs', href: '/logs', icon: '📝' },
-    { name: 'Settings', href: '/settings', icon: '⚙️' },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Providers', href: '/providers', icon: PlugZap },
+    { name: 'Models', href: '/models', icon: Bot },
+    { name: 'Failover', href: '/failover', icon: Hotel },
+    { name: 'Virtual Keys', href: '/virtual-keys', icon: KeyRound },
+    { name: 'Logs', href: '/logs', icon: ScrollText },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
   const isActive = (path: string) => location.pathname === path
@@ -84,45 +94,52 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-900">
-      <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col shrink-0">
+    <div className="flex h-screen ui-surface-bg">
+      <aside className="w-64 ui-sidebar shrink-0">
         <div className="p-6">
-          <h1 className="text-xl font-bold text-white">LLM-Proxy</h1>
-          <p className="text-sm text-gray-400 mt-1">Multi-Provider LLM Proxy</p>
+          <h1 className="text-xl font-bold ui-sidebar-title">LLM-Proxy</h1>
+          <p className="text-sm ui-sidebar-subtitle mt-1">Multi-Provider LLM Proxy</p>
         </div>
         <nav className="flex-1 p-4 overflow-y-auto">
           <ul className="space-y-1">
-            {navigation.map((item) => (
-              <li key={item.name}>
-                <Link
-                  to={item.href}
-                  className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                    isActive(item.href)
-                      ? 'bg-(--accent)/80 text-white'
-                      : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-                  }`}
-                >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  {item.name}
-                </Link>
-              </li>
-            ))}
+            {navigation.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+              return (
+                <li key={item.name}>
+                  <Link
+                    to={item.href}
+                    className={`sidebar-link flex items-center px-4 py-3 transition-colors ${
+                      active
+                        ? 'sidebar-link-active'
+                        : 'sidebar-link-inactive'
+                    }`}
+                  >
+                    <span className="mr-3 text-(--nav-icon)">
+                      <Icon size={18} strokeWidth={active ? 2.5 : 2} />
+                    </span>
+                    {item.name}
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         </nav>
         <div className="p-4 shrink-0">
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full px-4 py-2 mb-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm cursor-pointer"
+            className="w-full sidebar-logout"
           >
+            <LogOut size={14} strokeWidth={2} />
             Logout
           </button>
           <SystemStatus />
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
+      <main className="flex-1 ui-main overflow-auto">
+        <div className="p-8 max-w-7xl mx-auto">
           {children}
         </div>
       </main>

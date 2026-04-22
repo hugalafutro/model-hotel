@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { useTheme } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
 import { useState } from 'react'
+import { Monitor, Terminal, Sparkles } from 'lucide-react'
 
 const DISCOVERY_INTERVALS = [
   { value: '30m', label: '30 minutes' },
@@ -11,6 +12,27 @@ const DISCOVERY_INTERVALS = [
   { value: '12h', label: '12 hours' },
   { value: '24h', label: '24 hours' },
   { value: '0', label: 'Disabled' },
+]
+
+const UI_STYLES = [
+  {
+    id: 'clean-saas' as const,
+    label: 'Clean SaaS',
+    description: 'Refined, professional, minimal',
+    icon: Monitor,
+  },
+  {
+    id: 'cyber-terminal' as const,
+    label: 'Cyber Terminal',
+    description: 'Developer-centric, high-contrast',
+    icon: Terminal,
+  },
+  {
+    id: 'glassmorphism-lite' as const,
+    label: 'Glassmorphism',
+    description: 'Slick, translucent surfaces',
+    icon: Sparkles,
+  },
 ]
 
 function formatRelativeTime(dateStr: string): string {
@@ -27,7 +49,7 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 export function Settings() {
-  const { theme, setTheme, accentColor, setAccentColor, accentPresets } = useTheme()
+  const { theme, setTheme, uiStyle, setUIStyle, accentColor, setAccentColor, accentPresets } = useTheme()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
@@ -68,7 +90,7 @@ export function Settings() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Model Discovery */}
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+        <div className="ui-card p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Model Discovery</h2>
           <p className="text-gray-400 text-sm mb-6">
             Configure how and when models are auto-discovered from your providers.
@@ -83,7 +105,7 @@ export function Settings() {
                 id="discovery-interval"
                 value={discoveryInterval}
                 onChange={(e) => updateMutation.mutate({ discovery_interval: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+                className="ui-input"
               >
                 {DISCOVERY_INTERVALS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -130,10 +152,45 @@ export function Settings() {
           </div>
         </div>
 
-        {/* Theme */}
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+        {/* Appearance */}
+        <div className="ui-card p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Appearance</h2>
-          <div className="space-y-5">
+          <div className="space-y-6">
+            {/* UI Style */}
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-3">UI Style</p>
+              <div className="grid grid-cols-3 gap-3">
+                {UI_STYLES.map((style) => {
+                  const Icon = style.icon
+                  const active = uiStyle === style.id
+                  return (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => setUIStyle(style.id)}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+                        active
+                          ? 'border-(--accent) bg-(--accent-lighter)'
+                          : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'
+                      }`}
+                    >
+                      <Icon
+                        size={20}
+                        className={active ? 'text-(--accent)' : 'text-gray-400'}
+                      />
+                      <div className="text-center">
+                        <p className={`text-xs font-medium ${active ? 'text-(--accent)' : 'text-gray-300'}`}>
+                          {style.label}
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{style.description}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Theme */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-300">Theme</p>
@@ -161,6 +218,7 @@ export function Settings() {
               </div>
             </div>
 
+            {/* Accent Color */}
             <div>
               <p className="text-sm font-medium text-gray-300 mb-2">Accent Color</p>
               <div className="flex flex-wrap gap-2">
@@ -183,7 +241,7 @@ export function Settings() {
                     onChange={(e) => setAccentColor(e.target.value)}
                     className="absolute inset-0 opacity-0 w-8 h-8"
                   />
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors"
                     title="Custom color"
                   >
@@ -201,13 +259,13 @@ export function Settings() {
         <LoggingSettings />
 
         {/* Provider List with Discovery Status */}
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+        <div className="ui-card p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Provider Discovery Status</h2>
           <ProviderDiscoveryList />
         </div>
       </div>
 
-      </div>
+    </div>
   )
 }
 
@@ -267,7 +325,7 @@ function LoggingSettings() {
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+    <div className="ui-card p-6">
       <h2 className="text-xl font-semibold text-white mb-4">Logging</h2>
 
       <div className="space-y-5">
@@ -279,7 +337,7 @@ function LoggingSettings() {
             id="log-retention"
             value={logRetention}
             onChange={(e) => updateMutation.mutate({ log_retention: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
+            className="ui-input"
           >
             {LOG_RETENTION_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -303,7 +361,7 @@ function LoggingSettings() {
                 <select
                   value={deleteSelection}
                   onChange={(e) => setDeleteSelection(e.target.value)}
-                  className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-xs focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                  className="ui-input px-3 py-1.5 text-xs"
                 >
                   <option value="">Select range...</option>
                   <option value="1d">Older than 1 day</option>

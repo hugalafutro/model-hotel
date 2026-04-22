@@ -252,7 +252,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') handleClose() }}>
       <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={handleClose} aria-label="Close dialog" />
-      <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
+      <div className="relative ui-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-xl font-bold text-white">{model.display_name || model.name || model.model_id}</h2>
@@ -282,7 +282,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                   type="text"
                   value={editData.display_name}
                   onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none"
+                  className="ui-input text-sm"
                 />
                 {editData.display_name !== discoveredDefaults.display_name && (
                   <button type="button" onClick={() => revertField('display_name')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer" title="Revert to discovered value">↩</button>
@@ -300,7 +300,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                   type="number"
                   value={editData.context_length}
                   onChange={(e) => setEditData(prev => ({ ...prev, context_length: e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none"
+                  className="ui-input text-sm"
                   placeholder="tokens"
                 />
                 {editData.context_length !== (discoveredDefaults.context_length?.toString() ?? '') && (
@@ -319,7 +319,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                   type="number"
                   value={editData.max_output_tokens}
                   onChange={(e) => setEditData(prev => ({ ...prev, max_output_tokens: e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none"
+                  className="ui-input text-sm"
                   placeholder="tokens"
                 />
                 {editData.max_output_tokens !== (discoveredDefaults.max_output_tokens?.toString() ?? '') && (
@@ -340,7 +340,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                     step="0.01"
                     value={editData.input_price_per_million}
                     onChange={(e) => setEditData(prev => ({ ...prev, input_price_per_million: e.target.value }))}
-                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none pr-16"
+                    className="ui-input text-sm pr-16"
                     placeholder="0.00"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/1M tok</span>
@@ -363,7 +363,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                     step="0.01"
                     value={editData.output_price_per_million}
                     onChange={(e) => setEditData(prev => ({ ...prev, output_price_per_million: e.target.value }))}
-                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none pr-16"
+                    className="ui-input text-sm pr-16"
                     placeholder="0.00"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/1M tok</span>
@@ -428,7 +428,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors"
+              className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors"
             >
               Save Changes
             </button>
@@ -691,7 +691,7 @@ export function Models() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border---accent)"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
       </div>
     )
   }
@@ -724,12 +724,12 @@ export function Models() {
             autoFocus={true}
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
+            className="ui-input"
           />
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
+            className="ui-input text-sm"
           >
             <option value={25}>25 / page</option>
             <option value={50}>50 / page</option>
@@ -745,7 +745,7 @@ export function Models() {
           <select
             value={selectedProvider}
             onChange={(e) => { setSelectedProvider(e.target.value); setCurrentPage(1) }}
-            className="hidden w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
+            className="hidden ui-input"
           >
             <option value="">All Providers</option>
             {providers?.map((provider) => (
@@ -757,7 +757,7 @@ export function Models() {
         </div>
       </div>
 
-      <div className="border border-gray-700 rounded-xl overflow-hidden">
+      <div className="ui-card overflow-hidden">
         <table className="min-w-full table-fixed">
           <colgroup>
             <col className="w-[22%]" />
@@ -964,7 +964,7 @@ export function Models() {
                     onClick={() => setCurrentPage(pageNum)}
                     className={`px-2 py-1 text-xs rounded border ${
                       currentPage === pageNum
-                        ? 'bg---accent) text-white border---accent)'
+                        ? 'bg-(--accent) text-white border-(--accent)'
                         : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                     }`}
                   >
