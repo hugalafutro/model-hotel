@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, UpdateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance } from './types'
+import type { Provider, CreateProviderRequest, UpdateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance, FailoverGroup, CreateFailoverGroupRequest, UpdateFailoverGroupRequest, CandidateModel } from './types'
 
 const API_BASE = '';
 
@@ -305,6 +305,82 @@ export const api = {
       if (!response.ok) {
         const text = await response.text();
         throw new Error(`Failed to fetch system stats: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+  },
+
+  failoverGroups: {
+    list: async (): Promise<FailoverGroup[]> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch failover groups: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    get: async (id: string): Promise<FailoverGroup> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch failover group: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    create: async (data: CreateFailoverGroupRequest): Promise<FailoverGroup> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to create failover group: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    update: async (id: string, data: UpdateFailoverGroupRequest): Promise<FailoverGroup> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to update failover group: ${response.status} ${text}`);
+      }
+      return response.json();
+    },
+    delete: async (id: string): Promise<void> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to delete failover group');
+      }
+    },
+    sync: async (): Promise<void> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups/sync`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok && response.status !== 204) {
+        const text = await response.text();
+        throw new Error(`Failed to sync failover groups: ${response.status} ${text}`);
+      }
+    },
+    candidates: async (): Promise<CandidateModel[]> => {
+      const response = await fetch(`${API_BASE}/api/failover-groups/candidates`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to fetch candidates: ${response.status} ${text}`);
       }
       return response.json();
     },

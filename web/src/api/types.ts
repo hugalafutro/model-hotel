@@ -199,3 +199,51 @@ export interface DeepSeekBalance {
   is_available: boolean;
   balance_infos: DeepSeekBalanceInfo[];
 }
+
+export interface FailoverEntry {
+  model_uuid: string;
+  model_id: string;
+  provider_id: string;
+  provider_name: string;
+  display_name: string;
+  enabled: boolean;
+  context_length: number | null;
+  owned_by: string;
+}
+
+export interface FailoverGroup {
+  id: string;
+  display_model: string;
+  display_name: string | null;
+  description: string;
+  group_enabled: boolean;
+  auto_created: boolean;
+  entries: FailoverEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFailoverGroupRequest {
+  display_model: string;
+  display_name?: string;
+  description?: string;
+  entry_ids: string[];
+}
+
+export interface UpdateFailoverGroupRequest {
+  display_name?: string;
+  description?: string;
+  group_enabled?: boolean;
+  priority_order?: string[];
+  entry_enabled?: Record<string, boolean>;
+}
+
+export interface CandidateModel {
+  model_uuid: string;
+  model_id: string;
+  provider_id: string;
+  provider_name: string;
+  display_name: string;
+  context_length: number | null;
+  owned_by: string;
+}
