@@ -646,6 +646,25 @@ html[data-ui-style="glassmorphism-lite"] .ui-table-row-filter {
 }
 
 /* =============================================
+   TABLE HEADER TEXT
+   ============================================= */
+
+.ui-table-header-text {
+  color: var(--text-muted);
+}
+
+html[data-ui-style="light"] .ui-table-header-text {
+  color: var(--text-muted);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-table-header-text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* =============================================
    STATUS BADGES
    ============================================= */
 

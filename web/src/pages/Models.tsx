@@ -771,12 +771,12 @@ export function Models() {
           <thead>
             <tr>
               <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} tooltip="Model name and ID" />
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Capabilities</th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Provider</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text select-none hover:text-gray-200">Capabilities</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ui-table-header-text select-none hover:text-gray-200">Provider</th>
               <SortableHeader label="Discovered" field="discovered" sort={sort} onSort={handleSort} tooltip="When the model was last seen/discovered" />
               <SortableHeader label="Ctx" field="context" sort={sort} onSort={handleSort} tooltip="Maximum context length in tokens" />
               <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} tooltip="Maximum output tokens" />
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Status</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ui-table-header-text select-none hover:text-gray-200">Status</th>
             </tr>
             <tr className="ui-table-row-filter">
               <th className="px-4 py-2"></th>
