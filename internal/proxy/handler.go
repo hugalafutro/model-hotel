@@ -434,6 +434,17 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	logData.statusCode = resp.StatusCode
+	logData.proxyOverheadMs = proxyOverhead
+	logData.parseMs = parseMs
+	logData.modelLookupMs = modelLookupMs
+	logData.providerLookupMs = providerLookupMs
+	logData.keyDecryptMs = keyDecryptMs
+	logData.ttftMs = ttft
+	logData.failoverAttempt = attempt
+	h.updateRequestLog(r.Context(), logData)
 
 	flusher, canFlush := w.(http.Flusher)
 

@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -133,9 +132,4 @@ func ConstantTimeCompare(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-func cacheKey(masterKey string, salt []byte) string {
-	if len(salt) == 0 {
-		return masterKey
-	}
-	return masterKey + ":" + hex.EncodeToString(salt)
-}
+

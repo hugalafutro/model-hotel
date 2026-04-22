@@ -3,13 +3,14 @@ package auth
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
 )
 
 type cacheEntry struct {
-	key       []byte
+	plaintext string
 	expiresAt time.Time
 }
 
@@ -20,15 +21,20 @@ var (
 
 const keyCacheTTL = 5 * time.Minute
 
-func deriveKeyCached(masterKey string, salt []byte) []byte {
-	ck := cacheKey(masterKey, salt)
+func decryptionCacheKey(ciphertext, nonce, salt []byte) string {
+	if len(salt) == 0 {
+		return hex.EncodeToString(ciphertext) + ":" + hex.EncodeToString(nonce)
+	}
+	return hex.EncodeToString(ciphertext) + ":" + hex.EncodeToString(nonce) + ":" + hex.EncodeToString(salt)
+}
+
+func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
+	ck := decryptionCacheKey(ciphertext, nonce, salt)
 
 	keyCacheMu.RLock()
 	if entry, ok := keyCache[ck]; ok && time.Now().Before(entry.expiresAt) {
-		key := make([]byte, len(entry.key))
-		copy(key, entry.key)
 		keyCacheMu.RUnlock()
-		return key
+		return entry.plaintext, nil
 	}
 	keyCacheMu.RUnlock()
 
@@ -38,21 +44,6 @@ func deriveKeyCached(masterKey string, salt []byte) []byte {
 	} else {
 		key = deriveKeyV2(masterKey, salt)
 	}
-
-	keyCacheMu.Lock()
-	keyCache[ck] = cacheEntry{
-		key:       key,
-		expiresAt: time.Now().Add(keyCacheTTL),
-	}
-	keyCacheMu.Unlock()
-
-	result := make([]byte, len(key))
-	copy(result, key)
-	return result
-}
-
-func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
-	key := deriveKeyCached(masterKey, salt)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -69,10 +60,16 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
+	keyCacheMu.Lock()
+	keyCache[ck] = cacheEntry{
+		plaintext: string(plaintext),
+		expiresAt: time.Now().Add(keyCacheTTL),
+	}
+	keyCacheMu.Unlock()
+
 	return string(plaintext), nil
 }
 
 func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
-	deriveKeyCached(masterKey, keySalt)
 	DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
 }
