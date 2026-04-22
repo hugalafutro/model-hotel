@@ -57,7 +57,7 @@ function AnimatedValue({ value, decimals = 0, suffix = '', duration = 1200 }: {
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [value, duration])
+  }, [value, duration, display])
 
   return <span>{display.toFixed(decimals)}{suffix}</span>
 }
@@ -88,15 +88,15 @@ function StatCard({
         <div className="w-9 h-9 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${accent}18` }}>
           <Icon size={18} style={{ color: accent }} />
         </div>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-(--text-muted)">
           {label}
         </span>
       </div>
-      <p className="text-2xl font-bold text-[var(--text-primary)]">
+      <p className="text-2xl font-bold text-(--text-primary)">
         <AnimatedValue value={value} decimals={decimals} suffix={suffix} />
       </p>
       {sparkline != null && (
-        <div className="mt-3 h-1 rounded-full overflow-hidden bg-[var(--border-subtle)]">
+        <div className="mt-3 h-1 rounded-full overflow-hidden bg-(--border-subtle)">
           <div
             className="h-full rounded-full transition-all duration-1000"
             style={{ width: `${Math.max(0, Math.min(1, sparkline)) * 100}%`, backgroundColor: accent }}
@@ -118,11 +118,11 @@ function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors
   if (data.length === 0) {
     return (
       <div className="ui-card p-6">
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-          <Activity size={18} className="text-[var(--accent)]" />
+        <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
+          <Activity size={18} className="text-(--accent)" />
           Requests / Hour
         </h3>
-        <p className="text-sm text-[var(--text-muted)] text-center py-12">No time-series data yet. Requests will appear here once traffic flows.</p>
+        <p className="text-sm text-(--text-muted) text-center py-12">No time-series data yet. Requests will appear here once traffic flows.</p>
       </div>
     )
   }
@@ -130,11 +130,11 @@ function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors
   return (
     <div className="ui-card p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <Activity size={18} className="text-[var(--accent)]" />
+        <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+          <Activity size={18} className="text-(--accent)" />
           Requests / Hour
         </h3>
-        <span className="text-xs text-[var(--text-muted)]">Last 24 hours</span>
+        <span className="text-xs text-(--text-muted)">Last 24 hours</span>
       </div>
       <div className="h-60">
         <ResponsiveContainer width="100%" height="100%">
@@ -168,7 +168,7 @@ function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors
               }}
               labelStyle={{ color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
               itemStyle={{ color: 'var(--text-primary)', fontSize: '13px' }}
-              formatter={(value: any) => [Number(value).toLocaleString(), 'Requests']}
+              formatter={(value: number | string | unknown) => [Number(value).toLocaleString(), 'Requests']}
             />
             <Area
               type="monotone"
@@ -193,17 +193,17 @@ function ProviderDoughnut({ items }: { items: { name: string; count: number; sha
   const colors = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa']
 
   if (items.length === 0) {
-    return <div className="ui-card p-6 text-center text-sm text-[var(--text-muted)] py-12">No provider data</div>
+    return <div className="ui-card p-6 text-center text-sm text-(--text-muted) py-12">No provider data</div>
   }
 
   return (
     <div className="ui-card p-6">
-      <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-        <TrendingUp size={18} className="text-[var(--accent)]" />
+      <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
+        <TrendingUp size={18} className="text-(--accent)" />
         Provider Breakdown
       </h3>
       <div className="flex items-center gap-6">
-        <div className="w-[140px] h-[140px]">
+        <div className="w-35 h-35">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -228,11 +228,11 @@ function ProviderDoughnut({ items }: { items: { name: string; count: number; sha
             <div key={it.name} className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
-                <span className="text-sm text-[var(--text-secondary)] truncate">{it.name}</span>
+                <span className="text-sm text-(--text-secondary) truncate">{it.name}</span>
               </div>
               <div className="text-right shrink-0">
-                <span className="text-sm font-medium text-[var(--text-primary)]">{it.share}%</span>
-                <span className="text-xs text-[var(--text-muted)] ml-1">({it.count})</span>
+                <span className="text-sm font-medium text-(--text-primary)">{it.share}%</span>
+                <span className="text-xs text-(--text-muted) ml-1">({it.count})</span>
               </div>
             </div>
           ))}
@@ -253,8 +253,8 @@ function TokenSplitBar({ prompt, completion }: { prompt: number; completion: num
 
   return (
     <div className="ui-card p-6">
-      <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-        <Target size={18} className="text-[var(--accent)]" />
+      <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
+        <Target size={18} className="text-(--accent)" />
         Token Mix
       </h3>
       <div className="flex rounded-lg overflow-hidden h-6">
@@ -274,13 +274,13 @@ function TokenSplitBar({ prompt, completion }: { prompt: number; completion: num
       <div className="flex justify-between mt-3 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#818cf8' }} />
-          <span className="text-[var(--text-tertiary)]">Prompt</span>
-          <span className="font-medium text-[var(--text-primary)] ml-1">{prompt.toLocaleString()}</span>
+          <span className="text-(--text-tertiary)">Prompt</span>
+          <span className="font-medium text-(--text-primary) ml-1">{prompt.toLocaleString()}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#34d399' }} />
-          <span className="text-[var(--text-tertiary)]">Completion</span>
-          <span className="font-medium text-[var(--text-primary)] ml-1">{completion.toLocaleString()}</span>
+          <span className="text-(--text-tertiary)">Completion</span>
+          <span className="font-medium text-(--text-primary) ml-1">{completion.toLocaleString()}</span>
         </div>
       </div>
     </div>
@@ -304,11 +304,11 @@ function UsageBarPanel({
   return (
     <div className="ui-card p-6">
       <div className="flex items-center gap-2 mb-5">
-        <Icon size={18} className="text-[var(--accent)]" />
-        <h3 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
+        <Icon size={18} className="text-(--accent)" />
+        <h3 className="text-lg font-semibold text-(--text-primary)">{title}</h3>
       </div>
       {entries.length === 0 ? (
-        <p className="text-sm text-[var(--text-muted)] text-center py-8">No usage data available</p>
+        <p className="text-sm text-(--text-muted) text-center py-8">No usage data available</p>
       ) : (
         <div className="space-y-3.5">
           {entries.map((entry) => {
@@ -316,12 +316,12 @@ function UsageBarPanel({
             return (
               <div key={entry.label} className="space-y-1.5">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-secondary)] truncate max-w-[70%]">{entry.label}</span>
-                  <span className="font-semibold text-[var(--text-primary)] ml-2 shrink-0">
+                  <span className="text-(--text-secondary) truncate max-w-[70%]">{entry.label}</span>
+                  <span className="font-semibold text-(--text-primary) ml-2 shrink-0">
                     {entry.value.toLocaleString()}{entry.suffix || ''}
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden bg-[var(--border-subtle)]">
+                <div className="h-1.5 rounded-full overflow-hidden bg-(--border-subtle)">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -372,10 +372,10 @@ function Gauge({ label, value, decimals, suffix, color }: {
           />
         </svg>
         <div className="absolute inset-x-0 bottom-0 text-center">
-          <p className="text-base font-bold text-[var(--text-primary)]">{value.toFixed(decimals)}{suffix}</p>
+          <p className="text-base font-bold text-(--text-primary)">{value.toFixed(decimals)}{suffix}</p>
         </div>
       </div>
-      <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mt-2">{label}</p>
+      <p className="text-[10px] uppercase tracking-wider text-(--text-muted) mt-2">{label}</p>
     </div>
   )
 }
@@ -491,8 +491,8 @@ export function Dashboard() {
       { /* Page header */ }
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Dashboard</h1>
-          <p className="text-[var(--text-tertiary)] mt-1">Real-time overview of your LLM proxy traffic and performance</p>
+          <h1 className="text-3xl font-bold text-(--text-primary)">Dashboard</h1>
+          <p className="text-(--text-tertiary) mt-1">Real-time overview of your LLM proxy traffic and performance</p>
         </div>
         <div className="flex gap-4">
           <Gauge label="Latency" value={(stats?.avg_latency_ms || 0)} decimals={0} suffix="ms" color={accents.latency} />
