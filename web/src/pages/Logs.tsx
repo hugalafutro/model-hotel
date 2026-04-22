@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
 import { StaticHeaderNoArrow, Row, EmptyRow } from "../components/DataTable";
@@ -105,7 +105,7 @@ export function Logs() {
     const [liveEnabled, setLiveEnabled] = useState(true);
     const { toast } = useToast();
 
-    const { data: logsData, isLoading } = useQuery({
+    const { data: logsData, isFetching } = useQuery({
         queryKey: ["logs", page, pageSize, filters],
         queryFn: () =>
             api.logs.list({
@@ -114,7 +114,8 @@ export function Logs() {
                 model_id: filters.model_id || undefined,
                 status_code: filters.status_code || undefined,
             }),
-        refetchInterval: liveEnabled ? 5000 : false,
+        refetchInterval: liveEnabled ? 2000 : false,
+        placeholderData: keepPreviousData,
     });
 
     const isCancelled = (errorMessage?: string) => {
@@ -138,17 +139,6 @@ export function Logs() {
         return "bg-gray-700 text-gray-300";
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div
-                    className="animate-spin rounded-full h-12 w-12 border-b-2"
-                    style={{ borderColor: "var(--accent)" }}
-                />
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-4">
             {overheadBreakdown && (
@@ -156,6 +146,12 @@ export function Logs() {
                     breakdown={overheadBreakdown}
                     onClose={() => setOverheadBreakdown(null)}
                 />
+            )}
+
+            {isFetching && (
+                <div className="h-0.5 w-full overflow-hidden rounded-full bg-gray-800">
+                    <div className="h-full w-1/3 bg-(--accent) animate-[indeterminate_1.5s_infinite_ease-in-out]" />
+                </div>
             )}
 
             <div className="flex justify-between items-center">
@@ -410,6 +406,8 @@ export function Logs() {
                                     </Row>
                                 );
                             })
+                        ) : isFetching ? (
+                            <EmptyRow colSpan={11} message="" />
                         ) : (
                             <EmptyRow colSpan={11} message="No logs found" />
                         )}
@@ -458,7 +456,9 @@ export function Logs() {
                                     {
                                         length: Math.min(
                                             7,
-                                            Math.ceil(logsData.total / pageSize),
+                                            Math.ceil(
+                                                logsData.total / pageSize,
+                                            ),
                                         ),
                                     },
                                     (_, i) => {
