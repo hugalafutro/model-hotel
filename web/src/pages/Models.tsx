@@ -886,7 +886,7 @@ export function Models() {
                   <Row key={model.id} index={idx}>
                     <td className="px-4 py-1.5">
                       <div className="flex flex-col">
-                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-(--accent) hover:text-(--accent-hover) cursor-pointer transition-colors">
+                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-white hover:text-gray-200 cursor-pointer transition-colors">
                           {model.name || model.model_id}
                         </button>
                         <button
