@@ -6,10 +6,11 @@ services:
     environment:
       - MASTER_KEY=${MASTER_KEY:-default-master-key-change-in-production}
       - DATABASE_URL=postgres://llmproxy:changeme@db:5432/llmproxy
-      - DISCOVERY_INTERVAL=30m
       - ALLOW_HTTP_PROVIDERS=false
       - DATA_DIR=/data
       - RATE_LIMIT_ENABLED=true
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:8081
+      - ALLOWED_PROVIDER_HOSTS=
     volumes:
       - ./.data:/data
     depends_on:
