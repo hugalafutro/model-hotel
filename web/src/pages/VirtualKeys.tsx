@@ -92,7 +92,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                   autoFocus={true}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                   placeholder="e.g., My App"
                 />
               </div>
@@ -107,7 +107,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 bg-var(--accent)] text-white rounded-lg hover:bg-var(--accent)] transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {createMutation.isPending ? 'Creating...' : 'Create Key'}
                 </button>
@@ -246,7 +246,7 @@ export function VirtualKeys() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-var(--accent)]" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border---accent)" />
       </div>
     )
   }
@@ -261,7 +261,7 @@ export function VirtualKeys() {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-var(--accent)] text-white rounded-lg hover:bg-var(--accent)] transition-colors font-medium cursor-pointer"
+          className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors font-medium cursor-pointer"
         >
           + Create Key
         </button>
@@ -293,7 +293,7 @@ export function VirtualKeys() {
                     <button
                       type="button"
                       onClick={() => setSelectedKey(vk)}
-                      className="text-gray-200 hover:text-var(--accent)] transition-colors cursor-pointer text-sm"
+                      className="text-gray-200 hover:text---accent) transition-colors cursor-pointer text-sm"
                     >
                       {vk.name}
                     </button>

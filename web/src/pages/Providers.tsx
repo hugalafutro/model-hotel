@@ -246,7 +246,7 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
                 autoFocus={true}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                 placeholder="e.g., OpenAI"
               />
             </div>
@@ -261,7 +261,7 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
                 required
                 value={formData.base_url}
                 onChange={(e) => setFormData({ ...formData, base_url: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                 placeholder="https://api.openai.com/v1"
               />
             </div>
@@ -275,7 +275,7 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
                 type="password"
                 value={formData.api_key}
                 onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                 placeholder="Leave blank to keep current key"
               />
               <p className="text-gray-500 text-xs mt-1">Current: {provider.masked_key}</p>
@@ -288,8 +288,8 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
                 role="switch"
                 aria-checked={formData.enabled}
                 onClick={() => setFormData({ ...formData, enabled: !formData.enabled })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-var(--accent)] focus:ring-offset-2 focus:ring-offset-gray-800 ${
-                  formData.enabled ? 'bg-var(--accent)]' : 'bg-gray-600'
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring---accent) focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                  formData.enabled ? 'bg---accent)' : 'bg-gray-600'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -309,7 +309,7 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
               <button
                 type="submit"
                 disabled={updateMutation.isPending}
-                className="px-4 py-2 bg-var(--accent)] text-white rounded-lg hover:bg-var(--accent)] transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors disabled:opacity-50"
               >
                 {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
               </button>
@@ -463,7 +463,7 @@ export function Providers() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-var(--accent)]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border---accent)"></div>
       </div>
     )
   }
@@ -478,7 +478,7 @@ export function Providers() {
         <button
           type="button"
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-var(--accent)] text-white rounded-lg hover:bg-var(--accent)] transition-colors font-medium"
+          className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors font-medium"
         >
           + Add Provider
         </button>
@@ -614,7 +614,7 @@ export function Providers() {
                   id="provider-type"
                   value={formData.provider_type}
                   onChange={(e) => handleProviderTypeChange(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                 >
                   <option value="openai">OpenAI Compatible</option>
                   <option value="nanogpt">NanoGPT</option>
@@ -635,7 +635,7 @@ export function Providers() {
                   autoFocus={true}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                   placeholder="e.g., OpenAI"
                 />
               </div>
@@ -650,7 +650,7 @@ export function Providers() {
                   required
                   value={formData.base_url}
                   onChange={(e) => setFormData({ ...formData, base_url: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                   placeholder="https://api.openai.com/v1"
                 />
                 <p className="text-gray-500 text-xs mt-1">Full API base URL including any path prefix. Models will be discovered from {'<base_url>'}/models</p>
@@ -666,7 +666,7 @@ export function Providers() {
                   required
                   value={formData.api_key}
                   onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
                   placeholder="API key"
                 />
               </div>
@@ -686,7 +686,7 @@ export function Providers() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 bg-var(--accent)] text-white rounded-lg hover:bg-var(--accent)] transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors disabled:opacity-50"
                 >
                   {createMutation.isPending ? 'Adding...' : 'Add Provider'}
                 </button>

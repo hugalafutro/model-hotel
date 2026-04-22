@@ -282,7 +282,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                   type="text"
                   value={editData.display_name}
                   onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-var(--accent)] outline-none"
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none"
                 />
                 {editData.display_name !== discoveredDefaults.display_name && (
                   <button type="button" onClick={() => revertField('display_name')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer" title="Revert to discovered value">↩</button>
@@ -300,7 +300,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                   type="number"
                   value={editData.context_length}
                   onChange={(e) => setEditData(prev => ({ ...prev, context_length: e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-var(--accent)] outline-none"
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none"
                   placeholder="tokens"
                 />
                 {editData.context_length !== (discoveredDefaults.context_length?.toString() ?? '') && (
@@ -319,7 +319,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                   type="number"
                   value={editData.max_output_tokens}
                   onChange={(e) => setEditData(prev => ({ ...prev, max_output_tokens: e.target.value }))}
-                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-var(--accent)] outline-none"
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none"
                   placeholder="tokens"
                 />
                 {editData.max_output_tokens !== (discoveredDefaults.max_output_tokens?.toString() ?? '') && (
@@ -340,7 +340,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                     step="0.01"
                     value={editData.input_price_per_million}
                     onChange={(e) => setEditData(prev => ({ ...prev, input_price_per_million: e.target.value }))}
-                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-var(--accent)] outline-none pr-16"
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none pr-16"
                     placeholder="0.00"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/1M tok</span>
@@ -363,7 +363,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
                     step="0.01"
                     value={editData.output_price_per_million}
                     onChange={(e) => setEditData(prev => ({ ...prev, output_price_per_million: e.target.value }))}
-                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-var(--accent)] outline-none pr-16"
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring---accent) outline-none pr-16"
                     placeholder="0.00"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/1M tok</span>
@@ -428,7 +428,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 bg-var(--accent)] text-white rounded-lg hover:bg-var(--accent)] transition-colors"
+              className="px-4 py-2 bg---accent) text-white rounded-lg hover:bg---accent) transition-colors"
             >
               Save Changes
             </button>
@@ -691,7 +691,7 @@ export function Models() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-var(--accent)]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border---accent)"></div>
       </div>
     )
   }
@@ -724,12 +724,12 @@ export function Models() {
             autoFocus={true}
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
           />
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
           >
             <option value={25}>25 / page</option>
             <option value={50}>50 / page</option>
@@ -745,7 +745,7 @@ export function Models() {
           <select
             value={selectedProvider}
             onChange={(e) => { setSelectedProvider(e.target.value); setCurrentPage(1) }}
-            className="hidden w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-var(--accent)] focus:border-transparent outline-none"
+            className="hidden w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring---accent) focus:border-transparent outline-none"
           >
             <option value="">All Providers</option>
             {providers?.map((provider) => (
@@ -886,7 +886,7 @@ export function Models() {
                   <Row key={model.id} index={idx}>
                     <td className="px-4 py-1.5">
                       <div className="flex flex-col">
-                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-var(--accent)] hover:text-var(--accent)] cursor-pointer transition-colors">
+                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-(--accent) hover:text-(--accent-hover) cursor-pointer transition-colors">
                           {model.name || model.model_id}
                         </button>
                         <button
@@ -964,7 +964,7 @@ export function Models() {
                     onClick={() => setCurrentPage(pageNum)}
                     className={`px-2 py-1 text-xs rounded border ${
                       currentPage === pageNum
-                        ? 'bg-var(--accent)] text-white border-var(--accent)]'
+                        ? 'bg---accent) text-white border---accent)'
                         : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                     }`}
                   >
