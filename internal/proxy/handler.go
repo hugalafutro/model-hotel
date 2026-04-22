@@ -60,75 +60,6 @@ type resolveTimings struct {
 	keyDecryptMs     float64
 }
 
-func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]modelCandidate, resolveTimings, error) {
-	var t resolveTimings
-	modelLookupStart := time.Now()
-
-	allModels, err := h.modelRepo.GetByModelID(ctx, modelID)
-	if err != nil {
-		return nil, t, err
-	}
-	if len(allModels) == 0 {
-		return nil, t, nil
-	}
-
-	fg, fgErr := h.failoverRepo.GetByModel(ctx, modelID)
-	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
-
-	providerLookupStart := time.Now()
-	var keyDecryptTotal float64
-
-	if fgErr == nil && len(fg.PriorityOrder) > 0 {
-		candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
-		for _, modelUUID := range fg.PriorityOrder {
-			entryEnabled := true
-			if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
-				entryEnabled = val
-			}
-			if !entryEnabled {
-				continue
-			}
-			
-			m, err := h.modelRepo.Get(ctx, modelUUID)
-			if err != nil || !m.Enabled || !m.ProviderEnabled {
-				continue
-			}
-			prov, err := h.providerRepo.Get(ctx, m.ProviderID)
-			if err != nil || !prov.Enabled {
-				continue
-			}
-			kdStart := time.Now()
-			apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
-			if err != nil {
-				continue
-			}
-			candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
-		}
-		t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0 - keyDecryptTotal
-		t.keyDecryptMs = keyDecryptTotal
-		return candidates, t, nil
-	}
-
-	candidates := make([]modelCandidate, 0, len(allModels))
-	for _, m := range allModels {
-		prov, err := h.providerRepo.Get(ctx, m.ProviderID)
-		if err != nil || !prov.Enabled {
-			continue
-		}
-		kdStart := time.Now()
-		apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-		keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
-		if err != nil {
-			continue
-		}
-		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
-	}
-	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0 - keyDecryptTotal
-	t.keyDecryptMs = keyDecryptTotal
-	return candidates, t, nil
-}
-
 func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {
 	var t resolveTimings
 	modelLookupStart := time.Now()
@@ -690,16 +621,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		candidates, timings, err = h.resolveCandidates(r.Context(), req.Model)
-		if err != nil {
-			logData.statusCode = 500
-			logData.errorMessage = "failed to resolve model"
-			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
-			logData.parseMs = parseMs
-			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, "failed to resolve model", http.StatusInternalServerError)
-			return
-		}
+		logData.statusCode = 400
+		logData.errorMessage = "invalid model format: " + req.Model
+		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+		logData.parseMs = parseMs
+		h.updateRequestLog(r.Context(), logData)
+		http.Error(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
+		return
 	}
 
 	if len(candidates) == 0 {
