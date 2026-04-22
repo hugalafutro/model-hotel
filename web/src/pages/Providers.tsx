@@ -369,7 +369,7 @@ function EditProviderModal({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                        className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
                         aria-label="Close"
                     >
                         &times;
@@ -886,7 +886,7 @@ export function Providers() {
                                 });
                                 setError(null);
                             }}
-                            className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Close"
                         >
                             &times;
