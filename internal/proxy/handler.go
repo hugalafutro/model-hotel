@@ -727,8 +727,19 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.providerID = candidate.provider.ID
 		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
 
+		upstreamBody := proxyReqBody
+		if req.Model != candidate.model.ModelID {
+			var raw map[string]interface{}
+			if json.Unmarshal(proxyReqBody, &raw) == nil {
+				raw["model"] = candidate.model.ModelID
+				if b, err := json.Marshal(raw); err == nil {
+					upstreamBody = b
+				}
+			}
+		}
+
 		failoverCtx := r.Context()
-		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(proxyReqBody))
+		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
 		if err != nil {
 			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
 			continue

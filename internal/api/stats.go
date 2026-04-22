@@ -77,6 +77,8 @@ func (h *StatsHandler) Register(r chi.Router) {
 func parsePeriod(r *http.Request) time.Duration {
 	p := r.URL.Query().Get("period")
 	switch p {
+	case "1h":
+		return 1 * time.Hour
 	case "7d":
 		return 7 * 24 * time.Hour
 	default:

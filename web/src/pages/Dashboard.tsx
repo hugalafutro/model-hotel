@@ -469,6 +469,12 @@ export function Dashboard() {
     retry: 1,
   })
 
+  const { data: gaugeStats } = useQuery({
+    queryKey: ['stats', '1h'],
+    queryFn: () => api.stats.get('1h'),
+    retry: 1,
+  })
+
   const { data: models } = useQuery({
     queryKey: ['models'],
     queryFn: () => api.models.list(),
@@ -596,8 +602,8 @@ export function Dashboard() {
           <p className="text-(--text-tertiary) mt-1">Real-time overview of your LLM proxy traffic and performance</p>
         </div>
         <div className="flex gap-4">
-          <Gauge label="Avg Overhead" value={((stats?.avg_overhead_ms || 0) / 1000)} decimals={1} suffix="s" color={accents.overhead} />
-          <Gauge label="Error Rate" value={((stats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
+          <Gauge label="Avg Overhead (1h)" value={(gaugeStats?.avg_overhead_ms || 0)} decimals={1} suffix="ms" color={accents.overhead} />
+          <Gauge label="Error Rate (1h)" value={((gaugeStats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
         </div>
       </div>
 
