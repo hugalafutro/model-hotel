@@ -534,7 +534,6 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
     background-color: var(--surface-input);
     color: var(--text-secondary);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-button);
 }
 
 [data-ui-style] .ui-btn-secondary:hover {
@@ -546,14 +545,16 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
     background-color: #ef4444;
     color: white;
     border: 1px solid transparent;
-    border-radius: var(--radius-button);
 }
 
 [data-ui-style] .ui-btn-danger:hover {
     background-color: #dc2626;
 }
 
-html[data-ui-style="clean-saas"] .ui-btn {
+html[data-ui-style="clean-saas"] .ui-btn,
+html[data-ui-style="clean-saas"] .ui-btn-primary,
+html[data-ui-style="clean-saas"] .ui-btn-secondary,
+html[data-ui-style="clean-saas"] .ui-btn-danger {
     border-radius: var(--radius-pill);
 }
 
@@ -577,6 +578,15 @@ html[data-ui-style="cyber-terminal"] .ui-btn-primary:hover {
 html[data-ui-style="cyber-terminal"] .ui-btn-secondary {
     border: 1px solid var(--border-default);
     background-color: transparent;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-danger {
+    background-color: #ef4444;
+    border: 1px solid var(--border-default);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-danger:hover {
+    background-color: #dc2626;
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-btn {
