@@ -115,6 +115,7 @@ export interface Stats {
   avg_overhead_ms: number
   total_tokens_prompt: number
   total_tokens_completion: number
+  avg_tokens_per_request: number
 }
 
 export interface TimeSeriesPoint {

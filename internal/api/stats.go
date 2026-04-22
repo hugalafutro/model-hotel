@@ -37,6 +37,7 @@ type StatsResponse struct {
 	AvgOverheadMs        float64          `json:"avg_overhead_ms"`
 	TotalTokensPrompt    int              `json:"total_tokens_prompt"`
 	TotalTokensCompletion int             `json:"total_tokens_completion"`
+	AvgTokensPerRequest  float64          `json:"avg_tokens_per_request"`
 }
 
 // TimeSeriesPoint holds a single bucket of time-series data.
@@ -239,6 +240,20 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 	if err != nil {
 		stats.TotalTokensPrompt = 0
 		stats.TotalTokensCompletion = 0
+	}
+
+	query = `
+		SELECT COALESCE(
+			SUM(tokens_prompt + tokens_completion)::float / NULLIF(COUNT(*), 0),
+			0
+		) as avg_tokens
+		FROM request_logs
+		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
+	`
+
+	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.AvgTokensPerRequest)
+	if err != nil {
+		stats.AvgTokensPerRequest = 0
 	}
 
 	return stats, nil

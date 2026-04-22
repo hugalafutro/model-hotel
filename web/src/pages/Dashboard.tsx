@@ -250,18 +250,21 @@ function ProviderDoughnut({ items }: { items: { name: string; count: number; sha
 /* =====================================================
    TOKEN SPLIT BAR
    ===================================================== */
-function TokenSplitBar({ prompt, completion }: { prompt: number; completion: number }) {
-  const total = prompt + completion
-  if (total === 0) return null
-  const promptPct = (prompt / total) * 100
-  const completionPct = (completion / total) * 100
+function TokenSplitBar({ prompt, completion, total }: { prompt: number; completion: number; total: number }) {
+  const totalPC = prompt + completion
+  if (totalPC === 0) return null
+  const promptPct = (prompt / totalPC) * 100
+  const completionPct = (completion / totalPC) * 100
 
   return (
     <div className="ui-card p-6">
-      <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
+      <h3 className="text-lg font-semibold text-(--text-primary) mb-1 flex items-center gap-2">
         <Target size={18} className="text-(--accent)" />
         Token Mix
       </h3>
+      <p className="text-2xl font-bold text-(--text-primary) mb-4">
+        <AnimatedValue value={total} />
+      </p>
       <div className="flex rounded-lg overflow-hidden h-6">
         <div
           className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider"
@@ -377,7 +380,7 @@ function Gauge({ label, value, decimals, suffix, color }: {
           />
         </svg>
         <div className="absolute inset-x-0 bottom-0 text-center">
-          <p className="text-base font-bold text-(--text-primary)">{value.toFixed(decimals)}{suffix}</p>
+          <p className="text-sm font-bold text-(--text-primary)">{value.toFixed(decimals)}{suffix}</p>
         </div>
       </div>
       <p className="text-[10px] uppercase tracking-wider text-(--text-muted) mt-2">{label}</p>
@@ -492,9 +495,9 @@ export function Dashboard() {
     models: '#818cf8',
     requests: '#0ea5e9',
     latency: '#f59e0b',
+    overhead: '#f472b6',
     errors: '#ef4444',
     tokens: '#22c55e',
-    sparkline: '#818cf8',
   }
 
   return (
@@ -506,7 +509,7 @@ export function Dashboard() {
           <p className="text-(--text-tertiary) mt-1">Real-time overview of your LLM proxy traffic and performance</p>
         </div>
         <div className="flex gap-4">
-          <Gauge label="Avg Overhead" value={((stats?.avg_overhead_ms || 0) / 1000)} decimals={1} suffix="s" color={accents.latency} />
+          <Gauge label="Avg Overhead" value={((stats?.avg_overhead_ms || 0) / 1000)} decimals={1} suffix="s" color={accents.overhead} />
           <Gauge label="Error Rate" value={((stats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
         </div>
       </div>
@@ -540,7 +543,7 @@ export function Dashboard() {
           accent={accents.requests}
         />
         <StatCard
-          label="Avg Duration"
+          label="Avg Duration (24h)"
           value={(stats?.avg_latency_ms || 0) / 1000}
           decimals={1}
           suffix="s"
@@ -548,8 +551,10 @@ export function Dashboard() {
           accent={accents.latency}
         />
         <StatCard
-          label="Total Tokens"
-          value={totalTokens}
+          label="Avg Tokens (24h)"
+          value={stats?.avg_tokens_per_request || 0}
+          decimals={1}
+          suffix=" tok/req"
           icon={Target}
           accent={accents.tokens}
           sparkline={tok24h > 0 ? promptTokens / tok24h : 0}
@@ -567,6 +572,7 @@ export function Dashboard() {
           <TokenSplitBar
             prompt={stats?.total_tokens_prompt || 0}
             completion={stats?.total_tokens_completion || 0}
+            total={totalTokens}
           />
         )}
       </div>
