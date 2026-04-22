@@ -46,6 +46,7 @@ type ProviderResponse struct {
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 	ModelCount       int        `json:"model_count"`
+	TotalTokens      int        `json:"total_tokens"`
 }
 
 type Repository struct {

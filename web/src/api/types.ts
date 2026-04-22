@@ -8,6 +8,7 @@ export interface Provider {
   created_at: string;
   updated_at: string;
   model_count: number;
+  total_tokens: number;
 }
 
 export interface CreateProviderRequest {

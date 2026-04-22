@@ -176,10 +176,29 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		modelCounts[providerID] = count
 	}
 
+	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) FROM request_logs GROUP BY provider_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tokenRows.Close()
+
+	tokenCounts := make(map[string]int)
+	for tokenRows.Next() {
+		var providerID string
+		var total int
+		if err := tokenRows.Scan(&providerID, &total); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tokenCounts[providerID] = total
+	}
+
 	responses := make([]provider.ProviderResponse, len(providers))
 	for i, p := range providers {
 		responses[i] = provider.ToResponse(p)
 		responses[i].ModelCount = modelCounts[p.ID.String()]
+		responses[i].TotalTokens = tokenCounts[p.ID.String()]
 	}
 
 	w.Header().Set("Content-Type", "application/json")

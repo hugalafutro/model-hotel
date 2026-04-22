@@ -495,11 +495,20 @@ export function Providers() {
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
+                {provider.total_tokens > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30">
+                    {formatTokens(provider.total_tokens)} tokens
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-400 mt-1 truncate">{provider.base_url}</p>
             </div>
 
             <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Created</span>
+                <span className="text-gray-300">{new Date(provider.created_at).toLocaleString()}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">API Key</span>
                 <span className="font-mono text-gray-300">{provider.masked_key}</span>
