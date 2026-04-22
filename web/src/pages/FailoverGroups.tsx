@@ -46,34 +46,34 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center justify-between px-3 py-2 bg-gray-750 hover:bg-gray-700 rounded-lg group ${
+      className={`flex items-center justify-between px-2 py-1.5 bg-gray-700/50 rounded group text-sm ${
         !entry.enabled ? 'opacity-50' : ''
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 min-w-0">
         <span
           {...attributes}
           {...listeners}
-          className="text-gray-500 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-gray-500 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
         >
           ⠿
         </span>
-        <div>
-          <span className="text-white font-medium">{entry.provider_name}</span>
+        <div className="truncate">
+          <span className="text-white">{entry.provider_name}</span>
           <span className="text-gray-500 mx-1">/</span>
-          <span className="text-gray-400">{entry.model_id}</span>
+          <span className="text-gray-400 truncate">{entry.model_id}</span>
         </div>
       </div>
       <button
         type="button"
         onClick={() => onToggle(entry.model_uuid, !entry.enabled)}
-        className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-800"
+        className="relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none shrink-0"
         style={{ backgroundColor: entry.enabled ? '#0690a8' : '#4b5563' }}
         aria-label={entry.enabled ? 'Disable provider' : 'Enable provider'}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            entry.enabled ? 'translate-x-4' : 'translate-x-0.5'
+          className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+            entry.enabled ? 'translate-x-3.5' : 'translate-x-0.5'
           }`}
         />
       </button>
@@ -116,29 +116,29 @@ function FailoverGroupCard({
 
   return (
     <div
-      className={`bg-gray-800 border rounded-lg p-4 ${
+      className={`bg-gray-800 border rounded-lg p-3 ${
         group.group_enabled ? 'border-indigo-500/30' : 'border-gray-700 opacity-60'
       }`}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-white font-medium">hotel/{group.display_model}</h3>
-          {group.display_name && (
-            <span className="text-gray-400 text-sm">({group.display_name})</span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-white font-medium text-sm truncate">hotel/{group.display_model}</h3>
+          {group.auto_created && (
+            <span className="text-xs text-gray-500 shrink-0">auto</span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => onDelete()}
-            className="text-gray-500 hover:text-red-400 text-sm"
+            className="text-gray-500 hover:text-red-400 text-xs"
           >
-            Delete
+            delete
           </button>
           <button
             type="button"
             onClick={() => onToggleGroup(!group.group_enabled)}
-            className={`px-2.5 py-1 text-sm font-medium rounded-full transition-colors ${
+            className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
               group.group_enabled
                 ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'
                 : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
@@ -151,7 +151,7 @@ function FailoverGroupCard({
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={group.entries.map(e => e.model_uuid)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {group.entries.map(entry => (
               <SortableEntry key={entry.model_uuid} entry={entry} onToggle={onToggleEntry} />
             ))}
@@ -159,11 +159,8 @@ function FailoverGroupCard({
         </SortableContext>
       </DndContext>
 
-      <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-        <span>
-          {enabledCount}/{totalCount} providers active • Try in order ↓
-        </span>
-        <span>{group.auto_created ? 'Auto-discovered' : 'Manual'}</span>
+      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+        <span>{enabledCount}/{totalCount} active</span>
       </div>
     </div>
   )
@@ -482,7 +479,7 @@ export function FailoverGroups() {
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {groups?.map(group => (
             <FailoverGroupCard
               key={group.id}
