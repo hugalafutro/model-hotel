@@ -306,7 +306,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT
-			date_trunc('` + bucketSize + `', created_at)::text as bucket,
+			to_char(date_trunc('` + bucketSize + `', created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
 			COALESCE(SUM(tokens_prompt + tokens_completion), 0) as tokens,
 			COUNT(*) FILTER (WHERE status_code >= 400) as errors,
