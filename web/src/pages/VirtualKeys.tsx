@@ -100,7 +100,7 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
                 <button
                   type="button"
                   onClick={onClose}
-                  className="ui-btn-secondary cursor-pointer"
+className="ui-btn-secondary"
                 >
                   Cancel
                 </button>
@@ -143,7 +143,7 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors cursor-pointer text-xl leading-none"
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
         >
           &times;
         </button>

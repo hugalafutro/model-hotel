@@ -28,7 +28,7 @@ function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; o
       <div className="ui-card p-5 min-w-[320px] shadow-2xl" role="document">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Proxy Overhead Breakdown</h3>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+          <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]">&times;</button>
         </div>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">

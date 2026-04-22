@@ -258,7 +258,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
             <h2 className="text-xl font-bold text-white">{model.display_name || model.name || model.model_id}</h2>
             <p className="text-sm text-gray-400 mt-1 font-mono">{model.model_id}</p>
           </div>
-          <button type="button" onClick={handleClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
+          <button type="button" onClick={handleClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]" aria-label="Close">&times;</button>
         </div>
 
         {model.description && (
@@ -886,12 +886,12 @@ export function Models() {
                   <Row key={model.id} index={idx}>
                     <td className="px-4 py-1.5">
                       <div className="flex flex-col">
-                        <button type="button" onClick={() => setDetailModel(model)} className="text-left text-sm font-medium text-white hover:text-gray-200 cursor-pointer transition-colors">
+                        <button type="button" onClick={() => setDetailModel(model)} title="View model details" className="text-left text-sm font-medium text-white hover:text-gray-200 cursor-pointer transition-colors">
                           {model.name || model.model_id}
                         </button>
                         <button
                           type="button"
-                          className="text-left text-[11px] text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-colors"
+                          className="text-left text-[11px] text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-all hover:drop-shadow-[0_0_6px_var(--accent)]"
                           onClick={() => copyModelId(model.model_id)}
                           title="Click to copy model ID"
                         >
