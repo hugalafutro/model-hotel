@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState } from 'react'
 import { StaticHeaderNoArrow, Row, EmptyRow } from '../components/DataTable'
+import { useToast } from '../context/ToastContext'
 
 function formatTPS(t: number | null): string {
   if (t == null) return '-'
@@ -64,6 +65,7 @@ export function Logs() {
   const [filters, setFilters] = useState({ model_id: '', status_code: '' })
   const [overheadBreakdown, setOverheadBreakdown] = useState<OverheadBreakdown | null>(null)
   const [liveEnabled, setLiveEnabled] = useState(true)
+  const { toast } = useToast()
 
   const { data: logsData, isLoading } = useQuery({
     queryKey: ['logs', page, pageSize, filters],
@@ -105,22 +107,24 @@ export function Logs() {
       )}
 
       <div className="flex justify-between items-center">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold text-white">Request Logs</h1>
-          <p className="text-gray-400 mt-1">View and analyze request history</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLiveEnabled(!liveEnabled)
+              toast(liveEnabled ? 'Live updates paused' : 'Live updates resumed', 'info')
+            }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+              liveEnabled
+                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${liveEnabled ? 'bg-green-400' : 'bg-gray-500'}`} />
+            Live
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setLiveEnabled(!liveEnabled)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
-            liveEnabled
-              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-          }`}
-        >
-          <span className={`w-2 h-2 rounded-full ${liveEnabled ? 'bg-green-400' : 'bg-gray-500'}`} />
-          Live
-        </button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
