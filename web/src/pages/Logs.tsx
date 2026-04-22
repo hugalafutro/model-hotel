@@ -57,6 +57,7 @@ export function Logs() {
   const [pageSize, setPageSize] = useState(25)
   const [filters, setFilters] = useState({ model_id: '', status_code: '' })
   const [overheadBreakdown, setOverheadBreakdown] = useState<OverheadBreakdown | null>(null)
+  const [liveEnabled, setLiveEnabled] = useState(true)
 
   const { data: logsData, isLoading } = useQuery({
     queryKey: ['logs', page, pageSize, filters],
@@ -66,6 +67,7 @@ export function Logs() {
       model_id: filters.model_id || undefined,
       status_code: filters.status_code || undefined,
     }),
+    refetchInterval: liveEnabled ? 5000 : false,
   })
 
   const isCancelled = (errorMessage?: string) => {
@@ -101,6 +103,18 @@ export function Logs() {
           <h1 className="text-3xl font-bold text-white">Request Logs</h1>
           <p className="text-gray-400 mt-1">View and analyze request history</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setLiveEnabled(!liveEnabled)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+            liveEnabled
+              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${liveEnabled ? 'bg-green-400' : 'bg-gray-500'}`} />
+          Live
+        </button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
