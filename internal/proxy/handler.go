@@ -273,24 +273,21 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seen := make(map[string]bool)
 	openAIModels := make([]map[string]interface{}, 0, len(models))
 	for _, m := range models {
-		if seen[m.ModelID] {
-			continue
-		}
-		seen[m.ModelID] = true
-
 		ownedBy := m.OwnedBy
 		if ownedBy == "" {
 			ownedBy = m.ProviderName
 		}
 
+		modelID := m.ProviderName + "/" + m.ModelID
+
 		item := map[string]interface{}{
-			"id":      m.ModelID,
-			"object":  "model",
-			"created": m.CreatedAt.Unix(),
+			"id":       modelID,
+			"object":   "model",
+			"created":  m.CreatedAt.Unix(),
 			"owned_by": ownedBy,
+			"provider": m.ProviderName,
 		}
 
 		if m.ContextLength != nil {
@@ -343,10 +340,11 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 				}
 
 				item := map[string]interface{}{
-					"id":      "hotel/" + g.DisplayModel,
-					"object":  "model",
-					"created": m.CreatedAt.Unix(),
+					"id":       "hotel/" + g.DisplayModel,
+					"object":   "model",
+					"created":  m.CreatedAt.Unix(),
 					"owned_by": ownedBy,
+					"provider": "hotel",
 				}
 
 				if m.ContextLength != nil {
