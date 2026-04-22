@@ -466,6 +466,7 @@ export function Dashboard() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['stats', tokenRange],
     queryFn: () => api.stats.get(tokenRange),
+    placeholderData: (prev) => prev,
     retry: 1,
   })
 
@@ -488,26 +489,31 @@ export function Dashboard() {
   const { data: tsData } = useQuery({
     queryKey: ['stats-timeseries', tsRange],
     queryFn: () => api.stats.getTimeSeries(tsRange),
+    placeholderData: (prev) => prev,
   })
 
   const { data: provDist } = useQuery({
     queryKey: ['stats-provider-distribution', provRange],
     queryFn: () => api.stats.getProviderDistribution(provRange),
+    placeholderData: (prev) => prev,
   })
 
   const { data: modelStats } = useQuery({
     queryKey: ['stats-top-models', modelRange],
     queryFn: () => api.stats.get(modelRange),
+    placeholderData: (prev) => prev,
   })
 
   const { data: providerStats } = useQuery({
     queryKey: ['stats-top-providers', providerRange],
     queryFn: () => api.stats.get(providerRange),
+    placeholderData: (prev) => prev,
   })
 
   const { data: vkStats } = useQuery({
     queryKey: ['stats-top-virtual-keys', vkRange],
     queryFn: () => api.stats.get(vkRange),
+    placeholderData: (prev) => prev,
   })
 
   useQuery({
