@@ -27,7 +27,7 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 export function Settings() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, accentColor, setAccentColor, accentPresets } = useTheme()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
@@ -50,7 +50,7 @@ export function Settings() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--accent)' }}></div>
       </div>
     )
   }
@@ -83,7 +83,7 @@ export function Settings() {
                 id="discovery-interval"
                 value={discoveryInterval}
                 onChange={(e) => updateMutation.mutate({ discovery_interval: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
               >
                 {DISCOVERY_INTERVALS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -101,7 +101,7 @@ export function Settings() {
                 type="button"
                 onClick={() => updateMutation.mutate({ discovery_on_startup: discoveryOnStartup ? 'false' : 'true' })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  discoveryOnStartup ? 'bg-indigo-500' : 'bg-gray-600'
+                  discoveryOnStartup ? 'bg-[var(--accent)]' : 'bg-gray-600'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -119,7 +119,7 @@ export function Settings() {
                 type="button"
                 onClick={() => updateMutation.mutate({ discovery_on_provider_create: discoveryOnCreate ? 'false' : 'true' })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  discoveryOnCreate ? 'bg-indigo-500' : 'bg-gray-600'
+                  discoveryOnCreate ? 'bg-[var(--accent)]' : 'bg-gray-600'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -133,30 +133,66 @@ export function Settings() {
         {/* Theme */}
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Appearance</h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-300">Theme</p>
-              <p className="text-gray-500 text-xs mt-0.5">Switch between dark and light mode</p>
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-300">Theme</p>
+                <p className="text-gray-500 text-xs mt-0.5">Switch between dark and light mode</p>
+              </div>
+              <div className="flex rounded-lg overflow-hidden border border-gray-600">
+                <button
+                  type="button"
+                  onClick={() => setTheme('dark')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    theme === 'dark' ? 'bg-[var(--accent)] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  }`}
+                >
+                  Dark
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme('light')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    theme === 'light' ? 'bg-[var(--accent)] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  }`}
+                >
+                  Light
+                </button>
+              </div>
             </div>
-            <div className="flex rounded-lg overflow-hidden border border-gray-600">
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  theme === 'dark' ? 'bg-indigo-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                }`}
-              >
-                Dark
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  theme === 'light' ? 'bg-indigo-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                }`}
-              >
-                Light
-              </button>
+
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-2">Accent Color</p>
+              <div className="flex flex-wrap gap-2">
+                {accentPresets.map(preset => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => setAccentColor(preset.color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
+                      accentColor === preset.color ? 'border-white scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: preset.color }}
+                    title={preset.name}
+                  />
+                ))}
+                <label className="relative cursor-pointer">
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-8 h-8"
+                  />
+                  <div 
+                    className="w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors"
+                    title="Custom color"
+                  >
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -243,7 +279,7 @@ function LoggingSettings() {
             id="log-retention"
             value={logRetention}
             onChange={(e) => updateMutation.mutate({ log_retention: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
           >
             {LOG_RETENTION_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -366,10 +402,10 @@ function ProviderDiscoveryList() {
             disabled={discoveringId !== null}
             className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
               discoveringId === p.id
-                ? 'bg-indigo-900/20 text-indigo-500/50 border-indigo-700/20 cursor-not-allowed'
+                ? 'bg-[var(--accent-lighter)] text-[var(--accent)] border-[var(--accent-light)] cursor-not-allowed'
                 : discoveringId !== null
                 ? 'bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed'
-                : 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
+                : 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-lighter)] cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
             }`}
           >
             {discoveringId === p.id ? 'Discovering...' : 'Discover Now'}
