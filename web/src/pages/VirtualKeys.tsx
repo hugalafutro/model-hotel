@@ -269,7 +269,7 @@ export function VirtualKeys() {
 
       {sortedKeys.length > 0 ? (
         <div className="ui-card overflow-hidden">
-          <table className="w-full table-fixed">
+          <table className="w-full table-fixed ui-table">
             <colgroup>
               <col className="w-[28%]" />
               <col className="w-[18%]" />
@@ -278,7 +278,7 @@ export function VirtualKeys() {
               <col className="w-[14%]" />
             </colgroup>
             <thead>
-              <tr className="bg-gray-800/80">
+              <tr>
                 <SortableHeader label="Name" field="name" sort={sort} onSort={handleSort} tooltip="Display name for the virtual key" />
                 <StaticHeader tooltip="Preview of the API key (full key only shown once on creation)">Key</StaticHeader>
                 <SortableHeader label="Created" field="created" sort={sort} onSort={handleSort} tooltip="When the key was created" />

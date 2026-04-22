@@ -629,6 +629,23 @@ html[data-ui-style="glassmorphism-lite"] .ui-table thead tr {
 }
 
 /* =============================================
+   TABLE FILTER ROW
+   ============================================= */
+
+.ui-table-row-filter {
+  background-color: var(--surface-sidebar);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-table-row-filter {
+  background-color: rgba(255,255,255,0.01);
+  border-top: 1px solid var(--border-subtle);
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-table-row-filter {
+  background: linear-gradient(180deg, var(--surface-sidebar) 0%, transparent 100%);
+}
+
+/* =============================================
    STATUS BADGES
    ============================================= */
 

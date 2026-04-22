@@ -758,7 +758,7 @@ export function Models() {
       </div>
 
       <div className="ui-card overflow-hidden">
-        <table className="min-w-full table-fixed">
+        <table className="min-w-full table-fixed ui-table">
           <colgroup>
             <col className="w-[22%]" />
             <col className="w-[26%]" />
@@ -769,7 +769,7 @@ export function Models() {
             <col className="w-[11%]" />
           </colgroup>
           <thead>
-            <tr className="bg-gray-800/80">
+            <tr>
               <SortableHeader label="Model" field="name" sort={sort} onSort={handleSort} tooltip="Model name and ID" />
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Capabilities</th>
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Provider</th>
@@ -778,7 +778,7 @@ export function Models() {
               <SortableHeader label="Max Out" field="output" sort={sort} onSort={handleSort} tooltip="Maximum output tokens" />
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Status</th>
             </tr>
-            <tr className="bg-gray-800/40">
+            <tr className="ui-table-row-filter">
               <th className="px-4 py-2"></th>
               <th className="px-4 py-2">
                 <span className="flex flex-wrap gap-1">

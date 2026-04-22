@@ -156,9 +156,9 @@ export function Logs() {
       </div>
 
       <div className="ui-card overflow-hidden">
-        <table className="w-full table-fixed">
+        <table className="w-full table-fixed ui-table">
           <thead>
-            <tr className="bg-gray-800/80">
+            <tr>
               <StaticHeaderNoArrow tooltip="Timestamp of the request">Time</StaticHeaderNoArrow>
               <StaticHeaderNoArrow tooltip="Unique hash of the request body">Hash</StaticHeaderNoArrow>
               <StaticHeaderNoArrow tooltip="Model ID used for the request">Model</StaticHeaderNoArrow>
