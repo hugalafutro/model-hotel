@@ -269,7 +269,7 @@ function KeyDetailModal({
                                 type="button"
                                 onClick={() => deleteMutation.mutate()}
                                 disabled={deleteMutation.isPending}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/60 text-red-300 border-red-600/60 hover:brightness-125 cursor-pointer transition-all"
+                                className="ui-btn-danger"
                             >
                                 {deleteMutation.isPending
                                     ? "Deleting..."
@@ -278,7 +278,7 @@ function KeyDetailModal({
                             <button
                                 type="button"
                                 onClick={() => setConfirmDelete(false)}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-700/60 text-gray-300 border-gray-600/60 hover:brightness-125 cursor-pointer transition-all"
+                                className="ui-btn-secondary"
                             >
                                 Cancel
                             </button>

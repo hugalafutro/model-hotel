@@ -178,9 +178,7 @@ function ModelDetailModal({
     onClose: () => void;
     onToggle: (id: string, enabled: boolean) => void;
     onDiscover: (providerId: string) => Promise<unknown>;
-    onTest: (
-        id: string,
-    ) => Promise<{
+    onTest: (id: string) => Promise<{
         success: boolean;
         ttft_ms: number;
         duration_ms: number;
@@ -771,14 +769,14 @@ function ModelDetailModal({
                         <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+                            className="ui-btn-secondary"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
                             onClick={handleSave}
-                            className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors"
+                            className="ui-btn-primary"
                         >
                             Save Changes
                         </button>
@@ -814,7 +812,7 @@ function ModelDetailModal({
                             Copy
                         </button>
                     </div>
-                    <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap break-all">
+                    <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-48 leading-relaxed whitespace-pre-wrap break-all">
                         {snippetContent}
                     </pre>
                 </div>
@@ -1064,7 +1062,7 @@ export function Models() {
         useMemo(() => {
             const baseFiltered =
                 models?.filter(
-                        (model) =>
+                    (model) =>
                         proxyModelID(model.provider_name, model.model_id)
                             .toLowerCase()
                             .includes(searchQuery.toLowerCase()) ||
@@ -1118,8 +1116,12 @@ export function Models() {
                     case "name":
                         return (
                             dir *
-                            (a.name || proxyModelID(a.provider_name, a.model_id)).localeCompare(
-                                b.name || proxyModelID(b.provider_name, b.model_id),
+                            (
+                                a.name ||
+                                proxyModelID(a.provider_name, a.model_id)
+                            ).localeCompare(
+                                b.name ||
+                                    proxyModelID(b.provider_name, b.model_id),
                             )
                         );
                     case "provider":
@@ -1438,19 +1440,28 @@ export function Models() {
                                                     className="text-left text-sm font-medium text-white hover:text-gray-200 cursor-pointer transition-colors"
                                                 >
                                                     {model.name ||
-                                                        proxyModelID(model.provider_name, model.model_id)}
+                                                        proxyModelID(
+                                                            model.provider_name,
+                                                            model.model_id,
+                                                        )}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className="text-left text-[11px] text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-all hover:drop-shadow-[0_0_6px_var(--accent)]"
                                                     onClick={() =>
                                                         copyModelId(
-                                                            proxyModelID(model.provider_name, model.model_id),
+                                                            proxyModelID(
+                                                                model.provider_name,
+                                                                model.model_id,
+                                                            ),
                                                         )
                                                     }
                                                     title="Click to copy model ID"
                                                 >
-                                                    {proxyModelID(model.provider_name, model.model_id)}
+                                                    {proxyModelID(
+                                                        model.provider_name,
+                                                        model.model_id,
+                                                    )}
                                                 </button>
                                             </div>
                                         </td>
@@ -1544,7 +1555,9 @@ export function Models() {
                                 <button
                                     type="button"
                                     onClick={() =>
-                                        setCurrentPage((p) => Math.max(1, p - 1))
+                                        setCurrentPage((p) =>
+                                            Math.max(1, p - 1),
+                                        )
                                     }
                                     disabled={currentPage === 1}
                                     className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1560,7 +1573,10 @@ export function Models() {
                                         } else if (currentPage <= 4) {
                                             pageNum = i + 1;
                                             if (i === 6) pageNum = totalPages;
-                                        } else if (currentPage >= totalPages - 3) {
+                                        } else if (
+                                            currentPage >=
+                                            totalPages - 3
+                                        ) {
                                             pageNum = totalPages - 6 + i;
                                             if (i === 0) pageNum = 1;
                                         } else {

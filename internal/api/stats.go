@@ -11,7 +11,7 @@ import (
 )
 
 type StatsHandler struct {
-	dbPool *pgxpool.Pool
+	dbPool   *pgxpool.Pool
 	adminMgr interface {
 		Validate(token string) bool
 	}
@@ -27,17 +27,17 @@ func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
 }
 
 type StatsResponse struct {
-	TotalRequestsLast24h int              `json:"total_requests_last_24h"`
-	TotalRequestsLast7d  int              `json:"total_requests_last_7d"`
-	ByModel              map[string]int   `json:"by_model"`
-	ByProvider           map[string]int   `json:"by_provider"`
-	ByVirtualKey         map[string]int64 `json:"by_virtual_key"`
-	AvgLatencyMs         float64          `json:"avg_latency_ms"`
-	ErrorRate            float64          `json:"error_rate"`
-	AvgOverheadMs        float64          `json:"avg_overhead_ms"`
-	TotalTokensPrompt    int              `json:"total_tokens_prompt"`
-	TotalTokensCompletion int             `json:"total_tokens_completion"`
-	AvgTokensPerRequest  float64          `json:"avg_tokens_per_request"`
+	TotalRequestsLast24h  int              `json:"total_requests_last_24h"`
+	TotalRequestsLast7d   int              `json:"total_requests_last_7d"`
+	ByModel               map[string]int   `json:"by_model"`
+	ByProvider            map[string]int   `json:"by_provider"`
+	ByVirtualKey          map[string]int64 `json:"by_virtual_key"`
+	AvgLatencyMs          float64          `json:"avg_latency_ms"`
+	ErrorRate             float64          `json:"error_rate"`
+	AvgOverheadMs         float64          `json:"avg_overhead_ms"`
+	TotalTokensPrompt     int              `json:"total_tokens_prompt"`
+	TotalTokensCompletion int              `json:"total_tokens_completion"`
+	AvgTokensPerRequest   float64          `json:"avg_tokens_per_request"`
 }
 
 // TimeSeriesPoint holds a single bucket of time-series data.
@@ -86,9 +86,14 @@ func parsePeriod(r *http.Request) time.Duration {
 	}
 }
 
+func parseExcludeDeleted(r *http.Request) bool {
+	return r.URL.Query().Get("exclude_deleted") == "true"
+}
+
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
-	stats, err := h.calculateStats(r.Context(), period)
+	excludeDeleted := parseExcludeDeleted(r)
+	stats, err := h.calculateStats(r.Context(), period, excludeDeleted)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -98,11 +103,17 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration) (*StatsResponse, error) {
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool) (*StatsResponse, error) {
 	stats := &StatsResponse{
 		ByModel:      make(map[string]int),
 		ByProvider:   make(map[string]int),
 		ByVirtualKey: make(map[string]int64),
+	}
+
+	var vkJoin, vkFilter string
+	if excludeDeleted {
+		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
+		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
 
 	now := time.Now()
@@ -115,11 +126,11 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 		stats.TotalRequestsLast24h = 0
 	}
 
+	// Query 1: Total request count
 	query := `
 		SELECT COUNT(*) as count
-		FROM request_logs
-		WHERE created_at >= $1
-	`
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
 
 	var count int
 	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
@@ -150,14 +161,14 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 		stats.TotalRequestsLast24h = count
 	}
 
+	// Query 2: By model
 	query = `
-		SELECT model_id, COUNT(*) as count
-		FROM request_logs
-		WHERE created_at >= $1
-		GROUP BY model_id
+		SELECT rl.model_id, COUNT(*) as count
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
+		GROUP BY rl.model_id
 		ORDER BY count DESC
-		LIMIT 10
-	`
+		LIMIT 10`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
@@ -174,15 +185,15 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 		stats.ByModel[modelID] = count
 	}
 
+	// Query 3: By provider
 	query = `
 		SELECT p.name, COUNT(*) as count
 		FROM request_logs rl
-		JOIN providers p ON rl.provider_id = p.id
-		WHERE rl.created_at >= $1
+		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY p.name
 		ORDER BY count DESC
-		LIMIT 10
-	`
+		LIMIT 10`
 
 	rows, err = h.dbPool.Query(ctx, query, since)
 	if err != nil {
@@ -199,14 +210,15 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 		stats.ByProvider[providerName] = count
 	}
 
+	// Query 4: By virtual key — uses INNER JOIN already, no changes needed regardless of excludeDeleted
 	virtualKeyQuery := `
-		SELECT rl.virtual_key_name, SUM(rl.tokens_prompt + rl.tokens_completion) as token_count
+		SELECT vk.name, SUM(rl.tokens_prompt + rl.tokens_completion) as token_count
 		FROM request_logs rl
-		WHERE rl.created_at >= $1 AND rl.virtual_key_name IS NOT NULL AND rl.virtual_key_name != ''
-		GROUP BY rl.virtual_key_name
+		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
+		WHERE rl.created_at >= $1
+		GROUP BY vk.name
 		ORDER BY token_count DESC
-		LIMIT 10
-	`
+		LIMIT 10`
 
 	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
 	if err != nil {
@@ -223,48 +235,64 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 		stats.ByVirtualKey[name] = tokens
 	}
 
+	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
+	if !excludeDeleted {
+		deletedKeyQuery := `
+			SELECT COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as token_count
+			FROM request_logs rl
+			WHERE rl.created_at >= $1
+			  AND rl.virtual_key_id IS NOT NULL
+			  AND NOT EXISTS (SELECT 1 FROM virtual_keys vk WHERE vk.id = rl.virtual_key_id)`
+
+		var deletedTokens int64
+		err = h.dbPool.QueryRow(ctx, deletedKeyQuery, since).Scan(&deletedTokens)
+		if err == nil && deletedTokens > 0 {
+			stats.ByVirtualKey["Deleted"] = deletedTokens
+		}
+	}
+
+	// Query 5: Avg latency
 	query = `
-		SELECT COALESCE(AVG(duration_ms), 0) as avg_duration
-		FROM request_logs
-		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
-	`
+		SELECT COALESCE(AVG(rl.duration_ms), 0) as avg_duration
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1 AND rl.status_code >= 200 AND rl.status_code < 400` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
 	if err != nil {
 		stats.AvgLatencyMs = 0
 	}
 
+	// Query 6: Error rate
 	query = `
 		SELECT
 			COALESCE(
-				COUNT(*) FILTER (WHERE status_code >= 400)::float / NULLIF(COUNT(*), 0),
+				COUNT(*) FILTER (WHERE rl.status_code >= 400)::float / NULLIF(COUNT(*), 0),
 				0
 			) as error_rate
-		FROM request_logs
-		WHERE created_at >= $1
-	`
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.ErrorRate)
 	if err != nil {
 		stats.ErrorRate = 0
 	}
 
+	// Query 7: Avg overhead
 	query = `
-		SELECT COALESCE(AVG(proxy_overhead_ms), 0) as avg_overhead
-		FROM request_logs
-		WHERE created_at >= $1 AND proxy_overhead_ms > 0
-	`
+		SELECT COALESCE(AVG(rl.proxy_overhead_ms), 0) as avg_overhead
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1 AND rl.proxy_overhead_ms > 0` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgOverheadMs)
 	if err != nil {
 		stats.AvgOverheadMs = 0
 	}
 
+	// Query 8: Total tokens
 	query = `
-		SELECT SUM(tokens_prompt) as prompt_tokens, SUM(tokens_completion) as completion_tokens
-		FROM request_logs
-		WHERE created_at >= $1
-	`
+		SELECT SUM(rl.tokens_prompt) as prompt_tokens, SUM(rl.tokens_completion) as completion_tokens
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion)
 	if err != nil {
@@ -272,14 +300,14 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 		stats.TotalTokensCompletion = 0
 	}
 
+	// Query 9: Avg tokens per request
 	query = `
 		SELECT COALESCE(
-			SUM(tokens_prompt + tokens_completion)::float / NULLIF(COUNT(*), 0),
+			SUM(rl.tokens_prompt + rl.tokens_completion)::float / NULLIF(COUNT(*), 0),
 			0
 		) as avg_tokens
-		FROM request_logs
-		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
-	`
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1 AND rl.status_code >= 200 AND rl.status_code < 400` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTokensPerRequest)
 	if err != nil {
@@ -291,8 +319,15 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration)
 
 func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
+	excludeDeleted := parseExcludeDeleted(r)
 	ctx := r.Context()
 	now := time.Now().UTC()
+
+	var vkJoin, vkFilter string
+	if excludeDeleted {
+		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
+		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
+	}
 
 	bucketSize := "hour"
 	expectedBuckets := 24
@@ -306,16 +341,15 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT
-			to_char(date_trunc('` + bucketSize + `', created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
+			to_char(date_trunc('` + bucketSize + `', rl.created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
-			COALESCE(SUM(tokens_prompt + tokens_completion), 0) as tokens,
-			COUNT(*) FILTER (WHERE status_code >= 400) as errors,
-			COALESCE(AVG(duration_ms) FILTER (WHERE status_code >= 200 AND status_code < 400), 0) as latency
-		FROM request_logs
-		WHERE created_at >= $1
+			COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as tokens,
+			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
+			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1
-		ORDER BY 1
-	`
+		ORDER BY 1`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
@@ -371,19 +405,25 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 
 func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
+	excludeDeleted := parseExcludeDeleted(r)
 	ctx := r.Context()
 	now := time.Now()
 	since := now.Add(-period)
 
+	var vkJoin, vkFilter string
+	if excludeDeleted {
+		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
+		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
+	}
+
 	query := `
 		SELECT p.name, COUNT(*) as count
 		FROM request_logs rl
-		JOIN providers p ON rl.provider_id = p.id
-		WHERE rl.created_at >= $1
+		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY p.name
 		ORDER BY count DESC
-		LIMIT 5
-	`
+		LIMIT 5`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {

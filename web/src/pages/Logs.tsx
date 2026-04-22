@@ -148,12 +148,6 @@ export function Logs() {
                 />
             )}
 
-            {isFetching && (
-                <div className="h-0.5 w-full overflow-hidden rounded-full bg-gray-800">
-                    <div className="h-full w-1/3 bg-(--accent) animate-[indeterminate_1.5s_infinite_ease-in-out]" />
-                </div>
-            )}
-
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <h1 className="text-3xl font-bold text-white">
@@ -177,7 +171,13 @@ export function Logs() {
                         }`}
                     >
                         <span
-                            className={`w-2 h-2 rounded-full ${liveEnabled ? "bg-green-400" : "bg-gray-500"}`}
+                            className={`w-2 h-2 rounded-full transition-colors ${
+                                liveEnabled
+                                    ? isFetching
+                                        ? "bg-green-400 animate-[pulse-glow_1.5s_ease-in-out_infinite]"
+                                        : "bg-green-400"
+                                    : "bg-gray-500"
+                            }`}
                         />
                         Live
                     </button>

@@ -45,14 +45,14 @@ export function ConfirmDialog({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+                        className="ui-btn-secondary"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={onConfirm}
-                        className="px-4 py-2 bg-red-500/80 text-white rounded-lg hover:bg-red-500 transition-colors"
+                        className="ui-btn-danger"
                     >
                         Discard
                     </button>
