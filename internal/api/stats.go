@@ -32,7 +32,7 @@ type StatsResponse struct {
 	ByModel              map[string]int   `json:"by_model"`
 	ByProvider           map[string]int   `json:"by_provider"`
 	ByVirtualKey         map[string]int64 `json:"by_virtual_key"`
-	AvgLatencyMs         int              `json:"avg_latency_ms"`
+	AvgLatencyMs         float64          `json:"avg_latency_ms"`
 	ErrorRate            float64          `json:"error_rate"`
 	TotalTokensPrompt    int              `json:"total_tokens_prompt"`
 	TotalTokensCompletion int             `json:"total_tokens_completion"`
@@ -192,7 +192,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 	}
 
 	query = `
-		SELECT AVG(duration_ms) as avg_duration
+		SELECT COALESCE(AVG(duration_ms), 0) as avg_duration
 		FROM request_logs
 		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
 	`
@@ -204,7 +204,10 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 
 	query = `
 		SELECT
-			COUNT(*) FILTER (WHERE status_code >= 400)::float / NULLIF(COUNT(*), 0) as error_rate
+			COALESCE(
+				COUNT(*) FILTER (WHERE status_code >= 400)::float / NULLIF(COUNT(*), 0),
+				0
+			) as error_rate
 		FROM request_logs
 		WHERE created_at >= $1
 	`

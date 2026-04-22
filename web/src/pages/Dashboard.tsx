@@ -349,7 +349,7 @@ function Gauge({ label, value, decimals, suffix, color }: {
   suffix: string
   color: string
 }) {
-  const radius = 36
+  const radius = 40
   const circumference = 2 * Math.PI * radius
   const pathArc = circumference / 2
   const pct = Math.min(Math.max(value, 0), 100)
@@ -495,7 +495,7 @@ export function Dashboard() {
           <p className="text-(--text-tertiary) mt-1">Real-time overview of your LLM proxy traffic and performance</p>
         </div>
         <div className="flex gap-4">
-          <Gauge label="Latency" value={(stats?.avg_latency_ms || 0)} decimals={0} suffix="ms" color={accents.latency} />
+          <Gauge label="Latency" value={(stats?.avg_latency_ms || 0)}   decimals={1} suffix="ms" color={accents.latency} />
           <Gauge label="Error Rate" value={((stats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
         </div>
       </div>
