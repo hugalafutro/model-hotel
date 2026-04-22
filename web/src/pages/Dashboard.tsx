@@ -478,6 +478,7 @@ export function Dashboard() {
 
   // Card accent colors (subtle tints in light, slightly brighter in dark)
   const accents = {
+    providers: '#14b8a6',
     models: '#818cf8',
     requests: '#0ea5e9',
     latency: '#f59e0b',
@@ -506,7 +507,7 @@ export function Dashboard() {
           label="Total Providers"
           value={Object.keys(stats?.by_provider || {}).length}
           icon={PlugZap}
-          accent={accents.errors}
+          accent={accents.providers}
         />
         <StatCard
           label="Total Models"
