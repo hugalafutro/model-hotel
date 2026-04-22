@@ -26,7 +26,7 @@ function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; o
   const total = breakdown.parse_ms + breakdown.model_lookup_ms + breakdown.provider_lookup_ms + breakdown.key_decrypt_ms
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="presentation">
-      <div className="ui-card p-5 min-w-[320px] shadow-2xl" role="document">
+      <div className="ui-card relative p-5 min-w-[320px] shadow-2xl" role="document">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Proxy Overhead Breakdown</h3>
           <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]">&times;</button>
@@ -165,8 +165,21 @@ export function Logs() {
         </div>
       </div>
 
-      <div className="ui-card overflow-hidden">
-        <table className="w-full table-fixed ui-table">
+      <div className="ui-card overflow-x-auto">
+        <table className="w-full table-fixed ui-table min-w-[1000px]">
+          <colgroup>
+            <col className="w-[150px]" />
+            <col className="w-[240px]" />
+            <col className="w-[150px]" />
+            <col className="w-[100px]" />
+            <col className="w-[60px]" />
+            <col className="w-[70px]" />
+            <col className="w-[55px]" />
+            <col className="w-[65px]" />
+            <col className="w-[65px]" />
+            <col className="w-[70px]" />
+            <col className="w-[100px]" />
+          </colgroup>
           <thead>
             <tr>
               <StaticHeaderNoArrow tooltip="Timestamp of the request">Time</StaticHeaderNoArrow>
@@ -193,7 +206,7 @@ export function Logs() {
                       {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400" title={log.request_hash}>
-                      {log.request_hash ? log.request_hash.slice(0, 8) : '-'}
+                      {log.request_hash ? log.request_hash.slice(0, 16) : '-'}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate" title={log.model_id}>
                       {log.model_id || '-'}

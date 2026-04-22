@@ -258,7 +258,7 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
             <h2 className="text-xl font-bold text-white">{model.display_name || model.name || model.model_id}</h2>
             <p className="text-sm text-gray-400 mt-1 font-mono">{model.model_id}</p>
           </div>
-          <button type="button" onClick={handleClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]" aria-label="Close">&times;</button>
+          <button type="button" onClick={handleClose} className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]" aria-label="Close">&times;</button>
         </div>
 
         {model.description && (

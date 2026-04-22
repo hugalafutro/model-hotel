@@ -51,7 +51,15 @@ function CreateKeyModal({ onClose, onToast }: { onClose: () => void; onToast: (m
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-      <div className="ui-card p-6 w-full max-w-md">
+      <div className="ui-card relative p-6 w-full max-w-md">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+          aria-label="Close"
+        >
+          &times;
+        </button>
         {createdKey ? (
           <>
             <h2 className="text-xl font-bold text-white mb-4">Virtual Key Created</h2>
@@ -143,7 +151,7 @@ function KeyDetailModal({ vk, onClose, onToast }: { vk: VirtualKey; onClose: () 
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+          className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
         >
           &times;
         </button>

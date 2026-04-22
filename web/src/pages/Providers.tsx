@@ -226,6 +226,14 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
       <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') handleClose() }}>
         <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={handleClose} aria-label="Close dialog" />
         <div className="relative ui-card p-6 w-full max-w-md">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+            aria-label="Close"
+          >
+            &times;
+          </button>
           <h2 className="text-xl font-bold text-white mb-4">Edit Provider</h2>
 
           {error && (
@@ -596,7 +604,15 @@ export function Providers() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="ui-card p-6 w-full max-w-md">
+          <div className="ui-card relative p-6 w-full max-w-md">
+            <button
+              type="button"
+              onClick={() => { setShowModal(false); setFormData({ name: '', base_url: '', api_key: '', provider_type: 'custom' }); setError(null) }}
+              className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+              aria-label="Close"
+            >
+              &times;
+            </button>
             <h2 className="text-xl font-bold text-white mb-4">Add Provider</h2>
 
             {error && (
