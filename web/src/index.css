@@ -152,6 +152,7 @@ html[data-ui-style="glassmorphism-lite"].dark {
 
   --radius-card: 20px;
   --radius-button: 12px;
+  --accent-lighter: rgba(129,140,248,0.15);
   --shadow-card: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
   --shadow-md: 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
   --shadow-glow: 0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.2);
@@ -178,6 +179,7 @@ html[data-ui-style="glassmorphism-lite"].light {
 
   --radius-card: 20px;
   --radius-button: 12px;
+  --accent-lighter: rgba(99,102,241,0.12);
   --shadow-card: 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5);
   --shadow-md: 0 12px 40px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.5);
   --shadow-glow: 0 0 30px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
@@ -587,14 +589,36 @@ html[data-ui-style="glassmorphism-lite"] .ui-input {
   background: var(--surface-input);
 }
 
+html[data-ui-style="glassmorphism-lite"].dark select.ui-input {
+  outline: none;
+}
+
+html[data-ui-style="glassmorphism-lite"].dark select.ui-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(129,140,248,0.15);
+}
+
 html[data-ui-style="glassmorphism-lite"].dark select.ui-input option {
   background-color: #0a0b14;
   color: var(--text-primary);
 }
 
+html[data-ui-style="glassmorphism-lite"].dark select.ui-input option:checked,
+html[data-ui-style="glassmorphism-lite"].dark select.ui-input option:hover,
+html[data-ui-style="glassmorphism-lite"].dark select.ui-input option:focus {
+  background-color: rgba(129, 140, 248, 0.2);
+  color: #fff;
+}
+
 html[data-ui-style="glassmorphism-lite"].light select.ui-input option {
   background-color: #f0f1f7;
   color: var(--text-primary);
+}
+
+html[data-ui-style="glassmorphism-lite"].light select.ui-input option:checked,
+html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #111318;
 }
 
 [data-ui-style] select.ui-input.ui-input-sm {
