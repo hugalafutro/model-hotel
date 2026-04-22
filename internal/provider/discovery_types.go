@@ -115,3 +115,41 @@ type DeepSeekBalanceResponse struct {
 	IsAvailable  bool                  `json:"is_available"`
 	BalanceInfos []DeepSeekBalanceInfo `json:"balance_infos"`
 }
+
+type OllamaTagsModelDetails struct {
+	ParentModel       string   `json:"parent_model"`
+	Format            string   `json:"format"`
+	Family            string   `json:"family"`
+	Families          []string `json:"families"`
+	ParameterSize     string   `json:"parameter_size"`
+	QuantizationLevel string   `json:"quantization_level"`
+}
+
+type OllamaTagsModel struct {
+	Name       string                  `json:"name"`
+	Model      string                  `json:"model"`
+	ModifiedAt string                  `json:"modified_at"`
+	Size       int64                   `json:"size"`
+	Digest     string                  `json:"digest"`
+	Details    OllamaTagsModelDetails `json:"details"`
+}
+
+type OllamaTagsResponse struct {
+	Models []OllamaTagsModel `json:"models"`
+}
+
+type OllamaShowDetails struct {
+	ParentModel       string   `json:"parent_model"`
+	Format            string   `json:"format"`
+	Family            string   `json:"family"`
+	Families          []string `json:"families"`
+	ParameterSize     string   `json:"parameter_size"`
+	QuantizationLevel string   `json:"quantization_level"`
+}
+
+type OllamaShowResponse struct {
+	Details      OllamaShowDetails    `json:"details"`
+	ModelInfo    map[string]any       `json:"model_info"`
+	Capabilities []string             `json:"capabilities"`
+	ModifiedAt   string               `json:"modified_at"`
+}
