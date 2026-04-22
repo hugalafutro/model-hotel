@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import type { Model, ModelCapabilities } from '../api/types'
 import { useToast } from '../context/ToastContext'
 import { SortableHeader, Row, EmptyRow } from '../components/DataTable'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { SortState } from '../components/DataTable'
 
 function formatRelativeTime(dateStr: string): string {
@@ -71,13 +72,14 @@ function CapBadge({ caps, capKey }: { caps: ModelCapabilities | null; capKey: Ca
 type SortField = 'name' | 'capabilities' | 'provider' | 'discovered' | 'context' | 'output' | 'status'
 type StatusFilter = 'enabled' | 'disabled'
 
-function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToast }: {
+function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToast, onUpdate }: {
   model: Model
   onClose: () => void
   onToggle: (id: string, enabled: boolean) => void
   onDiscover: (providerId: string) => Promise<unknown>
   onTest: (id: string) => Promise<{success: boolean; ttft_ms: number; duration_ms: number; response: string; error?: string}>
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+  onUpdate: (id: string, updates: Partial<Model>) => void
 }) {
   const caps = parseCapabilities(model.capabilities)
   const params = parseParams(model.params)
@@ -88,7 +90,25 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
   const [testing, setTesting] = useState(false)
   const [testError, setTestError] = useState(false)
   const [snippetTab, setSnippetTab] = useState<'curl' | 'zed'>('curl')
+  const [editing, setEditing] = useState(false)
+  const [confirmFields, setConfirmFields] = useState<string[] | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const [editData, setEditData] = useState({
+    display_name: model.display_name || '',
+    context_length: model.context_length?.toString() || '',
+    max_output_tokens: model.max_output_tokens?.toString() || '',
+    input_price_per_million: model.input_price_per_million?.toString() || '',
+    output_price_per_million: model.output_price_per_million?.toString() || '',
+  })
+
+  const discoveredDefaults = useMemo(() => ({
+    display_name: model.name || '',
+    context_length: model.context_length,
+    max_output_tokens: model.max_output_tokens,
+    input_price_per_million: model.input_price_per_million,
+    output_price_per_million: model.output_price_per_million,
+  }), [model])
 
   useEffect(() => {
     return () => {
@@ -139,6 +159,79 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
     }
   }
 
+  const getFieldLabel = (key: string): string => {
+    const labels: Record<string, string> = {
+      display_name: 'Display Name',
+      context_length: 'Context Length',
+      max_output_tokens: 'Max Output Tokens',
+      input_price_per_million: 'Input Price',
+      output_price_per_million: 'Output Price',
+    }
+    return labels[key] || key
+  }
+
+  const getChangedFields = (): string[] => {
+    const fields: string[] = []
+    if (editData.display_name !== (model.display_name || '')) fields.push('display_name')
+    const cl = editData.context_length === '' ? null : Number(editData.context_length)
+    if (cl !== model.context_length) fields.push('context_length')
+    const mot = editData.max_output_tokens === '' ? null : Number(editData.max_output_tokens)
+    if (mot !== model.max_output_tokens) fields.push('max_output_tokens')
+    const ipm = editData.input_price_per_million === '' ? null : Number(editData.input_price_per_million)
+    if (ipm !== model.input_price_per_million) fields.push('input_price_per_million')
+    const opm = editData.output_price_per_million === '' ? null : Number(editData.output_price_per_million)
+    if (opm !== model.output_price_per_million) fields.push('output_price_per_million')
+    return fields
+  }
+
+  const handleCancelEdit = () => {
+    const changed = getChangedFields()
+    if (changed.length > 0) {
+      setConfirmFields(changed.map(getFieldLabel))
+    } else {
+      setEditing(false)
+    }
+  }
+
+  const handleSave = () => {
+    const updates: Record<string, unknown> = {}
+    if (editData.display_name !== (model.display_name || '')) updates.display_name = editData.display_name
+    const cl = editData.context_length === '' ? null : Number(editData.context_length)
+    if (cl !== model.context_length) updates.context_length = cl
+    const mot = editData.max_output_tokens === '' ? null : Number(editData.max_output_tokens)
+    if (mot !== model.max_output_tokens) updates.max_output_tokens = mot
+    const ipm = editData.input_price_per_million === '' ? null : Number(editData.input_price_per_million)
+    if (ipm !== model.input_price_per_million) updates.input_price_per_million = ipm
+    const opm = editData.output_price_per_million === '' ? null : Number(editData.output_price_per_million)
+    if (opm !== model.output_price_per_million) updates.output_price_per_million = opm
+    if (Object.keys(updates).length > 0) {
+      onUpdate(model.id, updates as Partial<Model>)
+    }
+    setEditing(false)
+  }
+
+  const revertField = (key: keyof typeof discoveredDefaults) => {
+    if (key === 'display_name') {
+      setEditData(prev => ({ ...prev, display_name: discoveredDefaults.display_name }))
+    } else if (key === 'context_length') {
+      setEditData(prev => ({ ...prev, context_length: discoveredDefaults.context_length?.toString() ?? '' }))
+    } else if (key === 'max_output_tokens') {
+      setEditData(prev => ({ ...prev, max_output_tokens: discoveredDefaults.max_output_tokens?.toString() ?? '' }))
+    } else if (key === 'input_price_per_million') {
+      setEditData(prev => ({ ...prev, input_price_per_million: discoveredDefaults.input_price_per_million?.toString() ?? '' }))
+    } else if (key === 'output_price_per_million') {
+      setEditData(prev => ({ ...prev, output_price_per_million: discoveredDefaults.output_price_per_million?.toString() ?? '' }))
+    }
+  }
+
+  const handleClose = () => {
+    if (editing) {
+      handleCancelEdit()
+    } else {
+      onClose()
+    }
+  }
+
   const curlCmd = `curl -X POST ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model.model_id}","messages":[{"role":"user","content":"Hello"}]}'`
 
   const zedJson = JSON.stringify({
@@ -157,15 +250,15 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
   const snippetContent = snippetTab === 'curl' ? curlCmd : zedJson
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-      <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={onClose} aria-label="Close dialog" />
+    <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') handleClose() }}>
+      <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={handleClose} aria-label="Close dialog" />
       <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h2 className="text-xl font-bold text-white">{model.name || model.model_id}</h2>
+            <h2 className="text-xl font-bold text-white">{model.display_name || model.name || model.model_id}</h2>
             <p className="text-sm text-gray-400 mt-1 font-mono">{model.model_id}</p>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
+          <button type="button" onClick={handleClose} className="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close">&times;</button>
         </div>
 
         {model.description && (
@@ -182,12 +275,106 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
             <p className="text-gray-200">{formatRelativeTime(model.last_seen_at)}</p>
           </div>
           <div>
+            <span className="text-gray-500">Display Name</span>
+            {editing ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={editData.display_name}
+                  onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
+                />
+                {editData.display_name !== discoveredDefaults.display_name && (
+                  <button type="button" onClick={() => revertField('display_name')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer" title="Revert to discovered value">↩</button>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-200">{model.display_name || model.name || '-'}</p>
+            )}
+          </div>
+          <div>
             <span className="text-gray-500">Context Length</span>
-            <p className="text-gray-200">{formatNumber(model.context_length)} tokens</p>
+            {editing ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={editData.context_length}
+                  onChange={(e) => setEditData(prev => ({ ...prev, context_length: e.target.value }))}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
+                  placeholder="tokens"
+                />
+                {editData.context_length !== (discoveredDefaults.context_length?.toString() ?? '') && (
+                  <button type="button" onClick={() => revertField('context_length')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer" title="Revert to discovered value">↩</button>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-200">{formatNumber(model.context_length)} tokens</p>
+            )}
           </div>
           <div>
             <span className="text-gray-500">Max Output</span>
-            <p className="text-gray-200">{formatNumber(model.max_output_tokens)} tokens</p>
+            {editing ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={editData.max_output_tokens}
+                  onChange={(e) => setEditData(prev => ({ ...prev, max_output_tokens: e.target.value }))}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-indigo-400 outline-none"
+                  placeholder="tokens"
+                />
+                {editData.max_output_tokens !== (discoveredDefaults.max_output_tokens?.toString() ?? '') && (
+                  <button type="button" onClick={() => revertField('max_output_tokens')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer" title="Revert to discovered value">↩</button>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-200">{formatNumber(model.max_output_tokens)} tokens</p>
+            )}
+          </div>
+          <div>
+            <span className="text-gray-500">Input Price</span>
+            {editing ? (
+              <div className="flex items-center gap-1">
+                <div className="relative w-full">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editData.input_price_per_million}
+                    onChange={(e) => setEditData(prev => ({ ...prev, input_price_per_million: e.target.value }))}
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-indigo-400 outline-none pr-16"
+                    placeholder="0.00"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/1M tok</span>
+                </div>
+                {editData.input_price_per_million !== (discoveredDefaults.input_price_per_million?.toString() ?? '') && (
+                  <button type="button" onClick={() => revertField('input_price_per_million')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0" title="Revert to discovered value">↩</button>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-200">{model.input_price_per_million != null ? `$${model.input_price_per_million}/1M` : '-'}</p>
+            )}
+          </div>
+          <div>
+            <span className="text-gray-500">Output Price</span>
+            {editing ? (
+              <div className="flex items-center gap-1">
+                <div className="relative w-full">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editData.output_price_per_million}
+                    onChange={(e) => setEditData(prev => ({ ...prev, output_price_per_million: e.target.value }))}
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-indigo-400 outline-none pr-16"
+                    placeholder="0.00"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/1M tok</span>
+                </div>
+                {editData.output_price_per_million !== (discoveredDefaults.output_price_per_million?.toString() ?? '') && (
+                  <button type="button" onClick={() => revertField('output_price_per_million')} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0" title="Revert to discovered value">↩</button>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-200">{model.output_price_per_million != null ? `$${model.output_price_per_million}/1M` : '-'}</p>
+            )}
           </div>
           <div>
             <span className="text-gray-500">Input</span>
@@ -229,6 +416,25 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
           </div>
         )}
 
+        {editing && (
+          <div className="flex gap-3 justify-end mb-4 pt-2 border-t border-gray-700">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+
         <div className="mt-4 pt-4 border-t border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1">
@@ -259,18 +465,18 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
         </div>
 
         <div className="flex items-center justify-between mt-4 pt-4">
-          <button
-            type="button"
-            onClick={() => onToggle(model.id, !model.enabled)}
-            className={`px-3 py-1.5 text-xs rounded-full border cursor-pointer transition-all ${
-              model.enabled
-                ? 'bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(34,197,94,0.2)]'
-                : 'bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)]'
-            }`}
-          >
-            {model.enabled ? 'Enabled' : 'Disabled'}
-          </button>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onToggle(model.id, !model.enabled)}
+              className={`px-3 py-1.5 text-xs rounded-full border cursor-pointer transition-all ${
+                model.enabled
+                  ? 'bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(34,197,94,0.2)]'
+                  : 'bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)]'
+              }`}
+            >
+              {model.enabled ? 'Enabled' : 'Disabled'}
+            </button>
             <button
               type="button"
               disabled={testing}
@@ -288,6 +494,17 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
               )}
               {testing ? 'Testing...' : 'Test'}
             </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+              >
+                Edit
+              </button>
+            )}
             <button
               type="button"
               disabled={cooldown > 0 || discovering}
@@ -303,6 +520,14 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
           </div>
         </div>
       </div>
+      {confirmFields && (
+        <ConfirmDialog
+          title="Unsaved Changes"
+          fields={confirmFields}
+          onConfirm={() => { setConfirmFields(null); setEditing(false); setEditData({ display_name: model.display_name || '', context_length: model.context_length?.toString() || '', max_output_tokens: model.max_output_tokens?.toString() || '', input_price_per_million: model.input_price_per_million?.toString() || '', output_price_per_million: model.output_price_per_million?.toString() || '' }) }}
+          onCancel={() => setConfirmFields(null)}
+        />
+      )}
     </div>
   )
 }
@@ -347,6 +572,17 @@ export function Models() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => api.models.update(id, data as Parameters<typeof api.models.update>[1]),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['models'] })
+      toast('Model updated', 'success')
+    },
+    onError: (err: Error) => {
+      toast(`Failed to update model: ${err.message}`, 'error')
+    },
+  })
+
   const handleToggleModel = useCallback((id: string, enabled: boolean) => {
     toggleMutation.mutate({ id, enabled }, {
       onSuccess: () => {
@@ -355,6 +591,14 @@ export function Models() {
       },
     })
   }, [toggleMutation, toast])
+
+  const handleUpdateModel = useCallback((id: string, updates: Partial<Model>) => {
+    updateMutation.mutate({ id, data: updates }, {
+      onSuccess: () => {
+        setDetailModel(prev => prev ? { ...prev, ...updates } : null)
+      },
+    })
+  }, [updateMutation])
 
   const handleDiscover = useCallback(async (providerId: string) => {
     toast('Discovering models...', 'info')
@@ -749,6 +993,7 @@ export function Models() {
           onDiscover={handleDiscover}
           onTest={handleTest}
           onToast={toast}
+          onUpdate={handleUpdateModel}
         />
       )}
     </div>

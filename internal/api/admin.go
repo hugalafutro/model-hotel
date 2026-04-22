@@ -145,7 +145,6 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
 
 	response := provider.ToResponse(p)
-	response.MaskedKey = provider.MaskAPIKey(req.APIKey)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

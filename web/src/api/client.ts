@@ -1,4 +1,4 @@
-import type { Provider, CreateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance } from './types'
+import type { Provider, CreateProviderRequest, UpdateProviderRequest, ProxyKey, Model, LogsResponse, Stats, VirtualKey, SystemStats, NanoGPTUsage, DeepSeekBalance } from './types'
 
 const API_BASE = '';
 
@@ -55,6 +55,18 @@ export const api = {
       if (!response.ok && response.status !== 204) {
         throw new Error('Failed to delete provider');
       }
+    },
+    update: async (id: string, data: UpdateProviderRequest): Promise<Provider> => {
+      const response = await fetch(`${API_BASE}/api/providers/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to update provider: ${response.status} ${text}`);
+      }
+      return response.json();
     },
     discover: async (id: string): Promise<{discovered: number}> => {
       const response = await fetch(`${API_BASE}/api/providers/${id}/discover`, {
@@ -137,7 +149,7 @@ export const api = {
       }
       return response.json();
     },
-    update: async (id: string, data: { enabled?: boolean }): Promise<Model> => {
+    update: async (id: string, data: { display_name?: string; context_length?: number | null; max_output_tokens?: number | null; input_price_per_million?: number | null; output_price_per_million?: number | null; enabled?: boolean }): Promise<Model> => {
       const response = await fetch(`${API_BASE}/api/models/${id}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),

@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useState, useMemo } from 'react'
-import type { NanoGPTUsage } from '../api/types'
+import type { NanoGPTUsage, Provider } from '../api/types'
 import { useToast } from '../context/ToastContext'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 function formatTokens(n: number | null | undefined): string {
   if (n == null) return '-'
@@ -167,10 +168,172 @@ function NanoGPTQuotaModal({ usage, onClose, onRefresh, isRefreshing, onToast }:
   )
 }
 
+function EditProviderModal({ provider, onClose, onToast }: { provider: Provider; onClose: () => void; onToast: (msg: string, type: 'success' | 'error' | 'info') => void }) {
+  const queryClient = useQueryClient()
+  const [formData, setFormData] = useState({
+    name: provider.name,
+    base_url: provider.base_url,
+    api_key: '',
+    enabled: provider.enabled,
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [confirmFields, setConfirmFields] = useState<string[] | null>(null)
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { name?: string; base_url?: string; api_key?: string; enabled?: boolean }) => api.providers.update(provider.id, data),
+    onSuccess: (updated: Provider) => {
+      queryClient.invalidateQueries({ queryKey: ['providers'] })
+      onToast(`Provider "${updated.name}" updated`, 'success')
+      onClose()
+    },
+    onError: (err: Error) => {
+      setError(err.message)
+      onToast(`Failed to update provider: ${err.message}`, 'error')
+    },
+  })
+
+  const getChangedFields = (): string[] => {
+    const fields: string[] = []
+    if (formData.name !== provider.name) fields.push('name')
+    if (formData.base_url !== provider.base_url) fields.push('base_url')
+    if (formData.api_key !== '') fields.push('api_key')
+    if (formData.enabled !== provider.enabled) fields.push('enabled')
+    return fields
+  }
+
+  const handleClose = () => {
+    const changed = getChangedFields()
+    if (changed.length > 0) {
+      setConfirmFields(changed)
+    } else {
+      onClose()
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    const payload: { name?: string; base_url?: string; api_key?: string; enabled?: boolean } = {}
+    if (formData.name !== provider.name) payload.name = formData.name
+    if (formData.base_url !== provider.base_url) payload.base_url = formData.base_url
+    if (formData.api_key !== '') payload.api_key = formData.api_key
+    if (formData.enabled !== provider.enabled) payload.enabled = formData.enabled
+    updateMutation.mutate(payload)
+  }
+
+  return (
+    <>
+      <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') handleClose() }}>
+        <button type="button" className="absolute inset-0 bg-black/60 cursor-default" onClick={handleClose} aria-label="Close dialog" />
+        <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
+          <h2 className="text-xl font-bold text-white mb-4">Edit Provider</h2>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="edit-provider-name" className="block text-sm font-medium text-gray-300 mb-1">
+                Name
+              </label>
+              <input
+                id="edit-provider-name"
+                type="text"
+                required
+                autoFocus={true}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                placeholder="e.g., OpenAI"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-provider-base-url" className="block text-sm font-medium text-gray-300 mb-1">
+                Base URL
+              </label>
+              <input
+                id="edit-provider-base-url"
+                type="url"
+                required
+                value={formData.base_url}
+                onChange={(e) => setFormData({ ...formData, base_url: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                placeholder="https://api.openai.com/v1"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-provider-api-key" className="block text-sm font-medium text-gray-300 mb-1">
+                API Key
+              </label>
+              <input
+                id="edit-provider-api-key"
+                type="password"
+                value={formData.api_key}
+                onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none"
+                placeholder="Leave blank to keep current key"
+              />
+              <p className="text-gray-500 text-xs mt-1">Current: {provider.masked_key}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label htmlFor="edit-provider-enabled" className="text-sm font-medium text-gray-300">Enabled</label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={formData.enabled}
+                onClick={() => setFormData({ ...formData, enabled: !formData.enabled })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                  formData.enabled ? 'bg-indigo-500' : 'bg-gray-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  formData.enabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            <div className="flex space-x-3 justify-end pt-4">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50"
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {confirmFields && (
+        <ConfirmDialog
+          title="Unsaved Changes"
+          fields={confirmFields}
+          onConfirm={onClose}
+          onCancel={() => setConfirmFields(null)}
+        />
+      )}
+    </>
+  )
+}
+
 export function Providers() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [showModal, setShowModal] = useState(false)
+  const [editProvider, setEditProvider] = useState<Provider | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [discoveringId, setDiscoveringId] = useState<string | null>(null)
   const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null)
@@ -350,34 +513,43 @@ export function Providers() {
             </div>
 
             <div className="mt-4 flex items-center justify-between gap-2">
-              {showQuotaBadge && (
-                <button
-                  type="button"
-                  onClick={() => nanogptUsage && setQuotaUsage(nanogptUsage)}
-                  className="px-2 py-1.5 rounded-full bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 text-xs font-medium cursor-pointer hover:bg-[#0690a8]/30 transition-colors"
-                  title="View quota details"
-                >
-                  {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
-                </button>
-              )}
-              {provider.base_url.includes('deepseek.com') && deepseekBalanceData && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await refetchDeepseekBalance()
-                      toast('Balance refreshed', 'success')
-                    } catch {
-                      toast('Failed to refresh balance', 'error')
-                    }
-                  }}
-                  className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
-                  title="Refresh balance"
-                >
-                  {deepseekBalanceData.balance_infos.find(b => b.currency === 'USD')?.total_balance ?? '-'} USD
-                </button>
-              )}
+              <div className="flex items-center gap-2 min-h-7">
+                {showQuotaBadge && (
+                  <button
+                    type="button"
+                    onClick={() => nanogptUsage && setQuotaUsage(nanogptUsage)}
+                    className="px-2 py-1.5 rounded-full bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 text-xs font-medium cursor-pointer hover:bg-[#0690a8]/30 transition-colors"
+                    title="View quota details"
+                  >
+                    {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
+                  </button>
+                )}
+                {provider.base_url.includes('deepseek.com') && deepseekBalanceData && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await refetchDeepseekBalance()
+                        toast('Balance refreshed', 'success')
+                      } catch {
+                        toast('Failed to refresh balance', 'error')
+                      }
+                    }}
+                    className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
+                    title="Refresh balance"
+                  >
+                    {deepseekBalanceData.balance_infos.find(b => b.currency === 'USD')?.total_balance ?? '-'} USD
+                  </button>
+                )}
+              </div>
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditProvider(provider)}
+                  className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+                >
+                  Edit
+                </button>
                 <button
                   type="button"
                   onClick={() => discoverMutation.mutate(provider.id)}
@@ -519,6 +691,14 @@ export function Providers() {
           onClose={() => setQuotaUsage(null)}
           onRefresh={refetch}
           isRefreshing={isRefetching}
+          onToast={toast}
+        />
+      )}
+
+      {editProvider && (
+        <EditProviderModal
+          provider={editProvider}
+          onClose={() => setEditProvider(null)}
           onToast={toast}
         />
       )}

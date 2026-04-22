@@ -16,6 +16,13 @@ export interface CreateProviderRequest {
   api_key: string;
 }
 
+export interface UpdateProviderRequest {
+  name?: string;
+  base_url?: string;
+  api_key?: string;
+  enabled?: boolean;
+}
+
 export interface ProxyKey {
   id: string;
   name: string;

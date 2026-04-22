@@ -214,3 +214,30 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	}
 	return r.Get(ctx, id)
 }
+
+type UpdateModelRequest struct {
+	DisplayName           *string  `json:"display_name"`
+	ContextLength         *int     `json:"context_length"`
+	MaxOutputTokens       *int     `json:"max_output_tokens"`
+	InputPricePerMillion  *float64 `json:"input_price_per_million"`
+	OutputPricePerMillion *float64 `json:"output_price_per_million"`
+	Enabled               *bool    `json:"enabled"`
+}
+
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRequest) (*Model, error) {
+	query := `
+		UPDATE models
+		SET display_name = COALESCE($1, display_name),
+		    context_length = COALESCE($2, context_length),
+		    max_output_tokens = COALESCE($3, max_output_tokens),
+		    input_price_per_million = COALESCE($4, input_price_per_million),
+		    output_price_per_million = COALESCE($5, output_price_per_million),
+		    enabled = COALESCE($6, enabled)
+		WHERE id = $7
+	`
+	_, err := r.pool.Exec(ctx, query, req.DisplayName, req.ContextLength, req.MaxOutputTokens, req.InputPricePerMillion, req.OutputPricePerMillion, req.Enabled, id)
+	if err != nil {
+		return nil, err
+	}
+	return r.Get(ctx, id)
+}
