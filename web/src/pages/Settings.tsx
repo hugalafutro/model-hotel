@@ -193,25 +193,30 @@ export function Settings() {
             {/* Theme */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-300">Theme</p>
-                <p className="text-gray-500 text-xs mt-0.5">Switch between dark and light mode</p>
+                <p className={`text-sm font-medium ${uiStyle === 'cyber-terminal' ? 'text-gray-500' : 'text-gray-300'}`}>Theme</p>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  {uiStyle === 'cyber-terminal' ? 'Cyber Terminal is dark only' : 'Switch between dark and light mode'}
+                </p>
               </div>
-              <div className="flex rounded-lg overflow-hidden border border-gray-600">
+              <div className={`flex rounded-lg overflow-hidden border ${uiStyle === 'cyber-terminal' ? 'border-gray-700 opacity-60' : 'border-gray-600'}`}>
                 <button
                   type="button"
+                  disabled={uiStyle === 'cyber-terminal'}
                   onClick={() => setTheme('dark')}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     theme === 'dark' ? 'bg-(--accent) text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                  }`}
+                  } ${uiStyle === 'cyber-terminal' ? 'cursor-default' : ''}`}
                 >
                   Dark
                 </button>
                 <button
                   type="button"
+                  disabled={uiStyle === 'cyber-terminal'}
                   onClick={() => setTheme('light')}
+                  title={uiStyle === 'cyber-terminal' ? 'Cyber Terminal is dark only' : undefined}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     theme === 'light' ? 'bg-(--accent) text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                  }`}
+                  } ${uiStyle === 'cyber-terminal' ? 'cursor-not-allowed opacity-40' : ''}`}
                 >
                   Light
                 </button>
