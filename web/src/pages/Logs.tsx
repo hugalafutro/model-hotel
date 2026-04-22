@@ -37,7 +37,8 @@ function OverheadModal({
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-            role="presentation"
+            role="dialog"
+            aria-modal="true"
         >
             <div
                 className="ui-card relative p-5 min-w-[320px] shadow-2xl"
