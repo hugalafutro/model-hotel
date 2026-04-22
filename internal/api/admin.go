@@ -10,6 +10,8 @@ import (
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
 	"github.com/user/llm-proxy/internal/db"
+	"github.com/user/llm-proxy/internal/failover"
+	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
@@ -58,6 +60,10 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterLogs(r)
 	h.RegisterSettings(r)
 	h.RegisterVirtualKeys(r)
+
+	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	modelRepo := model.NewRepository(h.dbPool.Pool())
+	NewFailoverHandler(failoverRepo, modelRepo).Register(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 	NewSystemHandler(h.dbPool.Pool()).Register(r)
