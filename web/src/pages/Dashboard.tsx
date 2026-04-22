@@ -602,8 +602,8 @@ export function Dashboard() {
           <p className="text-(--text-tertiary) mt-1">Real-time overview of your LLM proxy traffic and performance</p>
         </div>
         <div className="flex gap-4">
-          <Gauge label="Avg Overhead (1h)" value={(gaugeStats?.avg_overhead_ms || 0)} decimals={1} suffix="ms" color={accents.overhead} />
-          <Gauge label="Error Rate (1h)" value={((gaugeStats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
+          <Gauge label="Avg Overhead/1h" value={(gaugeStats?.avg_overhead_ms || 0)} decimals={1} suffix="ms" color={accents.overhead} />
+          <Gauge label="Error Rate/1h" value={((gaugeStats?.error_rate || 0) * 100)} decimals={1} suffix="%" color={accents.errors} />
         </div>
       </div>
 
@@ -622,7 +622,7 @@ export function Dashboard() {
           accent={accents.models}
         />
         <StatCard
-          label="Requests (24h)"
+          label="Requests/1d"
           value={req24h}
           icon={Activity}
           accent={accents.requests}
@@ -630,13 +630,13 @@ export function Dashboard() {
           sparklineTooltip="Share of last 7 days traffic that was today"
         />
         <StatCard
-          label="Requests (7d)"
+          label="Requests/7d"
           value={stats?.total_requests_last_7d || 0}
           icon={TrendingUp}
           accent={accents.requests}
         />
         <StatCard
-          label="Avg Duration (24h)"
+          label="Avg Duration/1d"
           value={(stats?.avg_latency_ms || 0) / 1000}
           decimals={1}
           suffix="s"
@@ -644,7 +644,7 @@ export function Dashboard() {
           accent={accents.latency}
         />
         <StatCard
-          label="Avg Tokens (24h)"
+          label="Avg Tokens/1d"
           value={stats?.avg_tokens_per_request || 0}
           suffix="T/Rq"
           icon={Target}
