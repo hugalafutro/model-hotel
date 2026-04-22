@@ -63,7 +63,7 @@ func (h *Handler) Register(r chi.Router) {
 
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
 	modelRepo := model.NewRepository(h.dbPool.Pool())
-	NewFailoverHandler(failoverRepo, modelRepo).Register(r)
+	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo).Register(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 	NewSystemHandler(h.dbPool.Pool()).Register(r)

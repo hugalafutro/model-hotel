@@ -219,6 +219,7 @@ export interface FailoverGroup {
   group_enabled: boolean;
   auto_created: boolean;
   entries: FailoverEntry[];
+  total_tokens: number;
   created_at: string;
   updated_at: string;
 }

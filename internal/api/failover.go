@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 )
@@ -14,12 +15,14 @@ import (
 type FailoverHandler struct {
 	failoverRepo *failover.Repository
 	modelRepo    *model.Repository
+	dbPool       *pgxpool.Pool
 }
 
-func NewFailoverHandler(failoverRepo *failover.Repository, modelRepo *model.Repository) *FailoverHandler {
+func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
 		modelRepo:    modelRepo,
+		dbPool:       dbPool,
 	}
 }
 
@@ -39,9 +42,10 @@ type FailoverGroupResponse struct {
 	DisplayModel string                   `json:"display_model"`
 	DisplayName  *string                  `json:"display_name"`
 	Description  string                   `json:"description"`
-	GroupEnabled bool                     `json:"group_enabled"`
-	AutoCreated  bool                     `json:"auto_created"`
+	GroupEnabled bool                      `json:"group_enabled"`
+	AutoCreated  bool                      `json:"auto_created"`
 	Entries      []FailoverEntryResponse  `json:"entries"`
+	TotalTokens  int                      `json:"total_tokens"`
 	CreatedAt    string                   `json:"created_at"`
 	UpdatedAt    string                   `json:"updated_at"`
 }
@@ -73,6 +77,11 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tokenCounts, err := h.getTokenCounts(r.Context())
+	if err != nil {
+		tokenCounts = make(map[string]int)
+	}
+
 	responses := make([]FailoverGroupResponse, len(groups))
 	for i, g := range groups {
 		resp, err := h.buildGroupResponse(r.Context(), g)
@@ -80,11 +89,36 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		resp.TotalTokens = tokenCounts["hotel/"+g.DisplayModel]
 		responses[i] = resp
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responses)
+}
+
+func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, error) {
+	rows, err := h.dbPool.Query(ctx, `
+		SELECT model_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) as total_tokens
+		FROM request_logs
+		WHERE model_id LIKE 'hotel/%'
+		GROUP BY model_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var modelID string
+		var total int
+		if err := rows.Scan(&modelID, &total); err != nil {
+			continue
+		}
+		counts[modelID] = total
+	}
+	return counts, nil
 }
 
 func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {

@@ -21,6 +21,12 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toString()
+}
+
 interface SortableEntryProps {
   entry: FailoverGroup['entries'][0]
   onToggle: (uuid: string, enabled: boolean) => void
@@ -127,26 +133,17 @@ function FailoverGroupCard({
             <span className="text-xs text-gray-500 shrink-0">auto</span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => onDelete()}
-            className="text-gray-500 hover:text-red-400 text-xs"
-          >
-            delete
-          </button>
-          <button
-            type="button"
-            onClick={() => onToggleGroup(!group.group_enabled)}
-            className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
-              group.group_enabled
-                ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'
-                : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-            }`}
-          >
-            {group.group_enabled ? 'ON' : 'OFF'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onToggleGroup(!group.group_enabled)}
+          className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
+            group.group_enabled
+              ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'
+              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+          }`}
+        >
+          {group.group_enabled ? 'ON' : 'OFF'}
+        </button>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -160,7 +157,14 @@ function FailoverGroupCard({
       </DndContext>
 
       <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-        <span>{enabledCount}/{totalCount} active</span>
+        <span>{enabledCount}/{totalCount} active • {formatTokens(group.total_tokens)} tokens</span>
+        <button
+          type="button"
+          onClick={() => onDelete()}
+          className="text-gray-500 hover:text-red-400"
+        >
+          delete
+        </button>
       </div>
     </div>
   )
@@ -358,6 +362,7 @@ export function FailoverGroups() {
   const queryClient = useQueryClient()
 
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null)
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ['failover-groups'],
@@ -425,8 +430,13 @@ export function FailoverGroups() {
   }
 
   const handleDelete = (group: FailoverGroup) => {
-    if (confirm(`Delete failover group hotel/${group.display_model}?`)) {
-      deleteMutation.mutate(group.id)
+    setDeleteGroup(group)
+  }
+
+  const confirmDelete = () => {
+    if (deleteGroup) {
+      deleteMutation.mutate(deleteGroup.id)
+      setDeleteGroup(null)
     }
   }
 
@@ -499,6 +509,45 @@ export function FailoverGroups() {
           onClose={() => setShowCreateModal(false)}
           onCreated={() => setShowCreateModal(false)}
         />
+      )}
+
+      {deleteGroup && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 flex items-center justify-center z-50"
+          onKeyDown={e => e.key === 'Escape' && setDeleteGroup(null)}
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 cursor-default"
+            onClick={() => setDeleteGroup(null)}
+            aria-label="Close dialog"
+          />
+          <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-bold text-white mb-2">Delete Failover Group</h2>
+            <p className="text-sm text-gray-300 mb-4">
+              Are you sure you want to delete <span className="text-white font-medium">hotel/{deleteGroup.display_model}</span>? This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteGroup(null)}
+                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 bg-red-500/80 text-white rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
