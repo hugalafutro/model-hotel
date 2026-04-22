@@ -72,6 +72,14 @@ func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]mode
 	if fgErr == nil && len(fg.PriorityOrder) > 0 {
 		candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
 		for _, modelUUID := range fg.PriorityOrder {
+			entryEnabled := true
+			if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
+				entryEnabled = val
+			}
+			if !entryEnabled {
+				continue
+			}
+			
 			m, err := h.modelRepo.Get(ctx, modelUUID)
 			if err != nil || !m.Enabled || !m.ProviderEnabled {
 				continue
@@ -102,6 +110,77 @@ func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]mode
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
 	return candidates, modelLookupMs, nil
+}
+
+func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, float64, error) {
+	modelLookupStart := time.Now()
+
+	fg, err := h.failoverRepo.GetByModel(ctx, displayModel)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if !fg.GroupEnabled {
+		return nil, 0, fmt.Errorf("failover group disabled")
+	}
+
+	if len(fg.PriorityOrder) == 0 {
+		return nil, 0, fmt.Errorf("no entries in failover group")
+	}
+
+	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
+	for _, modelUUID := range fg.PriorityOrder {
+		entryEnabled := true
+		if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
+			entryEnabled = val
+		}
+		if !entryEnabled {
+			continue
+		}
+
+		m, err := h.modelRepo.Get(ctx, modelUUID)
+		if err != nil || !m.Enabled || !m.ProviderEnabled {
+			continue
+		}
+		prov, err := h.providerRepo.Get(ctx, m.ProviderID)
+		if err != nil || !prov.Enabled {
+			continue
+		}
+		apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+		if err != nil {
+			continue
+		}
+		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
+	}
+
+	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	return candidates, modelLookupMs, nil
+}
+
+func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, modelID string) ([]modelCandidate, float64, error) {
+	modelLookupStart := time.Now()
+
+	prov, err := h.providerRepo.GetByName(ctx, providerName)
+	if err != nil {
+		return nil, 0, fmt.Errorf("provider not found: %s", providerName)
+	}
+
+	m, err := h.modelRepo.GetByProviderAndModelID(ctx, prov.ID, modelID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
+	}
+
+	if !m.Enabled || !prov.Enabled {
+		return nil, 0, fmt.Errorf("model or provider disabled")
+	}
+
+	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, modelLookupMs, nil
 }
 
 func (h *Handler) shouldFailover(statusCode int) bool {
@@ -208,6 +287,65 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		}
 
 		openAIModels = append(openAIModels, item)
+	}
+
+	groups, err := h.failoverRepo.GetEnabled(r.Context())
+	if err == nil {
+		for _, g := range groups {
+			for _, modelUUID := range g.PriorityOrder {
+				entryEnabled := true
+				if val, ok := g.EntryEnabled[modelUUID.String()]; ok {
+					entryEnabled = val
+				}
+				if !entryEnabled {
+					continue
+				}
+
+				m, err := h.modelRepo.Get(r.Context(), modelUUID)
+				if err != nil || !m.Enabled || !m.ProviderEnabled {
+					continue
+				}
+
+				ownedBy := m.OwnedBy
+				if ownedBy == "" {
+					ownedBy = m.ProviderName
+				}
+
+				item := map[string]interface{}{
+					"id":      "hotel/" + g.DisplayModel,
+					"object":  "model",
+					"created": m.CreatedAt.Unix(),
+					"owned_by": ownedBy,
+				}
+
+				if m.ContextLength != nil {
+					item["context_length"] = *m.ContextLength
+				}
+				if m.MaxOutputTokens != nil {
+					item["max_output_tokens"] = *m.MaxOutputTokens
+				}
+				if m.DisplayName != "" {
+					item["name"] = m.DisplayName
+				} else if m.Name != "" {
+					item["name"] = m.Name
+				}
+				if m.Description != "" {
+					item["description"] = m.Description
+				}
+				if m.Modality != "" {
+					item["modality"] = m.Modality
+				}
+				if m.InputPricePerMillion != nil {
+					item["input_price_per_million"] = *m.InputPricePerMillion
+				}
+				if m.OutputPricePerMillion != nil {
+					item["output_price_per_million"] = *m.OutputPricePerMillion
+				}
+
+				openAIModels = append(openAIModels, item)
+				break
+			}
+		}
 	}
 
 	response := map[string]interface{}{
@@ -454,26 +592,75 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logData := &requestLogData{
-		modelID:        req.Model,
-		streaming:      req.Stream,
-		virtualKeyName: vkName,
-		virtualKeyID:   vkID,
+		modelID:         req.Model,
+		streaming:       req.Stream,
+		virtualKeyName:  vkName,
+		virtualKeyID:    vkID,
 		failoverAttempt: 0,
 	}
 	if err := h.insertRequestLog(r.Context(), logData); err != nil {
 		fmt.Printf("Failed to insert initial request log: %v\n", err)
 	}
 
-	candidates, modelLookupMs, err := h.resolveCandidates(r.Context(), req.Model)
-	if err != nil {
-		logData.statusCode = 500
-		logData.errorMessage = "failed to resolve model"
-		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
-		logData.parseMs = parseMs
-		h.updateRequestLog(r.Context(), logData)
-		http.Error(w, "failed to resolve model", http.StatusInternalServerError)
-		return
+	var candidates []modelCandidate
+	var modelLookupMs float64
+
+	if strings.HasPrefix(req.Model, "hotel/") {
+		displayModel := strings.TrimPrefix(req.Model, "hotel/")
+		candidates, modelLookupMs, err = h.resolveHotelModel(r.Context(), displayModel)
+		if err != nil {
+			logData.statusCode = 404
+			logData.errorMessage = err.Error()
+			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+			logData.parseMs = parseMs
+			h.updateRequestLog(r.Context(), logData)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if len(candidates) == 0 {
+			logData.statusCode = 502
+			logData.errorMessage = "no available provider for hotel/" + displayModel
+			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+			logData.parseMs = parseMs
+			h.updateRequestLog(r.Context(), logData)
+			http.Error(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
+			return
+		}
+	} else if strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/") {
+		parts := strings.SplitN(req.Model, "/", 2)
+		if len(parts) != 2 {
+			logData.statusCode = 400
+			logData.errorMessage = "invalid model format"
+			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+			logData.parseMs = parseMs
+			h.updateRequestLog(r.Context(), logData)
+			http.Error(w, "invalid model format, expected provider/model", http.StatusBadRequest)
+			return
+		}
+		providerName, modelID := parts[0], parts[1]
+		candidates, modelLookupMs, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
+		if err != nil {
+			logData.statusCode = 404
+			logData.errorMessage = err.Error()
+			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+			logData.parseMs = parseMs
+			h.updateRequestLog(r.Context(), logData)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+	} else {
+		candidates, modelLookupMs, err = h.resolveCandidates(r.Context(), req.Model)
+		if err != nil {
+			logData.statusCode = 500
+			logData.errorMessage = "failed to resolve model"
+			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+			logData.parseMs = parseMs
+			h.updateRequestLog(r.Context(), logData)
+			http.Error(w, "failed to resolve model", http.StatusInternalServerError)
+			return
+		}
 	}
+
 	if len(candidates) == 0 {
 		logData.statusCode = 404
 		logData.errorMessage = "model not found or disabled"

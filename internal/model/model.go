@@ -181,6 +181,24 @@ func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model
 	return scanModels(rows)
 }
 
+func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*Model, error) {
+	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.provider_id = $1 AND m.model_id = $2`
+
+	var m Model
+	err := r.pool.QueryRow(ctx, query, providerID, modelID).Scan(
+		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
+		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
+		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &m, nil
+}
+
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM models WHERE id = $1`
 	result, err := r.pool.Exec(ctx, query, id)

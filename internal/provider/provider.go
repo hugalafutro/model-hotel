@@ -119,6 +119,21 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	return &p, nil
 }
 
+func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, error) {
+	query := `SELECT ` + providerColumns + ` FROM providers WHERE name = $1`
+
+	var p Provider
+	err := r.pool.QueryRow(ctx, query, name).Scan(
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+		&p.LastDiscoveredAt, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	var maskedKey *string
 	if req.APIKey != nil {
