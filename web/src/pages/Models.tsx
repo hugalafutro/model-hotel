@@ -511,8 +511,8 @@ function ModelDetailModal({ model, onClose, onToggle, onDiscover, onTest, onToas
               onClick={handleDiscover}
               className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                 cooldown > 0 || discovering
-                  ? 'bg-[var(--accent-lighter)] text-[var(--accent)]/50 border-[var(--accent-light)] cursor-not-allowed'
-                  : 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-lighter)] cursor-pointer hover:brightness-125'
+                  ? 'bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed'
+                  : 'bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125'
               }`}
             >
               {discovering ? 'Updating...' : cooldown > 0 ? `Update (${cooldown}s)` : 'Update info'}

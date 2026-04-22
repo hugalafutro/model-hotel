@@ -130,7 +130,7 @@ function FailoverGroupCard({
   return (
     <div
       className={`bg-gray-800 border rounded-lg p-3 ${
-        group.group_enabled ? 'border-[var(--accent)]/30' : 'border-gray-700 opacity-60'
+        group.group_enabled ? 'border-(--accent)/30' : 'border-gray-700 opacity-60'
       }`}
     >
       <div className="flex items-center justify-between mb-2">
@@ -157,7 +157,7 @@ function FailoverGroupCard({
           onClick={() => onToggleGroup(!group.group_enabled)}
           className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
             group.group_enabled
-              ? 'bg-[var(--accent-light)] text-[var(--accent)] hover:bg-[var(--accent)]/30'
+              ? 'bg-(--accent-light) text-(--accent) hover:bg-(--accent)/30'
               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
           }`}
         >
@@ -284,7 +284,7 @@ function CreateGroupModal({
               autoFocus
               value={displayModel}
               onChange={e => setDisplayModel(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
               placeholder="e.g., glm-5"
             />
             <p className="text-gray-500 text-xs mt-1">
@@ -301,7 +301,7 @@ function CreateGroupModal({
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
               placeholder="e.g., GLM-5 Failover"
             />
           </div>
@@ -314,7 +314,7 @@ function CreateGroupModal({
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none mb-2"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none mb-2"
               placeholder="Search providers/models..."
             />
             <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
@@ -336,7 +336,7 @@ function CreateGroupModal({
                             setSelectedEntries(selectedEntries.filter(id => id !== m.model_uuid))
                           }
                         }}
-                        className="rounded border-gray-600 text-[var(--accent)] focus:ring-[var(--accent)]"
+                        className="rounded border-gray-600 text-(--accent) focus:ring-(--accent)"
                       />
                       <span className="text-sm text-gray-300">
                         {m.provider_name}
@@ -365,7 +365,7 @@ function CreateGroupModal({
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
+              className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
             >
               {createMutation.isPending ? 'Creating...' : 'Create Group'}
             </button>
@@ -483,7 +483,7 @@ export function FailoverGroups() {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:brightness-110 transition-all"
+            className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:brightness-110 transition-all"
           >
             New Group
           </button>
@@ -492,8 +492,8 @@ export function FailoverGroups() {
 
       <p className="text-gray-400 text-sm mb-6">
         Failover groups let you route requests through multiple providers in priority order.
-        Use <code className="text-[var(--accent)]">hotel/model-name</code> to route through a group,
-        or <code className="text-[var(--accent)]">provider/model-name</code> to use a specific provider.
+        Use <code className="text-(--accent)">hotel/model-name</code> to route through a group,
+        or <code className="text-(--accent)">provider/model-name</code> to use a specific provider.
       </p>
 
       {groups && groups.length === 0 ? (
@@ -502,7 +502,7 @@ export function FailoverGroups() {
           <button
             type="button"
             onClick={() => syncMutation.mutate()}
-            className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:brightness-110 transition-all"
+            className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:brightness-110 transition-all"
           >
             Auto-discover from models
           </button>

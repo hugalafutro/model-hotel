@@ -566,10 +566,10 @@ export function Providers() {
                   disabled={discoveringId !== null}
                   className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                     discoveringId === provider.id
-                      ? 'bg-[var(--accent-lighter)] text-[var(--accent)]/50 border-[var(--accent-light)] cursor-not-allowed'
+                      ? 'bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed'
                       : discoveringId !== null
                       ? 'bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed'
-                      : 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-lighter)] cursor-pointer hover:brightness-125'
+                      : 'bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125'
                   }`}
                 >
                   {discoveringId === provider.id ? 'Discovering...' : 'Discover Models'}

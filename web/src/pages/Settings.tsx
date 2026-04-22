@@ -83,7 +83,7 @@ export function Settings() {
                 id="discovery-interval"
                 value={discoveryInterval}
                 onChange={(e) => updateMutation.mutate({ discovery_interval: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
               >
                 {DISCOVERY_INTERVALS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -101,7 +101,7 @@ export function Settings() {
                 type="button"
                 onClick={() => updateMutation.mutate({ discovery_on_startup: discoveryOnStartup ? 'false' : 'true' })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  discoveryOnStartup ? 'bg-[var(--accent)]' : 'bg-gray-600'
+                  discoveryOnStartup ? 'bg-(--accent)' : 'bg-gray-600'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -119,7 +119,7 @@ export function Settings() {
                 type="button"
                 onClick={() => updateMutation.mutate({ discovery_on_provider_create: discoveryOnCreate ? 'false' : 'true' })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  discoveryOnCreate ? 'bg-[var(--accent)]' : 'bg-gray-600'
+                  discoveryOnCreate ? 'bg-(--accent)' : 'bg-gray-600'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -144,7 +144,7 @@ export function Settings() {
                   type="button"
                   onClick={() => setTheme('dark')}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    theme === 'dark' ? 'bg-[var(--accent)] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    theme === 'dark' ? 'bg-(--accent) text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                   }`}
                 >
                   Dark
@@ -153,7 +153,7 @@ export function Settings() {
                   type="button"
                   onClick={() => setTheme('light')}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    theme === 'light' ? 'bg-[var(--accent)] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    theme === 'light' ? 'bg-(--accent) text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                   }`}
                 >
                   Light
@@ -279,7 +279,7 @@ function LoggingSettings() {
             id="log-retention"
             value={logRetention}
             onChange={(e) => updateMutation.mutate({ log_retention: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent outline-none"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-(--accent) focus:border-transparent outline-none"
           >
             {LOG_RETENTION_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -402,10 +402,10 @@ function ProviderDiscoveryList() {
             disabled={discoveringId !== null}
             className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
               discoveringId === p.id
-                ? 'bg-[var(--accent-lighter)] text-[var(--accent)] border-[var(--accent-light)] cursor-not-allowed'
+                ? 'bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed'
                 : discoveringId !== null
                 ? 'bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed'
-                : 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-lighter)] cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
+                : 'bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]'
             }`}
           >
             {discoveringId === p.id ? 'Discovering...' : 'Discover Now'}
