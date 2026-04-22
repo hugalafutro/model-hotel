@@ -73,6 +73,7 @@ function StatCard({
   icon: Icon,
   accent,
   sparkline,
+  sparklineTooltip,
 }: {
   label: string
   value: number
@@ -81,6 +82,7 @@ function StatCard({
   icon: React.ElementType
   accent: string
   sparkline?: number // 0-1 ratio for tiny horizontal fill
+  sparklineTooltip?: string
 }) {
   return (
     <div className="ui-card p-5 group">
@@ -96,7 +98,10 @@ function StatCard({
         <AnimatedValue value={value} decimals={decimals} suffix={suffix} />
       </p>
       {sparkline != null && (
-        <div className="mt-3 h-1 rounded-full overflow-hidden bg-(--border-subtle)">
+        <div
+          className="mt-3 h-1 rounded-full overflow-hidden bg-(--border-subtle)"
+          title={sparklineTooltip}
+        >
           <div
             className="h-full rounded-full transition-all duration-1000"
             style={{ width: `${Math.max(0, Math.min(1, sparkline)) * 100}%`, backgroundColor: accent }}
@@ -395,6 +400,11 @@ export function Dashboard() {
     queryFn: () => api.models.list(),
   })
 
+  const { data: providers } = useQuery({
+    queryKey: ['providers'],
+    queryFn: () => api.providers.list(),
+  })
+
   const { data: tsData } = useQuery({
     queryKey: ['stats-timeseries'],
     queryFn: () => api.stats.getTimeSeries(),
@@ -505,7 +515,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard
           label="Total Providers"
-          value={Object.keys(stats?.by_provider || {}).length}
+          value={providers?.length || 0}
           icon={PlugZap}
           accent={accents.providers}
         />
@@ -521,6 +531,7 @@ export function Dashboard() {
           icon={Activity}
           accent={accents.requests}
           sparkline={sparkReq}
+          sparklineTooltip="Share of last 7 days traffic that was today"
         />
         <StatCard
           label="Requests (7d)"
@@ -542,6 +553,7 @@ export function Dashboard() {
           icon={Target}
           accent={accents.tokens}
           sparkline={tok24h > 0 ? promptTokens / tok24h : 0}
+          sparklineTooltip="Prompt tokens as share of total (prompt + completion)"
         />
       </div>
 
