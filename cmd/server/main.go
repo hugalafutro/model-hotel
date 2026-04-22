@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
+
 	"syscall"
 	"time"
 
@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	log.Printf("Starting LLM-Proxy with configuration:\n%s", cfg)
+	log.Printf("Starting Model Hotel with configuration:\n%s", cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -76,7 +76,8 @@ func main() {
 	// Security headers
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Content-Type-Options", "nosiff")
+			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
 			next.ServeHTTP(w, r)
@@ -100,10 +101,7 @@ func main() {
 				}
 			}
 
-			// Allow any HTTPS origin (production deployments)
-			if strings.HasPrefix(origin, "https://") {
-				allowed = true
-			}
+			w.Header().Set("Vary", "Origin")
 
 			if allowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -267,10 +265,8 @@ func main() {
 				time.Sleep(1 * time.Minute)
 				continue
 			}
+			runDiscovery()
 			time.Sleep(interval)
-			if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
-				runDiscovery()
-			}
 		}
 	}()
 
