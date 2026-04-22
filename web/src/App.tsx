@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from './components/Layout'
-import { Dashboard } from './pages/Dashboard'
 import { Providers } from './pages/Providers'
 import { Models } from './pages/Models'
 import { FailoverGroups } from './pages/FailoverGroups'
@@ -11,6 +10,8 @@ import { VirtualKeys } from './pages/VirtualKeys'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
 import { setAdminToken } from './api/client'
+
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
 
 function LoginScreen() {
   const [token, setToken] = useState('')
@@ -84,16 +85,22 @@ function AppContent() {
 
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/providers" element={<Providers />} />
-        <Route path="/models" element={<Models />} />
-        <Route path="/failover" element={<FailoverGroups />} />
-        <Route path="/virtual-keys" element={<VirtualKeys />} />
-        <Route path="/logs" element={<Logs />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: 'var(--accent)' }}></div>
+        </div>
+      }>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/providers" element={<Providers />} />
+          <Route path="/models" element={<Models />} />
+          <Route path="/failover" element={<FailoverGroups />} />
+          <Route path="/virtual-keys" element={<VirtualKeys />} />
+          <Route path="/logs" element={<Logs />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Suspense>
     </Layout>
   )
 }
