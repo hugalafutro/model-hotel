@@ -47,6 +47,10 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverGroup, error) {
+	if fg, ok := GetCachedFailoverByModel(modelID); ok {
+		return fg, nil
+	}
+
 	var fg FailoverGroup
 	var priorityJSON []byte
 	var entryEnabledJSON []byte
@@ -71,6 +75,7 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 		return nil, err
 	}
 
+	cacheFailoverGroup(&fg)
 	return &fg, nil
 }
 
@@ -127,16 +132,19 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		return nil, err
 	}
 
+	cacheFailoverGroup(&fg)
 	return &fg, nil
 }
 
 func (r *Repository) Delete(ctx context.Context, displayModel string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM model_failover_groups WHERE display_model = $1`, displayModel)
+	InvalidateFailoverCache()
 	return err
 }
 
 func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM model_failover_groups WHERE id = $1`, id)
+	InvalidateFailoverCache()
 	return err
 }
 
@@ -228,6 +236,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
+	cacheFailoverGroup(&fg)
 	return &fg, nil
 }
 

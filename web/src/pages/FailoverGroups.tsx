@@ -476,7 +476,7 @@ export function FailoverGroups() {
             type="button"
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
-            className="ui-btn-secondary disabled:opacity-50"
+            className="px-4 py-2 bg-(--surface-input) text-(--text-secondary) border border-(--border-subtle) rounded-lg hover:bg-(--surface-hover) hover:text-(--text-primary) disabled:opacity-50 transition-all"
           >
             {syncMutation.isPending ? 'Syncing...' : 'Sync'}
           </button>

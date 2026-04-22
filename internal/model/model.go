@@ -93,6 +93,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt,
 	)
 
+	InvalidateModelCache()
 	return err
 }
 
@@ -152,6 +153,10 @@ func (r *Repository) ListEnabled(ctx context.Context) ([]*Model, error) {
 }
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
+	if m, ok := GetCachedByUUID(id); ok {
+		return m, nil
+	}
+
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.id = $1`
 
 	var m Model
@@ -166,10 +171,15 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 		return nil, err
 	}
 
+	cacheModelByUUID(&m)
 	return &m, nil
 }
 
 func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model, error) {
+	if models, ok := GetCachedByModelID(modelID); ok {
+		return models, nil
+	}
+
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.model_id = $1 AND m.enabled = true AND p.enabled = true ORDER BY p.created_at ASC`
 
 	rows, err := r.pool.Query(ctx, query, modelID)
@@ -178,10 +188,20 @@ func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model
 	}
 	defer rows.Close()
 
-	return scanModels(rows)
+	models, err := scanModels(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	cacheModelsByModelID(modelID, models)
+	return models, nil
 }
 
 func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*Model, error) {
+	if m, ok := GetCachedByCompositeKey(providerID, modelID); ok {
+		return m, nil
+	}
+
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.provider_id = $1 AND m.model_id = $2`
 
 	var m Model
@@ -196,6 +216,8 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 		return nil, err
 	}
 
+	cacheModelByCompositeKey(providerID, modelID, &m)
+	cacheModelByUUID(&m)
 	return &m, nil
 }
 
@@ -210,6 +232,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return pgx.ErrNoRows
 	}
 
+	InvalidateModelCache()
 	return nil
 }
 
@@ -221,6 +244,7 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 	`
 
 	_, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
+	InvalidateModelCache()
 	return err
 }
 
@@ -230,6 +254,7 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	if err != nil {
 		return nil, err
 	}
+	InvalidateModelCache()
 	return r.Get(ctx, id)
 }
 
@@ -257,5 +282,6 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	if err != nil {
 		return nil, err
 	}
+	InvalidateModelCache()
 	return r.Get(ctx, id)
 }

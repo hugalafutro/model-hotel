@@ -302,7 +302,7 @@ function EditProviderModal({ provider, onClose, onToast }: { provider: Provider;
               <button
                 type="button"
                 onClick={handleClose}
-                className="ui-btn-secondary"
+                className="px-4 py-2 bg-(--surface-input) text-(--text-secondary) border border-(--border-subtle) rounded-lg hover:bg-(--surface-hover) hover:text-(--text-primary) transition-all"
               >
                 Cancel
               </button>

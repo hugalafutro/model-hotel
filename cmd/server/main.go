@@ -223,9 +223,10 @@ func main() {
 		}
 	}
 
-	// Pre-warm API key decryption cache and provider lookup cache for all enabled providers
+	// Pre-warm caches: key decryption, provider, model, and failover
 	go func() {
 		ctx := context.Background()
+
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
 			log.Printf("Cache warm: failed to list providers: %v", err)
@@ -240,7 +241,22 @@ func main() {
 			enabledProviders = append(enabledProviders, p)
 		}
 		provider.WarmProviderCache(enabledProviders)
-		log.Println("Key cache and provider cache warmed for all enabled providers")
+
+		enabledModels, err := modelRepo.ListEnabled(ctx)
+		if err != nil {
+			log.Printf("Cache warm: failed to list models: %v", err)
+		} else {
+			model.WarmModelCache(enabledModels)
+		}
+
+		failoverGroups, err := failoverRepo.List(ctx)
+		if err != nil {
+			log.Printf("Cache warm: failed to list failover groups: %v", err)
+		} else {
+			failover.WarmFailoverCache(failoverGroups)
+		}
+
+		log.Println("Key, provider, model, and failover caches warmed")
 	}()
 
 	// Periodic discovery based on settings interval

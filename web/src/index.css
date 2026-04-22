@@ -469,6 +469,12 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
   transition: all 0.15s ease;
   cursor: pointer;
   border: 1px solid transparent;
+  outline: none;
+}
+
+[data-ui-style] .ui-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 [data-ui-style] .ui-btn-primary {
@@ -484,7 +490,8 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
 [data-ui-style] .ui-btn-secondary {
   background-color: var(--surface-input);
   color: var(--text-secondary);
-  border-color: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-button);
 }
 
 [data-ui-style] .ui-btn-secondary:hover {
@@ -526,6 +533,12 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn {
 html[data-ui-style="glassmorphism-lite"] .ui-btn-primary {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
   border: 1px solid rgba(255,255,255,0.15);
+}
+
+html[data-ui-style="glassmorphism-lite"] .ui-btn-secondary {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
 /* =============================================
