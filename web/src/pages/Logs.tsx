@@ -8,7 +8,7 @@ function formatTPS(t: number | null): string {
   return t.toFixed(1)
 }
 
-function formatMs(v: number | null | undefined, decimals: number = 1): string {
+function formatMs(v: number | null | undefined, decimals: number = 2): string {
   if (v == null || v === 0) return '-'
   return v.toFixed(decimals) + 'ms'
 }
