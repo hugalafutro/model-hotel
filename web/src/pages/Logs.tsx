@@ -18,9 +18,11 @@ interface OverheadBreakdown {
   parse_ms: number
   model_lookup_ms: number
   provider_lookup_ms: number
+  key_decrypt_ms: number
 }
 
 function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; onClose: () => void }) {
+  const total = breakdown.parse_ms + breakdown.model_lookup_ms + breakdown.provider_lookup_ms + breakdown.key_decrypt_ms
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="presentation">
       <div className="ui-card p-5 min-w-[320px] shadow-2xl" role="document">
@@ -41,10 +43,14 @@ function OverheadModal({ breakdown, onClose }: { breakdown: OverheadBreakdown; o
             <span className="text-gray-400">Provider lookup</span>
             <span className="text-gray-200 font-mono">{formatMs(breakdown.provider_lookup_ms)}</span>
           </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Key decryption</span>
+            <span className="text-gray-200 font-mono">{formatMs(breakdown.key_decrypt_ms)}</span>
+          </div>
           <div className="border-t border-gray-700 my-2" />
           <div className="flex justify-between text-sm font-semibold">
             <span className="text-gray-300">Total overhead</span>
-            <span className="text-(--accent) font-mono">{formatMs(breakdown.proxy_overhead_ms)}</span>
+            <span className="text-(--accent) font-mono">{formatMs(total)}</span>
           </div>
         </div>
       </div>
@@ -176,7 +182,7 @@ export function Logs() {
             {logsData?.entries && logsData.entries.length > 0 ? (
               logsData.entries.map((log, idx) => {
                 const hasOverhead = log.proxy_overhead_ms != null && log.proxy_overhead_ms > 0
-                  && (log.parse_ms > 0 || log.model_lookup_ms > 0 || log.provider_lookup_ms > 0)
+                  && (log.parse_ms > 0 || log.model_lookup_ms > 0 || log.provider_lookup_ms > 0 || log.key_decrypt_ms > 0)
                 return (
                   <Row key={log.id} index={idx}>
                     <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
@@ -222,6 +228,7 @@ export function Logs() {
                             parse_ms: log.parse_ms || 0,
                             model_lookup_ms: log.model_lookup_ms || 0,
                             provider_lookup_ms: log.provider_lookup_ms || 0,
+                            key_decrypt_ms: log.key_decrypt_ms || 0,
                           }) : undefined}
                         >
                           {formatMs(log.proxy_overhead_ms)}

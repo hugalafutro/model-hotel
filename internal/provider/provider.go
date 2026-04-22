@@ -74,6 +74,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 		return nil, err
 	}
 
+	cacheProvider(&p)
 	return &p, nil
 }
 
@@ -105,6 +106,10 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 }
 
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
+	if p, ok := GetCachedByID(id); ok {
+		return p, nil
+	}
+
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = $1`
 
 	var p Provider
@@ -116,10 +121,15 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 		return nil, err
 	}
 
+	cacheProvider(&p)
 	return &p, nil
 }
 
 func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, error) {
+	if p, ok := GetCachedByName(name); ok {
+		return p, nil
+	}
+
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE name = $1`
 
 	var p Provider
@@ -131,6 +141,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 		return nil, err
 	}
 
+	cacheProvider(&p)
 	return &p, nil
 }
 
@@ -163,6 +174,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		return nil, err
 	}
 
+	cacheProvider(&p)
 	return &p, nil
 }
 
@@ -177,6 +189,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 		return pgx.ErrNoRows
 	}
 
+	InvalidateProviderCache()
 	return nil
 }
 

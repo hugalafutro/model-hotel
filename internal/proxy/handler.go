@@ -54,20 +54,29 @@ func NewHandler(
 	}
 }
 
-func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]modelCandidate, float64, error) {
+type resolveTimings struct {
+	modelLookupMs    float64
+	providerLookupMs float64
+	keyDecryptMs     float64
+}
+
+func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]modelCandidate, resolveTimings, error) {
+	var t resolveTimings
 	modelLookupStart := time.Now()
 
 	allModels, err := h.modelRepo.GetByModelID(ctx, modelID)
 	if err != nil {
-		return nil, 0, err
+		return nil, t, err
 	}
 	if len(allModels) == 0 {
-		return nil, 0, nil
+		return nil, t, nil
 	}
 
-	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
-
 	fg, fgErr := h.failoverRepo.GetByModel(ctx, modelID)
+	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+
+	providerLookupStart := time.Now()
+	var keyDecryptTotal float64
 
 	if fgErr == nil && len(fg.PriorityOrder) > 0 {
 		candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
@@ -88,13 +97,17 @@ func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]mode
 			if err != nil || !prov.Enabled {
 				continue
 			}
+			kdStart := time.Now()
 			apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
 			if err != nil {
 				continue
 			}
 			candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 		}
-		return candidates, modelLookupMs, nil
+		t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0 - keyDecryptTotal
+		t.keyDecryptMs = keyDecryptTotal
+		return candidates, t, nil
 	}
 
 	candidates := make([]modelCandidate, 0, len(allModels))
@@ -103,31 +116,40 @@ func (h *Handler) resolveCandidates(ctx context.Context, modelID string) ([]mode
 		if err != nil || !prov.Enabled {
 			continue
 		}
+		kdStart := time.Now()
 		apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+		keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
 		if err != nil {
 			continue
 		}
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
-	return candidates, modelLookupMs, nil
+	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0 - keyDecryptTotal
+	t.keyDecryptMs = keyDecryptTotal
+	return candidates, t, nil
 }
 
-func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, float64, error) {
+func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {
+	var t resolveTimings
 	modelLookupStart := time.Now()
 
 	fg, err := h.failoverRepo.GetByModel(ctx, displayModel)
 	if err != nil {
-		return nil, 0, err
+		return nil, t, err
 	}
 
 	if !fg.GroupEnabled {
-		return nil, 0, fmt.Errorf("failover group disabled")
+		return nil, t, fmt.Errorf("failover group disabled")
 	}
 
 	if len(fg.PriorityOrder) == 0 {
-		return nil, 0, fmt.Errorf("no entries in failover group")
+		return nil, t, fmt.Errorf("no entries in failover group")
 	}
 
+	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+
+	providerLookupStart := time.Now()
+	var keyDecryptTotal float64
 	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
 	for _, modelUUID := range fg.PriorityOrder {
 		entryEnabled := true
@@ -146,41 +168,50 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		if err != nil || !prov.Enabled {
 			continue
 		}
+		kdStart := time.Now()
 		apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+		keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
 		if err != nil {
 			continue
 		}
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
 
-	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
-	return candidates, modelLookupMs, nil
+	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0 - keyDecryptTotal
+	t.keyDecryptMs = keyDecryptTotal
+	return candidates, t, nil
 }
 
-func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, modelID string) ([]modelCandidate, float64, error) {
-	modelLookupStart := time.Now()
+func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, modelID string) ([]modelCandidate, resolveTimings, error) {
+	var t resolveTimings
+	providerLookupStart := time.Now()
 
 	prov, err := h.providerRepo.GetByName(ctx, providerName)
 	if err != nil {
-		return nil, 0, fmt.Errorf("provider not found: %s", providerName)
+		return nil, t, fmt.Errorf("provider not found: %s", providerName)
 	}
 
+	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
+
+	modelLookupStart := time.Now()
 	m, err := h.modelRepo.GetByProviderAndModelID(ctx, prov.ID, modelID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
+		return nil, t, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
 	}
+	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
 	if !m.Enabled || !prov.Enabled {
-		return nil, 0, fmt.Errorf("model or provider disabled")
+		return nil, t, fmt.Errorf("model or provider disabled")
 	}
 
+	kdStart := time.Now()
 	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+	t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
 	if err != nil {
-		return nil, 0, err
+		return nil, t, err
 	}
 
-	modelLookupMs := float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
-	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, modelLookupMs, nil
+	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, t, nil
 }
 
 func (h *Handler) shouldFailover(statusCode int) bool {
@@ -559,19 +590,20 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
+	parseStart := time.Now()
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
 	r.Body.Close()
-	parseMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
 
 	if req.Model == "" {
 		http.Error(w, "model is required", http.StatusBadRequest)
@@ -603,11 +635,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var candidates []modelCandidate
-	var modelLookupMs float64
+	var timings resolveTimings
 
 	if strings.HasPrefix(req.Model, "hotel/") {
 		displayModel := strings.TrimPrefix(req.Model, "hotel/")
-		candidates, modelLookupMs, err = h.resolveHotelModel(r.Context(), displayModel)
+		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
 			logData.statusCode = 404
 			logData.errorMessage = err.Error()
@@ -638,7 +670,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		providerName, modelID := parts[0], parts[1]
-		candidates, modelLookupMs, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
+		candidates, timings, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
 			logData.statusCode = 404
 			logData.errorMessage = err.Error()
@@ -649,7 +681,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		candidates, modelLookupMs, err = h.resolveCandidates(r.Context(), req.Model)
+		candidates, timings, err = h.resolveCandidates(r.Context(), req.Model)
 		if err != nil {
 			logData.statusCode = 500
 			logData.errorMessage = "failed to resolve model"
@@ -666,11 +698,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.errorMessage = "model not found or disabled"
 		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.parseMs = parseMs
-		logData.modelLookupMs = modelLookupMs
+		logData.modelLookupMs = timings.modelLookupMs
 		h.updateRequestLog(r.Context(), logData)
 		http.Error(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
+
+	proxyOverhead := parseMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs
 
 	var proxyReqBody []byte
 	if req.Stream {
@@ -691,13 +725,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var lastErr string
 	for attempt, candidate := range candidates {
 		logData.providerID = candidate.provider.ID
-		providerLookupMs := float64(time.Since(startTime).Microseconds()) / 1000.0
-
-		keyDecryptStart := time.Now()
-		apiKey := candidate.apiKey
-		keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
-
-		proxyOverhead := float64(time.Since(startTime).Microseconds()) / 1000.0
 		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
 
 		failoverCtx := r.Context()
@@ -706,7 +733,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
 			continue
 		}
-		proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
+		proxyReq.Header.Set("Authorization", "Bearer "+candidate.apiKey)
 		proxyReq.Header.Set("Content-Type", "application/json")
 
 		streamingClient := &http.Client{
@@ -743,9 +770,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.proxyOverheadMs = proxyOverhead
 			logData.parseMs = parseMs
-			logData.modelLookupMs = modelLookupMs
-			logData.providerLookupMs = providerLookupMs
-			logData.keyDecryptMs = keyDecryptMs
+			logData.modelLookupMs = timings.modelLookupMs
+			logData.providerLookupMs = timings.providerLookupMs
+			logData.keyDecryptMs = timings.keyDecryptMs
 			logData.ttftMs = ttft
 			logData.errorMessage = errMsg
 			logData.failoverAttempt = attempt
@@ -755,20 +782,22 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if req.Stream {
-			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft, vkHash, attempt)
+			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
 			return
 		}
 
-		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft, vkHash, attempt)
+		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
 		return
 	}
 
 	logData.providerID = uuid.Nil
 	logData.statusCode = 502
 	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
-	logData.proxyOverheadMs = logData.durationMs
+	logData.proxyOverheadMs = proxyOverhead
 	logData.parseMs = parseMs
-	logData.modelLookupMs = modelLookupMs
+	logData.modelLookupMs = timings.modelLookupMs
+	logData.providerLookupMs = timings.providerLookupMs
+	logData.keyDecryptMs = timings.keyDecryptMs
 	logData.errorMessage = fmt.Sprintf("all providers failed: %s", lastErr)
 	logData.failoverAttempt = len(candidates) - 1
 	h.updateRequestLog(r.Context(), logData)

@@ -223,21 +223,24 @@ func main() {
 		}
 	}
 
-	// Pre-warm API key decryption cache for all enabled providers
+	// Pre-warm API key decryption cache and provider lookup cache for all enabled providers
 	go func() {
 		ctx := context.Background()
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
-			log.Printf("Key cache warm: failed to list providers: %v", err)
+			log.Printf("Cache warm: failed to list providers: %v", err)
 			return
 		}
+		enabledProviders := make([]*provider.Provider, 0, len(providers))
 		for _, p := range providers {
 			if !p.Enabled {
 				continue
 			}
 			auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
+			enabledProviders = append(enabledProviders, p)
 		}
-		log.Println("Key cache warmed for all enabled providers")
+		provider.WarmProviderCache(enabledProviders)
+		log.Println("Key cache and provider cache warmed for all enabled providers")
 	}()
 
 	// Periodic discovery based on settings interval
