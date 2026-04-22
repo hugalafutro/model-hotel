@@ -428,11 +428,7 @@ html[data-ui-style="glassmorphism-lite"] .sidebar-logout {
 }
 
 html[data-ui-style="clean-saas"] .ui-card {
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
-}
-
-html[data-ui-style="clean-saas"] .ui-card:hover {
-  transform: translateY(-1px);
+  transition: box-shadow 0.2s ease;
 }
 
 html[data-ui-style="cyber-terminal"] .ui-card {
