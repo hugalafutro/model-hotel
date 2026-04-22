@@ -216,8 +216,9 @@ export const api = {
   },
 
   stats: {
-    get: async (): Promise<Stats> => {
-      const response = await fetch(`${API_BASE}/api/stats`, {
+    get: async (period?: string): Promise<Stats> => {
+      const url = period ? `${API_BASE}/api/stats?period=${period}` : `${API_BASE}/api/stats`
+      const response = await fetch(url, {
         headers: getAuthHeaders(),
       })
       if (!response.ok) {
@@ -226,8 +227,9 @@ export const api = {
       }
       return response.json()
     },
-    getTimeSeries: async (): Promise<TimeSeriesStats> => {
-      const response = await fetch(`${API_BASE}/api/stats/timeseries`, {
+    getTimeSeries: async (period?: string): Promise<TimeSeriesStats> => {
+      const url = period ? `${API_BASE}/api/stats/timeseries?period=${period}` : `${API_BASE}/api/stats/timeseries`
+      const response = await fetch(url, {
         headers: getAuthHeaders(),
       })
       if (!response.ok) {
@@ -236,8 +238,9 @@ export const api = {
       }
       return response.json()
     },
-    getProviderDistribution: async (): Promise<ProviderDistributionStats> => {
-      const response = await fetch(`${API_BASE}/api/stats/provider-distribution`, {
+    getProviderDistribution: async (period?: string): Promise<ProviderDistributionStats> => {
+      const url = period ? `${API_BASE}/api/stats/provider-distribution?period=${period}` : `${API_BASE}/api/stats/provider-distribution`
+      const response = await fetch(url, {
         headers: getAuthHeaders(),
       })
       if (!response.ok) {

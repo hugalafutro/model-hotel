@@ -23,6 +23,33 @@ import {
   Cell,
 } from 'recharts'
 
+type Range = '24h' | '7d'
+
+function RangeToggle({ value, onChange }: { value: Range; onChange: (v: Range) => void }) {
+  return (
+    <div className="flex items-center gap-0.5 ml-auto">
+      {(['24h', '7d'] as Range[]).map((r) => {
+        const active = value === r
+        const label = r === '24h' ? '1D' : '7D'
+        return (
+          <button
+            key={r}
+            onClick={() => onChange(r)}
+            className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-md transition-colors ${
+              active
+                ? 'text-white'
+                : 'text-(--text-muted) hover:text-(--text-secondary)'
+            }`}
+            style={active ? { backgroundColor: 'var(--accent)' } : {}}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /* =====================================================
    NUMBER FORMATTERS
    ===================================================== */
@@ -139,7 +166,7 @@ function StatCard({
 /* =====================================================
    TIME-SERIES AREA CHART
    ===================================================== */
-function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors: number }[] }) {
+function TimeSeriesChart({ data, range, onRangeChange }: { data: { hour: string; total: number; errors: number }[]; range: Range; onRangeChange: (r: Range) => void }) {
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#818cf8'
   const grid = getComputedStyle(document.documentElement).getPropertyValue('--border-subtle').trim() || 'rgba(255,255,255,0.04)'
   const text = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#7a7e8c'
@@ -161,9 +188,9 @@ function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
           <Activity size={18} className="text-(--accent)" />
-          Requests / Hour
+          Requests / {range === '24h' ? 'Hour' : 'Day'}
         </h3>
-        <span className="text-xs text-(--text-muted)">Last 24 hours</span>
+        <RangeToggle value={range} onChange={onRangeChange} />
       </div>
       <div className="h-60">
         <ResponsiveContainer width="100%" height="100%">
@@ -218,7 +245,7 @@ function TimeSeriesChart({ data }: { data: { hour: string; total: number; errors
 /* =====================================================
    PROVIDER DOUGHNUT
    ===================================================== */
-function ProviderDoughnut({ items }: { items: { name: string; count: number; share: number }[] }) {
+function ProviderDoughnut({ items, range, onRangeChange }: { items: { name: string; count: number; share: number }[]; range: Range; onRangeChange: (r: Range) => void }) {
   const colors = ['#818cf8', '#059669', '#fbbf24', '#f87171', '#a78bfa']
 
   if (items.length === 0) {
@@ -227,10 +254,13 @@ function ProviderDoughnut({ items }: { items: { name: string; count: number; sha
 
   return (
     <div className="ui-card p-6">
-      <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
-        <TrendingUp size={18} className="text-(--accent)" />
-        Provider Breakdown
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+          <TrendingUp size={18} className="text-(--accent)" />
+          Provider Breakdown
+        </h3>
+        <RangeToggle value={range} onChange={onRangeChange} />
+      </div>
       <div className="flex items-center gap-6">
         <div className="w-35 h-35">
           <ResponsiveContainer width="100%" height="100%">
@@ -274,7 +304,7 @@ function ProviderDoughnut({ items }: { items: { name: string; count: number; sha
 /* =====================================================
    TOKEN SPLIT BAR
    ===================================================== */
-function TokenSplitBar({ prompt, completion, total }: { prompt: number; completion: number; total: number }) {
+function TokenSplitBar({ prompt, completion, total, range, onRangeChange }: { prompt: number; completion: number; total: number; range: Range; onRangeChange: (r: Range) => void }) {
   const totalPC = prompt + completion
   if (totalPC === 0) return null
   const promptPct = (prompt / totalPC) * 100
@@ -282,10 +312,13 @@ function TokenSplitBar({ prompt, completion, total }: { prompt: number; completi
 
   return (
     <div className="ui-card p-6">
-      <h3 className="text-lg font-semibold text-(--text-primary) mb-1 flex items-center gap-2">
-        <Target size={18} className="text-(--accent)" />
-        Token Mix
-      </h3>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+          <Target size={18} className="text-(--accent)" />
+          Token Mix
+        </h3>
+        <RangeToggle value={range} onChange={onRangeChange} />
+      </div>
       <p className="text-2xl font-bold text-(--text-primary) mb-4" style={{ textTransform: 'none' }}>
         {total.toLocaleString()} <span className="text-sm font-normal text-(--text-muted)">Tokens</span>
       </p>
@@ -326,18 +359,25 @@ function UsageBarPanel({
   title,
   icon: Icon,
   entries,
+  range,
+  onRangeChange,
 }: {
   title: string
   icon: React.ElementType
   entries: { label: string; value: number; suffix?: string }[]
+  range: Range
+  onRangeChange: (r: Range) => void
 }) {
   const max = entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0
 
   return (
     <div className="ui-card p-6">
-      <div className="flex items-center gap-2 mb-5">
-        <Icon size={18} className="text-(--accent)" />
-        <h3 className="text-lg font-semibold text-(--text-primary)">{title}</h3>
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <Icon size={18} className="text-(--accent)" />
+          <h3 className="text-lg font-semibold text-(--text-primary)">{title}</h3>
+        </div>
+        <RangeToggle value={range} onChange={onRangeChange} />
       </div>
       {entries.length === 0 ? (
         <p className="text-sm text-(--text-muted) text-center py-8">No usage data available</p>
@@ -416,9 +456,16 @@ function Gauge({ label, value, decimals, suffix, color }: {
    DASHBOARD
    ===================================================== */
 export function Dashboard() {
+  const [tsRange, setTsRange] = useState<Range>('24h')
+  const [provRange, setProvRange] = useState<Range>('24h')
+  const [tokenRange, setTokenRange] = useState<Range>('24h')
+  const [modelRange, setModelRange] = useState<Range>('24h')
+  const [providerRange, setProviderRange] = useState<Range>('24h')
+  const [vkRange, setVkRange] = useState<Range>('24h')
+
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
-    queryKey: ['stats'],
-    queryFn: () => api.stats.get(),
+    queryKey: ['stats', tokenRange],
+    queryFn: () => api.stats.get(tokenRange),
     retry: 1,
   })
 
@@ -433,13 +480,28 @@ export function Dashboard() {
   })
 
   const { data: tsData } = useQuery({
-    queryKey: ['stats-timeseries'],
-    queryFn: () => api.stats.getTimeSeries(),
+    queryKey: ['stats-timeseries', tsRange],
+    queryFn: () => api.stats.getTimeSeries(tsRange),
   })
 
   const { data: provDist } = useQuery({
-    queryKey: ['stats-provider-distribution'],
-    queryFn: () => api.stats.getProviderDistribution(),
+    queryKey: ['stats-provider-distribution', provRange],
+    queryFn: () => api.stats.getProviderDistribution(provRange),
+  })
+
+  const { data: modelStats } = useQuery({
+    queryKey: ['stats-top-models', modelRange],
+    queryFn: () => api.stats.get(modelRange),
+  })
+
+  const { data: providerStats } = useQuery({
+    queryKey: ['stats-top-providers', providerRange],
+    queryFn: () => api.stats.get(providerRange),
+  })
+
+  const { data: vkStats } = useQuery({
+    queryKey: ['stats-top-virtual-keys', vkRange],
+    queryFn: () => api.stats.get(vkRange),
   })
 
   useQuery({
@@ -496,8 +558,11 @@ export function Dashboard() {
     if (!tsData?.points) return []
     return tsData.points.map((p) => {
       const d = new Date(p.bucket)
+      const label = tsRange === '7d'
+        ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : d.getHours().toString().padStart(2, '0') + ':00'
       return {
-        hour: d.getHours().toString().padStart(2, '0') + ':00',
+        hour: label,
         total: p.count,
         errors: p.errors,
         tokens: p.tokens,
@@ -506,10 +571,10 @@ export function Dashboard() {
     })
   })()
 
-  // Format usage panels
-  const byModel = stats ? Object.entries(stats.by_model).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v })) : []
-  const byProvider = stats ? Object.entries(stats.by_provider).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v })) : []
-  const byVK = stats ? Object.entries(stats.by_virtual_key).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v, suffix: ' tokens' })) : []
+  // Format usage panels from their respective range queries
+  const byModel = modelStats ? Object.entries(modelStats.by_model).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v })) : []
+  const byProvider = providerStats ? Object.entries(providerStats.by_provider).sort(([, a], [, b]) => b - a).slice(0, 5).map(([k, v]) => ({ label: k, value: v })) : []
+  const byVK = vkStats ? Object.entries(vkStats.by_virtual_key).sort(([, a], [, b]) => Number(b) - Number(a)).slice(0, 5).map(([k, v]) => ({ label: k, value: Number(v), suffix: ' tokens' })) : []
 
   // Card accent colors (subtle tints in light, slightly brighter in dark)
   const accents = {
@@ -583,25 +648,27 @@ export function Dashboard() {
       </div>
 
       { /* Time-series chart — full width */ }
-      <TimeSeriesChart data={acData} />
+      <TimeSeriesChart data={acData} range={tsRange} onRangeChange={setTsRange} />
 
       { /* Charts row: doughnut + token split */ }
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ProviderDoughnut items={provDist?.items || []} />
+        <ProviderDoughnut items={provDist?.items || []} range={provRange} onRangeChange={setProvRange} />
         {totalTokens > 0 && (
           <TokenSplitBar
             prompt={stats?.total_tokens_prompt || 0}
             completion={stats?.total_tokens_completion || 0}
             total={totalTokens}
+            range={tokenRange}
+            onRangeChange={setTokenRange}
           />
         )}
       </div>
 
       { /* Bottom row: three usage panels with horizontal bars */ }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <UsageBarPanel title="Top Models" icon={ArrowUpRight} entries={byModel} />
-        <UsageBarPanel title="Top Providers" icon={ArrowUpRight} entries={byProvider} />
-        <UsageBarPanel title="Top Virtual Keys" icon={ArrowUpRight} entries={byVK} />
+        <UsageBarPanel title="Top Models" icon={ArrowUpRight} entries={byModel} range={modelRange} onRangeChange={setModelRange} />
+        <UsageBarPanel title="Top Providers" icon={ArrowUpRight} entries={byProvider} range={providerRange} onRangeChange={setProviderRange} />
+        <UsageBarPanel title="Top Virtual Keys" icon={ArrowUpRight} entries={byVK} range={vkRange} onRangeChange={setVkRange} />
       </div>
     </div>
   )

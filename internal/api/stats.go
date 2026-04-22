@@ -74,8 +74,19 @@ func (h *StatsHandler) Register(r chi.Router) {
 	})
 }
 
+func parsePeriod(r *http.Request) time.Duration {
+	p := r.URL.Query().Get("period")
+	switch p {
+	case "7d":
+		return 7 * 24 * time.Hour
+	default:
+		return 24 * time.Hour
+	}
+}
+
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
-	stats, err := h.calculateStats(r.Context())
+	period := parsePeriod(r)
+	stats, err := h.calculateStats(r.Context(), period)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -85,16 +96,22 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, error) {
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration) (*StatsResponse, error) {
 	stats := &StatsResponse{
-		ByModel:       make(map[string]int),
-		ByProvider:    make(map[string]int),
-		ByVirtualKey:  make(map[string]int64),
+		ByModel:      make(map[string]int),
+		ByProvider:   make(map[string]int),
+		ByVirtualKey: make(map[string]int64),
 	}
 
 	now := time.Now()
-	_24hAgo := now.Add(-24 * time.Hour)
-	_7dAgo := now.Add(-7 * 24 * time.Hour)
+	since := now.Add(-period)
+
+	switch period {
+	case 7 * 24 * time.Hour:
+		stats.TotalRequestsLast7d = 0
+	default:
+		stats.TotalRequestsLast24h = 0
+	}
 
 	query := `
 		SELECT COUNT(*) as count
@@ -103,23 +120,33 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 	`
 
 	var count int
-	err := h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
+	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
 	if err != nil {
 		return nil, err
 	}
-	stats.TotalRequestsLast24h = count
 
-	query = `
-		SELECT COUNT(*) as count
-		FROM request_logs
-		WHERE created_at >= $1
-	`
-
-	err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
-	if err != nil {
-		return nil, err
+	switch period {
+	case 7 * 24 * time.Hour:
+		stats.TotalRequestsLast7d = count
+	default:
+		stats.TotalRequestsLast24h = count
 	}
-	stats.TotalRequestsLast7d = count
+
+	if period == 24*time.Hour {
+		_7dAgo := now.Add(-7 * 24 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
+		if err != nil {
+			return nil, err
+		}
+		stats.TotalRequestsLast7d = count
+	} else {
+		_24hAgo := now.Add(-24 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
+		if err != nil {
+			return nil, err
+		}
+		stats.TotalRequestsLast24h = count
+	}
 
 	query = `
 		SELECT model_id, COUNT(*) as count
@@ -130,7 +157,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		LIMIT 10
 	`
 
-	rows, err := h.dbPool.Query(ctx, query, _24hAgo)
+	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +182,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		LIMIT 10
 	`
 
-	rows, err = h.dbPool.Query(ctx, query, _24hAgo)
+	rows, err = h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		return nil, err
 	}
@@ -170,15 +197,16 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		stats.ByProvider[providerName] = count
 	}
 
-	query = `
-		SELECT vk.name, vk.tokens_used
-		FROM virtual_keys vk
-		WHERE vk.tokens_used > 0
-		ORDER BY vk.tokens_used DESC
+	virtualKeyQuery := `
+		SELECT rl.virtual_key_name, SUM(rl.tokens_prompt + rl.tokens_completion) as token_count
+		FROM request_logs rl
+		WHERE rl.created_at >= $1 AND rl.virtual_key_name IS NOT NULL AND rl.virtual_key_name != ''
+		GROUP BY rl.virtual_key_name
+		ORDER BY token_count DESC
 		LIMIT 10
 	`
 
-	rows, err = h.dbPool.Query(ctx, query)
+	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +227,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
 	`
 
-	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.AvgLatencyMs)
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
 	if err != nil {
 		stats.AvgLatencyMs = 0
 	}
@@ -214,7 +242,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		WHERE created_at >= $1
 	`
 
-	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.ErrorRate)
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.ErrorRate)
 	if err != nil {
 		stats.ErrorRate = 0
 	}
@@ -225,7 +253,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		WHERE created_at >= $1 AND proxy_overhead_ms > 0
 	`
 
-	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.AvgOverheadMs)
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgOverheadMs)
 	if err != nil {
 		stats.AvgOverheadMs = 0
 	}
@@ -236,7 +264,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		WHERE created_at >= $1
 	`
 
-	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion)
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion)
 	if err != nil {
 		stats.TotalTokensPrompt = 0
 		stats.TotalTokensCompletion = 0
@@ -251,7 +279,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 		WHERE created_at >= $1 AND status_code >= 200 AND status_code < 400
 	`
 
-	err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&stats.AvgTokensPerRequest)
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTokensPerRequest)
 	if err != nil {
 		stats.AvgTokensPerRequest = 0
 	}
@@ -260,13 +288,23 @@ func (h *StatsHandler) calculateStats(ctx context.Context) (*StatsResponse, erro
 }
 
 func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
+	period := parsePeriod(r)
 	ctx := r.Context()
 	now := time.Now().UTC()
-	_24hAgo := now.Add(-24 * time.Hour).Truncate(time.Hour)
+
+	bucketSize := "hour"
+	expectedBuckets := 24
+	since := now.Add(-period).Truncate(time.Hour)
+
+	if period >= 7*24*time.Hour {
+		bucketSize = "day"
+		expectedBuckets = 7
+		since = now.Add(-period).Truncate(24 * time.Hour)
+	}
 
 	query := `
 		SELECT
-			date_trunc('hour', created_at)::text as bucket,
+			date_trunc('` + bucketSize + `', created_at)::text as bucket,
 			COUNT(*) as count,
 			COALESCE(SUM(tokens_prompt + tokens_completion), 0) as tokens,
 			COUNT(*) FILTER (WHERE status_code >= 400) as errors,
@@ -277,14 +315,14 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		ORDER BY 1
 	`
 
-	rows, err := h.dbPool.Query(ctx, query, _24hAgo)
+	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	result := TimeSeriesStats{Points: make([]TimeSeriesPoint, 0, 24)}
+	result := TimeSeriesStats{Points: make([]TimeSeriesPoint, 0, expectedBuckets)}
 	for rows.Next() {
 		var p TimeSeriesPoint
 		var latency float64
@@ -295,23 +333,31 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		result.Points = append(result.Points, p)
 	}
 
-	// Fill empty hours so the chart doesn't have gaps
-	if len(result.Points) > 0 && len(result.Points) < 24 {
-		result.Points = fillEmptyHours(result.Points, _24hAgo, now.Truncate(time.Hour))
+	if len(result.Points) > 0 && len(result.Points) < expectedBuckets {
+		result.Points = fillEmptyBuckets(result.Points, since, now.Truncate(time.Hour), bucketSize)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
 
-func fillEmptyHours(points []TimeSeriesPoint, start, end time.Time) []TimeSeriesPoint {
+func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize string) []TimeSeriesPoint {
 	byBucket := make(map[string]TimeSeriesPoint)
 	for _, p := range points {
 		byBucket[p.Bucket] = p
 	}
-	filled := make([]TimeSeriesPoint, 0, 24)
-	for h := start; !h.After(end); h = h.Add(time.Hour) {
-		bucket := h.Format("2006-01-02T15:04:05") + "Z"
+
+	step := time.Hour
+	expected := 24
+	if bucketSize == "day" {
+		step = 24 * time.Hour
+		expected = 7
+		end = end.Truncate(24 * time.Hour)
+	}
+
+	filled := make([]TimeSeriesPoint, 0, expected)
+	for t := start; !t.After(end); t = t.Add(step) {
+		bucket := t.Format("2006-01-02T15:04:05") + "Z"
 		if p, ok := byBucket[bucket]; ok {
 			filled = append(filled, p)
 		} else {
@@ -322,9 +368,10 @@ func fillEmptyHours(points []TimeSeriesPoint, start, end time.Time) []TimeSeries
 }
 
 func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Request) {
+	period := parsePeriod(r)
 	ctx := r.Context()
 	now := time.Now()
-	_24hAgo := now.Add(-24 * time.Hour)
+	since := now.Add(-period)
 
 	query := `
 		SELECT p.name, COUNT(*) as count
@@ -336,7 +383,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		LIMIT 5
 	`
 
-	rows, err := h.dbPool.Query(ctx, query, _24hAgo)
+	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
