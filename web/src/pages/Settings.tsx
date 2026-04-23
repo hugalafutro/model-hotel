@@ -10,6 +10,10 @@ import {
     Settings as SettingsIcon,
     Gauge,
     X,
+    Search,
+    Palette,
+    ScrollText,
+    Zap,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 
@@ -223,9 +227,12 @@ export function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Model Discovery */}
                 <div className="ui-card p-6">
-                    <h2 className="text-xl font-semibold text-white mb-4">
-                        Model Discovery
-                    </h2>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Search size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Model Discovery
+                        </h2>
+                    </div>
                     <p className="text-gray-400 text-sm mb-6">
                         Configure how and when models are auto-discovered from
                         your providers.
@@ -336,9 +343,12 @@ export function Settings() {
 
                 {/* Appearance */}
                 <div className="ui-card p-6">
-                    <h2 className="text-xl font-semibold text-white mb-4">
-                        Appearance
-                    </h2>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Palette size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Appearance
+                        </h2>
+                    </div>
                     <div className="space-y-6">
                         {/* UI Style */}
                         <div>
@@ -509,9 +519,12 @@ export function Settings() {
 
                 {/* Provider List with Discovery Status */}
                 <div className="ui-card p-6">
-                    <h2 className="text-xl font-semibold text-white mb-4">
-                        Provider Discovery Status
-                    </h2>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Zap size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Provider Discovery Status
+                        </h2>
+                    </div>
                     <ProviderDiscoveryList />
                 </div>
             </div>
@@ -745,7 +758,10 @@ function LoggingSettings() {
 
     return (
         <div className="ui-card p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Logging</h2>
+            <div className="flex items-center gap-2 mb-1">
+                <ScrollText size={18} className="text-(--accent)" />
+                <h2 className="text-xl font-semibold text-white">Logging</h2>
+            </div>
 
             <div className="space-y-5">
                 <div>
