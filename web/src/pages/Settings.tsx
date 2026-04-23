@@ -2,13 +2,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
     Monitor,
     Terminal,
     Sparkles,
     Settings as SettingsIcon,
+    X,
 } from "lucide-react";
+import { HexColorPicker } from "react-colorful";
 
 const DISCOVERY_INTERVALS = [
     { value: "30m", label: "30 minutes" },
@@ -40,6 +42,98 @@ const UI_STYLES = [
     },
 ];
 
+function ColorPickerModal({
+    color,
+    onChange,
+    onClose,
+    onApply,
+}: {
+    color: string;
+    onChange: (color: string) => void;
+    onClose: () => void;
+    onApply: () => void;
+}) {
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 flex items-center justify-center z-50"
+            onKeyDown={(e) => {
+                if (e.key === "Escape") onClose();
+            }}
+        >
+            <button
+                type="button"
+                className="absolute inset-0 bg-black/60 cursor-default"
+                onClick={onClose}
+                aria-label="Close dialog"
+            />
+            <div className="relative ui-card p-6 w-full max-w-sm">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-white">
+                        Pick a Color
+                    </h3>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-white transition-colors"
+                        aria-label="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+                <div className="flex flex-col items-center gap-4">
+                    <HexColorPicker
+                        color={color}
+                        onChange={onChange}
+                        style={{ width: "100%", height: 200 }}
+                    />
+                    <div className="flex items-center gap-2 w-full">
+                        <span className="text-gray-400 text-sm font-mono">
+                            #
+                        </span>
+                        <input
+                            type="text"
+                            value={color.replace("#", "")}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(
+                                    /[^0-9a-fA-F]/g,
+                                    "",
+                                );
+                                if (val.length <= 6) {
+                                    onChange(`#${val}`);
+                                }
+                            }}
+                            className="ui-input font-mono text-sm flex-1"
+                            maxLength={6}
+                        />
+                        <div
+                            className="w-8 h-8 rounded-full border-2 border-gray-600 shrink-0"
+                            style={{ backgroundColor: color }}
+                        />
+                    </div>
+                    <div className="flex gap-3 w-full">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onApply}
+                            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium ui-btn ui-btn-primary"
+                        >
+                            Apply
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function formatRelativeTime(dateStr: string): string {
     const date = new Date(dateStr);
     const now = new Date();
@@ -65,6 +159,18 @@ export function Settings() {
     } = useTheme();
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerColor, setPickerColor] = useState(accentColor);
+
+    const openPicker = useCallback(() => {
+        setPickerColor(accentColor);
+        setPickerOpen(true);
+    }, [accentColor]);
+
+    const applyPickerColor = useCallback(() => {
+        setAccentColor(pickerColor);
+        setPickerOpen(false);
+    }, [pickerColor, setAccentColor]);
 
     const { data: settings, isLoading } = useQuery({
         queryKey: ["settings"],
@@ -350,19 +456,30 @@ export function Settings() {
                                         title={preset.name}
                                     />
                                 ))}
-                                <label className="relative cursor-pointer">
-                                    <input
-                                        type="color"
-                                        value={accentColor}
-                                        onChange={(e) =>
-                                            setAccentColor(e.target.value)
-                                        }
-                                        className="absolute inset-0 opacity-0 w-8 h-8"
-                                    />
-                                    <div
-                                        className="w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors"
-                                        title="Custom color"
-                                    >
+                                <button
+                                    type="button"
+                                    onClick={openPicker}
+                                    className={`w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors ${
+                                        accentColor &&
+                                        !accentPresets.some(
+                                            (p) => p.color === accentColor,
+                                        )
+                                            ? "bg-gray-800"
+                                            : ""
+                                    }`}
+                                    title="Custom color"
+                                >
+                                    {accentColor &&
+                                    !accentPresets.some(
+                                        (p) => p.color === accentColor,
+                                    ) ? (
+                                        <div
+                                            className="w-5 h-5 rounded-full"
+                                            style={{
+                                                backgroundColor: accentColor,
+                                            }}
+                                        />
+                                    ) : (
                                         <svg
                                             className="w-4 h-4 text-gray-400"
                                             fill="none"
@@ -376,8 +493,8 @@ export function Settings() {
                                                 d="M12 4v16m8-8H4"
                                             />
                                         </svg>
-                                    </div>
-                                </label>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -394,6 +511,15 @@ export function Settings() {
                     <ProviderDiscoveryList />
                 </div>
             </div>
+
+            {pickerOpen && (
+                <ColorPickerModal
+                    color={pickerColor}
+                    onChange={setPickerColor}
+                    onClose={() => setPickerOpen(false)}
+                    onApply={applyPickerColor}
+                />
+            )}
         </div>
     );
 }
