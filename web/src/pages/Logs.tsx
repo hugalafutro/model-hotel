@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ScrollText } from "lucide-react";
 import { StaticHeaderNoArrow, Row, EmptyRow } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
@@ -104,10 +104,9 @@ export function Logs() {
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
-    const [isRefetching, setIsRefetching] = useState(false);
     const { toast } = useToast();
 
-    const { data: logsData, isFetching } = useQuery({
+    const { data: logsData } = useQuery({
         queryKey: ["logs", page, pageSize, filters],
         queryFn: () =>
             api.logs.list({
@@ -119,15 +118,6 @@ export function Logs() {
         refetchInterval: liveEnabled ? 2000 : false,
         placeholderData: keepPreviousData,
     });
-
-    useEffect(() => {
-        if (!isFetching) {
-            setIsRefetching(false);
-            return;
-        }
-        const timer = setTimeout(() => setIsRefetching(true), 50);
-        return () => clearTimeout(timer);
-    }, [isFetching]);
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
@@ -188,11 +178,7 @@ export function Logs() {
                     >
                         <span
                             className={`w-2 h-2 rounded-full transition-colors ${
-                                liveEnabled
-                                    ? isRefetching
-                                        ? "bg-green-400 animate-[pulse-glow_1.2s_ease-in-out_infinite]"
-                                        : "bg-green-400"
-                                    : "bg-gray-500"
+                                liveEnabled ? "bg-green-400" : "bg-gray-500"
                             }`}
                         />
                         Live
@@ -433,8 +419,6 @@ export function Logs() {
                                     </Row>
                                 );
                             })
-                        ) : isFetching ? (
-                            <EmptyRow colSpan={11} message="" />
                         ) : (
                             <EmptyRow colSpan={11} message="No logs found" />
                         )}
