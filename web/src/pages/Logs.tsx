@@ -1,10 +1,20 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
-import { StaticHeaderNoArrow, Row, EmptyRow, PaginationBar } from "../components/DataTable";
+import {
+    StaticHeaderNoArrow,
+    Row,
+    EmptyRow,
+    PaginationBar,
+} from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
+
+// Module-level cache persists across renders without ref reads during render.
+// This prevents the table from disappearing during transient empty responses.
+let entryCache: LogEntry[] = [];
+let totalCache = 0;
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -105,8 +115,6 @@ export function Logs() {
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
-    const [cachedEntries, setCachedEntries] = useState<LogEntry[]>([]);
-    const [cachedTotal, setCachedTotal] = useState(0);
     const { toast } = useToast();
 
     const { data: logsData } = useQuery({
@@ -122,15 +130,30 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    useEffect(() => {
-        if (logsData?.entries) {
-            setCachedEntries(logsData.entries);
-            setCachedTotal(logsData.total);
-        }
-    }, [logsData]);
+    // Update module-level cache during render when we get non-empty data.
+    // This avoids useRef reads during render (React restriction) while still
+    // persisting data across transient empty responses.
+    if (logsData?.entries && logsData.entries.length > 0) {
+        entryCache = logsData.entries;
+        totalCache = logsData.total;
+    }
 
-    const displayEntries = logsData?.entries ?? cachedEntries;
-    const displayTotal = logsData?.total ?? cachedTotal;
+    // Use server data if it has entries; otherwise fall back to the cache.
+    // If we have never successfully loaded anything, show whatever the
+    // server gave us (even empty) so the EmptyRow renders correctly.
+    const displayEntries =
+        logsData?.entries && logsData.entries.length > 0
+            ? logsData.entries
+            : logsData !== undefined && logsData.total === 0
+              ? []
+              : entryCache;
+
+    const displayTotal =
+        logsData?.entries && logsData.entries.length > 0
+            ? logsData.total
+            : logsData !== undefined && logsData.total === 0
+              ? 0
+              : totalCache;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
@@ -243,7 +266,10 @@ export function Logs() {
                         totalItems={displayTotal}
                         pageSize={pageSize}
                         onPageChange={setPage}
-                        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+                        onPageSizeChange={(s) => {
+                            setPageSize(s);
+                            setPage(1);
+                        }}
                         label="entries"
                     />
                 )}
@@ -364,8 +390,8 @@ export function Logs() {
                                                 className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code, log.error_message)}`}
                                             >
                                                 {isInProgress(log) ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-blue-400 border-t-transparent rounded-full" />
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
                                                         <span className="text-blue-400">
                                                             {log.state ===
                                                             "streaming"
