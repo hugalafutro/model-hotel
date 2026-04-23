@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo } from "react";
-import { PlugZap } from "lucide-react";
+import { PlugZap, Eye, EyeOff } from "lucide-react";
 import type { NanoGPTUsage, Provider } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -547,6 +547,7 @@ export function Providers() {
         api_key: "",
         provider_type: "openai",
     });
+    const [showApiKey, setShowApiKey] = useState(false);
 
     const { data: providers, isLoading } = useQuery({
         queryKey: ["providers"],
@@ -668,7 +669,7 @@ export function Providers() {
 
     const handleProviderTypeChange = (type: string) => {
         const baseUrls: Record<string, string> = {
-            nanogpt: "https://api.nano-gpt.com/v1",
+            nanogpt: "https://nano-gpt.com/api/subscription/v1",
             "z-ai": "https://api.z.ai/api/paas/v4",
             openai: "https://api.openai.com/v1",
             deepseek: "https://api.deepseek.com/v1",
@@ -1000,20 +1001,41 @@ export function Providers() {
                                 >
                                     API Key
                                 </label>
-                                <input
-                                    id="provider-api-key"
-                                    type="password"
-                                    required
-                                    value={formData.api_key}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            api_key: e.target.value,
-                                        })
-                                    }
-                                    className="ui-input"
-                                    placeholder="API key"
-                                />
+                                <div className="relative">
+                                    <input
+                                        id="provider-api-key"
+                                        type={showApiKey ? "text" : "password"}
+                                        required
+                                        value={formData.api_key}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                api_key: e.target.value,
+                                            })
+                                        }
+                                        className="ui-input pr-10"
+                                        placeholder="API key"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowApiKey(!showApiKey)
+                                        }
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                                        tabIndex={-1}
+                                        aria-label={
+                                            showApiKey
+                                                ? "Hide API key"
+                                                : "Show API key"
+                                        }
+                                    >
+                                        {showApiKey ? (
+                                            <EyeOff size={18} />
+                                        ) : (
+                                            <Eye size={18} />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex space-x-3 justify-end pt-4">
@@ -1027,6 +1049,7 @@ export function Providers() {
                                             api_key: "",
                                             provider_type: "custom",
                                         });
+                                        setShowApiKey(false);
                                         setError(null);
                                     }}
                                     className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
@@ -1036,11 +1059,7 @@ export function Providers() {
                                 <button
                                     type="submit"
                                     disabled={createMutation.isPending}
-                                    className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-                                        createMutation.isPending
-                                            ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-                                            : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
-                                    }`}
+                                    className="ui-btn ui-btn-primary disabled:opacity-50"
                                 >
                                     {createMutation.isPending
                                         ? "Adding..."

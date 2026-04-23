@@ -6,12 +6,12 @@ import {
     PlugZap,
     Bot,
     Shuffle,
-    Hotel,
     KeyRound,
     ScrollText,
     Settings,
     LogOut,
 } from "lucide-react";
+import { Logo } from "./Logo";
 
 function formatDuration(seconds: number): string {
     const d = Math.floor(seconds / 86400);
@@ -221,11 +221,8 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0">
                 <div className="p-6">
-                    <h1 className="text-xl font-bold ui-sidebar-title flex items-center gap-2">
-                        <Hotel size={22} strokeWidth={2} />
-                        Model Hotel
-                    </h1>
-                    <p className="text-sm ui-sidebar-subtitle mt-1">
+                    <Logo className="h-8 w-auto text-white" />
+                    <p className="text-sm ui-sidebar-subtitle mt-2 ml-1">
                         Multi-Provider AI Gateway
                     </p>
                 </div>

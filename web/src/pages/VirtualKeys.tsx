@@ -148,7 +148,7 @@ function CreateKeyModal({
                                 <button
                                     type="submit"
                                     disabled={createMutation.isPending}
-                                    className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors disabled:opacity-50 cursor-pointer"
+                                    className="ui-btn ui-btn-primary disabled:opacity-50"
                                 >
                                     {createMutation.isPending
                                         ? "Creating..."
