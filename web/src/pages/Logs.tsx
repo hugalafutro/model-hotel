@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
@@ -125,8 +125,25 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    const displayEntries = logsData?.entries ?? [];
-    const displayTotal = logsData?.total ?? 0;
+    const lastGood = useRef<{ entries: LogEntry[]; total: number }>({
+        entries: [],
+        total: 0,
+    });
+
+    const hasFreshData = (logsData?.entries?.length ?? 0) > 0;
+    const freshEntries = logsData?.entries;
+    const freshTotal = logsData?.total ?? 0;
+
+    if (hasFreshData && freshEntries) {
+        lastGood.current = { entries: freshEntries, total: freshTotal };
+    }
+
+    const displayEntries = hasFreshData && freshEntries
+        ? freshEntries
+        : lastGood.current.entries;
+    const displayTotal = hasFreshData
+        ? freshTotal
+        : lastGood.current.total;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
