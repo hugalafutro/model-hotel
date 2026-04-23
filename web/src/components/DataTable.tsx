@@ -158,7 +158,7 @@ export function PaginationBar({
                         type="button"
                         onClick={() => setPage(page - 1)}
                         disabled={page === 1}
-                        className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-2 py-1 text-xs rounded-(--radius-button) border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Prev
                     </button>
@@ -196,7 +196,7 @@ export function PaginationBar({
                         type="button"
                         onClick={() => setPage(page + 1)}
                         disabled={page >= totalPages}
-                        className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-2 py-1 text-xs rounded-(--radius-button) border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Next
                     </button>
