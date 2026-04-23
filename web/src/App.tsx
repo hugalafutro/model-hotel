@@ -31,8 +31,8 @@ function LoginScreen() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="bg-gray-800 shadow-2xl ui-card p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">LLM-Proxy</h1>
-          <p className="text-gray-400">Multi-Provider LLM Proxy Dashboard</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Model Hotel</h1>
+          <p className="text-gray-400">Multi-Provider AI Gateway Dashboard</p>
         </div>
 
         {error && (

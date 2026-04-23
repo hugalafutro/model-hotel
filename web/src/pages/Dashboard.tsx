@@ -516,7 +516,12 @@ function UsageBarPanel({
 }: {
     title: string;
     icon: React.ElementType;
-    entries: { label: string; value: number; suffix?: string }[];
+    entries: {
+        label: string;
+        value: number;
+        suffix?: string;
+        deleted?: boolean;
+    }[];
     range: Range;
     onRangeChange: (r: Range) => void;
 }) {
@@ -545,7 +550,9 @@ function UsageBarPanel({
                         return (
                             <div key={entry.label} className="space-y-1.5">
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-(--text-secondary) truncate max-w-[70%]">
+                                    <span
+                                        className={`truncate max-w-[70%] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+                                    >
                                         {entry.label}
                                     </span>
                                     <span className="font-semibold text-(--text-primary) ml-2 shrink-0">
@@ -749,7 +756,7 @@ export function Dashboard() {
                 <div>
                     <h1 className="text-3xl font-bold text-white">Dashboard</h1>
                     <p className="text-gray-400 mt-1">
-                        Overview of your LLM proxy usage
+                        Overview of your Model Hotel usage
                     </p>
                 </div>
                 <div className="bg-red-900/50 border border-red-700 rounded-lg p-6 text-red-300">
@@ -810,6 +817,7 @@ export function Dashboard() {
                   label: k,
                   value: Number(v),
                   suffix: " tokens",
+                  deleted: k === "Deleted",
               }))
         : [];
 

@@ -101,10 +101,10 @@ export function Layout({ children }: LayoutProps) {
             <aside className="w-64 ui-sidebar shrink-0">
                 <div className="p-6">
                     <h1 className="text-xl font-bold ui-sidebar-title">
-                        LLM-Proxy
+                        Model Hotel
                     </h1>
                     <p className="text-sm ui-sidebar-subtitle mt-1">
-                        Multi-Provider LLM Proxy
+                        Multi-Provider AI Gateway
                     </p>
                 </div>
                 <nav className="flex-1 p-4 overflow-y-auto">

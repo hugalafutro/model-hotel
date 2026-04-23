@@ -1249,7 +1249,7 @@ export function Models() {
                     )}
                 </div>
                 <p className="text-gray-400 mt-1">
-                    Discovered LLM models from your providers
+                    Discovered models from your providers
                 </p>
             </div>
 

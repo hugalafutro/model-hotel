@@ -694,7 +694,7 @@ export function Providers() {
                 <div>
                     <h1 className="text-3xl font-bold text-white">Providers</h1>
                     <p className="text-gray-400 mt-1">
-                        Manage your LLM provider configurations
+                        Manage your provider configurations
                     </p>
                 </div>
                 <button
