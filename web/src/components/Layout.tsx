@@ -221,8 +221,8 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0">
                 <div className="p-6">
-                    <Logo className="h-8 w-auto text-white" />
-                    <p className="text-sm ui-sidebar-subtitle mt-2 ml-1">
+                    <Logo className="h-10 w-auto text-white" />
+                    <p className="text-base ui-sidebar-subtitle mt-2 ml-1">
                         Multi-Provider AI Gateway
                     </p>
                 </div>
