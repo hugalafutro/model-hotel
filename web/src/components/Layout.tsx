@@ -184,11 +184,11 @@ function SystemStatus() {
                         <span className="text-(--text-secondary)">
                             {formatMB(stats.db.size_mb)}
                         </span>
-                        <span className="text-(--text-muted) mx-1">|</span>
+                        <span className="text-(--text-secondary) mx-1">|</span>
                         <span className="text-(--text-secondary)">
                             {stats.db.connections} conn
                         </span>
-                        <span className="text-(--text-muted) mx-1">|</span>
+                        <span className="text-(--text-secondary) mx-1">|</span>
                         <span className="text-(--text-secondary)">
                             Hit {stats.db.cache_hit_ratio}%
                         </span>
