@@ -5,6 +5,7 @@ export interface Provider {
     masked_key: string;
     enabled: boolean;
     last_discovered_at: string | null;
+    last_used_at: string | null;
     created_at: string;
     updated_at: string;
     model_count: number;

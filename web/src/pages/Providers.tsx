@@ -968,6 +968,18 @@ export function Providers() {
                                         {provider.masked_key}
                                     </span>
                                 </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">
+                                        Last Used
+                                    </span>
+                                    <span className="text-gray-300">
+                                        {provider.last_used_at
+                                            ? new Date(
+                                                  provider.last_used_at,
+                                              ).toLocaleString()
+                                            : "N/A"}
+                                    </span>
+                                </div>
                                 {provider.last_discovered_at && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-500">

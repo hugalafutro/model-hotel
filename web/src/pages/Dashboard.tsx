@@ -581,7 +581,7 @@ function TokenSplitBar({
                         backgroundColor: "#059669",
                     }}
                 >
-                    {completionPct > 12 ? `${completionPct.toFixed(0)}%` : ""}
+                    {completionPct > 6 ? `${completionPct.toFixed(0)}%` : ""}
                 </div>
             </div>
             <div className="flex justify-between mt-3 text-sm">

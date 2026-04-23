@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -335,6 +336,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var lastErr string
 	for attempt, candidate := range candidates {
 		logData.providerID = candidate.provider.ID
+		go func(pid uuid.UUID) {
+			h.providerRepo.TouchLastUsed(context.Background(), pid)
+		}(candidate.provider.ID)
 		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
 
 		upstreamBody := proxyReqBody
