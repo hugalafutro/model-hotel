@@ -182,7 +182,7 @@ export function PaginationBar({
                                 key={pageNum}
                                 type="button"
                                 onClick={() => setPage(pageNum)}
-                                className={`px-2 py-1 text-xs rounded-(--radius-button) border ${
+                                className={`px-2 py-1 text-xs rounded-(--radius-button) border min-w-8 text-center ${
                                     page === pageNum
                                         ? "bg-(--accent) text-white border-(--accent)"
                                         : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
