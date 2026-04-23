@@ -89,6 +89,7 @@ export interface LogEntry {
     tokens_prompt_cache_hit: number;
     tokens_prompt_cache_miss: number;
     streaming: boolean;
+    state: string;
     virtual_key_name: string;
     virtual_key_deleted?: boolean;
     virtual_key_id?: string;

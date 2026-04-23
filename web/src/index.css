@@ -1007,3 +1007,17 @@ html.light .bg-blue-900\/30:hover {
         box-shadow: 0 0 6px 3px rgba(74, 222, 128, 0.5);
     }
 }
+
+@keyframes pulse-subtle {
+    0%,
+    100% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: rgba(59, 130, 246, 0.06);
+    }
+}
+
+.animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+}

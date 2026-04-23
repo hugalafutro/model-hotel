@@ -1,7 +1,8 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ScrollText } from "lucide-react";
+import type { LogEntry } from "../api/types";
 import { StaticHeaderNoArrow, Row, EmptyRow } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
 
@@ -104,6 +105,8 @@ export function Logs() {
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
+    const lastEntries = useRef<LogEntry[]>([]);
+    const lastTotal = useRef<number>(0);
     const { toast } = useToast();
 
     const { data: logsData } = useQuery({
@@ -118,6 +121,17 @@ export function Logs() {
         refetchInterval: liveEnabled ? 2000 : false,
         placeholderData: keepPreviousData,
     });
+
+    // Keep a local cache so the table never disappears during refetches
+    useEffect(() => {
+        if (logsData?.entries) {
+            lastEntries.current = logsData.entries;
+            lastTotal.current = logsData.total;
+        }
+    }, [logsData]);
+
+    const displayEntries = logsData?.entries ?? lastEntries.current;
+    const displayTotal = logsData?.total ?? lastTotal.current;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
@@ -139,6 +153,9 @@ export function Logs() {
         if (statusCode >= 500) return "bg-red-900/30 text-red-400";
         return "bg-gray-700 text-gray-300";
     };
+
+    const isInProgress = (log: LogEntry) =>
+        log.state === "pending" || log.state === "streaming";
 
     return (
         <div className="space-y-4">
@@ -275,8 +292,8 @@ export function Logs() {
                         </tr>
                     </thead>
                     <tbody>
-                        {logsData?.entries && logsData.entries.length > 0 ? (
-                            logsData.entries.map((log, idx) => {
+                        {displayEntries && displayEntries.length > 0 ? (
+                            displayEntries.map((log, idx) => {
                                 const hasOverhead =
                                     log.proxy_overhead_ms != null &&
                                     log.proxy_overhead_ms > 0 &&
@@ -285,7 +302,15 @@ export function Logs() {
                                         log.provider_lookup_ms > 0 ||
                                         log.key_decrypt_ms > 0);
                                 return (
-                                    <Row key={log.id} index={idx}>
+                                    <Row
+                                        key={log.id}
+                                        index={idx}
+                                        className={
+                                            isInProgress(log)
+                                                ? "animate-pulse-subtle"
+                                                : ""
+                                        }
+                                    >
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                                             {log.created_at
                                                 ? new Date(
@@ -308,9 +333,17 @@ export function Logs() {
                                             {log.model_id || "-"}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
-                                            {log.provider_name === "Deleted" ? (
+                                            {log.provider_name === "Deleted" &&
+                                            !isInProgress(log) ? (
                                                 <span className="text-red-400 italic">
                                                     Deleted
+                                                </span>
+                                            ) : isInProgress(log) &&
+                                              (!log.provider_name ||
+                                                  log.provider_name ===
+                                                      "Deleted") ? (
+                                                <span className="text-blue-400/60 italic">
+                                                    Resolving...
                                                 </span>
                                             ) : (
                                                 log.provider_name || "-"
@@ -320,10 +353,19 @@ export function Logs() {
                                             <span
                                                 className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code, log.error_message)}`}
                                             >
-                                                {log.status_code === 0 &&
-                                                log.duration_ms === 0
-                                                    ? "..."
-                                                    : log.status_code}
+                                                {isInProgress(log) ? (
+                                                    <span className="flex items-center gap-1">
+                                                        <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-blue-400 border-t-transparent rounded-full" />
+                                                        <span className="text-blue-400">
+                                                            {log.state ===
+                                                            "streaming"
+                                                                ? "Live"
+                                                                : "..."}
+                                                        </span>
+                                                    </span>
+                                                ) : (
+                                                    log.status_code
+                                                )}
                                             </span>
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
@@ -348,11 +390,20 @@ export function Logs() {
                                                 : "-"}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                                            {log.duration_ms > 0
-                                                ? log.duration_ms >= 1000
-                                                    ? `${(log.duration_ms / 1000).toFixed(1)}s`
-                                                    : `${log.duration_ms.toFixed(0)}ms`
-                                                : "-"}
+                                            {isInProgress(log) &&
+                                            log.duration_ms === 0 ? (
+                                                <span className="inline-block animate-pulse text-blue-400">
+                                                    —
+                                                </span>
+                                            ) : log.duration_ms > 0 ? (
+                                                log.duration_ms >= 1000 ? (
+                                                    `${(log.duration_ms / 1000).toFixed(1)}s`
+                                                ) : (
+                                                    `${log.duration_ms.toFixed(0)}ms`
+                                                )
+                                            ) : (
+                                                "-"
+                                            )}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
                                             {log.proxy_overhead_ms != null &&
@@ -418,12 +469,12 @@ export function Logs() {
                 </table>
             </div>
 
-            {logsData && logsData.total > 0 && (
+            {displayTotal > 0 && (
                 <div className="flex items-center justify-between">
                     <div className="text-sm text-gray-500">
                         Showing {(page - 1) * pageSize + 1} to{" "}
-                        {Math.min(page * pageSize, logsData.total)} of{" "}
-                        {logsData.total} entries
+                        {Math.min(page * pageSize, displayTotal)} of{" "}
+                        {displayTotal} entries
                     </div>
                     <div className="flex items-center gap-3">
                         <select
@@ -443,7 +494,7 @@ export function Logs() {
                             <option value={175}>175 / page</option>
                             <option value={200}>200 / page</option>
                         </select>
-                        {Math.ceil(logsData.total / pageSize) > 1 && (
+                        {Math.ceil(displayTotal / pageSize) > 1 && (
                             <div className="flex items-center gap-1">
                                 <button
                                     type="button"
@@ -459,14 +510,12 @@ export function Logs() {
                                     {
                                         length: Math.min(
                                             7,
-                                            Math.ceil(
-                                                logsData.total / pageSize,
-                                            ),
+                                            Math.ceil(displayTotal / pageSize),
                                         ),
                                     },
                                     (_, i) => {
                                         const totalPages = Math.ceil(
-                                            logsData.total / pageSize,
+                                            displayTotal / pageSize,
                                         );
                                         let pageNum: number;
                                         if (totalPages <= 7) {
@@ -504,13 +553,13 @@ export function Logs() {
                                         setPage((p) =>
                                             Math.min(
                                                 Math.ceil(
-                                                    logsData.total / pageSize,
+                                                    displayTotal / pageSize,
                                                 ),
                                                 p + 1,
                                             ),
                                         )
                                     }
-                                    disabled={page * pageSize >= logsData.total}
+                                    disabled={page * pageSize >= displayTotal}
                                     className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Next

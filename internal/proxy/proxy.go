@@ -31,6 +31,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	logData.keyDecryptMs = keyDecryptMs
 	logData.ttftMs = ttft
 	logData.failoverAttempt = attempt
+	logData.state = "streaming"
 	h.updateRequestLog(r.Context(), logData)
 
 	flusher, canFlush := w.(http.Flusher)
@@ -115,6 +116,11 @@ logUpdate:
 	logData.tokensPromptCacheMiss = promptCacheMissTokens
 	logData.errorMessage = errMsg
 	logData.failoverAttempt = attempt
+	if errMsg != "" {
+		logData.state = "failed"
+	} else {
+		logData.state = "completed"
+	}
 	h.updateRequestLog(r.Context(), logData)
 
 	if vkHash != "" && !clientDisconnected {
@@ -153,6 +159,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			logData.tokensPromptCacheMiss = chatResp.Usage.PromptTokens - chatResp.Usage.PromptCacheHitTokens
 		}
 		logData.failoverAttempt = attempt
+		logData.state = "completed"
 		h.updateRequestLog(r.Context(), logData)
 
 		if vkHash != "" {
@@ -180,6 +187,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.ttftMs = ttft
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
+		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
 		http.Error(w, errMsg, resp.StatusCode)
 	}
@@ -227,6 +235,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		virtualKeyName:  vkName,
 		virtualKeyID:    vkID,
 		failoverAttempt: 0,
+		state:           "pending",
 	}
 	if err := h.insertRequestLog(r.Context(), logData); err != nil {
 		fmt.Printf("Failed to insert initial request log: %v\n", err)
@@ -243,6 +252,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.errorMessage = err.Error()
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.parseMs = parseMs
+			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -252,6 +262,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.errorMessage = "no available provider for hotel/" + displayModel
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.parseMs = parseMs
+			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
 			http.Error(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
 			return
@@ -263,6 +274,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.errorMessage = "invalid model format"
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.parseMs = parseMs
+			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
 			http.Error(w, "invalid model format, expected provider/model", http.StatusBadRequest)
 			return
@@ -274,6 +286,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.errorMessage = err.Error()
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.parseMs = parseMs
+			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -283,6 +296,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.errorMessage = "invalid model format: " + req.Model
 		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.parseMs = parseMs
+		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
 		http.Error(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
 		return
@@ -294,6 +308,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.parseMs = parseMs
 		logData.modelLookupMs = timings.modelLookupMs
+		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
 		http.Error(w, "model not found or disabled", http.StatusNotFound)
 		return
@@ -385,6 +400,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.ttftMs = ttft
 			logData.errorMessage = errMsg
 			logData.failoverAttempt = attempt
+			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
 			http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
 			return
@@ -409,6 +425,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	logData.keyDecryptMs = timings.keyDecryptMs
 	logData.errorMessage = fmt.Sprintf("all providers failed: %s", lastErr)
 	logData.failoverAttempt = len(candidates) - 1
+	logData.state = "failed"
 	h.updateRequestLog(r.Context(), logData)
 	http.Error(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
 }

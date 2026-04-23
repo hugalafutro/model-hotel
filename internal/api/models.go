@@ -224,16 +224,16 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 				provider_id, model_id, request_id, request_hash, status_code,
 				latency_ms, duration_ms, ttft_ms,
 				proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
-				error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt
+				error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		`
 		durationMs := float64(time.Since(start).Milliseconds())
 		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 			m.ProviderID, m.ModelID, reqHash, reqHash, 502,
 			durationMs, durationMs, durationMs,
 			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
-			err.Error(), false, "admin", nil, 0,
+			err.Error(), false, "admin", nil, 0, "failed",
 		)
 		if logErr != nil {
 			fmt.Printf("TestModel log insert failed: %v\n", logErr)
@@ -259,16 +259,16 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 				provider_id, model_id, request_id, request_hash, status_code,
 				latency_ms, duration_ms, ttft_ms,
 				proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
-				error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt
+				error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 		`
 		durationMs := float64(duration)
 		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 			m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
 			durationMs, durationMs, durationMs,
 			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
-			errMsg, 0, 0, 0, false, "admin", nil, 0,
+			errMsg, 0, 0, 0, false, "admin", nil, 0, "failed",
 		)
 		if logErr != nil {
 			fmt.Printf("TestModel log insert failed: %v\n", logErr)
@@ -307,16 +307,16 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			provider_id, model_id, request_id, request_hash, status_code,
 			latency_ms, duration_ms, ttft_ms,
 			proxy_overhead_ms, parse_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms,
-			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt
+			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 	`
 	durationMs := float64(duration)
 	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
 		durationMs, durationMs, durationMs,
 		proxyOverheadMs, 0, 0, 0, keyDecryptMs,
-		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", nil, 0,
+		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", nil, 0, "completed",
 	)
 	if logErr != nil {
 		fmt.Printf("TestModel log insert failed: %v\n", logErr)

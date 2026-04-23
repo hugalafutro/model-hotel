@@ -36,6 +36,7 @@ type LogEntry struct {
 	VirtualKeyID      string    `json:"virtual_key_id"`
 	ErrorMessage      string    `json:"error_message"`
 	FailoverAttempt   int       `json:"failover_attempt"`
+	State             string    `json:"state"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 
@@ -126,7 +127,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
                     ) THEN true
                     ELSE false
                 END AS virtual_key_deleted,
-               COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), rl.created_at
+               COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -210,7 +211,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 			&entry.ErrorMessage,
-			&entry.FailoverAttempt, &entry.CreatedAt,
+			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 		)
 		if err != nil {
 			continue

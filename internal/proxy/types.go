@@ -13,29 +13,30 @@ const virtualKeyIDKey contextKey = "virtual_key_id"
 const virtualKeyHashKey contextKey = "virtual_key_hash"
 
 type requestLogData struct {
-	id                      string
-	providerID              uuid.UUID
-	modelID                 string
-	requestHash             string
-	providerName            string
-	statusCode              int
-	durationMs              float64
-	proxyOverheadMs         float64
-	parseMs                 float64
-	modelLookupMs           float64
-	providerLookupMs        float64
-	keyDecryptMs            float64
-	ttftMs                  float64
-	tokensPerSecond         float64
-	tokensPrompt            int
-	tokensCompletion        int
-	tokensPromptCacheHit    int
-	tokensPromptCacheMiss   int
-	streaming               bool
-	virtualKeyName          string
-	virtualKeyID            string
-	errorMessage           string
-	failoverAttempt         int
+	id                    string
+	providerID            uuid.UUID
+	modelID               string
+	requestHash           string
+	providerName          string
+	statusCode            int
+	durationMs            float64
+	proxyOverheadMs       float64
+	parseMs               float64
+	modelLookupMs         float64
+	providerLookupMs      float64
+	keyDecryptMs          float64
+	ttftMs                float64
+	tokensPerSecond       float64
+	tokensPrompt          int
+	tokensCompletion      int
+	tokensPromptCacheHit  int
+	tokensPromptCacheMiss int
+	streaming             bool
+	virtualKeyName        string
+	virtualKeyID          string
+	errorMessage          string
+	failoverAttempt       int
+	state                 string
 }
 
 type modelCandidate struct {
@@ -71,9 +72,9 @@ type Message struct {
 }
 
 type Usage struct {
-	PromptTokens            int `json:"prompt_tokens"`
-	CompletionTokens        int `json:"completion_tokens"`
-	TotalTokens             int `json:"total_tokens"`
-	PromptCacheHitTokens    int `json:"prompt_cache_hit_tokens,omitempty"`
-	PromptCacheMissTokens   int `json:"prompt_cache_miss_tokens,omitempty"`
+	PromptTokens          int `json:"prompt_tokens"`
+	CompletionTokens      int `json:"completion_tokens"`
+	TotalTokens           int `json:"total_tokens"`
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens,omitempty"`
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens,omitempty"`
 }

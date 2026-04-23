@@ -10,9 +10,9 @@ func (h *Handler) insertRequestLog(_ context.Context, log *requestLogData) error
 	log.id = uuid.New().String()
 	log.requestHash = generateRequestHash()
 	_, err := h.dbPool.Exec(context.Background(), `
-		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, log.virtualKeyID, log.failoverAttempt,
+		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, log.virtualKeyID, log.failoverAttempt, log.state,
 	)
 	return err
 }
@@ -35,12 +35,13 @@ func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
 			tokens_prompt_cache_hit = $14,
 			tokens_prompt_cache_miss = $15,
 			error_message = $16,
-			failover_attempt = $17
+			failover_attempt = $17,
+			state = $18
 		WHERE id = $1`,
 		log.id, log.providerID, log.statusCode, log.durationMs,
 		log.proxyOverheadMs, log.parseMs, log.modelLookupMs, log.providerLookupMs,
 		log.keyDecryptMs, log.ttftMs, log.tokensPerSecond, log.tokensPrompt,
 		log.tokensCompletion, log.tokensPromptCacheHit, log.tokensPromptCacheMiss,
-		log.errorMessage, log.failoverAttempt,
+		log.errorMessage, log.failoverAttempt, log.state,
 	)
 }
