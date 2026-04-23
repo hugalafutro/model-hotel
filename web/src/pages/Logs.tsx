@@ -11,10 +11,8 @@ import {
 } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
 
-// Module-level cache persists across renders without ref reads during render.
-// This prevents the table from disappearing during transient empty responses.
-let entryCache: LogEntry[] = [];
-let totalCache = 0;
+// No manual cache needed: React Query's keepPreviousData handles transient
+// empty responses automatically.
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -130,30 +128,11 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    // Update module-level cache during render when we get non-empty data.
-    // This avoids useRef reads during render (React restriction) while still
-    // persisting data across transient empty responses.
-    if (logsData?.entries && logsData.entries.length > 0) {
-        entryCache = logsData.entries;
-        totalCache = logsData.total;
-    }
-
-    // Use server data if it has entries; otherwise fall back to the cache.
-    // If we have never successfully loaded anything, show whatever the
-    // server gave us (even empty) so the EmptyRow renders correctly.
-    const displayEntries =
-        logsData?.entries && logsData.entries.length > 0
-            ? logsData.entries
-            : logsData !== undefined && logsData.total === 0
-              ? []
-              : entryCache;
-
-    const displayTotal =
-        logsData?.entries && logsData.entries.length > 0
-            ? logsData.total
-            : logsData !== undefined && logsData.total === 0
-              ? 0
-              : totalCache;
+    // keepPreviousData in the query config handles transient empty responses.
+    // Use the current data if available; otherwise let React Query keep the
+    // previous page visible while fetching.
+    const displayEntries = logsData?.entries ?? [];
+    const displayTotal = logsData?.total ?? 0;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
