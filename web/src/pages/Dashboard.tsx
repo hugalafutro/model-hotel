@@ -1136,6 +1136,7 @@ export function Dashboard() {
         overhead: "#f472b6",
         errors: "#ef4444",
         tokens: "#22c55e",
+        rateLimit: "#a855f7",
     };
 
     return (
@@ -1170,6 +1171,14 @@ export function Dashboard() {
                 </div>
                 <div className="flex gap-4">
                     <Gauge
+                        label="Requests/1h"
+                        value={gaugeStats?.total_requests_last_24h || 0}
+                        decimals={0}
+                        suffix=""
+                        color={accents.requests}
+                        tooltip="Requests in the last hour"
+                    />
+                    <Gauge
                         label="Avg Overhead/1h"
                         value={gaugeStats?.avg_overhead_ms || 0}
                         decimals={1}
@@ -1177,6 +1186,22 @@ export function Dashboard() {
                         color={accents.overhead}
                         onClick={() => setOverheadModalOpen(true)}
                         tooltip="Click to view overhead history"
+                    />
+                    <Gauge
+                        label="Avg TTFT/1h"
+                        value={gaugeStats?.avg_ttft_ms || 0}
+                        decimals={0}
+                        suffix="ms"
+                        color={accents.latency}
+                        tooltip="Average time to first token in the last hour"
+                    />
+                    <Gauge
+                        label="Rate Limit Hits/1h"
+                        value={gaugeStats?.rate_limit_hits || 0}
+                        decimals={0}
+                        suffix=""
+                        color="#a855f7"
+                        tooltip="429 rate limit responses in the last hour"
                     />
                     <Gauge
                         label="Error Rate/1h"

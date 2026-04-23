@@ -38,6 +38,9 @@ type StatsResponse struct {
 	TotalTokensPrompt     int              `json:"total_tokens_prompt"`
 	TotalTokensCompletion int              `json:"total_tokens_completion"`
 	AvgTokensPerRequest   float64          `json:"avg_tokens_per_request"`
+	RateLimitHits         int              `json:"rate_limit_hits"`
+	AvgTTFTMs             float64          `json:"avg_ttft_ms"`
+	RequestsLast1h        int              `json:"requests_last_1h"`
 }
 
 // TimeSeriesPoint holds a single bucket of time-series data.
@@ -49,6 +52,8 @@ type TimeSeriesPoint struct {
 	Latency           float64 `json:"latency_ms"`
 	OverheadMs        float64 `json:"overhead_ms"`
 	ProviderLatencyMs float64 `json:"provider_latency_ms"`
+	RateLimitHits     int     `json:"rate_limit_hits"`
+	AvgTTFTMs         float64 `json:"avg_ttft_ms"`
 }
 
 // TimeSeriesStats groups hourly aggregates returned by /api/stats/timeseries.
@@ -367,6 +372,43 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		stats.AvgTokensPerRequest = 0
 	}
 
+	// Query 10: Rate limit hits (429 count)
+	query = `
+		SELECT COUNT(*) FILTER (WHERE rl.status_code = 429)
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
+
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.RateLimitHits)
+	if err != nil {
+		stats.RateLimitHits = 0
+	}
+
+	// Query 11: Avg TTFT
+	query = `
+		SELECT COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0), 0) as avg_ttft
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1 AND rl.status_code >= 200 AND rl.status_code < 400` + vkFilter
+
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTTFTMs)
+	if err != nil {
+		stats.AvgTTFTMs = 0
+	}
+
+	// Requests in last 1h
+	if period == 1*time.Hour {
+		stats.RequestsLast1h = count
+	} else {
+		_1hAgo := now.Add(-1 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, `
+			SELECT COUNT(*) as count
+			FROM request_logs rl`+vkJoin+`
+			WHERE rl.created_at >= $1`+vkFilter, _1hAgo).Scan(&count)
+		if err != nil {
+			count = 0
+		}
+		stats.RequestsLast1h = count
+	}
+
 	return stats, nil
 }
 
@@ -400,7 +442,9 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
-			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as provider_latency_ms
+			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as provider_latency_ms,
+			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
+			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code >= 200 AND rl.status_code < 400), 0) as avg_ttft_ms
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1
@@ -416,13 +460,14 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	result := TimeSeriesStats{Points: make([]TimeSeriesPoint, 0, expectedBuckets)}
 	for rows.Next() {
 		var p TimeSeriesPoint
-		var latency, overheadMs, providerLatencyMs float64
-		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &p.Errors, &latency, &overheadMs, &providerLatencyMs); err != nil {
+		var latency, overheadMs, providerLatencyMs, avgTTFTMs float64
+		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &p.Errors, &latency, &overheadMs, &providerLatencyMs, &p.RateLimitHits, &avgTTFTMs); err != nil {
 			continue
 		}
 		p.Latency = latency
 		p.OverheadMs = overheadMs
 		p.ProviderLatencyMs = providerLatencyMs
+		p.AvgTTFTMs = avgTTFTMs
 		result.Points = append(result.Points, p)
 	}
 
@@ -454,7 +499,7 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 		if p, ok := byBucket[bucket]; ok {
 			filled = append(filled, p)
 		} else {
-			filled = append(filled, TimeSeriesPoint{Bucket: bucket, Count: 0, Tokens: 0, Errors: 0, Latency: 0})
+			filled = append(filled, TimeSeriesPoint{Bucket: bucket, Count: 0, Tokens: 0, Errors: 0, Latency: 0, RateLimitHits: 0, AvgTTFTMs: 0})
 		}
 	}
 	return filled
