@@ -129,7 +129,7 @@ function AccentCalendar({
                 <button
                     type="button"
                     onClick={handlePrev}
-                    className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+                    className="text-gray-400 hover:text-white transition-colors p-1 rounded-[var(--radius-button)] hover:bg-gray-700"
                 >
                     <ChevronLeft size={16} />
                 </button>
@@ -139,7 +139,7 @@ function AccentCalendar({
                 <button
                     type="button"
                     onClick={handleNext}
-                    className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+                    className="text-gray-400 hover:text-white transition-colors p-1 rounded-[var(--radius-button)] hover:bg-gray-700"
                 >
                     <ChevronRight size={16} />
                 </button>
@@ -166,7 +166,7 @@ function AccentCalendar({
                             type="button"
                             onClick={() => onSelect(dStr)}
                             className={`
-                                text-[11px] w-7 h-7 rounded-full flex items-center justify-center transition-colors
+                                text-[11px] w-7 h-7                                 rounded-[var(--radius-button)] flex items-center justify-center transition-colors
                                 ${sel
                                     ? "bg-(--accent) text-white font-semibold"
                                     : inRange
@@ -504,7 +504,7 @@ export function Logs() {
                     <button
                         type="button"
                         onClick={toggleDatePicker}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
+                        className={`flex items-center gap-2 px-3 py-2 rounded-[var(--radius-button)] text-sm border transition-colors cursor-pointer ${
                             hasDateFilter
                                 ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
                                 : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
@@ -518,21 +518,22 @@ export function Logs() {
                                 : "Date Range"}
                         </span>
                         {hasDateFilter && (
-                            <span
-                                className="ml-1 px-1.5 rounded-full bg-(--accent)/30 text-[10px] font-medium"
+                            <button
+                                type="button"
+                                className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-[var(--radius-button)] bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     clearDateFilter();
                                 }}
                                 title="Clear date filter"
                             >
-                                <X size={10} />
-                            </span>
+                                <X size={14} />
+                            </button>
                         )}
                     </button>
 
                     {showDatePicker && (
-                        <div className="absolute right-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50">
+                        <div className="absolute right-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-[var(--radius-card)] shadow-2xl z-50">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-sm font-semibold text-white">
                                     Select date range
