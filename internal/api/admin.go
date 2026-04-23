@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/user/llm-proxy/internal/admin"
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
@@ -129,6 +131,13 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Application-level duplicate name check
+	existing, _ := h.providerRepo.GetByName(r.Context(), req.Name)
+	if existing != nil {
+		http.Error(w, "a provider with this name already exists", http.StatusConflict)
+		return
+	}
+
 	encryptedKey, err := auth.Encrypt(req.APIKey, h.cfg.MasterKey)
 	if err != nil {
 		http.Error(w, "failed to encrypt API key", http.StatusInternalServerError)
@@ -137,6 +146,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.providerRepo.Create(r.Context(), req, encryptedKey.Ciphertext, encryptedKey.Nonce, encryptedKey.Salt)
 	if err != nil {
+		if isUniqueViolation(err) {
+			http.Error(w, "a provider with this name already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -242,6 +255,15 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Application-level duplicate name check when renaming
+	if req.Name != nil {
+		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)
+		if existing != nil && existing.ID != id {
+			http.Error(w, "a provider with this name already exists", http.StatusConflict)
+			return
+		}
+	}
+
 	var encryptedKey []byte
 	var keyNonce []byte
 	var keySalt []byte
@@ -259,6 +281,10 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
+		if isUniqueViolation(err) {
+			http.Error(w, "a provider with this name already exists", http.StatusConflict)
+			return
+		}
 		if err.Error() == "no rows in result set" {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
@@ -291,4 +317,13 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// isUniqueViolation checks if the error is a PostgreSQL unique constraint violation (error code 23505).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
