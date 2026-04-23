@@ -494,14 +494,18 @@ function EditProviderModal({
                             <button
                                 type="button"
                                 onClick={handleClose}
-                                className="ui-btn-secondary"
+                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={updateMutation.isPending}
-                                className="ui-btn-primary disabled:opacity-50"
+                                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                                    updateMutation.isPending
+                                        ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+                                        : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+                                }`}
                             >
                                 {updateMutation.isPending
                                     ? "Saving..."
@@ -1015,14 +1019,18 @@ export function Providers() {
                                         });
                                         setError(null);
                                     }}
-                                    className="ui-btn-secondary"
+                                    className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={createMutation.isPending}
-                                    className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors disabled:opacity-50"
+                                    className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                                        createMutation.isPending
+                                            ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+                                            : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+                                    }`}
                                 >
                                     {createMutation.isPending
                                         ? "Adding..."
