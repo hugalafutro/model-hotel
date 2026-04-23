@@ -16,16 +16,16 @@ interface AccentPreset {
 }
 
 const ACCENT_PRESETS: AccentPreset[] = [
-    { name: "Coral", color: "#ff6b6b", lightColor: "#ee5253" },
-    { name: "Gold", color: "#feca57", lightColor: "#ff9f43" },
     { name: "Emerald", color: "#1dd1a1", lightColor: "#10ac84" },
+    { name: "Gold", color: "#feca57", lightColor: "#ff9f43" },
+    { name: "Teal", color: "#00d2d3", lightColor: "#01a3a4" },
     { name: "Sky", color: "#48dbfb", lightColor: "#0abde3" },
-    { name: "Royal Blue", color: "#3742fa", lightColor: "#2f3542" },
+    { name: "Steel Blue", color: "#546de5", lightColor: "#3b3b98" },
     { name: "Violet", color: "#a55eea", lightColor: "#8854d0" },
     { name: "Hot Pink", color: "#ff9ff3", lightColor: "#f368e0" },
     { name: "Lime", color: "#c8e638", lightColor: "#a3cb38" },
-    { name: "Teal", color: "#00d2d3", lightColor: "#01a3a4" },
-    { name: "Orange", color: "#ff6348", lightColor: "#ff4757" },
+    { name: "Mint", color: "#7bed9f", lightColor: "#2ed573" },
+    { name: "Fuchsia", color: "#ff6b81", lightColor: "#e84393" },
 ];
 
 interface ThemeContextType {
@@ -43,7 +43,7 @@ const ThemeContext = createContext<ThemeContextType>({
     setTheme: () => {},
     uiStyle: "clean-saas",
     setUIStyle: () => {},
-    accentColor: "#818cf8",
+    accentColor: "#1dd1a1",
     setAccentColor: () => {},
     accentPresets: ACCENT_PRESETS,
 });
@@ -122,7 +122,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
 
     const [accentColor, setAccentColorState] = useState<string>(() => {
-        return localStorage.getItem("accentColor") || "#818cf8";
+        return localStorage.getItem("accentColor") || "#1dd1a1";
     });
 
     useEffect(() => {
