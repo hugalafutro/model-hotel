@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useSyncExternalStore, useEffect } from "react";
+import { useState } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
@@ -10,35 +10,6 @@ import {
     PaginationBar,
 } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
-
-// Module-level cache store. Persists across component unmounts so the
-// logs table never disappears when navigating between routes.
-const cacheStore: {
-    entries: Record<string, LogEntry[]>;
-    total: Record<string, number>;
-    listeners: Set<() => void>;
-} = {
-    entries: {},
-    total: {},
-    listeners: new Set(),
-};
-
-function subscribe(listener: () => void) {
-    cacheStore.listeners.add(listener);
-    return () => {
-        cacheStore.listeners.delete(listener);
-    };
-}
-
-function getSnapshot() {
-    return { entries: cacheStore.entries, total: cacheStore.total };
-}
-
-function setCacheEntry(key: string, entries: LogEntry[], total: number) {
-    cacheStore.entries[key] = entries;
-    cacheStore.total[key] = total;
-    cacheStore.listeners.forEach((l) => l());
-}
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -141,10 +112,6 @@ export function Logs() {
     const [liveEnabled, setLiveEnabled] = useState(true);
     const { toast } = useToast();
 
-    // Read from the external cache store. This survives unmounts so
-    // navigating to Logs from another route still shows previous data.
-    const pageCache = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
     const { data: logsData } = useQuery({
         queryKey: ["logs", page, pageSize, filters],
         queryFn: () =>
@@ -158,36 +125,8 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    // Build a stable cache key from current query params.
-    const cacheKey = `${page}-${pageSize}-${filters.model_id}-${filters.status_code}`;
-
-    // Write to the external cache whenever we get real data.
-    // Empty responses (e.g. during TTFT) are transient and must not
-    // wipe the cache.
-    useEffect(() => {
-        if (logsData?.entries && logsData.entries.length > 0) {
-            const currentEntries = cacheStore.entries[cacheKey];
-            if (
-                !currentEntries ||
-                currentEntries.length !== logsData.entries.length ||
-                currentEntries[0]?.id !== logsData.entries[0]?.id
-            ) {
-                setCacheEntry(cacheKey, logsData.entries, logsData.total);
-            }
-        }
-    }, [logsData, cacheKey]);
-
-    // Use server data if it has entries; otherwise fall back to the
-    // cached page so the table never disappears.
-    const displayEntries =
-        logsData?.entries && logsData.entries.length > 0
-            ? logsData.entries
-            : (pageCache.entries[cacheKey] ?? []);
-
-    const displayTotal =
-        logsData?.entries && logsData.entries.length > 0
-            ? logsData.total
-            : (pageCache.total[cacheKey] ?? 0);
+    const displayEntries = logsData?.entries ?? [];
+    const displayTotal = logsData?.total ?? 0;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
