@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 48 48" fill="none" style="vertical-align:middle;margin-right:8px;"><rect width="48" height="48" rx="10" fill="#0b0c0f"/><path d="M24 6L8 16v4h32v-4L24 6z" fill="#4f8cff" opacity="0.9"/><rect x="10" y="22" width="6" height="10" rx="1" fill="#4f8cff" opacity="0.7"/><rect x="21" y="22" width="6" height="10" rx="1" fill="#4f8cff" opacity="0.7"/><rect x="32" y="22" width="6" height="10" rx="1" fill="#4f8cff" opacity="0.7"/><rect x="8" y="34" width="32" height="4" rx="1" fill="#4f8cff" opacity="0.5"/><circle cx="24" cy="12" r="2" fill="#0b0c0f"/></svg> Model Hotel
+<img src="docs/favicon.svg" width="32" height="32" style="vertical-align:middle;margin-right:8px;" alt=""> Model Hotel
 
 > **AI-Assisted Project Disclaimer**
 >
@@ -15,7 +15,7 @@
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Route requests to the cheapest or fastest model, fail over automatically when a provider goes down, and see exactly where your tokens are going.
 
-## <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Screenshots
+## <img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots
 
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|
@@ -24,13 +24,13 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 
 ## What It Does
 
-### <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><path d="M5 9.8a8.99 8.99 0 0 1 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg> One Endpoint, Many Providers
+### <img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers
 Add any OpenAI-compatible provider (OpenAI, Anthropic, Groq, DeepSeek, NanoGPT, Z.AI, Ollama, or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping, parameter filtering, and vision payload normalization transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials.
 
-### <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><path d="M2 12h10"/><path d="M9 4v16"/><path d="m3 9 3 3-3 3"/><path d="M14 8V5.87c0-.47.12-.93.34-1.34l2.04-3.65a.98.98 0 0 1 1.72 0l2.04 3.65c.22.41.34.87.34 1.34V8"/><path d="M18 12v5.87c0 .47-.12.93-.34 1.34l-2.04 3.65a.98.98 0 0 1-1.72 0l-2.04-3.65A2.49 2.49 0 0 1 10 17.87V12"/><rect width="8" height="4" x="14" y="8" rx="1"/></svg> Transparent Failover
+### <img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover
 When a provider returns a 5xx or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a dead provider. Failed attempts are logged with full context (attempt number, error code, duration up to the failure point), making it easy to identify flaky providers in the Logs view.
 
-### <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><path d="M2 22h20"/><path d="M4 22V9a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v13"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg> Hotel Routing
+### <img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing
 Prefix any model with `hotel/` to route through a curated pool of providers for the same base model, sorted by your preference. Example: `hotel/llama-3.3-70b` resolves to all providers that expose `meta-llama/llama-3.3-70b` or similar, then tries them in the order you configured. If the first is down or slow, the next takes over instantly. The failover group is auto-generated when models are discovered, but you can manually edit priorities and disable individual entries.
 
 ### <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><circle cx="15" cy="8" r="3"/><path d="M10 21h8a2 2 0 0 0 2-2c0-3.9-3.1-7-7-7h-2a7 7 0 0 0-7 7 2 2 0 0 0 2 2Z"/><path d="M7 8a5 5 0 0 0 5 5h0a5 5 0 0 0 5-5 5 5 0 0 0-10 0Z"/></svg> Per-Client Virtual Keys
