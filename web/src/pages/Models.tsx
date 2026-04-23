@@ -6,6 +6,7 @@ import type { Model, ModelCapabilities } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { SortableHeader, Row, EmptyRow } from "../components/DataTable";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { CopyablePill } from "../components/CopyablePill";
 import type { SortState } from "../components/DataTable";
 
 function normalizeProviderName(name: string): string {
@@ -497,23 +498,11 @@ function ModelDetailModal({
                         <h2 className="text-xl font-bold text-white">
                             {model.display_name || model.name || pMid}
                         </h2>
-                        <button
-                            type="button"
-                            className="text-left text-sm text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-all hover:drop-shadow-[0_0_6px_var(--accent)] mt-1"
-                            onClick={() => {
-                                navigator.clipboard
-                                    .writeText(pMid)
-                                    .then(() =>
-                                        onToast(`Copied: ${pMid}`, "info"),
-                                    )
-                                    .catch(() =>
-                                        onToast("Failed to copy", "error"),
-                                    );
-                            }}
-                            title="Click to copy model ID"
-                        >
-                            {pMid}
-                        </button>
+                        <CopyablePill
+                            text={pMid}
+                            textClassName="text-sm text-gray-500 font-mono leading-tight mt-1"
+                            tooltip="Click to copy model ID"
+                        />
                     </div>
                     <button
                         type="button"
@@ -1077,20 +1066,6 @@ export function Models() {
         return api.models.test(id);
     }, []);
 
-    const copyModelId = useCallback(
-        (modelId: string) => {
-            navigator.clipboard
-                .writeText(modelId)
-                .then(() => {
-                    toast(`Copied: ${modelId}`, "info");
-                })
-                .catch(() => {
-                    toast("Failed to copy", "error");
-                });
-        },
-        [toast],
-    );
-
     const toggleCapFilter = useCallback((key: CapKey) => {
         setCapFilter((prev) => {
             const next = new Set(prev);
@@ -1500,24 +1475,14 @@ export function Models() {
                                                             model.model_id,
                                                         )}
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    className="text-left text-[11px] text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-all hover:drop-shadow-[0_0_6px_var(--accent)]"
-                                                    onClick={() =>
-                                                        copyModelId(
-                                                            proxyModelID(
-                                                                model.provider_name,
-                                                                model.model_id,
-                                                            ),
-                                                        )
-                                                    }
-                                                    title="Click to copy model ID"
-                                                >
-                                                    {proxyModelID(
+                                                <CopyablePill
+                                                    text={proxyModelID(
                                                         model.provider_name,
                                                         model.model_id,
                                                     )}
-                                                </button>
+                                                    textClassName="text-[11px] text-gray-500 font-mono leading-tight"
+                                                    tooltip="Click to copy model ID"
+                                                />
                                             </div>
                                         </td>
                                         <td className="px-4 py-1.5">

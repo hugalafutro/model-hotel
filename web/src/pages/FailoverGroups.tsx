@@ -53,7 +53,7 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center justify-between px-2 py-1.5 bg-gray-700/50 rounded group text-sm ${
+            className={`flex items-center justify-between px-2 py-1.5 bg-gray-700 rounded group text-sm ${
                 !entry.enabled ? "opacity-50" : ""
             }`}
         >
@@ -76,10 +76,9 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
             <button
                 type="button"
                 onClick={() => onToggle(entry.model_uuid, !entry.enabled)}
-                className="relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none shrink-0"
-                style={{
-                    backgroundColor: entry.enabled ? "#0690a8" : "#4b5563",
-                }}
+                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none shrink-0 ${
+                    entry.enabled ? "bg-(--accent)" : "bg-gray-600"
+                }`}
                 aria-label={
                     entry.enabled ? "Disable provider" : "Enable provider"
                 }
@@ -142,39 +141,39 @@ function FailoverGroupCard({
 
     return (
         <div
-            className={`bg-gray-800 border rounded-lg p-3 ${
-                group.group_enabled
-                    ? "border-(--accent)/30"
-                    : "border-gray-700 opacity-60"
+            className={`ui-card p-3 ${
+                group.group_enabled ? "border-(--accent)/30" : "opacity-60"
             }`}
         >
             <div className="flex items-center justify-between mb-2">
-                <div
-                    onClick={handleCopyModel}
-                    className="flex items-center gap-2 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700/50 transition-colors group cursor-default"
-                    title="Click to copy"
-                >
-                    <h3 className="text-white font-medium text-sm truncate">
-                        hotel/{group.display_model}
-                    </h3>
+                <div className="flex items-center gap-2 min-w-0">
+                    <div
+                        onClick={handleCopyModel}
+                        className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"
+                        title="Click to copy"
+                    >
+                        <h3 className="text-white font-medium text-sm truncate">
+                            hotel/{group.display_model}
+                        </h3>
+                        <svg
+                            className="w-3.5 h-3.5 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                        </svg>
+                    </div>
                     {group.auto_created && (
                         <span className="text-xs text-gray-500 shrink-0">
                             auto
                         </span>
                     )}
-                    <svg
-                        className="w-3.5 h-3.5 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                    </svg>
                 </div>
                 <button
                     type="button"
@@ -555,7 +554,7 @@ export function FailoverGroups() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading...</div>
+                <div className="text-gray-500">Loading...</div>
             </div>
         );
     }

@@ -5,6 +5,7 @@ import { KeyRound } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
 import { SortableHeader, StaticHeader, Row } from "../components/DataTable";
+import { CopyablePill } from "../components/CopyablePill";
 import type { SortState } from "../components/DataTable";
 
 type VKSortField = "name" | "key" | "created" | "tokens" | "last_used";
@@ -82,24 +83,13 @@ function CreateKeyModal({
                         <p className="text-sm text-gray-400 mb-3">
                             Copy this key now. It won't be shown again.
                         </p>
-                        <div className="bg-gray-950 rounded-lg p-3 mb-4 flex items-center justify-between gap-3">
-                            <code className="text-sm text-green-400 font-mono break-all">
-                                {createdKey.key}
-                            </code>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (createdKey.key) {
-                                        navigator.clipboard.writeText(
-                                            createdKey.key,
-                                        );
-                                        onToast("Copied to clipboard", "info");
-                                    }
-                                }}
-                                className="px-2 py-1 rounded text-xs font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer shrink-0"
-                            >
-                                Copy
-                            </button>
+                        <div className="bg-gray-950 rounded-lg p-3 mb-4">
+                            <CopyablePill
+                                text={createdKey.key}
+                                displayText={createdKey.key}
+                                textClassName="text-sm text-green-400 font-mono break-all"
+                                tooltip="Click to copy key"
+                            />
                         </div>
                         <p className="text-sm text-gray-500 mb-4">
                             Use as:{" "}
