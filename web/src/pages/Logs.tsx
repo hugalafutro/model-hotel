@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
@@ -112,6 +112,11 @@ export function Logs() {
     const [liveEnabled, setLiveEnabled] = useState(true);
     const { toast } = useToast();
 
+    const [fallback, setFallback] = useState<{
+        entries: LogEntry[];
+        total: number;
+    }>({ entries: [], total: 0 });
+
     const { data: logsData } = useQuery({
         queryKey: ["logs", page, pageSize, filters],
         queryFn: () =>
@@ -125,25 +130,23 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    const lastGood = useRef<{ entries: LogEntry[]; total: number }>({
-        entries: [],
-        total: 0,
-    });
-
     const hasFreshData = (logsData?.entries?.length ?? 0) > 0;
     const freshEntries = logsData?.entries;
     const freshTotal = logsData?.total ?? 0;
 
-    if (hasFreshData && freshEntries) {
-        lastGood.current = { entries: freshEntries, total: freshTotal };
-    }
+    useEffect(() => {
+        if (hasFreshData && freshEntries) {
+            // eslint-disable-next-line
+            setFallback({ entries: freshEntries, total: freshTotal });
+        }
+    }, [hasFreshData, freshEntries, freshTotal]);
 
     const displayEntries = hasFreshData && freshEntries
         ? freshEntries
-        : lastGood.current.entries;
+        : fallback.entries;
     const displayTotal = hasFreshData
         ? freshTotal
-        : lastGood.current.total;
+        : fallback.total;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;

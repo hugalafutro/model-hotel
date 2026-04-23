@@ -69,11 +69,13 @@ nano .env          # set a strong MASTER_KEY
 docker compose up --build
 ```
 
-The admin token is printed in the logs:
+The admin token is displayed once in the logs on first run and will never be shown again:
 
 ```bash
-docker compose logs app | grep "Admin token"
+docker compose logs app | grep "ADMIN_TOKEN="
 ```
+
+If you lose the token, delete `data/admin-token` and restart to generate a new one.
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
 
@@ -115,7 +117,7 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 
 ## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security](#-security)
 
-Provider API keys are encrypted at rest with AES-256-GCM using your `MASTER_KEY`. Virtual keys are SHA-256 hashed. The admin token is stored in your configured `DATA_DIR` and printed once on startup. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses.
+Provider API keys are encrypted at rest with AES-256-GCM using your `MASTER_KEY`. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage — the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses.
 
 ## [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Privacy & Data Handling](#-privacy--data-handling)
 

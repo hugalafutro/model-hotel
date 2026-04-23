@@ -16,7 +16,7 @@ echo ""
 
 # Get admin token from logs
 echo "2. Getting admin token..."
-ADMIN_TOKEN=$(docker compose logs app 2>/dev/null | grep "Admin token" | tail -1 | awk '{print $NF}')
+ADMIN_TOKEN=$(docker compose logs app 2>/dev/null | grep "ADMIN_TOKEN=" | tail -1 | sed 's/.*ADMIN_TOKEN=//')
 if [ -z "$ADMIN_TOKEN" ]; then
     echo "❌ Could not get admin token"
     exit 1

@@ -52,12 +52,25 @@ func main() {
 		log.Fatalf("Database not ready: %v", err)
 	}
 
-	adminMgr, err := admin.New(cfg.DataDir)
+	adminMgr, isNew, err := admin.New(cfg.DataDir)
 	if err != nil {
 		log.Fatalf("Failed to initialize admin manager: %v", err)
 	}
 
-	log.Printf("Admin token: %s", adminMgr.Token())
+	if isNew {
+		token := adminMgr.Token()
+		log.Printf(`
+╔══════════════════════════════════════════════════════════════╗
+║  ADMIN TOKEN (save now — this will NOT be shown again):     ║
+║                                                              ║
+║  %s                                                         ║
+║                                                              ║
+║  To regenerate: delete the admin-token file and restart.     ║
+╚══════════════════════════════════════════════════════════════╝`, token)
+		log.Printf("ADMIN_TOKEN=%s", token)
+	} else {
+		log.Println("Admin token loaded from file (already initialized)")
+	}
 
 	providerRepo := provider.NewRepository(database.Pool())
 	modelRepo := model.NewRepository(database.Pool())
