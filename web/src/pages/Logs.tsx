@@ -284,19 +284,8 @@ export function Logs() {
                                         log.model_lookup_ms > 0 ||
                                         log.provider_lookup_ms > 0 ||
                                         log.key_decrypt_ms > 0);
-                                const isInProgress =
-                                    log.status_code === 0 &&
-                                    log.duration_ms === 0;
                                 return (
-                                    <Row
-                                        key={log.id}
-                                        index={idx}
-                                        className={
-                                            isInProgress
-                                                ? "animate-row-pulse"
-                                                : ""
-                                        }
-                                    >
+                                    <Row key={log.id} index={idx}>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                                             {log.created_at
                                                 ? new Date(
@@ -331,7 +320,10 @@ export function Logs() {
                                             <span
                                                 className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code, log.error_message)}`}
                                             >
-                                                {log.status_code}
+                                                {log.status_code === 0 &&
+                                                log.duration_ms === 0
+                                                    ? "..."
+                                                    : log.status_code}
                                             </span>
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">

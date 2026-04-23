@@ -1007,22 +1007,3 @@ html.light .bg-blue-900\/30:hover {
         box-shadow: 0 0 6px 3px rgba(74, 222, 128, 0.5);
     }
 }
-
-/* In-progress streaming request row pulse */
-@keyframes row-pulse {
-    0%,
-    100% {
-        background-color: rgba(255, 255, 255, 0);
-    }
-    50% {
-        background-color: rgba(255, 255, 255, 0.04);
-    }
-}
-
-html[data-ui-style].dark .animate-row-pulse {
-    animation: row-pulse 2s ease-in-out infinite;
-}
-
-html[data-ui-style].light .animate-row-pulse {
-    animation: row-pulse 2s ease-in-out infinite;
-}
