@@ -18,7 +18,7 @@ interface AccentPreset {
 const ACCENT_PRESETS: AccentPreset[] = [
     { name: "Emerald", color: "#1dd1a1", lightColor: "#10ac84" },
     { name: "Gold", color: "#feca57", lightColor: "#ff9f43" },
-    { name: "Teal", color: "#00d2d3", lightColor: "#01a3a4" },
+    { name: "Coral", color: "#ff6b6b", lightColor: "#ee5a6f" },
     { name: "Sky", color: "#48dbfb", lightColor: "#0abde3" },
     { name: "Steel Blue", color: "#546de5", lightColor: "#3b3b98" },
     { name: "Violet", color: "#a55eea", lightColor: "#8854d0" },

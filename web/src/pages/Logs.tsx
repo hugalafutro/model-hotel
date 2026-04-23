@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScrollText } from "lucide-react";
 import { StaticHeaderNoArrow, Row, EmptyRow } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
@@ -104,6 +104,7 @@ export function Logs() {
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
+    const [isRefetching, setIsRefetching] = useState(false);
     const { toast } = useToast();
 
     const { data: logsData, isFetching } = useQuery({
@@ -118,6 +119,15 @@ export function Logs() {
         refetchInterval: liveEnabled ? 2000 : false,
         placeholderData: keepPreviousData,
     });
+
+    useEffect(() => {
+        if (!isFetching) {
+            setIsRefetching(false);
+            return;
+        }
+        const timer = setTimeout(() => setIsRefetching(true), 50);
+        return () => clearTimeout(timer);
+    }, [isFetching]);
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
@@ -179,8 +189,8 @@ export function Logs() {
                         <span
                             className={`w-2 h-2 rounded-full transition-colors ${
                                 liveEnabled
-                                    ? isFetching
-                                        ? "bg-green-400 animate-[pulse-glow_1.5s_ease-in-out_infinite]"
+                                    ? isRefetching
+                                        ? "bg-green-400 animate-[pulse-glow_1.2s_ease-in-out_infinite]"
                                         : "bg-green-400"
                                     : "bg-gray-500"
                             }`}
@@ -288,8 +298,19 @@ export function Logs() {
                                         log.model_lookup_ms > 0 ||
                                         log.provider_lookup_ms > 0 ||
                                         log.key_decrypt_ms > 0);
+                                const isInProgress =
+                                    log.status_code === 0 &&
+                                    log.duration_ms === 0;
                                 return (
-                                    <Row key={log.id} index={idx}>
+                                    <Row
+                                        key={log.id}
+                                        index={idx}
+                                        className={
+                                            isInProgress
+                                                ? "animate-row-pulse"
+                                                : ""
+                                        }
+                                    >
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                                             {log.created_at
                                                 ? new Date(
