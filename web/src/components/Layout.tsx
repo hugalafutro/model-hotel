@@ -180,12 +180,18 @@ function SystemStatus() {
                     title="Postgres database size, active connections, and buffer cache hit ratio"
                 >
                     <span>DB</span>
-                    <span className="text-(--text-secondary)">
-                        {formatMB(stats.db.size_mb)}
+                    <span>
+                        <span className="text-(--text-secondary)">
+                            {formatMB(stats.db.size_mb)}
+                        </span>
                         <span className="text-(--text-muted) mx-1">|</span>
-                        {stats.db.connections} conn
+                        <span className="text-(--text-secondary)">
+                            {stats.db.connections} conn
+                        </span>
                         <span className="text-(--text-muted) mx-1">|</span>
-                        Hit {stats.db.cache_hit_ratio}%
+                        <span className="text-(--text-secondary)">
+                            Hit {stats.db.cache_hit_ratio}%
+                        </span>
                     </span>
                 </div>
             )}
