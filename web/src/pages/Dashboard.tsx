@@ -522,7 +522,7 @@ function TokenSplitBar({
             </p>
             <div className="flex rounded-lg overflow-hidden h-6">
                 <div
-                    className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider"
+                    className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider overflow-hidden whitespace-nowrap shrink-0"
                     style={{
                         width: `${promptPct}%`,
                         backgroundColor: "#818cf8",
@@ -531,7 +531,7 @@ function TokenSplitBar({
                     {promptPct > 12 ? `Prompt ${promptPct.toFixed(0)}%` : ""}
                 </div>
                 <div
-                    className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider"
+                    className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider overflow-hidden whitespace-nowrap shrink-0"
                     style={{
                         width: `${completionPct}%`,
                         backgroundColor: "#059669",
