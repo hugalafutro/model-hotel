@@ -564,7 +564,7 @@ export function VirtualKeys() {
                                     {"  -d '{\n"}
                                     {'    "model": "'}
                                     <span className="text-white font-semibold">
-                                        deepseek/deepseek-chat
+                                        hotel/model
                                     </span>
                                     {'",\n'}
                                     {'    "messages": [\n'}
