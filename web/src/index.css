@@ -486,14 +486,14 @@ html[data-ui-style="glassmorphism-lite"][class*="dark"]
     [role="dialog"]
     .ui-card,
 html[data-ui-style="glassmorphism-lite"].dark [role="dialog"] .ui-card {
-    background-color: rgba(3, 4, 10, 0.92);
+    background-color: rgba(3, 4, 10, 0.97);
 }
 
 html[data-ui-style="glassmorphism-lite"][class*="light"]
     [role="dialog"]
     .ui-card,
 html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
-    background-color: rgba(240, 241, 247, 0.95);
+    background-color: rgba(240, 241, 247, 0.98);
 }
 
 /* =============================================

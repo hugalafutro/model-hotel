@@ -33,6 +33,16 @@ function formatNumber(n: number | null | undefined): string {
     return n.toLocaleString();
 }
 
+function formatPrice(n: number | null | undefined): string {
+    if (n == null) return "-";
+    const rounded = Math.round(n * 10000) / 10000;
+    const str = rounded.toString();
+    const [intPart, decPart] = str.split(".");
+    if (!decPart) return intPart;
+    const trimmed = decPart.replace(/0+$/, "");
+    return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
+}
+
 function parseCapabilities(raw: string): ModelCapabilities | null {
     try {
         return JSON.parse(raw);
@@ -464,9 +474,23 @@ function ModelDetailModal({
                         <h2 className="text-xl font-bold text-white">
                             {model.display_name || model.name || pMid}
                         </h2>
-                        <p className="text-sm text-gray-400 mt-1 font-mono">
+                        <button
+                            type="button"
+                            className="text-left text-sm text-gray-500 font-mono leading-tight cursor-pointer hover:text-gray-300 transition-all hover:drop-shadow-[0_0_6px_var(--accent)] mt-1"
+                            onClick={() => {
+                                navigator.clipboard
+                                    .writeText(pMid)
+                                    .then(() =>
+                                        onToast(`Copied: ${pMid}`, "info"),
+                                    )
+                                    .catch(() =>
+                                        onToast("Failed to copy", "error"),
+                                    );
+                            }}
+                            title="Click to copy model ID"
+                        >
                             {pMid}
-                        </p>
+                        </button>
                     </div>
                     <button
                         type="button"
@@ -647,7 +671,7 @@ function ModelDetailModal({
                         ) : (
                             <p className="text-gray-200">
                                 {model.input_price_per_million != null
-                                    ? `$${model.input_price_per_million}/1M`
+                                    ? `$${formatPrice(model.input_price_per_million)}/1M`
                                     : "-"}
                             </p>
                         )}
@@ -697,7 +721,7 @@ function ModelDetailModal({
                         ) : (
                             <p className="text-gray-200">
                                 {model.output_price_per_million != null
-                                    ? `$${model.output_price_per_million}/1M`
+                                    ? `$${formatPrice(model.output_price_per_million)}/1M`
                                     : "-"}
                             </p>
                         )}
@@ -812,7 +836,7 @@ function ModelDetailModal({
                             Copy
                         </button>
                     </div>
-                    <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-48 leading-relaxed whitespace-pre-wrap break-all">
+                    <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-28 leading-relaxed whitespace-pre-wrap break-all">
                         {snippetContent}
                     </pre>
                 </div>
