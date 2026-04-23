@@ -1,6 +1,5 @@
 <p align="center">
-  <img src="docs/favicon.svg" width="64" height="64" style="vertical-align:middle;margin-right:12px;" alt="">
-  <span style="font-size:48px;font-weight:bold;vertical-align:middle;">ModelHotel</span>
+  <img src="docs/logo.svg" width="280" height="64" alt="ModelHotel">
 </p>
 
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
