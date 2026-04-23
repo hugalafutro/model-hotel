@@ -304,7 +304,7 @@ html[data-ui-style="glassmorphism-lite"] {
 }
 
 [data-ui-style] .ui-sidebar-subtitle {
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 
 [data-ui-style] .ui-main {
