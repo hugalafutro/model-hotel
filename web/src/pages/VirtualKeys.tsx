@@ -559,7 +559,31 @@ export function VirtualKeys() {
                             </div>
                             <pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto">
                                 <code>
-                                    {`curl -X POST http://localhost:8080/v1/chat/completions \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "gpt-4",\n    "messages": [\n      { "role": "user", "content": "Hello!" }\n    ]\n  }'`}
+                                    {"curl -X POST "}
+                                    {typeof window !== "undefined"
+                                        ? `${window.location.origin}`
+                                        : "http://localhost:8080"}
+                                    {"/v1/chat/completions \\\n"}
+                                    {'  -H "Authorization: Bearer '}
+                                    <span className="text-white font-semibold">
+                                        YOUR_API_KEY
+                                    </span>
+                                    {'" \\\n'}
+                                    {
+                                        '  -H "Content-Type: application/json" \\\n'
+                                    }
+                                    {"  -d '{\n"}
+                                    {'    "model": "'}
+                                    <span className="text-white font-semibold">
+                                        deepseek/deepseek-chat
+                                    </span>
+                                    {'",\n'}
+                                    {'    "messages": [\n'}
+                                    {
+                                        '      { "role": "user", "content": "Hello!" }\n'
+                                    }
+                                    {"    ]\n"}
+                                    {"  }'"}
                                 </code>
                             </pre>
                         </div>
