@@ -84,12 +84,14 @@ function CreateKeyModal({
                             Copy this key now. It won't be shown again.
                         </p>
                         <div className="bg-gray-950 rounded-lg p-3 mb-4">
-                            <CopyablePill
-                                text={createdKey.key}
-                                displayText={createdKey.key}
-                                textClassName="text-sm text-green-400 font-mono break-all"
-                                tooltip="Click to copy key"
-                            />
+                            {createdKey.key && (
+                                <CopyablePill
+                                    text={createdKey.key}
+                                    displayText={createdKey.key}
+                                    textClassName="text-sm text-green-400 font-mono break-all"
+                                    tooltip="Click to copy key"
+                                />
+                            )}
                         </div>
                         <p className="text-sm text-gray-500 mb-4">
                             Use as:{" "}
