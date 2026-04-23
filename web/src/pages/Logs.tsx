@@ -1,6 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
+import { ScrollText } from "lucide-react";
 import { StaticHeaderNoArrow, Row, EmptyRow } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
 
@@ -150,6 +151,11 @@ export function Logs() {
 
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
+                    <ScrollText
+                        size={28}
+                        strokeWidth={2}
+                        className="text-(--accent)"
+                    />
                     <h1 className="text-3xl font-bold text-white">
                         Request Logs
                     </h1>

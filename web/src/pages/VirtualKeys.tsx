@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback } from "react";
+import { KeyRound } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
 import { SortableHeader, StaticHeader, Row } from "../components/DataTable";
@@ -362,9 +363,16 @@ export function VirtualKeys() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">
-                        Virtual Keys
-                    </h1>
+                    <div className="flex items-center gap-3">
+                        <KeyRound
+                            size={28}
+                            strokeWidth={2}
+                            className="text-(--accent)"
+                        />
+                        <h1 className="text-3xl font-bold text-white">
+                            Virtual Keys
+                        </h1>
+                    </div>
                     <p className="text-gray-400 mt-1">
                         Issue keys for clients to access the proxy at /v1
                     </p>

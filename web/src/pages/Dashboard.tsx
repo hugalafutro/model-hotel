@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import {
+    LayoutDashboard,
     Bot,
     Activity,
     TrendingUp,
@@ -837,6 +838,11 @@ export function Dashboard() {
             {/* Page header */}
             <div className="flex items-end justify-between">
                 <div className="flex items-center gap-3">
+                    <LayoutDashboard
+                        size={28}
+                        strokeWidth={2}
+                        className="text-(--accent)"
+                    />
                     <h1 className="text-3xl font-bold text-(--text-primary)">
                         Dashboard
                     </h1>

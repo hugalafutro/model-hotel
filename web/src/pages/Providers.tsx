@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo } from "react";
+import { PlugZap } from "lucide-react";
 import type { NanoGPTUsage, Provider } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -692,7 +693,16 @@ export function Providers() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Providers</h1>
+                    <div className="flex items-center gap-3">
+                        <PlugZap
+                            size={28}
+                            strokeWidth={2}
+                            className="text-(--accent)"
+                        />
+                        <h1 className="text-3xl font-bold text-white">
+                            Providers
+                        </h1>
+                    </div>
                     <p className="text-gray-400 mt-1">
                         Manage your provider configurations
                     </p>

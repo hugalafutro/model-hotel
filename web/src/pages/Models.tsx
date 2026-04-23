@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { Bot } from "lucide-react";
 import type { Model, ModelCapabilities } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { SortableHeader, Row, EmptyRow } from "../components/DataTable";
@@ -1233,6 +1234,11 @@ export function Models() {
         <div className="space-y-4">
             <div>
                 <div className="flex items-center gap-3">
+                    <Bot
+                        size={28}
+                        strokeWidth={2}
+                        className="text-(--accent)"
+                    />
                     <h1 className="text-3xl font-bold text-white">
                         {models?.length ?? 0} Models
                     </h1>

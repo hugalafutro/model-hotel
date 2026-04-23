@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
+import { Shuffle } from "lucide-react";
 import type { FailoverGroup, CandidateModel } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import {
@@ -562,9 +563,16 @@ export function FailoverGroups() {
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-white">
-                    Failover Groups
-                </h1>
+                <div className="flex items-center gap-3">
+                    <Shuffle
+                        size={28}
+                        strokeWidth={2}
+                        className="text-(--accent)"
+                    />
+                    <h1 className="text-2xl font-bold text-white">
+                        Failover Groups
+                    </h1>
+                </div>
                 <div className="flex gap-3">
                     <button
                         type="button"

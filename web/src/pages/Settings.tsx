@@ -3,7 +3,12 @@ import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { useState } from "react";
-import { Monitor, Terminal, Sparkles } from "lucide-react";
+import {
+    Monitor,
+    Terminal,
+    Sparkles,
+    Settings as SettingsIcon,
+} from "lucide-react";
 
 const DISCOVERY_INTERVALS = [
     { value: "30m", label: "30 minutes" },
@@ -96,7 +101,12 @@ export function Settings() {
 
     return (
         <div className="space-y-8 max-w-5xl">
-            <div>
+            <div className="flex items-center gap-3">
+                <SettingsIcon
+                    size={28}
+                    strokeWidth={2}
+                    className="text-(--accent)"
+                />
                 <h1 className="text-3xl font-bold text-white">Settings</h1>
                 <p className="text-gray-400 mt-1">
                     Configure your Model Hotel instance
