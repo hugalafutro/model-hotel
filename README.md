@@ -1,4 +1,7 @@
-<img src="docs/favicon.svg" width="32" height="32" style="vertical-align:middle;margin-right:8px;" alt=""> Model Hotel
+<p align="center">
+  <img src="docs/favicon.svg" width="64" height="64" style="vertical-align:middle;margin-right:12px;" alt="">
+  <span style="font-size:48px;font-weight:bold;vertical-align:middle;">Model Hotel</span>
+</p>
 
 > **AI-Assisted Project Disclaimer**
 >
@@ -15,7 +18,7 @@
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Route requests to the cheapest or fastest model, fail over automatically when a provider goes down, and see exactly where your tokens are going.
 
-## <img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots
+## [<img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots](#screenshots)
 
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|

@@ -11,7 +11,7 @@ import {
     Settings,
     LogOut,
     BookOpen,
-    Github,
+    GitBranch,
 } from "lucide-react";
 import { Logo } from "./Logo";
 
@@ -276,7 +276,7 @@ export function Layout({ children }: LayoutProps) {
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
-                            <Github size={14} strokeWidth={2} />
+                            <GitBranch size={14} strokeWidth={2} />
                             GitHub
                         </a>
                     </div>

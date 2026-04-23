@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import { StaticHeaderNoArrow, Row, EmptyRow, PaginationBar } from "../components/DataTable";
@@ -105,8 +105,8 @@ export function Logs() {
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
-    const lastEntries = useRef<LogEntry[]>([]);
-    const lastTotal = useRef<number>(0);
+    const [cachedEntries, setCachedEntries] = useState<LogEntry[]>([]);
+    const [cachedTotal, setCachedTotal] = useState(0);
     const { toast } = useToast();
 
     const { data: logsData } = useQuery({
@@ -122,16 +122,15 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    // Keep a local cache so the table never disappears during refetches
     useEffect(() => {
         if (logsData?.entries) {
-            lastEntries.current = logsData.entries;
-            lastTotal.current = logsData.total;
+            setCachedEntries(logsData.entries);
+            setCachedTotal(logsData.total);
         }
     }, [logsData]);
 
-    const displayEntries = logsData?.entries ?? lastEntries.current;
-    const displayTotal = logsData?.total ?? lastTotal.current;
+    const displayEntries = logsData?.entries ?? cachedEntries;
+    const displayTotal = logsData?.total ?? cachedTotal;
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
