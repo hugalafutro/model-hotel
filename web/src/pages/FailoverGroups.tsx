@@ -217,7 +217,7 @@ function FailoverGroupCard({
                 <button
                     type="button"
                     onClick={() => onDelete()}
-                    className="text-gray-500 hover:text-red-400"
+                    className="text-gray-500 hover:text-red-400 cursor-pointer px-2 py-1 rounded-md hover:bg-red-400/10 transition-all"
                 >
                     delete
                 </button>
