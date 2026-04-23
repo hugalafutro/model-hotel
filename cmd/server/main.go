@@ -257,6 +257,9 @@ func main() {
 	}()
 
 	// Periodic discovery based on settings interval
+	// Sleep before the first run so we don't bypass the discovery_on_startup setting.
+	// When discovery_on_startup is true, the startup go runDiscovery() above already
+	// handles immediate discovery; when false, we must not discover on startup either.
 	go func() {
 		for {
 			interval := settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
@@ -264,8 +267,8 @@ func main() {
 				time.Sleep(1 * time.Minute)
 				continue
 			}
-			runDiscovery()
 			time.Sleep(interval)
+			runDiscovery()
 		}
 	}()
 
