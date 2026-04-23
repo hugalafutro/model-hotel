@@ -431,14 +431,14 @@ function CreateGroupModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="ui-btn-secondary"
+                            className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={createMutation.isPending}
-                            className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
+                            className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all disabled:opacity-50"
                         >
                             {createMutation.isPending
                                 ? "Creating..."
@@ -673,7 +673,7 @@ export function FailoverGroups() {
                             <button
                                 type="button"
                                 onClick={() => setDeleteGroup(null)}
-                                className="ui-btn-secondary"
+                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                             >
                                 Cancel
                             </button>
@@ -681,7 +681,7 @@ export function FailoverGroups() {
                                 type="button"
                                 onClick={confirmDelete}
                                 disabled={deleteMutation.isPending}
-                                className="ui-btn-danger disabled:opacity-50"
+                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50"
                             >
                                 {deleteMutation.isPending
                                     ? "Deleting..."
