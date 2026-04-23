@@ -1092,9 +1092,11 @@ export function Dashboard() {
         });
     })();
 
-    // Format usage panels from their respective range queries
+    // Format usage panels from their respective range queries.
+    // Filter out zero-value entries so NULL/empty aggregates don't clutter the UI.
     const byModel = modelStats
         ? Object.entries(modelStats.by_model)
+              .filter(([, v]) => Number(v) > 0)
               .sort(([, a], [, b]) => Number(b) - Number(a))
               .slice(0, 5)
               .map(([k, v]) => ({
@@ -1105,6 +1107,7 @@ export function Dashboard() {
         : [];
     const byProvider = providerStats
         ? Object.entries(providerStats.by_provider)
+              .filter(([, v]) => Number(v) > 0)
               .sort(([, a], [, b]) => Number(b) - Number(a))
               .slice(0, 5)
               .map(([k, v]) => ({
@@ -1115,6 +1118,7 @@ export function Dashboard() {
         : [];
     const byVK = vkStats
         ? Object.entries(vkStats.by_virtual_key)
+              .filter(([, v]) => Number(v) > 0)
               .sort(([, a], [, b]) => Number(b) - Number(a))
               .slice(0, 5)
               .map(([k, v]) => ({

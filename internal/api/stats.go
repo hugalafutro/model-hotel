@@ -237,14 +237,22 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		stats.ByProvider[providerName] = val
 	}
 
-	// Query 4: By virtual key — uses INNER JOIN already, no changes needed regardless of excludeDeleted
+	// Query 4: By virtual key
+	var vkSelect, vkOrder string
+	if metric == "tokens" {
+		vkSelect = "SUM(rl.tokens_prompt + rl.tokens_completion) as val"
+		vkOrder = "val"
+	} else {
+		vkSelect = "COUNT(*) as val"
+		vkOrder = "val"
+	}
 	virtualKeyQuery := `
-		SELECT vk.name, SUM(rl.tokens_prompt + rl.tokens_completion) as token_count
+		SELECT vk.name, ` + vkSelect + `
 		FROM request_logs rl
 		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.created_at >= $1
 		GROUP BY vk.name
-		ORDER BY token_count DESC
+		ORDER BY ` + vkOrder + ` DESC
 		LIMIT 10`
 
 	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
@@ -255,26 +263,32 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	for rows.Next() {
 		var name string
-		var tokens int64
-		if err := rows.Scan(&name, &tokens); err != nil {
+		var val int64
+		if err := rows.Scan(&name, &val); err != nil {
 			continue
 		}
-		stats.ByVirtualKey[name] = tokens
+		stats.ByVirtualKey[name] = val
 	}
 
 	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
 	if !excludeDeleted {
+		var deletedSelect string
+		if metric == "tokens" {
+			deletedSelect = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+		} else {
+			deletedSelect = "COUNT(*) as val"
+		}
 		deletedKeyQuery := `
-			SELECT COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as token_count
+			SELECT ` + deletedSelect + `
 			FROM request_logs rl
 			WHERE rl.created_at >= $1
 			  AND rl.virtual_key_id IS NOT NULL
 			  AND NOT EXISTS (SELECT 1 FROM virtual_keys vk WHERE vk.id = rl.virtual_key_id)`
 
-		var deletedTokens int64
-		err = h.dbPool.QueryRow(ctx, deletedKeyQuery, since).Scan(&deletedTokens)
-		if err == nil && deletedTokens > 0 {
-			stats.ByVirtualKey["Deleted"] = deletedTokens
+		var deletedVal int64
+		err = h.dbPool.QueryRow(ctx, deletedKeyQuery, since).Scan(&deletedVal)
+		if err == nil && deletedVal > 0 {
+			stats.ByVirtualKey["Deleted"] = deletedVal
 		}
 	}
 
