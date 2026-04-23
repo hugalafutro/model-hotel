@@ -227,7 +227,7 @@ export function Layout({ children }: LayoutProps) {
 
     return (
         <div className="flex h-screen ui-surface-bg">
-            <aside className="w-64 ui-sidebar shrink-0 overflow-y-auto">
+            <aside className="w-64 ui-sidebar shrink-0">
                 <div className="p-6 text-center">
                     <Logo className="h-12 w-auto text-white mx-auto ml-[9%]" />
                     <p className="text-sm text-gray-200 mt-2">
@@ -237,7 +237,7 @@ export function Layout({ children }: LayoutProps) {
                         "Because we have LiteLLM at home"
                     </p>
                 </div>
-                <nav className="flex-1 p-4">
+                <nav className="flex-1 p-4 overflow-y-auto">
                     <ul className="space-y-1">
                         {navigation.map((item) => {
                             const Icon = item.icon;
