@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" width="280" height="64" alt="ModelHotel">
+  <img src="docs/logo.png" width="280" height="64" alt="ModelHotel">
 </p>
 
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
