@@ -1,10 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Terminal } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
-import { SortableHeader, StaticHeader, Row, PaginationBar } from "../components/DataTable";
+import {
+    SortableHeader,
+    StaticHeader,
+    Row,
+    PaginationBar,
+} from "../components/DataTable";
 import { CopyablePill } from "../components/CopyablePill";
 import type { SortState } from "../components/DataTable";
 
@@ -291,7 +296,7 @@ export function VirtualKeys() {
         field: "name",
         dir: "asc",
     });
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
 
     const { data: keys, isLoading } = useQuery({
@@ -386,7 +391,10 @@ export function VirtualKeys() {
                         totalItems={sortedKeys.length}
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
-                        onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
+                        onPageSizeChange={(s) => {
+                            setPageSize(s);
+                            setCurrentPage(1);
+                        }}
                         label="keys"
                     />
                 </div>
@@ -473,6 +481,102 @@ export function VirtualKeys() {
                     <p className="text-gray-500">
                         No virtual keys. Create one to start using the proxy.
                     </p>
+                </div>
+            )}
+
+            {sortedKeys.length > 0 && (
+                <div className="ui-card p-6 space-y-5">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-(--accent-light) border border-(--accent-lighter)">
+                            <Terminal size={20} className="text-(--accent)" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-white">
+                                Quick Start
+                            </h2>
+                            <p className="text-sm text-gray-400">
+                                Get up and running in minutes
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
+                            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+                                1
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-200">
+                                    Create a Key
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Click the button above to generate a new
+                                    virtual key
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
+                            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+                                2
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-200">
+                                    Copy the Full Key
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    The complete key is shown only once on
+                                    creation
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
+                            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+                                3
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-200">
+                                    Make Requests
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Use your key to call the proxy API endpoints
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="text-sm font-medium text-gray-300 mb-2">
+                            Try it with cURL
+                        </h3>
+                        <div className="relative rounded-lg bg-gray-950 border border-gray-800 overflow-hidden">
+                            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800">
+                                <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+                                <span className="text-xs text-gray-600 ml-2 font-mono">
+                                    bash
+                                </span>
+                            </div>
+                            <pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto">
+                                <code>
+                                    {`curl -X POST http://localhost:8080/v1/chat/completions \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "gpt-4",\n    "messages": [\n      { "role": "user", "content": "Hello!" }\n    ]\n  }'`}
+                                </code>
+                            </pre>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
+                        <div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                            <span className="text-gray-300 font-medium">
+                                Note:
+                            </span>{" "}
+                            Virtual keys are used to authenticate requests to
+                            the proxy. Each key tracks its own token usage. You
+                            can create multiple keys for different clients or
+                            environments.
+                        </p>
+                    </div>
                 </div>
             )}
 
