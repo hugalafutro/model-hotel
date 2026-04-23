@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useEffect, useState } from "react";
-import { ScrollText, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ScrollText, X, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
     StaticHeaderNoArrow,
@@ -10,6 +10,42 @@ import {
     PaginationBar,
 } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
+
+/* =========================================================
+   Date helpers for the accent-themed calendar picker
+   ===================================================== */
+function toISODate(d: Date): string {
+    return d.toISOString().split("T")[0];
+}
+
+function todayISO(): string {
+    return toISODate(new Date());
+}
+
+function daysInMonth(year: number, month: number): number {
+    return new Date(year, month + 1, 0).getDate();
+}
+
+function firstDayOfMonth(year: number, month: number): number {
+    return new Date(year, month, 1).getDay();
+}
+
+function pad(n: number): string {
+    return n.toString().padStart(2, "0");
+}
+
+/* =========================================================
+   Small helpers
+   ===================================================== */
+function formatDateRangeShort(from: string, to: string): string {
+    const f = new Date(from);
+    const t = new Date(to);
+    const sameMonth =
+        f.getMonth() === t.getMonth() && f.getFullYear() === t.getFullYear();
+    const fd = `${pad(f.getDate())}/${pad(f.getMonth() + 1)}`;
+    const td = `${pad(t.getDate())}/${pad(t.getMonth() + 1)}/${t.getFullYear()}`;
+    return sameMonth ? `${fd}-${td}` : `${fd}/${f.getFullYear().toString().slice(2)} - ${td}`;
+}
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -21,6 +57,138 @@ function formatMs(v: number | null | undefined, decimals: number = 2): string {
     return v.toFixed(decimals) + "ms";
 }
 
+/* =========================================================
+   Accent-themed inline calendar
+   ===================================================== */
+function AccentCalendar({
+    initialYear,
+    initialMonth,
+    from,
+    to,
+    onSelect,
+}: {
+    initialYear: number;
+    initialMonth: number;
+    from: string;
+    to: string;
+    onSelect: (dateStr: string) => void;
+}) {
+    const [year, setYear] = useState(initialYear);
+    const [month, setMonth] = useState(initialMonth);
+    const today = todayISO();
+
+    const days = daysInMonth(year, month);
+    const firstDay = firstDayOfMonth(year, month);
+    const blanks = firstDay;
+
+    const monthName = new Date(year, month, 1).toLocaleString("en-GB", {
+        month: "long",
+    });
+
+    const handlePrev = () => {
+        if (month === 0) {
+            setMonth(11);
+            setYear((y) => y - 1);
+        } else {
+            setMonth((m) => m - 1);
+        }
+    };
+
+    const handleNext = () => {
+        if (month === 11) {
+            setMonth(0);
+            setYear((y) => y + 1);
+        } else {
+            setMonth((m) => m + 1);
+        }
+    };
+
+    const isInRange = (day: number): boolean => {
+        if (!from || !to) return false;
+        const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+        return dStr >= from && dStr <= to;
+    };
+
+    const isStart = (day: number): boolean => {
+        if (!from) return false;
+        const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+        return dStr === from;
+    };
+
+    const isEnd = (day: number): boolean => {
+        if (!to) return false;
+        const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+        return dStr === to;
+    };
+
+    const isSelected = (day: number): boolean => isStart(day) || isEnd(day);
+
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-3">
+                <button
+                    type="button"
+                    onClick={handlePrev}
+                    className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+                >
+                    <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm font-semibold text-white">
+                    {monthName} {year}
+                </span>
+                <button
+                    type="button"
+                    onClick={handleNext}
+                    className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+                >
+                    <ChevronRight size={16} />
+                </button>
+            </div>
+            <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-gray-500 mb-1">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+                    <div key={d}>{d}</div>
+                ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+                {Array.from({ length: blanks }).map((_, i) => (
+                    <div key={`blank-${i}`} />
+                ))}
+                {Array.from({ length: days }).map((_, i) => {
+                    const day = i + 1;
+                    const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+                    const inRange = isInRange(day);
+                    const sel = isSelected(day);
+                    const isToday = dStr === today;
+
+                    return (
+                        <button
+                            key={day}
+                            type="button"
+                            onClick={() => onSelect(dStr)}
+                            className={`
+                                text-[11px] w-7 h-7 rounded-full flex items-center justify-center transition-colors
+                                ${sel
+                                    ? "bg-(--accent) text-white font-semibold"
+                                    : inRange
+                                      ? "bg-(--accent)/20 text-(--accent)"
+                                      : isToday
+                                        ? "border border-(--accent)/50 text-(--accent)"
+                                        : "text-gray-300 hover:bg-gray-700"
+                                }
+                            `}
+                        >
+                            {day}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+/* =========================================================
+   Overhead modal
+   ===================================================== */
 interface OverheadBreakdown {
     proxy_overhead_ms: number;
     parse_ms: number;
@@ -103,10 +271,20 @@ function OverheadModal({
     );
 }
 
+/* =========================================================
+   Main Logs page
+   ===================================================== */
 export function Logs() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [filters, setFilters] = useState({ model_id: "", status_code: "" });
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [pendingFrom, setPendingFrom] = useState("");
+    const [pendingTo, setPendingTo] = useState("");
+
+    const datePickerRef = useRef<HTMLDivElement>(null);
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
@@ -118,13 +296,15 @@ export function Logs() {
     }>({ entries: [], total: 0 });
 
     const { data: logsData } = useQuery({
-        queryKey: ["logs", page, pageSize, filters],
+        queryKey: ["logs", page, pageSize, filters, dateFrom, dateTo],
         queryFn: () =>
             api.logs.list({
                 page,
                 per_page: pageSize,
                 model_id: filters.model_id || undefined,
                 status_code: filters.status_code || undefined,
+                from: dateFrom || undefined,
+                to: dateTo || undefined,
             }),
         refetchInterval: liveEnabled ? 2000 : false,
         placeholderData: keepPreviousData,
@@ -141,12 +321,76 @@ export function Logs() {
         }
     }, [hasFreshData, freshEntries, freshTotal]);
 
-    const displayEntries = hasFreshData && freshEntries
-        ? freshEntries
-        : fallback.entries;
-    const displayTotal = hasFreshData
-        ? freshTotal
-        : fallback.total;
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (
+                datePickerRef.current &&
+                !datePickerRef.current.contains(e.target as Node)
+            ) {
+                setShowDatePicker(false);
+            }
+        }
+        if (showDatePicker) {
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }
+    }, [showDatePicker]);
+
+    const displayEntries = hasFreshData && freshEntries ? freshEntries : fallback.entries;
+    const displayTotal = hasFreshData ? freshTotal : fallback.total;
+
+    const now = new Date();
+    const pickerYear = showDatePicker
+        ? new Date(pendingFrom || todayISO()).getFullYear()
+        : now.getFullYear();
+    const pickerMonth = showDatePicker
+        ? new Date(pendingFrom || todayISO()).getMonth()
+        : now.getMonth();
+
+    const handleCalendarSelect = (dStr: string) => {
+        if (!pendingFrom || (pendingFrom && pendingTo)) {
+            setPendingFrom(dStr);
+            setPendingTo("");
+        } else if (dStr < pendingFrom) {
+            setPendingTo(pendingFrom);
+            setPendingFrom(dStr);
+        } else {
+            setPendingTo(dStr);
+        }
+    };
+
+    const applyDateFilter = () => {
+        if (pendingFrom) {
+            setDateFrom(pendingFrom + "T00:00:00.000Z");
+            if (pendingTo && pendingTo >= pendingFrom) {
+                setDateTo(pendingTo + "T23:59:59.999Z");
+            } else {
+                setDateTo(pendingFrom + "T23:59:59.999Z");
+            }
+        } else {
+            setDateFrom("");
+            setDateTo("");
+        }
+        setShowDatePicker(false);
+        setPage(1);
+    };
+
+    const clearDateFilter = () => {
+        setDateFrom("");
+        setDateTo("");
+        setPendingFrom("");
+        setPendingTo("");
+        setShowDatePicker(false);
+        setPage(1);
+    };
+
+    const toggleDatePicker = () => {
+        if (!showDatePicker) {
+            setPendingFrom(dateFrom ? dateFrom.split("T")[0] : "");
+            setPendingTo(dateTo ? dateTo.split("T")[0] : "");
+        }
+        setShowDatePicker((s) => !s);
+    };
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
@@ -171,6 +415,8 @@ export function Logs() {
 
     const isInProgress = (log: LogEntry) =>
         log.state === "pending" || log.state === "streaming";
+
+    const hasDateFilter = !!dateFrom && !!dateTo;
 
     return (
         <div className="space-y-4">
@@ -252,6 +498,100 @@ export function Logs() {
                         <option value="5xx">5XX</option>
                     </select>
                 </div>
+
+                {/* Calendar picker */}
+                <div className="relative" ref={datePickerRef}>
+                    <button
+                        type="button"
+                        onClick={toggleDatePicker}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer ${
+                            hasDateFilter
+                                ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
+                                : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
+                        }`}
+                        title="Filter by date range"
+                    >
+                        <CalendarDays size={16} />
+                        <span>
+                            {hasDateFilter
+                                ? formatDateRangeShort(dateFrom, dateTo)
+                                : "Date Range"}
+                        </span>
+                        {hasDateFilter && (
+                            <span
+                                className="ml-1 px-1.5 rounded-full bg-(--accent)/30 text-[10px] font-medium"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearDateFilter();
+                                }}
+                                title="Clear date filter"
+                            >
+                                <X size={10} />
+                            </span>
+                        )}
+                    </button>
+
+                    {showDatePicker && (
+                        <div className="absolute right-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-semibold text-white">
+                                    Select date range
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDatePicker(false)}
+                                    className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            <AccentCalendar
+                                initialYear={pickerYear}
+                                initialMonth={pickerMonth}
+                                from={pendingFrom}
+                                to={pendingTo}
+                                onSelect={handleCalendarSelect}
+                            />
+
+                            <div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
+                                {pendingFrom && pendingTo ? (
+                                    <span>
+                                        {formatDateRangeShort(
+                                            pendingFrom,
+                                            pendingTo,
+                                        )}
+                                    </span>
+                                ) : pendingFrom ? (
+                                    <span className="text-(--accent)">
+                                        Select end date…
+                                    </span>
+                                ) : (
+                                    <span>Select start date</span>
+                                )}
+                            </div>
+
+                            <div className="flex gap-2 mt-3">
+                                <button
+                                    type="button"
+                                    onClick={clearDateFilter}
+                                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={applyDateFilter}
+                                    disabled={!pendingFrom}
+                                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {displayTotal > 0 && (
                     <PaginationBar
                         page={page}
