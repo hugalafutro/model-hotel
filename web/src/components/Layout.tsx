@@ -228,12 +228,12 @@ export function Layout({ children }: LayoutProps) {
     return (
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0">
-                <div className="p-6">
-                    <Logo className="h-12 w-auto text-white" />
-                    <p className="text-sm text-gray-200 mt-2 ml-1">
+                <div className="p-6 text-center">
+                    <Logo className="h-12 w-auto text-white mx-auto" />
+                    <p className="text-sm text-gray-200 mt-2">
                         Multi-Provider AI Gateway
                     </p>
-                    <p className="text-xs text-(--accent) mt-1 ml-1 italic">
+                    <p className="text-xs text-(--accent) mt-1 italic">
                         "Because we have LiteLLM at home"
                     </p>
                 </div>
