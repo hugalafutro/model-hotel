@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useLayoutEffect } from "react";
+import { useState, useSyncExternalStore, useEffect } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
@@ -10,6 +10,35 @@ import {
     PaginationBar,
 } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
+
+// Module-level cache store. Persists across component unmounts so the
+// logs table never disappears when navigating between routes.
+const cacheStore: {
+    entries: Record<string, LogEntry[]>;
+    total: Record<string, number>;
+    listeners: Set<() => void>;
+} = {
+    entries: {},
+    total: {},
+    listeners: new Set(),
+};
+
+function subscribe(listener: () => void) {
+    cacheStore.listeners.add(listener);
+    return () => {
+        cacheStore.listeners.delete(listener);
+    };
+}
+
+function getSnapshot() {
+    return { entries: cacheStore.entries, total: cacheStore.total };
+}
+
+function setCacheEntry(key: string, entries: LogEntry[], total: number) {
+    cacheStore.entries[key] = entries;
+    cacheStore.total[key] = total;
+    cacheStore.listeners.forEach((l) => l());
+}
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -112,12 +141,9 @@ export function Logs() {
     const [liveEnabled, setLiveEnabled] = useState(true);
     const { toast } = useToast();
 
-    // Page-specific cache in state so the table never disappears during
-    // transient empty responses (e.g. TTFT wait on a slow provider).
-    const [pageCache, setPageCache] = useState<{
-        entries: Record<string, LogEntry[]>;
-        total: Record<string, number>;
-    }>({ entries: {}, total: {} });
+    // Read from the external cache store. This survives unmounts so
+    // navigating to Logs from another route still shows previous data.
+    const pageCache = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     const { data: logsData } = useQuery({
         queryKey: ["logs", page, pageSize, filters],
@@ -135,15 +161,19 @@ export function Logs() {
     // Build a stable cache key from current query params.
     const cacheKey = `${page}-${pageSize}-${filters.model_id}-${filters.status_code}`;
 
-    // Update cache in a layout effect so React compiler is happy.
-    // We only write when we got non-empty data; empty responses are
-    // transient (e.g. during TTFT wait) and must not wipe the cache.
-    useLayoutEffect(() => {
+    // Write to the external cache whenever we get real data.
+    // Empty responses (e.g. during TTFT) are transient and must not
+    // wipe the cache.
+    useEffect(() => {
         if (logsData?.entries && logsData.entries.length > 0) {
-            setPageCache((prev) => ({
-                entries: { ...prev.entries, [cacheKey]: logsData.entries },
-                total: { ...prev.total, [cacheKey]: logsData.total },
-            }));
+            const currentEntries = cacheStore.entries[cacheKey];
+            if (
+                !currentEntries ||
+                currentEntries.length !== logsData.entries.length ||
+                currentEntries[0]?.id !== logsData.entries[0]?.id
+            ) {
+                setCacheEntry(cacheKey, logsData.entries, logsData.total);
+            }
         }
     }, [logsData, cacheKey]);
 
