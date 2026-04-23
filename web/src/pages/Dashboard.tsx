@@ -164,13 +164,23 @@ function StatCard({
     onClick?: () => void;
     tooltip?: string;
 }) {
-    const Wrapper = onClick ? "button" : "div";
     return (
-        <Wrapper
-            type={onClick ? "button" : undefined}
+        <div
             onClick={onClick}
             title={tooltip}
-            className={`ui-card p-5 group text-left w-full block ${onClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+            className={`ui-card p-5 group text-left w-full ${onClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+            role={onClick ? "button" : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={
+                onClick
+                    ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onClick();
+                          }
+                      }
+                    : undefined
+            }
         >
             <div className="flex items-center justify-between mb-2">
                 <div
@@ -208,7 +218,7 @@ function StatCard({
                     />
                 </div>
             )}
-        </Wrapper>
+        </div>
     );
 }
 
