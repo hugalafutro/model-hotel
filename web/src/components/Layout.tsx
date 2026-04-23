@@ -70,7 +70,7 @@ function SystemStatus() {
 
     const app = stats?.app;
     const inContainer = app?.in_container;
-    const hasLimit = inContainer && app?.memory_limit_bytes;
+    const hasLimit = !!(inContainer && app?.memory_limit_bytes);
 
     const appMem = hasLimit
         ? formatMB(app.memory_current_bytes / 1024 / 1024) +
@@ -83,7 +83,10 @@ function SystemStatus() {
     return (
         <div className="space-y-2 text-[11px] font-mono system-status">
             {/* API Status */}
-            <div className="flex justify-between items-center text-(--text-tertiary)">
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title="Proxy API health status"
+            >
                 <span>API Status</span>
                 <span className="flex items-center text-green-400">
                     <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5" />
@@ -93,7 +96,10 @@ function SystemStatus() {
 
             {/* Uptime */}
             {app && (
-                <div className="flex justify-between items-center text-(--text-tertiary)">
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="How long the server process has been running"
+                >
                     <span>Uptime</span>
                     <span className="text-(--text-secondary)">
                         {formatDuration(app.uptime_seconds)}
@@ -103,7 +109,10 @@ function SystemStatus() {
 
             {/* Container CPU */}
             {inContainer && app.cpu_percent >= 0 && (
-                <div className="flex justify-between items-center text-(--text-tertiary)">
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="Container CPU usage percentage from cgroup"
+                >
                     <span>CPU</span>
                     <span className="text-(--text-secondary)">
                         {app.cpu_percent.toFixed(1)}%
@@ -114,7 +123,14 @@ function SystemStatus() {
             {/* Memory with bar */}
             {app && (
                 <div className="space-y-1">
-                    <div className="flex justify-between items-center text-(--text-tertiary)">
+                    <div
+                        className="flex justify-between items-center text-(--text-tertiary)"
+                        title={
+                            hasLimit
+                                ? "Container memory usage vs cgroup limit"
+                                : "Go runtime heap allocation"
+                        }
+                    >
                         <span>Memory</span>
                         <span className="text-(--text-secondary)">
                             {appMem}
@@ -131,7 +147,10 @@ function SystemStatus() {
 
             {/* Goroutines */}
             {app && (
-                <div className="flex justify-between items-center text-(--text-tertiary)">
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="Active Go runtime goroutines (lightweight threads)"
+                >
                     <span>Go routines</span>
                     <span className="text-(--text-secondary)">
                         {app.goroutines.toLocaleString()}
@@ -141,7 +160,10 @@ function SystemStatus() {
 
             {/* Total Requests */}
             {app && app.total_requests > 0 && (
-                <div className="flex justify-between items-center text-(--text-tertiary)">
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="Total number of proxied LLM requests recorded in the database"
+                >
                     <span>Total Req</span>
                     <span className="text-(--text-secondary)">
                         {formatNumber(app.total_requests)}
@@ -151,7 +173,10 @@ function SystemStatus() {
 
             {/* DB */}
             {stats?.db && (
-                <div className="flex justify-between items-center text-(--text-tertiary)">
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="Postgres database size, active connections, and buffer cache hit ratio"
+                >
                     <span>DB</span>
                     <span className="text-(--text-secondary)">
                         {formatMB(stats.db.size_mb)}
