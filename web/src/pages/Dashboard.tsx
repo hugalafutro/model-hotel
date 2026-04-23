@@ -170,7 +170,7 @@ function StatCard({
             type={onClick ? "button" : undefined}
             onClick={onClick}
             title={tooltip}
-            className={`ui-card p-5 group text-left w-full ${onClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+            className={`ui-card p-5 group text-left w-full block ${onClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
         >
             <div className="flex items-center justify-between mb-2">
                 <div
