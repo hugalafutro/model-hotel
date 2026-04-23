@@ -509,7 +509,7 @@ export function VirtualKeys() {
                                 <h3 className="text-sm font-medium text-gray-200">
                                     Create a Key
                                 </h3>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-gray-400 mt-1">
                                     Click the button above to generate a new
                                     virtual key
                                 </p>
@@ -523,7 +523,7 @@ export function VirtualKeys() {
                                 <h3 className="text-sm font-medium text-gray-200">
                                     Copy the Full Key
                                 </h3>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-gray-400 mt-1">
                                     The complete key is shown only once on
                                     creation
                                 </p>
@@ -537,7 +537,7 @@ export function VirtualKeys() {
                                 <h3 className="text-sm font-medium text-gray-200">
                                     Make Requests
                                 </h3>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-gray-400 mt-1">
                                     Use your key to call the proxy API endpoints
                                 </p>
                             </div>
@@ -550,9 +550,9 @@ export function VirtualKeys() {
                         </h3>
                         <div className="relative rounded-lg bg-gray-950 border border-gray-800 overflow-hidden">
                             <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800">
-                                <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
                                 <span className="text-xs text-gray-600 ml-2 font-mono">
                                     bash
                                 </span>
@@ -567,8 +567,8 @@ export function VirtualKeys() {
 
                     <div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
                         <div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
-                        <p className="text-xs text-gray-400 leading-relaxed">
-                            <span className="text-gray-300 font-medium">
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                            <span className="text-gray-200 font-medium">
                                 Note:
                             </span>{" "}
                             Virtual keys are used to authenticate requests to

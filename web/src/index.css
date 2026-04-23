@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+    zoom: 1.1;
+}
+
 /* =============================================
    BASE TOKENS — Shared structural variables
    ============================================= */
