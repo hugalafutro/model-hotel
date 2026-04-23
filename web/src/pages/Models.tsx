@@ -836,7 +836,7 @@ function ModelDetailModal({
                             Copy
                         </button>
                     </div>
-                    <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-28 leading-relaxed whitespace-pre-wrap break-all">
+                    <pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-30 leading-relaxed whitespace-pre-wrap break-all">
                         {snippetContent}
                     </pre>
                 </div>
