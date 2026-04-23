@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+	"github.com/user/llm-proxy/internal/util"
 )
 
 type Config struct {
@@ -178,32 +179,13 @@ func getIntEnvWithDefault(key string, defaultValue int64) int64 {
 }
 
 func parseCORSOrigins(value string) []string {
-	if value == "" {
+	result := util.SplitAndTrim(value)
+	if result == nil {
 		return []string{}
-	}
-
-	origins := strings.Split(value, ",")
-	var result []string
-	for _, origin := range origins {
-		trimmed := strings.TrimSpace(origin)
-		if trimmed != "" {
-			result = append(result, trimmed)
-		}
 	}
 	return result
 }
 
 func parseProviderHosts(value string) []string {
-	if value == "" {
-		return nil
-	}
-	hosts := strings.Split(value, ",")
-	var result []string
-	for _, h := range hosts {
-		trimmed := strings.TrimSpace(h)
-		if trimmed != "" {
-			result = append(result, trimmed)
-		}
-	}
-	return result
+	return util.SplitAndTrim(value)
 }

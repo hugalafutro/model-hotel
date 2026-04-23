@@ -19,8 +19,3 @@ func HashProxyKey(key string) string {
 	hash := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(hash[:])
 }
-
-func ValidateProxyKey(providedKey, storedHash string) bool {
-	providedHash := HashProxyKey(providedKey)
-	return ConstantTimeCompare(providedHash, storedHash)
-}

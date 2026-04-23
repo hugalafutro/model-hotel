@@ -18,26 +18,26 @@ import (
 )
 
 type ModelResponse struct {
-	ID                    string  `json:"id"`
-	ModelID               string  `json:"model_id"`
-	Name                  string  `json:"name"`
-	Description           string  `json:"description"`
-	DisplayName           string  `json:"display_name"`
-	ProviderID           string  `json:"provider_id"`
-	ProviderName          string  `json:"provider_name"`
-	Capabilities          string  `json:"capabilities"`
-	Params                string  `json:"params"`
-	Modality              string  `json:"modality"`
-	InputModalities       string  `json:"input_modalities"`
-	OutputModalities      string  `json:"output_modalities"`
-	ContextLength         *int    `json:"context_length"`
-	MaxOutputTokens       *int    `json:"max_output_tokens"`
+	ID                    string   `json:"id"`
+	ModelID               string   `json:"model_id"`
+	Name                  string   `json:"name"`
+	Description           string   `json:"description"`
+	DisplayName           string   `json:"display_name"`
+	ProviderID            string   `json:"provider_id"`
+	ProviderName          string   `json:"provider_name"`
+	Capabilities          string   `json:"capabilities"`
+	Params                string   `json:"params"`
+	Modality              string   `json:"modality"`
+	InputModalities       string   `json:"input_modalities"`
+	OutputModalities      string   `json:"output_modalities"`
+	ContextLength         *int     `json:"context_length"`
+	MaxOutputTokens       *int     `json:"max_output_tokens"`
 	InputPricePerMillion  *float64 `json:"input_price_per_million"`
 	OutputPricePerMillion *float64 `json:"output_price_per_million"`
-	OwnedBy               string  `json:"owned_by"`
-	Enabled               bool    `json:"enabled"`
-	CreatedAt             string  `json:"created_at"`
-	LastSeenAt            string  `json:"last_seen_at"`
+	OwnedBy               string   `json:"owned_by"`
+	Enabled               bool     `json:"enabled"`
+	CreatedAt             string   `json:"created_at"`
+	LastSeenAt            string   `json:"last_seen_at"`
 }
 
 func (h *Handler) RegisterModels(r chi.Router) {
@@ -155,11 +155,11 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 }
 
 type TestModelResponse struct {
-	Success    bool    `json:"success"`
-	TTFTMs     int64   `json:"ttft_ms"`
-	DurationMs int64   `json:"duration_ms"`
-	Response   string  `json:"response"`
-	Error      string  `json:"error,omitempty"`
+	Success    bool   `json:"success"`
+	TTFTMs     int64  `json:"ttft_ms"`
+	DurationMs int64  `json:"duration_ms"`
+	Response   string `json:"response"`
+	Error      string `json:"error,omitempty"`
 }
 
 func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +182,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prov, err := h.db.Get(r.Context(), m.ProviderID)
+	prov, err := h.providerRepo.Get(r.Context(), m.ProviderID)
 	if err != nil {
 		http.Error(w, "provider not found", http.StatusInternalServerError)
 		return
@@ -212,7 +212,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
-reqHashBytes := make([]byte, 8)
+	reqHashBytes := make([]byte, 8)
 	rand.Read(reqHashBytes)
 	reqHash := hex.EncodeToString(reqHashBytes)
 

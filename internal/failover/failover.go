@@ -25,8 +25,8 @@ type FailoverGroup struct {
 }
 
 type RoutingEntry struct {
-	ModelID      string      `json:"model_id"`
-	Providers    []RoutingProvider `json:"providers"`
+	ModelID   string            `json:"model_id"`
+	Providers []RoutingProvider `json:"providers"`
 }
 
 type RoutingProvider struct {
@@ -56,12 +56,12 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 	var entryEnabledJSON []byte
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order, 
+		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
 		       created_at, COALESCE(updated_at, created_at)
 		FROM model_failover_groups
 		WHERE display_model = $1
-	`, modelID).Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON, 
+	`, modelID).Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (r *Repository) Upsert(ctx context.Context, displayModel string, priorityOr
 	return r.UpsertWithConfig(ctx, displayModel, priorityOrder, nil, nil, nil, nil, nil)
 }
 
-func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, priorityOrder []uuid.UUID, 
+func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string, autoCreated *bool) (*FailoverGroup, error) {
 	priorityJSON, err := json.Marshal(priorityOrder)
 	if err != nil {
@@ -103,7 +103,7 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (display_model)
 		DO UPDATE SET priority_order = $2, entry_enabled = $3, group_enabled = $4, display_name = $5, description = $6, updated_at = now()
-		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order, 
+		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
 		          created_at, COALESCE(updated_at, created_at)`
 
@@ -154,12 +154,12 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 	var entryEnabledJSON []byte
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order, 
+		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
 		       created_at, COALESCE(updated_at, created_at)
 		FROM model_failover_groups
 		WHERE id = $1
-	`, id).Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON, 
+	`, id).Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -178,7 +178,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 
 func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order, 
+		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 		       COALESCE(entry_enabled, '{}'), group_enabled, COALESCE(auto_created, false),
 		       created_at, COALESCE(updated_at, created_at)
 		FROM model_failover_groups
@@ -193,7 +193,7 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 	return scanFailoverGroups(rows)
 }
 
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID, 
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string) (*FailoverGroup, error) {
 	priorityJSON, err := json.Marshal(priorityOrder)
 	if err != nil {
@@ -209,10 +209,10 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	var rawPriority, rawEntryEnabled []byte
 
 	query := `
-		UPDATE model_failover_groups 
+		UPDATE model_failover_groups
 		SET priority_order = $2, entry_enabled = $3, group_enabled = $4, display_name = $5, description = $6, updated_at = now()
 		WHERE id = $1
-		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order, 
+		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
 		          created_at, COALESCE(updated_at, created_at)`
 
@@ -242,7 +242,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 
 func (r *Repository) List(ctx context.Context) ([]*FailoverGroup, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order, 
+		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
 		       created_at, COALESCE(updated_at, created_at)
 		FROM model_failover_groups
@@ -262,7 +262,7 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		var fg FailoverGroup
 		var priorityJSON []byte
 		var entryEnabledJSON []byte
-		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON, 
+		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 			&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
 			continue
 		}
@@ -325,7 +325,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 		modelID    string
 		providerID uuid.UUID
 	}
-	
+
 	baseToModels := make(map[string][]modelInfo)
 	for rows.Next() {
 		var id, providerID uuid.UUID
@@ -357,35 +357,6 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 		autoCreated := true
 		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, nil, nil, nil, &autoCreated)
 		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *Repository) SyncAllModelsLegacy(ctx context.Context) error {
-	rows, err := r.pool.Query(ctx, `
-		SELECT DISTINCT m.model_id
-		FROM models m
-		JOIN providers p ON m.provider_id = p.id
-		WHERE m.enabled = true AND p.enabled = true
-	`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	var modelIDs []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			continue
-		}
-		modelIDs = append(modelIDs, id)
-	}
-
-	for _, modelID := range modelIDs {
-		if err := r.SyncForModel(ctx, modelID); err != nil {
 			return err
 		}
 	}

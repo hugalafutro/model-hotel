@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -12,10 +11,6 @@ import (
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 )
-
-type DiscoveryService interface {
-	DiscoverModels(ctx context.Context, provider *provider.Provider, masterKey string) ([]*model.Model, error)
-}
 
 func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	r.Route("/providers/{id}/discover", func(r chi.Router) {
@@ -37,7 +32,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	prov, err := h.db.Get(r.Context(), providerID)
+	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
 		http.Error(w, "provider not found", http.StatusNotFound)
 		return
@@ -107,7 +102,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prov, err := h.db.Get(r.Context(), providerID)
+	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
 		http.Error(w, "provider not found", http.StatusNotFound)
 		return
@@ -133,7 +128,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prov, err := h.db.Get(r.Context(), providerID)
+	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
 		http.Error(w, "provider not found", http.StatusNotFound)
 		return

@@ -21,15 +21,6 @@ type ProxyKeyResponse struct {
 	Created string `json:"created_at"`
 }
 
-func (h *Handler) RegisterProxyKeys(r chi.Router) {
-	r.Route("/api/keys", func(r chi.Router) {
-		r.Use(h.AuthMiddleware)
-		r.Post("/", h.CreateProxyKey)
-		r.Get("/", h.ListProxyKeys)
-		r.Delete("/{id}", h.RevokeProxyKey)
-	})
-}
-
 func (h *Handler) CreateProxyKey(w http.ResponseWriter, r *http.Request) {
 	var req CreateProxyKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -121,39 +112,4 @@ func (h *Handler) RevokeProxyKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) ValidateProxyKeyMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
-			return
-		}
-
-		token := ""
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token = authHeader[7:]
-		} else {
-			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
-			return
-		}
-
-		if len(token) < 5 || token[:5] != "llmp_" {
-			http.Error(w, "Invalid proxy key format", http.StatusUnauthorized)
-			return
-		}
-
-		keyHash := auth.HashProxyKey(token)
-
-		query := `SELECT id FROM proxy_keys WHERE key_hash = $1`
-		var keyID string
-		err := h.dbPool.Pool().QueryRow(r.Context(), query, keyHash).Scan(&keyID)
-		if err != nil {
-			http.Error(w, "Invalid proxy key", http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }

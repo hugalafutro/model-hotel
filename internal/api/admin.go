@@ -13,12 +13,13 @@ import (
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
+	"github.com/user/llm-proxy/internal/util"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
 
 type Handler struct {
 	cfg            *config.Config
-	db             *provider.Repository
+	providerRepo   *provider.Repository
 	dbPool         *db.DB
 	adminMgr       *admin.Manager
 	virtualKeyRepo *virtualkey.Repository
@@ -27,7 +28,7 @@ type Handler struct {
 func NewHandler(cfg *config.Config, providerRepo *provider.Repository, database *db.DB, adminMgr *admin.Manager, vkRepo *virtualkey.Repository) *Handler {
 	return &Handler{
 		cfg:            cfg,
-		db:             providerRepo,
+		providerRepo:   providerRepo,
 		dbPool:         database,
 		adminMgr:       adminMgr,
 		virtualKeyRepo: vkRepo,
@@ -71,17 +72,9 @@ func (h *Handler) Register(r chi.Router) {
 
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
-			return
-		}
-
-		token := ""
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token = authHeader[7:]
-		} else {
-			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+		token, ok := util.ParseBearerToken(r)
+		if !ok {
+			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 			return
 		}
 
@@ -142,7 +135,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.db.Create(r.Context(), req, encryptedKey.Ciphertext, encryptedKey.Nonce, encryptedKey.Salt)
+	p, err := h.providerRepo.Create(r.Context(), req, encryptedKey.Ciphertext, encryptedKey.Nonce, encryptedKey.Salt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -158,7 +151,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
-	providers, err := h.db.List(r.Context())
+	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -219,7 +212,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.db.Get(r.Context(), id)
+	p, err := h.providerRepo.Get(r.Context(), id)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			http.Error(w, "provider not found", http.StatusNotFound)
@@ -264,7 +257,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		keySalt = enc.Salt
 	}
 
-	p, err := h.db.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
+	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			http.Error(w, "provider not found", http.StatusNotFound)
@@ -288,7 +281,7 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.db.Delete(r.Context(), id); err != nil {
+	if err := h.providerRepo.Delete(r.Context(), id); err != nil {
 		if err.Error() == "no rows in result set" {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return

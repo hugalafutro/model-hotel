@@ -1,31 +1,21 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"runtime"
 	"runtime/metrics"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/user/llm-proxy/internal/util"
 )
 
 // Server start time — used for uptime calculation.
 var startedAt = time.Now()
-
-// CPU tracking state for computing container CPU percentage from cgroup v2.
-var (
-	cpuPrevUsage int64
-	cpuPrevTime  time.Time
-	cpuPrevMu    sync.Mutex
-)
 
 type SystemHandler struct {
 	pool *pgxpool.Pool
@@ -113,8 +103,8 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 	sysMemory := getInt64(samples[1])
 	gcCycles := getUint64(samples[2])
 
-	memCurrent, memLimit, inContainer := readCgroupMemory()
-	cpuPercent := readCgroupCPU()
+	memCurrent, memLimit, inContainer := util.ReadCgroupMemory()
+	cpuPercent := util.ReadCgroupCPU()
 
 	var totalRequests int64
 	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs`).Scan(&totalRequests)
@@ -183,99 +173,4 @@ func getUint64(s metrics.Sample) uint64 {
 		return s.Value.Uint64()
 	}
 	return 0
-}
-
-func readCgroupMemory() (current, limit int64, inContainer bool) {
-	currentBytes, err := os.ReadFile("/sys/fs/cgroup/memory.current")
-	if err == nil {
-		val := strings.TrimSpace(string(currentBytes))
-		if v, e := parseInt(val); e == nil {
-			current = v
-			inContainer = true
-		}
-	}
-
-	limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory.max")
-	if err == nil {
-		val := strings.TrimSpace(string(limitBytes))
-		if val == "max" {
-			limit = 0
-		} else if v, e := parseInt(val); e == nil {
-			limit = v
-		}
-	}
-
-	return current, limit, inContainer
-}
-
-// readCgroupCPU returns container CPU usage percentage from cgroup v2 cpu.stat.
-// It reads the cumulative usage_usec value and computes a delta-based percentage.
-// Returns -1 if cgroup CPU stats are not available (not in a container).
-// First call always returns 0 since it establishes the baseline.
-func readCgroupCPU() float64 {
-	f, err := os.Open("/sys/fs/cgroup/cpu.stat")
-	if err != nil {
-		return -1
-	}
-	defer f.Close()
-
-	var usageUsec int64
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "usage_usec ") {
-			val := strings.TrimPrefix(line, "usage_usec ")
-			if v, e := strconv.ParseInt(strings.TrimSpace(val), 10, 64); e == nil {
-				usageUsec = v
-			}
-			break
-		}
-	}
-
-	if usageUsec == 0 {
-		return -1
-	}
-
-	cpuPrevMu.Lock()
-	defer cpuPrevMu.Unlock()
-
-	if cpuPrevTime.IsZero() {
-		cpuPrevTime = time.Now()
-		cpuPrevUsage = usageUsec
-		return 0
-	}
-
-	now := time.Now()
-	deltaTime := now.Sub(cpuPrevTime).Seconds()
-	deltaUsage := usageUsec - cpuPrevUsage
-
-	cpuPrevTime = now
-	cpuPrevUsage = usageUsec
-
-	if deltaTime <= 0 || deltaUsage < 0 {
-		return 0
-	}
-
-	// CPU percent = (cpu time used / wall time) * 100
-	// usage_usec is cumulative CPU microseconds across all cores.
-	// On a multi-core system this can exceed 100%.
-	percent := (float64(deltaUsage) / (deltaTime * 1_000_000)) * 100
-	if percent < 0 {
-		percent = 0
-	}
-	if percent > 999 {
-		percent = 999
-	}
-	return percent
-}
-
-func parseInt(s string) (int64, error) {
-	var n int64
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			break
-		}
-		n = n*10 + int64(c-'0')
-	}
-	return n, nil
 }

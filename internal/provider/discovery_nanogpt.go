@@ -1,0 +1,141 @@
+package provider
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/auth"
+	"github.com/user/llm-proxy/internal/model"
+	"github.com/user/llm-proxy/internal/util"
+)
+
+func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models?detailed=true", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var nanoResp NanoGPTDetailedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&nanoResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	models := make([]*model.Model, 0, len(nanoResp.Data))
+	for _, m := range nanoResp.Data {
+		caps := model.Capability{
+			Streaming:         true,
+			Vision:            m.Capabilities.Vision,
+			VideoInput:        m.Capabilities.VideoInput,
+			AudioInput:        m.Capabilities.AudioInput,
+			Reasoning:         m.Capabilities.Reasoning,
+			ToolCalling:       m.Capabilities.ToolCalling,
+			ParallelToolCalls: m.Capabilities.ParallelToolCalls,
+			StructuredOutput:  m.Capabilities.StructuredOutput,
+			PDFUpload:         m.Capabilities.PDFUpload,
+		}
+		capJSON, _ := json.Marshal(caps)
+
+		inputModJSON, _ := json.Marshal(m.Architecture.InputModalities)
+		outputModJSON, _ := json.Marshal(m.Architecture.OutputModalities)
+
+		displayName := m.Name
+		if displayName == "" {
+			displayName = m.ID
+		}
+
+		paramsMap := map[string]interface{}{}
+		if m.Subscription != nil {
+			paramsMap["subscription_included"] = m.Subscription.Included
+			paramsMap["subscription_note"] = m.Subscription.Note
+		}
+		paramsJSON, _ := json.Marshal(paramsMap)
+
+		var inPricePerMill *float64
+		var outPricePerMill *float64
+		{
+			v := m.Pricing.Prompt
+			inPricePerMill = &v
+		}
+		{
+			v := m.Pricing.Completion
+			outPricePerMill = &v
+		}
+
+		models = append(models, &model.Model{
+			ID:                    uuid.New(),
+			ProviderID:            provider.ID,
+			ModelID:               m.ID,
+			Name:                  m.Name,
+			Description:           m.Description,
+			DisplayName:           displayName,
+			Capabilities:          string(capJSON),
+			Params:                string(paramsJSON),
+			Modality:              m.Architecture.Modality,
+			InputModalities:       string(inputModJSON),
+			OutputModalities:      string(outputModJSON),
+			ContextLength:         m.ContextLength,
+			MaxOutputTokens:       m.MaxOutputTokens,
+			InputPricePerMillion:  inPricePerMill,
+			OutputPricePerMillion: outPricePerMill,
+			OwnedBy:               m.OwnedBy,
+			Enabled:               true,
+		})
+	}
+
+	return models, nil
+}
+
+func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provider, masterKey string) (*NanoGPTUsageResponse, error) {
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+	}
+
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	usageURL := baseURL + "/usage"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", usageURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch usage: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var usage NanoGPTUsageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &usage, nil
+}

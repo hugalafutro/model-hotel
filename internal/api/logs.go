@@ -2,41 +2,41 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/util"
 )
 
 type LogEntry struct {
-    ID                string    `json:"id"`
-    ProviderID        string    `json:"provider_id"`
-    ProviderName      string    `json:"provider_name"`
-    ModelID           string    `json:"model_id"`
-    RequestID         string    `json:"request_id"`
-    RequestHash       string    `json:"request_hash"`
-    StatusCode        int       `json:"status_code"`
-    LatencyMs         float64   `json:"latency_ms"`
-    DurationMs        float64   `json:"duration_ms"`
-    TTFTMs            float64   `json:"ttft_ms"`
-    ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
-    ParseMs           float64   `json:"parse_ms"`
-    ModelLookupMs     float64   `json:"model_lookup_ms"`
-    ProviderLookupMs  float64   `json:"provider_lookup_ms"`
-    KeyDecryptMs      float64   `json:"key_decrypt_ms"`
-    TokensPerSecond   *float64  `json:"tokens_per_second"`
-    TokensPrompt      int       `json:"tokens_prompt"`
-    TokensCompletion  int       `json:"tokens_completion"`
-    Streaming         bool      `json:"streaming"`
-    VirtualKeyName    string    `json:"virtual_key_name"`
-    VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
-    VirtualKeyID      string    `json:"virtual_key_id"`
-    ErrorMessage      string    `json:"error_message"`
-    FailoverAttempt   int       `json:"failover_attempt"`
-    CreatedAt         time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	ProviderID        string    `json:"provider_id"`
+	ProviderName      string    `json:"provider_name"`
+	ModelID           string    `json:"model_id"`
+	RequestID         string    `json:"request_id"`
+	RequestHash       string    `json:"request_hash"`
+	StatusCode        int       `json:"status_code"`
+	LatencyMs         float64   `json:"latency_ms"`
+	DurationMs        float64   `json:"duration_ms"`
+	TTFTMs            float64   `json:"ttft_ms"`
+	ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
+	ParseMs           float64   `json:"parse_ms"`
+	ModelLookupMs     float64   `json:"model_lookup_ms"`
+	ProviderLookupMs  float64   `json:"provider_lookup_ms"`
+	KeyDecryptMs      float64   `json:"key_decrypt_ms"`
+	TokensPerSecond   *float64  `json:"tokens_per_second"`
+	TokensPrompt      int       `json:"tokens_prompt"`
+	TokensCompletion  int       `json:"tokens_completion"`
+	Streaming         bool      `json:"streaming"`
+	VirtualKeyName    string    `json:"virtual_key_name"`
+	VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
+	VirtualKeyID      string    `json:"virtual_key_id"`
+	ErrorMessage      string    `json:"error_message"`
+	FailoverAttempt   int       `json:"failover_attempt"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type LogsResponse struct {
@@ -87,8 +87,8 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    _, err := h.dbPool.Pool().Exec(r.Context(),
-        `DELETE FROM request_logs WHERE created_at < $1`, cutoff)
+	_, err := h.dbPool.Pool().Exec(r.Context(),
+		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -98,8 +98,8 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
-	page := getIntQueryParam(r, "page", 1)
-	perPage := getIntQueryParam(r, "per_page", 20)
+	page := util.GetIntQueryParam(r, "page", 1)
+	perPage := util.GetIntQueryParam(r, "per_page", 20)
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
 	statusCodeStr := r.URL.Query().Get("status_code")
@@ -108,7 +108,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	offset := (page - 1) * perPage
 
-    query := `
+	query := `
         SELECT rl.id, COALESCE(rl.provider_id::text, ''), COALESCE(p.name, 'Deleted'),
                rl.model_id, COALESCE(rl.request_id, ''),
                COALESCE(rl.request_hash, ''), rl.status_code,
@@ -136,7 +136,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	argIndex := 1
 
 	if modelID != "" {
-		query += " AND rl.model_id = $" + toString(argIndex)
+		query += " AND rl.model_id = $" + util.IntToStr(argIndex)
 		args = append(args, modelID)
 		argIndex++
 	}
@@ -144,7 +144,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	if providerID != "" {
 		providerUUID, err := uuid.Parse(providerID)
 		if err == nil {
-			query += " AND rl.provider_id = $" + toString(argIndex)
+			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
 			args = append(args, providerUUID)
 			argIndex++
 		}
@@ -156,7 +156,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		} else if statusCodeStr == "5xx" {
 			query += " AND rl.status_code >= 500"
 		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode > 0 {
-			query += " AND rl.status_code = $" + toString(argIndex)
+			query += " AND rl.status_code = $" + util.IntToStr(argIndex)
 			args = append(args, statusCode)
 			argIndex++
 		}
@@ -165,7 +165,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	if fromDate != "" {
 		parsedFrom, err := time.Parse(time.RFC3339, fromDate)
 		if err == nil {
-			query += " AND rl.created_at >= $" + toString(argIndex)
+			query += " AND rl.created_at >= $" + util.IntToStr(argIndex)
 			args = append(args, parsedFrom)
 			argIndex++
 		}
@@ -174,7 +174,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	if toDate != "" {
 		parsedTo, err := time.Parse(time.RFC3339, toDate)
 		if err == nil {
-			query += " AND rl.created_at <= $" + toString(argIndex)
+			query += " AND rl.created_at <= $" + util.IntToStr(argIndex)
 			args = append(args, parsedTo)
 			argIndex++
 		}
@@ -182,13 +182,13 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 
 	var total int
 	countQuery := "SELECT COUNT(*) FROM (" + query + ") as count_query"
-    err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, args...).Scan(&total)
+	err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, args...).Scan(&total)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	query += " ORDER BY rl.created_at DESC LIMIT $" + toString(argIndex) + " OFFSET $" + toString(argIndex+1)
+	query += " ORDER BY rl.created_at DESC LIMIT $" + util.IntToStr(argIndex) + " OFFSET $" + util.IntToStr(argIndex+1)
 	args = append(args, perPage, offset)
 
 	rows, err := h.dbPool.Pool().Query(r.Context(), query, args...)
@@ -227,21 +227,4 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-}
-
-func getIntQueryParam(r *http.Request, key string, defaultValue int) int {
-	val := r.URL.Query().Get(key)
-	if val == "" {
-		return defaultValue
-	}
-
-	var result int
-	if _, err := fmt.Sscanf(val, "%d", &result); err != nil {
-		return defaultValue
-	}
-	return result
-}
-
-func toString(i int) string {
-	return fmt.Sprintf("%d", i)
 }

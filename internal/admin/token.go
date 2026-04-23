@@ -1,9 +1,7 @@
 package admin
 
 import (
-	cryptoRand "crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -86,17 +84,4 @@ func (m *Manager) generateToken() (string, error) {
 	token := hex.EncodeToString(hash[:])[:tokenLength]
 
 	return token, nil
-}
-
-func HashProxyKey(key string) string {
-	hash := sha256.Sum256([]byte(key))
-	return hex.EncodeToString(hash[:])
-}
-
-func GenerateProxyKey() (string, error) {
-	randomBytes := make([]byte, 24)
-	if _, err := cryptoRand.Read(randomBytes); err != nil {
-		return "", err
-	}
-	return "llmp_" + base64.RawURLEncoding.EncodeToString(randomBytes), nil
 }

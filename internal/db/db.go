@@ -5,7 +5,6 @@ import (
 	"embed"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -101,8 +100,8 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	var exists bool
 	err = tx.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM pg_tables 
-			WHERE schemaname = 'public' 
+			SELECT 1 FROM pg_tables
+			WHERE schemaname = 'public'
 			AND tablename = 'schema_migrations'
 		)
 	`).Scan(&exists)
@@ -177,12 +176,4 @@ func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 	}
 
 	return fmt.Errorf("database not ready after %d attempts", maxAttempts)
-}
-
-func GetEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }
