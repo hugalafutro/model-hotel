@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { useState, useRef, useEffect } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
-import { StaticHeaderNoArrow, Row, EmptyRow } from "../components/DataTable";
+import { StaticHeaderNoArrow, Row, EmptyRow, PaginationBar } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
 
 function formatTPS(t: number | null): string {
@@ -203,7 +203,7 @@ export function Logs() {
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                 <div className="flex-1 flex gap-2">
                     <input
                         type="text"
@@ -237,6 +237,17 @@ export function Logs() {
                         <option value="5xx">5XX</option>
                     </select>
                 </div>
+                {displayTotal > 0 && (
+                    <PaginationBar
+                        page={page}
+                        totalPages={Math.ceil(displayTotal / pageSize)}
+                        totalItems={displayTotal}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+                        label="entries"
+                    />
+                )}
             </div>
 
             <div className="ui-card overflow-x-auto">
@@ -468,104 +479,6 @@ export function Logs() {
                     </tbody>
                 </table>
             </div>
-
-            {displayTotal > 0 && (
-                <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                        Showing {(page - 1) * pageSize + 1} to{" "}
-                        {Math.min(page * pageSize, displayTotal)} of{" "}
-                        {displayTotal} entries
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={pageSize}
-                            onChange={(e) => {
-                                setPageSize(Number(e.target.value));
-                                setPage(1);
-                            }}
-                            className="ui-input ui-input-sm"
-                        >
-                            <option value={20}>20 / page</option>
-                            <option value={40}>40 / page</option>
-                            <option value={60}>60 / page</option>
-                            <option value={80}>80 / page</option>
-                            <option value={100}>100 / page</option>
-                        </select>
-                        {Math.ceil(displayTotal / pageSize) > 1 && (
-                            <div className="flex items-center gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setPage((p) => Math.max(1, p - 1))
-                                    }
-                                    disabled={page === 1}
-                                    className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Prev
-                                </button>
-                                {Array.from(
-                                    {
-                                        length: Math.min(
-                                            7,
-                                            Math.ceil(displayTotal / pageSize),
-                                        ),
-                                    },
-                                    (_, i) => {
-                                        const totalPages = Math.ceil(
-                                            displayTotal / pageSize,
-                                        );
-                                        let pageNum: number;
-                                        if (totalPages <= 7) {
-                                            pageNum = i + 1;
-                                        } else if (page <= 4) {
-                                            pageNum = i + 1;
-                                            if (i === 6) pageNum = totalPages;
-                                        } else if (page >= totalPages - 3) {
-                                            pageNum = totalPages - 6 + i;
-                                            if (i === 0) pageNum = 1;
-                                        } else {
-                                            pageNum = page - 3 + i;
-                                            if (i === 0) pageNum = 1;
-                                            if (i === 6) pageNum = totalPages;
-                                        }
-                                        return (
-                                            <button
-                                                key={pageNum}
-                                                type="button"
-                                                onClick={() => setPage(pageNum)}
-                                                className={`px-2 py-1 text-xs rounded border ${
-                                                    page === pageNum
-                                                        ? "bg-(--accent) text-white border-(--accent)"
-                                                        : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
-                                                }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    },
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setPage((p) =>
-                                            Math.min(
-                                                Math.ceil(
-                                                    displayTotal / pageSize,
-                                                ),
-                                                p + 1,
-                                            ),
-                                        )
-                                    }
-                                    disabled={page * pageSize >= displayTotal}
-                                    className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

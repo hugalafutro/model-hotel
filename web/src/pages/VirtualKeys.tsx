@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { KeyRound } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
-import { SortableHeader, StaticHeader, Row } from "../components/DataTable";
+import { SortableHeader, StaticHeader, Row, PaginationBar } from "../components/DataTable";
 import { CopyablePill } from "../components/CopyablePill";
 import type { SortState } from "../components/DataTable";
 
@@ -378,6 +378,20 @@ export function VirtualKeys() {
                 </button>
             </div>
 
+            {sortedKeys.length > 0 && (
+                <div className="flex items-center justify-end">
+                    <PaginationBar
+                        page={currentPage}
+                        totalPages={totalPages}
+                        totalItems={sortedKeys.length}
+                        pageSize={pageSize}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
+                        label="keys"
+                    />
+                </div>
+            )}
+
             {sortedKeys.length > 0 ? (
                 <div className="ui-card overflow-hidden">
                     <table className="w-full table-fixed ui-table">
@@ -459,98 +473,6 @@ export function VirtualKeys() {
                     <p className="text-gray-500">
                         No virtual keys. Create one to start using the proxy.
                     </p>
-                </div>
-            )}
-
-            {sortedKeys.length > 0 && (
-                <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                        Showing {(currentPage - 1) * pageSize + 1}-
-                        {Math.min(currentPage * pageSize, sortedKeys.length)} of{" "}
-                        {sortedKeys.length} keys
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={pageSize}
-                            onChange={(e) => {
-                                setPageSize(Number(e.target.value));
-                                setCurrentPage(1);
-                            }}
-                            className="ui-input ui-input-sm"
-                        >
-                            <option value={20}>20 / page</option>
-                            <option value={40}>40 / page</option>
-                            <option value={60}>60 / page</option>
-                            <option value={80}>80 / page</option>
-                            <option value={100}>100 / page</option>
-                        </select>
-                        {totalPages > 1 && (
-                            <div className="flex items-center gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setCurrentPage((p) =>
-                                            Math.max(1, p - 1),
-                                        )
-                                    }
-                                    disabled={currentPage === 1}
-                                    className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Prev
-                                </button>
-                                {Array.from(
-                                    { length: Math.min(7, totalPages) },
-                                    (_, i) => {
-                                        let pageNum: number;
-                                        if (totalPages <= 7) {
-                                            pageNum = i + 1;
-                                        } else if (currentPage <= 4) {
-                                            pageNum = i + 1;
-                                            if (i === 6) pageNum = totalPages;
-                                        } else if (
-                                            currentPage >=
-                                            totalPages - 3
-                                        ) {
-                                            pageNum = totalPages - 6 + i;
-                                            if (i === 0) pageNum = 1;
-                                        } else {
-                                            pageNum = currentPage - 3 + i;
-                                            if (i === 0) pageNum = 1;
-                                            if (i === 6) pageNum = totalPages;
-                                        }
-                                        return (
-                                            <button
-                                                key={pageNum}
-                                                type="button"
-                                                onClick={() =>
-                                                    setCurrentPage(pageNum)
-                                                }
-                                                className={`px-2 py-1 text-xs rounded border ${
-                                                    currentPage === pageNum
-                                                        ? "bg-(--accent) text-white border-(--accent)"
-                                                        : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
-                                                }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    },
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setCurrentPage((p) =>
-                                            Math.min(totalPages, p + 1),
-                                        )
-                                    }
-                                    disabled={currentPage === totalPages}
-                                    className="px-2 py-1 text-xs rounded border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        )}
-                    </div>
                 </div>
             )}
 
