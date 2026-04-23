@@ -813,25 +813,25 @@ function ModelDetailModal({
                 )}
 
                 {editing && (
-                    <div className="flex gap-3 justify-end mb-4 pt-2 border-t border-gray-700">
+                    <div className="flex gap-3 justify-end mb-4 pt-2">
                         <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="ui-btn-secondary"
+                            className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
                             onClick={handleSave}
-                            className="ui-btn-primary"
+                            className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
                         >
                             Save Changes
                         </button>
                     </div>
                 )}
 
-                <div className="mt-4 pt-4 border-t border-gray-700">
+                <div className="mt-4 pt-4">
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-1">
                             {(["curl", "zed"] as const).map((tab) => (
