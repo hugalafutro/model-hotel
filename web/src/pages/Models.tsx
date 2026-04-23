@@ -43,6 +43,16 @@ function formatPrice(n: number | null | undefined): string {
     return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
 }
 
+function formatPriceInput(n: number | null | undefined): string {
+    if (n == null) return "";
+    const rounded = Math.round(n * 10000) / 10000;
+    const str = rounded.toString();
+    const [intPart, decPart] = str.split(".");
+    if (!decPart) return intPart;
+    const trimmed = decPart.replace(/0+$/, "");
+    return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
+}
+
 function parseCapabilities(raw: string): ModelCapabilities | null {
     try {
         return JSON.parse(raw);
@@ -229,10 +239,12 @@ function ModelDetailModal({
         display_name: model.display_name || "",
         context_length: model.context_length?.toString() || "",
         max_output_tokens: model.max_output_tokens?.toString() || "",
-        input_price_per_million:
-            model.input_price_per_million?.toString() || "",
-        output_price_per_million:
-            model.output_price_per_million?.toString() || "",
+        input_price_per_million: formatPriceInput(
+            model.input_price_per_million,
+        ),
+        output_price_per_million: formatPriceInput(
+            model.output_price_per_million,
+        ),
     });
 
     const discoveredDefaults = useMemo(
@@ -335,13 +347,23 @@ function ModelDetailModal({
             editData.input_price_per_million === ""
                 ? null
                 : Number(editData.input_price_per_million);
-        if (ipm !== model.input_price_per_million)
+        if (
+            ipm !==
+            (model.input_price_per_million != null
+                ? Math.round(model.input_price_per_million * 10000) / 10000
+                : null)
+        )
             fields.push("input_price_per_million");
         const opm =
             editData.output_price_per_million === ""
                 ? null
                 : Number(editData.output_price_per_million);
-        if (opm !== model.output_price_per_million)
+        if (
+            opm !==
+            (model.output_price_per_million != null
+                ? Math.round(model.output_price_per_million * 10000) / 10000
+                : null)
+        )
             fields.push("output_price_per_million");
         return fields;
     };
@@ -408,16 +430,16 @@ function ModelDetailModal({
         } else if (key === "input_price_per_million") {
             setEditData((prev) => ({
                 ...prev,
-                input_price_per_million:
-                    discoveredDefaults.input_price_per_million?.toString() ??
-                    "",
+                input_price_per_million: formatPriceInput(
+                    discoveredDefaults.input_price_per_million,
+                ),
             }));
         } else if (key === "output_price_per_million") {
             setEditData((prev) => ({
                 ...prev,
-                output_price_per_million:
-                    discoveredDefaults.output_price_per_million?.toString() ??
-                    "",
+                output_price_per_million: formatPriceInput(
+                    discoveredDefaults.output_price_per_million,
+                ),
             }));
         }
     };
@@ -652,8 +674,9 @@ function ModelDetailModal({
                                     </span>
                                 </div>
                                 {editData.input_price_per_million !==
-                                    (discoveredDefaults.input_price_per_million?.toString() ??
-                                        "") && (
+                                    formatPriceInput(
+                                        discoveredDefaults.input_price_per_million,
+                                    ) && (
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -702,8 +725,9 @@ function ModelDetailModal({
                                     </span>
                                 </div>
                                 {editData.output_price_per_million !==
-                                    (discoveredDefaults.output_price_per_million?.toString() ??
-                                        "") && (
+                                    formatPriceInput(
+                                        discoveredDefaults.output_price_per_million,
+                                    ) && (
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -914,11 +938,12 @@ function ModelDetailModal({
                                 model.context_length?.toString() || "",
                             max_output_tokens:
                                 model.max_output_tokens?.toString() || "",
-                            input_price_per_million:
-                                model.input_price_per_million?.toString() || "",
-                            output_price_per_million:
-                                model.output_price_per_million?.toString() ||
-                                "",
+                            input_price_per_million: formatPriceInput(
+                                model.input_price_per_million,
+                            ),
+                            output_price_per_million: formatPriceInput(
+                                model.output_price_per_million,
+                            ),
                         });
                     }}
                     onCancel={() => setConfirmFields(null)}

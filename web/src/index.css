@@ -616,6 +616,16 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn-danger {
     box-shadow: 0 0 0 2px var(--accent-lighter);
 }
 
+[data-ui-style] .ui-input[type="number"]::-webkit-inner-spin-button,
+[data-ui-style] .ui-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+[data-ui-style] .ui-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
 html[data-ui-style="cyber-terminal"] .ui-input {
     border-radius: 0;
     font-family: var(--font-mono);
