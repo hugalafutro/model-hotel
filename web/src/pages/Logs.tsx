@@ -100,7 +100,7 @@ function OverheadModal({
 
 export function Logs() {
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
+    const [pageSize, setPageSize] = useState(20);
     const [filters, setFilters] = useState({ model_id: "", status_code: "" });
     const [overheadBreakdown, setOverheadBreakdown] =
         useState<OverheadBreakdown | null>(null);
@@ -485,14 +485,11 @@ export function Logs() {
                             }}
                             className="ui-input ui-input-sm"
                         >
-                            <option value={25}>25 / page</option>
-                            <option value={50}>50 / page</option>
-                            <option value={75}>75 / page</option>
+                            <option value={20}>20 / page</option>
+                            <option value={40}>40 / page</option>
+                            <option value={60}>60 / page</option>
+                            <option value={80}>80 / page</option>
                             <option value={100}>100 / page</option>
-                            <option value={125}>125 / page</option>
-                            <option value={150}>150 / page</option>
-                            <option value={175}>175 / page</option>
-                            <option value={200}>200 / page</option>
                         </select>
                         {Math.ceil(displayTotal / pageSize) > 1 && (
                             <div className="flex items-center gap-1">

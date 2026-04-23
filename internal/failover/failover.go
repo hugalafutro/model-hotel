@@ -341,9 +341,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 		})
 	}
 
+	syncedBases := make(map[string]bool)
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
-			r.Delete(ctx, base)
+			r.disableAutoGroup(ctx, base)
 			continue
 		}
 
@@ -354,12 +355,33 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 			entryEnabled[m.uuid.String()] = true
 		}
 
+		existing, _ := r.GetByModel(ctx, base)
+		if existing != nil {
+			for uuidStr, enabled := range existing.EntryEnabled {
+				if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
+					entryEnabled[uuidStr] = enabled
+				}
+			}
+		}
+
+		syncedBases[base] = true
+		groupEnabled := true
 		autoCreated := true
-		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, nil, nil, nil, &autoCreated)
+		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 		if err != nil {
 			return err
 		}
 	}
+
+	allGroups, _ := r.List(ctx)
+	for _, g := range allGroups {
+		if g.AutoCreated && g.GroupEnabled {
+			if _, ok := syncedBases[g.DisplayModel]; !ok {
+				r.disableAutoGroup(ctx, g.DisplayModel)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -386,17 +408,37 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 
 	if len(modelUUIDs) <= 1 {
-		r.Delete(ctx, modelID)
+		r.disableAutoGroup(ctx, modelID)
 		return nil
 	}
 
-	// Build entry_enabled map - all entries enabled by default
 	entryEnabled := make(map[string]bool)
-	for _, uuid := range modelUUIDs {
-		entryEnabled[uuid.String()] = true
+	for _, id := range modelUUIDs {
+		entryEnabled[id.String()] = true
 	}
 
+	existing, _ := r.GetByModel(ctx, modelID)
+	if existing != nil {
+		for uuidStr, enabled := range existing.EntryEnabled {
+			if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
+				entryEnabled[uuidStr] = enabled
+			}
+		}
+	}
+
+	groupEnabled := true
 	autoCreated := true
-	_, err = r.UpsertWithConfig(ctx, modelID, modelUUIDs, entryEnabled, nil, nil, nil, &autoCreated)
+	_, err = r.UpsertWithConfig(ctx, modelID, modelUUIDs, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 	return err
+}
+
+func (r *Repository) disableAutoGroup(ctx context.Context, displayModel string) {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE model_failover_groups
+		SET group_enabled = false, updated_at = now()
+		WHERE display_model = $1 AND auto_created = true
+	`, displayModel)
+	if err == nil {
+		InvalidateFailoverCache()
+	}
 }

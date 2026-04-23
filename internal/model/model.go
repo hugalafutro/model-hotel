@@ -28,6 +28,7 @@ type Model struct {
 	OutputPricePerMillion       *float64  `json:"output_price_per_million"`
 	OwnedBy                      string    `json:"owned_by"`
 	Enabled                      bool      `json:"enabled"`
+	DisabledManually             bool      `json:"disabled_manually"`
 	CreatedAt                    time.Time `json:"created_at"`
 	LastSeenAt                   time.Time `json:"last_seen_at"`
 	ProviderName                 string    `json:"provider_name"`
@@ -54,9 +55,9 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, created_at, COALESCE(last_seen_at, created_at)`
 
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	query := `
@@ -78,7 +79,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			input_price_per_million_cache_hit = EXCLUDED.input_price_per_million_cache_hit,
 			output_price_per_million = EXCLUDED.output_price_per_million,
 			owned_by = EXCLUDED.owned_by,
-			enabled = EXCLUDED.enabled,
+			enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END,
 			last_seen_at = now()
 		RETURNING ` + upsertColumns
 
@@ -90,7 +91,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	InvalidateModelCache()
@@ -105,7 +106,7 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -164,7 +165,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {
@@ -209,7 +210,7 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {
@@ -249,7 +250,7 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 }
 
 func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {
-	query := `UPDATE models SET enabled = $1 WHERE id = $2`
+	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, enabled, id)
 	if err != nil {
 		return nil, err
@@ -275,7 +276,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		    max_output_tokens = COALESCE($3, max_output_tokens),
 		    input_price_per_million = COALESCE($4, input_price_per_million),
 		    output_price_per_million = COALESCE($5, output_price_per_million),
-		    enabled = COALESCE($6, enabled)
+		    enabled = COALESCE($6, enabled),
+		    disabled_manually = CASE WHEN $6 IS NULL THEN disabled_manually WHEN $6 = false THEN true ELSE false END
 		WHERE id = $7
 	`
 	_, err := r.pool.Exec(ctx, query, req.DisplayName, req.ContextLength, req.MaxOutputTokens, req.InputPricePerMillion, req.OutputPricePerMillion, req.Enabled, id)
