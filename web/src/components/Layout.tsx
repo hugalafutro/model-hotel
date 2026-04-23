@@ -13,10 +13,51 @@ import {
     LogOut,
 } from "lucide-react";
 
+function formatDuration(seconds: number): string {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+}
+
+function formatNumber(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toLocaleString();
+}
+
 function formatMB(mb: number): string {
     if (mb < 1) return `${mb.toFixed(1)} MB`;
     if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
     return `${Math.round(mb)} MB`;
+}
+
+function MemoryBar({ current, limit }: { current: number; limit: number }) {
+    if (!limit) return null;
+    const pct = Math.min((current / limit) * 100, 100);
+    return (
+        <div className="flex items-center gap-1.5">
+            <div className="flex-1 h-1 rounded-full overflow-hidden bg-gray-700">
+                <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                        width: `${pct}%`,
+                        backgroundColor:
+                            pct > 90
+                                ? "#ef4444"
+                                : pct > 75
+                                  ? "#f59e0b"
+                                  : "var(--accent)",
+                    }}
+                />
+            </div>
+            <span className="text-[10px] text-(--text-muted)">
+                {pct.toFixed(0)}%
+            </span>
+        </div>
+    );
 }
 
 function SystemStatus() {
@@ -27,17 +68,21 @@ function SystemStatus() {
         retry: false,
     });
 
-    const appMem =
-        stats?.app?.in_container && stats?.app?.memory_limit_bytes
-            ? formatMB(stats.app.memory_current_bytes / 1024 / 1024) +
-              " / " +
-              formatMB(stats.app.memory_limit_bytes / 1024 / 1024)
-            : stats?.app
-              ? formatMB(stats.app.heap_alloc_mb) + " heap"
-              : "-";
+    const app = stats?.app;
+    const inContainer = app?.in_container;
+    const hasLimit = inContainer && app?.memory_limit_bytes;
+
+    const appMem = hasLimit
+        ? formatMB(app.memory_current_bytes / 1024 / 1024) +
+          " / " +
+          formatMB(app.memory_limit_bytes / 1024 / 1024)
+        : app
+          ? formatMB(app.heap_alloc_mb) + " heap"
+          : "-";
 
     return (
-        <div className="space-y-1.5 text-[11px] font-mono system-status">
+        <div className="space-y-2 text-[11px] font-mono system-status">
+            {/* API Status */}
             <div className="flex justify-between items-center text-(--text-tertiary)">
                 <span>API Status</span>
                 <span className="flex items-center text-green-400">
@@ -45,16 +90,66 @@ function SystemStatus() {
                     Online
                 </span>
             </div>
-            {stats?.app && (
+
+            {/* Uptime */}
+            {app && (
                 <div className="flex justify-between items-center text-(--text-tertiary)">
-                    <span>App</span>
+                    <span>Uptime</span>
                     <span className="text-(--text-secondary)">
-                        {appMem}
-                        <span className="text-(--text-muted) mx-1">|</span>
-                        {stats.app.goroutines} goroutines
+                        {formatDuration(app.uptime_seconds)}
                     </span>
                 </div>
             )}
+
+            {/* Container CPU */}
+            {inContainer && app.cpu_percent >= 0 && (
+                <div className="flex justify-between items-center text-(--text-tertiary)">
+                    <span>CPU</span>
+                    <span className="text-(--text-secondary)">
+                        {app.cpu_percent.toFixed(1)}%
+                    </span>
+                </div>
+            )}
+
+            {/* Memory with bar */}
+            {app && (
+                <div className="space-y-1">
+                    <div className="flex justify-between items-center text-(--text-tertiary)">
+                        <span>Memory</span>
+                        <span className="text-(--text-secondary)">
+                            {appMem}
+                        </span>
+                    </div>
+                    {hasLimit && (
+                        <MemoryBar
+                            current={app.memory_current_bytes}
+                            limit={app.memory_limit_bytes}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Goroutines */}
+            {app && (
+                <div className="flex justify-between items-center text-(--text-tertiary)">
+                    <span>Go routines</span>
+                    <span className="text-(--text-secondary)">
+                        {app.goroutines.toLocaleString()}
+                    </span>
+                </div>
+            )}
+
+            {/* Total Requests */}
+            {app && app.total_requests > 0 && (
+                <div className="flex justify-between items-center text-(--text-tertiary)">
+                    <span>Total Req</span>
+                    <span className="text-(--text-secondary)">
+                        {formatNumber(app.total_requests)}
+                    </span>
+                </div>
+            )}
+
+            {/* DB */}
             {stats?.db && (
                 <div className="flex justify-between items-center text-(--text-tertiary)">
                     <span>DB</span>

@@ -1,18 +1,30 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"net/http"
 	"os"
 	"runtime"
 	"runtime/metrics"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// Server start time — used for uptime calculation.
+var startedAt = time.Now()
+
+// CPU tracking state for computing container CPU percentage from cgroup v2.
+var (
+	cpuPrevUsage int64
+	cpuPrevTime  time.Time
+	cpuPrevMu    sync.Mutex
 )
 
 type SystemHandler struct {
@@ -42,11 +54,14 @@ type AppStats struct {
 	MemoryCurrent int64   `json:"memory_current_bytes"`
 	MemoryLimit   int64   `json:"memory_limit_bytes"`
 	InContainer   bool    `json:"in_container"`
+	UptimeSeconds int64   `json:"uptime_seconds"`
+	CpuPercent    float64 `json:"cpu_percent"`
+	TotalRequests int64   `json:"total_requests"`
 }
 
 type DBStats struct {
-	SizeMB       float64 `json:"size_mb"`
-	Connections  int     `json:"connections"`
+	SizeMB        float64 `json:"size_mb"`
+	Connections   int     `json:"connections"`
 	CacheHitRatio float64 `json:"cache_hit_ratio"`
 }
 
@@ -99,6 +114,13 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 	gcCycles := getUint64(samples[2])
 
 	memCurrent, memLimit, inContainer := readCgroupMemory()
+	cpuPercent := readCgroupCPU()
+
+	var totalRequests int64
+	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs`).Scan(&totalRequests)
+	if err != nil {
+		totalRequests = 0
+	}
 
 	stats.App = AppStats{
 		HeapAllocMB:   float64(heapAlloc) / 1024 / 1024,
@@ -108,10 +130,13 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 		MemoryCurrent: memCurrent,
 		MemoryLimit:   memLimit,
 		InContainer:   inContainer,
+		UptimeSeconds: int64(time.Since(startedAt).Seconds()),
+		CpuPercent:    cpuPercent,
+		TotalRequests: totalRequests,
 	}
 
 	var dbSize int64
-	err := h.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&dbSize)
+	err = h.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&dbSize)
 	if err != nil {
 		dbSize = 0
 	}
@@ -181,6 +206,67 @@ func readCgroupMemory() (current, limit int64, inContainer bool) {
 	}
 
 	return current, limit, inContainer
+}
+
+// readCgroupCPU returns container CPU usage percentage from cgroup v2 cpu.stat.
+// It reads the cumulative usage_usec value and computes a delta-based percentage.
+// Returns -1 if cgroup CPU stats are not available (not in a container).
+// First call always returns 0 since it establishes the baseline.
+func readCgroupCPU() float64 {
+	f, err := os.Open("/sys/fs/cgroup/cpu.stat")
+	if err != nil {
+		return -1
+	}
+	defer f.Close()
+
+	var usageUsec int64
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "usage_usec ") {
+			val := strings.TrimPrefix(line, "usage_usec ")
+			if v, e := strconv.ParseInt(strings.TrimSpace(val), 10, 64); e == nil {
+				usageUsec = v
+			}
+			break
+		}
+	}
+
+	if usageUsec == 0 {
+		return -1
+	}
+
+	cpuPrevMu.Lock()
+	defer cpuPrevMu.Unlock()
+
+	if cpuPrevTime.IsZero() {
+		cpuPrevTime = time.Now()
+		cpuPrevUsage = usageUsec
+		return 0
+	}
+
+	now := time.Now()
+	deltaTime := now.Sub(cpuPrevTime).Seconds()
+	deltaUsage := usageUsec - cpuPrevUsage
+
+	cpuPrevTime = now
+	cpuPrevUsage = usageUsec
+
+	if deltaTime <= 0 || deltaUsage < 0 {
+		return 0
+	}
+
+	// CPU percent = (cpu time used / wall time) * 100
+	// usage_usec is cumulative CPU microseconds across all cores.
+	// On a multi-core system this can exceed 100%.
+	percent := (float64(deltaUsage) / (deltaTime * 1_000_000)) * 100
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 999 {
+		percent = 999
+	}
+	return percent
 }
 
 func parseInt(s string) (int64, error) {

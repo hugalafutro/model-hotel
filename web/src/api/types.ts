@@ -161,6 +161,9 @@ export interface SystemStats {
         memory_current_bytes: number;
         memory_limit_bytes: number;
         in_container: boolean;
+        uptime_seconds: number;
+        cpu_percent: number;
+        total_requests: number;
     };
     db: {
         size_mb: number;

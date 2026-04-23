@@ -336,6 +336,13 @@ function TimeSeriesChart({
                             tickLine={false}
                             axisLine={false}
                             allowDecimals={allowDecimals}
+                            tickFormatter={(v: number) =>
+                                (Number(v) * scale).toLocaleString(undefined, {
+                                    maximumFractionDigits: allowDecimals
+                                        ? 2
+                                        : 0,
+                                })
+                            }
                         />
                         <Tooltip
                             contentStyle={{
@@ -1238,7 +1245,7 @@ export function Dashboard() {
                 icon={Timer}
                 color={accents.latency}
                 dataKey="latency"
-                label="ms"
+                label="s"
             />
         </div>
     );
