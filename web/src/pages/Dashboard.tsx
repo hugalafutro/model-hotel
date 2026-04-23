@@ -12,6 +12,8 @@ import {
     PlugZap,
     Zap,
     X,
+    AlertTriangle,
+    Timer,
 } from "lucide-react";
 import {
     AreaChart,
@@ -147,6 +149,8 @@ function StatCard({
     sparkline,
     sparklineTooltip,
     formatter,
+    onClick,
+    tooltip,
 }: {
     label: string;
     value: number;
@@ -157,9 +161,17 @@ function StatCard({
     sparkline?: number; // 0-1 ratio for tiny horizontal fill
     sparklineTooltip?: string;
     formatter?: (val: number) => string;
+    onClick?: () => void;
+    tooltip?: string;
 }) {
+    const Wrapper = onClick ? "button" : "div";
     return (
-        <div className="ui-card p-5 group">
+        <Wrapper
+            type={onClick ? "button" : undefined}
+            onClick={onClick}
+            title={tooltip}
+            className={`ui-card p-5 group text-left w-full ${onClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+        >
             <div className="flex items-center justify-between mb-2">
                 <div
                     className="w-9 h-9 flex items-center justify-center rounded-lg"
@@ -196,7 +208,7 @@ function StatCard({
                     />
                 </div>
             )}
-        </div>
+        </Wrapper>
     );
 }
 
@@ -215,6 +227,7 @@ function TimeSeriesChart({
     allowDecimals = false,
     height = 240,
     showToggle = true,
+    scale = 1,
 }: {
     data: {
         hour: string;
@@ -241,6 +254,7 @@ function TimeSeriesChart({
     allowDecimals?: boolean;
     height?: number;
     showToggle?: boolean;
+    scale?: number;
 }) {
     const grid =
         getComputedStyle(document.documentElement)
@@ -341,7 +355,17 @@ function TimeSeriesChart({
                                 fontSize: "13px",
                             }}
                             formatter={(value: number | string | unknown) => [
-                                Number(value).toLocaleString(),
+                                (Number(value) * scale).toLocaleString(
+                                    undefined,
+                                    {
+                                        minimumFractionDigits: allowDecimals
+                                            ? 1
+                                            : 0,
+                                        maximumFractionDigits: allowDecimals
+                                            ? 2
+                                            : 0,
+                                    },
+                                ),
                                 label,
                             ]}
                         />
@@ -631,9 +655,10 @@ function GaugeModal({
     metric: string;
     icon: React.ElementType;
     color: string;
-    dataKey: "overhead_ms" | "provider_latency_ms";
+    dataKey: "overhead_ms" | "provider_latency_ms" | "latency" | "errors";
     label: string;
     allowDecimals?: boolean;
+    scale?: number;
 }) {
     const [range, setRange] = useState<Range>("24h");
     const { data: tsData } = useQuery({
@@ -685,13 +710,16 @@ function GaugeModal({
             />
             <div className="relative ui-card p-6 w-full max-w-2xl mx-4">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
-                        <span style={{ color }}>{title}</span>
+                    <h3
+                        className="text-lg font-semibold flex items-center gap-2"
+                        style={{ color }}
+                    >
+                        {title}
                     </h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors"
+                        className="text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
                         aria-label="Close"
                     >
                         <X size={18} />
@@ -708,6 +736,7 @@ function GaugeModal({
                     dataKey={dataKey}
                     allowDecimals={allowDecimals}
                     height={280}
+                    scale={dataKey === "latency" ? 0.001 : 1}
                 />
             </div>
         </div>
@@ -724,6 +753,7 @@ function Gauge({
     suffix,
     color,
     onClick,
+    tooltip,
 }: {
     label: string;
     value: number;
@@ -731,6 +761,7 @@ function Gauge({
     suffix: string;
     color: string;
     onClick?: () => void;
+    tooltip?: string;
 }) {
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
@@ -742,6 +773,7 @@ function Gauge({
         <button
             type="button"
             onClick={onClick}
+            title={tooltip}
             className={`flex flex-col items-center ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
         >
             <div className="relative w-28 h-14">
@@ -791,6 +823,8 @@ export function Dashboard() {
     const [vkRange, setVkRange] = useState<Range>("24h");
     const [excludeDeleted, setExcludeDeleted] = useState(false);
     const [overheadModalOpen, setOverheadModalOpen] = useState(false);
+    const [errorModalOpen, setErrorModalOpen] = useState(false);
+    const [latencyModalOpen, setLatencyModalOpen] = useState(false);
 
     const {
         data: stats,
@@ -1046,6 +1080,7 @@ export function Dashboard() {
                         suffix="ms"
                         color={accents.overhead}
                         onClick={() => setOverheadModalOpen(true)}
+                        tooltip="Click to view overhead history"
                     />
                     <Gauge
                         label="Error Rate/1h"
@@ -1053,6 +1088,8 @@ export function Dashboard() {
                         decimals={1}
                         suffix="%"
                         color={accents.errors}
+                        onClick={() => setErrorModalOpen(true)}
+                        tooltip="Click to view error rate history"
                     />
                 </div>
             </div>
@@ -1092,6 +1129,8 @@ export function Dashboard() {
                     suffix="s"
                     icon={Clock}
                     accent={accents.latency}
+                    onClick={() => setLatencyModalOpen(true)}
+                    tooltip="Click to view duration history"
                 />
                 <StatCard
                     label="Avg Tokens/1d"
@@ -1179,6 +1218,26 @@ export function Dashboard() {
                 icon={Clock}
                 color={accents.overhead}
                 dataKey="overhead_ms"
+                label="ms"
+            />
+            <GaugeModal
+                open={errorModalOpen}
+                onClose={() => setErrorModalOpen(false)}
+                title="Error Rate"
+                metric="Errors"
+                icon={AlertTriangle}
+                color={accents.errors}
+                dataKey="errors"
+                label="errors"
+            />
+            <GaugeModal
+                open={latencyModalOpen}
+                onClose={() => setLatencyModalOpen(false)}
+                title="Avg Duration"
+                metric="Duration"
+                icon={Timer}
+                color={accents.latency}
+                dataKey="latency"
                 label="ms"
             />
         </div>
