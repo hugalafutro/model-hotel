@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useEffect, useState } from "react";
-import { ScrollText } from "lucide-react";
+import { ScrollText, X } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
     StaticHeaderNoArrow,
@@ -58,9 +58,9 @@ function OverheadModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                        className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                     >
-                        &times;
+                        <X size={20} />
                     </button>
                 </div>
                 <div className="space-y-2">

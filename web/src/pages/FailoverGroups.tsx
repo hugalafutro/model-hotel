@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
-import { Shuffle } from "lucide-react";
+import { Shuffle, X } from "lucide-react";
 import type { FailoverGroup, CandidateModel } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import {
@@ -312,10 +312,10 @@ function CreateGroupModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-gray-400 hover:text-white text-xl leading-none"
+                        className="text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                         aria-label="Close"
                     >
-                        ×
+                        <X size={20} />
                     </button>
                 </div>
 

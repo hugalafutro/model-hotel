@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Bot } from "lucide-react";
+import { Bot, X } from "lucide-react";
 import type { Model, ModelCapabilities } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { SortableHeader, Row, EmptyRow, PaginationBar } from "../components/DataTable";
@@ -507,10 +507,10 @@ function ModelDetailModal({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                        className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                         aria-label="Close"
                     >
-                        &times;
+                        <X size={20} />
                     </button>
                 </div>
 

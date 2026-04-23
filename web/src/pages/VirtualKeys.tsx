@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, X } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
 import {
@@ -75,10 +75,10 @@ function CreateKeyModal({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                    className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                     aria-label="Close"
                 >
-                    &times;
+                    <X size={20} />
                 </button>
                 {createdKey ? (
                     <>
@@ -206,9 +206,9 @@ function KeyDetailModal({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-colors cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                    className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                 >
-                    &times;
+                    <X size={20} />
                 </button>
                 <h2 className="text-xl font-bold text-white mb-4">
                     Virtual Key Details

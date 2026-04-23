@@ -1,3 +1,5 @@
+import { X } from "lucide-react";
+
 interface ConfirmDialogProps {
     title: string;
     fields: string[];
@@ -30,7 +32,7 @@ export function ConfirmDialog({
                     className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
                     aria-label="Close"
                 >
-                    &times;
+                    <X size={20} />
                 </button>
                 <h2 className="text-lg font-bold text-white mb-3">{title}</h2>
                 <p className="text-sm text-gray-300 mb-1">

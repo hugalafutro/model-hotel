@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo } from "react";
-import { PlugZap, Eye, EyeOff } from "lucide-react";
+import { PlugZap, Eye, EyeOff, X, RefreshCw } from "lucide-react";
 import type { NanoGPTUsage, Provider, ZAIQuotaResponse } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -102,33 +102,20 @@ function NanoGPTQuotaModal({
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default text-sm leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
-                            <svg
-                                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                            </svg>
+                            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
                         </button>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Close"
                             title="Close"
                         >
-                            &times;
+                            <X size={20} />
                         </button>
                     </div>
                 </div>
@@ -340,33 +327,20 @@ function ZAIQuotaModal({
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default text-sm leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
-                            <svg
-                                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                            </svg>
+                            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
                         </button>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Close"
                             title="Close"
                         >
-                            &times;
+                            <X size={20} />
                         </button>
                     </div>
                 </div>
@@ -561,10 +535,10 @@ function EditProviderModal({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                        className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                         aria-label="Close"
                     >
-                        &times;
+                        <X size={20} />
                     </button>
                     <h2 className="text-xl font-bold text-white mb-4">
                         Edit Provider
@@ -1141,10 +1115,10 @@ export function Providers() {
                                 });
                                 setError(null);
                             }}
-                            className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Close"
                         >
-                            &times;
+                            <X size={20} />
                         </button>
                         <h2 className="text-xl font-bold text-white mb-4">
                             Add Provider
