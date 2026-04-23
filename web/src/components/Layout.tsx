@@ -10,6 +10,8 @@ import {
     ScrollText,
     Settings,
     LogOut,
+    BookOpen,
+    Github,
 } from "lucide-react";
 import { Logo } from "./Logo";
 
@@ -221,9 +223,12 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0">
                 <div className="p-6">
-                    <Logo className="h-10 w-auto text-white" />
-                    <p className="text-base ui-sidebar-subtitle mt-2 ml-1">
+                    <Logo className="h-12 w-auto text-white" />
+                    <p className="text-sm text-gray-200 mt-2 ml-1">
                         Multi-Provider AI Gateway
+                    </p>
+                    <p className="text-xs text-(--accent) mt-1 ml-1 italic">
+                        "Because we have LiteLLM at home"
                     </p>
                 </div>
                 <nav className="flex-1 p-4 overflow-y-auto">
@@ -255,6 +260,26 @@ export function Layout({ children }: LayoutProps) {
                     </ul>
                 </nav>
                 <div className="p-4 shrink-0">
+                    <div className="flex gap-2 mb-3">
+                        <a
+                            href="https://opencode.ai"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                        >
+                            <BookOpen size={14} strokeWidth={2} />
+                            Docs
+                        </a>
+                        <a
+                            href="https://github.com/anomalyco/opencode"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                        >
+                            <Github size={14} strokeWidth={2} />
+                            GitHub
+                        </a>
+                    </div>
                     <button
                         type="button"
                         onClick={handleLogout}

@@ -75,8 +75,8 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MASTER_KEY` | Yes | — | Master encryption key for provider API keys |
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string |
+| `MASTER_KEY` | Yes | - | Master encryption key for provider API keys |
+| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
 | `PORT` | No | `:8080` | Server listen address |
 | `DISCOVERY_INTERVAL` | No | `30m` | Model auto-discovery interval |
 | `DATA_DIR` | No | `./data` | Directory for admin token file |
@@ -84,11 +84,11 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `RATE_LIMIT_ENABLED` | No | `true` | Enable rate limiting |
 | `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
 | `CORS_ORIGINS` | No | `localhost` | Allowed CORS origins |
-| `ALLOWED_PROVIDER_HOSTS` | No | — | Additional allowed provider hosts |
+| `ALLOWED_PROVIDER_HOSTS` | No | - | Additional allowed provider hosts |
 
 ## <img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints
 
-**Proxy API** (`/v1/*`) — OpenAI-compatible, requires a virtual key:
+**Proxy API** (`/v1/*`) - OpenAI-compatible, requires a virtual key:
 
 ```bash
 export PROXY_KEY="your-proxy-key"
@@ -105,11 +105,20 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   }'
 ```
 
-**Admin API** (`/api/*`) — requires the admin token for management operations.
+**Admin API** (`/api/*`) - requires the admin token for management operations.
 
 ## <img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security
 
 Provider API keys are encrypted at rest with AES-256-GCM using your `MASTER_KEY`. Virtual keys are SHA-256 hashed. The admin token is stored in your configured `DATA_DIR` and printed once on startup. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses.
+
+## <img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Privacy & Data Handling
+
+> **Prompts and request content are never captured, logged, or inspected.**
+> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
+>
+> The only information recorded is what is strictly necessary to route and meter the request:
+> timestamp, time-to-first-token (TTFT), token counts, proxy overhead breakdown, virtual key identifier, and target provider.
+
 
 ## <img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License
 
