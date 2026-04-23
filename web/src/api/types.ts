@@ -133,6 +133,8 @@ export interface TimeSeriesPoint {
     latency_ms: number;
     overhead_ms: number;
     provider_latency_ms: number;
+    rate_limit_hits: number;
+    avg_ttft_ms: number;
 }
 
 export interface TimeSeriesStats {

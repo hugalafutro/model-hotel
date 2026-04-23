@@ -15,6 +15,8 @@ import {
     X,
     AlertTriangle,
     Timer,
+    Gauge as GaugeIcon,
+    ShieldAlert,
 } from "lucide-react";
 import {
     AreaChart,
@@ -281,6 +283,8 @@ function TimeSeriesChart({
         latency: number;
         overhead_ms: number;
         provider_latency_ms: number;
+        rate_limit_hits: number;
+        avg_ttft_ms: number;
     }[];
     range: Range;
     onRangeChange: (r: Range) => void;
@@ -294,7 +298,9 @@ function TimeSeriesChart({
         | "errors"
         | "latency"
         | "overhead_ms"
-        | "provider_latency_ms";
+        | "provider_latency_ms"
+        | "rate_limit_hits"
+        | "avg_ttft_ms";
     allowDecimals?: boolean;
     height?: number;
     showToggle?: boolean;
@@ -716,7 +722,14 @@ function GaugeModal({
     metric: string;
     icon: React.ElementType;
     color: string;
-    dataKey: "overhead_ms" | "provider_latency_ms" | "latency" | "errors";
+    dataKey:
+        | "overhead_ms"
+        | "provider_latency_ms"
+        | "latency"
+        | "errors"
+        | "rate_limit_hits"
+        | "avg_ttft_ms"
+        | "total";
     label: string;
     allowDecimals?: boolean;
     scale?: number;
@@ -748,6 +761,8 @@ function GaugeModal({
                 latency: p.latency_ms,
                 overhead_ms: p.overhead_ms,
                 provider_latency_ms: p.provider_latency_ms,
+                rate_limit_hits: p.rate_limit_hits,
+                avg_ttft_ms: p.avg_ttft_ms,
             };
         });
     })();
@@ -889,6 +904,9 @@ export function Dashboard() {
     const [overheadModalOpen, setOverheadModalOpen] = useState(false);
     const [errorModalOpen, setErrorModalOpen] = useState(false);
     const [latencyModalOpen, setLatencyModalOpen] = useState(false);
+    const [ttftModalOpen, setTtftModalOpen] = useState(false);
+    const [rateLimitModalOpen, setRateLimitModalOpen] = useState(false);
+    const [requestsModalOpen, setRequestsModalOpen] = useState(false);
 
     const {
         data: stats,
@@ -1063,6 +1081,8 @@ export function Dashboard() {
                 latency: Math.round(p.latency_ms),
                 overhead_ms: p.overhead_ms,
                 provider_latency_ms: p.provider_latency_ms,
+                rate_limit_hits: p.rate_limit_hits,
+                avg_ttft_ms: p.avg_ttft_ms,
             };
         });
     })();
@@ -1086,6 +1106,8 @@ export function Dashboard() {
                 latency: Math.round(p.latency_ms),
                 overhead_ms: p.overhead_ms,
                 provider_latency_ms: p.provider_latency_ms,
+                rate_limit_hits: p.rate_limit_hits,
+                avg_ttft_ms: p.avg_ttft_ms,
             };
         });
     })();
@@ -1176,7 +1198,17 @@ export function Dashboard() {
                         decimals={0}
                         suffix=""
                         color={accents.requests}
-                        tooltip="Requests in the last hour"
+                        onClick={() => setRequestsModalOpen(true)}
+                        tooltip="Click to view request history"
+                    />
+                    <Gauge
+                        label="Avg TTFT/1h"
+                        value={gaugeStats?.avg_ttft_ms || 0}
+                        decimals={0}
+                        suffix="ms"
+                        color={accents.latency}
+                        onClick={() => setTtftModalOpen(true)}
+                        tooltip="Click to view TTFT history"
                     />
                     <Gauge
                         label="Avg Overhead/1h"
@@ -1188,20 +1220,13 @@ export function Dashboard() {
                         tooltip="Click to view overhead history"
                     />
                     <Gauge
-                        label="Avg TTFT/1h"
-                        value={gaugeStats?.avg_ttft_ms || 0}
-                        decimals={0}
-                        suffix="ms"
-                        color={accents.latency}
-                        tooltip="Average time to first token in the last hour"
-                    />
-                    <Gauge
                         label="Rate Limit Hits/1h"
                         value={gaugeStats?.rate_limit_hits || 0}
                         decimals={0}
                         suffix=""
                         color="#a855f7"
-                        tooltip="429 rate limit responses in the last hour"
+                        onClick={() => setRateLimitModalOpen(true)}
+                        tooltip="Click to view rate limit hit history"
                     />
                     <Gauge
                         label="Error Rate/1h"
@@ -1366,6 +1391,38 @@ export function Dashboard() {
                 color={accents.latency}
                 dataKey="latency"
                 label="s"
+            />
+            <GaugeModal
+                open={requestsModalOpen}
+                onClose={() => setRequestsModalOpen(false)}
+                title="Requests"
+                metric="Requests"
+                icon={Activity}
+                color={accents.requests}
+                dataKey="total"
+                label="requests"
+                allowDecimals={false}
+            />
+            <GaugeModal
+                open={ttftModalOpen}
+                onClose={() => setTtftModalOpen(false)}
+                title="Avg TTFT"
+                metric="TTFT"
+                icon={GaugeIcon}
+                color={accents.latency}
+                dataKey="avg_ttft_ms"
+                label="ms"
+            />
+            <GaugeModal
+                open={rateLimitModalOpen}
+                onClose={() => setRateLimitModalOpen(false)}
+                title="Rate Limit Hits"
+                metric="Rate Limit Hits"
+                icon={ShieldAlert}
+                color="#a855f7"
+                dataKey="rate_limit_hits"
+                label="hits"
+                allowDecimals={false}
             />
         </div>
     );
