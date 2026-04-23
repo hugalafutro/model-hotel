@@ -700,7 +700,7 @@ export function Providers() {
                 <button
                     type="button"
                     onClick={() => setShowModal(true)}
-                    className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:bg-(--accent) transition-colors font-medium"
+                    className="ui-btn ui-btn-primary"
                 >
                     + Add Provider
                 </button>

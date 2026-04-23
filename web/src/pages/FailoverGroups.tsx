@@ -570,14 +570,14 @@ export function FailoverGroups() {
                         type="button"
                         onClick={() => syncMutation.mutate()}
                         disabled={syncMutation.isPending}
-                        className="px-4 py-2 bg-(--surface-input) text-(--text-secondary) border border-(--border-subtle) rounded-lg hover:bg-(--surface-hover) hover:text-(--text-primary) disabled:opacity-50 transition-all"
+                        className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all disabled:opacity-50"
                     >
                         {syncMutation.isPending ? "Syncing..." : "Sync"}
                     </button>
                     <button
                         type="button"
                         onClick={() => setShowCreateModal(true)}
-                        className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:brightness-110 transition-all"
+                        className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
                     >
                         New Group
                     </button>
@@ -601,7 +601,7 @@ export function FailoverGroups() {
                     <button
                         type="button"
                         onClick={() => syncMutation.mutate()}
-                        className="px-4 py-2 bg-(--accent) text-white rounded-lg hover:brightness-110 transition-all"
+                        className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
                     >
                         Auto-discover from models
                     </button>
