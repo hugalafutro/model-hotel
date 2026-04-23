@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback } from "react";
-import { KeyRound, Terminal } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
 import {
@@ -486,20 +486,6 @@ export function VirtualKeys() {
 
             {sortedKeys.length > 0 && (
                 <div className="ui-card p-6 space-y-5">
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-(--accent-light) border border-(--accent-lighter)">
-                            <Terminal size={20} className="text-(--accent)" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">
-                                Quick Start
-                            </h2>
-                            <p className="text-sm text-gray-400">
-                                Get up and running in minutes
-                            </p>
-                        </div>
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
                             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
@@ -560,10 +546,13 @@ export function VirtualKeys() {
                             <pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto">
                                 <code>
                                     {"curl -X POST "}
-                                    {typeof window !== "undefined"
-                                        ? `${window.location.origin}`
-                                        : "http://localhost:8080"}
-                                    {"/v1/chat/completions \\\n"}
+                                    <span className="text-white font-semibold">
+                                        {typeof window !== "undefined"
+                                            ? `${window.location.origin}`
+                                            : "http://localhost:8080"}
+                                        {"/v1/chat/completions"}
+                                    </span>
+                                    {" \\\n"}
                                     {'  -H "Authorization: Bearer '}
                                     <span className="text-white font-semibold">
                                         YOUR_API_KEY
