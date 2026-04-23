@@ -724,6 +724,16 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
     color: #111318;
 }
 
+/* Remove default browser focus outline from select dropdowns in dark theme */
+[data-ui-style].dark select.ui-input {
+    outline: none;
+}
+
+[data-ui-style].dark select.ui-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-lighter);
+}
+
 [data-ui-style] select.ui-input.ui-input-sm {
     width: auto;
     min-width: 0;
