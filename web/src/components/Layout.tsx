@@ -229,7 +229,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0 overflow-y-auto">
                 <div className="p-6 text-center">
-                    <Logo className="h-12 w-auto text-white mx-auto" />
+                    <Logo className="h-12 w-auto text-white mx-auto ml-[9%]" />
                     <p className="text-sm text-gray-200 mt-2">
                         Multi-Provider AI Gateway
                     </p>
