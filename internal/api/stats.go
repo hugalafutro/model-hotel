@@ -42,11 +42,13 @@ type StatsResponse struct {
 
 // TimeSeriesPoint holds a single bucket of time-series data.
 type TimeSeriesPoint struct {
-	Bucket  string  `json:"bucket"`
-	Count   int     `json:"count"`
-	Tokens  int     `json:"tokens"`
-	Errors  int     `json:"errors"`
-	Latency float64 `json:"latency_ms"`
+	Bucket            string  `json:"bucket"`
+	Count             int     `json:"count"`
+	Tokens            int     `json:"tokens"`
+	Errors            int     `json:"errors"`
+	Latency           float64 `json:"latency_ms"`
+	OverheadMs        float64 `json:"overhead_ms"`
+	ProviderLatencyMs float64 `json:"provider_latency_ms"`
 }
 
 // TimeSeriesStats groups hourly aggregates returned by /api/stats/timeseries.
@@ -345,7 +347,9 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			COUNT(*) as count,
 			COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as tokens,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
-			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency
+			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency,
+			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
+			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as provider_latency_ms
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1
@@ -361,11 +365,13 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	result := TimeSeriesStats{Points: make([]TimeSeriesPoint, 0, expectedBuckets)}
 	for rows.Next() {
 		var p TimeSeriesPoint
-		var latency float64
-		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &p.Errors, &latency); err != nil {
+		var latency, overheadMs, providerLatencyMs float64
+		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &p.Errors, &latency, &overheadMs, &providerLatencyMs); err != nil {
 			continue
 		}
 		p.Latency = latency
+		p.OverheadMs = overheadMs
+		p.ProviderLatencyMs = providerLatencyMs
 		result.Points = append(result.Points, p)
 	}
 

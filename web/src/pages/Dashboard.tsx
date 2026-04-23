@@ -10,6 +10,8 @@ import {
     Clock,
     ArrowUpRight,
     PlugZap,
+    Zap,
+    X,
 } from "lucide-react";
 import {
     AreaChart,
@@ -205,15 +207,41 @@ function TimeSeriesChart({
     data,
     range,
     onRangeChange,
+    metric,
+    icon: Icon,
+    color,
+    label,
+    dataKey,
+    allowDecimals = false,
+    height = 240,
+    showToggle = true,
 }: {
-    data: { hour: string; total: number; errors: number }[];
+    data: {
+        hour: string;
+        total: number;
+        errors: number;
+        tokens: number;
+        latency: number;
+        overhead_ms: number;
+        provider_latency_ms: number;
+    }[];
     range: Range;
     onRangeChange: (r: Range) => void;
+    metric: string;
+    icon: React.ElementType;
+    color: string;
+    label: string;
+    dataKey:
+        | "total"
+        | "tokens"
+        | "errors"
+        | "latency"
+        | "overhead_ms"
+        | "provider_latency_ms";
+    allowDecimals?: boolean;
+    height?: number;
+    showToggle?: boolean;
 }) {
-    const accent =
-        getComputedStyle(document.documentElement)
-            .getPropertyValue("--accent")
-            .trim() || "#818cf8";
     const grid =
         getComputedStyle(document.documentElement)
             .getPropertyValue("--border-subtle")
@@ -227,27 +255,31 @@ function TimeSeriesChart({
         return (
             <div className="ui-card p-6">
                 <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
-                    <Activity size={18} className="text-(--accent)" />
-                    Requests / Hour
+                    <Icon size={18} style={{ color }} />
+                    {metric} / Hour
                 </h3>
                 <p className="text-sm text-(--text-muted) text-center py-12">
-                    No time-series data yet. Requests will appear here once
+                    No time-series data yet. {metric} will appear here once
                     traffic flows.
                 </p>
             </div>
         );
     }
 
+    const gradientId = `${dataKey}Area`;
+
     return (
         <div className="ui-card p-6">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
-                    <Activity size={18} className="text-(--accent)" />
-                    Requests / {range === "24h" ? "Hour" : "Day"}
+                    <Icon size={18} style={{ color }} />
+                    {metric} / {range === "24h" ? "Hour" : "Day"}
                 </h3>
-                <RangeToggle value={range} onChange={onRangeChange} />
+                {showToggle && (
+                    <RangeToggle value={range} onChange={onRangeChange} />
+                )}
             </div>
-            <div className="h-60">
+            <div style={{ height }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={data}
@@ -255,7 +287,7 @@ function TimeSeriesChart({
                     >
                         <defs>
                             <linearGradient
-                                id="reqArea"
+                                id={gradientId}
                                 x1="0"
                                 y1="0"
                                 x2="0"
@@ -263,12 +295,12 @@ function TimeSeriesChart({
                             >
                                 <stop
                                     offset="0%"
-                                    stopColor={accent}
+                                    stopColor={color}
                                     stopOpacity={0.3}
                                 />
                                 <stop
                                     offset="100%"
-                                    stopColor={accent}
+                                    stopColor={color}
                                     stopOpacity={0.02}
                                 />
                             </linearGradient>
@@ -289,7 +321,7 @@ function TimeSeriesChart({
                             tick={{ fontSize: 10, fill: text }}
                             tickLine={false}
                             axisLine={false}
-                            allowDecimals={false}
+                            allowDecimals={allowDecimals}
                         />
                         <Tooltip
                             contentStyle={{
@@ -310,17 +342,17 @@ function TimeSeriesChart({
                             }}
                             formatter={(value: number | string | unknown) => [
                                 Number(value).toLocaleString(),
-                                "Requests",
+                                label,
                             ]}
                         />
                         <Area
                             type="monotone"
-                            dataKey="total"
-                            stroke={accent}
+                            dataKey={dataKey}
+                            stroke={color}
                             strokeWidth={2}
-                            fill="url(#reqArea)"
+                            fill={`url(#${gradientId})`}
                             dot={false}
-                            activeDot={{ r: 4, fill: accent, strokeWidth: 0 }}
+                            activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
@@ -580,6 +612,109 @@ function UsageBarPanel({
 }
 
 /* =====================================================
+   GAUGE MODAL
+   ===================================================== */
+function GaugeModal({
+    open,
+    onClose,
+    title,
+    metric,
+    icon,
+    color,
+    dataKey,
+    label,
+    allowDecimals = true,
+}: {
+    open: boolean;
+    onClose: () => void;
+    title: string;
+    metric: string;
+    icon: React.ElementType;
+    color: string;
+    dataKey: "overhead_ms" | "provider_latency_ms";
+    label: string;
+    allowDecimals?: boolean;
+}) {
+    const [range, setRange] = useState<Range>("24h");
+    const { data: tsData } = useQuery({
+        queryKey: ["stats-timeseries-modal", range],
+        queryFn: () => api.stats.getTimeSeries({ period: range }),
+        placeholderData: (prev) => prev,
+        enabled: open,
+    });
+
+    const chartData = (() => {
+        if (!tsData?.points) return [];
+        return tsData.points.map((p) => {
+            const d = new Date(p.bucket);
+            const label =
+                range === "7d"
+                    ? d.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                      })
+                    : d.getHours().toString().padStart(2, "0") + ":00";
+            return {
+                hour: label,
+                total: p.count,
+                errors: p.errors,
+                tokens: p.tokens,
+                latency: p.latency_ms,
+                overhead_ms: p.overhead_ms,
+                provider_latency_ms: p.provider_latency_ms,
+            };
+        });
+    })();
+
+    if (!open) return null;
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 flex items-center justify-center z-50"
+            onKeyDown={(e) => {
+                if (e.key === "Escape") onClose();
+            }}
+        >
+            <button
+                type="button"
+                className="absolute inset-0 bg-black/60 cursor-default"
+                onClick={onClose}
+                aria-label="Close dialog"
+            />
+            <div className="relative ui-card p-6 w-full max-w-2xl mx-4">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+                        <span style={{ color }}>{title}</span>
+                    </h3>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-white transition-colors"
+                        aria-label="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+                <TimeSeriesChart
+                    data={chartData}
+                    range={range}
+                    onRangeChange={setRange}
+                    metric={metric}
+                    icon={icon}
+                    color={color}
+                    label={label}
+                    dataKey={dataKey}
+                    allowDecimals={allowDecimals}
+                    height={280}
+                />
+            </div>
+        </div>
+    );
+}
+
+/* =====================================================
    GAUGE
    ===================================================== */
 function Gauge({
@@ -588,12 +723,14 @@ function Gauge({
     decimals,
     suffix,
     color,
+    onClick,
 }: {
     label: string;
     value: number;
     decimals: number;
     suffix: string;
     color: string;
+    onClick?: () => void;
 }) {
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
@@ -602,7 +739,11 @@ function Gauge({
     const dashOffset = pathArc - (pathArc * pct) / 100;
 
     return (
-        <div className="flex flex-col items-center">
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex flex-col items-center ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
+        >
             <div className="relative w-28 h-14">
                 <svg className="w-full h-full" viewBox="0 0 100 60">
                     <path
@@ -633,7 +774,7 @@ function Gauge({
             <p className="text-[10px] uppercase tracking-wider text-(--text-muted) mt-2">
                 {label}
             </p>
-        </div>
+        </button>
     );
 }
 
@@ -642,12 +783,14 @@ function Gauge({
    ===================================================== */
 export function Dashboard() {
     const [tsRange, setTsRange] = useState<Range>("24h");
+    const [tokenTsRange, setTokenTsRange] = useState<Range>("24h");
     const [provRange, setProvRange] = useState<Range>("24h");
     const [tokenRange, setTokenRange] = useState<Range>("24h");
     const [modelRange, setModelRange] = useState<Range>("24h");
     const [providerRange, setProviderRange] = useState<Range>("24h");
     const [vkRange, setVkRange] = useState<Range>("24h");
     const [excludeDeleted, setExcludeDeleted] = useState(false);
+    const [overheadModalOpen, setOverheadModalOpen] = useState(false);
 
     const {
         data: stats,
@@ -680,6 +823,13 @@ export function Dashboard() {
         queryKey: ["stats-timeseries", tsRange, excludeDeleted],
         queryFn: () =>
             api.stats.getTimeSeries({ period: tsRange, excludeDeleted }),
+        placeholderData: (prev) => prev,
+    });
+
+    const { data: tokenTsData } = useQuery({
+        queryKey: ["stats-timeseries-tokens", tokenTsRange, excludeDeleted],
+        queryFn: () =>
+            api.stats.getTimeSeries({ period: tokenTsRange, excludeDeleted }),
         placeholderData: (prev) => prev,
     });
 
@@ -793,6 +943,31 @@ export function Dashboard() {
                 errors: p.errors,
                 tokens: p.tokens,
                 latency: Math.round(p.latency_ms),
+                overhead_ms: p.overhead_ms,
+                provider_latency_ms: p.provider_latency_ms,
+            };
+        });
+    })();
+
+    const tokenAcData = (() => {
+        if (!tokenTsData?.points) return [];
+        return tokenTsData.points.map((p) => {
+            const d = new Date(p.bucket);
+            const label =
+                tokenTsRange === "7d"
+                    ? d.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                      })
+                    : d.getHours().toString().padStart(2, "0") + ":00";
+            return {
+                hour: label,
+                total: p.count,
+                errors: p.errors,
+                tokens: p.tokens,
+                latency: Math.round(p.latency_ms),
+                overhead_ms: p.overhead_ms,
+                provider_latency_ms: p.provider_latency_ms,
             };
         });
     })();
@@ -870,6 +1045,7 @@ export function Dashboard() {
                         decimals={1}
                         suffix="ms"
                         color={accents.overhead}
+                        onClick={() => setOverheadModalOpen(true)}
                     />
                     <Gauge
                         label="Error Rate/1h"
@@ -927,12 +1103,30 @@ export function Dashboard() {
                 />
             </div>
 
-            {/* Time-series chart — full width */}
-            <TimeSeriesChart
-                data={acData}
-                range={tsRange}
-                onRangeChange={setTsRange}
-            />
+            {/* Time-series charts row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TimeSeriesChart
+                    data={acData}
+                    range={tsRange}
+                    onRangeChange={setTsRange}
+                    metric="Requests"
+                    icon={Activity}
+                    color={accents.requests}
+                    label="Requests"
+                    dataKey="total"
+                />
+                <TimeSeriesChart
+                    data={tokenAcData}
+                    range={tokenTsRange}
+                    onRangeChange={setTokenTsRange}
+                    metric="Tokens"
+                    icon={Zap}
+                    color={accents.tokens}
+                    label="Tokens"
+                    dataKey="tokens"
+                    allowDecimals
+                />
+            </div>
 
             {/* Charts row: doughnut + token split */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -976,6 +1170,17 @@ export function Dashboard() {
                     onRangeChange={setVkRange}
                 />
             </div>
+
+            <GaugeModal
+                open={overheadModalOpen}
+                onClose={() => setOverheadModalOpen(false)}
+                title="Avg Overhead"
+                metric="Overhead"
+                icon={Clock}
+                color={accents.overhead}
+                dataKey="overhead_ms"
+                label="ms"
+            />
         </div>
     );
 }
