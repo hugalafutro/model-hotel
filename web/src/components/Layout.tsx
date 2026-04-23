@@ -262,7 +262,7 @@ export function Layout({ children }: LayoutProps) {
                 <div className="p-4 shrink-0">
                     <div className="flex gap-2 mb-3">
                         <a
-                            href="https://opencode.ai"
+                            href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
@@ -271,7 +271,7 @@ export function Layout({ children }: LayoutProps) {
                             Docs
                         </a>
                         <a
-                            href="https://github.com/anomalyco/opencode"
+                            href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
