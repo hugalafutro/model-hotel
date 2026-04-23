@@ -5,6 +5,7 @@ import {
     LayoutDashboard,
     PlugZap,
     Bot,
+    Shuffle,
     Hotel,
     KeyRound,
     ScrollText,
@@ -82,7 +83,7 @@ export function Layout({ children }: LayoutProps) {
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Providers", href: "/providers", icon: PlugZap },
         { name: "Models", href: "/models", icon: Bot },
-        { name: "Failover", href: "/failover", icon: Hotel },
+        { name: "Failover", href: "/failover", icon: Shuffle },
         { name: "Virtual Keys", href: "/virtual-keys", icon: KeyRound },
         { name: "Logs", href: "/logs", icon: ScrollText },
         { name: "Settings", href: "/settings", icon: Settings },
@@ -100,7 +101,8 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0">
                 <div className="p-6">
-                    <h1 className="text-xl font-bold ui-sidebar-title">
+                    <h1 className="text-xl font-bold ui-sidebar-title flex items-center gap-2">
+                        <Hotel size={22} strokeWidth={2} />
                         Model Hotel
                     </h1>
                     <p className="text-sm ui-sidebar-subtitle mt-1">
