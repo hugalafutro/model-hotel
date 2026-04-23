@@ -102,12 +102,12 @@ function NanoGPTQuotaModal({
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="text-gray-400 hover:text-white text-lg leading-none p-1 rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default text-sm leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
                             <svg
-                                className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
+                                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -124,8 +124,9 @@ function NanoGPTQuotaModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Close"
+                            title="Close"
                         >
                             &times;
                         </button>
@@ -339,12 +340,12 @@ function ZAIQuotaModal({
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="text-gray-400 hover:text-white text-lg leading-none p-1 rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default text-sm leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
                             <svg
-                                className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
+                                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -361,8 +362,9 @@ function ZAIQuotaModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
                             aria-label="Close"
+                            title="Close"
                         >
                             &times;
                         </button>
@@ -772,7 +774,6 @@ export function Providers() {
                 nanogptProviderId!,
             ) as Promise<NanoGPTUsage>,
         enabled: Boolean(nanogptProviderId),
-        refetchInterval: 60 * 60 * 1000,
     });
 
     const {
@@ -783,7 +784,6 @@ export function Providers() {
         queryKey: ["zai-usage", zaiProviderId],
         queryFn: () => api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
         enabled: Boolean(zaiProviderId),
-        refetchInterval: 60 * 60 * 1000,
     });
 
     const { data: deepseekBalanceData, refetch: refetchDeepseekBalance } =
@@ -791,7 +791,6 @@ export function Providers() {
             queryKey: ["deepseek-balance", deepseekProviderId],
             queryFn: () => api.providers.getBalance(deepseekProviderId!),
             enabled: Boolean(deepseekProviderId),
-            refetchInterval: 60 * 60 * 1000,
         });
 
     const discoverMutation = useMutation({
