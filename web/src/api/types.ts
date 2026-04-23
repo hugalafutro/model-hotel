@@ -119,6 +119,9 @@ export interface Stats {
     avg_tokens_per_request: number;
 }
 
+export type MetricType = "requests" | "tokens";
+export type Range = "24h" | "7d";
+
 export interface TimeSeriesPoint {
     bucket: string;
     count: number;

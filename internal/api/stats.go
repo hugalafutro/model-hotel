@@ -29,8 +29,8 @@ func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
 type StatsResponse struct {
 	TotalRequestsLast24h  int              `json:"total_requests_last_24h"`
 	TotalRequestsLast7d   int              `json:"total_requests_last_7d"`
-	ByModel               map[string]int   `json:"by_model"`
-	ByProvider            map[string]int   `json:"by_provider"`
+	ByModel               map[string]int64 `json:"by_model"`
+	ByProvider            map[string]int64 `json:"by_provider"`
 	ByVirtualKey          map[string]int64 `json:"by_virtual_key"`
 	AvgLatencyMs          float64          `json:"avg_latency_ms"`
 	ErrorRate             float64          `json:"error_rate"`
@@ -92,10 +92,19 @@ func parseExcludeDeleted(r *http.Request) bool {
 	return r.URL.Query().Get("exclude_deleted") == "true"
 }
 
+func parseMetric(r *http.Request) string {
+	m := r.URL.Query().Get("metric")
+	if m == "tokens" {
+		return "tokens"
+	}
+	return "requests"
+}
+
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
-	stats, err := h.calculateStats(r.Context(), period, excludeDeleted)
+	metric := parseMetric(r)
+	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -105,10 +114,10 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool) (*StatsResponse, error) {
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string) (*StatsResponse, error) {
 	stats := &StatsResponse{
-		ByModel:      make(map[string]int),
-		ByProvider:   make(map[string]int),
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
 		ByVirtualKey: make(map[string]int64),
 	}
 
@@ -164,12 +173,20 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 
 	// Query 2: By model
+	var modelSelect, modelOrder string
+	if metric == "tokens" {
+		modelSelect = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+		modelOrder = "val"
+	} else {
+		modelSelect = "COUNT(*) as val"
+		modelOrder = "val"
+	}
 	query = `
-		SELECT rl.model_id, COUNT(*) as count
+		SELECT rl.model_id, ` + modelSelect + `
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY rl.model_id
-		ORDER BY count DESC
+		ORDER BY ` + modelOrder + ` DESC
 		LIMIT 10`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
@@ -180,21 +197,29 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	for rows.Next() {
 		var modelID string
-		var count int
-		if err := rows.Scan(&modelID, &count); err != nil {
+		var val int64
+		if err := rows.Scan(&modelID, &val); err != nil {
 			continue
 		}
-		stats.ByModel[modelID] = count
+		stats.ByModel[modelID] = val
 	}
 
 	// Query 3: By provider
+	var providerSelect, providerOrder string
+	if metric == "tokens" {
+		providerSelect = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+		providerOrder = "val"
+	} else {
+		providerSelect = "COUNT(*) as val"
+		providerOrder = "val"
+	}
 	query = `
-		SELECT p.name, COUNT(*) as count
+		SELECT p.name, ` + providerSelect + `
 		FROM request_logs rl
 		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY p.name
-		ORDER BY count DESC
+		ORDER BY ` + providerOrder + ` DESC
 		LIMIT 10`
 
 	rows, err = h.dbPool.Query(ctx, query, since)
@@ -205,11 +230,11 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	for rows.Next() {
 		var providerName string
-		var count int
-		if err := rows.Scan(&providerName, &count); err != nil {
+		var val int64
+		if err := rows.Scan(&providerName, &val); err != nil {
 			continue
 		}
-		stats.ByProvider[providerName] = count
+		stats.ByProvider[providerName] = val
 	}
 
 	// Query 4: By virtual key — uses INNER JOIN already, no changes needed regardless of excludeDeleted

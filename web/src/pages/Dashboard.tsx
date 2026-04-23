@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import type { MetricType } from "../api/types";
 import {
     LayoutDashboard,
     Bot,
@@ -38,7 +39,7 @@ function RangeToggle({
     onChange: (v: Range) => void;
 }) {
     return (
-        <div className="flex items-center gap-0.5 ml-auto">
+        <div className="flex items-center gap-0.5">
             {(["24h", "7d"] as Range[]).map((r) => {
                 const active = value === r;
                 const label = r === "24h" ? "1D" : "7D";
@@ -46,6 +47,39 @@ function RangeToggle({
                     <button
                         key={r}
                         onClick={() => onChange(r)}
+                        className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-md transition-colors ${
+                            active
+                                ? "text-white"
+                                : "text-(--text-muted) hover:text-(--text-secondary)"
+                        }`}
+                        style={
+                            active ? { backgroundColor: "var(--accent)" } : {}
+                        }
+                    >
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+function MetricToggle({
+    value,
+    onChange,
+}: {
+    value: MetricType;
+    onChange: (v: MetricType) => void;
+}) {
+    return (
+        <div className="flex items-center gap-0.5">
+            {(["tokens", "requests"] as MetricType[]).map((m) => {
+                const active = value === m;
+                const label = m === "tokens" ? "Tok" : "Req";
+                return (
+                    <button
+                        key={m}
+                        onClick={() => onChange(m)}
                         className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-md transition-colors ${
                             active
                                 ? "text-white"
@@ -587,6 +621,8 @@ function UsageBarPanel({
     entries,
     range,
     onRangeChange,
+    metric,
+    onMetricChange,
 }: {
     title: string;
     icon: React.ElementType;
@@ -598,6 +634,8 @@ function UsageBarPanel({
     }[];
     range: Range;
     onRangeChange: (r: Range) => void;
+    metric?: MetricType;
+    onMetricChange?: (m: MetricType) => void;
 }) {
     const max =
         entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0;
@@ -611,7 +649,15 @@ function UsageBarPanel({
                         {title}
                     </h3>
                 </div>
-                <RangeToggle value={range} onChange={onRangeChange} />
+                <div className="flex items-center gap-1.5">
+                    {metric !== undefined && onMetricChange !== undefined && (
+                        <MetricToggle
+                            value={metric}
+                            onChange={onMetricChange}
+                        />
+                    )}
+                    <RangeToggle value={range} onChange={onRangeChange} />
+                </div>
             </div>
             {entries.length === 0 ? (
                 <p className="text-sm text-(--text-muted) text-center py-8">
@@ -838,6 +884,9 @@ export function Dashboard() {
     const [modelRange, setModelRange] = useState<Range>("24h");
     const [providerRange, setProviderRange] = useState<Range>("24h");
     const [vkRange, setVkRange] = useState<Range>("24h");
+    const [modelMetric, setModelMetric] = useState<MetricType>("tokens");
+    const [providerMetric, setProviderMetric] = useState<MetricType>("tokens");
+    const [vkMetric, setVkMetric] = useState<MetricType>("tokens");
     const [excludeDeleted, setExcludeDeleted] = useState(false);
     const [overheadModalOpen, setOverheadModalOpen] = useState(false);
     const [errorModalOpen, setErrorModalOpen] = useState(false);
@@ -895,20 +944,40 @@ export function Dashboard() {
     });
 
     const { data: modelStats } = useQuery({
-        queryKey: ["stats-top-models", modelRange, excludeDeleted],
-        queryFn: () => api.stats.get({ period: modelRange, excludeDeleted }),
+        queryKey: ["stats-top-models", modelRange, modelMetric, excludeDeleted],
+        queryFn: () =>
+            api.stats.get({
+                period: modelRange,
+                metric: modelMetric,
+                excludeDeleted,
+            }),
         placeholderData: (prev) => prev,
     });
 
     const { data: providerStats } = useQuery({
-        queryKey: ["stats-top-providers", providerRange, excludeDeleted],
-        queryFn: () => api.stats.get({ period: providerRange, excludeDeleted }),
+        queryKey: [
+            "stats-top-providers",
+            providerRange,
+            providerMetric,
+            excludeDeleted,
+        ],
+        queryFn: () =>
+            api.stats.get({
+                period: providerRange,
+                metric: providerMetric,
+                excludeDeleted,
+            }),
         placeholderData: (prev) => prev,
     });
 
     const { data: vkStats } = useQuery({
-        queryKey: ["stats-top-virtual-keys", vkRange, excludeDeleted],
-        queryFn: () => api.stats.get({ period: vkRange, excludeDeleted }),
+        queryKey: ["stats-top-virtual-keys", vkRange, vkMetric, excludeDeleted],
+        queryFn: () =>
+            api.stats.get({
+                period: vkRange,
+                metric: vkMetric,
+                excludeDeleted,
+            }),
         placeholderData: (prev) => prev,
     });
 
@@ -1026,15 +1095,23 @@ export function Dashboard() {
     // Format usage panels from their respective range queries
     const byModel = modelStats
         ? Object.entries(modelStats.by_model)
-              .sort(([, a], [, b]) => b - a)
+              .sort(([, a], [, b]) => Number(b) - Number(a))
               .slice(0, 5)
-              .map(([k, v]) => ({ label: k, value: v, suffix: " requests" }))
+              .map(([k, v]) => ({
+                  label: k,
+                  value: Number(v),
+                  suffix: modelMetric === "tokens" ? " tokens" : " requests",
+              }))
         : [];
     const byProvider = providerStats
         ? Object.entries(providerStats.by_provider)
-              .sort(([, a], [, b]) => b - a)
+              .sort(([, a], [, b]) => Number(b) - Number(a))
               .slice(0, 5)
-              .map(([k, v]) => ({ label: k, value: v, suffix: " requests" }))
+              .map(([k, v]) => ({
+                  label: k,
+                  value: Number(v),
+                  suffix: providerMetric === "tokens" ? " tokens" : " requests",
+              }))
         : [];
     const byVK = vkStats
         ? Object.entries(vkStats.by_virtual_key)
@@ -1043,7 +1120,7 @@ export function Dashboard() {
               .map(([k, v]) => ({
                   label: k,
                   value: Number(v),
-                  suffix: " tokens",
+                  suffix: vkMetric === "tokens" ? " tokens" : " requests",
                   deleted: k === "Deleted",
               }))
         : [];
@@ -1210,6 +1287,8 @@ export function Dashboard() {
                     entries={byModel}
                     range={modelRange}
                     onRangeChange={setModelRange}
+                    metric={modelMetric}
+                    onMetricChange={setModelMetric}
                 />
                 <UsageBarPanel
                     title="Top Providers"
@@ -1217,6 +1296,8 @@ export function Dashboard() {
                     entries={byProvider}
                     range={providerRange}
                     onRangeChange={setProviderRange}
+                    metric={providerMetric}
+                    onMetricChange={setProviderMetric}
                 />
                 <UsageBarPanel
                     title="Top Virtual Keys"
@@ -1224,6 +1305,8 @@ export function Dashboard() {
                     entries={byVK}
                     range={vkRange}
                     onRangeChange={setVkRange}
+                    metric={vkMetric}
+                    onMetricChange={setVkMetric}
                 />
             </div>
 

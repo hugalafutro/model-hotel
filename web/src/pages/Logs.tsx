@@ -11,8 +11,10 @@ import {
 } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
 
-// No manual cache needed: React Query's keepPreviousData handles transient
-// empty responses automatically.
+// Page-specific cache keyed by query params. Prevents the table from
+// disappearing during transient empty responses (e.g. TTFT wait).
+const entryCache: Record<string, LogEntry[]> = {};
+const totalCache: Record<string, number> = {};
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -128,11 +130,27 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    // keepPreviousData in the query config handles transient empty responses.
-    // Use the current data if available; otherwise let React Query keep the
-    // previous page visible while fetching.
-    const displayEntries = logsData?.entries ?? [];
-    const displayTotal = logsData?.total ?? 0;
+    // Build a stable cache key from current query params.
+    const cacheKey = `${page}-${pageSize}-${filters.model_id}-${filters.status_code}`;
+
+    // Update cache when we get non-empty data. Never clear it on empty
+    // responses — those are transient (e.g. during TTFT wait).
+    if (logsData?.entries && logsData.entries.length > 0) {
+        entryCache[cacheKey] = logsData.entries;
+        totalCache[cacheKey] = logsData.total;
+    }
+
+    // Use server data if it has entries; otherwise fall back to the
+    // cached page so the table never disappears.
+    const displayEntries =
+        logsData?.entries && logsData.entries.length > 0
+            ? logsData.entries
+            : (entryCache[cacheKey] ?? []);
+
+    const displayTotal =
+        logsData?.entries && logsData.entries.length > 0
+            ? logsData.total
+            : (totalCache[cacheKey] ?? 0);
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
@@ -366,17 +384,14 @@ export function Logs() {
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap">
                                             <span
-                                                className={`px-1.5 py-0.5 text-[10px] rounded-full ${getStatusBg(log.status_code, log.error_message)}`}
+                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getStatusBg(log.status_code, log.error_message)}`}
                                             >
                                                 {isInProgress(log) ? (
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                                                        <span className="text-blue-400">
-                                                            {log.state ===
-                                                            "streaming"
-                                                                ? "Live"
-                                                                : "..."}
-                                                        </span>
+                                                    <span className="text-blue-400">
+                                                        {log.state ===
+                                                        "streaming"
+                                                            ? "Live"
+                                                            : "..."}
                                                     </span>
                                                 ) : (
                                                     log.status_code

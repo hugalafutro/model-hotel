@@ -301,10 +301,12 @@ export const api = {
         get: async (opts?: {
             period?: string;
             excludeDeleted?: boolean;
+            metric?: "requests" | "tokens";
         }): Promise<Stats> => {
             const params = new URLSearchParams();
             if (opts?.period) params.set("period", opts.period);
             if (opts?.excludeDeleted) params.set("exclude_deleted", "true");
+            if (opts?.metric) params.set("metric", opts.metric);
             const qs = params.toString();
             const url = qs
                 ? `${API_BASE}/api/stats?${qs}`
