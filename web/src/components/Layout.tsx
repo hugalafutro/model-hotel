@@ -260,7 +260,7 @@ export function Layout({ children }: LayoutProps) {
                     </ul>
                 </nav>
                 <div className="p-4 shrink-0">
-                    <div className="flex gap-2 mb-3">
+                    <div className="flex justify-between mb-3">
                         <a
                             href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
