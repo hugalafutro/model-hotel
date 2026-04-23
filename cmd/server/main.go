@@ -24,6 +24,7 @@ import (
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 	"github.com/user/llm-proxy/internal/proxy"
+	"github.com/user/llm-proxy/internal/ratelimit"
 	"github.com/user/llm-proxy/internal/settings"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
@@ -77,6 +78,8 @@ func main() {
 	virtualKeyRepo := virtualkey.NewRepository(database.Pool())
 	settingsRepo := settings.NewRepository(database.Pool())
 	failoverRepo := failover.NewRepository(database.Pool())
+	rateLimiter := ratelimit.NewLimiter(settingsRepo)
+	defer rateLimiter.Stop()
 
 	r := chi.NewRouter()
 
@@ -161,7 +164,7 @@ func main() {
 	//   - non-streaming requests: 5-minute deadline
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(streamingAwareTimeout(5 * time.Minute))
-		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo)
+		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter)
 		proxyHandler.Register(r)
 	})
 

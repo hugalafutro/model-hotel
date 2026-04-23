@@ -226,7 +226,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if v := r.Context().Value(virtualKeyIDKey); v != nil {
 		vkID = v.(string)
 	}
-	if v := r.Context().Value(virtualKeyHashKey); v != nil {
+	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
 		vkHash = v.(string)
 	}
 

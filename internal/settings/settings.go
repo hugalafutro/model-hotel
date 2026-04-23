@@ -77,3 +77,21 @@ func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue t
 	}
 	return d
 }
+
+func (r *Repository) GetFloat(key string, defaultValue float64) float64 {
+	val := r.GetWithDefault(context.Background(), key, strconv.FormatFloat(defaultValue, 'f', -1, 64))
+	f, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return defaultValue
+	}
+	return f
+}
+
+func (r *Repository) GetInt(key string, defaultValue int) int {
+	val := r.GetWithDefault(context.Background(), key, strconv.Itoa(defaultValue))
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultValue
+	}
+	return i
+}

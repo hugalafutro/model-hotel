@@ -8,6 +8,7 @@ import {
     Terminal,
     Sparkles,
     Settings as SettingsIcon,
+    Gauge,
     X,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
@@ -500,6 +501,9 @@ export function Settings() {
                     </div>
                 </div>
 
+                {/* Rate Limiting */}
+                <RateLimitSettings />
+
                 {/* Logging */}
                 <LoggingSettings />
 
@@ -520,6 +524,160 @@ export function Settings() {
                     onApply={applyPickerColor}
                 />
             )}
+        </div>
+    );
+}
+
+const RATE_LIMIT_RPS_OPTIONS = [
+    { value: "5", label: "5 req/s" },
+    { value: "10", label: "10 req/s" },
+    { value: "20", label: "20 req/s" },
+    { value: "50", label: "50 req/s" },
+    { value: "100", label: "100 req/s" },
+    { value: "0", label: "Unlimited" },
+];
+
+const RATE_LIMIT_BURST_OPTIONS = [
+    { value: "10", label: "10" },
+    { value: "20", label: "20" },
+    { value: "50", label: "50" },
+    { value: "100", label: "100" },
+    { value: "200", label: "200" },
+];
+
+function RateLimitSettings() {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const { data: settings } = useQuery({
+        queryKey: ["settings"],
+        queryFn: () => api.settings.get(),
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (updates: Record<string, string>) =>
+            api.settings.update(updates),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["settings"] });
+            toast("Settings saved", "success");
+        },
+        onError: (err: Error) => {
+            toast(`Failed to save: ${err.message}`, "error");
+        },
+    });
+
+    const rateLimitEnabled = settings?.rate_limit_enabled !== "false";
+    const rateLimitRPS = settings?.rate_limit_rps || "10";
+    const rateLimitBurst = settings?.rate_limit_burst || "20";
+
+    return (
+        <div className="ui-card p-6">
+            <div className="flex items-center gap-2 mb-1">
+                <Gauge size={18} className="text-(--accent)" />
+                <h2 className="text-xl font-semibold text-white">
+                    Rate Limiting
+                </h2>
+            </div>
+            <p className="text-gray-400 text-sm mb-6">
+                Control request throughput per virtual key to prevent abuse and
+                ensure fair usage.
+            </p>
+
+            <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-medium text-gray-300">
+                            Enable Rate Limiting
+                        </p>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                            Throttle proxy requests per virtual key
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() =>
+                            updateMutation.mutate({
+                                rate_limit_enabled: rateLimitEnabled
+                                    ? "false"
+                                    : "true",
+                            })
+                        }
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            rateLimitEnabled ? "bg-(--accent)" : "bg-gray-600"
+                        }`}
+                    >
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                rateLimitEnabled
+                                    ? "translate-x-6"
+                                    : "translate-x-1"
+                            }`}
+                        />
+                    </button>
+                </div>
+
+                {rateLimitEnabled && (
+                    <>
+                        <div>
+                            <label
+                                htmlFor="rate-limit-rps"
+                                className="block text-sm font-medium text-gray-300 mb-2"
+                            >
+                                Requests per Second
+                            </label>
+                            <select
+                                id="rate-limit-rps"
+                                value={rateLimitRPS}
+                                onChange={(e) =>
+                                    updateMutation.mutate({
+                                        rate_limit_rps: e.target.value,
+                                    })
+                                }
+                                className="ui-input"
+                            >
+                                {RATE_LIMIT_RPS_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-gray-500 text-xs mt-1">
+                                Sustained request rate allowed per virtual key
+                                (0 = unlimited)
+                            </p>
+                        </div>
+
+                        <div>
+                            <label
+                                htmlFor="rate-limit-burst"
+                                className="block text-sm font-medium text-gray-300 mb-2"
+                            >
+                                Burst Size
+                            </label>
+                            <select
+                                id="rate-limit-burst"
+                                value={rateLimitBurst}
+                                onChange={(e) =>
+                                    updateMutation.mutate({
+                                        rate_limit_burst: e.target.value,
+                                    })
+                                }
+                                className="ui-input"
+                            >
+                                {RATE_LIMIT_BURST_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-gray-500 text-xs mt-1">
+                                Maximum number of simultaneous requests before
+                                throttling kicks in
+                            </p>
+                        </div>
+                    </>
+                )}
+            </div>
         </div>
     );
 }

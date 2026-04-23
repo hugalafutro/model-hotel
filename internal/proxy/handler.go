@@ -10,6 +10,7 @@ import (
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
+	"github.com/user/llm-proxy/internal/ratelimit"
 	"github.com/user/llm-proxy/internal/settings"
 	"github.com/user/llm-proxy/internal/util"
 	"github.com/user/llm-proxy/internal/virtualkey"
@@ -23,6 +24,7 @@ type Handler struct {
 	virtualKeyRepo *virtualkey.Repository
 	failoverRepo   *failover.Repository
 	settingsRepo   *settings.Repository
+	rateLimiter    *ratelimit.Limiter
 }
 
 func NewHandler(
@@ -33,6 +35,7 @@ func NewHandler(
 	virtualKeyRepo *virtualkey.Repository,
 	failoverRepo *failover.Repository,
 	settingsRepo *settings.Repository,
+	rateLimiter *ratelimit.Limiter,
 ) *Handler {
 	return &Handler{
 		cfg:            cfg,
@@ -42,11 +45,13 @@ func NewHandler(
 		virtualKeyRepo: virtualKeyRepo,
 		failoverRepo:   failoverRepo,
 		settingsRepo:   settingsRepo,
+		rateLimiter:    rateLimiter,
 	}
 }
 
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.ProxyKeyMiddleware)
+	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 
 	r.Get("/models", h.ListModels)
 	r.Post("/chat/completions", h.ChatCompletions)
@@ -68,7 +73,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		}
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
 		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID.String())
-		ctx = context.WithValue(ctx, virtualKeyHashKey, keyHash)
+		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
 		h.virtualKeyRepo.TouchLastUsed(context.Background(), keyHash)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

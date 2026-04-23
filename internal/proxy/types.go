@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/ctxkeys"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
 )
@@ -10,7 +11,11 @@ type contextKey string
 
 const virtualKeyNameKey contextKey = "virtual_key_name"
 const virtualKeyIDKey contextKey = "virtual_key_id"
-const virtualKeyHashKey contextKey = "virtual_key_hash"
+
+// VirtualKeyHashKey re-exports the shared context key from ctxkeys so
+// existing code in this package can reference it without a package prefix.
+// The canonical definition lives in internal/ctxkeys to avoid import cycles.
+const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 
 type requestLogData struct {
 	id                    string

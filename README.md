@@ -89,10 +89,13 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `DISCOVERY_INTERVAL` | No | `30m` | Model auto-discovery interval |
 | `DATA_DIR` | No | `./data` | Directory for admin token file |
 | `ALLOW_HTTP_PROVIDERS` | No | `false` | Allow HTTP provider URLs |
-| `RATE_LIMIT_ENABLED` | No | `true` | Enable rate limiting |
+| `RATE_LIMIT_ENABLED` | No | `true` | Hard kill-switch for rate limiting (env var only) |
 | `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
 | `CORS_ORIGINS` | No | `localhost` | Allowed CORS origins |
 | `ALLOWED_PROVIDER_HOSTS` | No | - | Additional allowed provider hosts |
+
+> **Rate Limiting** — When `RATE_LIMIT_ENABLED=true` (the default), rate limiting can be toggled on/off at runtime via the **Settings** UI and the following DB-backed settings: `rate_limit_enabled` (bool, default `true`), `rate_limit_rps` (float, default `10` — set to `0` for unlimited), and `rate_limit_burst` (int, default `20`). Setting `RATE_LIMIT_ENABLED=false` in the environment completely disables rate limiting regardless of DB settings. Each virtual key gets its own independent token bucket; 429 responses include `Retry-After` and `X-RateLimit-*` headers.
+
 
 ## [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints](#-api-endpoints)
 
