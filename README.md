@@ -13,7 +13,7 @@
 > - **Kimi-K2.6** (mostly UX / theming / implementation)
 > - **Minimax-M2.7** (implementation)
 >
-> Development was done in Zed editor and/or Opencode, with extensive human testing and iterative refinement.
+> Development was done in [Zed](https://zed.dev) editor and/or [Opencode](https://opencode.ai), with extensive human testing and iterative refinement.
 >
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
 
