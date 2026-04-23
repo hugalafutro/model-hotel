@@ -182,10 +182,22 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		modelOrder = "val"
 	}
 	query = `
-		SELECT rl.model_id, ` + modelSelect + `
-		FROM request_logs rl` + vkJoin + `
+		SELECT
+			CASE
+				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+				ELSE rl.model_id
+			END as model_id,
+			` + modelSelect + `
+		FROM request_logs rl
+		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
-		GROUP BY rl.model_id
+		GROUP BY
+			CASE
+				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+				ELSE rl.model_id
+			END
 		ORDER BY ` + modelOrder + ` DESC
 		LIMIT 10`
 

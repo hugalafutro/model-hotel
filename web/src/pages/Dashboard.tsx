@@ -223,7 +223,7 @@ function StatCard({
                 >
                     <Icon size={18} style={{ color: accent }} />
                 </div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-(--text-muted)">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-(--text-muted) text-right">
                     {label}
                 </span>
             </div>
@@ -572,7 +572,7 @@ function TokenSplitBar({
                         backgroundColor: "#818cf8",
                     }}
                 >
-                    {promptPct > 12 ? `Prompt ${promptPct.toFixed(0)}%` : ""}
+                    {promptPct > 12 ? `${promptPct.toFixed(0)}%` : ""}
                 </div>
                 <div
                     className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider overflow-hidden whitespace-nowrap shrink-0"
@@ -581,9 +581,7 @@ function TokenSplitBar({
                         backgroundColor: "#059669",
                     }}
                 >
-                    {completionPct > 12
-                        ? `Completion ${completionPct.toFixed(0)}%`
-                        : ""}
+                    {completionPct > 12 ? `${completionPct.toFixed(0)}%` : ""}
                 </div>
             </div>
             <div className="flex justify-between mt-3 text-sm">
