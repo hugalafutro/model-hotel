@@ -43,5 +43,5 @@ Thumbs.db
 # Docker
 *.log
 
-# Plans - keep in repo but listed so it's clear
-# plans/ is tracked in gitweb/dist/
+# Plans
+plans/
