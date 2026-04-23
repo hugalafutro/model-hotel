@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState } from "react";
+import { useState, useLayoutEffect } from "react";
 import { ScrollText } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
@@ -10,11 +10,6 @@ import {
     PaginationBar,
 } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
-
-// Page-specific cache keyed by query params. Prevents the table from
-// disappearing during transient empty responses (e.g. TTFT wait).
-const entryCache: Record<string, LogEntry[]> = {};
-const totalCache: Record<string, number> = {};
 
 function formatTPS(t: number | null): string {
     if (t == null) return "-";
@@ -117,6 +112,13 @@ export function Logs() {
     const [liveEnabled, setLiveEnabled] = useState(true);
     const { toast } = useToast();
 
+    // Page-specific cache in state so the table never disappears during
+    // transient empty responses (e.g. TTFT wait on a slow provider).
+    const [pageCache, setPageCache] = useState<{
+        entries: Record<string, LogEntry[]>;
+        total: Record<string, number>;
+    }>({ entries: {}, total: {} });
+
     const { data: logsData } = useQuery({
         queryKey: ["logs", page, pageSize, filters],
         queryFn: () =>
@@ -133,24 +135,29 @@ export function Logs() {
     // Build a stable cache key from current query params.
     const cacheKey = `${page}-${pageSize}-${filters.model_id}-${filters.status_code}`;
 
-    // Update cache when we get non-empty data. Never clear it on empty
-    // responses — those are transient (e.g. during TTFT wait).
-    if (logsData?.entries && logsData.entries.length > 0) {
-        entryCache[cacheKey] = logsData.entries;
-        totalCache[cacheKey] = logsData.total;
-    }
+    // Update cache in a layout effect so React compiler is happy.
+    // We only write when we got non-empty data; empty responses are
+    // transient (e.g. during TTFT wait) and must not wipe the cache.
+    useLayoutEffect(() => {
+        if (logsData?.entries && logsData.entries.length > 0) {
+            setPageCache((prev) => ({
+                entries: { ...prev.entries, [cacheKey]: logsData.entries },
+                total: { ...prev.total, [cacheKey]: logsData.total },
+            }));
+        }
+    }, [logsData, cacheKey]);
 
     // Use server data if it has entries; otherwise fall back to the
     // cached page so the table never disappears.
     const displayEntries =
         logsData?.entries && logsData.entries.length > 0
             ? logsData.entries
-            : (entryCache[cacheKey] ?? []);
+            : (pageCache.entries[cacheKey] ?? []);
 
     const displayTotal =
         logsData?.entries && logsData.entries.length > 0
             ? logsData.total
-            : (totalCache[cacheKey] ?? 0);
+            : (pageCache.total[cacheKey] ?? 0);
 
     const isCancelled = (errorMessage?: string) => {
         if (!errorMessage) return false;
