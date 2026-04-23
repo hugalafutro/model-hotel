@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/util"
 )
@@ -87,6 +88,41 @@ func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, 
 	}
 
 	return models, nil
+}
+
+func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, masterKey string) (*ZAIQuotaResponse, error) {
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+	}
+
+	quotaURL := "https://api.z.ai/api/monitor/usage/quota/limit"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch quota: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var quota ZAIQuotaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &quota, nil
 }
 
 func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider, apiKey, modelID string) bool {

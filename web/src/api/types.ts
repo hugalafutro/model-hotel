@@ -281,3 +281,32 @@ export interface CandidateModel {
     context_length: number | null;
     owned_by: string;
 }
+
+export interface ZAIQuotaUsageDetail {
+    modelCode: string;
+    usage: number;
+}
+
+export interface ZAIQuotaLimit {
+    type: string;
+    unit: number;
+    number: number;
+    usage: number;
+    currentValue: number;
+    remaining: number;
+    percentage: number;
+    nextResetTime: number;
+    usageDetails?: ZAIQuotaUsageDetail[];
+}
+
+export interface ZAIQuotaData {
+    limits: ZAIQuotaLimit[];
+    level: string;
+}
+
+export interface ZAIQuotaResponse {
+    code: number;
+    msg: string;
+    data: ZAIQuotaData;
+    success: boolean;
+}

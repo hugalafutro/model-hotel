@@ -11,6 +11,7 @@ import type {
     VirtualKey,
     SystemStats,
     NanoGPTUsage,
+    ZAIQuotaResponse,
     DeepSeekBalance,
     FailoverGroup,
     CreateFailoverGroupRequest,
@@ -111,7 +112,7 @@ export const api = {
             }
             return response.json();
         },
-        getUsage: async (id: string): Promise<NanoGPTUsage> => {
+        getUsage: async (id: string): Promise<NanoGPTUsage | ZAIQuotaResponse> => {
             const response = await fetch(
                 `${API_BASE}/api/providers/${id}/usage`,
                 {

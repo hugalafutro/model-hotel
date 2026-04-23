@@ -153,3 +153,32 @@ type OllamaShowResponse struct {
 	Capabilities []string             `json:"capabilities"`
 	ModifiedAt   string               `json:"modified_at"`
 }
+
+type ZAIQuotaUsageDetail struct {
+	ModelCode string `json:"modelCode"`
+	Usage     int64  `json:"usage"`
+}
+
+type ZAIQuotaLimit struct {
+	Type           string                 `json:"type"`
+	Unit           int                    `json:"unit"`
+	Number         int                    `json:"number"`
+	Usage          int64                  `json:"usage"`
+	CurrentValue   int64                  `json:"currentValue"`
+	Remaining      int64                  `json:"remaining"`
+	Percentage     float64                `json:"percentage"`
+	NextResetTime  int64                  `json:"nextResetTime"`
+	UsageDetails   []ZAIQuotaUsageDetail  `json:"usageDetails,omitempty"`
+}
+
+type ZAIQuotaData struct {
+	Limits []ZAIQuotaLimit `json:"limits"`
+	Level  string          `json:"level"`
+}
+
+type ZAIQuotaResponse struct {
+	Code    int          `json:"code"`
+	Msg     string       `json:"msg"`
+	Data    ZAIQuotaData `json:"data"`
+	Success bool         `json:"success"`
+}

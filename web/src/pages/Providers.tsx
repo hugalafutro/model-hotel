@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo } from "react";
 import { PlugZap, Eye, EyeOff } from "lucide-react";
-import type { NanoGPTUsage, Provider } from "../api/types";
+import type { NanoGPTUsage, Provider, ZAIQuotaResponse } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
@@ -277,6 +277,195 @@ function NanoGPTQuotaModal({
     );
 }
 
+function ZAIQuotaModal({
+    usage,
+    onClose,
+    onRefresh,
+    isRefreshing,
+    onToast,
+}: {
+    usage: ZAIQuotaResponse;
+    onClose: () => void;
+    onRefresh: () => Promise<unknown>;
+    isRefreshing: boolean;
+    onToast: (msg: string, type: "success" | "error" | "info") => void;
+}) {
+    const limits = usage.data?.limits || [];
+
+    const fiveHourLimit = limits.find(
+        (l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
+    );
+    const weeklyLimit = limits.find(
+        (l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
+    );
+    const mcpLimit = limits.find((l) => l.type === "TIME_LIMIT" && l.unit === 5);
+
+    const handleRefresh = async () => {
+        try {
+            await onRefresh();
+            onToast("Quota refreshed", "success");
+        } catch {
+            onToast("Failed to refresh quota", "error");
+        }
+    };
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 flex items-center justify-center z-50"
+            onKeyDown={(e) => {
+                if (e.key === "Escape") onClose();
+            }}
+        >
+            <button
+                type="button"
+                className="absolute inset-0 bg-black/60 cursor-default"
+                onClick={onClose}
+                aria-label="Close dialog"
+            />
+            <div className="relative ui-card p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 className="text-xl font-bold text-white">
+                            Z.ai Quota
+                        </h2>
+                        <p className="text-sm text-gray-400 mt-1">
+                            Plan: <span className="text-gray-200 capitalize">{usage.data?.level ?? "-"}</span>
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="text-gray-400 hover:text-white text-lg leading-none p-1 rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            aria-label="Refresh"
+                            title="Refresh quota info"
+                        >
+                            <svg
+                                className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+                            aria-label="Close"
+                        >
+                            &times;
+                        </button>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {fiveHourLimit && (
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-gray-300">
+                                    5h Token Quota
+                                </span>
+                                <span className="text-sm text-gray-400">
+                                    {(100 - fiveHourLimit.percentage).toFixed(0)}% left
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-3">
+                                <div
+                                    className="bg-[#36aaff] h-3 rounded-full transition-all"
+                                    style={{
+                                        width: `${Math.min(100 - fiveHourLimit.percentage, 100)}%`,
+                                    }}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {fiveHourLimit.percentage.toFixed(0)}% used. Resets{" "}
+                                {fiveHourLimit.nextResetTime
+                                    ? `${formatTimestamp(fiveHourLimit.nextResetTime)} - ${formatTimeUntil(fiveHourLimit.nextResetTime)}`
+                                    : "N/A"}
+                            </p>
+                        </div>
+                    )}
+
+                    {weeklyLimit && (
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-gray-300">
+                                    Weekly Token Quota
+                                </span>
+                                <span className="text-sm text-gray-400">
+                                    {(100 - weeklyLimit.percentage).toFixed(0)}% left
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-3">
+                                <div
+                                    className="bg-[#36aaff] h-3 rounded-full transition-all"
+                                    style={{
+                                        width: `${Math.min(100 - weeklyLimit.percentage, 100)}%`,
+                                    }}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {weeklyLimit.percentage.toFixed(0)}% used. Resets{" "}
+                                {weeklyLimit.nextResetTime
+                                    ? `${formatTimestamp(weeklyLimit.nextResetTime)} - ${formatTimeUntil(weeklyLimit.nextResetTime)}`
+                                    : "N/A"}
+                            </p>
+                        </div>
+                    )}
+
+                    {mcpLimit && (
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-gray-300">
+                                    MCP Time Quota
+                                </span>
+                                <span className="text-sm text-gray-400">
+                                    {(100 - mcpLimit.percentage).toFixed(0)}% left
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-3">
+                                <div
+                                    className="bg-purple-500 h-3 rounded-full transition-all"
+                                    style={{
+                                        width: `${Math.min(100 - mcpLimit.percentage, 100)}%`,
+                                    }}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {mcpLimit.percentage.toFixed(0)}% used. Resets{" "}
+                                {mcpLimit.nextResetTime
+                                    ? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
+                                    : "N/A"}
+                            </p>
+                            {mcpLimit.usageDetails && mcpLimit.usageDetails.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                    {mcpLimit.usageDetails.map((detail) => (
+                                        <div key={detail.modelCode} className="flex justify-between text-xs text-gray-500">
+                                            <span className="capitalize">{detail.modelCode}</span>
+                                            <span>{detail.usage} used</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function EditProviderModal({
     provider,
     onClose,
@@ -536,6 +725,7 @@ export function Providers() {
     const [error, setError] = useState<string | null>(null);
     const [discoveringId, setDiscoveringId] = useState<string | null>(null);
     const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null);
+    const [zaiQuotaUsage, setZaiQuotaUsage] = useState<ZAIQuotaResponse | null>(null);
     const [formData, setFormData] = useState<{
         name: string;
         base_url: string;
@@ -563,6 +753,10 @@ export function Providers() {
         return providers?.find((p) => p.base_url.includes("nano-gpt.com"))?.id;
     }, [providers]);
 
+    const zaiProviderId = useMemo(() => {
+        return providers?.find((p) => p.base_url.includes("z.ai"))?.id;
+    }, [providers]);
+
     const deepseekProviderId = useMemo(() => {
         return providers?.find((p) => p.base_url.includes("deepseek.com"))?.id;
     }, [providers]);
@@ -573,8 +767,22 @@ export function Providers() {
         isRefetching,
     } = useQuery({
         queryKey: ["nanogpt-usage", nanogptProviderId],
-        queryFn: () => api.providers.getUsage(nanogptProviderId!),
+        queryFn: () =>
+            api.providers.getUsage(
+                nanogptProviderId!,
+            ) as Promise<NanoGPTUsage>,
         enabled: Boolean(nanogptProviderId),
+        refetchInterval: 60 * 60 * 1000,
+    });
+
+    const {
+        data: zaiUsage,
+        refetch: refetchZai,
+        isRefetching: isZaiRefetching,
+    } = useQuery({
+        queryKey: ["zai-usage", zaiProviderId],
+        queryFn: () => api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
+        enabled: Boolean(zaiProviderId),
         refetchInterval: 60 * 60 * 1000,
     });
 
@@ -721,6 +929,7 @@ export function Providers() {
                 {providers?.map((provider) => {
                     const isNanoGPT =
                         provider.base_url.includes("nano-gpt.com");
+                    const isZAI = provider.base_url.includes("z.ai");
                     const weeklyUsed = isNanoGPT
                         ? nanogptUsage?.weeklyInputTokens?.used
                         : null;
@@ -732,6 +941,19 @@ export function Providers() {
                         weeklyUsed != null &&
                         weeklyLimit &&
                         nanogptUsage;
+
+                    const zaiFiveHour = isZAI
+                        ? zaiUsage?.data?.limits?.find(
+                              (l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
+                          )
+                        : null;
+                    const zaiWeekly = isZAI
+                        ? zaiUsage?.data?.limits?.find(
+                              (l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
+                          )
+                        : null;
+                    const showZaiBadge =
+                        isZAI && zaiUsage?.success && (zaiFiveHour || zaiWeekly);
 
                     return (
                         <div key={provider.id} className="ui-card p-6">
@@ -801,6 +1023,25 @@ export function Providers() {
                                         >
                                             {formatTokens(weeklyUsed)}/
                                             {formatTokens(weeklyLimit)}
+                                        </button>
+                                    )}
+                                    {showZaiBadge && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                zaiUsage &&
+                                                setZaiQuotaUsage(zaiUsage)
+                                            }
+                                            className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
+                                            title="View quota details"
+                                        >
+                                            {zaiFiveHour
+                                                ? `${(100 - zaiFiveHour.percentage).toFixed(0)}%`
+                                                : "-"}
+                                            /
+                                            {zaiWeekly
+                                                ? `${(100 - zaiWeekly.percentage).toFixed(0)}%`
+                                                : "-"}
                                         </button>
                                     )}
                                     {provider.base_url.includes(
@@ -1077,6 +1318,16 @@ export function Providers() {
                     onClose={() => setQuotaUsage(null)}
                     onRefresh={refetch}
                     isRefreshing={isRefetching}
+                    onToast={toast}
+                />
+            )}
+
+            {zaiQuotaUsage && (
+                <ZAIQuotaModal
+                    usage={zaiQuotaUsage}
+                    onClose={() => setZaiQuotaUsage(null)}
+                    onRefresh={refetchZai}
+                    isRefreshing={isZaiRefetching}
                     onToast={toast}
                 />
             )}

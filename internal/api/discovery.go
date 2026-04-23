@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -109,6 +110,17 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	discovery := provider.NewDiscoveryService()
+
+	if strings.Contains(prov.BaseURL, "z.ai") {
+		quota, err := discovery.GetZAIQuota(r.Context(), prov, h.cfg.MasterKey)
+		if err != nil {
+			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(quota)
+		return
+	}
 
 	usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
 	if err != nil {
