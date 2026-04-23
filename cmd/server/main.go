@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"embed"
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-
 	"syscall"
 	"time"
 
@@ -70,7 +72,6 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(middleware.Compress(5))
 
 	// Security headers
@@ -133,14 +134,20 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// API routes
+	// API routes — standard 60s timeout is appropriate for admin/API calls
 	r.Route("/api", func(r chi.Router) {
+		r.Use(middleware.Timeout(60 * time.Second))
 		apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo)
 		apiHandler.Register(r)
 	})
 
-	// Proxy routes
+	// Proxy routes — streaming LLM requests can take many minutes.
+	// We must NOT apply a blanket timeout here; instead we use a
+	// streaming-aware middleware that:
+	//   - streaming requests: no deadline (client-disconnect detection still works)
+	//   - non-streaming requests: 5-minute deadline
 	r.Route("/v1", func(r chi.Router) {
+		r.Use(streamingAwareTimeout(5 * time.Minute))
 		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo)
 		proxyHandler.Register(r)
 	})
@@ -326,4 +333,57 @@ func main() {
 	}
 
 	log.Println("Server stopped")
+}
+
+// streamingAwareTimeout returns middleware that sets a request deadline only
+// for non-streaming requests. Streaming LLM calls (e.g. code generation that
+// runs for 10+ minutes) must not be killed by a short server-side timeout.
+//
+// It works by peeking at the request body to check the "stream" field:
+//   - stream=true  → no context deadline (client disconnect detection still works)
+//   - stream=false/absent → context deadline of maxNonStreamingDur
+//
+// The request body is fully restored after peeking so downstream handlers can
+// read it normally.
+func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Only POST /v1/chat/completions carries a stream flag;
+			// other routes (e.g. GET /v1/models) get the non-streaming timeout.
+			if r.Method != http.MethodPost {
+				ctx, cancel := context.WithTimeout(r.Context(), maxNonStreamingDur)
+				defer cancel()
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			body, err := io.ReadAll(r.Body)
+			r.Body.Close()
+			if err != nil {
+				http.Error(w, "failed to read request body", http.StatusBadRequest)
+				return
+			}
+
+			isStreaming := false
+			var parsed struct {
+				Stream bool `json:"stream"`
+			}
+			if json.Unmarshal(body, &parsed) == nil {
+				isStreaming = parsed.Stream
+			}
+
+			// Restore the body so downstream handlers can read it
+			r.Body = io.NopCloser(bytes.NewReader(body))
+
+			if isStreaming {
+				// No deadline — rely on client disconnect detection and
+				// the upstream connection lifecycle instead.
+				next.ServeHTTP(w, r)
+			} else {
+				ctx, cancel := context.WithTimeout(r.Context(), maxNonStreamingDur)
+				defer cancel()
+				next.ServeHTTP(w, r.WithContext(ctx))
+			}
+		})
+	}
 }

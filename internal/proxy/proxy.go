@@ -344,7 +344,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		streamingClient := &http.Client{
 			Transport: &http.Transport{
-				ResponseHeaderTimeout: 0,
+				// 2 min to wait for upstream headers (TTFT). Once headers arrive,
+				// the streaming body reads indefinitely — no read deadline.
+				// A non-zero value ensures failover isn't stuck on a dead provider.
+				ResponseHeaderTimeout: 120 * time.Second,
 			},
 		}
 		resp, err := streamingClient.Do(proxyReq)
