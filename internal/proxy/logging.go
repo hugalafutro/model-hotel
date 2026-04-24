@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +19,7 @@ func (h *Handler) insertRequestLog(_ context.Context, log *requestLogData) error
 }
 
 func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
-	h.dbPool.Exec(context.Background(), `
+	tag, err := h.dbPool.Exec(context.Background(), `
 		UPDATE request_logs SET
 			provider_id = $2,
 			status_code = $3,
@@ -44,4 +45,9 @@ func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
 		log.tokensCompletion, log.tokensPromptCacheHit, log.tokensPromptCacheMiss,
 		log.errorMessage, log.failoverAttempt, log.state,
 	)
+	if err != nil {
+		fmt.Printf("Failed to update request log %s: %v\n", log.id, err)
+	} else if tag.RowsAffected() == 0 {
+		fmt.Printf("updateRequestLog: no rows affected for log %s (may have been deleted)\n", log.id)
+	}
 }

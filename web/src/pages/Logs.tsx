@@ -304,6 +304,11 @@ export function Logs() {
         total: number;
     }>({ entries: [], total: 0 });
 
+    const { data: settings } = useQuery({
+        queryKey: ["settings"],
+        queryFn: () => api.settings.get(),
+    });
+
     const { data: logsData } = useQuery({
         queryKey: ["logs", page, pageSize, filters, dateFrom, dateTo],
         queryFn: () =>
@@ -424,8 +429,32 @@ export function Logs() {
         return "bg-gray-700 text-gray-300";
     };
 
+    // A request stuck in pending/streaming longer than the configured timeout
+    // is almost certainly dead (server crash, unhandled error, etc.) — treat it
+    // as stale rather than showing a permanently pulsing "Resolving…" / "Live" row.
+    // Default 30m to accommodate providers with long time-to-first-token.
+    // The setting is stored as a Go duration string (e.g. "30m0s", "1h0m0s").
+    const parseGoDuration = (d: string): number => {
+        let ms = 0;
+        const h = d.match(/(\d+)h/);
+        const m = d.match(/(\d+)m(?!s)/);
+        const s = d.match(/(\d+)s/);
+        if (h) ms += parseInt(h[1], 10) * 3600000;
+        if (m) ms += parseInt(m[1], 10) * 60000;
+        if (s) ms += parseInt(s[1], 10) * 1000;
+        return ms;
+    };
+    const staleMs = parseGoDuration(settings?.stale_request_timeout || "30m0s");
+    const STALE_THRESHOLD_MS = staleMs > 0 ? staleMs : 30 * 60 * 1000;
+
+    const isStale = (log: LogEntry) => {
+        if (log.state !== "pending" && log.state !== "streaming") return false;
+        const age = Date.now() - new Date(log.created_at).getTime();
+        return age > STALE_THRESHOLD_MS;
+    };
+
     const isInProgress = (log: LogEntry) =>
-        log.state === "pending" || log.state === "streaming";
+        !isStale(log) && (log.state === "pending" || log.state === "streaming");
 
     const hasDateFilter = !!dateFrom && !!dateTo;
 
@@ -719,6 +748,13 @@ export function Logs() {
                                                 <span className="text-red-400 italic">
                                                     Deleted
                                                 </span>
+                                            ) : isStale(log) ? (
+                                                <span
+                                                    className="text-yellow-500/70 italic"
+                                                    title="Request interrupted — never completed"
+                                                >
+                                                    Interrupted
+                                                </span>
                                             ) : isInProgress(log) &&
                                               (!log.provider_name ||
                                                   log.provider_name ===
@@ -734,7 +770,11 @@ export function Logs() {
                                             <span
                                                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getStatusBg(log.status_code, log.error_message)}`}
                                             >
-                                                {isInProgress(log) ? (
+                                                {isStale(log) ? (
+                                                    <span className="text-yellow-500/70">
+                                                        ⚠
+                                                    </span>
+                                                ) : isInProgress(log) ? (
                                                     <span className="text-blue-400">
                                                         {log.state ===
                                                         "streaming"

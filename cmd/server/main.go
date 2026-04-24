@@ -5,6 +5,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -51,6 +52,23 @@ func main() {
 
 	if err := database.WaitForReady(ctx, 30); err != nil {
 		log.Fatalf("Database not ready: %v", err)
+	}
+
+	// Clean up stale request logs left in "pending" or "streaming" state
+	// from a previous server crash, restart, or unhandled error.
+	// Using serverStartTime (captured before DB was ready) means we only
+	// reclaim rows that predate this process — a genuine streaming request
+	// that happens to be long-running is never touched.
+	serverStartTime := time.Now()
+	tag, err := database.Pool().Exec(context.Background(), `
+		UPDATE request_logs
+		SET state = 'failed', error_message = 'request interrupted (server restart)'
+		WHERE state IN ('pending', 'streaming')
+		  AND created_at < $1`, serverStartTime)
+	if err == nil && tag.RowsAffected() > 0 {
+		log.Printf("Startup cleanup: marked %d stale pending/streaming logs as failed", tag.RowsAffected())
+	} else if err != nil {
+		log.Printf("Startup cleanup: failed to clean stale logs: %v", err)
 	}
 
 	adminMgr, isNew, err := admin.New(cfg.DataDir)
@@ -292,6 +310,46 @@ func main() {
 			}
 			time.Sleep(interval)
 			runDiscovery()
+		}
+	}()
+
+	// Periodic stale log cleanup: mark rows stuck in "pending"/"streaming"
+	// as "failed". Two strategies are combined in a single pass:
+	//
+	//   1. Server-start-time check: any in-progress row that predates this
+	//      process is definitively orphaned (the previous process is dead).
+	//      This has zero false-positive risk regardless of request duration.
+	//
+	//   2. Age-based check: rows older than stale_request_timeout (default
+	//      30m, configurable via Settings) are also marked failed. This
+	//      catches in-process orphans (e.g. a panic skips the final
+	//      updateRequestLog). The timeout is generous to avoid killing
+	//      legitimate long-running streaming requests.
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			staleTimeout := settingsRepo.GetDuration(context.Background(), "stale_request_timeout", 30*time.Minute)
+			if staleTimeout <= 0 {
+				continue
+			}
+			// Build a PostgreSQL-safe interval string from the parsed duration.
+			// Truncate to whole seconds to avoid fractional-unit issues (e.g. "30.5 minutes").
+			totalSecs := int64(staleTimeout.Seconds())
+			hours := totalSecs / 3600
+			mins := (totalSecs % 3600) / 60
+			secs := totalSecs % 60
+			intervalStr := fmt.Sprintf("%d hours %d minutes %d seconds", hours, mins, secs)
+			tag, err := database.Pool().Exec(context.Background(), `
+				UPDATE request_logs
+				SET state = 'failed', error_message = 'request interrupted (stale)'
+				WHERE state IN ('pending', 'streaming')
+				  AND (created_at < $1 OR created_at < NOW() - $2::interval)`,
+				serverStartTime, intervalStr)
+			if err == nil && tag.RowsAffected() > 0 {
+				log.Printf("Stale log cleanup: marked %d stuck logs as failed", tag.RowsAffected())
+			} else if err != nil {
+				log.Printf("Stale log cleanup: failed: %v", err)
+			}
 		}
 	}()
 

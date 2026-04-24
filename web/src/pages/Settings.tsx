@@ -791,6 +791,16 @@ const LOG_RETENTION_OPTIONS = [
     { value: "720h", label: "1 month" },
 ];
 
+const STALE_REQUEST_TIMEOUT_OPTIONS = [
+    { value: "5m0s", label: "5 minutes" },
+    { value: "10m0s", label: "10 minutes" },
+    { value: "15m0s", label: "15 minutes" },
+    { value: "30m0s", label: "30 minutes (default)" },
+    { value: "1h0m0s", label: "1 hour" },
+    { value: "2h0m0s", label: "2 hours" },
+    { value: "0s", label: "Disabled (never mark as stale)" },
+];
+
 function LoggingSettings() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -829,6 +839,7 @@ function LoggingSettings() {
     });
 
     const logRetention = settings?.log_retention || "0";
+    const staleRequestTimeout = settings?.stale_request_timeout || "30m0s";
 
     const getDeleteOlderThan = (selection: string): string => {
         switch (selection) {
@@ -878,6 +889,37 @@ function LoggingSettings() {
                     </select>
                     <p className="text-gray-500 text-xs mt-1">
                         Automatically delete logs older than this period
+                    </p>
+                </div>
+
+                <div>
+                    <label
+                        htmlFor="stale-request-timeout"
+                        className="block text-sm font-medium text-gray-300 mb-2"
+                    >
+                        Stale Request Timeout
+                    </label>
+                    <select
+                        id="stale-request-timeout"
+                        value={staleRequestTimeout}
+                        onChange={(e) =>
+                            updateMutation.mutate({
+                                stale_request_timeout: e.target.value,
+                            })
+                        }
+                        className="ui-input"
+                    >
+                        {STALE_REQUEST_TIMEOUT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="text-gray-500 text-xs mt-1">
+                        Mark pending/streaming requests as
+                        &ldquo;interrupted&rdquo; if they remain in-progress
+                        longer than this. Accounts for providers with long
+                        time-to-first-token.
                     </p>
                 </div>
 
