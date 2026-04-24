@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -111,7 +110,8 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 
 	discovery := provider.NewDiscoveryService()
 
-	if strings.Contains(prov.BaseURL, "z.ai") {
+	switch provider.DetectProviderType(prov.BaseURL) {
+	case "zai":
 		quota, err := discovery.GetZAIQuota(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
 			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
@@ -120,16 +120,19 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(quota)
 		return
-	}
-
-	usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
-	if err != nil {
-		http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
+	case "nanogpt":
+		usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
+		if err != nil {
+			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(usage)
+		return
+	default:
+		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(usage)
 }
 
 func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
@@ -148,12 +151,18 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 
 	discovery := provider.NewDiscoveryService()
 
-	balance, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
-	if err != nil {
-		http.Error(w, "failed to fetch balance: "+err.Error(), http.StatusInternalServerError)
+	switch provider.DetectProviderType(prov.BaseURL) {
+	case "deepseek":
+		balance, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
+		if err != nil {
+			http.Error(w, "failed to fetch balance: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(balance)
+		return
+	default:
+		http.Error(w, "balance information not supported for this provider type", http.StatusBadRequest)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(balance)
 }

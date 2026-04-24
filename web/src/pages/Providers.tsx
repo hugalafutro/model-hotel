@@ -778,15 +778,21 @@ export function Providers() {
     });
 
     const nanogptProviderId = useMemo(() => {
-        return providers?.find((p) => p.base_url.includes("nano-gpt.com"))?.id;
+        return providers?.find((p) => {
+            try { return new URL(p.base_url).hostname.endsWith("nano-gpt.com"); } catch { return false; }
+        })?.id;
     }, [providers]);
 
     const zaiProviderId = useMemo(() => {
-        return providers?.find((p) => p.base_url.includes("z.ai"))?.id;
+        return providers?.find((p) => {
+            try { const h = new URL(p.base_url).hostname; return h === "z.ai" || h.endsWith(".z.ai"); } catch { return false; }
+        })?.id;
     }, [providers]);
 
     const deepseekProviderId = useMemo(() => {
-        return providers?.find((p) => p.base_url.includes("deepseek.com"))?.id;
+        return providers?.find((p) => {
+            try { return new URL(p.base_url).hostname.endsWith("deepseek.com"); } catch { return false; }
+        })?.id;
     }, [providers]);
 
     const {
