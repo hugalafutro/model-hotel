@@ -377,7 +377,7 @@ export function VirtualKeys() {
                 <button
                     type="button"
                     onClick={() => setShowCreate(true)}
-                    className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+                    className="ui-btn ui-btn-primary"
                 >
                     + Create Key
                 </button>
