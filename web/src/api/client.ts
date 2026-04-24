@@ -321,10 +321,12 @@ export const api = {
         },
         getProviderDistribution: async (opts?: {
             period?: string;
+            metric?: string;
             excludeDeleted?: boolean;
         }): Promise<ProviderDistributionStats> => {
             const params = new URLSearchParams();
             if (opts?.period) params.set("period", opts.period);
+            if (opts?.metric) params.set("metric", opts.metric);
             if (opts?.excludeDeleted) params.set("exclude_deleted", "true");
             const qs = params.toString();
             const url = qs

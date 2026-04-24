@@ -449,10 +449,14 @@ function ProviderDoughnut({
     items,
     range,
     onRangeChange,
+    metric,
+    onMetricChange,
 }: {
-    items: { name: string; count: number; share: number }[];
+    items: { name: string; count: number; tokens: number; share: number }[];
     range: Range;
     onRangeChange: (r: Range) => void;
+    metric: MetricType;
+    onMetricChange: (m: MetricType) => void;
 }) {
     const colors = ["#818cf8", "#059669", "#fbbf24", "#f87171", "#a78bfa"];
 
@@ -471,7 +475,10 @@ function ProviderDoughnut({
                     <TrendingUp size={18} className="text-(--accent)" />
                     Provider Breakdown
                 </h3>
-                <RangeToggle value={range} onChange={onRangeChange} />
+                <div className="flex items-center gap-1.5">
+                    <RangeToggle value={range} onChange={onRangeChange} />
+                    <MetricToggle value={metric} onChange={onMetricChange} />
+                </div>
             </div>
             <div className="flex items-center gap-6">
                 <div className="w-35 h-35">
@@ -520,7 +527,9 @@ function ProviderDoughnut({
                                     {it.share}%
                                 </span>
                                 <span className="text-xs text-(--text-muted) ml-1">
-                                    ({it.count})
+                                    ({metric === "tokens"
+                                        ? `${formatCompact(it.tokens)} Tokens`
+                                        : `${it.count} Requests`})
                                 </span>
                             </div>
                         </div>
@@ -813,7 +822,7 @@ function GaugeModal({
                     dataKey={dataKey}
                     allowDecimals={allowDecimals}
                     height={280}
-                    scale={dataKey === "latency" ? 0.001 : 1}
+                    scale={scale ?? (dataKey === "latency" ? 0.001 : 1)}
                 />
             </div>
         </div>
@@ -899,6 +908,7 @@ export function Dashboard() {
     const [providerRange, setProviderRange] = useState<Range>("24h");
     const [vkRange, setVkRange] = useState<Range>("24h");
     const [modelMetric, setModelMetric] = useState<MetricType>("tokens");
+    const [provMetric, setProvMetric] = useState<MetricType>("requests");
     const [providerMetric, setProviderMetric] = useState<MetricType>("tokens");
     const [vkMetric, setVkMetric] = useState<MetricType>("tokens");
     const [excludeDeleted, setExcludeDeleted] = useState(false);
@@ -952,10 +962,11 @@ export function Dashboard() {
     });
 
     const { data: provDist } = useQuery({
-        queryKey: ["stats-provider-distribution", provRange, excludeDeleted],
+        queryKey: ["stats-provider-distribution", provRange, provMetric, excludeDeleted],
         queryFn: () =>
             api.stats.getProviderDistribution({
                 period: provRange,
+                metric: provMetric,
                 excludeDeleted,
             }),
         placeholderData: (prev) => prev,
@@ -1205,9 +1216,9 @@ export function Dashboard() {
                     />
                     <Gauge
                         label="Avg TTFT/1h"
-                        value={gaugeStats?.avg_ttft_ms || 0}
-                        decimals={0}
-                        suffix="ms"
+                        value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
+                        decimals={2}
+                        suffix="s"
                         color={accents.latency}
                         onClick={() => setTtftModalOpen(true)}
                         tooltip="Click to view TTFT history"
@@ -1327,6 +1338,8 @@ export function Dashboard() {
                     items={provDist?.items || []}
                     range={provRange}
                     onRangeChange={setProvRange}
+                    metric={provMetric}
+                    onMetricChange={setProvMetric}
                 />
                 {totalTokens > 0 && (
                     <TokenSplitBar
@@ -1419,7 +1432,8 @@ export function Dashboard() {
                 icon={GaugeIcon}
                 color={accents.latency}
                 dataKey="avg_ttft_ms"
-                label="ms"
+                label="s"
+                scale={0.001}
             />
             <GaugeModal
                 open={rateLimitModalOpen}

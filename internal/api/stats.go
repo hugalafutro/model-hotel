@@ -63,9 +63,10 @@ type TimeSeriesStats struct {
 
 // ProviderDistributionItem holds a single slice of the provider breakdown.
 type ProviderDistributionItem struct {
-	Name  string `json:"name"`
-	Count int    `json:"count"`
-	Share int    `json:"share"` // percent 0-100
+	Name   string `json:"name"`
+	Count  int    `json:"count"`
+	Tokens int    `json:"tokens"`
+	Share  int    `json:"share"`
 }
 
 // ProviderDistributionStats holds the provider share pie data.
@@ -506,6 +507,7 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
+	metric := parseMetric(r)
 	ctx := r.Context()
 	now := time.Now().UTC()
 	since := now.Add(-period)
@@ -516,13 +518,20 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
 
+	var selectCol string
+	if metric == "tokens" {
+		selectCol = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+	} else {
+		selectCol = "COUNT(*) as val"
+	}
+
 	query := `
-		SELECT p.name, COUNT(*) as count
+		SELECT p.name, ` + selectCol + `
 		FROM request_logs rl
 		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY p.name
-		ORDER BY count DESC
+		ORDER BY val DESC
 		LIMIT 5`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
@@ -532,31 +541,37 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	}
 	defer rows.Close()
 
-	total := 0
 	type item struct {
 		Name  string
-		Count int
+		Val   int
 	}
 	var items []item
+	total := 0
 	for rows.Next() {
 		var i item
-		if err := rows.Scan(&i.Name, &i.Count); err != nil {
+		if err := rows.Scan(&i.Name, &i.Val); err != nil {
 			continue
 		}
+		total += i.Val
 		items = append(items, i)
-		total += i.Count
 	}
 
 	result := ProviderDistributionStats{Items: make([]ProviderDistributionItem, len(items))}
 	for i, it := range items {
 		var share int
 		if total > 0 {
-			share = int(float64(it.Count) / float64(total) * 100)
+			share = int(float64(it.Val) / float64(total) * 100)
 		}
 		result.Items[i] = ProviderDistributionItem{
-			Name:  it.Name,
-			Count: it.Count,
-			Share: share,
+			Name:   it.Name,
+			Count:  it.Val,
+			Tokens: it.Val,
+			Share:  share,
+		}
+		if metric != "tokens" {
+			result.Items[i].Tokens = 0
+		} else {
+			result.Items[i].Count = 0
 		}
 	}
 

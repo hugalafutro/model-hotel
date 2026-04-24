@@ -138,6 +138,7 @@ export interface TimeSeriesStats {
 export interface ProviderDistributionItem {
     name: string;
     count: number;
+    tokens: number;
     share: number;
 }
 
