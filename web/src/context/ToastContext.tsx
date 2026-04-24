@@ -50,6 +50,15 @@ const POSITION_CLASSES: Record<ToastPosition, string> = {
     "bottom-right": "fixed bottom-4 right-4",
 };
 
+const ALIGN_CLASSES: Record<ToastPosition, string> = {
+    "top-left": "items-start",
+    "top-center": "items-center",
+    "top-right": "items-end",
+    "bottom-left": "items-start",
+    "bottom-center": "items-center",
+    "bottom-right": "items-end",
+};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
     const [position, setPositionState] = useState<ToastPosition>(() => {
@@ -105,6 +114,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const containerClass = POSITION_CLASSES[position];
+    const alignClass = ALIGN_CLASSES[position];
 
     return (
         <ToastContext.Provider
@@ -118,7 +128,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         >
             {children}
             <div
-                className={`${containerClass} z-50 flex flex-col items-center gap-2`}
+                className={`${containerClass} z-50 flex flex-col ${alignClass} gap-2`}
             >
                 {toasts.map((t) => (
                     <ToastItem
