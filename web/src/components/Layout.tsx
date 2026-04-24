@@ -36,6 +36,14 @@ function formatMB(mb: number): string {
     return `${Math.round(mb)} MB`;
 }
 
+function formatBytesPerSec(bytesPerSec: number): string {
+    if (bytesPerSec <= 0) return "0 B/s";
+    if (bytesPerSec >= 1024 * 1024)
+        return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
+    if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    return `${Math.round(bytesPerSec)} B/s`;
+}
+
 function MemoryBar({ current, limit }: { current: number; limit: number }) {
     if (!limit) return null;
     const pct = Math.min((current / limit) * 100, 100);
@@ -118,6 +126,25 @@ function SystemStatus() {
                     <span>CPU</span>
                     <span className="text-(--text-secondary)">
                         {app.cpu_percent.toFixed(1)}%
+                    </span>
+                </div>
+            )}
+
+            {/* Network */}
+            {inContainer && (app.net_rx_bytes_sec > 0 || app.net_tx_bytes_sec > 0) && (
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="Container network throughput (receive / transmit)"
+                >
+                    <span>Network</span>
+                    <span className="text-(--text-secondary)">
+                        <span className="text-sky-400">
+                            ↓{formatBytesPerSec(app.net_rx_bytes_sec)}
+                        </span>
+                        <span className="text-(--text-muted) mx-1"></span>
+                        <span className="text-amber-400">
+                            ↑{formatBytesPerSec(app.net_tx_bytes_sec)}
+                        </span>
                     </span>
                 </div>
             )}

@@ -47,6 +47,8 @@ type AppStats struct {
 	UptimeSeconds int64   `json:"uptime_seconds"`
 	CpuPercent    float64 `json:"cpu_percent"`
 	TotalRequests int64   `json:"total_requests"`
+	NetRxBytesSec float64 `json:"net_rx_bytes_sec"`
+	NetTxBytesSec float64 `json:"net_tx_bytes_sec"`
 }
 
 type DBStats struct {
@@ -105,6 +107,7 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 
 	memCurrent, memLimit, inContainer := util.ReadCgroupMemory()
 	cpuPercent := util.ReadCgroupCPU()
+	netRxPerSec, netTxPerSec := util.ReadNetworkStats()
 
 	var totalRequests int64
 	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs`).Scan(&totalRequests)
@@ -123,6 +126,8 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 		UptimeSeconds: int64(time.Since(startedAt).Seconds()),
 		CpuPercent:    cpuPercent,
 		TotalRequests: totalRequests,
+		NetRxBytesSec: netRxPerSec,
+		NetTxBytesSec: netTxPerSec,
 	}
 
 	var dbSize int64

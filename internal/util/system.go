@@ -102,6 +102,77 @@ func ReadCgroupCPU() float64 {
 	return percent
 }
 
+var (
+	NetPrevRxBytes int64
+	NetPrevTxBytes int64
+	NetPrevTime    time.Time
+	NetPrevMu      sync.Mutex
+)
+
+func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
+	f, err := os.Open("/proc/net/dev")
+	if err != nil {
+		return 0, 0
+	}
+	defer f.Close()
+
+	var totalRx, totalTx int64
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.Contains(line, ":") {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		iface := strings.TrimSpace(parts[0])
+		if iface == "lo" {
+			continue
+		}
+		fields := strings.Fields(strings.TrimSpace(parts[1]))
+		if len(fields) < 10 {
+			continue
+		}
+		if rx, e := ParseInt(fields[0]); e == nil {
+			totalRx += rx
+		}
+		if tx, e := ParseInt(fields[8]); e == nil {
+			totalTx += tx
+		}
+	}
+
+	NetPrevMu.Lock()
+	defer NetPrevMu.Unlock()
+
+	if NetPrevTime.IsZero() {
+		NetPrevTime = time.Now()
+		NetPrevRxBytes = totalRx
+		NetPrevTxBytes = totalTx
+		return 0, 0
+	}
+
+	now := time.Now()
+	deltaSec := now.Sub(NetPrevTime).Seconds()
+	deltaRx := totalRx - NetPrevRxBytes
+	deltaTx := totalTx - NetPrevTxBytes
+
+	NetPrevTime = now
+	NetPrevRxBytes = totalRx
+	NetPrevTxBytes = totalTx
+
+	if deltaSec <= 0 {
+		return 0, 0
+	}
+
+	if deltaRx > 0 {
+		rxBytesPerSec = float64(deltaRx) / deltaSec
+	}
+	if deltaTx > 0 {
+		txBytesPerSec = float64(deltaTx) / deltaSec
+	}
+
+	return rxBytesPerSec, txBytesPerSec
+}
+
 // ParseInt parses a string of digits into an int64 without using strconv
 // (useful for cgroup files where strconv may be overkill).
 func ParseInt(s string) (int64, error) {
