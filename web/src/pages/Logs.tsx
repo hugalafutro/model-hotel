@@ -539,7 +539,7 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input h-9 py-0! w-[120px]! text-xs pr-6"
+                        className="ui-input h-9 py-0! w-30! text-xs pr-6"
                     >
                         <option value="">All Status</option>
                         <option value="0">0 No Response</option>
