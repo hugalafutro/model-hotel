@@ -152,6 +152,7 @@ function AnimatedValue({
 
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [value, duration]);
 
     const formatted = formatter
@@ -724,6 +725,7 @@ function GaugeModal({
     dataKey,
     label,
     allowDecimals = true,
+    scale,
 }: {
     open: boolean;
     onClose: () => void;
