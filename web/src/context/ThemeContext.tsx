@@ -140,9 +140,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const setUIStyle = (s: UIStyle) => {
         setUIStyleState(s);
-        if (s === "cyber-terminal") {
-            setThemeState("dark");
-        }
     };
 
     const setAccentColor = (color: string) => {

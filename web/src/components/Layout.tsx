@@ -131,18 +131,18 @@ function SystemStatus() {
             )}
 
             {/* Network */}
-            {inContainer && (app.net_rx_bytes_sec > 0 || app.net_tx_bytes_sec > 0) && (
+            {inContainer && (
                 <div
                     className="flex justify-between items-center text-(--text-tertiary)"
                     title="Container network throughput (receive / transmit)"
                 >
                     <span>Network</span>
                     <span className="text-(--text-secondary)">
-                        <span className="text-sky-400">
+                        <span className="text-sky-400/60">
                             ↓{formatBytesPerSec(app.net_rx_bytes_sec)}
                         </span>
                         <span className="text-(--text-muted) mx-1"></span>
-                        <span className="text-amber-400">
+                        <span className="text-amber-400/60">
                             ↑{formatBytesPerSec(app.net_tx_bytes_sec)}
                         </span>
                     </span>

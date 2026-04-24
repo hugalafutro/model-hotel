@@ -115,32 +115,31 @@ html[data-ui-style="cyber-terminal"].dark {
 }
 
 html[data-ui-style="cyber-terminal"].light {
-    /* Force dark for cyber terminal */
-    --surface-bg: #020203;
-    --surface-elevated: #0a0a0c;
-    --surface-elevated-hover: rgba(255, 255, 255, 0.04);
-    --surface-input: #0a0a0c;
-    --surface-sidebar: #030405;
-    --surface-hover: rgba(255, 255, 255, 0.03);
+    --surface-bg: #eff0f4;
+    --surface-elevated: #ffffff;
+    --surface-elevated-hover: rgba(0, 0, 0, 0.04);
+    --surface-input: #ffffff;
+    --surface-sidebar: #e6e8ee;
+    --surface-hover: rgba(0, 0, 0, 0.03);
 
-    --text-primary: #e0e0e5;
-    --text-secondary: #a0a5b5;
-    --text-tertiary: #5a6075;
-    --text-muted: #3a4050;
+    --text-primary: #111318;
+    --text-secondary: #4a4f5c;
+    --text-tertiary: #7a7e8c;
+    --text-muted: #a5a9b4;
 
-    --border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
-    --border-subtle: rgba(255, 255, 255, 0.03);
-    --border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.18);
+    --border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.30);
+    --border-subtle: rgba(0, 0, 0, 0.06);
+    --border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
 
     --radius-card: 2px;
     --radius-button: 2px;
     --shadow-card:
         0 0 0 1px var(--border-default),
-        inset 0 0 20px rgba(var(--accent-rgb, 129, 140, 248), 0.03);
+        inset 0 0 20px rgba(var(--accent-rgb, 129, 140, 248), 0.04);
     --shadow-md:
         0 0 0 1px var(--border-default),
-        0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.08);
-    --shadow-glow: 0 0 15px rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+        0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.12);
+    --shadow-glow: 0 0 15px rgba(var(--accent-rgb, 129, 140, 248), 0.35);
 
     --nav-icon: var(--accent);
 }
@@ -914,29 +913,61 @@ html[data-ui-style="cyber-terminal"] h1 {
    CYBER TERMINAL TEXTURE BACKGROUND
    ============================================= */
 
+/* Dark terminal texture */
+html[data-ui-style="cyber-terminal"].dark body,
 html[data-ui-style="cyber-terminal"] body {
     background-image: radial-gradient(
         circle at 1px 1px,
-        rgba(255, 255, 255, 0.03) 1px,
+        rgba(255, 255, 255, 0.07) 1px,
         transparent 0
     );
     background-size: 32px 32px;
 }
 
+html[data-ui-style="cyber-terminal"].dark .ui-surface-bg,
 html[data-ui-style="cyber-terminal"] .ui-surface-bg {
     background-image: radial-gradient(
         circle at 1px 1px,
-        rgba(255, 255, 255, 0.03) 1px,
+        rgba(255, 255, 255, 0.07) 1px,
         transparent 0
     );
     background-size: 32px 32px;
 }
 
-/* Ensure sidebar in cyber terminal blends */
+/* Ensure sidebar in dark terminal blends */
+html[data-ui-style="cyber-terminal"].dark .ui-sidebar,
 html[data-ui-style="cyber-terminal"] .ui-sidebar {
     background-image: radial-gradient(
         circle at 1px 1px,
-        rgba(255, 255, 255, 0.02) 1px,
+        rgba(255, 255, 255, 0.06) 1px,
+        transparent 0
+    );
+    background-size: 32px 32px;
+}
+
+/* Light terminal texture */
+html[data-ui-style="cyber-terminal"].light body {
+    background-image: radial-gradient(
+        circle at 1px 1px,
+        rgba(0, 0, 0, 0.08) 1px,
+        transparent 0
+    );
+    background-size: 32px 32px;
+}
+
+html[data-ui-style="cyber-terminal"].light .ui-surface-bg {
+    background-image: radial-gradient(
+        circle at 1px 1px,
+        rgba(0, 0, 0, 0.08) 1px,
+        transparent 0
+    );
+    background-size: 32px 32px;
+}
+
+html[data-ui-style="cyber-terminal"].light .ui-sidebar {
+    background-image: radial-gradient(
+        circle at 1px 1px,
+        rgba(0, 0, 0, 0.06) 1px,
         transparent 0
     );
     background-size: 32px 32px;
