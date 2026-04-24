@@ -527,7 +527,7 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input w-64"
+                        className="ui-input h-9 py-0! w-80"
                     />
                     <select
                         value={filters.status_code}
@@ -538,7 +538,7 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input w-48"
+                        className="ui-input h-9 py-0! w-auto text-xs pr-6"
                     >
                         <option value="">All Status</option>
                         <option value="0">0 No Response</option>
@@ -549,36 +549,34 @@ export function Logs() {
 
                     {/* Calendar picker */}
                     <div className="relative" ref={datePickerRef}>
-                        <button
-                            type="button"
-                            onClick={toggleDatePicker}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
-                                hasDateFilter
-                                    ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
-                                    : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
-                            }`}
-                            title="Filter by date range"
-                        >
-                            <CalendarDays size={16} />
-                            <span>
-                                {hasDateFilter
-                                    ? formatDateRangeShort(dateFrom, dateTo)
-                                    : "Date Range"}
-                            </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={toggleDatePicker}
+                                className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
+                                    hasDateFilter
+                                        ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
+                                        : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
+                                }`}
+                                title={
+                                    hasDateFilter
+                                        ? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} — click to change`
+                                        : "Filter by date range"
+                                }
+                            >
+                                <CalendarDays size={16} />
+                            </button>
                             {hasDateFilter && (
                                 <button
                                     type="button"
-                                    className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        clearDateFilter();
-                                    }}
-                                    title="Clear date filter"
+                                    className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
+                                    onClick={clearDateFilter}
+                                    title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
                                 >
                                     <X size={14} />
                                 </button>
                             )}
-                        </button>
+                        </div>
 
                         {showDatePicker && (
                             <div className="absolute left-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">

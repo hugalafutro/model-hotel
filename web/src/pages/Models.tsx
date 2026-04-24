@@ -4,7 +4,12 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Bot, X } from "lucide-react";
 import type { Model, ModelCapabilities } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { SortableHeader, Row, EmptyRow, PaginationBar } from "../components/DataTable";
+import {
+    SortableHeader,
+    Row,
+    EmptyRow,
+    PaginationBar,
+} from "../components/DataTable";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
 import type { SortState } from "../components/DataTable";
@@ -1234,8 +1239,8 @@ export function Models() {
                 </p>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                <div className="flex-1 flex gap-2">
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 shrink-0">
                     <input
                         type="text"
                         placeholder="Search models..."
@@ -1245,37 +1250,25 @@ export function Models() {
                             setSearchQuery(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="ui-input"
+                        className="ui-input h-9 py-0! w-80"
                     />
                 </div>
-                <div className="md:w-64">
-                    <select
-                        value={selectedProvider}
-                        onChange={(e) => {
-                            setSelectedProvider(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        className="hidden ui-input"
-                    >
-                        <option value="">All Providers</option>
-                        {providers?.map((provider) => (
-                            <option key={provider.id} value={provider.id}>
-                                {provider.name}
-                            </option>
-                        ))}
-                    </select>
+                <div className="flex-1 flex justify-end">
+                    {models && models.length > 0 && (
+                        <PaginationBar
+                            page={currentPage}
+                            totalPages={totalPages}
+                            totalItems={sortedAndFiltered.length}
+                            pageSize={pageSize}
+                            onPageChange={setCurrentPage}
+                            onPageSizeChange={(s) => {
+                                setPageSize(s);
+                                setCurrentPage(1);
+                            }}
+                            label="models"
+                        />
+                    )}
                 </div>
-                {models && models.length > 0 && (
-                    <PaginationBar
-                        page={currentPage}
-                        totalPages={totalPages}
-                        totalItems={sortedAndFiltered.length}
-                        pageSize={pageSize}
-                        onPageChange={setCurrentPage}
-                        onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
-                        label="models"
-                    />
-                )}
             </div>
 
             <div className="ui-card overflow-hidden">
