@@ -25,7 +25,7 @@ type Model struct {
 	MaxOutputTokens              *int      `json:"max_output_tokens"`
 	InputPricePerMillion         *float64  `json:"input_price_per_million"`
 	InputPricePerMillionCacheHit *float64  `json:"input_price_per_million_cache_hit"`
-	OutputPricePerMillion       *float64  `json:"output_price_per_million"`
+	OutputPricePerMillion        *float64  `json:"output_price_per_million"`
 	OwnedBy                      string    `json:"owned_by"`
 	Enabled                      bool      `json:"enabled"`
 	DisabledManually             bool      `json:"disabled_manually"`
@@ -237,16 +237,19 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, existingModelIDs []string) error {
+func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, existingModelIDs []string) (int64, error) {
 	query := `
 		UPDATE models
 		SET enabled = false
 		WHERE provider_id = $1 AND model_id != ALL($2)
 	`
 
-	_, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
+	tag, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
 	InvalidateModelCache()
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {

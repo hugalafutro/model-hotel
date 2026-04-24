@@ -454,10 +454,11 @@ export function Logs() {
     };
     const staleMs = parseGoDuration(settings?.stale_request_timeout || "30m0s");
     const STALE_THRESHOLD_MS = staleMs > 0 ? staleMs : 30 * 60 * 1000;
+    const [nowMs] = useState(() => Date.now());
 
     const isStale = (log: LogEntry) => {
         if (log.state !== "pending" && log.state !== "streaming") return false;
-        const age = Date.now() - new Date(log.created_at).getTime();
+        const age = nowMs - new Date(log.created_at).getTime();
         return age > STALE_THRESHOLD_MS;
     };
 

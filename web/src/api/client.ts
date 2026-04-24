@@ -19,7 +19,7 @@ import type {
     CandidateModel,
 } from "./types";
 
-const API_BASE = "";
+export const API_BASE = "";
 
 let adminToken: string | null = null;
 
@@ -112,7 +112,9 @@ export const api = {
             }
             return response.json();
         },
-        getUsage: async (id: string): Promise<NanoGPTUsage | ZAIQuotaResponse> => {
+        getUsage: async (
+            id: string,
+        ): Promise<NanoGPTUsage | ZAIQuotaResponse> => {
             const response = await fetch(
                 `${API_BASE}/api/providers/${id}/usage`,
                 {

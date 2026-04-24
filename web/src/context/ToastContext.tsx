@@ -7,7 +7,7 @@ import {
     type ReactNode,
 } from "react";
 
-type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info" | "warning";
 
 export type ToastPosition =
     | "top-left"
@@ -112,6 +112,7 @@ function ToastItem({ toast, onDone }: { toast: Toast; onDone: () => void }) {
         success: "bg-emerald-900/70 text-emerald-200 border-emerald-700/60",
         error: "bg-red-900/70 text-red-200 border-red-700/60",
         info: "bg-slate-700/80 text-slate-200 border-slate-600/60",
+        warning: "bg-amber-900/70 text-amber-200 border-amber-700/60",
     };
 
     return (

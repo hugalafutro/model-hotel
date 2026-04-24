@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/events"
 	"github.com/user/llm-proxy/internal/util"
 )
 
@@ -127,7 +128,16 @@ logUpdate:
 	if vkHash != "" && !clientDisconnected {
 		totalTokens := promptTokens + completionTokens
 		if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
-			fmt.Printf("AddTokens (stream) failed: %v\n", err)
+			keyLabel := vkHash
+			if logData.virtualKeyName != "" {
+				keyLabel = logData.virtualKeyName
+			}
+			events.Publish(events.Event{
+				Type:     "tokens.error",
+				Severity: "error",
+				Message:  fmt.Sprintf("Token counting failed for key '%s'", keyLabel),
+				Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
+			})
 		}
 	}
 }
@@ -166,7 +176,16 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if vkHash != "" {
 			totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
 			if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
-				fmt.Printf("AddTokens (non-stream) failed: %v\n", err)
+				keyLabel := vkHash
+				if logData.virtualKeyName != "" {
+					keyLabel = logData.virtualKeyName
+				}
+				events.Publish(events.Event{
+					Type:     "tokens.error",
+					Severity: "error",
+					Message:  fmt.Sprintf("Token counting failed for key '%s'", keyLabel),
+					Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
+				})
 			}
 		}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
 	"github.com/user/llm-proxy/internal/db"
+	"github.com/user/llm-proxy/internal/events"
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
@@ -32,6 +33,41 @@ import (
 
 //go:embed all:static
 var staticFiles embed.FS
+
+type DiscoveryResult struct {
+	ProvidersScanned int
+	ProvidersFailed  int
+	ModelsDiscovered int
+	ModelsDisabled   int
+	FailoverSyncErrs int
+	Errors           []string
+}
+
+func publishDiscoveryEvent(source string, result DiscoveryResult) {
+	switch {
+	case result.ProvidersScanned == 0 && len(result.Errors) > 0:
+		events.Publish(events.Event{
+			Type:     "discovery.complete",
+			Severity: "error",
+			Message:  fmt.Sprintf("Discovery failed: %s", result.Errors[0]),
+			Metadata: map[string]interface{}{"source": source, "errors": result.Errors},
+		})
+	case result.ProvidersFailed > 0:
+		events.Publish(events.Event{
+			Type:     "discovery.complete",
+			Severity: "warning",
+			Message:  fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %d models found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, result.ModelsDiscovered),
+			Metadata: map[string]interface{}{"source": source, "errors": result.Errors},
+		})
+	default:
+		events.Publish(events.Event{
+			Type:     "discovery.complete",
+			Severity: "success",
+			Message:  fmt.Sprintf("%s discovery complete: %d models across %d providers", source, result.ModelsDiscovered, result.ProvidersScanned),
+			Metadata: map[string]interface{}{"source": source},
+		})
+	}
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -67,6 +103,12 @@ func main() {
 		  AND created_at < $1`, serverStartTime)
 	if err == nil && tag.RowsAffected() > 0 {
 		log.Printf("Startup cleanup: marked %d stale pending/streaming logs as failed", tag.RowsAffected())
+		events.Publish(events.Event{
+			Type:     "logs.stale_startup",
+			Severity: "warning",
+			Message:  fmt.Sprintf("Server restart interrupted %d pending requests", tag.RowsAffected()),
+			Metadata: map[string]interface{}{"count": tag.RowsAffected()},
+		})
 	} else if err != nil {
 		log.Printf("Startup cleanup: failed to clean stale logs: %v", err)
 	}
@@ -191,23 +233,29 @@ func main() {
 	r.Get("/*", spaHandler.ServeHTTP)
 
 	// Startup: run initial discovery for all enabled providers (if enabled)
-	runDiscovery := func() {
+	runDiscovery := func() DiscoveryResult {
+		result := DiscoveryResult{}
 		ctx := context.Background()
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
 			log.Printf("Discovery: failed to list providers: %v", err)
-			return
+			result.Errors = append(result.Errors, fmt.Sprintf("failed to list providers: %v", err))
+			return result
 		}
 		discoverySvc := provider.NewDiscoveryService()
 		for _, p := range providers {
 			if !p.Enabled {
 				continue
 			}
+			result.ProvidersScanned++
 			models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
 			if err != nil {
 				log.Printf("Discovery: failed for provider %s: %v", p.Name, err)
+				result.ProvidersFailed++
+				result.Errors = append(result.Errors, fmt.Sprintf("provider %s: %v", p.Name, err))
 				continue
 			}
+			result.ModelsDiscovered += len(models)
 			existingModelIDs := make([]string, 0, len(models))
 			for _, m := range models {
 				if err := modelRepo.Upsert(ctx, m); err != nil {
@@ -216,8 +264,17 @@ func main() {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
 				}
 			}
-			if err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs); err != nil {
+			disabledCount, err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs)
+			if err != nil {
 				log.Printf("Discovery: failed to disable missing models for %s: %v", p.Name, err)
+			} else if disabledCount > 0 {
+				result.ModelsDisabled += int(disabledCount)
+				events.Publish(events.Event{
+					Type:     "discovery.models_disabled",
+					Severity: "warning",
+					Message:  fmt.Sprintf("%d models no longer available at '%s' and were disabled", disabledCount, p.Name),
+					Metadata: map[string]interface{}{"provider": p.Name, "count": disabledCount},
+				})
 			}
 			now := time.Now()
 			if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
@@ -239,8 +296,16 @@ func main() {
 		for modelID := range seenModelIDs {
 			if err := failoverRepo.SyncForModel(ctx, modelID); err != nil {
 				log.Printf("Discovery: failed to sync failover for model %s: %v", modelID, err)
+				result.FailoverSyncErrs++
+				events.Publish(events.Event{
+					Type:     "failover.sync_error",
+					Severity: "warning",
+					Message:  fmt.Sprintf("Failover sync failed for model '%s'", modelID),
+					Metadata: map[string]interface{}{"error": err.Error(), "model_id": modelID},
+				})
 			}
 		}
+		return result
 	}
 
 	if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
@@ -257,7 +322,10 @@ func main() {
 		if recentlyDiscovered {
 			log.Println("Skipping startup discovery: last discovery was within 5 minutes")
 		} else {
-			go runDiscovery()
+			go func() {
+				result := runDiscovery()
+				publishDiscoveryEvent("Startup", result)
+			}()
 		}
 	}
 
@@ -309,7 +377,8 @@ func main() {
 				continue
 			}
 			time.Sleep(interval)
-			runDiscovery()
+			result := runDiscovery()
+			publishDiscoveryEvent("Scheduled", result)
 		}
 	}()
 
@@ -347,6 +416,12 @@ func main() {
 				serverStartTime, intervalStr)
 			if err == nil && tag.RowsAffected() > 0 {
 				log.Printf("Stale log cleanup: marked %d stuck logs as failed", tag.RowsAffected())
+				events.Publish(events.Event{
+					Type:     "logs.stale_cleanup",
+					Severity: "warning",
+					Message:  fmt.Sprintf("Marked %d stale requests as interrupted", tag.RowsAffected()),
+					Metadata: map[string]interface{}{"count": tag.RowsAffected()},
+				})
 			} else if err != nil {
 				log.Printf("Stale log cleanup: failed: %v", err)
 			}

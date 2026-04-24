@@ -62,7 +62,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
-	if err := modelRepo.DisableMissingModels(r.Context(), providerID, existingModelIDs); err != nil {
+	if _, err := modelRepo.DisableMissingModels(r.Context(), providerID, existingModelIDs); err != nil {
 		http.Error(w, "failed to disable missing models: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

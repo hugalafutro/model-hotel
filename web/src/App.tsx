@@ -10,6 +10,7 @@ import { Settings } from "./pages/Settings";
 import { VirtualKeys } from "./pages/VirtualKeys";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
+import { EventProvider } from "./context/EventContext";
 import { setAdminToken } from "./api/client";
 
 const Dashboard = lazy(() =>
@@ -147,7 +148,9 @@ function App() {
     return (
         <ThemeProvider>
             <ToastProvider>
-                <AppContent />
+                <EventProvider>
+                    <AppContent />
+                </EventProvider>
             </ToastProvider>
         </ThemeProvider>
     );

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { PlugZap, Eye, EyeOff, X, RefreshCw } from "lucide-react";
 import type {
     DeepSeekBalance,
@@ -793,6 +793,7 @@ export function Providers() {
         data: nanogptUsage,
         refetch,
         isRefetching,
+        isError: isNanoGPTError,
     } = useQuery({
         queryKey: ["nanogpt-usage", nanogptProviderId],
         queryFn: () =>
@@ -809,6 +810,7 @@ export function Providers() {
         data: zaiUsage,
         refetch: refetchZai,
         isRefetching: isZaiRefetching,
+        isError: isZAIError,
     } = useQuery({
         queryKey: ["zai-usage", zaiProviderId],
         queryFn: () =>
@@ -821,19 +823,48 @@ export function Providers() {
         if (zaiUsage) setCachedData("zai-usage", zaiUsage);
     }, [zaiUsage]);
 
-    const { data: deepseekBalanceData, refetch: refetchDeepseekBalance } =
-        useQuery({
-            queryKey: ["deepseek-balance", deepseekProviderId],
-            queryFn: () => api.providers.getBalance(deepseekProviderId!),
-            enabled: Boolean(deepseekProviderId),
-            initialData: () =>
-                getCachedData<DeepSeekBalance>("deepseek-balance"),
-        });
+    const {
+        data: deepseekBalanceData,
+        refetch: refetchDeepseekBalance,
+        isError: isDeepseekError,
+    } = useQuery({
+        queryKey: ["deepseek-balance", deepseekProviderId],
+        queryFn: () => api.providers.getBalance(deepseekProviderId!),
+        enabled: Boolean(deepseekProviderId),
+        initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
+    });
 
     useEffect(() => {
         if (deepseekBalanceData)
             setCachedData("deepseek-balance", deepseekBalanceData);
     }, [deepseekBalanceData]);
+
+    const nanoGPTErrorToasted = useRef(false);
+    useEffect(() => {
+        if (isNanoGPTError && !nanoGPTErrorToasted.current) {
+            toast("Failed to fetch NanoGPT usage quota", "warning");
+            nanoGPTErrorToasted.current = true;
+        }
+        if (!isNanoGPTError) nanoGPTErrorToasted.current = false;
+    }, [isNanoGPTError, toast]);
+
+    const zaiErrorToasted = useRef(false);
+    useEffect(() => {
+        if (isZAIError && !zaiErrorToasted.current) {
+            toast("Failed to fetch ZAI usage quota", "warning");
+            zaiErrorToasted.current = true;
+        }
+        if (!isZAIError) zaiErrorToasted.current = false;
+    }, [isZAIError, toast]);
+
+    const deepseekErrorToasted = useRef(false);
+    useEffect(() => {
+        if (isDeepseekError && !deepseekErrorToasted.current) {
+            toast("Failed to fetch DeepSeek balance", "warning");
+            deepseekErrorToasted.current = true;
+        }
+        if (!isDeepseekError) deepseekErrorToasted.current = false;
+    }, [isDeepseekError, toast]);
 
     const discoverMutation = useMutation({
         mutationFn: async (id: string) => {

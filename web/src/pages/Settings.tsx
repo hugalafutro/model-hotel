@@ -529,7 +529,13 @@ export function Settings() {
                             {/* top-left */}
                             <button
                                 type="button"
-                                onClick={() => setPosition("top-left")}
+                                onClick={() => {
+                                    setPosition("top-left");
+                                    toast(
+                                        "Test notification — you'll see toasts here",
+                                        "info",
+                                    );
+                                }}
                                 className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
                                     toastPosition === "top-left"
                                         ? "bg-(--accent) scale-125 ring-2 ring-white/40"
@@ -540,7 +546,13 @@ export function Settings() {
                             {/* top-center */}
                             <button
                                 type="button"
-                                onClick={() => setPosition("top-center")}
+                                onClick={() => {
+                                    setPosition("top-center");
+                                    toast(
+                                        "Test notification — you'll see toasts here",
+                                        "info",
+                                    );
+                                }}
                                 className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
                                     toastPosition === "top-center"
                                         ? "bg-(--accent) scale-125 ring-2 ring-white/40"
@@ -551,7 +563,13 @@ export function Settings() {
                             {/* top-right */}
                             <button
                                 type="button"
-                                onClick={() => setPosition("top-right")}
+                                onClick={() => {
+                                    setPosition("top-right");
+                                    toast(
+                                        "Test notification — you'll see toasts here",
+                                        "info",
+                                    );
+                                }}
                                 className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
                                     toastPosition === "top-right"
                                         ? "bg-(--accent) scale-125 ring-2 ring-white/40"
@@ -562,7 +580,13 @@ export function Settings() {
                             {/* bottom-left */}
                             <button
                                 type="button"
-                                onClick={() => setPosition("bottom-left")}
+                                onClick={() => {
+                                    setPosition("bottom-left");
+                                    toast(
+                                        "Test notification — you'll see toasts here",
+                                        "info",
+                                    );
+                                }}
                                 className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
                                     toastPosition === "bottom-left"
                                         ? "bg-(--accent) scale-125 ring-2 ring-white/40"
@@ -573,7 +597,13 @@ export function Settings() {
                             {/* bottom-center */}
                             <button
                                 type="button"
-                                onClick={() => setPosition("bottom-center")}
+                                onClick={() => {
+                                    setPosition("bottom-center");
+                                    toast(
+                                        "Test notification — you'll see toasts here",
+                                        "info",
+                                    );
+                                }}
                                 className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
                                     toastPosition === "bottom-center"
                                         ? "bg-(--accent) scale-125 ring-2 ring-white/40"
@@ -584,7 +614,13 @@ export function Settings() {
                             {/* bottom-right */}
                             <button
                                 type="button"
-                                onClick={() => setPosition("bottom-right")}
+                                onClick={() => {
+                                    setPosition("bottom-right");
+                                    toast(
+                                        "Test notification — you'll see toasts here",
+                                        "info",
+                                    );
+                                }}
                                 className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
                                     toastPosition === "bottom-right"
                                         ? "bg-(--accent) scale-125 ring-2 ring-white/40"
