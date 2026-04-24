@@ -477,8 +477,8 @@ function ProviderDoughnut({
                     Provider Breakdown
                 </h3>
                 <div className="flex items-center gap-1.5">
-                    <RangeToggle value={range} onChange={onRangeChange} />
                     <MetricToggle value={metric} onChange={onMetricChange} />
+                    <RangeToggle value={range} onChange={onRangeChange} />
                 </div>
             </div>
             <div className="flex items-center gap-6">
