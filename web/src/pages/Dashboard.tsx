@@ -152,8 +152,8 @@ function AnimatedValue({
 
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [value, duration]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, duration]);
 
     const formatted = formatter
         ? formatter(display)
@@ -523,14 +523,16 @@ function ProviderDoughnut({
                                     {it.name}
                                 </span>
                             </div>
-                            <div className="text-right shrink-0">
-                                <span className="text-sm font-medium text-(--text-primary)">
+                            <div className="text-right shrink-0 flex justify-end tabular-nums">
+                                <span className="text-sm font-medium text-(--text-primary) w-14 text-right">
                                     {it.share.toFixed(1)}%
                                 </span>
-                                <span className="text-xs text-(--text-muted) ml-1">
-                                    ({metric === "tokens"
+                                <span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
+                                    (
+                                    {metric === "tokens"
                                         ? `${formatCompact(it.tokens)} Token${it.tokens !== 1 ? "s" : ""}`
-                                        : `${it.count} Request${it.count !== 1 ? "s" : ""}`})
+                                        : `${it.count} Request${it.count !== 1 ? "s" : ""}`}
+                                    )
                                 </span>
                             </div>
                         </div>
@@ -968,7 +970,12 @@ export function Dashboard() {
     });
 
     const { data: provDist } = useQuery({
-        queryKey: ["stats-provider-distribution", provRange, provMetric, excludeDeleted],
+        queryKey: [
+            "stats-provider-distribution",
+            provRange,
+            provMetric,
+            excludeDeleted,
+        ],
         queryFn: () =>
             api.stats.getProviderDistribution({
                 period: provRange,

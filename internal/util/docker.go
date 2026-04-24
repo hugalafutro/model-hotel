@@ -39,9 +39,7 @@ func IsDockerAvailable() bool {
 		}
 		resp.Body.Close()
 		dockerAvailable = resp.StatusCode == 200
-		if dockerAvailable {
-			log.Printf("[docker] Docker API available — will aggregate compose container stats")
-		}
+
 	})
 	return dockerAvailable
 }
@@ -165,7 +163,7 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 		}
 	}
 
-	log.Printf("[docker] found %d total containers, matched %d for project=%q", len(all), len(result), composeProject)
+
 	return result, nil
 }
 
@@ -411,7 +409,6 @@ func DetectComposeProject() string {
 			}
 			if json.Unmarshal(body, &info) == nil {
 				if project, ok := info.Config.Labels["com.docker.compose.project"]; ok {
-					log.Printf("[docker] detected compose project: %q", project)
 					cancel()
 					return project
 				}
@@ -425,6 +422,6 @@ func DetectComposeProject() string {
 		cancel()
 	}
 
-	log.Printf("[docker] will list all compose containers")
+
 	return ""
 }

@@ -44,32 +44,6 @@ function formatBytesPerSec(bytesPerSec: number): string {
     return `${Math.round(bytesPerSec)} B/s`;
 }
 
-function MemoryBar({ current, limit }: { current: number; limit: number }) {
-    if (!limit) return null;
-    const pct = Math.min((current / limit) * 100, 100);
-    return (
-        <div className="flex items-center gap-1.5">
-            <div className="flex-1 h-1 rounded-full overflow-hidden bg-gray-700">
-                <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                        width: `${pct}%`,
-                        backgroundColor:
-                            pct > 90
-                                ? "#ef4444"
-                                : pct > 75
-                                  ? "#f59e0b"
-                                  : "var(--accent)",
-                    }}
-                />
-            </div>
-            <span className="text-[10px] text-(--text-muted)">
-                {pct.toFixed(0)}%
-            </span>
-        </div>
-    );
-}
-
 function SystemStatus() {
     const { data: stats } = useQuery({
         queryKey: ["system"],
@@ -104,9 +78,6 @@ function SystemStatus() {
           : app
             ? formatMB(app.heap_alloc_mb) + " heap"
             : "-";
-
-    const memCurrent = dockerMem ? docker.memory_usage_bytes : app?.memory_current_bytes ?? 0;
-    const memLimit = dockerMem ? docker.memory_limit_bytes : (hasLimit ? app.memory_limit_bytes : 0);
 
     const showCgroup = inContainer || useDocker;
     const dash = <span className="text-(--text-muted)">-</span>;
@@ -201,27 +172,19 @@ function SystemStatus() {
                 </div>
             )}
 
-            {/* Memory with bar */}
-            <div className="space-y-1">
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title={dockerMem
-                        ? `Aggregate memory across ${docker.container_count} compose containers`
-                        : hasLimit
-                          ? "Container memory usage vs cgroup limit"
-                          : "Go runtime heap allocation"}
-                >
-                    <span>Memory</span>
-                    <span className="text-(--text-secondary)">
-                        {app ? appMem : dash}
-                    </span>
-                </div>
-                {(hasLimit || dockerMem) && memLimit > 0 && (
-                    <MemoryBar
-                        current={memCurrent}
-                        limit={memLimit}
-                    />
-                )}
+            {/* Memory */}
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title={dockerMem
+                    ? `Aggregate memory across ${docker.container_count} compose containers`
+                    : hasLimit
+                      ? "Container memory usage vs cgroup limit"
+                      : "Go runtime heap allocation"}
+            >
+                <span>Memory</span>
+                <span className="text-(--text-secondary)">
+                    {app ? appMem : dash}
+                </span>
             </div>
 
             {/* Goroutines */}
