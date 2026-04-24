@@ -235,7 +235,8 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	reqHash := hex.EncodeToString(reqHashBytes)
 
 	startRequest := time.Now()
-	resp, err := http.DefaultClient.Do(proxyReq)
+	testClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := testClient.Do(proxyReq)
 	if err != nil {
 		logQuery := `
 			INSERT INTO request_logs (

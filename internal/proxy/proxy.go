@@ -210,7 +210,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
-		http.Error(w, errMsg, resp.StatusCode)
+		http.Error(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
 }
 
@@ -433,7 +433,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.failoverAttempt = attempt
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, fmt.Sprintf("provider error: %s", string(body)), resp.StatusCode)
+			http.Error(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 			return
 		}
 

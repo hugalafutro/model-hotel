@@ -243,6 +243,11 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 
 	response := provider.ToResponse(p)
 
+	var modelCount int
+	if err := h.dbPool.Pool().QueryRow(r.Context(), "SELECT COUNT(*) FROM models WHERE provider_id = $1", p.ID).Scan(&modelCount); err == nil {
+		response.ModelCount = modelCount
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
