@@ -52,12 +52,6 @@ func (h *Handler) Register(r chi.Router) {
 		r.Delete("/{id}", h.DeleteProvider)
 	})
 
-	r.Route("/keys", func(r chi.Router) {
-		r.Post("/", h.CreateProxyKey)
-		r.Get("/", h.ListProxyKeys)
-		r.Delete("/{id}", h.RevokeProxyKey)
-	})
-
 	r.Get("/events", h.StreamEvents)
 
 	h.RegisterModels(r)

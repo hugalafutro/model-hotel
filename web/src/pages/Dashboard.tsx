@@ -152,7 +152,7 @@ function AnimatedValue({
 
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
-    }, [value, duration, display]);
+	}, [value, duration]);
 
     const formatted = formatter
         ? formatter(display)

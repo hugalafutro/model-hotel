@@ -2,7 +2,6 @@ import type {
     Provider,
     CreateProviderRequest,
     UpdateProviderRequest,
-    ProxyKey,
     Model,
     LogsResponse,
     Stats,
@@ -145,44 +144,6 @@ export const api = {
                 );
             }
             return response.json();
-        },
-    },
-
-    proxyKeys: {
-        list: async (): Promise<ProxyKey[]> => {
-            const response = await fetch(`${API_BASE}/api/keys`, {
-                headers: getAuthHeaders(),
-            });
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(
-                    `Failed to fetch keys: ${response.status} ${text}`,
-                );
-            }
-            return response.json();
-        },
-        create: async (name: string): Promise<ProxyKey> => {
-            const response = await fetch(`${API_BASE}/api/keys`, {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ name }),
-            });
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(
-                    `Failed to create key: ${response.status} ${text}`,
-                );
-            }
-            return response.json();
-        },
-        delete: async (id: string): Promise<void> => {
-            const response = await fetch(`${API_BASE}/api/keys/${id}`, {
-                method: "DELETE",
-                headers: getAuthHeaders(),
-            });
-            if (!response.ok && response.status !== 204) {
-                throw new Error("Failed to delete key");
-            }
         },
     },
 

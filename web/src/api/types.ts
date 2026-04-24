@@ -25,13 +25,6 @@ export interface UpdateProviderRequest {
     enabled?: boolean;
 }
 
-export interface ProxyKey {
-    id: string;
-    name: string;
-    created_at: string;
-    key?: string;
-}
-
 export interface ModelCapabilities {
     streaming?: boolean;
     vision?: boolean;
