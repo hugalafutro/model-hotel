@@ -324,16 +324,22 @@ export function Logs() {
         placeholderData: keepPreviousData,
     });
 
-    const hasFreshData = (logsData?.entries?.length ?? 0) > 0;
+    // Distinguish between "no data has arrived yet" (loading) and
+    // "data arrived but the result set is empty" (0 matching rows).
+    // The fallback pattern exists so that during a refetch the previous
+    // data is still visible; but when the server legitimately returns
+    // zero entries (e.g. filtering for 5XX with no 5XX rows) we must
+    // show an empty list, not stale data from a different filter.
+    const hasFetchedData = logsData !== undefined;
     const freshEntries = logsData?.entries;
     const freshTotal = logsData?.total ?? 0;
 
     useEffect(() => {
-        if (hasFreshData && freshEntries) {
+        if (hasFetchedData && freshEntries) {
             // eslint-disable-next-line
             setFallback({ entries: freshEntries, total: freshTotal });
         }
-    }, [hasFreshData, freshEntries, freshTotal]);
+    }, [hasFetchedData, freshEntries, freshTotal]);
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -351,9 +357,10 @@ export function Logs() {
         }
     }, [showDatePicker]);
 
-    const displayEntries =
-        hasFreshData && freshEntries ? freshEntries : fallback.entries;
-    const displayTotal = hasFreshData ? freshTotal : fallback.total;
+    const displayEntries = hasFetchedData
+        ? (freshEntries ?? [])
+        : fallback.entries;
+    const displayTotal = hasFetchedData ? freshTotal : fallback.total;
 
     const now = new Date();
     const pickerYear = showDatePicker
@@ -506,7 +513,7 @@ export function Logs() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                <div className="flex-1 flex gap-2">
+                <div className="flex gap-2">
                     <input
                         type="text"
                         placeholder="Filter by model ID..."
@@ -518,10 +525,10 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input"
+                        className="ui-input w-64"
                     />
                 </div>
-                <div className="md:w-48">
+                <div className="w-48 shrink-0">
                     <select
                         value={filters.status_code}
                         onChange={(e) => {

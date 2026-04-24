@@ -162,9 +162,15 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		} else if statusCodeStr == "5xx" {
 			query += " AND rl.status_code >= 500"
 		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
-			query += " AND rl.status_code = $" + util.IntToStr(argIndex)
-			args = append(args, statusCode)
-			argIndex++
+			if statusCode == 0 {
+				// COALESCE presents NULL status_code as 0 to the frontend,
+				// so "0 No Response" must match both actual 0 and NULL.
+				query += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
+			} else {
+				query += " AND rl.status_code = $" + util.IntToStr(argIndex)
+				args = append(args, statusCode)
+				argIndex++
+			}
 		}
 	}
 
