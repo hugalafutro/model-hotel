@@ -110,7 +110,12 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	query := `
-        SELECT rl.id, COALESCE(rl.provider_id::text, ''), COALESCE(p.name, 'Deleted'),
+        SELECT rl.id, COALESCE(rl.provider_id::text, ''),
+               CASE
+                   WHEN rl.provider_id IS NULL THEN ''
+                   WHEN p.name IS NOT NULL THEN p.name
+                   ELSE 'Deleted'
+               END,
                rl.model_id, COALESCE(rl.request_id, ''),
                COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
                COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
@@ -156,7 +161,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
 		} else if statusCodeStr == "5xx" {
 			query += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode > 0 {
+		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
 			query += " AND rl.status_code = $" + util.IntToStr(argIndex)
 			args = append(args, statusCode)
 			argIndex++

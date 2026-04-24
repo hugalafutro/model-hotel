@@ -421,6 +421,7 @@ export function Logs() {
     const getStatusBg = (statusCode: number, errorMessage?: string) => {
         if (isCancelled(errorMessage))
             return "bg-yellow-900/30 text-yellow-400";
+        if (statusCode === 0) return "bg-red-900/30 text-red-400";
         if (statusCode >= 200 && statusCode < 300)
             return "bg-green-900/30 text-green-400";
         if (statusCode >= 400 && statusCode < 500)
@@ -533,6 +534,7 @@ export function Logs() {
                         className="ui-input"
                     >
                         <option value="">All Status</option>
+                        <option value="0">0 No Response</option>
                         <option value="200">200 OK</option>
                         <option value="4xx">4XX</option>
                         <option value="5xx">5XX</option>
@@ -743,22 +745,15 @@ export function Logs() {
                                             {log.model_id || "-"}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
-                                            {log.provider_name === "Deleted" &&
-                                            !isInProgress(log) ? (
-                                                <span className="text-red-400 italic">
+                                            {log.provider_name === "Deleted" ? (
+                                                <span
+                                                    className="text-red-400 italic"
+                                                    title="Provider was deleted"
+                                                >
                                                     Deleted
                                                 </span>
-                                            ) : isStale(log) ? (
-                                                <span
-                                                    className="text-yellow-500/70 italic"
-                                                    title="Request interrupted — never completed"
-                                                >
-                                                    Interrupted
-                                                </span>
                                             ) : isInProgress(log) &&
-                                              (!log.provider_name ||
-                                                  log.provider_name ===
-                                                      "Deleted") ? (
+                                              !log.provider_name ? (
                                                 <span className="text-blue-400/60 italic">
                                                     Resolving...
                                                 </span>
