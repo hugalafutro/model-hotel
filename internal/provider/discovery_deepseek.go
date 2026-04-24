@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -18,10 +17,7 @@ import (
 func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	raw := util.SanitizeBaseURL(provider.BaseURL)
 	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
-	modelsURL := baseURL + "/models"
-	log.Printf("[deepseek] base_url=%q raw=%q final_url=%q", provider.BaseURL, raw, modelsURL)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", modelsURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -40,8 +36,6 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	log.Printf("[deepseek] status=%d body=%s", resp.StatusCode, string(bodyBytes))
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
@@ -49,11 +43,6 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	log.Printf("[deepseek] parsed %d models from API", len(openAIResp.Data))
-	for _, m := range openAIResp.Data {
-		log.Printf("[deepseek] API returned model: id=%q owned_by=%q", m.ID, m.OwnedBy)
 	}
 
 	catalog := GetDeepSeekModels()
@@ -66,7 +55,6 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	for _, m := range openAIResp.Data {
 		spec, ok := catalogMap[m.ID]
 		if !ok {
-			log.Printf("[deepseek] model %q not in catalog (expected: %v), skipping", m.ID, catalogIDs(catalog))
 			continue
 		}
 
@@ -142,12 +130,4 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 	}
 
 	return &balance, nil
-}
-
-func catalogIDs(catalog []DeepSeekModelSpec) []string {
-	ids := make([]string, len(catalog))
-	for i, s := range catalog {
-		ids[i] = s.ModelID
-	}
-	return ids
 }

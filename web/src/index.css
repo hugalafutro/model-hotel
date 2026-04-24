@@ -127,7 +127,7 @@ html[data-ui-style="cyber-terminal"].light {
     --text-tertiary: #7a7e8c;
     --text-muted: #a5a9b4;
 
-    --border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.30);
+    --border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.3);
     --border-subtle: rgba(0, 0, 0, 0.06);
     --border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
 
@@ -539,11 +539,13 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
 html[data-ui-style="glassmorphism-lite"] [role="dialog"] {
     backdrop-filter: blur(32px) !important;
     -webkit-backdrop-filter: blur(32px) !important;
-    background-color: rgba(0, 0, 0, 0.50) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
 }
 
 /* Remove redundant darkness from overlay buttons so we don't double-dim */
-html[data-ui-style="glassmorphism-lite"] [role="dialog"] > button.absolute.inset-0 {
+html[data-ui-style="glassmorphism-lite"]
+    [role="dialog"]
+    > button.absolute.inset-0 {
     background-color: transparent !important;
 }
 
@@ -551,7 +553,7 @@ html[data-ui-style="glassmorphism-lite"] [role="dialog"] > button.absolute.inset
 html[data-ui-style="glassmorphism-lite"].dark [role="dialog"] .ui-card,
 html[data-ui-style="glassmorphism-lite"] [role="dialog"] .ui-card {
     background-color: rgba(18, 20, 30, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow:
         0 24px 64px rgba(0, 0, 0, 0.45),
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -561,8 +563,8 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
     background-color: rgba(235, 236, 245, 0.95) !important;
     border: 1px solid rgba(255, 255, 255, 0.55);
     box-shadow:
-        0 24px 64px rgba(0, 0, 0, 0.10),
-        inset 0 1px 0 rgba(255, 255, 255, 0.50);
+        0 24px 64px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* =============================================
@@ -1195,4 +1197,93 @@ html.light .bg-blue-900\/30:hover {
     filter: grayscale(1);
     opacity: 0.6;
     pointer-events: none;
+}
+
+/* =============================================
+   Toast timeout range slider
+   ============================================= */
+.toast-timeout-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 9999px;
+    background: #374151;
+    outline: none;
+    cursor: pointer;
+}
+
+.toast-timeout-slider::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 9999px;
+    background: linear-gradient(
+        to right,
+        var(--accent) 0%,
+        var(--accent) var(--slider-fill, 0%),
+        #374151 var(--slider-fill, 0%),
+        #374151 100%
+    );
+}
+
+.toast-timeout-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    margin-top: -5px;
+    cursor: grab;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.toast-timeout-slider::-webkit-slider-thumb:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.toast-timeout-slider::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
+}
+
+.toast-timeout-slider::-moz-range-track {
+    height: 8px;
+    border-radius: 9999px;
+    background: #374151;
+}
+
+.toast-timeout-slider::-moz-range-progress {
+    height: 8px;
+    border-radius: 9999px;
+    background: var(--accent);
+}
+
+.toast-timeout-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    cursor: grab;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.toast-timeout-slider::-moz-range-thumb:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.toast-timeout-slider::-moz-range-thumb:active {
+    cursor: grabbing;
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
 }

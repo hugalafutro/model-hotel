@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
     Monitor,
     Terminal,
@@ -630,8 +630,8 @@ export function Settings() {
                     </p>
 
                     {/* Toast Timeout */}
-                    <div className="mt-6 pt-5 border-t border-gray-700/50">
-                        <div className="flex items-center justify-between mb-2">
+                    <div className="mt-6">
+                        <div className="flex items-center justify-between mb-3">
                             <span className="text-sm text-gray-300 font-medium">
                                 Auto-dismiss
                             </span>
@@ -648,9 +648,14 @@ export function Settings() {
                             onChange={(e) => {
                                 setToastTimeout(Number(e.target.value));
                             }}
-                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-gray-700 accent-(--accent)"
+                            style={
+                                {
+                                    "--slider-fill": `${((timeout - 1000) / (15000 - 1000)) * 100}%`,
+                                } as React.CSSProperties
+                            }
+                            className="toast-timeout-slider"
                         />
-                        <div className="flex justify-between text-xs text-gray-600 mt-1">
+                        <div className="flex justify-between text-xs text-gray-600 mt-1.5">
                             <span>1s</span>
                             <span>15s</span>
                         </div>
