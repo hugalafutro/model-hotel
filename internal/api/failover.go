@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
+	"github.com/user/llm-proxy/internal/settings"
 )
 
 type FailoverHandler struct {
@@ -48,6 +50,11 @@ type FailoverGroupResponse struct {
 	TotalTokens  int                      `json:"total_tokens"`
 	CreatedAt    string                   `json:"created_at"`
 	UpdatedAt    string                   `json:"updated_at"`
+}
+
+type FailoverListResponse struct {
+	Groups       []FailoverGroupResponse `json:"groups"`
+	LastSyncedAt *string                 `json:"last_synced_at"`
 }
 
 type FailoverGroupBrief struct {
@@ -93,8 +100,19 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 		responses[i] = resp
 	}
 
+	settingsRepo := settings.NewRepository(h.dbPool)
+	lastSyncedAt := settingsRepo.GetWithDefault(r.Context(), "failover_last_synced_at", "")
+
+	var lastSyncedAtPtr *string
+	if lastSyncedAt != "" {
+		lastSyncedAtPtr = &lastSyncedAt
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	json.NewEncoder(w).Encode(FailoverListResponse{
+		Groups:       responses,
+		LastSyncedAt: lastSyncedAtPtr,
+	})
 }
 
 func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, error) {
@@ -284,12 +302,17 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
-	if err := h.failoverRepo.SyncAllModels(r.Context()); err != nil {
+	result, err := h.failoverRepo.SyncAllModels(r.Context())
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	settingsRepo := settings.NewRepository(h.dbPool)
+	settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 type CandidateModelResponse struct {

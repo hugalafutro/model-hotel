@@ -277,6 +277,16 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 	return groups, nil
 }
 
+type DisabledGroupInfo struct {
+	DisplayModel  string `json:"display_model"`
+	Reason        string `json:"reason"`
+	ProviderCount int    `json:"provider_count"`
+}
+
+type SyncResult struct {
+	DisabledGroups []DisabledGroupInfo `json:"disabled_groups"`
+}
+
 var commonPrefixes = []string{
 	"zai-org/",
 	"deepseek/",
@@ -307,7 +317,9 @@ func stripPrefix(modelID string) string {
 	return modelID
 }
 
-func (r *Repository) SyncAllModels(ctx context.Context) error {
+func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
+	result := &SyncResult{}
+
 	rows, err := r.pool.Query(ctx, `
 		SELECT m.id, m.model_id, m.provider_id
 		FROM models m
@@ -316,7 +328,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 		ORDER BY m.model_id, p.created_at ASC
 	`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -344,7 +356,13 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 	syncedBases := make(map[string]bool)
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
-			r.disableAutoGroup(ctx, base)
+			if r.disableAutoGroup(ctx, base) {
+				result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
+					DisplayModel:  base,
+					ProviderCount: len(models),
+					Reason:        "only 1 enabled provider (need 2+ for failover)",
+				})
+			}
 			continue
 		}
 
@@ -369,7 +387,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 		autoCreated := true
 		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -377,12 +395,18 @@ func (r *Repository) SyncAllModels(ctx context.Context) error {
 	for _, g := range allGroups {
 		if g.AutoCreated && g.GroupEnabled {
 			if _, ok := syncedBases[g.DisplayModel]; !ok {
-				r.disableAutoGroup(ctx, g.DisplayModel)
+				if r.disableAutoGroup(ctx, g.DisplayModel) {
+					result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
+						DisplayModel:  g.DisplayModel,
+						ProviderCount: 0,
+						Reason:        "no enabled providers found",
+					})
+				}
 			}
 		}
 	}
 
-	return nil
+	return result, nil
 }
 
 func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
@@ -432,13 +456,15 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	return err
 }
 
-func (r *Repository) disableAutoGroup(ctx context.Context, displayModel string) {
-	_, err := r.pool.Exec(ctx, `
+func (r *Repository) disableAutoGroup(ctx context.Context, displayModel string) bool {
+	tag, err := r.pool.Exec(ctx, `
 		UPDATE model_failover_groups
 		SET group_enabled = false, updated_at = now()
-		WHERE display_model = $1 AND auto_created = true
+		WHERE display_model = $1 AND auto_created = true AND group_enabled = true
 	`, displayModel)
-	if err == nil {
+	if err == nil && tag.RowsAffected() > 0 {
 		InvalidateFailoverCache()
+		return true
 	}
+	return false
 }

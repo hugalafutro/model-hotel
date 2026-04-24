@@ -14,9 +14,11 @@ import type {
     ZAIQuotaResponse,
     DeepSeekBalance,
     FailoverGroup,
+    FailoverListResponse,
     CreateFailoverGroupRequest,
     UpdateFailoverGroupRequest,
     CandidateModel,
+    SyncResult,
 } from "./types";
 
 export const API_BASE = "";
@@ -468,7 +470,7 @@ export const api = {
     },
 
     failoverGroups: {
-        list: async (): Promise<FailoverGroup[]> => {
+        list: async (): Promise<FailoverListResponse> => {
             const response = await fetch(`${API_BASE}/api/failover-groups`, {
                 headers: getAuthHeaders(),
             });
@@ -543,7 +545,7 @@ export const api = {
                 throw new Error("Failed to delete failover group");
             }
         },
-        sync: async (): Promise<void> => {
+        sync: async (): Promise<SyncResult> => {
             const response = await fetch(
                 `${API_BASE}/api/failover-groups/sync`,
                 {
@@ -551,12 +553,13 @@ export const api = {
                     headers: getAuthHeaders(),
                 },
             );
-            if (!response.ok && response.status !== 204) {
+            if (!response.ok) {
                 const text = await response.text();
                 throw new Error(
                     `Failed to sync failover groups: ${response.status} ${text}`,
                 );
             }
+            return response.json();
         },
         candidates: async (): Promise<CandidateModel[]> => {
             const response = await fetch(

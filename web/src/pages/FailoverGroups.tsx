@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
 import { Shuffle, X } from "lucide-react";
-import type { FailoverGroup, CandidateModel } from "../api/types";
+import type { FailoverGroup, CandidateModel, FailoverListResponse } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import {
     DndContext,
@@ -26,6 +26,22 @@ function formatTokens(n: number): string {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
     return n.toString();
+}
+
+function formatSyncTime(isoStr: string | null | undefined): string {
+    if (!isoStr) return "";
+    try {
+        const date = new Date(isoStr);
+        return date.toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+        });
+    } catch {
+        return "";
+    }
 }
 
 interface SortableEntryProps {
@@ -457,10 +473,13 @@ export function FailoverGroups() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
 
-    const { data: groups, isLoading } = useQuery({
+    const { data: listData, isLoading } = useQuery({
         queryKey: ["failover-groups"],
         queryFn: () => api.failoverGroups.list(),
     });
+
+    const groups = listData?.groups;
+    const lastSyncedAt = listData?.last_synced_at;
 
     const { data: candidates } = useQuery({
         queryKey: ["failover-candidates"],
@@ -469,9 +488,18 @@ export function FailoverGroups() {
 
     const syncMutation = useMutation({
         mutationFn: () => api.failoverGroups.sync(),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-            toast("Failover groups synced", "success");
+            if (data.disabled_groups && data.disabled_groups.length > 0) {
+                for (const g of data.disabled_groups) {
+                    toast(
+                        `hotel/${g.display_model} disabled: ${g.reason}`,
+                        "warning",
+                    );
+                }
+            } else {
+                toast("Failover groups synced", "success");
+            }
         },
         onError: (err: Error) => {
             toast(`Failed to sync: ${err.message}`, "error");
@@ -572,7 +600,12 @@ export function FailoverGroups() {
                         Failover Groups
                     </h1>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex items-center gap-3">
+                    {lastSyncedAt && (
+                        <span className="text-xs text-gray-500">
+                            Last sync: {formatSyncTime(lastSyncedAt)}
+                        </span>
+                    )}
                     <button
                         type="button"
                         onClick={() => syncMutation.mutate()}

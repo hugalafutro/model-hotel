@@ -268,6 +268,11 @@ export interface FailoverGroup {
     updated_at: string;
 }
 
+export interface FailoverListResponse {
+    groups: FailoverGroup[];
+    last_synced_at: string | null;
+}
+
 export interface CreateFailoverGroupRequest {
     display_model: string;
     display_name?: string;
@@ -291,6 +296,16 @@ export interface CandidateModel {
     display_name: string;
     context_length: number | null;
     owned_by: string;
+}
+
+export interface DisabledGroupInfo {
+    display_model: string;
+    reason: string;
+    provider_count: number;
+}
+
+export interface SyncResult {
+    disabled_groups: DisabledGroupInfo[];
 }
 
 export interface ZAIQuotaUsageDetail {
