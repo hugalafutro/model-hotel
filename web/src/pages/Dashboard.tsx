@@ -916,7 +916,7 @@ export function Dashboard() {
     const [providerRange, setProviderRange] = useState<Range>("24h");
     const [vkRange, setVkRange] = useState<Range>("24h");
     const [modelMetric, setModelMetric] = useState<MetricType>("tokens");
-    const [provMetric, setProvMetric] = useState<MetricType>("requests");
+    const [provMetric, setProvMetric] = useState<MetricType>("tokens");
     const [providerMetric, setProviderMetric] = useState<MetricType>("tokens");
     const [vkMetric, setVkMetric] = useState<MetricType>("tokens");
     const [excludeDeleted, setExcludeDeleted] = useState(false);
