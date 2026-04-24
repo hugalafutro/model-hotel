@@ -1086,3 +1086,8 @@ html.light .bg-blue-900\/30:hover {
 .animate-pulse-subtle {
     animation: pulse-subtle 2s ease-in-out infinite;
 }
+
+/* Disabled failover entry pill — background/border/opacity handled via inline style to bypass theme !important overrides */
+[data-ui-style] .failover-entry-disabled .failover-entry-text {
+    filter: saturate(0);
+}

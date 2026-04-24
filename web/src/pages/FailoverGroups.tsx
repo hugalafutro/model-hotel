@@ -43,37 +43,35 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
         isDragging,
     } = useSortable({ id: entry.model_uuid });
 
-    const style = {
+    const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.5 : entry.enabled ? 1 : 0.5,
+        ...(!entry.enabled
+            ? {
+                  backgroundColor: "rgba(127, 29, 29, 0.35)",
+                  border: "1px solid rgba(239, 68, 68, 0.6)",
+              }
+            : {}),
     };
 
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className={`relative overflow-hidden flex items-center justify-between px-2 py-1.5 bg-gray-700 rounded group text-sm ${
-                !entry.enabled ? "opacity-50 saturate-0" : ""
+            className={`relative flex items-center justify-between px-2 py-1.5 rounded group text-sm ${
+                entry.enabled ? "bg-gray-700" : "failover-entry-disabled"
             }`}
         >
-            {!entry.enabled && (
-                <span
-                    className="absolute inset-0 pointer-events-none"
-                    aria-hidden="true"
-                >
-                    <span className="absolute left-[-10%] top-[50%] w-[120%] h-0.5 bg-gray-200 -rotate-45 origin-top-left" />
-                </span>
-            )}
             <div className="flex items-center gap-2 min-w-0">
                 <span
                     {...attributes}
                     {...listeners}
-                    className="text-gray-500 cursor-grab active:cursor-grabbing opacity-15 group-hover:opacity-100 transition-opacity shrink-0"
+                    className="text-gray-500 cursor-grab active:cursor-grabbing opacity-15 hover:opacity-100 transition-opacity shrink-0"
                 >
                     ⠿
                 </span>
-                <div className="truncate">
+                <div className="truncate failover-entry-text">
                     <span className="text-white">{entry.provider_name}</span>
                     <span className="text-gray-500 mx-1">/</span>
                     <span className="text-gray-400 truncate">

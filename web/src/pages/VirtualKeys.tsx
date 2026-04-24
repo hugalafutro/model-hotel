@@ -564,7 +564,7 @@ export function VirtualKeys() {
                                     {"  -d '{\n"}
                                     {'    "model": "'}
                                     <span className="text-white font-semibold">
-                                        hotel/model
+                                        model
                                     </span>
                                     {'",\n'}
                                     {'    "messages": [\n'}
