@@ -37,18 +37,21 @@ type SystemStats struct {
 }
 
 type AppStats struct {
-	HeapAllocMB   float64 `json:"heap_alloc_mb"`
-	SysMemoryMB   float64 `json:"sys_memory_mb"`
-	Goroutines    int     `json:"goroutines"`
-	GCCycles      uint64  `json:"gc_cycles"`
-	MemoryCurrent int64   `json:"memory_current_bytes"`
-	MemoryLimit   int64   `json:"memory_limit_bytes"`
-	InContainer   bool    `json:"in_container"`
-	UptimeSeconds int64   `json:"uptime_seconds"`
-	CpuPercent    float64 `json:"cpu_percent"`
-	TotalRequests int64   `json:"total_requests"`
-	NetRxBytesSec float64 `json:"net_rx_bytes_sec"`
-	NetTxBytesSec float64 `json:"net_tx_bytes_sec"`
+	HeapAllocMB      float64 `json:"heap_alloc_mb"`
+	SysMemoryMB      float64 `json:"sys_memory_mb"`
+	Goroutines       int     `json:"goroutines"`
+	GCCycles         uint64  `json:"gc_cycles"`
+	MemoryCurrent    int64   `json:"memory_current_bytes"`
+	MemoryLimit      int64   `json:"memory_limit_bytes"`
+	InContainer      bool    `json:"in_container"`
+	UptimeSeconds    int64   `json:"uptime_seconds"`
+	CpuPercent       float64 `json:"cpu_percent"`
+	TotalRequests    int64   `json:"total_requests"`
+	NetRxBytesSec    float64 `json:"net_rx_bytes_sec"`
+	NetTxBytesSec    float64 `json:"net_tx_bytes_sec"`
+	DiskReadBytesSec float64 `json:"disk_read_bytes_sec"`
+	DiskWriteBytesSec float64 `json:"disk_write_bytes_sec"`
+	Procs            int     `json:"procs"`
 }
 
 type DBStats struct {
@@ -108,6 +111,8 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 	memCurrent, memLimit, inContainer := util.ReadCgroupMemory()
 	cpuPercent := util.ReadCgroupCPU()
 	netRxPerSec, netTxPerSec := util.ReadNetworkStats()
+	diskReadPerSec, diskWritePerSec := util.ReadCgroupDiskIO()
+	procs := util.ReadCgroupProcs()
 
 	var totalRequests int64
 	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs`).Scan(&totalRequests)
@@ -116,18 +121,21 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 	}
 
 	stats.App = AppStats{
-		HeapAllocMB:   float64(heapAlloc) / 1024 / 1024,
-		SysMemoryMB:   float64(sysMemory) / 1024 / 1024,
-		Goroutines:    runtime.NumGoroutine(),
-		GCCycles:      gcCycles,
-		MemoryCurrent: memCurrent,
-		MemoryLimit:   memLimit,
-		InContainer:   inContainer,
-		UptimeSeconds: int64(time.Since(startedAt).Seconds()),
-		CpuPercent:    cpuPercent,
-		TotalRequests: totalRequests,
-		NetRxBytesSec: netRxPerSec,
-		NetTxBytesSec: netTxPerSec,
+		HeapAllocMB:      float64(heapAlloc) / 1024 / 1024,
+		SysMemoryMB:      float64(sysMemory) / 1024 / 1024,
+		Goroutines:       runtime.NumGoroutine(),
+		GCCycles:         gcCycles,
+		MemoryCurrent:    memCurrent,
+		MemoryLimit:      memLimit,
+		InContainer:      inContainer,
+		UptimeSeconds:    int64(time.Since(startedAt).Seconds()),
+		CpuPercent:       cpuPercent,
+		TotalRequests:    totalRequests,
+		NetRxBytesSec:    netRxPerSec,
+		NetTxBytesSec:    netTxPerSec,
+		DiskReadBytesSec: diskReadPerSec,
+		DiskWriteBytesSec: diskWritePerSec,
+		Procs:            procs,
 	}
 
 	var dbSize int64

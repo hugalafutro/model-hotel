@@ -117,15 +117,23 @@ function SystemStatus() {
                 </div>
             )}
 
-            {/* Container CPU */}
-            {inContainer && app.cpu_percent >= 0 && (
+            {/* Container CPU + Processes */}
+            {inContainer && (
                 <div
                     className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Container CPU usage percentage from cgroup"
+                    title="Container CPU usage and process count from cgroup"
                 >
                     <span>CPU</span>
                     <span className="text-(--text-secondary)">
-                        {app.cpu_percent.toFixed(1)}%
+                        {app.cpu_percent >= 0 && (
+                            <span>{app.cpu_percent.toFixed(1)}%</span>
+                        )}
+                        {app.cpu_percent >= 0 && app.procs > 0 && (
+                            <span className="text-(--text-muted) mx-1">|</span>
+                        )}
+                        {app.procs > 0 && (
+                            <span>{app.procs} procs</span>
+                        )}
                     </span>
                 </div>
             )}
@@ -144,6 +152,25 @@ function SystemStatus() {
                         <span className="text-(--text-muted) mx-1"></span>
                         <span className="text-amber-400/60">
                             ↑{formatBytesPerSec(app.net_tx_bytes_sec)}
+                        </span>
+                    </span>
+                </div>
+            )}
+
+            {/* Disk I/O */}
+            {inContainer && (
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title="Container disk I/O throughput (read / write)"
+                >
+                    <span>Disk</span>
+                    <span className="text-(--text-secondary)">
+                        <span className="text-sky-400/60">
+                            ↓{formatBytesPerSec(app.disk_read_bytes_sec)}
+                        </span>
+                        <span className="text-(--text-muted) mx-1"></span>
+                        <span className="text-amber-400/60">
+                            ↑{formatBytesPerSec(app.disk_write_bytes_sec)}
                         </span>
                     </span>
                 </div>

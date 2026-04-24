@@ -173,6 +173,87 @@ func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
 	return rxBytesPerSec, txBytesPerSec
 }
 
+var (
+	DiskPrevReadBytes  int64
+	DiskPrevWriteBytes int64
+	DiskPrevTime       time.Time
+	DiskPrevMu         sync.Mutex
+)
+
+func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
+	f, err := os.Open("/sys/fs/cgroup/io.stat")
+	if err != nil {
+		return -1, -1
+	}
+	defer f.Close()
+
+	var totalRead, totalWrite int64
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		for _, field := range strings.Fields(line) {
+			if strings.HasPrefix(field, "rbytes=") {
+				if v, e := ParseInt(strings.TrimPrefix(field, "rbytes=")); e == nil {
+					totalRead += v
+				}
+			} else if strings.HasPrefix(field, "wbytes=") {
+				if v, e := ParseInt(strings.TrimPrefix(field, "wbytes=")); e == nil {
+					totalWrite += v
+				}
+			}
+		}
+	}
+
+	DiskPrevMu.Lock()
+	defer DiskPrevMu.Unlock()
+
+	if DiskPrevTime.IsZero() {
+		DiskPrevTime = time.Now()
+		DiskPrevReadBytes = totalRead
+		DiskPrevWriteBytes = totalWrite
+		return 0, 0
+	}
+
+	now := time.Now()
+	deltaSec := now.Sub(DiskPrevTime).Seconds()
+	deltaRead := totalRead - DiskPrevReadBytes
+	deltaWrite := totalWrite - DiskPrevWriteBytes
+
+	DiskPrevTime = now
+	DiskPrevReadBytes = totalRead
+	DiskPrevWriteBytes = totalWrite
+
+	if deltaSec <= 0 {
+		return 0, 0
+	}
+
+	if deltaRead > 0 {
+		readBytesPerSec = float64(deltaRead) / deltaSec
+	}
+	if deltaWrite > 0 {
+		writeBytesPerSec = float64(deltaWrite) / deltaSec
+	}
+
+	return readBytesPerSec, writeBytesPerSec
+}
+
+func ReadCgroupProcs() int {
+	f, err := os.Open("/sys/fs/cgroup/cgroup.procs")
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) != "" {
+			count++
+		}
+	}
+	return count
+}
+
 // ParseInt parses a string of digits into an int64 without using strconv
 // (useful for cgroup files where strconv may be overkill).
 func ParseInt(s string) (int64, error) {

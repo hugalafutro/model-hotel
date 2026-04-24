@@ -176,6 +176,9 @@ export interface SystemStats {
         total_requests: number;
         net_rx_bytes_sec: number;
         net_tx_bytes_sec: number;
+        disk_read_bytes_sec: number;
+        disk_write_bytes_sec: number;
+        procs: number;
     };
     db: {
         size_mb: number;
