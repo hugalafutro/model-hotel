@@ -1196,7 +1196,7 @@ export function Dashboard() {
                 <div className="flex gap-4">
                     <Gauge
                         label="Requests/1h"
-                        value={gaugeStats?.total_requests_last_24h || 0}
+                        value={gaugeStats?.requests_last_1h || 0}
                         decimals={0}
                         suffix=""
                         color={accents.requests}

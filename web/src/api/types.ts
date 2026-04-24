@@ -117,6 +117,7 @@ export interface Stats {
     avg_overhead_ms: number;
     rate_limit_hits?: number;
     avg_ttft_ms?: number;
+    requests_last_1h?: number;
     total_tokens_prompt: number;
     total_tokens_completion: number;
     avg_tokens_per_request: number;

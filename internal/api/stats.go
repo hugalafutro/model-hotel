@@ -132,7 +132,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	since := now.Add(-period)
 
 	switch period {
@@ -394,20 +394,18 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		stats.AvgTTFTMs = 0
 	}
 
-	// Requests in last 1h
-	if period == 1*time.Hour {
-		stats.RequestsLast1h = count
-	} else {
-		_1hAgo := now.Add(-1 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, `
-			SELECT COUNT(*) as count
-			FROM request_logs rl`+vkJoin+`
-			WHERE rl.created_at >= $1`+vkFilter, _1hAgo).Scan(&count)
-		if err != nil {
-			count = 0
-		}
-		stats.RequestsLast1h = count
+	// Requests in last 1h — always query fresh, regardless of period,
+	// because the `count` variable may have been overwritten by earlier queries.
+	_1hAgo := now.Add(-1 * time.Hour)
+	var requests1h int
+	err = h.dbPool.QueryRow(ctx, `
+		SELECT COUNT(*) as count
+		FROM request_logs rl`+vkJoin+`
+		WHERE rl.created_at >= $1`+vkFilter, _1hAgo).Scan(&requests1h)
+	if err != nil {
+		requests1h = 0
 	}
+	stats.RequestsLast1h = requests1h
 
 	return stats, nil
 }
@@ -509,7 +507,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
 	ctx := r.Context()
-	now := time.Now()
+	now := time.Now().UTC()
 	since := now.Add(-period)
 
 	var vkJoin, vkFilter string
