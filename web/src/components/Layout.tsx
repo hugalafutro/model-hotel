@@ -79,16 +79,37 @@ function SystemStatus() {
     });
 
     const app = stats?.app;
+    const docker = stats?.docker;
     const inContainer = app?.in_container;
     const hasLimit = !!(inContainer && app?.memory_limit_bytes);
 
-    const appMem = hasLimit
-        ? formatMB(app.memory_current_bytes / 1024 / 1024) +
+    const useDocker = docker?.available;
+
+    const cpuPct = useDocker ? docker.cpu_percent : app?.cpu_percent;
+    const procs = useDocker ? docker.procs : app?.procs;
+    const netRx = useDocker ? docker.net_rx_bytes_sec : app?.net_rx_bytes_sec;
+    const netTx = useDocker ? docker.net_tx_bytes_sec : app?.net_tx_bytes_sec;
+    const diskRead = useDocker ? docker.disk_read_bytes_sec : app?.disk_read_bytes_sec;
+    const diskWrite = useDocker ? docker.disk_write_bytes_sec : app?.disk_write_bytes_sec;
+
+    const dockerMem = useDocker && docker.memory_limit_bytes > 0;
+    const appMem = dockerMem
+        ? formatMB(docker.memory_usage_bytes / 1024 / 1024) +
           " / " +
-          formatMB(app.memory_limit_bytes / 1024 / 1024)
-        : app
-          ? formatMB(app.heap_alloc_mb) + " heap"
-          : "-";
+          formatMB(docker.memory_limit_bytes / 1024 / 1024)
+        : hasLimit
+          ? formatMB(app.memory_current_bytes / 1024 / 1024) +
+            " / " +
+            formatMB(app.memory_limit_bytes / 1024 / 1024)
+          : app
+            ? formatMB(app.heap_alloc_mb) + " heap"
+            : "-";
+
+    const memCurrent = dockerMem ? docker.memory_usage_bytes : app?.memory_current_bytes ?? 0;
+    const memLimit = dockerMem ? docker.memory_limit_bytes : (hasLimit ? app.memory_limit_bytes : 0);
+
+    const showCgroup = inContainer || useDocker;
+    const dash = <span className="text-(--text-muted)">-</span>;
 
     return (
         <div className="space-y-2 text-[11px] font-mono system-status">
@@ -105,150 +126,150 @@ function SystemStatus() {
             </div>
 
             {/* Uptime */}
-            {app && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title="How long the server process has been running"
-                >
-                    <span>Uptime</span>
-                    <span className="text-(--text-secondary)">
-                        {formatDuration(app.uptime_seconds)}
-                    </span>
-                </div>
-            )}
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title="How long the server process has been running"
+            >
+                <span>Uptime</span>
+                <span className="text-(--text-secondary)">
+                    {app ? formatDuration(app.uptime_seconds) : dash}
+                </span>
+            </div>
 
-            {/* Container CPU + Processes */}
-            {inContainer && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Container CPU usage and process count from cgroup"
-                >
-                    <span>CPU</span>
-                    <span className="text-(--text-secondary)">
-                        {app.cpu_percent >= 0 && (
-                            <span>{app.cpu_percent.toFixed(1)}%</span>
-                        )}
-                        {app.cpu_percent >= 0 && app.procs > 0 && (
-                            <span className="text-(--text-muted) mx-1">|</span>
-                        )}
-                        {app.procs > 0 && (
-                            <span>{app.procs} proc{app.procs !== 1 ? 's' : ''}</span>
-                        )}
-                    </span>
-                </div>
-            )}
+            {/* CPU + Processes */}
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title={useDocker
+                    ? `Aggregate CPU across ${docker.container_count} compose containers`
+                    : "Container CPU usage and process count from cgroup"}
+            >
+                <span>CPU</span>
+                <span className="text-(--text-secondary)">
+                    {cpuPct != null && cpuPct >= 0 ? (
+                        <>
+                            <span>{cpuPct.toFixed(1)}%</span>
+                            {procs != null && procs > 0 && (
+                                <>
+                                    <span className="text-(--text-muted) mx-1">|</span>
+                                    <span>{procs} proc{procs !== 1 ? "s" : ""}</span>
+                                </>
+                            )}
+                        </>
+                    ) : dash}
+                </span>
+            </div>
 
             {/* Network */}
-            {inContainer && (
+            {showCgroup && (
                 <div
                     className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Container network throughput (receive / transmit)"
+                    title={useDocker
+                        ? `Aggregate network across ${docker.container_count} compose containers`
+                        : "Container network throughput (receive / transmit)"}
                 >
                     <span>Network</span>
                     <span className="text-(--text-secondary)">
                         <span className="text-sky-400/60">
-                            ↓{formatBytesPerSec(app.net_rx_bytes_sec)}
+                            ↓{formatBytesPerSec(netRx ?? 0)}
                         </span>
                         <span className="text-(--text-muted) mx-1"></span>
                         <span className="text-amber-400/60">
-                            ↑{formatBytesPerSec(app.net_tx_bytes_sec)}
+                            ↑{formatBytesPerSec(netTx ?? 0)}
                         </span>
                     </span>
                 </div>
             )}
 
             {/* Disk I/O */}
-            {inContainer && (
+            {showCgroup && (
                 <div
                     className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Container disk I/O throughput (read / write)"
+                    title={useDocker
+                        ? `Aggregate disk I/O across ${docker.container_count} compose containers`
+                        : "Container disk I/O throughput (read / write)"}
                 >
                     <span>Disk</span>
                     <span className="text-(--text-secondary)">
                         <span className="text-sky-400/60">
-                            ↓{formatBytesPerSec(app.disk_read_bytes_sec)}
+                            ↓{formatBytesPerSec(diskRead ?? 0)}
                         </span>
                         <span className="text-(--text-muted) mx-1"></span>
                         <span className="text-amber-400/60">
-                            ↑{formatBytesPerSec(app.disk_write_bytes_sec)}
+                            ↑{formatBytesPerSec(diskWrite ?? 0)}
                         </span>
                     </span>
                 </div>
             )}
 
             {/* Memory with bar */}
-            {app && (
-                <div className="space-y-1">
-                    <div
-                        className="flex justify-between items-center text-(--text-tertiary)"
-                        title={
-                            hasLimit
-                                ? "Container memory usage vs cgroup limit"
-                                : "Go runtime heap allocation"
-                        }
-                    >
-                        <span>Memory</span>
-                        <span className="text-(--text-secondary)">
-                            {appMem}
-                        </span>
-                    </div>
-                    {hasLimit && (
-                        <MemoryBar
-                            current={app.memory_current_bytes}
-                            limit={app.memory_limit_bytes}
-                        />
-                    )}
+            <div className="space-y-1">
+                <div
+                    className="flex justify-between items-center text-(--text-tertiary)"
+                    title={dockerMem
+                        ? `Aggregate memory across ${docker.container_count} compose containers`
+                        : hasLimit
+                          ? "Container memory usage vs cgroup limit"
+                          : "Go runtime heap allocation"}
+                >
+                    <span>Memory</span>
+                    <span className="text-(--text-secondary)">
+                        {app ? appMem : dash}
+                    </span>
                 </div>
-            )}
+                {(hasLimit || dockerMem) && memLimit > 0 && (
+                    <MemoryBar
+                        current={memCurrent}
+                        limit={memLimit}
+                    />
+                )}
+            </div>
 
             {/* Goroutines */}
-            {app && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Active Go runtime goroutines (lightweight threads)"
-                >
-                    <span>Go routines</span>
-                    <span className="text-(--text-secondary)">
-                        {app.goroutines.toLocaleString()}
-                    </span>
-                </div>
-            )}
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title="Active Go runtime goroutines (lightweight threads)"
+            >
+                <span>Go routines</span>
+                <span className="text-(--text-secondary)">
+                    {app ? app.goroutines.toLocaleString() : dash}
+                </span>
+            </div>
 
             {/* Total Requests */}
-            {app && app.total_requests > 0 && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Total number of proxied LLM requests recorded in the database"
-                >
-                    <span>Total Req</span>
-                    <span className="text-(--text-secondary)">
-                        {formatNumber(app.total_requests)}
-                    </span>
-                </div>
-            )}
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title="Total number of proxied LLM requests recorded in the database"
+            >
+                <span>Total Req</span>
+                <span className="text-(--text-secondary)">
+                    {app && app.total_requests > 0 ? formatNumber(app.total_requests) : dash}
+                </span>
+            </div>
 
             {/* DB */}
-            {stats?.db && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title="Postgres database size, active connections, and buffer cache hit ratio"
-                >
-                    <span>DB</span>
-                    <span>
-                        <span className="text-(--text-secondary)">
-                            {formatMB(stats.db.size_mb)}
-                        </span>
-                        <span className="text-(--text-secondary) mx-1">|</span>
-                        <span className="text-(--text-secondary)">
-                            {stats.db.connections} conn
-                        </span>
-                        <span className="text-(--text-secondary) mx-1">|</span>
-                        <span className="text-(--text-secondary)">
-                            Hit {stats.db.cache_hit_ratio}%
-                        </span>
-                    </span>
-                </div>
-            )}
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title="Postgres database size, active connections, and buffer cache hit ratio"
+            >
+                <span>DB</span>
+                <span>
+                    {stats?.db ? (
+                        <>
+                            <span className="text-(--text-secondary)">
+                                {formatMB(stats.db.size_mb)}
+                            </span>
+                            <span className="text-(--text-secondary) mx-1">|</span>
+                            <span className="text-(--text-secondary)">
+                                {stats.db.connections} conn
+                            </span>
+                            <span className="text-(--text-secondary) mx-1">|</span>
+                            <span className="text-(--text-secondary)">
+                                Hit {stats.db.cache_hit_ratio}%
+                            </span>
+                        </>
+                    ) : dash}
+                </span>
+            </div>
         </div>
     );
 }

@@ -32,8 +32,9 @@ func (h *SystemHandler) Register(r chi.Router) {
 }
 
 type SystemStats struct {
-	App AppStats `json:"app"`
-	DB  DBStats  `json:"db"`
+	App     AppStats           `json:"app"`
+	DB      DBStats            `json:"db"`
+	Docker  util.AggregatedDockerStats `json:"docker"`
 }
 
 type AppStats struct {
@@ -166,6 +167,8 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 		Connections:   connCount,
 		CacheHitRatio: cacheHitRatio,
 	}
+
+	stats.Docker = util.CollectDockerStats(util.DetectComposeProject())
 
 	return stats, nil
 }

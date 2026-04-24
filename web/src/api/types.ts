@@ -179,6 +179,18 @@ export interface SystemStats {
         connections: number;
         cache_hit_ratio: number;
     };
+    docker: {
+        available: boolean;
+        cpu_percent: number;
+        memory_usage_bytes: number;
+        memory_limit_bytes: number;
+        net_rx_bytes_sec: number;
+        net_tx_bytes_sec: number;
+        disk_read_bytes_sec: number;
+        disk_write_bytes_sec: number;
+        procs: number;
+        container_count: number;
+    };
 }
 
 export interface NanoGPTUsageLimits {

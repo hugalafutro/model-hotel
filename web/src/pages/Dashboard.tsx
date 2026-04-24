@@ -525,12 +525,12 @@ function ProviderDoughnut({
                             </div>
                             <div className="text-right shrink-0">
                                 <span className="text-sm font-medium text-(--text-primary)">
-                                    {it.share}%
+                                    {it.share.toFixed(1)}%
                                 </span>
                                 <span className="text-xs text-(--text-muted) ml-1">
                                     ({metric === "tokens"
-                                        ? `${formatCompact(it.tokens)} Tokens`
-                                        : `${it.count} Requests`})
+                                        ? `${formatCompact(it.tokens)} Token${it.tokens !== 1 ? "s" : ""}`
+                                        : `${it.count} Request${it.count !== 1 ? "s" : ""}`})
                                 </span>
                             </div>
                         </div>
@@ -691,7 +691,11 @@ function UsageBarPanel({
                                     </span>
                                     <span className="font-semibold text-(--text-primary) ml-2 shrink-0">
                                         {entry.value.toLocaleString()}
-                                        {entry.suffix || ""}
+                                        {entry.suffix
+                                            ? entry.value === 1
+                                                ? entry.suffix.replace(/s$/, "")
+                                                : entry.suffix
+                                            : ""}
                                     </span>
                                 </div>
                                 <div className="h-1.5 rounded-full overflow-hidden bg-(--border-subtle)">
@@ -1219,7 +1223,7 @@ export function Dashboard() {
                     <Gauge
                         label="Avg TTFT/1h"
                         value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
-                        decimals={2}
+                        decimals={1}
                         suffix="s"
                         color={accents.latency}
                         onClick={() => setTtftModalOpen(true)}

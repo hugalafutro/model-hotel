@@ -13,6 +13,7 @@ services:
       - ALLOWED_PROVIDER_HOSTS=
     volumes:
       - ./.data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       db:
         condition: service_healthy

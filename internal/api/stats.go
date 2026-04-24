@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"time"
 
@@ -63,10 +64,10 @@ type TimeSeriesStats struct {
 
 // ProviderDistributionItem holds a single slice of the provider breakdown.
 type ProviderDistributionItem struct {
-	Name   string `json:"name"`
-	Count  int    `json:"count"`
-	Tokens int    `json:"tokens"`
-	Share  int    `json:"share"`
+	Name   string  `json:"name"`
+	Count  int     `json:"count"`
+	Tokens int     `json:"tokens"`
+	Share  float64 `json:"share"`
 }
 
 // ProviderDistributionStats holds the provider share pie data.
@@ -557,22 +558,32 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	}
 
 	result := ProviderDistributionStats{Items: make([]ProviderDistributionItem, len(items))}
+	rawShares := make([]float64, len(items))
 	for i, it := range items {
-		var share int
 		if total > 0 {
-			share = int(float64(it.Val) / float64(total) * 100)
+			rawShares[i] = float64(it.Val) / float64(total) * 100
 		}
 		result.Items[i] = ProviderDistributionItem{
 			Name:   it.Name,
 			Count:  it.Val,
 			Tokens: it.Val,
-			Share:  share,
 		}
 		if metric != "tokens" {
 			result.Items[i].Tokens = 0
 		} else {
 			result.Items[i].Count = 0
 		}
+	}
+
+	var sum float64
+	for _, s := range rawShares {
+		sum += s
+	}
+	for i := range result.Items {
+		result.Items[i].Share = math.Round(rawShares[i]*10) / 10
+	}
+	if len(rawShares) > 0 && sum > 0 {
+		result.Items[0].Share = math.Round((100-(sum-result.Items[0].Share))*10) / 10
 	}
 
 	w.Header().Set("Content-Type", "application/json")
