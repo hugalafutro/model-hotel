@@ -132,7 +132,7 @@ function SystemStatus() {
                             <span className="text-(--text-muted) mx-1">|</span>
                         )}
                         {app.procs > 0 && (
-                            <span>{app.procs} procs</span>
+                            <span>{app.procs} proc{app.procs !== 1 ? 's' : ''}</span>
                         )}
                     </span>
                 </div>
