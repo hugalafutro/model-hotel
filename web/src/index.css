@@ -532,51 +532,51 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
     border: 1px solid var(--border-default);
 }
 
-/* ── Modal overlays ── */
-html[data-ui-style="glassmorphism-lite"] [role="dialog"] {
-    backdrop-filter: blur(40px) saturate(160%);
-    -webkit-backdrop-filter: blur(40px) saturate(160%);
-}
+/* =============================================
+   GLASSMORPHISM MODALS
+   ============================================= */
 
-/* Pattern A: dialog root IS the overlay (e.g. bg-black/60 on the div itself) */
+/* Pattern A: dialog root IS the overlay (bg-black/60 on wrapper) */
 html[data-ui-style="glassmorphism-lite"] [role="dialog"][class*="bg-black"] {
-    background-color: rgba(0, 0, 0, 0.25) !important;
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
 /* Pattern B: separate overlay button inside dialog */
 html[data-ui-style="glassmorphism-lite"]
     [role="dialog"]
     > button.absolute.inset-0 {
-    background-color: rgba(0, 0, 0, 0.25) !important;
-    backdrop-filter: blur(40px) saturate(160%);
-    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
-/* ── Translucent dialog cards ── */
+/* Dialog cards — frosted but opaque enough to hide text underneath */
 html[data-ui-style="glassmorphism-lite"][class*="dark"]
     [role="dialog"]
     .ui-card,
 html[data-ui-style="glassmorphism-lite"].dark [role="dialog"] .ui-card {
-    background-color: rgba(3, 4, 10, 0.35);
-    backdrop-filter: blur(56px) saturate(140%);
-    -webkit-backdrop-filter: blur(56px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: rgba(15, 17, 26, 0.72);
+    backdrop-filter: blur(24px) saturate(120%);
+    -webkit-backdrop-filter: blur(24px) saturate(120%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
     box-shadow:
         0 24px 64px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 html[data-ui-style="glassmorphism-lite"][class*="light"]
     [role="dialog"]
     .ui-card,
 html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
-    background-color: rgba(240, 241, 247, 0.28);
-    backdrop-filter: blur(56px) saturate(140%);
-    -webkit-backdrop-filter: blur(56px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.45);
+    background-color: rgba(232, 234, 245, 0.78);
+    backdrop-filter: blur(24px) saturate(120%);
+    -webkit-backdrop-filter: blur(24px) saturate(120%);
+    border: 1px solid rgba(255, 255, 255, 0.55);
     box-shadow:
-        0 24px 64px rgba(0, 0, 0, 0.12),
-        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+        0 24px 64px rgba(0, 0, 0, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.50);
 }
 
 /* =============================================
