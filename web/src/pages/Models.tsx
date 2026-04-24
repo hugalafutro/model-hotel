@@ -994,9 +994,9 @@ export function Models() {
         dir: "asc",
     });
     const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
-    const [statusFilter, setStatusFilter] = useState<Set<"enabled" | "disabled">>(
-        new Set(["enabled"]),
-    );
+    const [statusFilter, setStatusFilter] = useState<
+        Set<"enabled" | "disabled">
+    >(new Set());
     const showAllStatus =
         statusFilter.size === 0 || statusFilter.size === 2;
     const [pageSize, setPageSize] = useState(20);
@@ -1103,7 +1103,7 @@ export function Models() {
         mutationFn: (id: string) => api.models.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["models"] });
-            toast("Model deleted", "success");
+            toast("Model deleted successfully", "success");
         },
         onError: (err: Error) => {
             toast(`Failed to delete model: ${err.message}`, "error");
@@ -1237,7 +1237,7 @@ export function Models() {
                 pillAvailability: availability,
                 existingCaps: capsInData,
             };
-        }, [models, searchQuery, sort, capFilter, selectedProviders, statusFilter]);
+        }, [models, searchQuery, sort, capFilter, selectedProviders, statusFilter, showAllStatus]);
 
     const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
     const paginatedModels = sortedAndFiltered.slice(
