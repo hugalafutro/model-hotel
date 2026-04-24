@@ -1030,20 +1030,30 @@ export function Providers() {
                         (zaiFiveHour || zaiWeekly);
 
                     return (
-                        <div key={provider.id} className="ui-card p-6">
+                        <div
+                            key={provider.id}
+                            className={`ui-card p-6 ${!provider.enabled ? "opacity-50" : ""}`}
+                        >
                             <div className="mb-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-white">
                                         {provider.name}
                                     </h3>
-                                    {provider.total_tokens > 0 && (
-                                        <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30">
-                                            {formatTokens(
-                                                provider.total_tokens,
-                                            )}{" "}
-                                            tokens
-                                        </span>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {!provider.enabled && (
+                                            <span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
+                                                Disabled
+                                            </span>
+                                        )}
+                                        {provider.total_tokens > 0 && (
+                                            <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30">
+                                                {formatTokens(
+                                                    provider.total_tokens,
+                                                )}{" "}
+                                                tokens
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <p className="text-sm text-gray-400 mt-1 truncate">
                                     {provider.base_url}

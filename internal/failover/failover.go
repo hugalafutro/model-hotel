@@ -3,6 +3,7 @@ package failover
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -278,9 +279,10 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 }
 
 type DisabledGroupInfo struct {
-	DisplayModel  string `json:"display_model"`
-	Reason        string `json:"reason"`
-	ProviderCount int    `json:"provider_count"`
+	DisplayModel   string   `json:"display_model"`
+	Reason         string   `json:"reason"`
+	ProviderCount  int      `json:"provider_count"`
+	ProviderNames  []string `json:"provider_names"`
 }
 
 type SyncResult struct {
@@ -321,7 +323,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.id, m.model_id, m.provider_id
+		SELECT m.id, m.model_id, m.provider_id, p.name
 		FROM models m
 		JOIN providers p ON m.provider_id = p.id
 		WHERE m.enabled = true AND p.enabled = true
@@ -333,23 +335,25 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	defer rows.Close()
 
 	type modelInfo struct {
-		uuid       uuid.UUID
-		modelID    string
-		providerID uuid.UUID
+		uuid         uuid.UUID
+		modelID      string
+		providerID   uuid.UUID
+		providerName string
 	}
 
 	baseToModels := make(map[string][]modelInfo)
 	for rows.Next() {
 		var id, providerID uuid.UUID
-		var modelID string
-		if err := rows.Scan(&id, &modelID, &providerID); err != nil {
+		var modelID, providerName string
+		if err := rows.Scan(&id, &modelID, &providerID, &providerName); err != nil {
 			continue
 		}
 		base := stripPrefix(modelID)
 		baseToModels[base] = append(baseToModels[base], modelInfo{
-			uuid:       id,
-			modelID:    modelID,
-			providerID: providerID,
+			uuid:         id,
+			modelID:      modelID,
+			providerID:   providerID,
+			providerName: providerName,
 		})
 	}
 
@@ -357,10 +361,19 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
 			if r.disableAutoGroup(ctx, base) {
+				providerNames := make([]string, 0, len(models))
+				for _, m := range models {
+					providerNames = append(providerNames, m.providerName)
+				}
+				reason := "no enabled providers found"
+				if len(models) == 1 {
+					reason = "only 1 enabled provider (need 2+ for failover)"
+				}
 				result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
-					DisplayModel:  base,
-					ProviderCount: len(models),
-					Reason:        "only 1 enabled provider (need 2+ for failover)",
+					DisplayModel:   base,
+					ProviderCount:  len(models),
+					Reason:         reason,
+					ProviderNames:  providerNames,
 				})
 			}
 			continue
@@ -397,9 +410,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 			if _, ok := syncedBases[g.DisplayModel]; !ok {
 				if r.disableAutoGroup(ctx, g.DisplayModel) {
 					result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
-						DisplayModel:  g.DisplayModel,
-						ProviderCount: 0,
-						Reason:        "no enabled providers found",
+						DisplayModel:   g.DisplayModel,
+						ProviderCount:  0,
+						Reason:         "no enabled providers found",
+						ProviderNames:  []string{},
 					})
 				}
 			}
@@ -410,13 +424,24 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 }
 
 func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
-	rows, err := r.pool.Query(ctx, `
+	base := stripPrefix(modelID)
+
+	args := []interface{}{base}
+	conditions := []string{"m.model_id = $1"}
+	for i, prefix := range commonPrefixes {
+		args = append(args, prefix+base)
+		conditions = append(conditions, fmt.Sprintf("m.model_id = $%d", i+2))
+	}
+
+	query := fmt.Sprintf(`
 		SELECT m.id, m.provider_id
 		FROM models m
 		JOIN providers p ON m.provider_id = p.id
-		WHERE m.model_id = $1 AND m.enabled = true AND p.enabled = true
+		WHERE m.enabled = true AND p.enabled = true AND (%s)
 		ORDER BY p.created_at ASC
-	`, modelID)
+	`, strings.Join(conditions, " OR "))
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -432,7 +457,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 
 	if len(modelUUIDs) <= 1 {
-		r.disableAutoGroup(ctx, modelID)
+		r.disableAutoGroup(ctx, base)
 		return nil
 	}
 
@@ -441,7 +466,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 		entryEnabled[id.String()] = true
 	}
 
-	existing, _ := r.GetByModel(ctx, modelID)
+	existing, _ := r.GetByModel(ctx, base)
 	if existing != nil {
 		for uuidStr, enabled := range existing.EntryEnabled {
 			if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
@@ -452,7 +477,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 
 	groupEnabled := true
 	autoCreated := true
-	_, err = r.UpsertWithConfig(ctx, modelID, modelUUIDs, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+	_, err = r.UpsertWithConfig(ctx, base, modelUUIDs, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 	return err
 }
 

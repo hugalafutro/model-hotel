@@ -302,6 +302,7 @@ export interface DisabledGroupInfo {
     display_model: string;
     reason: string;
     provider_count: number;
+    provider_names: string[];
 }
 
 export interface SyncResult {

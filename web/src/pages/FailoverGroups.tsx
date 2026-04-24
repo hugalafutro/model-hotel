@@ -492,8 +492,12 @@ export function FailoverGroups() {
             queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
             if (data.disabled_groups && data.disabled_groups.length > 0) {
                 for (const g of data.disabled_groups) {
+                    const provs =
+                        g.provider_names.length > 0
+                            ? ` (${g.provider_names.join(", ")})`
+                            : "";
                     toast(
-                        `hotel/${g.display_model} disabled: ${g.reason}`,
+                        `hotel/${g.display_model} disabled: ${g.reason}${provs}`,
                         "warning",
                     );
                 }

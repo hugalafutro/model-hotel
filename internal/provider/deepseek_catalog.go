@@ -12,22 +12,22 @@ type DeepSeekModelSpec struct {
 
 var deepseekCatalog = []DeepSeekModelSpec{
 	{
-		ModelID:                       "deepseek-chat",
-		ContextLength:                 128000,
-		MaxOutputTokens:               8192,
+		ModelID:                       "deepseek-v4-flash",
+		ContextLength:                 1000000,
+		MaxOutputTokens:               384000,
 		Reasoning:                     false,
 		InputPricePerMillionCacheHit:  0.028,
-		InputPricePerMillionCacheMiss: 0.28,
-		OutputPricePerMillion:         0.42,
+		InputPricePerMillionCacheMiss: 0.139,
+		OutputPricePerMillion:         0.278,
 	},
 	{
-		ModelID:                       "deepseek-reasoner",
-		ContextLength:                 128000,
-		MaxOutputTokens:               32768,
+		ModelID:                       "deepseek-v4-pro",
+		ContextLength:                 1000000,
+		MaxOutputTokens:               384000,
 		Reasoning:                     true,
-		InputPricePerMillionCacheHit:  0.028,
-		InputPricePerMillionCacheMiss: 0.28,
-		OutputPricePerMillion:         0.42,
+		InputPricePerMillionCacheHit:  0.139,
+		InputPricePerMillionCacheMiss: 1.667,
+		OutputPricePerMillion:         3.333,
 	},
 }
 
