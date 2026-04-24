@@ -519,6 +519,7 @@ export function Logs() {
                     <input
                         type="text"
                         placeholder="Filter by model ID..."
+                        autoFocus={true}
                         value={filters.model_id}
                         onChange={(e) => {
                             setFilters({
@@ -527,7 +528,7 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input h-9 py-0! w-80"
+                        className="ui-input h-9 py-0! w-[320px]!"
                     />
                     <select
                         value={filters.status_code}
@@ -538,7 +539,7 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input h-9 py-0! w-auto text-xs pr-6"
+                        className="ui-input h-9 py-0! w-[120px]! text-xs pr-6"
                     >
                         <option value="">All Status</option>
                         <option value="0">0 No Response</option>

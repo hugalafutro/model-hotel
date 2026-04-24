@@ -1250,7 +1250,7 @@ export function Models() {
                             setSearchQuery(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="ui-input h-9 py-0! w-80"
+                        className="ui-input h-9 py-0! w-[320px]!"
                     />
                 </div>
                 <div className="flex-1 flex justify-end">
