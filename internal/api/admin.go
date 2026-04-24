@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -122,8 +124,16 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.cfg.AllowHTTPProviders && len(req.BaseURL) >= 8 && req.BaseURL[:8] != "https://" {
-		http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
+	if !h.cfg.AllowHTTPProviders {
+		parsed, err := url.Parse(strings.TrimSpace(req.BaseURL))
+		if err != nil || parsed.Scheme != "https" {
+			http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if err := h.cfg.ValidateProviderURL(req.BaseURL); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -256,6 +266,21 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)
 		if existing != nil && existing.ID != id {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
+			return
+		}
+	}
+
+	// Validate new BaseURL if provided
+	if req.BaseURL != nil {
+		if !h.cfg.AllowHTTPProviders {
+			parsed, err := url.Parse(strings.TrimSpace(*req.BaseURL))
+			if err != nil || parsed.Scheme != "https" {
+				http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
+				return
+			}
+		}
+		if err := h.cfg.ValidateProviderURL(*req.BaseURL); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
