@@ -46,13 +46,7 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
     const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : entry.enabled ? 1 : 0.5,
-        ...(!entry.enabled
-            ? {
-                  backgroundColor: "rgba(127, 29, 29, 0.35)",
-                  border: "1px solid rgba(239, 68, 68, 0.6)",
-              }
-            : {}),
+        opacity: isDragging ? 0.5 : 1,
     };
 
     return (

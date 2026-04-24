@@ -1087,7 +1087,45 @@ html.light .bg-blue-900\/30:hover {
     animation: pulse-subtle 2s ease-in-out infinite;
 }
 
-/* Disabled failover entry pill — background/border/opacity handled via inline style to bypass theme !important overrides */
-[data-ui-style] .failover-entry-disabled .failover-entry-text {
-    filter: saturate(0);
+/* Disabled failover entry pill - CSS-only styles */
+.failover-entry-disabled {
+    background-color: #9ca3af !important;
+    border: 1px dashed #6b7280 !important;
+}
+
+.dark .failover-entry-disabled {
+    background-color: #4b5563 !important;
+}
+
+.failover-entry-disabled .failover-entry-text {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+/* Entries inside disabled groups (group-level OFF) */
+.ui-card.opacity-60 .bg-gray-700 {
+    background-color: #9ca3af !important;
+    border: 1px dashed #6b7280 !important;
+}
+
+.dark .ui-card.opacity-60 .bg-gray-700 {
+    background-color: #4b5563 !important;
+}
+
+.ui-card.opacity-60 .failover-entry-text {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+/* Disable drag interaction in disabled groups */
+.ui-card.opacity-60 .cursor-grab {
+    pointer-events: none;
+    opacity: 0.3 !important;
+}
+
+/* Desaturate toggle buttons in disabled groups */
+.ui-card.opacity-60 button[aria-label*="provider"] {
+    filter: grayscale(1);
+    opacity: 0.6;
+    pointer-events: none;
 }
