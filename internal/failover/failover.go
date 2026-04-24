@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -265,12 +266,15 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		var entryEnabledJSON []byte
 		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 			&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
+			log.Printf("scanFailoverGroups: skipping row due to scan error: %v", err)
 			continue
 		}
 		if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
+			log.Printf("scanFailoverGroups: skipping failover group %s due to priority JSON error: %v", fg.DisplayModel, err)
 			continue
 		}
 		if err := json.Unmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
+			log.Printf("scanFailoverGroups: skipping failover group %s due to entry_enabled JSON error: %v", fg.DisplayModel, err)
 			continue
 		}
 		groups = append(groups, &fg)

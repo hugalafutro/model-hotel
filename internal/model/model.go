@@ -245,10 +245,10 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 	`
 
 	tag, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
-	InvalidateModelCache()
 	if err != nil {
 		return 0, err
 	}
+	InvalidateModelCache()
 	return tag.RowsAffected(), nil
 }
 
