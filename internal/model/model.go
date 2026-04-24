@@ -262,6 +262,15 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	return r.Get(ctx, id)
 }
 
+func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM models WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	InvalidateModelCache()
+	return nil
+}
+
 type UpdateModelRequest struct {
 	DisplayName           *string  `json:"display_name"`
 	ContextLength         *int     `json:"context_length"`

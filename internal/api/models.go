@@ -44,6 +44,7 @@ func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
 		r.Get("/", h.ListModels)
 		r.Patch("/{id}", h.UpdateModel)
+		r.Delete("/{id}", h.DeleteModel)
 		r.Post("/{id}/test", h.TestModel)
 	})
 }
@@ -152,6 +153,23 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "invalid model ID", http.StatusBadRequest)
+		return
+	}
+
+	modelRepo := model.NewRepository(h.dbPool.Pool())
+	if err := modelRepo.DeleteByID(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type TestModelResponse struct {

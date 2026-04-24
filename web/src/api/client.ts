@@ -245,6 +245,15 @@ export const api = {
             }
             return response.json();
         },
+        delete: async (id: string): Promise<void> => {
+            const response = await fetch(`${API_BASE}/api/models/${id}`, {
+                method: "DELETE",
+                headers: getAuthHeaders(),
+            });
+            if (!response.ok && response.status !== 204) {
+                throw new Error("Failed to delete model");
+            }
+        },
     },
 
     logs: {

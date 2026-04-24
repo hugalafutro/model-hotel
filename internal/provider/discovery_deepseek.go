@@ -53,24 +53,28 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 
 	models := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
-		spec, ok := catalogMap[m.ID]
-		if !ok {
-			continue
-		}
+		contextLen := 128000
+		maxOutput := 8192
+		reasoning := false
+		inPriceCacheHit := 0.0
+		inPriceCacheMiss := 0.0
+		outPrice := 0.0
 
-		contextLen := spec.ContextLength
-		maxOutput := spec.MaxOutputTokens
+		if spec, ok := catalogMap[m.ID]; ok {
+			contextLen = spec.ContextLength
+			maxOutput = spec.MaxOutputTokens
+			reasoning = spec.Reasoning
+			inPriceCacheHit = spec.InputPricePerMillionCacheHit
+			inPriceCacheMiss = spec.InputPricePerMillionCacheMiss
+			outPrice = spec.OutputPricePerMillion
+		}
 
 		caps := model.Capability{
 			Streaming:   true,
-			Reasoning:   spec.Reasoning,
+			Reasoning:   reasoning,
 			ToolCalling: true,
 		}
 		capJSON, _ := json.Marshal(caps)
-
-		inPricePerMill := spec.InputPricePerMillionCacheMiss
-		outPricePerMill := spec.OutputPricePerMillion
-		inPriceCacheHit := spec.InputPricePerMillionCacheHit
 
 		models = append(models, &model.Model{
 			ID:                           uuid.New(),
@@ -85,9 +89,9 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 			OutputModalities:             "[]",
 			ContextLength:                &contextLen,
 			MaxOutputTokens:              &maxOutput,
-			InputPricePerMillion:         &inPricePerMill,
+			InputPricePerMillion:         &inPriceCacheMiss,
 			InputPricePerMillionCacheHit: &inPriceCacheHit,
-			OutputPricePerMillion:        &outPricePerMill,
+			OutputPricePerMillion:        &outPrice,
 			OwnedBy:                      m.OwnedBy,
 			Enabled:                      true,
 		})

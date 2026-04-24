@@ -190,7 +190,6 @@ type SortField =
     | "context"
     | "output"
     | "status";
-type StatusFilter = "enabled" | "disabled";
 
 function ModelDetailModal({
     model,
@@ -200,6 +199,7 @@ function ModelDetailModal({
     onTest,
     onToast,
     onUpdate,
+    onDelete,
 }: {
     model: Model;
     onClose: () => void;
@@ -214,6 +214,7 @@ function ModelDetailModal({
     }>;
     onToast: (msg: string, type?: "success" | "error" | "info") => void;
     onUpdate: (id: string, updates: Partial<Model>) => void;
+    onDelete: (id: string) => void;
 }) {
     const caps = parseCapabilities(model.capabilities);
     const params = parseParams(model.params);
@@ -240,6 +241,7 @@ function ModelDetailModal({
     const [snippetTab, setSnippetTab] = useState<"curl" | "zed">("curl");
     const [editing, setEditing] = useState(false);
     const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [editData, setEditData] = useState({
@@ -890,6 +892,26 @@ function ModelDetailModal({
                             )}
                             {testing ? "Testing..." : "Test"}
                         </button>
+                        {!confirmDelete ? (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmDelete(true)}
+                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400 transition-all"
+                            >
+                                Delete
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onDelete(model.id);
+                                    onClose();
+                                }}
+                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all"
+                            >
+                                Confirm delete
+                            </button>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                         {!editing && (
@@ -963,20 +985,26 @@ export function Models() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedProvider, setSelectedProvider] = useState<string>("");
+    const [selectedProviders, setSelectedProviders] = useState<Set<string>>(
+        new Set(),
+    );
     const [detailModel, setDetailModel] = useState<Model | null>(null);
     const [sort, setSort] = useState<SortState<SortField>>({
         field: "name",
         dir: "asc",
     });
     const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("enabled");
+    const [statusFilter, setStatusFilter] = useState<Set<"enabled" | "disabled">>(
+        new Set(["enabled"]),
+    );
+    const showAllStatus =
+        statusFilter.size === 0 || statusFilter.size === 2;
     const [pageSize, setPageSize] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
 
     const { data: models, isLoading } = useQuery({
-        queryKey: ["models", selectedProvider],
-        queryFn: () => api.models.list(selectedProvider || undefined),
+        queryKey: ["models"],
+        queryFn: () => api.models.list(),
     });
 
     const { data: providers } = useQuery({
@@ -1071,6 +1099,17 @@ export function Models() {
         return api.models.test(id);
     }, []);
 
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => api.models.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["models"] });
+            toast("Model deleted", "success");
+        },
+        onError: (err: Error) => {
+            toast(`Failed to delete model: ${err.message}`, "error");
+        },
+    });
+
     const toggleCapFilter = useCallback((key: CapKey) => {
         setCapFilter((prev) => {
             const next = new Set(prev);
@@ -1114,6 +1153,12 @@ export function Models() {
 
             let filtered = baseFiltered;
 
+            if (selectedProviders.size > 0) {
+                filtered = filtered.filter((m) =>
+                    selectedProviders.has(m.provider_id),
+                );
+            }
+
             if (capFilter.size > 0) {
                 filtered = filtered.filter((m) =>
                     matchesAllCaps(
@@ -1123,9 +1168,11 @@ export function Models() {
                 );
             }
 
-            filtered = filtered.filter((m) =>
-                statusFilter === "enabled" ? m.enabled : !m.enabled,
-            );
+            if (!showAllStatus) {
+                filtered = filtered.filter((m) =>
+                    statusFilter.has("enabled") ? m.enabled : !m.enabled,
+                );
+            }
 
             const availability = new Map<CapKey, boolean>();
             for (const m of CAP_META) {
@@ -1190,7 +1237,7 @@ export function Models() {
                 pillAvailability: availability,
                 existingCaps: capsInData,
             };
-        }, [models, searchQuery, sort, capFilter, statusFilter]);
+        }, [models, searchQuery, sort, capFilter, selectedProviders, statusFilter]);
 
     const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
     const paginatedModels = sortedAndFiltered.slice(
@@ -1364,7 +1411,7 @@ export function Models() {
                                 </span>
                             </th>
                             <th className="px-4 py-2">
-                                <span className="flex flex-wrap gap-1">
+                                <span className="flex flex-wrap items-center gap-1">
                                     {providers?.map((provider) => {
                                         const isNanoGPT =
                                             provider.base_url.includes(
@@ -1375,7 +1422,7 @@ export function Models() {
                                                 "deepseek.com",
                                             );
                                         const isSelected =
-                                            selectedProvider === provider.id;
+                                            selectedProviders.has(provider.id);
                                         const baseStyle = isNanoGPT
                                             ? "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30"
                                             : isDeepSeek
@@ -1391,10 +1438,25 @@ export function Models() {
                                                 key={provider.id}
                                                 type="button"
                                                 onClick={() => {
-                                                    setSelectedProvider(
-                                                        isSelected
-                                                            ? ""
-                                                            : provider.id,
+                                                    setSelectedProviders(
+                                                        (prev) => {
+                                                            const next =
+                                                                new Set(prev);
+                                                            if (
+                                                                next.has(
+                                                                    provider.id,
+                                                                )
+                                                            ) {
+                                                                next.delete(
+                                                                    provider.id,
+                                                                );
+                                                            } else {
+                                                                next.add(
+                                                                    provider.id,
+                                                                );
+                                                            }
+                                                            return next;
+                                                        },
                                                     );
                                                     setCurrentPage(1);
                                                 }}
@@ -1404,11 +1466,11 @@ export function Models() {
                                             </button>
                                         );
                                     })}
-                                    {selectedProvider && (
+                                    {selectedProviders.size > 0 && (
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                setSelectedProvider("");
+                                                setSelectedProviders(new Set());
                                                 setCurrentPage(1);
                                             }}
                                             className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
@@ -1422,15 +1484,23 @@ export function Models() {
                             <th className="px-4 py-2"></th>
                             <th className="px-4 py-2"></th>
                             <th className="px-4 py-2">
-                                <span className="flex flex-wrap gap-1">
+                                <span className="flex flex-wrap items-center gap-1">
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setStatusFilter("enabled");
+                                            setStatusFilter((prev) => {
+                                                const next = new Set(prev);
+                                                if (next.has("enabled")) {
+                                                    next.delete("enabled");
+                                                } else {
+                                                    next.add("enabled");
+                                                }
+                                                return next;
+                                            });
                                             setCurrentPage(1);
                                         }}
                                         className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                                            statusFilter === "enabled"
+                                            statusFilter.has("enabled")
                                                 ? "bg-green-900/40 text-green-300 border-green-700/50 shadow-[0_0_6px_1px_rgba(34,197,94,0.35)]"
                                                 : "bg-green-900/15 text-green-500/60 border-green-700/25 hover:bg-green-900/25 hover:text-green-400"
                                         }`}
@@ -1440,17 +1510,37 @@ export function Models() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setStatusFilter("disabled");
+                                            setStatusFilter((prev) => {
+                                                const next = new Set(prev);
+                                                if (next.has("disabled")) {
+                                                    next.delete("disabled");
+                                                } else {
+                                                    next.add("disabled");
+                                                }
+                                                return next;
+                                            });
                                             setCurrentPage(1);
                                         }}
                                         className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                                            statusFilter === "disabled"
+                                            statusFilter.has("disabled")
                                                 ? "bg-red-900/40 text-red-300 border-red-700/50 shadow-[0_0_6px_1px_rgba(239,68,68,0.35)]"
                                                 : "bg-red-900/15 text-red-500/60 border-red-700/25 hover:bg-red-900/25 hover:text-red-400"
                                         }`}
                                     >
                                         Disabled
                                     </button>
+                                    {statusFilter.size === 2 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setStatusFilter(new Set());
+                                                setCurrentPage(1);
+                                            }}
+                                            className="inline-flex items-center justify-center w-4 h-4 rounded text-gray-400 hover:text-gray-200 transition-colors"
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    )}
                                 </span>
                             </th>
                         </tr>
@@ -1535,7 +1625,7 @@ export function Models() {
                                 colSpan={7}
                                 message={
                                     searchQuery ||
-                                    selectedProvider ||
+                                    selectedProviders.size > 0 ||
                                     capFilter.size > 0
                                         ? "No models match your filters"
                                         : "No models discovered yet. Add a provider and discover models."
@@ -1555,6 +1645,7 @@ export function Models() {
                     onTest={handleTest}
                     onToast={toast}
                     onUpdate={handleUpdateModel}
+                    onDelete={(id) => deleteMutation.mutate(id)}
                 />
             )}
         </div>
