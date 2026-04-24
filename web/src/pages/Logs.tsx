@@ -873,8 +873,10 @@ export function Logs() {
                                                 </span>
                                             ) : log.virtual_key_name &&
                                               log.virtual_key_name.toLowerCase() ===
-                                                  "admin" ? (
-                                                "admin"
+                                                  "internal" ? (
+                                                <span className="text-gray-400 italic">
+                                                    internal
+                                                </span>
                                             ) : (
                                                 log.virtual_key_name ||
                                                 log.virtual_key_id ||
