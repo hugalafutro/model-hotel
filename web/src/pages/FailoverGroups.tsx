@@ -54,7 +54,7 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
             ref={setNodeRef}
             style={style}
             className={`flex items-center justify-between px-2 py-1.5 bg-gray-700 rounded group text-sm ${
-                !entry.enabled ? "opacity-50" : ""
+                !entry.enabled ? "opacity-35" : ""
             }`}
         >
             <div className="flex items-center gap-2 min-w-0">
