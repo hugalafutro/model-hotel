@@ -45,7 +45,7 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return b
 }
 
-func (s *stubSettings) GetFloat(key string, def float64) float64 {
+func (s *stubSettings) GetFloat(_ context.Context, key string, def float64) float64 {
 	s.mu.Lock()
 	v, ok := s.data[key]
 	s.mu.Unlock()
@@ -59,7 +59,7 @@ func (s *stubSettings) GetFloat(key string, def float64) float64 {
 	return f
 }
 
-func (s *stubSettings) GetInt(key string, def int) int {
+func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
 	s.mu.Lock()
 	v, ok := s.data[key]
 	s.mu.Unlock()

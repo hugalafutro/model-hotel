@@ -18,8 +18,8 @@ import (
 // interface, and tests can provide a lightweight stub instead.
 type SettingsReader interface {
 	GetBool(ctx context.Context, key string, defaultValue bool) bool
-	GetFloat(key string, defaultValue float64) float64
-	GetInt(key string, defaultValue int) int
+	GetFloat(ctx context.Context, key string, defaultValue float64) float64
+	GetInt(ctx context.Context, key string, defaultValue int) int
 }
 
 // settings keys stored in the database
@@ -114,7 +114,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			entry := l.getLimiter(keyHash)
+			entry := l.getLimiter(keyHash, r.Context())
 
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
@@ -141,12 +141,12 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 // getLimiter returns (or creates) the rate.Limiter for the given key.
 // If the stored limiter's RPS or burst no longer matches the current
 // settings, it is replaced so runtime changes take effect immediately.
-func (l *Limiter) getLimiter(keyHash string) *keyEntry {
+func (l *Limiter) getLimiter(keyHash string, ctx context.Context) *keyEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	rps := l.settings.GetFloat(settingsKeyRPS, defaultRPS)
-	burst := l.settings.GetInt(settingsKeyBurst, defaultBurst)
+	rps := l.settings.GetFloat(ctx, settingsKeyRPS, defaultRPS)
+	burst := l.settings.GetInt(ctx, settingsKeyBurst, defaultBurst)
 
 	// Unlimited (RPS=0) — use an extremely high rate that never blocks.
 	if rps <= 0 {
