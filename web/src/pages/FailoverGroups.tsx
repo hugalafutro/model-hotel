@@ -592,17 +592,27 @@ export function FailoverGroups() {
     }
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <Shuffle
-                        size={28}
-                        strokeWidth={2}
-                        className="text-(--accent)"
-                    />
-                    <h1 className="text-2xl font-bold text-white">
-                        Failover Groups
-                    </h1>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <Shuffle
+                            size={28}
+                            strokeWidth={2}
+                            className="text-(--accent)"
+                        />
+                        <h1 className="text-3xl font-bold text-white">
+                            Failover Groups
+                        </h1>
+                    </div>
+                    <p className="text-gray-400 mt-1">
+                        Route requests through multiple providers in priority order via{" "}
+                        <code className="text-(--accent)">hotel/model</code>
+                    </p>
+                    <p className="text-(--text-muted) text-xs flex items-center gap-1.5 mt-0.5">
+                        <span className="shrink-0" aria-hidden="true">⠿</span>
+                        Drag models by the handle (⠿) to reorder priority
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     {lastSyncedAt && (
@@ -614,34 +624,19 @@ export function FailoverGroups() {
                         type="button"
                         onClick={() => syncMutation.mutate()}
                         disabled={syncMutation.isPending}
-                        className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all disabled:opacity-50"
+                        className="ui-btn ui-btn-secondary"
                     >
                         {syncMutation.isPending ? "Syncing..." : "Sync"}
                     </button>
                     <button
                         type="button"
                         onClick={() => setShowCreateModal(true)}
-                        className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+                        className="ui-btn ui-btn-primary"
                     >
-                        New Group
+                        + New Group
                     </button>
                 </div>
             </div>
-
-            <p className="text-gray-400 text-sm mb-1">
-                Failover groups let you route requests through multiple
-                providers in priority order. Use{" "}
-                <code className="text-(--accent)">hotel/model-name</code> to
-                route through a group, or{" "}
-                <code className="text-(--accent)">provider/model-name</code> to
-                use a specific provider.
-            </p>
-            <p className="text-(--text-muted) text-xs mb-6 flex items-center gap-1.5">
-                <span className="text-xs shrink-0" aria-hidden="true">
-                    ⠿
-                </span>
-                Drag models by the handle (⠿) to reorder priority
-            </p>
 
             {groups && groups.length === 0 ? (
                 <div className="text-center py-12">
