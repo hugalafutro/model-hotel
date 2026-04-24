@@ -33,11 +33,11 @@ function formatSyncTime(isoStr: string | null | undefined): string {
     try {
         const date = new Date(isoStr);
         return date.toLocaleString(undefined, {
-            month: "short",
             day: "numeric",
+            month: "short",
+            year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
-            second: "2-digit",
         });
     } catch {
         return "";

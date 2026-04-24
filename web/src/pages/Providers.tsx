@@ -39,8 +39,22 @@ function formatTokens(n: number | null | undefined): string {
     return n.toString();
 }
 
-function formatTimestamp(ts: number): string {
-    return new Date(ts).toLocaleString();
+function formatTimestamp(ts: number | string): string {
+    return new Date(ts).toLocaleString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
+function formatDate(ts: number | string): string {
+    return new Date(ts).toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+    });
 }
 
 function formatTimeUntil(ts: number): string {
@@ -261,9 +275,9 @@ function NanoGPTQuotaModal({
                                     Period End
                                 </span>
                                 <p className="text-gray-200">
-                                    {new Date(
+                                    {formatDate(
                                         usage.period.currentPeriodEnd,
-                                    ).toLocaleDateString()}
+                                    )}
                                 </p>
                             </div>
                             <div>
@@ -281,9 +295,9 @@ function NanoGPTQuotaModal({
                         <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
                             <p className="text-sm text-yellow-300">
                                 Subscription will cancel at period end (
-                                {new Date(
+                                {formatDate(
                                     usage.period.currentPeriodEnd,
-                                ).toLocaleDateString()}
+                                )}
                                 )
                             </p>
                         </div>
@@ -1072,9 +1086,9 @@ export function Providers() {
                                         Created
                                     </span>
                                     <span className="text-gray-300">
-                                        {new Date(
+                                        {formatTimestamp(
                                             provider.created_at,
-                                        ).toLocaleString()}
+                                        )}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -1091,9 +1105,9 @@ export function Providers() {
                                     </span>
                                     <span className="text-gray-300">
                                         {provider.last_used_at
-                                            ? new Date(
+                                            ? formatTimestamp(
                                                   provider.last_used_at,
-                                              ).toLocaleString()
+                                              )
                                             : "N/A"}
                                     </span>
                                 </div>
@@ -1103,9 +1117,9 @@ export function Providers() {
                                             Last Discovery
                                         </span>
                                         <span className="text-gray-300">
-                                            {new Date(
+                                            {formatTimestamp(
                                                 provider.last_discovered_at,
-                                            ).toLocaleString()}
+                                            )}
                                         </span>
                                     </div>
                                 )}
