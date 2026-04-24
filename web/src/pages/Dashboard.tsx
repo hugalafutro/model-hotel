@@ -729,7 +729,8 @@ function GaugeModal({
         | "errors"
         | "rate_limit_hits"
         | "avg_ttft_ms"
-        | "total";
+        | "total"
+        | "tokens";
     label: string;
     allowDecimals?: boolean;
     scale?: number;
@@ -907,6 +908,7 @@ export function Dashboard() {
     const [ttftModalOpen, setTtftModalOpen] = useState(false);
     const [rateLimitModalOpen, setRateLimitModalOpen] = useState(false);
     const [requestsModalOpen, setRequestsModalOpen] = useState(false);
+    const [tokensModalOpen, setTokensModalOpen] = useState(false);
 
     const {
         data: stats,
@@ -1261,12 +1263,16 @@ export function Dashboard() {
                     accent={accents.requests}
                     sparkline={sparkReq}
                     sparklineTooltip="Share of last 7 days traffic that was today"
+                    onClick={() => setRequestsModalOpen(true)}
+                    tooltip="Click to view request history"
                 />
                 <StatCard
                     label="Requests/7d"
                     value={stats?.total_requests_last_7d || 0}
                     icon={TrendingUp}
                     accent={accents.requests}
+                    onClick={() => setRequestsModalOpen(true)}
+                    tooltip="Click to view request history"
                 />
                 <StatCard
                     label="Avg Duration/1d"
@@ -1285,6 +1291,8 @@ export function Dashboard() {
                     icon={Target}
                     accent={accents.tokens}
                     formatter={formatCompact}
+                    onClick={() => setTokensModalOpen(true)}
+                    tooltip="Click to view token history"
                 />
             </div>
 
@@ -1423,6 +1431,17 @@ export function Dashboard() {
                 dataKey="rate_limit_hits"
                 label="hits"
                 allowDecimals={false}
+            />
+            <GaugeModal
+                open={tokensModalOpen}
+                onClose={() => setTokensModalOpen(false)}
+                title="Avg Tokens"
+                metric="Tokens"
+                icon={Zap}
+                color={accents.tokens}
+                dataKey="tokens"
+                label="tokens"
+                allowDecimals
             />
         </div>
     );

@@ -188,7 +188,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		modelCounts[providerID] = count
 	}
 
-	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) FROM request_logs GROUP BY provider_id")
+	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) FROM request_logs WHERE provider_id IS NOT NULL GROUP BY provider_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
