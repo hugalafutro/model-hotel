@@ -54,14 +54,14 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
             ref={setNodeRef}
             style={style}
             className={`flex items-center justify-between px-2 py-1.5 bg-gray-700 rounded group text-sm ${
-                !entry.enabled ? "opacity-35" : ""
+                !entry.enabled ? "opacity-35 saturate-0" : ""
             }`}
         >
             <div className="flex items-center gap-2 min-w-0">
                 <span
                     {...attributes}
                     {...listeners}
-                    className="text-gray-500 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    className="text-gray-500 cursor-grab active:cursor-grabbing opacity-15 group-hover:opacity-100 transition-opacity shrink-0"
                 >
                     ⠿
                 </span>
@@ -600,20 +600,9 @@ export function FailoverGroups() {
                 use a specific provider.
             </p>
             <p className="text-(--text-muted) text-xs mb-6 flex items-center gap-1.5">
-                <svg
-                    className="w-3.5 h-3.5 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 8h16M4 16h16"
-                    />
-                </svg>
+                <span className="text-xs shrink-0" aria-hidden="true">
+                    ⠿
+                </span>
                 Drag models by the handle (⠿) to reorder priority
             </p>
 
