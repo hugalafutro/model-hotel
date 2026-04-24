@@ -374,12 +374,15 @@ func main() {
 		for {
 			interval := settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
 			if interval == 0 {
-				time.Sleep(1 * time.Minute)
-				continue
+				interval = 1 * time.Minute
 			}
-			time.Sleep(interval)
-			result := runDiscovery()
-			publishDiscoveryEvent("Scheduled", result)
+			select {
+			case <-time.After(interval):
+				result := runDiscovery()
+				publishDiscoveryEvent("Scheduled", result)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -397,7 +400,11 @@ func main() {
 	//      legitimate long-running streaming requests.
 	go func() {
 		for {
-			time.Sleep(5 * time.Minute)
+			select {
+			case <-time.After(5 * time.Minute):
+			case <-ctx.Done():
+				return
+			}
 			staleTimeout := settingsRepo.GetDuration(context.Background(), "stale_request_timeout", 30*time.Minute)
 			if staleTimeout <= 0 {
 				continue
@@ -432,7 +439,11 @@ func main() {
 	// Log retention cleanup
 	go func() {
 		for {
-			time.Sleep(1 * time.Hour)
+			select {
+			case <-time.After(1 * time.Hour):
+			case <-ctx.Done():
+				return
+			}
 			retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
 			if retention == "" {
 				continue
