@@ -163,7 +163,13 @@ export function Settings() {
         setAccentColor,
         accentPresets,
     } = useTheme();
-    const { toast, position: toastPosition, setPosition } = useToast();
+    const {
+        toast,
+        position: toastPosition,
+        setPosition,
+        timeout,
+        setTimeout: setToastTimeout,
+    } = useToast();
     const queryClient = useQueryClient();
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerColor, setPickerColor] = useState(accentColor);
@@ -405,9 +411,7 @@ export function Settings() {
                                     Switch between dark and light mode
                                 </p>
                             </div>
-                            <div
-                                className="flex rounded-lg overflow-hidden border border-gray-600"
-                            >
+                            <div className="flex rounded-lg overflow-hidden border border-gray-600">
                                 <button
                                     type="button"
                                     onClick={() => setTheme("dark")}
@@ -506,11 +510,12 @@ export function Settings() {
                     <div className="flex items-center gap-2 mb-1">
                         <Bell size={18} className="text-(--accent)" />
                         <h2 className="text-xl font-semibold text-white">
-                            Toast Position
+                            Toast Notifications
                         </h2>
                     </div>
                     <p className="text-gray-400 text-sm mb-6">
-                        Choose where notification toasts appear on screen.
+                        Choose where notification toasts appear and how long
+                        they stay visible.
                     </p>
 
                     <div className="flex justify-center">
@@ -623,6 +628,33 @@ export function Settings() {
                     <p className="text-center text-gray-500 text-xs mt-4 capitalize">
                         {toastPosition.replace("-", " ")}
                     </p>
+
+                    {/* Toast Timeout */}
+                    <div className="mt-6 pt-5 border-t border-gray-700/50">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-300 font-medium">
+                                Auto-dismiss
+                            </span>
+                            <span className="text-sm text-gray-400 tabular-nums">
+                                {(timeout / 1000).toFixed(1)}s
+                            </span>
+                        </div>
+                        <input
+                            type="range"
+                            min={1000}
+                            max={15000}
+                            step={500}
+                            value={timeout}
+                            onChange={(e) => {
+                                setToastTimeout(Number(e.target.value));
+                            }}
+                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-gray-700 accent-(--accent)"
+                        />
+                        <div className="flex justify-between text-xs text-gray-600 mt-1">
+                            <span>1s</span>
+                            <span>15s</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Rate Limiting */}

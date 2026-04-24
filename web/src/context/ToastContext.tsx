@@ -27,12 +27,16 @@ interface ToastContextType {
     toast: (message: string, type?: ToastType) => void;
     position: ToastPosition;
     setPosition: (position: ToastPosition) => void;
+    timeout: number;
+    setTimeout: (timeout: number) => void;
 }
 
 const ToastContext = createContext<ToastContextType>({
     toast: () => {},
     position: "bottom-center",
     setPosition: () => {},
+    timeout: 4000,
+    setTimeout: () => {},
 });
 
 let nextId = 0;
@@ -63,9 +67,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         return "bottom-center";
     });
 
+    const [timeout, setTimeoutState] = useState<number>(() => {
+        const stored = localStorage.getItem("toastTimeout");
+        if (stored) {
+            const parsed = parseInt(stored, 10);
+            if (!isNaN(parsed) && parsed >= 1000 && parsed <= 30000) {
+                return parsed;
+            }
+        }
+        return 4000;
+    });
+
     const setPosition = useCallback((p: ToastPosition) => {
         setPositionState(p);
         localStorage.setItem("toastPosition", p);
+    }, []);
+
+    const setTimeoutValue = useCallback((t: number) => {
+        const clamped = Math.min(30000, Math.max(1000, t));
+        setTimeoutState(clamped);
+        localStorage.setItem("toastTimeout", String(clamped));
     }, []);
 
     const addToast = useCallback(
@@ -87,7 +108,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
     return (
         <ToastContext.Provider
-            value={{ toast: addToast, position, setPosition }}
+            value={{
+                toast: addToast,
+                position,
+                setPosition,
+                timeout,
+                setTimeout: setTimeoutValue,
+            }}
         >
             {children}
             <div
@@ -97,6 +124,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     <ToastItem
                         key={t.id}
                         toast={t}
+                        timeout={timeout}
                         onDone={() => removeToast(t.id)}
                     />
                 ))}
@@ -105,11 +133,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     );
 }
 
-function ToastItem({ toast, onDone }: { toast: Toast; onDone: () => void }) {
+function ToastItem({
+    toast,
+    timeout,
+    onDone,
+}: {
+    toast: Toast;
+    timeout: number;
+    onDone: () => void;
+}) {
     useEffect(() => {
-        const t = setTimeout(onDone, 4000);
+        const t = setTimeout(onDone, timeout);
         return () => clearTimeout(t);
-    }, [onDone]);
+    }, [onDone, timeout]);
 
     const colors = {
         success: "bg-emerald-900/70 text-emerald-200 border-emerald-700/60",

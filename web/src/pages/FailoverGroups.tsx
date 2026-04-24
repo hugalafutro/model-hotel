@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
 import { Shuffle, X } from "lucide-react";
-import type { FailoverGroup, CandidateModel, FailoverListResponse } from "../api/types";
+import type { FailoverGroup, CandidateModel } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import {
     DndContext,
