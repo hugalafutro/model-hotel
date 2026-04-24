@@ -53,10 +53,18 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center justify-between px-2 py-1.5 bg-gray-700 rounded group text-sm ${
-                !entry.enabled ? "opacity-35 saturate-0" : ""
+            className={`relative overflow-hidden flex items-center justify-between px-2 py-1.5 bg-gray-700 rounded group text-sm ${
+                !entry.enabled ? "opacity-50 saturate-0" : ""
             }`}
         >
+            {!entry.enabled && (
+                <span
+                    className="absolute inset-0 pointer-events-none"
+                    aria-hidden="true"
+                >
+                    <span className="absolute left-[-10%] top-[50%] w-[120%] h-0.5 bg-gray-200 -rotate-45 origin-top-left" />
+                </span>
+            )}
             <div className="flex items-center gap-2 min-w-0">
                 <span
                     {...attributes}
