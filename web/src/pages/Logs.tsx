@@ -512,8 +512,9 @@ export function Logs() {
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                <div className="flex gap-2">
+            <div className="flex items-start gap-4">
+                {/* Left half: filters — fixed width, never shifts */}
+                <div className="flex items-center gap-2 shrink-0">
                     <input
                         type="text"
                         placeholder="Filter by model ID..."
@@ -527,8 +528,6 @@ export function Logs() {
                         }}
                         className="ui-input w-64"
                     />
-                </div>
-                <div className="w-48 shrink-0">
                     <select
                         value={filters.status_code}
                         onChange={(e) => {
@@ -538,7 +537,7 @@ export function Logs() {
                             });
                             setPage(1);
                         }}
-                        className="ui-input"
+                        className="ui-input w-48"
                     >
                         <option value="">All Status</option>
                         <option value="0">0 No Response</option>
@@ -546,116 +545,119 @@ export function Logs() {
                         <option value="4xx">4XX</option>
                         <option value="5xx">5XX</option>
                     </select>
+
+                    {/* Calendar picker */}
+                    <div className="relative" ref={datePickerRef}>
+                        <button
+                            type="button"
+                            onClick={toggleDatePicker}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
+                                hasDateFilter
+                                    ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
+                                    : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
+                            }`}
+                            title="Filter by date range"
+                        >
+                            <CalendarDays size={16} />
+                            <span>
+                                {hasDateFilter
+                                    ? formatDateRangeShort(dateFrom, dateTo)
+                                    : "Date Range"}
+                            </span>
+                            {hasDateFilter && (
+                                <button
+                                    type="button"
+                                    className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearDateFilter();
+                                    }}
+                                    title="Clear date filter"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </button>
+
+                        {showDatePicker && (
+                            <div className="absolute left-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-semibold text-white">
+                                        Select date range
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDatePicker(false)}
+                                        className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+
+                                <AccentCalendar
+                                    initialYear={pickerYear}
+                                    initialMonth={pickerMonth}
+                                    from={pendingFrom}
+                                    to={pendingTo}
+                                    onSelect={handleCalendarSelect}
+                                />
+
+                                <div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
+                                    {pendingFrom && pendingTo ? (
+                                        <span>
+                                            {formatDateRangeShort(
+                                                pendingFrom,
+                                                pendingTo,
+                                            )}
+                                        </span>
+                                    ) : pendingFrom ? (
+                                        <span className="text-(--accent)">
+                                            Select end date…
+                                        </span>
+                                    ) : (
+                                        <span>Select start date</span>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-2 mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={clearDateFilter}
+                                        className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={applyDateFilter}
+                                        disabled={!pendingFrom}
+                                        className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Calendar picker */}
-                <div className="relative" ref={datePickerRef}>
-                    <button
-                        type="button"
-                        onClick={toggleDatePicker}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
-                            hasDateFilter
-                                ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
-                                : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
-                        }`}
-                        title="Filter by date range"
-                    >
-                        <CalendarDays size={16} />
-                        <span>
-                            {hasDateFilter
-                                ? formatDateRangeShort(dateFrom, dateTo)
-                                : "Date Range"}
-                        </span>
-                        {hasDateFilter && (
-                            <button
-                                type="button"
-                                className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    clearDateFilter();
-                                }}
-                                title="Clear date filter"
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
-                    </button>
-
-                    {showDatePicker && (
-                        <div className="absolute right-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm font-semibold text-white">
-                                    Select date range
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDatePicker(false)}
-                                    className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-
-                            <AccentCalendar
-                                initialYear={pickerYear}
-                                initialMonth={pickerMonth}
-                                from={pendingFrom}
-                                to={pendingTo}
-                                onSelect={handleCalendarSelect}
-                            />
-
-                            <div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
-                                {pendingFrom && pendingTo ? (
-                                    <span>
-                                        {formatDateRangeShort(
-                                            pendingFrom,
-                                            pendingTo,
-                                        )}
-                                    </span>
-                                ) : pendingFrom ? (
-                                    <span className="text-(--accent)">
-                                        Select end date…
-                                    </span>
-                                ) : (
-                                    <span>Select start date</span>
-                                )}
-                            </div>
-
-                            <div className="flex gap-2 mt-3">
-                                <button
-                                    type="button"
-                                    onClick={clearDateFilter}
-                                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
-                                >
-                                    Clear
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={applyDateFilter}
-                                    disabled={!pendingFrom}
-                                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    Apply
-                                </button>
-                            </div>
-                        </div>
+                {/* Right half: pagination — stretches/shrinks freely */}
+                <div className="flex-1 flex justify-end">
+                    {displayTotal > 0 && (
+                        <PaginationBar
+                            page={page}
+                            totalPages={Math.ceil(displayTotal / pageSize)}
+                            totalItems={displayTotal}
+                            pageSize={pageSize}
+                            onPageChange={setPage}
+                            onPageSizeChange={(s) => {
+                                setPageSize(s);
+                                setPage(1);
+                            }}
+                            label="entries"
+                        />
                     )}
                 </div>
-
-                {displayTotal > 0 && (
-                    <PaginationBar
-                        page={page}
-                        totalPages={Math.ceil(displayTotal / pageSize)}
-                        totalItems={displayTotal}
-                        pageSize={pageSize}
-                        onPageChange={setPage}
-                        onPageSizeChange={(s) => {
-                            setPageSize(s);
-                            setPage(1);
-                        }}
-                        label="entries"
-                    />
-                )}
             </div>
 
             <div className="ui-card overflow-x-auto">
