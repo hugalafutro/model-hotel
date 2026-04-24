@@ -1,67 +1,131 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import {
+    createContext,
+    useContext,
+    useState,
+    useCallback,
+    useEffect,
+    type ReactNode,
+} from "react";
 
-type ToastType = 'success' | 'error' | 'info'
+type ToastType = "success" | "error" | "info";
+
+export type ToastPosition =
+    | "top-left"
+    | "top-center"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-center"
+    | "bottom-right";
 
 interface Toast {
-  id: number
-  message: string
-  type: ToastType
+    id: number;
+    message: string;
+    type: ToastType;
 }
 
 interface ToastContextType {
-  toast: (message: string, type?: ToastType) => void
+    toast: (message: string, type?: ToastType) => void;
+    position: ToastPosition;
+    setPosition: (position: ToastPosition) => void;
 }
 
 const ToastContext = createContext<ToastContextType>({
-  toast: () => {},
-})
+    toast: () => {},
+    position: "bottom-center",
+    setPosition: () => {},
+});
 
-let nextId = 0
+let nextId = 0;
+
+const POSITION_CLASSES: Record<ToastPosition, string> = {
+    "top-left": "fixed top-4 left-4",
+    "top-center": "fixed top-4 left-1/2 -translate-x-1/2",
+    "top-right": "fixed top-4 right-4",
+    "bottom-left": "fixed bottom-4 left-4",
+    "bottom-center": "fixed bottom-4 left-1/2 -translate-x-1/2",
+    "bottom-right": "fixed bottom-4 right-4",
+};
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
+    const [toasts, setToasts] = useState<Toast[]>([]);
+    const [position, setPositionState] = useState<ToastPosition>(() => {
+        const stored = localStorage.getItem("toastPosition");
+        if (
+            stored === "top-left" ||
+            stored === "top-center" ||
+            stored === "top-right" ||
+            stored === "bottom-left" ||
+            stored === "bottom-center" ||
+            stored === "bottom-right"
+        ) {
+            return stored;
+        }
+        return "bottom-center";
+    });
 
-  const addToast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = nextId++
-    setToasts(prev => [...prev, { id, message, type }])
-  }, [])
+    const setPosition = useCallback((p: ToastPosition) => {
+        setPositionState(p);
+        localStorage.setItem("toastPosition", p);
+    }, []);
 
-  const removeToast = useCallback((id: number) => {
-    setToasts(prev => prev.filter(t => t.id !== id))
-  }, [])
+    const addToast = useCallback(
+        (message: string, type: ToastType = "success") => {
+            const id = nextId++;
+            setToasts((prev) => [...prev, { id, message, type }]);
+        },
+        [],
+    );
 
-  return (
-    <ToastContext.Provider value={{ toast: addToast }}>
-      {children}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
-        {toasts.map(t => (
-          <ToastItem key={t.id} toast={t} onDone={() => removeToast(t.id)} />
-        ))}
-      </div>
-    </ToastContext.Provider>
-  )
+    const removeToast = useCallback((id: number) => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, []);
+
+    const containerClass = POSITION_CLASSES[position];
+
+    return (
+        <ToastContext.Provider
+            value={{ toast: addToast, position, setPosition }}
+        >
+            {children}
+            <div
+                className={`${containerClass} z-50 flex flex-col items-center gap-2`}
+            >
+                {toasts.map((t) => (
+                    <ToastItem
+                        key={t.id}
+                        toast={t}
+                        onDone={() => removeToast(t.id)}
+                    />
+                ))}
+            </div>
+        </ToastContext.Provider>
+    );
 }
 
 function ToastItem({ toast, onDone }: { toast: Toast; onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 4000)
-    return () => clearTimeout(t)
-  }, [onDone])
+    useEffect(() => {
+        const t = setTimeout(onDone, 4000);
+        return () => clearTimeout(t);
+    }, [onDone]);
 
-  const colors = {
-    success: 'bg-emerald-900/70 text-emerald-200 border-emerald-700/60',
-    error: 'bg-red-900/70 text-red-200 border-red-700/60',
-    info: 'bg-slate-700/80 text-slate-200 border-slate-600/60',
-  }
+    const colors = {
+        success: "bg-emerald-900/70 text-emerald-200 border-emerald-700/60",
+        error: "bg-red-900/70 text-red-200 border-red-700/60",
+        info: "bg-slate-700/80 text-slate-200 border-slate-600/60",
+    };
 
-  return (
-    <button type="button" onClick={onDone} className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left ${colors[toast.type]}`}>
-      {toast.message}
-    </button>
-  )
+    return (
+        <button
+            type="button"
+            onClick={onDone}
+            className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left ${colors[toast.type]}`}
+        >
+            {toast.message}
+        </button>
+    );
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
-  return useContext(ToastContext)
+    return useContext(ToastContext);
 }

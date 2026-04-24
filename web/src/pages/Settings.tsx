@@ -14,6 +14,7 @@ import {
     Palette,
     ScrollText,
     Zap,
+    Bell,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 
@@ -162,7 +163,7 @@ export function Settings() {
         setAccentColor,
         accentPresets,
     } = useTheme();
-    const { toast } = useToast();
+    const { toast, position: toastPosition, setPosition } = useToast();
     const queryClient = useQueryClient();
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerColor, setPickerColor] = useState(accentColor);
@@ -509,6 +510,94 @@ export function Settings() {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Toast Position */}
+                <div className="ui-card p-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Bell size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Toast Position
+                        </h2>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Choose where notification toasts appear on screen.
+                    </p>
+
+                    <div className="flex justify-center">
+                        <div className="relative w-56 h-36 rounded-lg border-2 border-gray-600 bg-gray-800/50">
+                            {/* top-left */}
+                            <button
+                                type="button"
+                                onClick={() => setPosition("top-left")}
+                                className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
+                                    toastPosition === "top-left"
+                                        ? "bg-(--accent) scale-125 ring-2 ring-white/40"
+                                        : "bg-(--accent) opacity-30 hover:opacity-70"
+                                }`}
+                                title="Top Left"
+                            />
+                            {/* top-center */}
+                            <button
+                                type="button"
+                                onClick={() => setPosition("top-center")}
+                                className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
+                                    toastPosition === "top-center"
+                                        ? "bg-(--accent) scale-125 ring-2 ring-white/40"
+                                        : "bg-(--accent) opacity-30 hover:opacity-70"
+                                }`}
+                                title="Top Center"
+                            />
+                            {/* top-right */}
+                            <button
+                                type="button"
+                                onClick={() => setPosition("top-right")}
+                                className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
+                                    toastPosition === "top-right"
+                                        ? "bg-(--accent) scale-125 ring-2 ring-white/40"
+                                        : "bg-(--accent) opacity-30 hover:opacity-70"
+                                }`}
+                                title="Top Right"
+                            />
+                            {/* bottom-left */}
+                            <button
+                                type="button"
+                                onClick={() => setPosition("bottom-left")}
+                                className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
+                                    toastPosition === "bottom-left"
+                                        ? "bg-(--accent) scale-125 ring-2 ring-white/40"
+                                        : "bg-(--accent) opacity-30 hover:opacity-70"
+                                }`}
+                                title="Bottom Left"
+                            />
+                            {/* bottom-center */}
+                            <button
+                                type="button"
+                                onClick={() => setPosition("bottom-center")}
+                                className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
+                                    toastPosition === "bottom-center"
+                                        ? "bg-(--accent) scale-125 ring-2 ring-white/40"
+                                        : "bg-(--accent) opacity-30 hover:opacity-70"
+                                }`}
+                                title="Bottom Center"
+                            />
+                            {/* bottom-right */}
+                            <button
+                                type="button"
+                                onClick={() => setPosition("bottom-right")}
+                                className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
+                                    toastPosition === "bottom-right"
+                                        ? "bg-(--accent) scale-125 ring-2 ring-white/40"
+                                        : "bg-(--accent) opacity-30 hover:opacity-70"
+                                }`}
+                                title="Bottom Right"
+                            />
+                        </div>
+                    </div>
+
+                    <p className="text-center text-gray-500 text-xs mt-4 capitalize">
+                        {toastPosition.replace("-", " ")}
+                    </p>
                 </div>
 
                 {/* Rate Limiting */}
