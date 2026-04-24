@@ -16,3 +16,9 @@ type contextKey string
 // for the current request. The ratelimit middleware reads this same
 // key to enforce per-key throttling.
 const VirtualKeyHashKey contextKey = "virtual_key_hash"
+
+// RequestBodyKey is the context key under which the streaming-aware
+// timeout middleware stores the already-read request body bytes.
+// Downstream handlers (proxy.ChatCompletions) can read from this
+// instead of re-reading r.Body, avoiding a full second allocation.
+const RequestBodyKey contextKey = "request_body"

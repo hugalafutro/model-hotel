@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/user/llm-proxy/internal/ctxkeys"
 	"github.com/user/llm-proxy/internal/events"
 	"github.com/user/llm-proxy/internal/util"
 )
@@ -217,12 +218,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
 	parseStart := time.Now()
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "failed to read request body", http.StatusBadRequest)
-		return
+	var bodyBytes []byte
+	if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
+		bodyBytes = cached
+	} else {
+		var err error
+		bodyBytes, err = io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read request body", http.StatusBadRequest)
+			return
+		}
+		r.Body.Close()
 	}
-	r.Body.Close()
 
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
@@ -263,6 +270,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var candidates []modelCandidate
 	var timings resolveTimings
+	var err error
 
 	if strings.HasPrefix(req.Model, "hotel/") {
 		displayModel := strings.TrimPrefix(req.Model, "hotel/")

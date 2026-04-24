@@ -20,6 +20,7 @@ import (
 	"github.com/user/llm-proxy/internal/api"
 	"github.com/user/llm-proxy/internal/auth"
 	"github.com/user/llm-proxy/internal/config"
+	"github.com/user/llm-proxy/internal/ctxkeys"
 	"github.com/user/llm-proxy/internal/db"
 	"github.com/user/llm-proxy/internal/events"
 	"github.com/user/llm-proxy/internal/failover"
@@ -492,8 +493,9 @@ func main() {
 //   - stream=true  → no context deadline (client disconnect detection still works)
 //   - stream=false/absent → context deadline of maxNonStreamingDur
 //
-// The request body is fully restored after peeking so downstream handlers can
-// read it normally.
+// The request body is stored in the context so downstream handlers can
+// reuse it without a second allocation, and also restored as r.Body for
+// any handler that reads it directly.
 func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -524,12 +526,13 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			// Restore the body so downstream handlers can read it
 			r.Body = io.NopCloser(bytes.NewReader(body))
 
+			// Store body bytes in context so proxy handler can reuse them
+			ctx := context.WithValue(r.Context(), ctxkeys.RequestBodyKey, body)
+
 			if isStreaming {
-				// No deadline — rely on client disconnect detection and
-				// the upstream connection lifecycle instead.
-				next.ServeHTTP(w, r)
+				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
-				ctx, cancel := context.WithTimeout(r.Context(), maxNonStreamingDur)
+				ctx, cancel := context.WithTimeout(ctx, maxNonStreamingDur)
 				defer cancel()
 				next.ServeHTTP(w, r.WithContext(ctx))
 			}
