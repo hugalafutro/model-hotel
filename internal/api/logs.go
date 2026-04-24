@@ -125,11 +125,8 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
 COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
                 CASE
-                    WHEN rl.virtual_key_name IS NULL OR rl.virtual_key_name = '' THEN false
-                    WHEN (rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '') AND vk.id IS NULL THEN true
-                    WHEN (rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '') AND NOT EXISTS (
-                        SELECT 1 FROM virtual_keys vk2 WHERE vk2.name = rl.virtual_key_name AND vk2.created_at <= rl.created_at
-                    ) THEN true
+                    WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
+                    WHEN vk.id IS NULL THEN true
                     ELSE false
                 END AS virtual_key_deleted,
                COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at

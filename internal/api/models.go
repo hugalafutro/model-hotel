@@ -251,7 +251,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			m.ProviderID, m.ModelID, reqHash, reqHash, 502,
 			durationMs, durationMs, durationMs,
 			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
-			err.Error(), false, "admin", nil, 0, "failed",
+			err.Error(), false, "internal", nil, 0, "failed",
 		)
 		if logErr != nil {
 			fmt.Printf("TestModel log insert failed: %v\n", logErr)
@@ -286,7 +286,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
 			durationMs, durationMs, durationMs,
 			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
-			errMsg, 0, 0, 0, false, "admin", nil, 0, "failed",
+			errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
 		)
 		if logErr != nil {
 			fmt.Printf("TestModel log insert failed: %v\n", logErr)
@@ -334,7 +334,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
 		durationMs, durationMs, durationMs,
 		proxyOverheadMs, 0, 0, 0, keyDecryptMs,
-		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "admin", nil, 0, "completed",
+		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "internal", nil, 0, "completed",
 	)
 	if logErr != nil {
 		fmt.Printf("TestModel log insert failed: %v\n", logErr)
