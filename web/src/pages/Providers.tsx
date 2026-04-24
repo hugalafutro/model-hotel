@@ -1,10 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PlugZap, Eye, EyeOff, X, RefreshCw } from "lucide-react";
-import type { NanoGPTUsage, Provider, ZAIQuotaResponse } from "../api/types";
+import type {
+    DeepSeekBalance,
+    DeepSeekBalanceInfo,
+    NanoGPTUsage,
+    Provider,
+    ZAIQuotaResponse,
+} from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+
+const CACHE_PREFIX = "llm-proxy";
+
+function getCachedData<T>(key: string): T | undefined {
+    try {
+        const raw = localStorage.getItem(`${CACHE_PREFIX}:${key}`);
+        if (raw) return JSON.parse(raw) as T;
+    } catch {
+        /* ignore */
+    }
+    return undefined;
+}
+
+function setCachedData<T>(key: string, data: T) {
+    try {
+        localStorage.setItem(`${CACHE_PREFIX}:${key}`, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
 
 function formatTokens(n: number | null | undefined): string {
     if (n == null) return "-";
@@ -106,7 +132,10 @@ function NanoGPTQuotaModal({
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
-                            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+                            <RefreshCw
+                                size={18}
+                                className={isRefreshing ? "animate-spin" : ""}
+                            />
                         </button>
                         <button
                             type="button"
@@ -286,7 +315,9 @@ function ZAIQuotaModal({
     const weeklyLimit = limits.find(
         (l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
     );
-    const mcpLimit = limits.find((l) => l.type === "TIME_LIMIT" && l.unit === 5);
+    const mcpLimit = limits.find(
+        (l) => l.type === "TIME_LIMIT" && l.unit === 5,
+    );
 
     const handleRefresh = async () => {
         try {
@@ -319,7 +350,10 @@ function ZAIQuotaModal({
                             Z.ai Quota
                         </h2>
                         <p className="text-sm text-gray-400 mt-1">
-                            Plan: <span className="text-gray-200 capitalize">{usage.data?.level ?? "-"}</span>
+                            Plan:{" "}
+                            <span className="text-gray-200 capitalize">
+                                {usage.data?.level ?? "-"}
+                            </span>
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -331,7 +365,10 @@ function ZAIQuotaModal({
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
-                            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+                            <RefreshCw
+                                size={18}
+                                className={isRefreshing ? "animate-spin" : ""}
+                            />
                         </button>
                         <button
                             type="button"
@@ -353,7 +390,10 @@ function ZAIQuotaModal({
                                     5h Token Quota
                                 </span>
                                 <span className="text-sm text-gray-400">
-                                    {(100 - fiveHourLimit.percentage).toFixed(0)}% left
+                                    {(100 - fiveHourLimit.percentage).toFixed(
+                                        0,
+                                    )}
+                                    % left
                                 </span>
                             </div>
                             <div className="w-full bg-gray-700 rounded-full h-3">
@@ -365,7 +405,8 @@ function ZAIQuotaModal({
                                 />
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                {fiveHourLimit.percentage.toFixed(0)}% used. Resets{" "}
+                                {fiveHourLimit.percentage.toFixed(0)}% used.
+                                Resets{" "}
                                 {fiveHourLimit.nextResetTime
                                     ? `${formatTimestamp(fiveHourLimit.nextResetTime)} - ${formatTimeUntil(fiveHourLimit.nextResetTime)}`
                                     : "N/A"}
@@ -380,7 +421,8 @@ function ZAIQuotaModal({
                                     Weekly Token Quota
                                 </span>
                                 <span className="text-sm text-gray-400">
-                                    {(100 - weeklyLimit.percentage).toFixed(0)}% left
+                                    {(100 - weeklyLimit.percentage).toFixed(0)}%
+                                    left
                                 </span>
                             </div>
                             <div className="w-full bg-gray-700 rounded-full h-3">
@@ -392,7 +434,8 @@ function ZAIQuotaModal({
                                 />
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                {weeklyLimit.percentage.toFixed(0)}% used. Resets{" "}
+                                {weeklyLimit.percentage.toFixed(0)}% used.
+                                Resets{" "}
                                 {weeklyLimit.nextResetTime
                                     ? `${formatTimestamp(weeklyLimit.nextResetTime)} - ${formatTimeUntil(weeklyLimit.nextResetTime)}`
                                     : "N/A"}
@@ -407,7 +450,8 @@ function ZAIQuotaModal({
                                     MCP Time Quota
                                 </span>
                                 <span className="text-sm text-gray-400">
-                                    {(100 - mcpLimit.percentage).toFixed(0)}% left
+                                    {(100 - mcpLimit.percentage).toFixed(0)}%
+                                    left
                                 </span>
                             </div>
                             <div className="w-full bg-gray-700 rounded-full h-3">
@@ -424,16 +468,22 @@ function ZAIQuotaModal({
                                     ? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
                                     : "N/A"}
                             </p>
-                            {mcpLimit.usageDetails && mcpLimit.usageDetails.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                    {mcpLimit.usageDetails.map((detail) => (
-                                        <div key={detail.modelCode} className="flex justify-between text-xs text-gray-500">
-                                            <span className="capitalize">{detail.modelCode}</span>
-                                            <span>{detail.usage} used</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            {mcpLimit.usageDetails &&
+                                mcpLimit.usageDetails.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                        {mcpLimit.usageDetails.map((detail) => (
+                                            <div
+                                                key={detail.modelCode}
+                                                className="flex justify-between text-xs text-gray-500"
+                                            >
+                                                <span className="capitalize">
+                                                    {detail.modelCode}
+                                                </span>
+                                                <span>{detail.usage} used</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                         </div>
                     )}
                 </div>
@@ -701,7 +751,9 @@ export function Providers() {
     const [error, setError] = useState<string | null>(null);
     const [discoveringId, setDiscoveringId] = useState<string | null>(null);
     const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null);
-    const [zaiQuotaUsage, setZaiQuotaUsage] = useState<ZAIQuotaResponse | null>(null);
+    const [zaiQuotaUsage, setZaiQuotaUsage] = useState<ZAIQuotaResponse | null>(
+        null,
+    );
     const [formData, setFormData] = useState<{
         name: string;
         base_url: string;
@@ -744,11 +796,14 @@ export function Providers() {
     } = useQuery({
         queryKey: ["nanogpt-usage", nanogptProviderId],
         queryFn: () =>
-            api.providers.getUsage(
-                nanogptProviderId!,
-            ) as Promise<NanoGPTUsage>,
+            api.providers.getUsage(nanogptProviderId!) as Promise<NanoGPTUsage>,
         enabled: Boolean(nanogptProviderId),
+        initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
     });
+
+    useEffect(() => {
+        if (nanogptUsage) setCachedData("nanogpt-usage", nanogptUsage);
+    }, [nanogptUsage]);
 
     const {
         data: zaiUsage,
@@ -756,16 +811,29 @@ export function Providers() {
         isRefetching: isZaiRefetching,
     } = useQuery({
         queryKey: ["zai-usage", zaiProviderId],
-        queryFn: () => api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
+        queryFn: () =>
+            api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
         enabled: Boolean(zaiProviderId),
+        initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
     });
+
+    useEffect(() => {
+        if (zaiUsage) setCachedData("zai-usage", zaiUsage);
+    }, [zaiUsage]);
 
     const { data: deepseekBalanceData, refetch: refetchDeepseekBalance } =
         useQuery({
             queryKey: ["deepseek-balance", deepseekProviderId],
             queryFn: () => api.providers.getBalance(deepseekProviderId!),
             enabled: Boolean(deepseekProviderId),
+            initialData: () =>
+                getCachedData<DeepSeekBalance>("deepseek-balance"),
         });
+
+    useEffect(() => {
+        if (deepseekBalanceData)
+            setCachedData("deepseek-balance", deepseekBalanceData);
+    }, [deepseekBalanceData]);
 
     const discoverMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -926,7 +994,9 @@ export function Providers() {
                           )
                         : null;
                     const showZaiBadge =
-                        isZAI && zaiUsage?.success && (zaiFiveHour || zaiWeekly);
+                        isZAI &&
+                        zaiUsage?.success &&
+                        (zaiFiveHour || zaiWeekly);
 
                     return (
                         <div key={provider.id} className="ui-card p-6">
@@ -1053,7 +1123,8 @@ export function Providers() {
                                                 title="Refresh balance"
                                             >
                                                 {deepseekBalanceData.balance_infos.find(
-                                                    (b) => b.currency === "USD",
+                                                    (b: DeepSeekBalanceInfo) =>
+                                                        b.currency === "USD",
                                                 )?.total_balance ?? "-"}{" "}
                                                 USD
                                             </button>
