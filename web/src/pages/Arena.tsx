@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import {
+    useState,
+    useRef,
+    useCallback,
+    useMemo,
+    useEffect,
+} from "react";
 import {
     Swords,
     Play,
@@ -15,6 +21,8 @@ import {
     Trophy,
     RotateCcw,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useToast } from "../context/ToastContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
@@ -566,7 +574,7 @@ export function Arena() {
                 }));
                 const mu = next[roundIdx]?.matchups[matchupIdx];
                 if (mu) {
-                    mu.vote = vote;
+                    mu.vote = mu.vote === vote ? null : vote;
                 }
                 return next;
             });
@@ -947,69 +955,73 @@ export function Arena() {
 
             {/* Response Grid */}
             {showResponseGrid &&
-                rounds.map((round, roundIdx) => (
-                    <div
-                        key={roundIdx}
-                        className={`space-y-4 transition-opacity duration-500 ${
-                            roundIdx <= currentRound
-                                ? "opacity-100"
-                                : "opacity-20"
-                        }`}
-                    >
-                        <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider">
-                            Round {roundIdx + 1}
+                rounds.map((round, roundIdx) => {
+                    const hasAnyResponse = round.matchups.some(
+                        (mu) => mu.responseA || mu.responseB,
+                    );
+                    if (!hasAnyResponse) return null;
+                    return (
+                        <div key={roundIdx}>
+                            <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
+                                Round {roundIdx + 1}
+                            </div>
+                            <div
+                                className={`rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 space-y-4 transition-opacity duration-500 ${
+                                    roundIdx <= currentRound
+                                        ? "opacity-100"
+                                        : "opacity-20"
+                                }`}
+                            >
+                                {round.matchups.map((mu, matchupIdx) => {
+                                    const hasResponse =
+                                        mu.responseA || mu.responseB;
+                                    if (!hasResponse) return null;
+                                    return (
+                                        <div
+                                            key={matchupIdx}
+                                            className="grid grid-cols-1 md:grid-cols-2 gap-4 relative"
+                                        >
+                                            {mu.responseA && (
+                                                <ResponseCard
+                                                    response={mu.responseA}
+                                                    vote={mu.vote}
+                                                    slotKey="A"
+                                                    roundIdx={roundIdx}
+                                                    matchupIdx={matchupIdx}
+                                                    onVote={handleVote}
+                                                    showVote={
+                                                        roundIdx <=
+                                                            currentRound &&
+                                                        mu.responseA.done &&
+                                                        (!mu.responseB ||
+                                                            mu.responseB.done)
+                                                    }
+                                                />
+                                            )}
+                                            {mu.responseB && (
+                                                <ResponseCard
+                                                    response={mu.responseB}
+                                                    vote={mu.vote}
+                                                    slotKey="B"
+                                                    roundIdx={roundIdx}
+                                                    matchupIdx={matchupIdx}
+                                                    onVote={handleVote}
+                                                    showVote={
+                                                        roundIdx <=
+                                                            currentRound &&
+                                                        mu.responseB.done &&
+                                                        (!mu.responseA ||
+                                                            mu.responseA.done)
+                                                    }
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                        {round.matchups.map((mu, matchupIdx) => {
-                            const hasAnyResponse = mu.responseA || mu.responseB;
-                            if (!hasAnyResponse) return null;
-                            return (
-                                <div
-                                    key={matchupIdx}
-                                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                                >
-                                    {mu.responseA && (
-                                        <ResponseCard
-                                            response={mu.responseA}
-                                            vote={mu.vote}
-                                            slotKey="A"
-                                            roundIdx={roundIdx}
-                                            matchupIdx={matchupIdx}
-                                            onVote={handleVote}
-                                            showVote={
-                                                roundIdx <= currentRound &&
-                                                mu.responseA.done &&
-                                                (!mu.responseB ||
-                                                    mu.responseB.done)
-                                            }
-                                            isCurrentRound={
-                                                roundIdx === currentRound
-                                            }
-                                        />
-                                    )}
-                                    {mu.responseB && (
-                                        <ResponseCard
-                                            response={mu.responseB}
-                                            vote={mu.vote}
-                                            slotKey="B"
-                                            roundIdx={roundIdx}
-                                            matchupIdx={matchupIdx}
-                                            onVote={handleVote}
-                                            showVote={
-                                                roundIdx <= currentRound &&
-                                                mu.responseB.done &&
-                                                (!mu.responseA ||
-                                                    mu.responseA.done)
-                                            }
-                                            isCurrentRound={
-                                                roundIdx === currentRound
-                                            }
-                                        />
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                ))}
+                    );
+                })}
 
             {/* Prompt Preset Overwrite Confirmation */}
             {pendingPrompt && (
@@ -1167,7 +1179,7 @@ function MatchupCard({
             {isVotingPhase && (
                 <button
                     onClick={() => onVote(roundIdx, matchupIdx, slotKey)}
-                    className={`mt-1 flex items-center gap-1 text-xs transition-all ${
+                    className={`mt-1 flex items-center gap-1 text-xs transition-all cursor-pointer ${
                         isWinner
                             ? "text-green-400"
                             : "text-(--text-tertiary) hover:text-(--text-secondary)"
@@ -1224,7 +1236,6 @@ interface ResponseCardProps {
     matchupIdx: number;
     onVote: (roundIdx: number, matchupIdx: number, vote: "A" | "B") => void;
     showVote: boolean;
-    isCurrentRound: boolean;
 }
 
 function ResponseCard({
@@ -1235,7 +1246,6 @@ function ResponseCard({
     matchupIdx,
     onVote,
     showVote,
-    isCurrentRound,
 }: ResponseCardProps) {
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
@@ -1250,7 +1260,6 @@ function ResponseCard({
                       : ""
             }`}
         >
-            {/* Panel Header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-(--border-subtle)">
                 <div className="flex items-center gap-2">
                     <Bot size={14} className="text-(--accent)" />
@@ -1274,13 +1283,14 @@ function ResponseCard({
                 </div>
             </div>
 
-            {/* Content */}
             <div className="flex-1 p-4 overflow-y-auto min-h-50 max-h-150">
                 {response.error ? (
                     <div className="text-red-400 text-sm">{response.error}</div>
                 ) : response.content ? (
-                    <div className="whitespace-pre-wrap text-sm text-(--text-primary)">
-                        {response.content}
+                    <div className="prose prose-invert prose-sm max-w-none text-(--text-primary) [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-xs [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {response.content}
+                        </ReactMarkdown>
                     </div>
                 ) : (
                     <div className="text-(--text-tertiary) text-sm flex items-center gap-2">
@@ -1290,7 +1300,6 @@ function ResponseCard({
                 )}
             </div>
 
-            {/* Footer */}
             <div className="px-4 py-2 border-t border-(--border-subtle) flex items-center justify-between">
                 {response.metrics && (
                     <div className="flex items-center gap-3 text-[11px] text-(--text-tertiary)">
@@ -1301,9 +1310,7 @@ function ResponseCard({
                         {response.metrics.tokensPerSecond !== null && (
                             <span className="flex items-center gap-1">
                                 <Zap size={10} />
-                                {response.metrics.tokensPerSecond.toFixed(
-                                    1,
-                                )}{" "}
+                                {response.metrics.tokensPerSecond.toFixed(1)}{" "}
                                 tok/s
                             </span>
                         )}
@@ -1312,10 +1319,10 @@ function ResponseCard({
                         )}
                     </div>
                 )}
-                {showVote && isCurrentRound && (
+                {showVote && (
                     <button
                         onClick={() => onVote(roundIdx, matchupIdx, slotKey)}
-                        className={`flex items-center gap-1 transition-all ${
+                        className={`flex items-center gap-1 transition-all cursor-pointer ${
                             isWinner
                                 ? "text-green-400 hover:text-green-300"
                                 : "text-(--text-tertiary) hover:text-(--text-secondary)"
