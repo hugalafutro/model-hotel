@@ -700,6 +700,7 @@ function UsageBarPanel({
                                 <div className="flex justify-between items-center text-sm">
                                     <span
                                         className={`truncate max-w-[70%] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+                                        title={entry.label}
                                     >
                                         {entry.label}
                                     </span>
@@ -1224,7 +1225,9 @@ export function Dashboard() {
                         >
                             <span
                                 className={`w-2 h-2 rounded-full transition-colors ${
-                                    excludeDeleted ? "bg-amber-400" : "bg-gray-500"
+                                    excludeDeleted
+                                        ? "bg-amber-400"
+                                        : "bg-gray-500"
                                 }`}
                             />
                             {excludeDeleted ? "Active Keys Only" : "All Keys"}
