@@ -15,33 +15,36 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 
-function formatDuration(seconds: number): string {
+const u = "text-(--text-muted)";
+
+function formatDuration(seconds: number) {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}d ${h}h`;
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
+    if (d > 0) return <>{d}<span className={u}>d</span> {h}<span className={u}>h</span></>;
+    if (h > 0) return <>{h}<span className={u}>h</span> {m}<span className={u}>m</span></>;
+    return <>{m}<span className={u}>m</span></>;
 }
 
-function formatNumber(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+function formatNumber(n: number) {
+    if (n >= 1_000_000) return <>{(n / 1_000_000).toFixed(1)}<span className={u}>M</span></>;
+    if (n >= 1_000) return <>{(n / 1_000).toFixed(1)}<span className={u}>K</span></>;
     return n.toLocaleString();
 }
 
-function formatMB(mb: number): string {
-    if (mb < 1) return `${mb.toFixed(1)} MB`;
-    if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-    return `${Math.round(mb)} MB`;
+function formatMB(mb: number) {
+    if (mb < 1) return <>{mb.toFixed(1)}<span className={u}> MB</span></>;
+    if (mb >= 1024) return <>{(mb / 1024).toFixed(1)}<span className={u}> GB</span></>;
+    return <>{Math.round(mb)}<span className={u}> MB</span></>;
 }
 
-function formatBytesPerSec(bytesPerSec: number): string {
-    if (bytesPerSec <= 0) return "0 B/s";
+function formatBytesPerSec(bytesPerSec: number) {
+    if (bytesPerSec <= 0) return <>0<span className={u}> B/s</span></>;
     if (bytesPerSec >= 1024 * 1024)
-        return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
-    if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-    return `${Math.round(bytesPerSec)} B/s`;
+        return <>{(bytesPerSec / 1024 / 1024).toFixed(1)}<span className={u}> MB/s</span></>;
+    if (bytesPerSec >= 1024)
+        return <>{(bytesPerSec / 1024).toFixed(1)}<span className={u}> KB/s</span></>;
+    return <>{Math.round(bytesPerSec)}<span className={u}> B/s</span></>;
 }
 
 function SystemStatus() {
@@ -69,15 +72,11 @@ function SystemStatus() {
 
     const dockerMem = useDocker && docker.memory_limit_bytes > 0;
     const appMem = dockerMem
-        ? formatMB(docker.memory_usage_bytes / 1024 / 1024) +
-          " / " +
-          formatMB(docker.memory_limit_bytes / 1024 / 1024)
+        ? <>{formatMB(docker.memory_usage_bytes / 1024 / 1024)} / {formatMB(docker.memory_limit_bytes / 1024 / 1024)}</>
         : hasLimit
-          ? formatMB(app.memory_current_bytes / 1024 / 1024) +
-            " / " +
-            formatMB(app.memory_limit_bytes / 1024 / 1024)
+          ? <>{formatMB(app.memory_current_bytes / 1024 / 1024)} / {formatMB(app.memory_limit_bytes / 1024 / 1024)}</>
           : app
-            ? formatMB(app.heap_alloc_mb) + " heap"
+            ? <>{formatMB(app.heap_alloc_mb)}<span className={u}> heap</span></>
             : "-";
 
     const dash = <span className="text-(--text-muted)">-</span>;
@@ -118,11 +117,11 @@ function SystemStatus() {
                 <span className="text-(--text-secondary)">
                     {cpuPct != null && cpuPct >= 0 ? (
                         <>
-                            <span>{cpuPct.toFixed(1)}%</span>
+                            <span>{cpuPct.toFixed(1)}<span className={u}>%</span></span>
                             {procs != null && procs > 0 && (
                                 <>
                                     <span className="text-(--text-secondary) mx-1">|</span>
-                                    <span>{procs} proc{procs !== 1 ? "s" : ""}</span>
+                                    <span>{procs}<span className={u}> proc{procs !== 1 ? "s" : ""}</span></span>
                                 </>
                             )}
                         </>
@@ -140,10 +139,10 @@ function SystemStatus() {
                 <span>Network</span>
                 <span className="text-(--text-secondary) tabular-nums">
                     <span className="text-sky-400/60 inline-block min-w-22 text-right">
-                        {typeof netRx === "number" ? `↓${formatBytesPerSec(netRx)}` : dash}
+                        {typeof netRx === "number" ? <>↓{formatBytesPerSec(netRx)}</> : dash}
                     </span>
                     <span className="text-amber-400/60 inline-block min-w-22 text-right">
-                        {typeof netTx === "number" ? `↑${formatBytesPerSec(netTx)}` : dash}
+                        {typeof netTx === "number" ? <>↑{formatBytesPerSec(netTx)}</> : dash}
                     </span>
                 </span>
             </div>
@@ -158,10 +157,10 @@ function SystemStatus() {
                 <span>Disk</span>
                 <span className="text-(--text-secondary) tabular-nums">
                     <span className="text-sky-400/60 inline-block min-w-22 text-right">
-                        {typeof diskRead === "number" ? `↓${formatBytesPerSec(diskRead)}` : dash}
+                        {typeof diskRead === "number" ? <>↓{formatBytesPerSec(diskRead)}</> : dash}
                     </span>
                     <span className="text-amber-400/60 inline-block min-w-22 text-right">
-                        {typeof diskWrite === "number" ? `↑${formatBytesPerSec(diskWrite)}` : dash}
+                        {typeof diskWrite === "number" ? <>↑{formatBytesPerSec(diskWrite)}</> : dash}
                     </span>
                 </span>
             </div>
@@ -217,11 +216,11 @@ function SystemStatus() {
                             </span>
                             <span className="text-(--text-secondary) mx-1">|</span>
                             <span className="text-(--text-secondary)">
-                                {stats.db.connections} conn
+                                {stats.db.connections}<span className={u}> conn</span>
                             </span>
                             <span className="text-(--text-secondary) mx-1">|</span>
                             <span className="text-(--text-secondary)">
-                                Hit {stats.db.cache_hit_ratio}%
+                                Hit {stats.db.cache_hit_ratio}<span className={u}>%</span>
                             </span>
                         </>
                     ) : dash}
