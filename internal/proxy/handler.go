@@ -66,7 +66,7 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	})
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 
-	r.Post("/chat/completions", h.ChatCompletions)
+	r.Post("/completions", h.ChatCompletions)
 }
 
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {

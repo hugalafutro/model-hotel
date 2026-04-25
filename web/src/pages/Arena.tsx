@@ -10,7 +10,6 @@ import {
     Zap,
     CheckCircle2,
     AlertCircle,
-    Trash2,
     Settings as SettingsIcon,
     ChevronDown,
     ChevronUp,
@@ -50,6 +49,12 @@ export function Arena() {
         staleTime: 60_000,
     });
 
+    const { data: providers } = useQuery({
+        queryKey: ["providers"],
+        queryFn: () => api.providers.list(),
+        staleTime: 60_000,
+    });
+
     const [selectedModels, setSelectedModels] = useState<string[]>(() => {
         try {
             const raw = localStorage.getItem("arena_selected_models");
@@ -58,8 +63,8 @@ export function Arena() {
             return [];
         }
     });
-    const [systemPrompt, setSystemPrompt] = useState<string>(() =>
-        localStorage.getItem("chat_system_prompt") || "",
+    const [systemPrompt, setSystemPrompt] = useState<string>(
+        () => localStorage.getItem("chat_system_prompt") || "",
     );
     const [showSystemPrompt, setShowSystemPrompt] = useState(false);
     const [prompt, setPrompt] = useState("");
@@ -82,10 +87,10 @@ export function Arena() {
 
     const runArena = useCallback(async () => {
         if (!prompt.trim() || selectedModels.length === 0) return;
-        
+
         const currentPrompt = prompt.trim();
         setPrompt("");
-        
+
         const newResponses: ArenaResponse[] = selectedModels.map((model) => ({
             model,
             content: "",
@@ -111,7 +116,7 @@ export function Arena() {
                 let charCount = 0;
                 let promptTokens = 0;
                 let completionTokens = 0;
-                
+
                 try {
                     const resp = await api.chat.completions({
                         model,
@@ -139,24 +144,29 @@ export function Arena() {
                             if (data === "[DONE]") break;
                             try {
                                 const chunk = JSON.parse(data);
-                                const delta = chunk.choices?.[0]?.delta?.content;
+                                const delta =
+                                    chunk.choices?.[0]?.delta?.content;
                                 if (delta) {
                                     charCount += delta.length;
                                     setResponses((prev) => {
                                         const next = [...prev];
-                                        const idx = selectedModels.indexOf(model);
+                                        const idx =
+                                            selectedModels.indexOf(model);
                                         if (idx >= 0) {
                                             next[idx] = {
                                                 ...next[idx],
-                                                content: next[idx].content + delta,
+                                                content:
+                                                    next[idx].content + delta,
                                             };
                                         }
                                         return next;
                                     });
                                 }
                                 if (chunk.usage) {
-                                    promptTokens = chunk.usage.prompt_tokens ?? 0;
-                                    completionTokens = chunk.usage.completion_tokens ?? 0;
+                                    promptTokens =
+                                        chunk.usage.prompt_tokens ?? 0;
+                                    completionTokens =
+                                        chunk.usage.completion_tokens ?? 0;
                                 }
                             } catch {
                                 // ignore parse errors
@@ -165,7 +175,8 @@ export function Arena() {
                     }
 
                     const durationMs = performance.now() - startTime;
-                    const tokensPerSecond = durationMs > 0 ? (charCount / (durationMs / 1000)) : null;
+                    const tokensPerSecond =
+                        durationMs > 0 ? charCount / (durationMs / 1000) : null;
 
                     setResponses((prev) => {
                         const next = [...prev];
@@ -185,7 +196,8 @@ export function Arena() {
                         return next;
                     });
                 } catch (err) {
-                    const msg = err instanceof Error ? err.message : "Unknown error";
+                    const msg =
+                        err instanceof Error ? err.message : "Unknown error";
                     setResponses((prev) => {
                         const next = [...prev];
                         const idx = selectedModels.indexOf(model);
@@ -196,7 +208,9 @@ export function Arena() {
                                 error: msg,
                                 metrics: {
                                     tokensPerSecond: null,
-                                    durationMs: Math.round(performance.now() - startTime),
+                                    durationMs: Math.round(
+                                        performance.now() - startTime,
+                                    ),
                                     promptTokens: 0,
                                     completionTokens: 0,
                                 },
@@ -230,11 +244,6 @@ export function Arena() {
         );
     }, []);
 
-    const handleClear = () => {
-        setResponses([]);
-        setRunningModels(new Set());
-    };
-
     const isRunning = runningModels.size > 0;
 
     return (
@@ -254,16 +263,6 @@ export function Arena() {
                         Send one prompt to multiple models and compare
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={handleClear}
-                        disabled={responses.length === 0}
-                        className="ui-btn-secondary flex items-center gap-2 disabled:opacity-40"
-                    >
-                        <Trash2 size={16} />
-                        Clear
-                    </button>
-                </div>
             </div>
 
             {/* Controls */}
@@ -279,6 +278,12 @@ export function Arena() {
                         onChange={setSelectedModels}
                         multi={true}
                         maxSelections={4}
+                        providers={
+                            providers?.map((p) => ({
+                                name: p.name,
+                                base_url: p.base_url,
+                            })) ?? []
+                        }
                     />
                 </div>
 
@@ -332,19 +337,7 @@ export function Arena() {
                 </div>
 
                 {showSystemPrompt && (
-                    <div className="ui-card p-3 space-y-2 border border-(--accent)/20 bg-(--accent)/5">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-(--accent)">
-                                System Prompt
-                            </label>
-                            <button
-                                onClick={() => setSystemPrompt("")}
-                                className="text-(--text-muted) hover:text-(--text-secondary) transition-colors"
-                                title="Clear system prompt"
-                            >
-                                <X size={12} />
-                            </button>
-                        </div>
+                    <div className="mt-1">
                         <textarea
                             value={systemPrompt}
                             onChange={(e) => setSystemPrompt(e.target.value)}
@@ -390,13 +383,21 @@ export function Arena() {
                                     )}
                                     <button
                                         onClick={() => {
-                                            const ctrl = abortMapRef.current.get(resp.model);
+                                            const ctrl =
+                                                abortMapRef.current.get(
+                                                    resp.model,
+                                                );
                                             if (ctrl) {
                                                 ctrl.abort();
-                                                abortMapRef.current.delete(resp.model);
+                                                abortMapRef.current.delete(
+                                                    resp.model,
+                                                );
                                             }
                                         }}
-                                        disabled={resp.done || !runningModels.has(resp.model)}
+                                        disabled={
+                                            resp.done ||
+                                            !runningModels.has(resp.model)
+                                        }
                                         className="text-(--text-tertiary) hover:text-(--text-primary) disabled:opacity-30 transition-colors"
                                     >
                                         <X size={12} />
@@ -427,16 +428,20 @@ export function Arena() {
                                 <div className="px-4 py-2 border-t border-(--border-subtle) flex items-center gap-3 text-[11px] text-(--text-tertiary)">
                                     <span className="flex items-center gap-1">
                                         <Clock size={10} />
-                                        {formatDuration(resp.metrics.durationMs)}
+                                        {formatDuration(
+                                            resp.metrics.durationMs,
+                                        )}
                                     </span>
                                     {resp.metrics.tokensPerSecond !== null && (
                                         <span className="flex items-center gap-1">
                                             <Zap size={10} />
-                                            {resp.metrics.tokensPerSecond.toFixed(1)}{" "}
+                                            {resp.metrics.tokensPerSecond.toFixed(
+                                                1,
+                                            )}{" "}
                                             tok/s
                                         </span>
                                     )}
-                                    {(resp.metrics.completionTokens > 0) && (
+                                    {resp.metrics.completionTokens > 0 && (
                                         <span>
                                             {resp.metrics.completionTokens} tok
                                         </span>

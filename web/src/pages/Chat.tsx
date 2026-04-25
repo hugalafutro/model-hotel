@@ -10,7 +10,6 @@ import {
     Info,
     Clock,
     Zap,
-    Trash2,
     ChevronDown,
     ChevronUp,
 } from "lucide-react";
@@ -26,7 +25,10 @@ function formatDuration(ms: number): string {
 
 function formatTime(ts: number): string {
     const d = new Date(ts);
-    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 function proxyModelID(providerName: string, modelId: string): string {
@@ -81,36 +83,50 @@ function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
                         <X size={20} />
                     </button>
                 </div>
-                <p className="text-sm text-(--text-secondary)">{model.description}</p>
+                <p className="text-sm text-(--text-secondary)">
+                    {model.description}
+                </p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="ui-card p-3">
                         <span className="text-(--text-tertiary)">Provider</span>
-                        <div className="text-(--text-primary) font-medium">{model.provider_name}</div>
+                        <div className="text-(--text-primary) font-medium">
+                            {model.provider_name}
+                        </div>
                     </div>
                     <div className="ui-card p-3">
                         <span className="text-(--text-tertiary)">Model ID</span>
-                        <div className="text-(--text-primary) font-medium">{model.model_id}</div>
+                        <div className="text-(--text-primary) font-medium">
+                            {model.model_id}
+                        </div>
                     </div>
                     <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">Context Length</span>
+                        <span className="text-(--text-tertiary)">
+                            Context Length
+                        </span>
                         <div className="text-(--text-primary) font-medium">
                             {model.context_length?.toLocaleString() ?? "-"}
                         </div>
                     </div>
                     <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">Max Output</span>
+                        <span className="text-(--text-tertiary)">
+                            Max Output
+                        </span>
                         <div className="text-(--text-primary) font-medium">
                             {model.max_output_tokens?.toLocaleString() ?? "-"}
                         </div>
                     </div>
                     <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">Input Price</span>
+                        <span className="text-(--text-tertiary)">
+                            Input Price
+                        </span>
                         <div className="text-(--text-primary) font-medium">
                             ${formatPrice(model.input_price_per_million)}/1M
                         </div>
                     </div>
                     <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">Output Price</span>
+                        <span className="text-(--text-tertiary)">
+                            Output Price
+                        </span>
                         <div className="text-(--text-primary) font-medium">
                             ${formatPrice(model.output_price_per_million)}/1M
                         </div>
@@ -118,7 +134,9 @@ function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
                 </div>
                 {capList.length > 0 && (
                     <div>
-                        <span className="text-sm text-(--text-tertiary)">Capabilities</span>
+                        <span className="text-sm text-(--text-tertiary)">
+                            Capabilities
+                        </span>
                         <div className="flex flex-wrap gap-2 mt-2">
                             {capList.map((c) => (
                                 <span
@@ -132,7 +150,9 @@ function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
                     </div>
                 )}
                 <div>
-                    <span className="text-sm text-(--text-tertiary)">Proxy Model ID</span>
+                    <span className="text-sm text-(--text-tertiary)">
+                        Proxy Model ID
+                    </span>
                     <code className="block mt-1 p-2 rounded bg-(--surface-input) text-xs text-(--text-secondary)">
                         {proxyModelID(model.provider_name, model.model_id)}
                     </code>
@@ -149,12 +169,18 @@ export function Chat() {
         staleTime: 60_000,
     });
 
+    const { data: providers } = useQuery({
+        queryKey: ["providers"],
+        queryFn: () => api.providers.list(),
+        staleTime: 60_000,
+    });
+
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [selectedModel, setSelectedModel] = useState<string>(() =>
-        localStorage.getItem("chat_selected_model") || "",
+    const [selectedModel, setSelectedModel] = useState<string>(
+        () => localStorage.getItem("chat_selected_model") || "",
     );
-    const [systemPrompt, setSystemPrompt] = useState<string>(() =>
-        localStorage.getItem("chat_system_prompt") || "",
+    const [systemPrompt, setSystemPrompt] = useState<string>(
+        () => localStorage.getItem("chat_system_prompt") || "",
     );
     const [showSystemPrompt, setShowSystemPrompt] = useState(false);
     const [input, setInput] = useState("");
@@ -264,7 +290,7 @@ export function Chat() {
 
             const durationMs = performance.now() - startTime;
             const tokensPerSecond =
-                durationMs > 0 ? (charCount / (durationMs / 1000)) : null;
+                durationMs > 0 ? charCount / (durationMs / 1000) : null;
 
             assistantMessage.metrics = {
                 tokensPerSecond,
@@ -308,10 +334,6 @@ export function Chat() {
         }
     };
 
-    const handleClear = () => {
-        setMessages([]);
-    };
-
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -329,16 +351,6 @@ export function Chat() {
                         Chat with enabled models through the proxy
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={handleClear}
-                        disabled={messages.length === 0}
-                        className="ui-btn-secondary flex items-center gap-2 disabled:opacity-40"
-                    >
-                        <Trash2 size={16} />
-                        Clear
-                    </button>
-                </div>
             </div>
 
             {/* Controls */}
@@ -349,6 +361,12 @@ export function Chat() {
                     onChange={setSelectedModel}
                     multi={false}
                     label="Model"
+                    providers={
+                        providers?.map((p) => ({
+                            name: p.name,
+                            base_url: p.base_url,
+                        })) ?? []
+                    }
                 />
 
                 <div className="flex items-center gap-3 flex-wrap">
@@ -358,7 +376,8 @@ export function Chat() {
                             className="ui-btn-secondary flex items-center gap-1.5"
                         >
                             <Info size={14} />
-                            {selectedModelObj.display_name || selectedModelObj.model_id}
+                            {selectedModelObj.display_name ||
+                                selectedModelObj.model_id}
                         </button>
                     )}
 
@@ -377,19 +396,7 @@ export function Chat() {
                 </div>
 
                 {showSystemPrompt && (
-                    <div className="ui-card p-3 space-y-2 border border-(--accent)/20 bg-(--accent)/5">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-(--accent)">
-                                System Prompt
-                            </label>
-                            <button
-                                onClick={() => setSystemPrompt("")}
-                                className="text-(--text-muted) hover:text-(--text-secondary) transition-colors"
-                                title="Clear system prompt"
-                            >
-                                <X size={12} />
-                            </button>
-                        </div>
+                    <div className="mt-1">
                         <textarea
                             value={systemPrompt}
                             onChange={(e) => setSystemPrompt(e.target.value)}
@@ -405,7 +412,11 @@ export function Chat() {
             <div className="space-y-4 min-h-75">
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
-                        <Bot size={48} strokeWidth={1} className="mb-4 opacity-40" />
+                        <Bot
+                            size={48}
+                            strokeWidth={1}
+                            className="mb-4 opacity-40"
+                        />
                         <p>Select a model and start chatting</p>
                     </div>
                 )}
@@ -446,7 +457,11 @@ export function Chat() {
                                         isUser ? "" : "text-(--text-primary)"
                                     }`}
                                 >
-                                    {msg.content || (isStreaming && i === messages.length - 1 ? "Thinking..." : "")}
+                                    {msg.content ||
+                                        (isStreaming &&
+                                        i === messages.length - 1
+                                            ? "Thinking..."
+                                            : "")}
                                 </div>
                                 <div
                                     className={`flex items-center gap-3 mt-2 text-[11px] ${
@@ -464,10 +479,13 @@ export function Chat() {
                                                     msg.metrics.durationMs,
                                                 )}
                                             </span>
-                                            {msg.metrics.tokensPerSecond !== null && (
+                                            {msg.metrics.tokensPerSecond !==
+                                                null && (
                                                 <span className="flex items-center gap-1">
                                                     <Zap size={10} />
-                                                    {msg.metrics.tokensPerSecond.toFixed(1)}{" "}
+                                                    {msg.metrics.tokensPerSecond.toFixed(
+                                                        1,
+                                                    )}{" "}
                                                     tok/s
                                                 </span>
                                             )}
@@ -502,9 +520,7 @@ export function Chat() {
                         onClick={isStreaming ? handleStop : handleSend}
                         disabled={!selectedModel}
                         className={`ui-btn flex items-center gap-2 shrink-0 ${
-                            isStreaming
-                                ? "ui-btn-danger"
-                                : "ui-btn-primary"
+                            isStreaming ? "ui-btn-danger" : "ui-btn-primary"
                         }`}
                     >
                         {isStreaming ? (
