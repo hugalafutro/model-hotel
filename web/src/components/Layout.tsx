@@ -454,7 +454,7 @@ export function Layout({ children }: LayoutProps) {
                             onClick={() =>
                                 setTheme(theme === "dark" ? "light" : "dark")
                             }
-                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
                             title={
                                 theme === "dark"
                                     ? "Switch to light mode"

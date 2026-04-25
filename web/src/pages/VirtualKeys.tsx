@@ -298,6 +298,9 @@ export function VirtualKeys() {
     });
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
+    const [terminalTab, setTerminalTab] = useState<"bash" | "powershell">(
+        "bash",
+    );
 
     const { data: keys, isLoading } = useQuery({
         queryKey: ["virtualKeys"],
@@ -531,51 +534,180 @@ export function VirtualKeys() {
                     </div>
 
                     <div>
-                        <h3 className="text-sm font-medium text-gray-300 mb-2">
-                            Try it with cURL
-                        </h3>
-                        <div className="relative rounded-lg bg-gray-950 border border-gray-800 overflow-hidden">
-                            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                                <span className="text-xs text-gray-600 ml-2 font-mono">
-                                    bash
-                                </span>
-                            </div>
-                            <pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto">
-                                <code>
-                                    {"curl -X POST "}
-                                    <span className="text-white font-semibold">
-                                        {typeof window !== "undefined"
-                                            ? `${window.location.origin}`
-                                            : "http://localhost:8080"}
-                                        {"/v1/chat/completions"}
-                                    </span>
-                                    {" \\\n"}
-                                    {'  -H "Authorization: Bearer '}
-                                    <span className="text-white font-semibold">
-                                        YOUR_API_KEY
-                                    </span>
-                                    {'" \\\n'}
-                                    {
-                                        '  -H "Content-Type: application/json" \\\n'
-                                    }
-                                    {"  -d '{\n"}
-                                    {'    "model": "'}
-                                    <span className="text-white font-semibold">
-                                        model
-                                    </span>
-                                    {'",\n'}
-                                    {'    "messages": [\n'}
-                                    {
-                                        '      { "role": "user", "content": "Hello!" }\n'
-                                    }
-                                    {"    ]\n"}
-                                    {"  }'"}
-                                </code>
-                            </pre>
+                        <div className="terminal-tab-bar">
+                            <button
+                                type="button"
+                                onClick={() => setTerminalTab("bash")}
+                                className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    className="w-3.5 h-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <polyline points="4 17 10 11 4 5" />
+                                    <line x1="12" y1="19" x2="20" y2="19" />
+                                </svg>
+                                bash
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTerminalTab("powershell")}
+                                className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    className="w-3.5 h-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <rect
+                                        x="2"
+                                        y="3"
+                                        width="20"
+                                        height="14"
+                                        rx="2"
+                                        ry="2"
+                                    />
+                                    <line x1="8" y1="21" x2="16" y2="21" />
+                                    <line x1="12" y1="17" x2="12" y2="21" />
+                                </svg>
+                                PowerShell
+                            </button>
                         </div>
+                        {terminalTab === "bash" ? (
+                            <div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden border-t-0">
+                                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                                    <span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
+                                        bash
+                                    </span>
+                                </div>
+                                <pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
+                                    <code className="terminal-code">
+                                        {"curl -X POST "}
+                                        <span className="text-white font-semibold terminal-highlight">
+                                            {typeof window !== "undefined"
+                                                ? `${window.location.origin}`
+                                                : "http://localhost:8080"}
+                                            {"/v1/chat/completions"}
+                                        </span>
+                                        {" \\\n"}
+                                        {'  -H "Authorization: Bearer '}
+                                        <span className="text-white font-semibold terminal-highlight">
+                                            YOUR_API_KEY
+                                        </span>
+                                        {'" \\\n'}
+                                        {
+                                            '  -H "Content-Type: application/json" \\\n'
+                                        }
+                                        {"  -d '{\n"}
+                                        {'    "model": "'}
+                                        <span className="text-white font-semibold terminal-highlight">
+                                            model
+                                        </span>
+                                        {'",\n'}
+                                        {'    "messages": [\n'}
+                                        {
+                                            '      { "role": "user", "content": "Hello!" }\n'
+                                        }
+                                        {"    ]\n"}
+                                        {"  }'"}
+                                    </code>
+                                </pre>
+                            </div>
+                        ) : (
+                            <div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] border-t-0">
+                                <div className="terminal-win11-titlebar flex items-center gap-2 px-3 py-1.5 border-b border-[#333]">
+                                    <svg
+                                        className="win11-icon"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                    >
+                                        <path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
+                                    </svg>
+                                    <span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
+                                        PowerShell
+                                    </span>
+                                </div>
+                                <pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
+                                    <code className="terminal-win11-code">
+                                        {"Invoke-RestMethod "}
+                                        {"-Uri "}
+                                        <span className="ps-uri text-[#569cd6]">
+                                            {typeof window !== "undefined"
+                                                ? `"${window.location.origin}/v1/chat/completions"`
+                                                : '"http://localhost:8080/v1/chat/completions"'}
+                                        </span>
+                                        {"\n"}
+                                        {"  -Method Post\n"}
+                                        {"  -Headers @{\n"}
+                                        {"    "}
+                                        <span className="ps-key text-[#9cdcfe]">
+                                            {'"Authorization"'}
+                                        </span>
+                                        {" = "}
+                                        <span className="ps-str text-[#ce9178]">
+                                            {'"Bearer YOUR_API_KEY"'}
+                                        </span>
+                                        {"\n"}
+                                        {"    "}
+                                        <span className="ps-key text-[#9cdcfe]">
+                                            {'"Content-Type"'}
+                                        </span>
+                                        {" = "}
+                                        <span className="ps-str text-[#ce9178]">
+                                            {'"application/json"'}
+                                        </span>
+                                        {"\n"}
+                                        {"  }\n"}
+                                        {"  -Body (ConvertTo-Json @{\n"}
+                                        {"    "}
+                                        <span className="ps-key text-[#9cdcfe]">
+                                            {"model"}
+                                        </span>
+                                        {" = "}
+                                        <span className="ps-str text-[#ce9178]">
+                                            {'"model"'}
+                                        </span>
+                                        {"\n"}
+                                        {"    "}
+                                        <span className="ps-key text-[#9cdcfe]">
+                                            {"messages"}
+                                        </span>
+                                        {" = @(\n"}
+                                        {"      @{ "}
+                                        <span className="ps-key text-[#9cdcfe]">
+                                            {"role"}
+                                        </span>
+                                        {" = "}
+                                        <span className="ps-str text-[#ce9178]">
+                                            {'"user"'}
+                                        </span>
+                                        {"; "}
+                                        <span className="ps-key text-[#9cdcfe]">
+                                            {"content"}
+                                        </span>
+                                        {" = "}
+                                        <span className="ps-str text-[#ce9178]">
+                                            {'"Hello!"'}
+                                        </span>
+                                        {" }\n"}
+                                        {"    )\n"}
+                                        {"  })"}
+                                    </code>
+                                </pre>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">

@@ -64,7 +64,9 @@ export function ModelPicker({
     providers = [],
 }: ModelPickerProps) {
     const [search, setSearch] = useState("");
-    const [providerFilter, setProviderFilter] = useState<Set<string>>(new Set());
+    const [providerFilter, setProviderFilter] = useState<Set<string>>(
+        new Set(),
+    );
 
     const selectedSet = useMemo(() => {
         if (multi) return new Set(selected as string[]);
@@ -77,7 +79,10 @@ export function ModelPicker({
     );
 
     const providerNames = useMemo(
-        () => Array.from(new Set(enabledModels.map((m) => m.provider_name))).sort(),
+        () =>
+            Array.from(
+                new Set(enabledModels.map((m) => m.provider_name)),
+            ).sort(),
         [enabledModels],
     );
 
@@ -126,7 +131,9 @@ export function ModelPicker({
         if (multi) {
             const current = [...(selected as string[])];
             if (current.includes(val)) {
-                (onChange as (s: string[]) => void)(current.filter((v) => v !== val));
+                (onChange as (s: string[]) => void)(
+                    current.filter((v) => v !== val),
+                );
             } else {
                 if (current.length >= maxSelections) return;
                 (onChange as (s: string[]) => void)([...current, val]);
@@ -177,7 +184,7 @@ export function ModelPicker({
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+            <div className="flex flex-wrap justify-between gap-1.5 max-h-40 overflow-y-auto pr-1">
                 {filteredModels.map((m) => {
                     const val = proxyModelID(m.provider_name, m.model_id);
                     const isSelected = selectedSet.has(val);

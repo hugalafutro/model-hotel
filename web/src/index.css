@@ -1149,6 +1149,163 @@ html.light .bg-blue-900\/30:hover {
     background-color: rgba(37, 99, 235, 0.1);
 }
 
+/* Darker sky/amber for net/disk rows in light theme */
+html.light .text-sky-400\/60 {
+    color: #0284c7;
+}
+
+html.light .text-amber-400\/60 {
+    color: #b45309;
+}
+
+html.light .text-amber-400 {
+    color: #b45309;
+}
+
+/* Mock terminal light theme */
+html.light .bg-gray-950 {
+    background-color: #f0f1f3;
+}
+
+html.light .border-gray-800 {
+    border-color: #d1d5db;
+}
+
+html.light .terminal-titlebar {
+    background-color: #e5e7eb;
+    border-bottom-color: #d1d5db;
+}
+
+html.light .terminal-titlebar .terminal-titlebar-label {
+    color: #6b7280;
+}
+
+html.light .terminal-body {
+    background-color: #fafbfc;
+    color: #374151;
+}
+
+html.light .terminal-body .terminal-code {
+    color: #374151;
+}
+
+html.light .terminal-body .terminal-highlight {
+    color: #111827;
+    font-weight: 600;
+}
+
+/* Windows Terminal tab styling */
+.terminal-tab-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    padding: 0 4px;
+}
+
+.terminal-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    transition:
+        background-color 0.15s,
+        color 0.15s;
+    border: 1px solid transparent;
+    border-bottom: none;
+    user-select: none;
+}
+
+.terminal-tab-active {
+    background-color: var(--surface-bg, #0a0a0c);
+    color: var(--text-primary, #e0e0e5);
+    border-color: var(--border-default, rgba(255, 255, 255, 0.06));
+    border-bottom-color: var(--surface-bg, #0a0a0c);
+    position: relative;
+    z-index: 1;
+}
+
+.terminal-tab-inactive {
+    background-color: transparent;
+    color: var(--text-muted, #4a4f5c);
+}
+
+.terminal-tab-inactive:hover {
+    background-color: var(--surface-hover, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary, #b0b3c0);
+}
+
+html.light .terminal-tab-active {
+    background-color: #ffffff;
+    border-color: #d1d5db;
+    border-bottom-color: #ffffff;
+}
+
+html.light .terminal-tab-inactive {
+    color: #9ca3af;
+}
+
+html.light .terminal-tab-inactive:hover {
+    background-color: #f3f4f6;
+    color: #4a4f5c;
+}
+
+/* Light theme for Windows Terminal (PowerShell tab) */
+html.light .terminal-win11 {
+    background-color: #f0f0f0 !important;
+    border-color: #ccc !important;
+}
+
+html.light .terminal-win11-titlebar {
+    border-bottom-color: #ddd !important;
+    background-color: #f0f0f0;
+}
+
+html.light .terminal-win11-titlebar .win11-icon {
+    opacity: 0.5;
+    color: #333;
+}
+
+html.light .terminal-win11-titlebar-label {
+    color: #555 !important;
+}
+
+html.light .terminal-win11-body {
+    background-color: #012456 !important;
+    color: #f0f0f0 !important;
+}
+
+html.light .terminal-win11-body .terminal-win11-code {
+    color: #f0f0f0 !important;
+}
+
+/* Light theme for terminal tab bar background */
+html.light .terminal-tab-bar {
+    background-color: #e5e7eb;
+    border-bottom: 1px solid #d1d5db;
+}
+
+.terminal-titlebar-win11 {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    gap: 8px;
+}
+
+.terminal-titlebar-win11 .win11-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+html.light .terminal-titlebar-win11 .win11-icon {
+    opacity: 0.45;
+}
+
 /* Live indicator dot pulse */
 @keyframes pulse-glow {
     0%,
