@@ -1068,7 +1068,7 @@ export function Dashboard() {
             <div className="space-y-6">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-                    <p className="text-gray-400 mt-1">
+                    <p className="text-gray-400">
                         Overview of your Model Hotel usage
                     </p>
                 </div>
@@ -1191,31 +1191,36 @@ export function Dashboard() {
         <div className="space-y-6">
             {/* Page header */}
             <div className="flex items-end justify-between">
-                <div className="flex items-center gap-3">
-                    <LayoutDashboard
-                        size={28}
-                        strokeWidth={2}
-                        className="text-(--accent)"
-                    />
-                    <h1 className="text-3xl font-bold text-(--text-primary)">
-                        Dashboard
-                    </h1>
-                    <button
-                        type="button"
-                        onClick={() => setExcludeDeleted(!excludeDeleted)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
-                            excludeDeleted
-                                ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-                                : "bg-gray-700 text-gray-400 hover:bg-gray-600"
-                        }`}
-                    >
-                        <span
-                            className={`w-2 h-2 rounded-full transition-colors ${
-                                excludeDeleted ? "bg-amber-400" : "bg-gray-500"
-                            }`}
+                <div>
+                    <div className="flex items-center gap-3">
+                        <LayoutDashboard
+                            size={28}
+                            strokeWidth={2}
+                            className="text-(--accent)"
                         />
-                        {excludeDeleted ? "Active Keys Only" : "All Keys"}
-                    </button>
+                        <h1 className="text-3xl font-bold text-(--text-primary)">
+                            Dashboard
+                        </h1>
+                        <button
+                            type="button"
+                            onClick={() => setExcludeDeleted(!excludeDeleted)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                                excludeDeleted
+                                    ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                                    : "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                            }`}
+                        >
+                            <span
+                                className={`w-2 h-2 rounded-full transition-colors ${
+                                    excludeDeleted ? "bg-amber-400" : "bg-gray-500"
+                                }`}
+                            />
+                            {excludeDeleted ? "Active Keys Only" : "All Keys"}
+                        </button>
+                    </div>
+                    <p className="text-gray-400">
+                        Overview of your Model Hotel usage
+                    </p>
                 </div>
                 <div className="flex gap-4">
                     <Gauge

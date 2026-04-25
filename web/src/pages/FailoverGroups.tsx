@@ -605,7 +605,7 @@ export function FailoverGroups() {
                             Failover Groups
                         </h1>
                     </div>
-                    <p className="text-gray-400 mt-1">
+                    <p className="text-gray-400">
                         Route requests through multiple providers in priority order via{" "}
                         <code className="text-(--accent)">hotel/model</code>
                     </p>

@@ -1064,7 +1064,7 @@ export function Providers() {
                             Providers
                         </h1>
                     </div>
-                    <p className="text-gray-400 mt-1">
+                    <p className="text-gray-400">
                         Manage your provider configurations
                     </p>
                 </div>

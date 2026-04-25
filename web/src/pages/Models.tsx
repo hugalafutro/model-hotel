@@ -1280,7 +1280,7 @@ export function Models() {
                         </span>
                     )}
                 </div>
-                <p className="text-gray-400 mt-1">
+                <p className="text-gray-400">
                     Discovered models from your providers
                 </p>
             </div>

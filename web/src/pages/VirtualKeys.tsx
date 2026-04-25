@@ -370,7 +370,7 @@ export function VirtualKeys() {
                             Virtual Keys
                         </h1>
                     </div>
-                    <p className="text-gray-400 mt-1">
+                    <p className="text-gray-400">
                         Issue keys for clients to access the proxy at /v1
                     </p>
                 </div>
