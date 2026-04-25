@@ -583,7 +583,7 @@ export function VirtualKeys() {
                             </button>
                         </div>
                         {terminalTab === "bash" ? (
-                            <div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden border-t-0">
+                            <div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
                                 <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
                                     <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
                                     <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
@@ -626,20 +626,50 @@ export function VirtualKeys() {
                                 </pre>
                             </div>
                         ) : (
-                            <div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] border-t-0">
-                                <div className="terminal-win11-titlebar flex items-center gap-2 px-3 py-1.5 border-b border-[#333]">
-                                    <svg
-                                        className="win11-icon"
-                                        viewBox="0 0 24 24"
-                                        width="14"
-                                        height="14"
-                                        fill="currentColor"
+                            <div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] min-h-70">
+                                <div className="terminal-win11-titlebar flex items-center justify-between px-3 py-1.5 border-b border-[#333]">
+                                    <div className="flex items-center gap-2">
+                                        <svg
+                                            className="win11-icon"
+                                            viewBox="0 0 24 24"
+                                            width="14"
+                                            height="14"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
+                                        </svg>
+                                        <span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
+                                            PowerShell
+                                        </span>
+                                    </div>
+                                    <div
+                                        className="flex items-center"
+                                        aria-hidden="true"
                                     >
-                                        <path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
-                                    </svg>
-                                    <span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
-                                        PowerShell
-                                    </span>
+                                        <span className="inline-flex items-center justify-center w-11.5 h-7.5 text-[#999] hover:text-white hover:bg-[#e81123] transition-colors cursor-default">
+                                            <svg
+                                                width="10"
+                                                height="10"
+                                                viewBox="0 0 10 10"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.2"
+                                            >
+                                                <line
+                                                    x1="0"
+                                                    y1="0"
+                                                    x2="10"
+                                                    y2="10"
+                                                />
+                                                <line
+                                                    x1="10"
+                                                    y1="0"
+                                                    x2="0"
+                                                    y2="10"
+                                                />
+                                            </svg>
+                                        </span>
+                                    </div>
                                 </div>
                                 <pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
                                     <code className="terminal-win11-code">

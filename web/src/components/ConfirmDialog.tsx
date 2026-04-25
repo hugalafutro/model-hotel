@@ -47,14 +47,14 @@ export function ConfirmDialog({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="ui-btn-secondary"
+                        className="ui-btn ui-btn-secondary"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={onConfirm}
-                        className="ui-btn-danger"
+                        className="ui-btn ui-btn-danger"
                     >
                         Discard
                     </button>

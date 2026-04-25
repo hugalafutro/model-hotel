@@ -183,6 +183,7 @@ export function Chat() {
     const [detailModel, setDetailModel] = useState<Model | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const systemPromptRef = useRef<HTMLTextAreaElement>(null);
     const { toast } = useToast();
 
     const enabledModels =
@@ -206,6 +207,19 @@ export function Chat() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
+    const autoExpandTextarea = useCallback(
+        (ref: React.RefObject<HTMLTextAreaElement | null>) => {
+            requestAnimationFrame(() => {
+                const el = ref.current;
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+        [],
+    );
+
     const handlePersonaSelect = useCallback(
         (persona: import("../data/presets").PersonaPreset) => {
             if (systemPrompt.trim() && activePersonaId === null) {
@@ -215,9 +229,23 @@ export function Chat() {
             }
             setSystemPrompt(persona.systemPrompt);
             setActivePersonaId(persona.id);
+            autoExpandTextarea(systemPromptRef);
         },
-        [systemPrompt, activePersonaId],
+        [systemPrompt, activePersonaId, autoExpandTextarea],
     );
+
+    const handleCustomPersona = useCallback(() => {
+        if (activePersonaId !== null) {
+            // A preset is active — warn that switching to custom will clear
+            setPendingPersona({
+                id: "__custom__",
+                icon: "✏️",
+                label: "Custom",
+                systemPrompt: "",
+            } as import("../data/presets").PersonaPreset);
+            return;
+        }
+    }, [activePersonaId]);
 
     const handleSystemPromptChange = useCallback(
         (value: string) => {
@@ -407,8 +435,10 @@ export function Chat() {
                         items={CHAT_PERSONAS}
                         activeId={activePersonaId}
                         onSelect={handlePersonaSelect}
+                        onCustom={handleCustomPersona}
                     />
                     <textarea
+                        ref={systemPromptRef}
                         value={systemPrompt}
                         onChange={(e) => {
                             handleSystemPromptChange(e.target.value);
@@ -575,12 +605,22 @@ export function Chat() {
             {/* Persona Overwrite Confirmation */}
             {pendingPersona && (
                 <ConfirmDialog
-                    title="Overwrite System Prompt"
+                    title={
+                        pendingPersona.id === "__custom__"
+                            ? "Switch to Custom"
+                            : "Overwrite System Prompt"
+                    }
                     fields={["System prompt"]}
                     onConfirm={() => {
-                        setSystemPrompt(pendingPersona.systemPrompt);
-                        setActivePersonaId(pendingPersona.id);
+                        if (pendingPersona.id === "__custom__") {
+                            setSystemPrompt("");
+                            setActivePersonaId(null);
+                        } else {
+                            setSystemPrompt(pendingPersona.systemPrompt);
+                            setActivePersonaId(pendingPersona.id);
+                        }
                         setPendingPersona(null);
+                        autoExpandTextarea(systemPromptRef);
                     }}
                     onCancel={() => setPendingPersona(null)}
                 />

@@ -8,6 +8,7 @@ interface PresetBarProps<T extends PresetItem> {
     items: T[];
     activeId: string | null;
     onSelect: (item: T) => void;
+    onCustom?: () => void;
     customLabel?: string;
 }
 
@@ -15,6 +16,7 @@ export function PresetBar<T extends PresetItem>({
     items,
     activeId,
     onSelect,
+    onCustom,
     customLabel = "✏️ Custom",
 }: PresetBarProps<T>) {
     return (
@@ -35,12 +37,10 @@ export function PresetBar<T extends PresetItem>({
             ))}
             <button
                 type="button"
+                onClick={onCustom}
                 className={`ui-btn text-xs whitespace-nowrap ${
-                    activeId === null
-                        ? "ui-btn-primary"
-                        : "ui-btn-secondary"
+                    activeId === null ? "ui-btn-primary" : "ui-btn-secondary"
                 }`}
-                disabled
             >
                 {customLabel}
             </button>

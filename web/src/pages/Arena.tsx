@@ -78,6 +78,8 @@ export function Arena() {
     const [responses, setResponses] = useState<ArenaResponse[]>([]);
     const [runningModels, setRunningModels] = useState<Set<string>>(new Set());
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
+    const systemPromptRef = useRef<HTMLTextAreaElement>(null);
+    const promptRef = useRef<HTMLTextAreaElement>(null);
     const { toast } = useToast();
 
     const enabledModels = useMemo(
@@ -251,6 +253,19 @@ export function Arena() {
         );
     }, []);
 
+    const autoExpandTextarea = useCallback(
+        (ref: React.RefObject<HTMLTextAreaElement | null>) => {
+            requestAnimationFrame(() => {
+                const el = ref.current;
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+        [],
+    );
+
     const handlePersonaSelect = useCallback(
         (persona: import("../data/presets").PersonaPreset) => {
             if (systemPrompt.trim() && activePersonaId === null) {
@@ -259,9 +274,22 @@ export function Arena() {
             }
             setSystemPrompt(persona.systemPrompt);
             setActivePersonaId(persona.id);
+            autoExpandTextarea(systemPromptRef);
         },
-        [systemPrompt, activePersonaId],
+        [systemPrompt, activePersonaId, autoExpandTextarea],
     );
+
+    const handleCustomPersona = useCallback(() => {
+        if (activePersonaId !== null) {
+            setPendingPersona({
+                id: "__custom__",
+                icon: "✏️",
+                label: "Custom",
+                systemPrompt: "",
+            } as import("../data/presets").PersonaPreset);
+            return;
+        }
+    }, [activePersonaId]);
 
     const handleSystemPromptChange = useCallback(
         (value: string) => {
@@ -282,9 +310,22 @@ export function Arena() {
             }
             setPrompt(preset.prompt);
             setActivePromptId(preset.id);
+            autoExpandTextarea(promptRef);
         },
-        [prompt, activePromptId],
+        [prompt, activePromptId, autoExpandTextarea],
     );
+
+    const handleCustomPrompt = useCallback(() => {
+        if (activePromptId !== null) {
+            setPendingPrompt({
+                id: "__custom__",
+                icon: "✏️",
+                label: "Custom",
+                prompt: "",
+            } as import("../data/presets").ArenaPromptPreset);
+            return;
+        }
+    }, [activePromptId]);
 
     const handlePromptChange = useCallback(
         (value: string) => {
@@ -349,8 +390,10 @@ export function Arena() {
                         items={ARENA_PROMPTS}
                         activeId={activePromptId}
                         onSelect={handlePromptPresetSelect}
+                        onCustom={handleCustomPrompt}
                     />
                     <textarea
+                        ref={promptRef}
                         value={prompt}
                         onChange={(e) => {
                             handlePromptChange(e.target.value);
@@ -396,8 +439,10 @@ export function Arena() {
                         items={CHAT_PERSONAS}
                         activeId={activePersonaId}
                         onSelect={handlePersonaSelect}
+                        onCustom={handleCustomPersona}
                     />
                     <textarea
+                        ref={systemPromptRef}
                         value={systemPrompt}
                         onChange={(e) => {
                             handleSystemPromptChange(e.target.value);
@@ -519,12 +564,22 @@ export function Arena() {
             {/* Persona Overwrite Confirmation */}
             {pendingPersona && (
                 <ConfirmDialog
-                    title="Overwrite System Prompt"
+                    title={
+                        pendingPersona.id === "__custom__"
+                            ? "Switch to Custom"
+                            : "Overwrite System Prompt"
+                    }
                     fields={["System prompt"]}
                     onConfirm={() => {
-                        setSystemPrompt(pendingPersona.systemPrompt);
-                        setActivePersonaId(pendingPersona.id);
+                        if (pendingPersona.id === "__custom__") {
+                            setSystemPrompt("");
+                            setActivePersonaId(null);
+                        } else {
+                            setSystemPrompt(pendingPersona.systemPrompt);
+                            setActivePersonaId(pendingPersona.id);
+                        }
                         setPendingPersona(null);
+                        autoExpandTextarea(systemPromptRef);
                     }}
                     onCancel={() => setPendingPersona(null)}
                 />
@@ -533,12 +588,22 @@ export function Arena() {
             {/* Prompt Preset Overwrite Confirmation */}
             {pendingPrompt && (
                 <ConfirmDialog
-                    title="Overwrite Prompt"
+                    title={
+                        pendingPrompt.id === "__custom__"
+                            ? "Switch to Custom"
+                            : "Overwrite Prompt"
+                    }
                     fields={["Prompt"]}
                     onConfirm={() => {
-                        setPrompt(pendingPrompt.prompt);
-                        setActivePromptId(pendingPrompt.id);
+                        if (pendingPrompt.id === "__custom__") {
+                            setPrompt("");
+                            setActivePromptId(null);
+                        } else {
+                            setPrompt(pendingPrompt.prompt);
+                            setActivePromptId(pendingPrompt.id);
+                        }
                         setPendingPrompt(null);
+                        autoExpandTextarea(promptRef);
                     }}
                     onCancel={() => setPendingPrompt(null)}
                 />
