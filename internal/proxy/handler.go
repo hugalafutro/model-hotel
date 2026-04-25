@@ -57,6 +57,18 @@ func (h *Handler) Register(r chi.Router) {
 	r.Post("/chat/completions", h.ChatCompletions)
 }
 
+func (h *Handler) RegisterAdminChat(r chi.Router) {
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), virtualKeyNameKey, "chat")
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
+	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
+
+	r.Post("/chat/completions", h.ChatCompletions)
+}
+
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)

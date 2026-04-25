@@ -211,11 +211,22 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
+	// Handlers shared across route groups
+	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo)
+	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter)
+
 	// API routes — standard 60s timeout is appropriate for admin/API calls
 	r.Route("/api", func(r chi.Router) {
 		r.Use(middleware.Timeout(60 * time.Second))
-		apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo)
 		apiHandler.Register(r)
+	})
+
+	// Admin chat routes — admin-authenticated proxy for the Chat/Arena UI.
+	// Uses streaming-aware timeout (same as /v1) and rate limiting by IP.
+	r.Route("/api/chat", func(r chi.Router) {
+		r.Use(apiHandler.AuthMiddleware)
+		r.Use(streamingAwareTimeout(5 * time.Minute))
+		proxyHandler.RegisterAdminChat(r)
 	})
 
 	// Proxy routes — streaming LLM requests can take many minutes.
@@ -225,7 +236,6 @@ func main() {
 	//   - non-streaming requests: 5-minute deadline
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(streamingAwareTimeout(5 * time.Minute))
-		proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter)
 		proxyHandler.Register(r)
 	})
 
