@@ -397,14 +397,19 @@ export function Arena() {
                         value={prompt}
                         onChange={(e) => {
                             handlePromptChange(e.target.value);
-                            e.target.style.height = "auto";
-                            e.target.style.height =
-                                e.target.scrollHeight + "px";
+                            if (!e.target.value) {
+                                e.target.style.height = "auto";
+                            } else if (
+                                e.target.scrollHeight > e.target.clientHeight
+                            ) {
+                                e.target.style.height =
+                                    e.target.scrollHeight + "px";
+                            }
                         }}
                         placeholder="Enter your prompt..."
                         rows={1}
                         maxLength={10000}
-                        className="ui-input w-full resize-none max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                        className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
                     />
                 </div>
 
@@ -446,14 +451,19 @@ export function Arena() {
                         value={systemPrompt}
                         onChange={(e) => {
                             handleSystemPromptChange(e.target.value);
-                            e.target.style.height = "auto";
-                            e.target.style.height =
-                                e.target.scrollHeight + "px";
+                            if (!e.target.value) {
+                                e.target.style.height = "auto";
+                            } else if (
+                                e.target.scrollHeight > e.target.clientHeight
+                            ) {
+                                e.target.style.height =
+                                    e.target.scrollHeight + "px";
+                            }
                         }}
                         placeholder="You are a helpful assistant..."
                         rows={1}
                         maxLength={5000}
-                        className="ui-input w-full resize-none max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                        className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
                     />
                 </div>
             </div>
