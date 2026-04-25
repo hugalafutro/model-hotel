@@ -113,6 +113,48 @@ export const api = {
             }
             return response.json();
         },
+        discoverAll: async (): Promise<{
+            succeeded: number;
+            failed: number;
+            discovered: number;
+            results: { provider_name: string; discovered: number; error?: string }[];
+        }> => {
+            const response = await fetch(
+                `${API_BASE}/api/providers/discover-all`,
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                },
+            );
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    `Failed to discover all: ${response.status} ${text}`,
+                );
+            }
+            return response.json();
+        },
+        refreshQuotas: async (): Promise<{
+            refreshed: number;
+            failed: number;
+            skipped: number;
+            results: { provider_name: string; provider_type: string; refreshed: boolean; error?: string }[];
+        }> => {
+            const response = await fetch(
+                `${API_BASE}/api/providers/refresh-quotas`,
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                },
+            );
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    `Failed to refresh quotas: ${response.status} ${text}`,
+                );
+            }
+            return response.json();
+        },
         getUsage: async (
             id: string,
         ): Promise<NanoGPTUsage | ZAIQuotaResponse> => {

@@ -886,6 +886,54 @@ export function Providers() {
         if (!isDeepseekError) deepseekErrorToasted.current = false;
     }, [isDeepseekError, toast]);
 
+    const discoverAllMutation = useMutation({
+        mutationFn: async () => {
+            toast("Discovering models for all providers...", "info");
+            return api.providers.discoverAll();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["providers"] });
+            queryClient.invalidateQueries({ queryKey: ["models"] });
+            if (data.failed > 0) {
+                toast(
+                    `Discovered ${data.discovered} models (${data.succeeded} ok, ${data.failed} failed)`,
+                    "warning",
+                );
+            } else {
+                toast(
+                    `Discovered ${data.discovered} models across ${data.succeeded} providers`,
+                    "success",
+                );
+            }
+        },
+        onError: (err: Error) => {
+            toast(`Discover all failed: ${err.message}`, "error");
+        },
+    });
+
+    const refreshQuotasMutation = useMutation({
+        mutationFn: async () => {
+            toast("Refreshing quotas and balances...", "info");
+            return api.providers.refreshQuotas();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["providers"] });
+            if (data.failed > 0) {
+                toast(
+                    `Refreshed ${data.refreshed} quotas (${data.failed} failed, ${data.skipped} unsupported)`,
+                    "warning",
+                );
+            } else if (data.refreshed === 0) {
+                toast("No providers with quota/balance support found", "info");
+            } else {
+                toast(`Refreshed ${data.refreshed} quotas/balances`, "success");
+            }
+        },
+        onError: (err: Error) => {
+            toast(`Refresh quotas failed: ${err.message}`, "error");
+        },
+    });
+
     const discoverMutation = useMutation({
         mutationFn: async (id: string) => {
             setDiscoveringId(id);
@@ -1008,13 +1056,35 @@ export function Providers() {
                         Manage your provider configurations
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => setShowModal(true)}
-                    className="ui-btn ui-btn-primary"
-                >
-                    + Add Provider
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => discoverAllMutation.mutate()}
+                        disabled={discoverAllMutation.isPending}
+                        className="ui-btn ui-btn-secondary"
+                    >
+                        {discoverAllMutation.isPending
+                            ? "Discovering..."
+                            : "Discover All"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => refreshQuotasMutation.mutate()}
+                        disabled={refreshQuotasMutation.isPending}
+                        className="ui-btn ui-btn-secondary"
+                    >
+                        {refreshQuotasMutation.isPending
+                            ? "Refreshing..."
+                            : "Refresh Quotas/Balances"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowModal(true)}
+                        className="ui-btn ui-btn-primary"
+                    >
+                        + Add Provider
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

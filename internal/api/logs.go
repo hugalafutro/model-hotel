@@ -109,17 +109,22 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	sortBy := r.URL.Query().Get("sort_by")
 	sortDir := r.URL.Query().Get("sort_dir")
 
-	sortColumns := map[string]string{
-		"time":     "rl.created_at",
-		"model":    "rl.model_id",
-		"provider": "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END",
-		"status":   "rl.status_code",
-		"tokens":   "rl.tokens_prompt + rl.tokens_completion",
-		"tps":      "rl.tokens_per_second",
-		"ttft":     "rl.ttft_ms",
-		"duration": "rl.duration_ms",
-		"overhead": "rl.proxy_overhead_ms",
-		"key":      "COALESCE(rl.virtual_key_name, '')",
+	type sortDef struct {
+		tierExpr  string
+		valueExpr string
+	}
+
+	sortColumns := map[string]sortDef{
+		"time":     {"", "rl.created_at"},
+		"model":    {"", "rl.model_id"},
+		"provider": {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
+		"status":   {"", "rl.status_code"},
+		"tokens":   {"CASE WHEN rl.tokens_prompt + rl.tokens_completion = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion"},
+		"tps":      {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
+		"ttft":     {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
+		"duration": {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
+		"overhead": {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
+		"key":      {"CASE WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN 2 WHEN vk.id IS NULL THEN 1 ELSE 0 END", "CASE WHEN vk.id IS NULL THEN '' ELSE COALESCE(rl.virtual_key_name, '') END"},
 	}
 
 	if _, ok := sortColumns[sortBy]; !ok {
@@ -219,8 +224,12 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		return
 	}
 
-	orderExpr := sortColumns[sortBy]
-	orderClause := " ORDER BY " + orderExpr + " " + sortDir
+	sd := sortColumns[sortBy]
+	orderClause := " ORDER BY "
+	if sd.tierExpr != "" {
+		orderClause += sd.tierExpr + " ASC, "
+	}
+	orderClause += sd.valueExpr + " " + sortDir
 
 	if sortBy == "status" {
 		orderClause += ", CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 0 END ASC"

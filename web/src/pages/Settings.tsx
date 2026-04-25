@@ -670,11 +670,13 @@ export function Settings() {
 
                 {/* Provider List with Discovery Status */}
                 <div className="ui-card p-6">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Zap size={18} className="text-(--accent)" />
-                        <h2 className="text-xl font-semibold text-white">
-                            Provider Discovery Status
-                        </h2>
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                            <Zap size={18} className="text-(--accent)" />
+                            <h2 className="text-xl font-semibold text-white">
+                                Provider Discovery Status
+                            </h2>
+                        </div>
                     </div>
                     <ProviderDiscoveryList />
                 </div>
@@ -1061,6 +1063,31 @@ function ProviderDiscoveryList() {
     const queryClient = useQueryClient();
     const [discoveringId, setDiscoveringId] = useState<string | null>(null);
 
+    const discoverAllMutation = useMutation({
+        mutationFn: async () => {
+            toast("Discovering models for all providers...", "info");
+            return api.providers.discoverAll();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["providers"] });
+            queryClient.invalidateQueries({ queryKey: ["models"] });
+            if (data.failed > 0) {
+                toast(
+                    `Discovered ${data.discovered} models (${data.succeeded} ok, ${data.failed} failed)`,
+                    "warning",
+                );
+            } else {
+                toast(
+                    `Discovered ${data.discovered} models across ${data.succeeded} providers`,
+                    "success",
+                );
+            }
+        },
+        onError: (err: Error) => {
+            toast(`Discover all failed: ${err.message}`, "error");
+        },
+    });
+
     const discoverMutation = useMutation({
         mutationFn: async (id: string) => {
             setDiscoveringId(id);
@@ -1089,6 +1116,20 @@ function ProviderDiscoveryList() {
 
     return (
         <div className="space-y-3">
+            {providers && providers.length > 0 && (
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => discoverAllMutation.mutate()}
+                        disabled={discoverAllMutation.isPending || discoveringId !== null}
+                        className="ui-btn ui-btn-secondary"
+                    >
+                        {discoverAllMutation.isPending
+                            ? "Discovering..."
+                            : "Discover All"}
+                    </button>
+                </div>
+            )}
             {providers?.length === 0 && (
                 <p className="text-gray-500 text-sm">
                     No providers configured yet.
