@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { FilterInput } from "./FilterInput";
 
 interface ProviderInfo {
     name: string;
@@ -177,12 +178,11 @@ export function ModelPicker({
             )}
 
             <div className="flex items-center gap-2 flex-wrap">
-                <input
-                    type="text"
-                    placeholder="Filter models..."
+                <FilterInput
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="ui-input h-9 py-0! w-[320px]!"
+                    onChange={setSearch}
+                    placeholder="Filter models..."
+                    className="w-[320px]"
                 />
                 <select
                     value={sortMode}

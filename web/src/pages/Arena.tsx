@@ -31,6 +31,7 @@ import { useToast } from "../context/ToastContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { FilterInput } from "../components/FilterInput";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 
 function formatDuration(ms: number): string {
@@ -1028,7 +1029,13 @@ export function Arena() {
                                     </p>
                                 )}
                         </div>
-                        <div>
+                        <div
+                            className={`transition-opacity duration-300 ${
+                                group1Models.length < 2
+                                    ? "opacity-30 pointer-events-none select-none"
+                                    : "opacity-100"
+                            }`}
+                        >
                             <label className="text-sm text-(--text-secondary) mb-2 block">
                                 Match 2 ({group2Models.length}/2){" "}
                                 <span className="text-(--text-tertiary)">
@@ -1843,12 +1850,11 @@ function SwapPicker({
             <p className="text-xs text-amber-400 mb-2">
                 Pick a replacement model
             </p>
-            <input
-                type="text"
-                placeholder="Search models..."
+            <FilterInput
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="ui-input h-8 py-0! text-xs w-full max-w-xs mb-2"
+                onChange={setSearch}
+                placeholder="Search models..."
+                className="max-w-xs mb-2"
             />
             <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto w-full justify-center px-2">
                 {available.map((m) => {

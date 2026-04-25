@@ -610,11 +610,13 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 [data-ui-style] .ui-btn-primary {
     background-color: var(--accent-light);
     color: var(--accent);
-    border-color: var(--accent-lighter);
+    border: 1px solid var(--accent);
 }
 
 [data-ui-style] .ui-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.25);
+    background-color: var(--accent-light);
+    border-color: var(--accent);
+    filter: brightness(1.1);
 }
 
 [data-ui-style] .ui-btn-secondary {
@@ -644,11 +646,12 @@ html[data-ui-style="cyber-terminal"] .ui-btn {
 }
 
 html[data-ui-style="cyber-terminal"] .ui-btn-primary {
-    box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.15);
+    border: 1px solid var(--accent);
 }
 
 html[data-ui-style="cyber-terminal"] .ui-btn-primary:hover:not(:disabled) {
-    box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
+    border: 1px solid var(--accent);
+    filter: brightness(1.1);
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-btn {
@@ -663,13 +666,16 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn-primary {
         var(--accent-hover) 100%
     );
     color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--accent);
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-btn-secondary {
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-primary);
+}
+html[data-ui-style="glassmorphism-lite"].light .ui-btn-primary {
+    border: 1px solid rgba(0, 0, 0, 0.25);
 }
 html[data-ui-style="glassmorphism-lite"].light .ui-btn-secondary {
     background-color: rgba(0, 0, 0, 0.06);

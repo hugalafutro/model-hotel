@@ -9,6 +9,7 @@ import {
     ChevronRight,
 } from "lucide-react";
 import type { LogEntry } from "../api/types";
+import { FilterInput } from "../components/FilterInput";
 import {
     SortableHeader,
     StaticHeader,
@@ -539,19 +540,15 @@ export function Logs() {
             <div className="flex items-start gap-4">
                 {/* Left half: filters — fixed width, never shifts */}
                 <div className="flex items-center gap-2 shrink-0">
-                    <input
-                        type="text"
-                        placeholder="Filter by model ID..."
-                        autoFocus={true}
+                    <FilterInput
                         value={filters.model_id}
-                        onChange={(e) => {
-                            setFilters({
-                                ...filters,
-                                model_id: e.target.value,
-                            });
+                        onChange={(v) => {
+                            setFilters({ ...filters, model_id: v });
                             setPage(1);
                         }}
-                        className="ui-input h-9 py-0! w-[320px]!"
+                        placeholder="Filter by model ID..."
+                        className="w-[320px]"
+                        autoFocus
                     />
                     <select
                         value={filters.status_code}

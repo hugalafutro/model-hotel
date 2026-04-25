@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Bot, X } from "lucide-react";
 import type { Model, ModelCapabilities } from "../api/types";
+import { FilterInput } from "../components/FilterInput";
 import { useToast } from "../context/ToastContext";
 import {
     SortableHeader,
@@ -1294,16 +1295,15 @@ export function Models() {
 
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 shrink-0">
-                    <input
-                        type="text"
-                        placeholder="Search models..."
-                        autoFocus={true}
+                    <FilterInput
                         value={searchQuery}
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value);
+                        onChange={(v) => {
+                            setSearchQuery(v);
                             setCurrentPage(1);
                         }}
-                        className="ui-input h-9 py-0! w-[320px]!"
+                        placeholder="Search models..."
+                        className="w-[320px]"
+                        autoFocus
                     />
                 </div>
                 <div className="flex-1 flex justify-end">
