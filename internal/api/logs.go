@@ -106,6 +106,28 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	statusCodeStr := r.URL.Query().Get("status_code")
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
+	sortBy := r.URL.Query().Get("sort_by")
+	sortDir := r.URL.Query().Get("sort_dir")
+
+	sortColumns := map[string]string{
+		"time":     "rl.created_at",
+		"model":    "rl.model_id",
+		"provider": "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END",
+		"status":   "rl.status_code",
+		"tokens":   "rl.tokens_prompt + rl.tokens_completion",
+		"tps":      "rl.tokens_per_second",
+		"ttft":     "rl.ttft_ms",
+		"duration": "rl.duration_ms",
+		"overhead": "rl.proxy_overhead_ms",
+		"key":      "COALESCE(rl.virtual_key_name, '')",
+	}
+
+	if _, ok := sortColumns[sortBy]; !ok {
+		sortBy = "time"
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc"
+	}
 
 	offset := (page - 1) * perPage
 
@@ -197,7 +219,15 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		return
 	}
 
-	query += " ORDER BY rl.created_at DESC LIMIT $" + util.IntToStr(argIndex) + " OFFSET $" + util.IntToStr(argIndex+1)
+	orderExpr := sortColumns[sortBy]
+	orderClause := " ORDER BY " + orderExpr + " " + sortDir
+
+	if sortBy == "status" {
+		orderClause += ", CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 0 END ASC"
+	}
+
+	orderClause += " LIMIT $" + util.IntToStr(argIndex) + " OFFSET $" + util.IntToStr(argIndex+1)
+	query += orderClause
 	args = append(args, perPage, offset)
 
 	rows, err := h.dbPool.Pool().Query(r.Context(), query, args...)

@@ -227,6 +227,8 @@ export const api = {
                 status_code?: string;
                 from?: string;
                 to?: string;
+                sort_by?: string;
+                sort_dir?: string;
             } = {},
         ): Promise<LogsResponse> => {
             const searchParams = new URLSearchParams();
@@ -242,6 +244,10 @@ export const api = {
                 searchParams.append("status_code", params.status_code);
             if (params.from) searchParams.append("from", params.from);
             if (params.to) searchParams.append("to", params.to);
+            if (params.sort_by)
+                searchParams.append("sort_by", params.sort_by);
+            if (params.sort_dir)
+                searchParams.append("sort_dir", params.sort_dir);
 
             const response = await fetch(
                 `${API_BASE}/api/logs?${searchParams}`,

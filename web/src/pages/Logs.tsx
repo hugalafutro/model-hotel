@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
     ScrollText,
     X,
@@ -10,11 +10,13 @@ import {
 } from "lucide-react";
 import type { LogEntry } from "../api/types";
 import {
-    StaticHeaderNoArrow,
+    SortableHeader,
+    StaticHeader,
     Row,
     EmptyRow,
     PaginationBar,
 } from "../components/DataTable";
+import type { SortState } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
 
 /* =========================================================
@@ -284,11 +286,17 @@ function OverheadModal({
    Main Logs page
    ===================================================== */
 export function Logs() {
+    type LogSortField = "time" | "model" | "provider" | "status" | "tokens" | "tps" | "ttft" | "duration" | "overhead" | "key";
+
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [filters, setFilters] = useState({ model_id: "", status_code: "" });
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+    const [sort, setSort] = useState<SortState<LogSortField>>({
+        field: "time",
+        dir: "desc",
+    });
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [pendingFrom, setPendingFrom] = useState("");
     const [pendingTo, setPendingTo] = useState("");
@@ -298,6 +306,14 @@ export function Logs() {
         useState<OverheadBreakdown | null>(null);
     const [liveEnabled, setLiveEnabled] = useState(true);
     const { toast } = useToast();
+
+    const handleSort = useCallback((field: LogSortField) => {
+        setSort((prev) => ({
+            field,
+            dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
+        }));
+        setPage(1);
+    }, []);
 
     const [fallback, setFallback] = useState<{
         entries: LogEntry[];
@@ -310,7 +326,7 @@ export function Logs() {
     });
 
     const { data: logsData } = useQuery({
-        queryKey: ["logs", page, pageSize, filters, dateFrom, dateTo],
+        queryKey: ["logs", page, pageSize, filters, dateFrom, dateTo, sort],
         queryFn: () =>
             api.logs.list({
                 page,
@@ -319,6 +335,8 @@ export function Logs() {
                 status_code: filters.status_code || undefined,
                 from: dateFrom || undefined,
                 to: dateTo || undefined,
+                sort_by: sort.field,
+                sort_dir: sort.dir,
             }),
         refetchInterval: liveEnabled ? 2000 : false,
         placeholderData: keepPreviousData,
@@ -677,39 +695,79 @@ export function Logs() {
                     </colgroup>
                     <thead>
                         <tr>
-                            <StaticHeaderNoArrow tooltip="Timestamp of the request">
-                                Time
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Unique hash of the request body">
+                            <SortableHeader
+                                label="Time"
+                                field="time"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Timestamp of the request"
+                            />
+                            <StaticHeader tooltip="Unique hash of the request body">
                                 Hash
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Model ID used for the request">
-                                Model
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Provider handling the request">
-                                Provider
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="HTTP status code of the response">
-                                Status
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Prompt + completion tokens (if available)">
-                                Tokens
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Tokens generated per second">
-                                T/s
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Time to first token">
-                                TTFT
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Total request duration">
-                                Duration
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Proxy overhead (parsing, lookups, etc)">
-                                Overhead
-                            </StaticHeaderNoArrow>
-                            <StaticHeaderNoArrow tooltip="Virtual key used for authentication">
-                                Key
-                            </StaticHeaderNoArrow>
+                            </StaticHeader>
+                            <SortableHeader
+                                label="Model"
+                                field="model"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Model ID used for the request"
+                            />
+                            <SortableHeader
+                                label="Provider"
+                                field="provider"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Provider handling the request"
+                            />
+                            <SortableHeader
+                                label="Status"
+                                field="status"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="HTTP status code of the response"
+                            />
+                            <SortableHeader
+                                label="Tokens"
+                                field="tokens"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Prompt + completion tokens (if available)"
+                            />
+                            <SortableHeader
+                                label="T/s"
+                                field="tps"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Tokens generated per second"
+                            />
+                            <SortableHeader
+                                label="TTFT"
+                                field="ttft"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Time to first token"
+                            />
+                            <SortableHeader
+                                label="Duration"
+                                field="duration"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Total request duration"
+                            />
+                            <SortableHeader
+                                label="Overhead"
+                                field="overhead"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Proxy overhead (parsing, lookups, etc)"
+                            />
+                            <SortableHeader
+                                label="Key"
+                                field="key"
+                                sort={sort}
+                                onSort={handleSort}
+                                tooltip="Virtual key used for authentication"
+                            />
                         </tr>
                     </thead>
                     <tbody>
