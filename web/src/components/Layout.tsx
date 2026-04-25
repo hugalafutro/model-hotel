@@ -45,11 +45,12 @@ function formatBytesPerSec(bytesPerSec: number): string {
 }
 
 function SystemStatus() {
-    const { data: stats } = useQuery({
+    const { data: stats, isError } = useQuery({
         queryKey: ["system"],
         queryFn: () => api.system.get(),
         refetchInterval: 10000,
-        retry: false,
+        staleTime: 3000,
+        retry: 1,
     });
 
     const app = stats?.app;
@@ -90,9 +91,9 @@ function SystemStatus() {
                 title="Proxy API health status"
             >
                 <span>API Status</span>
-                <span className="flex items-center text-green-400">
-                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5" />
-                    Online
+                <span className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`} />
+                    {isError ? "Error" : "Online"}
                 </span>
             </div>
 
