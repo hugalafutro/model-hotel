@@ -60,7 +60,14 @@ func (h *Handler) Register(r chi.Router) {
 func (h *Handler) RegisterAdminChat(r chi.Router) {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), virtualKeyNameKey, "chat")
+			key := "chat"
+			switch r.URL.Path {
+			case "/api/chat/arena":
+				key = "arena"
+			case "/api/chat/completions":
+				key = "completions"
+			}
+			ctx := context.WithValue(r.Context(), virtualKeyNameKey, key)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})

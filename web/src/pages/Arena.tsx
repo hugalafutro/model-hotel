@@ -5,6 +5,7 @@ import {
     useRef,
     useCallback,
     useMemo,
+    useEffect,
 } from "react";
 import {
     Swords,
@@ -39,8 +40,10 @@ function formatDuration(ms: number): string {
 
 interface ArenaResponse {
     model: string;
+    rawContent: string;
     content: string;
     thinkingContent: string;
+    startTimeMs: number;
     done: boolean;
     error: string | null;
     metrics: {
@@ -49,6 +52,54 @@ interface ArenaResponse {
         promptTokens: number;
         completionTokens: number;
     } | null;
+}
+
+const THINKING_OPEN_RE = /<(?:thought|start_thought|think)>/g;
+const THINKING_CLOSE_RE = /<\/(?:thought|end_thought|think)>/g;
+
+function extractThinking(raw: string): {
+    thinking: string;
+    content: string;
+} {
+    let content = raw;
+    let thinking = "";
+
+    const fenceMatch = content.match(/^<<\s*\n([\s\S]*?)\n>>\s*\n?/);
+    if (fenceMatch) {
+        thinking = fenceMatch[1].trim();
+        content = content.slice(fenceMatch[0].length);
+    }
+
+    const tagOpen = content.search(
+        /<(?:thought|start_thought|think)>/i,
+    );
+    if (tagOpen !== -1) {
+        const afterOpen = content.slice(tagOpen);
+        const closeMatch = afterOpen.match(
+            /<\/(?:thought|end_thought|think)>/i,
+        );
+        if (closeMatch) {
+            const tagLen = afterOpen.indexOf(">");
+            const closeEnd =
+                afterOpen.indexOf(closeMatch[0]) + closeMatch[0].length;
+            const inner = afterOpen.slice(tagLen + 1, afterOpen.indexOf(closeMatch[0]));
+            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
+            content =
+                content.slice(0, tagOpen) + content.slice(tagOpen + closeEnd);
+        } else {
+            const tagLen = afterOpen.indexOf(">");
+            const inner = afterOpen.slice(tagLen + 1);
+            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
+            content = content.slice(0, tagOpen);
+        }
+    }
+
+    content = content
+        .replace(THINKING_OPEN_RE, "")
+        .replace(THINKING_CLOSE_RE, "")
+        .trimStart();
+
+    return { thinking, content };
 }
 
 interface MatchupSlot {
@@ -352,11 +403,17 @@ export function Arena() {
                                                 slotKey === "A"
                                                     ? "responseA"
                                                     : "responseB";
+                                            const prev = mu[respKey]!;
+                                            const newRaw =
+                                                prev.rawContent + delta;
+                                            const extracted =
+                                                extractThinking(newRaw);
                                             mu[respKey] = {
-                                                ...mu[respKey]!,
-                                                content:
-                                                    mu[respKey]!.content +
-                                                    delta,
+                                                ...prev,
+                                                rawContent: newRaw,
+                                                content: extracted.content,
+                                                thinkingContent:
+                                                    extracted.thinking,
                                             };
                                         }
                                         return next;
@@ -502,29 +559,36 @@ export function Arena() {
                 }));
                 if (next[roundIdx]) {
                     next[roundIdx].matchups = next[roundIdx].matchups.map(
-                        (mu) => ({
-                            ...mu,
-                            responseA: mu.slotA
-                                ? {
-                                      model: mu.slotA.modelId,
-                                      content: "",
-                                      thinkingContent: "",
-                                      done: false,
-                                      error: null,
-                                      metrics: null,
-                                  }
-                                : null,
-                            responseB: mu.slotB
-                                ? {
-                                      model: mu.slotB.modelId,
-                                      content: "",
-                                      thinkingContent: "",
-                                      done: false,
-                                      error: null,
-                                      metrics: null,
-                                  }
-                                : null,
-                        }),
+                        (mu) => {
+                            const now = Date.now();
+                            return {
+                                ...mu,
+                                responseA: mu.slotA
+                                    ? {
+                                          model: mu.slotA.modelId,
+                                          rawContent: "",
+                                          content: "",
+                                          thinkingContent: "",
+                                          startTimeMs: now,
+                                          done: false,
+                                          error: null,
+                                          metrics: null,
+                                      }
+                                    : null,
+                                responseB: mu.slotB
+                                    ? {
+                                          model: mu.slotB.modelId,
+                                          rawContent: "",
+                                          content: "",
+                                          thinkingContent: "",
+                                          startTimeMs: now,
+                                          done: false,
+                                          error: null,
+                                          metrics: null,
+                                      }
+                                    : null,
+                            };
+                        },
                     );
                 }
                 return next;
@@ -583,13 +647,16 @@ export function Arena() {
                 matchups: r.matchups.map((m) => ({ ...m })),
             }));
             if (next[0]) {
+                const now = Date.now();
                 next[0].matchups = next[0].matchups.map((mu) => ({
                     ...mu,
                     responseA: mu.slotA
                         ? {
                               model: mu.slotA.modelId,
+                              rawContent: "",
                               content: "",
                               thinkingContent: "",
+                              startTimeMs: now,
                               done: false,
                               error: null,
                               metrics: null,
@@ -598,8 +665,10 @@ export function Arena() {
                     responseB: mu.slotB
                         ? {
                               model: mu.slotB.modelId,
+                              rawContent: "",
                               content: "",
                               thinkingContent: "",
+                              startTimeMs: now,
                               done: false,
                               error: null,
                               metrics: null,
@@ -749,8 +818,10 @@ export function Arena() {
                 if (next[roundIdx]?.matchups[matchupIdx]) {
                     next[roundIdx].matchups[matchupIdx][respKey] = {
                         model: slot.modelId,
+                        rawContent: "",
                         content: "",
                         thinkingContent: "",
+                        startTimeMs: Date.now(),
                         done: false,
                         error: null,
                         metrics: null,
@@ -821,8 +892,10 @@ export function Arena() {
                     };
                     next[roundIdx].matchups[matchupIdx][respKey] = {
                         model: newModelId,
+                        rawContent: "",
                         content: "",
                         thinkingContent: "",
+                        startTimeMs: Date.now(),
                         done: false,
                         error: null,
                         metrics: null,
@@ -1557,9 +1630,22 @@ function ResponseCard({
     showVote,
 }: ResponseCardProps) {
     const [thinkingOpen, setThinkingOpen] = useState(false);
+    const [elapsed, setElapsed] = useState(0);
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
     const hasThinking = response.thinkingContent.length > 0;
+    const isStreaming = !response.done;
+
+    useEffect(() => {
+        if (response.done || response.startTimeMs === 0) return;
+        const tick = () =>
+            setElapsed(
+                Math.round((Date.now() - response.startTimeMs) / 1000),
+            );
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [response.done, response.startTimeMs]);
 
     return (
         <div
@@ -1612,8 +1698,13 @@ function ResponseCard({
                             </button>
                         </>
                     )}
-                    {!response.done && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                    {isStreaming && (
+                        <>
+                            <span className="text-[11px] text-(--text-tertiary) tabular-nums">
+                                {elapsed}s
+                            </span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                        </>
                     )}
                     {isWinner && (
                         <Trophy size={14} className="text-amber-400" />
@@ -1621,35 +1712,31 @@ function ResponseCard({
                 </div>
             </div>
 
-            <div className="p-4 overflow-y-auto h-150">
+            <div className="p-4 overflow-y-auto h-100">
                 {response.error ? (
                     <div className="text-red-400 text-xs">
                         {response.error}
                     </div>
                 ) : (
                     <>
-                        {(hasThinking || !response.done) && (
+                        {hasThinking && (
                             <button
                                 onClick={() =>
-                                    hasThinking &&
                                     setThinkingOpen(!thinkingOpen)
                                 }
                                 className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
-                                    hasThinking && !response.done
+                                    isStreaming
                                         ? "text-(--accent) animate-pulse cursor-pointer"
-                                        : hasThinking
-                                          ? "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
-                                          : "text-(--accent)/70 cursor-default"
+                                        : "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
                                 }`}
                             >
                                 <Brain size={12} />
                                 <span>Thinking</span>
-                                {hasThinking &&
-                                    (thinkingOpen ? (
-                                        <ChevronDown size={12} />
-                                    ) : (
-                                        <ChevronRight size={12} />
-                                    ))}
+                                {thinkingOpen ? (
+                                    <ChevronDown size={12} />
+                                ) : (
+                                    <ChevronRight size={12} />
+                                )}
                             </button>
                         )}
                         {hasThinking && thinkingOpen && (
@@ -1663,7 +1750,7 @@ function ResponseCard({
                                     {response.content}
                                 </ReactMarkdown>
                             </div>
-                        ) : !hasThinking && !response.done ? (
+                        ) : !hasThinking && isStreaming ? (
                             <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
                                 Waiting...
