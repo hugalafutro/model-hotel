@@ -349,6 +349,11 @@ export function Settings() {
                     </div>
                 </div>
 
+                {/* Discovery Status */}
+                <div className="ui-card p-6">
+                    <ProviderDiscoveryList />
+                </div>
+
                 {/* Appearance */}
                 <div className="ui-card p-6">
                     <div className="flex items-center gap-2 mb-1">
@@ -506,7 +511,7 @@ export function Settings() {
                     </div>
                 </div>
 
-                {/* Toast Position */}
+                {/* Toast Notifications */}
                 <div className="ui-card p-6">
                     <div className="flex items-center gap-2 mb-1">
                         <Bell size={18} className="text-(--accent)" />
@@ -663,16 +668,11 @@ export function Settings() {
                     </div>
                 </div>
 
-                {/* Rate Limiting */}
-                <RateLimitSettings />
-
                 {/* Logging */}
                 <LoggingSettings />
 
-                {/* Provider List with Discovery Status */}
-                <div className="ui-card p-6">
-                    <ProviderDiscoveryList />
-                </div>
+                {/* Rate Limiting */}
+                <RateLimitSettings />
             </div>
 
             {pickerOpen && (

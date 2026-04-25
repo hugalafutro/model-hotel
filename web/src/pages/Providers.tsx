@@ -1077,7 +1077,7 @@ export function Providers() {
                     >
                         {discoverAllMutation.isPending ? (
                             <><Spinner /> Discovering...</>
-                        ) : "Discover All"}
+                        ) : "Discover All Models"}
                     </button>
                     <button
                         type="button"
