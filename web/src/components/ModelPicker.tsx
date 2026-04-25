@@ -20,6 +20,7 @@ interface SingleProps {
     maxSelections?: number;
     label?: string;
     providers?: ProviderInfo[];
+    align?: "left" | "right";
 }
 
 interface MultiProps {
@@ -30,6 +31,7 @@ interface MultiProps {
     maxSelections?: number;
     label?: string;
     providers?: ProviderInfo[];
+    align?: "left" | "right";
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -75,6 +77,7 @@ export function ModelPicker({
     maxSelections = Infinity,
     label,
     providers = [],
+    align,
 }: ModelPickerProps) {
     const [search, setSearch] = useState("");
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
@@ -217,7 +220,9 @@ export function ModelPicker({
                 </div>
             </div>
 
-            <div className="flex flex-wrap justify-between gap-1.5 max-h-40 overflow-y-auto pr-1">
+            <div
+                className={`flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"}`}
+            >
                 {filteredModels.map((m) => {
                     const val = proxyModelID(m.provider_name, m.model_id);
                     const isSelected = selectedSet.has(val);

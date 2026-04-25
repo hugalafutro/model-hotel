@@ -1,7 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useRef, useCallback, useEffect } from "react";
-import { MessageSquare, Send, X, Bot, Info, Clock, Zap } from "lucide-react";
+import {
+    MessageSquare,
+    Send,
+    X,
+    Bot,
+    Info,
+    Clock,
+    Zap,
+    Brain,
+    ChevronDown,
+    ChevronRight,
+} from "lucide-react";
 import type { Model } from "../api/types";
 import type { ChatMessage } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -9,6 +20,8 @@ import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CHAT_PERSONAS } from "../data/presets";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 function formatDuration(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
@@ -45,9 +58,90 @@ function formatPrice(n: number | null | undefined): string {
     return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
 }
 
+const THINKING_OPEN_RE = /<(?:thought|start_thought|think)>/g;
+const THINKING_CLOSE_RE = /<\/(?:thought|end_thought|think)>/g;
+
+function extractThinking(raw: string): {
+    thinking: string;
+    content: string;
+} {
+    let content = raw;
+    let thinking = "";
+
+    const fenceMatch = content.match(/^<<\s*\n([\s\S]*?)\n>>\s*\n?/);
+    if (fenceMatch) {
+        thinking = fenceMatch[1].trim();
+        content = content.slice(fenceMatch[0].length);
+    }
+
+    const tagOpen = content.search(/<(?:thought|start_thought|think)>/i);
+    if (tagOpen !== -1) {
+        const afterOpen = content.slice(tagOpen);
+        const closeMatch = afterOpen.match(
+            /<\/(?:thought|end_thought|think)>/i,
+        );
+        if (closeMatch) {
+            const tagLen = afterOpen.indexOf(">");
+            const closeEnd =
+                afterOpen.indexOf(closeMatch[0]) + closeMatch[0].length;
+            const inner = afterOpen.slice(
+                tagLen + 1,
+                afterOpen.indexOf(closeMatch[0]),
+            );
+            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
+            content =
+                content.slice(0, tagOpen) + content.slice(tagOpen + closeEnd);
+        } else {
+            const tagLen = afterOpen.indexOf(">");
+            const inner = afterOpen.slice(tagLen + 1);
+            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
+            content = content.slice(0, tagOpen);
+        }
+    }
+
+    content = content
+        .replace(THINKING_OPEN_RE, "")
+        .replace(THINKING_CLOSE_RE, "")
+        .trimStart();
+
+    return { thinking, content };
+}
+
 interface ModelDetailModalProps {
     model: Model;
     onClose: () => void;
+}
+
+function ChatThinkingBlock({
+    thinking,
+    isStreaming,
+}: {
+    thinking: string;
+    isStreaming: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <>
+            <button
+                onClick={() => setOpen(!open)}
+                className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
+                    isStreaming
+                        ? "text-(--accent) animate-pulse cursor-pointer"
+                        : "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
+                }`}
+            >
+                <Brain size={12} />
+                <span>Thinking</span>
+                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+            {open && (
+                <div className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto">
+                    {thinking}
+                </div>
+            )}
+        </>
+    );
 }
 
 function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
@@ -178,7 +272,7 @@ export function Chat() {
     const [isStreaming, setIsStreaming] = useState(false);
     const [detailModel, setDetailModel] = useState<Model | null>(null);
     const abortRef = useRef<AbortController | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const systemPromptRef = useRef<HTMLTextAreaElement>(null);
     const { toast } = useToast();
 
@@ -190,7 +284,8 @@ export function Chat() {
     );
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const el = messagesContainerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
     }, [messages]);
 
     const autoExpandTextarea = useCallback(
@@ -262,6 +357,8 @@ export function Chat() {
         abortRef.current = abortCtrl;
         const startTime = performance.now();
         let charCount = 0;
+        let promptTokens = 0;
+        let completionTokens = 0;
 
         const chatMessages: Array<{ role: string; content: string }> = [];
         if (systemPrompt.trim()) {
@@ -274,6 +371,8 @@ export function Chat() {
         const assistantMessage: ChatMessage = {
             role: "assistant",
             content: "",
+            rawContent: "",
+            thinkingContent: "",
             model: selectedModel,
             timestamp: Date.now(),
         };
@@ -309,12 +408,40 @@ export function Chat() {
                         const delta = chunk.choices?.[0]?.delta?.content;
                         if (delta) {
                             charCount += delta.length;
-                            assistantMessage.content += delta;
+                            assistantMessage.rawContent =
+                                (assistantMessage.rawContent || "") + delta;
+                            const extracted = extractThinking(
+                                assistantMessage.rawContent,
+                            );
+                            assistantMessage.content = extracted.content;
+                            assistantMessage.thinkingContent =
+                                extracted.thinking;
                             setMessages((prev) => {
                                 const next = [...prev];
-                                next[next.length - 1] = { ...assistantMessage };
+                                next[next.length - 1] = {
+                                    ...assistantMessage,
+                                };
                                 return next;
                             });
+                        }
+                        const thinkingDelta =
+                            chunk.choices?.[0]?.delta?.reasoning_content;
+                        if (thinkingDelta) {
+                            assistantMessage.thinkingContent =
+                                (assistantMessage.thinkingContent || "") +
+                                thinkingDelta;
+                            setMessages((prev) => {
+                                const next = [...prev];
+                                next[next.length - 1] = {
+                                    ...assistantMessage,
+                                };
+                                return next;
+                            });
+                        }
+                        if (chunk.usage) {
+                            promptTokens = chunk.usage.prompt_tokens ?? 0;
+                            completionTokens =
+                                chunk.usage.completion_tokens ?? 0;
                         }
                     } catch {
                         // ignore parse errors
@@ -329,6 +456,8 @@ export function Chat() {
             assistantMessage.metrics = {
                 tokensPerSecond,
                 durationMs: Math.round(durationMs),
+                promptTokens,
+                completionTokens,
             };
             setMessages((prev) => {
                 const next = [...prev];
@@ -341,6 +470,8 @@ export function Chat() {
             assistantMessage.metrics = {
                 tokensPerSecond: null,
                 durationMs: Math.round(performance.now() - startTime),
+                promptTokens: 0,
+                completionTokens: 0,
             };
             setMessages((prev) => {
                 const next = [...prev];
@@ -447,7 +578,10 @@ export function Chat() {
             </div>
 
             {/* Messages */}
-            <div className="space-y-4 min-h-75">
+            <div
+                ref={messagesContainerRef}
+                className="max-h-[calc(100vh-520px)] min-h-48 overflow-y-auto pr-1 space-y-4"
+            >
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
                         <Bot
@@ -462,6 +596,10 @@ export function Chat() {
                 {messages.map((msg, i) => {
                     if (msg.role === "system") return null;
                     const isUser = msg.role === "user";
+                    const hasThinking =
+                        !isUser && (msg.thinkingContent || "").length > 0;
+                    const isStreamingThis =
+                        isStreaming && i === messages.length - 1;
 
                     return (
                         <div
@@ -482,25 +620,39 @@ export function Chat() {
                                             className="text-(--accent)"
                                         />
                                         <span className="text-xs text-(--accent) font-medium">
-                                            {msg.model}
+                                            {msg.model.split("/").pop()}
                                         </span>
-                                        {isStreaming &&
-                                            i === messages.length - 1 && (
-                                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse ml-1" />
-                                            )}
+                                        {isStreamingThis && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse ml-1" />
+                                        )}
                                     </div>
                                 )}
-                                <div
-                                    className={`whitespace-pre-wrap text-sm ${
-                                        isUser ? "" : "text-(--text-primary)"
-                                    }`}
-                                >
-                                    {msg.content ||
-                                        (isStreaming &&
-                                        i === messages.length - 1
-                                            ? "Thinking..."
-                                            : "")}
-                                </div>
+                                {!isUser && hasThinking && (
+                                    <ChatThinkingBlock
+                                        thinking={msg.thinkingContent || ""}
+                                        isStreaming={isStreamingThis}
+                                    />
+                                )}
+                                {!isUser && msg.content ? (
+                                    <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                        >
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                ) : !isUser &&
+                                  !hasThinking &&
+                                  isStreamingThis ? (
+                                    <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                                        Waiting...
+                                    </div>
+                                ) : isUser ? (
+                                    <div className="whitespace-pre-wrap text-xs">
+                                        {msg.content}
+                                    </div>
+                                ) : null}
                                 <div
                                     className={`flex items-center gap-3 mt-2 text-[11px] ${
                                         isUser
@@ -527,6 +679,16 @@ export function Chat() {
                                                     tok/s
                                                 </span>
                                             )}
+                                            {msg.metrics.promptTokens +
+                                                msg.metrics.completionTokens >
+                                                0 && (
+                                                <span>
+                                                    {msg.metrics.promptTokens +
+                                                        msg.metrics
+                                                            .completionTokens}{" "}
+                                                    tok
+                                                </span>
+                                            )}
                                         </>
                                     )}
                                 </div>
@@ -534,7 +696,6 @@ export function Chat() {
                         </div>
                     );
                 })}
-                <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}

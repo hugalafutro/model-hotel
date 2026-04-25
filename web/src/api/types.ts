@@ -347,10 +347,14 @@ export interface ZAIQuotaResponse {
 export interface ChatMessage {
     role: "user" | "assistant" | "system";
     content: string;
+    rawContent?: string;
+    thinkingContent?: string;
     model?: string;
     timestamp: number;
     metrics?: {
         tokensPerSecond: number | null;
         durationMs: number;
+        promptTokens: number;
+        completionTokens: number;
     };
 }

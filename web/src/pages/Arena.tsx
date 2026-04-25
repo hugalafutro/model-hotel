@@ -1,12 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import {
-    useState,
-    useRef,
-    useCallback,
-    useMemo,
-    useEffect,
-} from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
     Swords,
     Play,
@@ -71,9 +65,7 @@ function extractThinking(raw: string): {
         content = content.slice(fenceMatch[0].length);
     }
 
-    const tagOpen = content.search(
-        /<(?:thought|start_thought|think)>/i,
-    );
+    const tagOpen = content.search(/<(?:thought|start_thought|think)>/i);
     if (tagOpen !== -1) {
         const afterOpen = content.slice(tagOpen);
         const closeMatch = afterOpen.match(
@@ -83,7 +75,10 @@ function extractThinking(raw: string): {
             const tagLen = afterOpen.indexOf(">");
             const closeEnd =
                 afterOpen.indexOf(closeMatch[0]) + closeMatch[0].length;
-            const inner = afterOpen.slice(tagLen + 1, afterOpen.indexOf(closeMatch[0]));
+            const inner = afterOpen.slice(
+                tagLen + 1,
+                afterOpen.indexOf(closeMatch[0]),
+            );
             thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
             content =
                 content.slice(0, tagOpen) + content.slice(tagOpen + closeEnd);
@@ -209,7 +204,8 @@ export function Arena() {
     const disabledReason = useMemo(() => {
         if (phase === "setup") {
             if (group1Models.length === 0) return "Select models for Match 1";
-            if (group1Models.length === 1) return "Pick 1 more model for Match 1";
+            if (group1Models.length === 1)
+                return "Pick 1 more model for Match 1";
             if (new Set(group1Models).size !== group1Models.length)
                 return "No duplicate models in Match 1";
             if (group2Models.length === 1)
@@ -703,7 +699,14 @@ export function Arena() {
                 );
             }
         }
-    }, [canRun, prompt, group1Models, group2Models, buildInitialRounds, streamModel]);
+    }, [
+        canRun,
+        prompt,
+        group1Models,
+        group2Models,
+        buildInitialRounds,
+        streamModel,
+    ]);
 
     const handleVote = useCallback(
         (roundIdx: number, matchupIdx: number, vote: "A" | "B") => {
@@ -1014,6 +1017,7 @@ export function Arena() {
                                 multi={true}
                                 maxSelections={2}
                                 providers={providerData}
+                                align="left"
                             />
                             {group1Models.length > 0 &&
                                 group1Models.length < 2 && (
@@ -1049,6 +1053,7 @@ export function Arena() {
                                 multi={true}
                                 maxSelections={2}
                                 providers={providerData}
+                                align="right"
                             />
                             {group2Models.length > 0 &&
                                 group2Models.length < 2 && (
@@ -1180,7 +1185,8 @@ export function Arena() {
                             title={
                                 phase === "setup" && !canRun
                                     ? disabledReason
-                                    : phase === "voting" && !allCurrentRoundVoted
+                                    : phase === "voting" &&
+                                        !allCurrentRoundVoted
                                       ? disabledReason
                                       : undefined
                             }
@@ -1295,20 +1301,42 @@ export function Arena() {
                                                 {mu.slotA === null &&
                                                 roundIdx === currentRound ? (
                                                     <SwapPicker
-                                                        enabledModels={enabledModels}
-                                                        disabledModels={disabledModels}
+                                                        enabledModels={
+                                                            enabledModels
+                                                        }
+                                                        disabledModels={
+                                                            disabledModels
+                                                        }
                                                         alreadyUsed={[
                                                             ...round.matchups.flatMap(
                                                                 (m, mi) => {
-                                                                    if (mi === matchupIdx) return [];
-                                                                    const ids: string[] = [];
-                                                                    if (m.slotA) ids.push(m.slotA.modelId);
-                                                                    if (m.slotB) ids.push(m.slotB.modelId);
+                                                                    if (
+                                                                        mi ===
+                                                                        matchupIdx
+                                                                    )
+                                                                        return [];
+                                                                    const ids: string[] =
+                                                                        [];
+                                                                    if (m.slotA)
+                                                                        ids.push(
+                                                                            m
+                                                                                .slotA
+                                                                                .modelId,
+                                                                        );
+                                                                    if (m.slotB)
+                                                                        ids.push(
+                                                                            m
+                                                                                .slotB
+                                                                                .modelId,
+                                                                        );
                                                                     return ids;
                                                                 },
                                                             ),
                                                             ...(mu.slotB
-                                                                ? [mu.slotB.modelId]
+                                                                ? [
+                                                                      mu.slotB
+                                                                          .modelId,
+                                                                  ]
                                                                 : []),
                                                         ]}
                                                         onSelect={(modelId) =>
@@ -1323,20 +1351,30 @@ export function Arena() {
                                                 ) : (
                                                     mu.responseA && (
                                                         <ResponseCard
-                                                            response={mu.responseA}
+                                                            response={
+                                                                mu.responseA
+                                                            }
                                                             vote={mu.vote}
                                                             slotKey="A"
                                                             roundIdx={roundIdx}
-                                                            matchupIdx={matchupIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
                                                             onVote={handleVote}
-                                                            onRetry={handleRetrySlot}
-                                                            onSwapModel={handleSwapModel}
+                                                            onRetry={
+                                                                handleRetrySlot
+                                                            }
+                                                            onSwapModel={
+                                                                handleSwapModel
+                                                            }
                                                             showVote={
                                                                 roundIdx <=
                                                                     currentRound &&
-                                                                mu.responseA.done &&
+                                                                mu.responseA
+                                                                    .done &&
                                                                 (!mu.responseB ||
-                                                                    mu.responseB.done)
+                                                                    mu.responseB
+                                                                        .done)
                                                             }
                                                         />
                                                     )
@@ -1344,20 +1382,42 @@ export function Arena() {
                                                 {mu.slotB === null &&
                                                 roundIdx === currentRound ? (
                                                     <SwapPicker
-                                                        enabledModels={enabledModels}
-                                                        disabledModels={disabledModels}
+                                                        enabledModels={
+                                                            enabledModels
+                                                        }
+                                                        disabledModels={
+                                                            disabledModels
+                                                        }
                                                         alreadyUsed={[
                                                             ...round.matchups.flatMap(
                                                                 (m, mi) => {
-                                                                    if (mi === matchupIdx) return [];
-                                                                    const ids: string[] = [];
-                                                                    if (m.slotA) ids.push(m.slotA.modelId);
-                                                                    if (m.slotB) ids.push(m.slotB.modelId);
+                                                                    if (
+                                                                        mi ===
+                                                                        matchupIdx
+                                                                    )
+                                                                        return [];
+                                                                    const ids: string[] =
+                                                                        [];
+                                                                    if (m.slotA)
+                                                                        ids.push(
+                                                                            m
+                                                                                .slotA
+                                                                                .modelId,
+                                                                        );
+                                                                    if (m.slotB)
+                                                                        ids.push(
+                                                                            m
+                                                                                .slotB
+                                                                                .modelId,
+                                                                        );
                                                                     return ids;
                                                                 },
                                                             ),
                                                             ...(mu.slotA
-                                                                ? [mu.slotA.modelId]
+                                                                ? [
+                                                                      mu.slotA
+                                                                          .modelId,
+                                                                  ]
                                                                 : []),
                                                         ]}
                                                         onSelect={(modelId) =>
@@ -1372,20 +1432,30 @@ export function Arena() {
                                                 ) : (
                                                     mu.responseB && (
                                                         <ResponseCard
-                                                            response={mu.responseB}
+                                                            response={
+                                                                mu.responseB
+                                                            }
                                                             vote={mu.vote}
                                                             slotKey="B"
                                                             roundIdx={roundIdx}
-                                                            matchupIdx={matchupIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
                                                             onVote={handleVote}
-                                                            onRetry={handleRetrySlot}
-                                                            onSwapModel={handleSwapModel}
+                                                            onRetry={
+                                                                handleRetrySlot
+                                                            }
+                                                            onSwapModel={
+                                                                handleSwapModel
+                                                            }
                                                             showVote={
                                                                 roundIdx <=
                                                                     currentRound &&
-                                                                mu.responseB.done &&
+                                                                mu.responseB
+                                                                    .done &&
                                                                 (!mu.responseA ||
-                                                                    mu.responseA.done)
+                                                                    mu.responseA
+                                                                        .done)
                                                             }
                                                         />
                                                     )
@@ -1611,11 +1681,7 @@ interface ResponseCardProps {
     roundIdx: number;
     matchupIdx: number;
     onVote: (roundIdx: number, matchupIdx: number, vote: "A" | "B") => void;
-    onRetry: (
-        roundIdx: number,
-        matchupIdx: number,
-        slotKey: "A" | "B",
-    ) => void;
+    onRetry: (roundIdx: number, matchupIdx: number, slotKey: "A" | "B") => void;
     onSwapModel: (
         roundIdx: number,
         matchupIdx: number,
@@ -1646,9 +1712,7 @@ function ResponseCard({
     useEffect(() => {
         if (response.done || response.startTimeMs === 0) return;
         const tick = () =>
-            setElapsed(
-                Math.round((Date.now() - response.startTimeMs) / 1000),
-            );
+            setElapsed(Math.round((Date.now() - response.startTimeMs) / 1000));
         tick();
         const id = setInterval(tick, 1000);
         return () => clearInterval(id);
@@ -1721,16 +1785,12 @@ function ResponseCard({
 
             <div className="p-4 overflow-y-auto h-100">
                 {response.error ? (
-                    <div className="text-red-400 text-xs">
-                        {response.error}
-                    </div>
+                    <div className="text-red-400 text-xs">{response.error}</div>
                 ) : (
                     <>
                         {hasThinking && (
                             <button
-                                onClick={() =>
-                                    setThinkingOpen(!thinkingOpen)
-                                }
+                                onClick={() => setThinkingOpen(!thinkingOpen)}
                                 className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
                                     isStreaming
                                         ? "text-(--accent) animate-pulse cursor-pointer"
@@ -1777,12 +1837,20 @@ function ResponseCard({
                         {response.metrics.tokensPerSecond !== null && (
                             <span className="flex items-center gap-1">
                                 <Zap size={10} />
-                                {response.metrics.tokensPerSecond.toFixed(1)}{" "}
+                                {response.metrics.tokensPerSecond.toFixed(
+                                    1,
+                                )}{" "}
                                 tok/s
                             </span>
                         )}
-                        {response.metrics.completionTokens > 0 && (
-                            <span>{response.metrics.completionTokens} tok</span>
+                        {response.metrics.promptTokens +
+                            response.metrics.completionTokens >
+                            0 && (
+                            <span>
+                                {response.metrics.promptTokens +
+                                    response.metrics.completionTokens}{" "}
+                                tok
+                            </span>
                         )}
                     </div>
                 )}
