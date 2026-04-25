@@ -14,8 +14,11 @@ import {
     GitBranch,
     MessageSquare,
     Swords,
+    Sun,
+    Moon,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { useTheme } from "../context/ThemeContext";
 
 const u = "text-(--text-muted)";
 
@@ -23,30 +26,98 @@ function formatDuration(seconds: number) {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return <>{d}<span className={u}>d</span> {h}<span className={u}>h</span></>;
-    if (h > 0) return <>{h}<span className={u}>h</span> {m}<span className={u}>m</span></>;
-    return <>{m}<span className={u}>m</span></>;
+    if (d > 0)
+        return (
+            <>
+                {d}
+                <span className={u}>d</span> {h}
+                <span className={u}>h</span>
+            </>
+        );
+    if (h > 0)
+        return (
+            <>
+                {h}
+                <span className={u}>h</span> {m}
+                <span className={u}>m</span>
+            </>
+        );
+    return (
+        <>
+            {m}
+            <span className={u}>m</span>
+        </>
+    );
 }
 
 function formatNumber(n: number) {
-    if (n >= 1_000_000) return <>{(n / 1_000_000).toFixed(1)}<span className={u}>M</span></>;
-    if (n >= 1_000) return <>{(n / 1_000).toFixed(1)}<span className={u}>K</span></>;
+    if (n >= 1_000_000)
+        return (
+            <>
+                {(n / 1_000_000).toFixed(1)}
+                <span className={u}>M</span>
+            </>
+        );
+    if (n >= 1_000)
+        return (
+            <>
+                {(n / 1_000).toFixed(1)}
+                <span className={u}>K</span>
+            </>
+        );
     return n.toLocaleString();
 }
 
 function formatMB(mb: number) {
-    if (mb < 1) return <>{mb.toFixed(1)}<span className={u}> MB</span></>;
-    if (mb >= 1024) return <>{(mb / 1024).toFixed(1)}<span className={u}> GB</span></>;
-    return <>{Math.round(mb)}<span className={u}> MB</span></>;
+    if (mb < 1)
+        return (
+            <>
+                {mb.toFixed(1)}
+                <span className={u}> MB</span>
+            </>
+        );
+    if (mb >= 1024)
+        return (
+            <>
+                {(mb / 1024).toFixed(1)}
+                <span className={u}> GB</span>
+            </>
+        );
+    return (
+        <>
+            {Math.round(mb)}
+            <span className={u}> MB</span>
+        </>
+    );
 }
 
 function formatBytesPerSec(bytesPerSec: number) {
-    if (bytesPerSec <= 0) return <>0<span className={u}> B/s</span></>;
+    if (bytesPerSec <= 0)
+        return (
+            <>
+                0<span className={u}> B/s</span>
+            </>
+        );
     if (bytesPerSec >= 1024 * 1024)
-        return <>{(bytesPerSec / 1024 / 1024).toFixed(1)}<span className={u}> MB/s</span></>;
+        return (
+            <>
+                {(bytesPerSec / 1024 / 1024).toFixed(1)}
+                <span className={u}> MB/s</span>
+            </>
+        );
     if (bytesPerSec >= 1024)
-        return <>{(bytesPerSec / 1024).toFixed(1)}<span className={u}> KB/s</span></>;
-    return <>{Math.round(bytesPerSec)}<span className={u}> B/s</span></>;
+        return (
+            <>
+                {(bytesPerSec / 1024).toFixed(1)}
+                <span className={u}> KB/s</span>
+            </>
+        );
+    return (
+        <>
+            {Math.round(bytesPerSec)}
+            <span className={u}> B/s</span>
+        </>
+    );
 }
 
 function SystemStatus() {
@@ -69,17 +140,32 @@ function SystemStatus() {
     const procs = useDocker ? docker.procs : app?.procs;
     const netRx = useDocker ? docker.net_rx_bytes_sec : app?.net_rx_bytes_sec;
     const netTx = useDocker ? docker.net_tx_bytes_sec : app?.net_tx_bytes_sec;
-    const diskRead = useDocker ? docker.disk_read_bytes_sec : app?.disk_read_bytes_sec;
-    const diskWrite = useDocker ? docker.disk_write_bytes_sec : app?.disk_write_bytes_sec;
+    const diskRead = useDocker
+        ? docker.disk_read_bytes_sec
+        : app?.disk_read_bytes_sec;
+    const diskWrite = useDocker
+        ? docker.disk_write_bytes_sec
+        : app?.disk_write_bytes_sec;
 
     const dockerMem = useDocker && docker.memory_limit_bytes > 0;
-    const appMem = dockerMem
-        ? <>{formatMB(docker.memory_usage_bytes / 1024 / 1024)} / {formatMB(docker.memory_limit_bytes / 1024 / 1024)}</>
-        : hasLimit
-          ? <>{formatMB(app.memory_current_bytes / 1024 / 1024)} / {formatMB(app.memory_limit_bytes / 1024 / 1024)}</>
-          : app
-            ? <>{formatMB(app.heap_alloc_mb)}<span className={u}> heap</span></>
-            : "-";
+    const appMem = dockerMem ? (
+        <>
+            {formatMB(docker.memory_usage_bytes / 1024 / 1024)} /{" "}
+            {formatMB(docker.memory_limit_bytes / 1024 / 1024)}
+        </>
+    ) : hasLimit ? (
+        <>
+            {formatMB(app.memory_current_bytes / 1024 / 1024)} /{" "}
+            {formatMB(app.memory_limit_bytes / 1024 / 1024)}
+        </>
+    ) : app ? (
+        <>
+            {formatMB(app.heap_alloc_mb)}
+            <span className={u}> heap</span>
+        </>
+    ) : (
+        "-"
+    );
 
     const dash = <span className="text-(--text-muted)">-</span>;
 
@@ -91,8 +177,12 @@ function SystemStatus() {
                 title="Proxy API health status"
             >
                 <span>API Status</span>
-                <span className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`} />
+                <span
+                    className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}
+                >
+                    <span
+                        className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`}
+                    />
                     {isError ? "Error" : "Online"}
                 </span>
             </div>
@@ -111,40 +201,65 @@ function SystemStatus() {
             {/* CPU + Processes */}
             <div
                 className="flex justify-between items-center text-(--text-tertiary)"
-                title={useDocker
-                    ? `Aggregate CPU across ${docker.container_count} compose containers`
-                    : "Container CPU usage and process count from cgroup"}
+                title={
+                    useDocker
+                        ? `Aggregate CPU across ${docker.container_count} compose containers`
+                        : "Container CPU usage and process count from cgroup"
+                }
             >
                 <span>CPU</span>
                 <span className="text-(--text-secondary)">
                     {cpuPct != null && cpuPct >= 0 ? (
                         <>
-                            <span>{cpuPct.toFixed(1)}<span className={u}>%</span></span>
+                            <span>
+                                {cpuPct.toFixed(1)}
+                                <span className={u}>%</span>
+                            </span>
                             {procs != null && procs > 0 && (
                                 <>
-                                    <span className="text-(--text-secondary) mx-1">|</span>
-                                    <span>{procs}<span className={u}> proc{procs !== 1 ? "s" : ""}</span></span>
+                                    <span className="text-(--text-secondary) mx-1">
+                                        |
+                                    </span>
+                                    <span>
+                                        {procs}
+                                        <span className={u}>
+                                            {" "}
+                                            proc{procs !== 1 ? "s" : ""}
+                                        </span>
+                                    </span>
                                 </>
                             )}
                         </>
-                    ) : dash}
+                    ) : (
+                        dash
+                    )}
                 </span>
             </div>
 
             {/* Network */}
             <div
                 className="flex justify-between items-center text-(--text-tertiary)"
-                title={useDocker
-                    ? `Aggregate network across ${docker.container_count} compose containers`
-                    : "Container network throughput (receive / transmit)"}
+                title={
+                    useDocker
+                        ? `Aggregate network across ${docker.container_count} compose containers`
+                        : "Container network throughput (receive / transmit)"
+                }
             >
                 <span>Network</span>
                 <span className="text-(--text-secondary) tabular-nums">
                     <span className="text-sky-400/60 inline-block min-w-22 text-right">
-                        {typeof netRx === "number" ? <>↓{formatBytesPerSec(netRx)}</> : dash}
+                        {typeof netRx === "number" ? (
+                            <>↓{formatBytesPerSec(netRx)}</>
+                        ) : (
+                            dash
+                        )}
                     </span>
                     <span className="text-amber-400/60 inline-block min-w-22 text-right">
-                        {typeof netTx === "number" ? <>↑{formatBytesPerSec(netTx)}</> : dash}
+                        {typeof netTx === "number" ? (
+                            <>↑{formatBytesPerSec(netTx)}</>
+                        ) : (
+                            dash
+                        )}
                     </span>
                 </span>
             </div>
@@ -152,17 +267,27 @@ function SystemStatus() {
             {/* Disk I/O */}
             <div
                 className="flex justify-between items-center text-(--text-tertiary)"
-                title={useDocker
-                    ? `Aggregate disk I/O across ${docker.container_count} compose containers`
-                    : "Container disk I/O throughput (read / write)"}
+                title={
+                    useDocker
+                        ? `Aggregate disk I/O across ${docker.container_count} compose containers`
+                        : "Container disk I/O throughput (read / write)"
+                }
             >
                 <span>Disk</span>
                 <span className="text-(--text-secondary) tabular-nums">
                     <span className="text-sky-400/60 inline-block min-w-22 text-right">
-                        {typeof diskRead === "number" ? <>↓{formatBytesPerSec(diskRead)}</> : dash}
+                        {typeof diskRead === "number" ? (
+                            <>↓{formatBytesPerSec(diskRead)}</>
+                        ) : (
+                            dash
+                        )}
                     </span>
                     <span className="text-amber-400/60 inline-block min-w-22 text-right">
-                        {typeof diskWrite === "number" ? <>↑{formatBytesPerSec(diskWrite)}</> : dash}
+                        {typeof diskWrite === "number" ? (
+                            <>↑{formatBytesPerSec(diskWrite)}</>
+                        ) : (
+                            dash
+                        )}
                     </span>
                 </span>
             </div>
@@ -170,11 +295,13 @@ function SystemStatus() {
             {/* Memory */}
             <div
                 className="flex justify-between items-center text-(--text-tertiary)"
-                title={dockerMem
-                    ? `Aggregate memory across ${docker.container_count} compose containers`
-                    : hasLimit
-                      ? "Container memory usage vs cgroup limit"
-                      : "Go runtime heap allocation"}
+                title={
+                    dockerMem
+                        ? `Aggregate memory across ${docker.container_count} compose containers`
+                        : hasLimit
+                          ? "Container memory usage vs cgroup limit"
+                          : "Go runtime heap allocation"
+                }
             >
                 <span>Memory</span>
                 <span className="text-(--text-secondary)">
@@ -200,7 +327,9 @@ function SystemStatus() {
             >
                 <span>Total Req</span>
                 <span className="text-(--text-secondary)">
-                    {app && app.total_requests > 0 ? formatNumber(app.total_requests) : dash}
+                    {app && app.total_requests > 0
+                        ? formatNumber(app.total_requests)
+                        : dash}
                 </span>
             </div>
 
@@ -216,16 +345,24 @@ function SystemStatus() {
                             <span className="text-(--text-secondary)">
                                 {formatMB(stats.db.size_mb)}
                             </span>
-                            <span className="text-(--text-secondary) mx-1">|</span>
-                            <span className="text-(--text-secondary)">
-                                {stats.db.connections}<span className={u}> conn</span>
+                            <span className="text-(--text-secondary) mx-1">
+                                |
                             </span>
-                            <span className="text-(--text-secondary) mx-1">|</span>
                             <span className="text-(--text-secondary)">
-                                Hit {stats.db.cache_hit_ratio}<span className={u}>%</span>
+                                {stats.db.connections}
+                                <span className={u}> conn</span>
+                            </span>
+                            <span className="text-(--text-secondary) mx-1">
+                                |
+                            </span>
+                            <span className="text-(--text-secondary)">
+                                Hit {stats.db.cache_hit_ratio}
+                                <span className={u}>%</span>
                             </span>
                         </>
-                    ) : dash}
+                    ) : (
+                        dash
+                    )}
                 </span>
             </div>
         </div>
@@ -239,6 +376,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
     const location = useLocation();
     const navigate = useNavigate();
+    const { theme, setTheme } = useTheme();
 
     const navigation = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -306,16 +444,34 @@ export function Layout({ children }: LayoutProps) {
                             href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
                             <BookOpen size={14} strokeWidth={2} />
                             Docs
                         </a>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setTheme(theme === "dark" ? "light" : "dark")
+                            }
+                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            title={
+                                theme === "dark"
+                                    ? "Switch to light mode"
+                                    : "Switch to dark mode"
+                            }
+                        >
+                            {theme === "dark" ? (
+                                <Moon size={14} strokeWidth={2} />
+                            ) : (
+                                <Sun size={14} strokeWidth={2} />
+                            )}
+                        </button>
                         <a
                             href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
                             <GitBranch size={14} strokeWidth={2} />
                             GitHub
