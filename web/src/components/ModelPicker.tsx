@@ -83,7 +83,7 @@ export function ModelPicker({
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
         new Set(),
     );
-    const [sortMode, setSortMode] = useState<SortMode>("provider");
+    const [sortMode, setSortMode] = useState<SortMode>("model");
 
     const selectedSet = useMemo(() => {
         if (multi) return new Set(selected as string[]);
@@ -187,14 +187,39 @@ export function ModelPicker({
                     placeholder="Filter models..."
                     className="w-[320px]"
                 />
-                <select
-                    value={sortMode}
-                    onChange={(e) => setSortMode(e.target.value as SortMode)}
-                    className="ui-input h-9 py-0! w-auto! text-xs pr-6!"
-                >
-                    <option value="provider">By Provider</option>
-                    <option value="model">By Model</option>
-                </select>
+                <div className="flex items-center gap-2 text-xs">
+                    <button
+                        onClick={() => setSortMode("model")}
+                        className={`transition-colors ${sortMode === "model" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
+                    >
+                        Name
+                    </button>
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-(--border-subtle) bg-(--surface-hover)">
+                        <button
+                            onClick={() => setSortMode("model")}
+                            className="flex items-center"
+                        >
+                            <span
+                                className={`w-2 h-2 rounded-full transition-colors ${sortMode === "model" ? "bg-(--accent)" : "border border-(--border-subtle)"}`}
+                            />
+                        </button>
+                        <span className="text-(--text-muted)">Sort by</span>
+                        <button
+                            onClick={() => setSortMode("provider")}
+                            className="flex items-center"
+                        >
+                            <span
+                                className={`w-2 h-2 rounded-full transition-colors ${sortMode === "provider" ? "bg-(--accent)" : "border border-(--border-subtle)"}`}
+                            />
+                        </button>
+                    </div>
+                    <button
+                        onClick={() => setSortMode("provider")}
+                        className={`transition-colors ${sortMode === "provider" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
+                    >
+                        Provider
+                    </button>
+                </div>
                 <div className="flex flex-wrap gap-1">
                     {providerNames.map((name) => {
                         const active = providerFilter.has(name);

@@ -18,6 +18,7 @@ import { useToast } from "../context/ToastContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { CAP_META } from "../components/capMeta";
 import { CHAT_PERSONAS } from "../data/presets";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -140,9 +141,6 @@ function ChatThinkingBlock({
 
 function ModelDetailPill({ model }: { model: Model }) {
     const caps = parseCapabilities(model.capabilities);
-    const capList = Object.entries(caps)
-        .filter(([, v]) => v)
-        .map(([k]) => k.replace(/_/g, " "));
 
     return (
         <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto min-h-80">
@@ -215,18 +213,18 @@ function ModelDetailPill({ model }: { model: Model }) {
                 </div>
             </div>
 
-            {capList.length > 0 && (
+            {CAP_META.some((m) => caps[m.key]) && (
                 <div>
                     <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
                         Capabilities
                     </span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                        {capList.map((c) => (
+                        {CAP_META.filter((m) => caps[m.key]).map((m) => (
                             <span
-                                key={c}
-                                className="px-1.5 py-0.5 text-[10px] rounded-full bg-(--accent)/10 text-(--accent) border border-(--accent)/20"
+                                key={m.key}
+                                className={`px-1.5 py-0.5 text-[10px] rounded-full border ${m.style}`}
                             >
-                                {c}
+                                {m.label}
                             </span>
                         ))}
                     </div>

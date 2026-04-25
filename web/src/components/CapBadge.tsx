@@ -1,0 +1,28 @@
+import type { ModelCapabilities } from "../api/types";
+import { CAP_META, hasCap, type CapKey } from "./capMeta";
+
+export function CapBadge({
+    caps,
+    capKey,
+    variant = "active",
+}: {
+    caps: ModelCapabilities | null;
+    capKey: CapKey;
+    variant?: "active" | "muted" | "disabled";
+}) {
+    const meta = CAP_META.find((m) => m.key === capKey);
+    if (!meta || !hasCap(caps, capKey)) return null;
+    const style =
+        variant === "muted"
+            ? meta.muted
+            : variant === "disabled"
+              ? meta.disabled
+              : meta.style;
+    return (
+        <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium border ${style}`}
+        >
+            {meta.label}
+        </span>
+    );
+}
