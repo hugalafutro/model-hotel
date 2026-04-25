@@ -402,6 +402,7 @@ export function Chat() {
                             onChange={(e) => setSystemPrompt(e.target.value)}
                             placeholder="You are a helpful assistant..."
                             rows={3}
+                            maxLength={5000}
                             className="ui-input w-full resize-none text-sm"
                         />
                     </div>
@@ -504,7 +505,12 @@ export function Chat() {
                 <div className="flex items-end gap-3">
                     <textarea
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={(e) => {
+                            setInput(e.target.value);
+                            e.target.style.height = "auto";
+                            e.target.style.height =
+                                e.target.scrollHeight + "px";
+                        }}
                         onKeyDown={handleKeyDown}
                         placeholder={
                             selectedModel
@@ -513,7 +519,8 @@ export function Chat() {
                         }
                         disabled={!selectedModel || isStreaming}
                         rows={1}
-                        className="flex-1 ui-input resize-none max-h-32 min-h-11"
+                        maxLength={10000}
+                        className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
                         style={{ height: "auto" }}
                     />
                     <button

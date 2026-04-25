@@ -294,10 +294,16 @@ export function Arena() {
                     </label>
                     <textarea
                         value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
+                        onChange={(e) => {
+                            setPrompt(e.target.value);
+                            e.target.style.height = "auto";
+                            e.target.style.height =
+                                e.target.scrollHeight + "px";
+                        }}
                         placeholder="Enter your prompt..."
-                        rows={3}
-                        className="ui-input w-full resize-none"
+                        rows={1}
+                        maxLength={10000}
+                        className="ui-input w-full resize-none max-h-32 overflow-y-auto"
                     />
                 </div>
 
@@ -343,6 +349,7 @@ export function Arena() {
                             onChange={(e) => setSystemPrompt(e.target.value)}
                             placeholder="You are a helpful assistant..."
                             rows={2}
+                            maxLength={5000}
                             className="ui-input w-full resize-none text-sm"
                         />
                     </div>
