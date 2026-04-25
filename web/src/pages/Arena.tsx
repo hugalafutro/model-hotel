@@ -710,6 +710,9 @@ export function Arena() {
 
     const handleVote = useCallback(
         (roundIdx: number, matchupIdx: number, vote: "A" | "B") => {
+            let shouldAdvance = false;
+            let advanceRoundIdx = -1;
+
             setRounds((prev) => {
                 const next = prev.map((r) => ({
                     ...r,
@@ -719,10 +722,43 @@ export function Arena() {
                 if (mu) {
                     mu.vote = mu.vote === vote ? null : vote;
                 }
+
+                if (
+                    roundIdx === currentRoundRef.current &&
+                    mu?.vote !== null &&
+                    next[roundIdx].matchups.every((m) => m.vote !== null) &&
+                    roundIdx < next.length - 1
+                ) {
+                    shouldAdvance = true;
+                    advanceRoundIdx = roundIdx;
+
+                    const winners = next[roundIdx].matchups.map((m) =>
+                        m.vote === "A" ? m.slotA : m.slotB,
+                    );
+                    const nextRoundIdx = roundIdx + 1;
+                    if (next[nextRoundIdx] && winners.length >= 2) {
+                        next[nextRoundIdx].matchups[0] = {
+                            slotA: winners[0] ? { ...winners[0] } : null,
+                            slotB: winners[1] ? { ...winners[1] } : null,
+                            responseA: null,
+                            responseB: null,
+                            vote: null,
+                        };
+                    }
+                }
+
                 return next;
             });
+
+            if (shouldAdvance) {
+                const nextRI = advanceRoundIdx + 1;
+                setCurrentRound(nextRI);
+                currentRoundRef.current = nextRI;
+                setPhase("running");
+                queueMicrotask(() => runRound(nextRI));
+            }
         },
-        [],
+        [runRound],
     );
 
     const handleAdvanceRound = useCallback(() => {
@@ -963,11 +999,9 @@ export function Arena() {
     const buttonLabel = useMemo(() => {
         if (isRunning) return "Stop";
         if (phase === "setup") return "Run Arena";
-        if (phase === "next_round_ready")
-            return `Run Round ${currentRound + 1}`;
         if (phase === "voting" && allCurrentRoundVoted) {
             const isLastRound = currentRound >= rounds.length - 1;
-            return isLastRound ? "Confirm Winner" : "Advance to Next Round";
+            return isLastRound ? "Confirm Winner" : null;
         }
         return null;
     }, [isRunning, phase, currentRound, allCurrentRoundVoted, rounds.length]);
@@ -1074,77 +1108,93 @@ export function Arena() {
                 {/* Bracket Grid */}
                 {rounds.length > 0 && (
                     <div className="space-y-3">
-                        <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
-                            {rounds.map((round, roundIdx) => (
-                                <div
-                                    key={roundIdx}
-                                    className={`flex items-center gap-2 shrink-0 transition-opacity duration-500 ${
-                                        roundIdx > currentRound + 1 ||
-                                        (roundIdx > currentRound &&
-                                            phase === "voting")
-                                            ? "opacity-30"
-                                            : roundIdx > currentRound
-                                              ? "opacity-50"
-                                              : "opacity-100"
-                                    }`}
-                                >
-                                    <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
-                                        Round {roundIdx + 1}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {round.matchups.map(
-                                            (mu, matchupIdx) => (
-                                                <div
-                                                    key={matchupIdx}
-                                                    className="flex items-center gap-2"
-                                                >
-                                                    <MatchupCard
-                                                        slot={mu.slotA}
-                                                        slotKey="A"
-                                                        roundIdx={roundIdx}
-                                                        matchupIdx={matchupIdx}
-                                                        vote={mu.vote}
-                                                        response={mu.responseA}
-                                                        isRunning={isRunning}
-                                                        phase={phase}
-                                                        onPersonaChange={
-                                                            handlePersonaChange
-                                                        }
-                                                        onVote={handleVote}
-                                                    />
-                                                    <span className="text-(--accent) font-bold text-xs px-1">
-                                                        VS
-                                                    </span>
-                                                    <MatchupCard
-                                                        slot={mu.slotB}
-                                                        slotKey="B"
-                                                        roundIdx={roundIdx}
-                                                        matchupIdx={matchupIdx}
-                                                        vote={mu.vote}
-                                                        response={mu.responseB}
-                                                        isRunning={isRunning}
-                                                        phase={phase}
-                                                        onPersonaChange={
-                                                            handlePersonaChange
-                                                        }
-                                                        onVote={handleVote}
-                                                    />
-                                                </div>
-                                            ),
-                                        )}
-                                    </div>
-                                    {roundIdx < rounds.length - 1 && (
-                                        <div className="text-(--text-tertiary) text-xs mx-2">
-                                            →
+                        <div className="flex flex-col gap-3">
+                            {rounds.map((round, roundIdx) => {
+                                if (
+                                    phase !== "setup" &&
+                                    roundIdx < currentRound
+                                )
+                                    return null;
+                                const isLastRound =
+                                    roundIdx === rounds.length - 1 &&
+                                    rounds.length > 1;
+                                return (
+                                    <div
+                                        key={roundIdx}
+                                        className={`flex items-center gap-2 transition-opacity duration-500 ${
+                                            roundIdx > currentRound + 1 ||
+                                            (roundIdx > currentRound &&
+                                                phase === "voting")
+                                                ? "opacity-30"
+                                                : roundIdx > currentRound
+                                                  ? "opacity-50"
+                                                  : "opacity-100"
+                                        }`}
+                                    >
+                                        <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
+                                            {isLastRound
+                                                ? "Final Round"
+                                                : `Round ${roundIdx + 1}`}
                                         </div>
-                                    )}
-                                </div>
-                            ))}
-                            {phase === "finished" && (
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <div className="text-(--accent) text-xs font-bold mx-2">
-                                        →
+                                        <div className="flex items-center gap-2">
+                                            {round.matchups.map(
+                                                (mu, matchupIdx) => (
+                                                    <div
+                                                        key={matchupIdx}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <MatchupCard
+                                                            slot={mu.slotA}
+                                                            slotKey="A"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            vote={mu.vote}
+                                                            response={
+                                                                mu.responseA
+                                                            }
+                                                            isRunning={
+                                                                isRunning
+                                                            }
+                                                            phase={phase}
+                                                            onPersonaChange={
+                                                                handlePersonaChange
+                                                            }
+                                                            onVote={handleVote}
+                                                        />
+                                                        <span className="text-(--accent) font-bold text-xs px-1">
+                                                            VS
+                                                        </span>
+                                                        <MatchupCard
+                                                            slot={mu.slotB}
+                                                            slotKey="B"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            vote={mu.vote}
+                                                            response={
+                                                                mu.responseB
+                                                            }
+                                                            isRunning={
+                                                                isRunning
+                                                            }
+                                                            phase={phase}
+                                                            onPersonaChange={
+                                                                handlePersonaChange
+                                                            }
+                                                            onVote={handleVote}
+                                                        />
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
                                     </div>
+                                );
+                            })}
+                            {phase === "finished" && (
+                                <div className="flex items-center gap-2">
                                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
                                         <Trophy
                                             size={14}
@@ -1524,6 +1574,43 @@ interface MatchupCardProps {
     onVote: (roundIdx: number, matchupIdx: number, vote: "A" | "B") => void;
 }
 
+function VoteThumb({
+    size,
+    isWinner,
+    animating,
+}: {
+    size: number;
+    isWinner: boolean;
+    animating: boolean;
+}) {
+    const [showUp, setShowUp] = useState(false);
+
+    useEffect(() => {
+        if (!animating) return;
+        const id = setInterval(() => setShowUp((v) => !v), 1200);
+        return () => clearInterval(id);
+    }, [animating]);
+
+    if (isWinner) return <ThumbsUp size={size} />;
+    if (!animating) return <ThumbsDown size={size} />;
+
+    return (
+        <span
+            className="relative inline-flex"
+            style={{ width: size, height: size }}
+        >
+            <ThumbsDown
+                size={size}
+                className={`absolute inset-0 transition-opacity duration-500 ${showUp ? "opacity-0" : "opacity-100"}`}
+            />
+            <ThumbsUp
+                size={size}
+                className={`absolute inset-0 transition-opacity duration-500 ${showUp ? "opacity-100" : "opacity-0"}`}
+            />
+        </span>
+    );
+}
+
 function MatchupCard({
     slot,
     slotKey,
@@ -1631,11 +1718,11 @@ function MatchupCard({
                             : "text-(--text-tertiary) hover:text-(--text-secondary)"
                     }`}
                 >
-                    {isWinner ? (
-                        <ThumbsUp size={14} />
-                    ) : (
-                        <ThumbsDown size={14} />
-                    )}
+                    <VoteThumb
+                        size={14}
+                        isWinner={isWinner}
+                        animating={!isWinner && !isLoser}
+                    />
                 </button>
             )}
 
@@ -1783,7 +1870,7 @@ function ResponseCard({
                 </div>
             </div>
 
-            <div className="p-4 overflow-y-auto h-100">
+            <div className="p-4 overflow-y-auto h-85">
                 {response.error ? (
                     <div className="text-red-400 text-xs">{response.error}</div>
                 ) : (
@@ -1863,11 +1950,11 @@ function ResponseCard({
                                 : "text-(--text-tertiary) hover:text-(--text-secondary)"
                         }`}
                     >
-                        {isWinner ? (
-                            <ThumbsUp size={18} />
-                        ) : (
-                            <ThumbsDown size={18} />
-                        )}
+                        <VoteThumb
+                            size={18}
+                            isWinner={isWinner}
+                            animating={vote === null}
+                        />
                     </button>
                 )}
             </div>
