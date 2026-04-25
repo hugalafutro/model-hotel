@@ -6,7 +6,6 @@ import {
     Send,
     X,
     Bot,
-    Info,
     Clock,
     Zap,
     Brain,
@@ -107,11 +106,6 @@ function extractThinking(raw: string): {
     return { thinking, content };
 }
 
-interface ModelDetailModalProps {
-    model: Model;
-    onClose: () => void;
-}
-
 function ChatThinkingBlock({
     thinking,
     isStreaming,
@@ -144,105 +138,108 @@ function ChatThinkingBlock({
     );
 }
 
-function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
+function ModelDetailPill({ model }: { model: Model }) {
     const caps = parseCapabilities(model.capabilities);
     const capList = Object.entries(caps)
         .filter(([, v]) => v)
         .map(([k]) => k.replace(/_/g, " "));
 
     return (
-        <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-            onClick={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
-        >
-            <div className="ui-card w-full max-w-lg mx-4 p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-(--text-primary)">
-                        {model.display_name || model.model_id}
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className="text-(--text-tertiary) hover:text-white transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
+        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto h-80">
+            <div>
+                <h3 className="text-sm font-semibold text-(--text-primary) leading-tight">
+                    {model.display_name || model.model_id}
+                </h3>
+                {model.description && (
+                    <p className="text-(--text-secondary) mt-1 line-clamp-4 text-[11px]">
+                        {model.description}
+                    </p>
+                )}
+            </div>
+
+            <div className="space-y-2">
+                <div>
+                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                        Provider
+                    </span>
+                    <div className="text-(--text-primary) font-medium">
+                        {model.provider_name}
+                    </div>
                 </div>
-                <p className="text-sm text-(--text-secondary)">
-                    {model.description}
-                </p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">Provider</span>
-                        <div className="text-(--text-primary) font-medium">
-                            {model.provider_name}
-                        </div>
+                <div>
+                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                        Model ID
+                    </span>
+                    <div
+                        className="text-(--text-primary) font-medium truncate"
+                        title={model.model_id}
+                    >
+                        {model.model_id}
                     </div>
-                    <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">Model ID</span>
-                        <div className="text-(--text-primary) font-medium">
-                            {model.model_id}
-                        </div>
-                    </div>
-                    <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">
-                            Context Length
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                            Context
                         </span>
                         <div className="text-(--text-primary) font-medium">
                             {model.context_length?.toLocaleString() ?? "-"}
                         </div>
                     </div>
-                    <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">
-                            Max Output
+                    <div>
+                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                            Max Out
                         </span>
                         <div className="text-(--text-primary) font-medium">
                             {model.max_output_tokens?.toLocaleString() ?? "-"}
                         </div>
                     </div>
-                    <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">
-                            Input Price
-                        </span>
-                        <div className="text-(--text-primary) font-medium">
-                            ${formatPrice(model.input_price_per_million)}/1M
-                        </div>
-                    </div>
-                    <div className="ui-card p-3">
-                        <span className="text-(--text-tertiary)">
-                            Output Price
-                        </span>
-                        <div className="text-(--text-primary) font-medium">
-                            ${formatPrice(model.output_price_per_million)}/1M
-                        </div>
-                    </div>
                 </div>
-                {capList.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <span className="text-sm text-(--text-tertiary)">
-                            Capabilities
+                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                            In $/1M
                         </span>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {capList.map((c) => (
-                                <span
-                                    key={c}
-                                    className="px-2 py-1 text-xs rounded-full bg-(--accent)/10 text-(--accent) border border-(--accent)/20"
-                                >
-                                    {c}
-                                </span>
-                            ))}
+                        <div className="text-(--text-primary) font-medium">
+                            ${formatPrice(model.input_price_per_million)}
                         </div>
                     </div>
-                )}
-                <div>
-                    <span className="text-sm text-(--text-tertiary)">
-                        Proxy Model ID
-                    </span>
-                    <code className="block mt-1 p-2 rounded bg-(--surface-input) text-xs text-(--text-secondary)">
-                        {proxyModelID(model.provider_name, model.model_id)}
-                    </code>
+                    <div>
+                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                            Out $/1M
+                        </span>
+                        <div className="text-(--text-primary) font-medium">
+                            ${formatPrice(model.output_price_per_million)}
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            {capList.length > 0 && (
+                <div>
+                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                        Capabilities
+                    </span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                        {capList.map((c) => (
+                            <span
+                                key={c}
+                                className="px-1.5 py-0.5 text-[10px] rounded-full bg-(--accent)/10 text-(--accent) border border-(--accent)/20"
+                            >
+                                {c}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div>
+                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                    Proxy ID
+                </span>
+                <code className="block mt-0.5 p-1.5 rounded bg-(--surface-input) text-[10px] text-(--text-secondary) break-all">
+                    {proxyModelID(model.provider_name, model.model_id)}
+                </code>
             </div>
         </div>
     );
@@ -270,7 +267,6 @@ export function Chat() {
     >(null);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
-    const [detailModel, setDetailModel] = useState<Model | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const systemPromptRef = useRef<HTMLTextAreaElement>(null);
@@ -534,19 +530,6 @@ export function Chat() {
                     }
                 />
 
-                <div className="flex items-center gap-3 flex-wrap">
-                    {selectedModelObj && (
-                        <button
-                            onClick={() => setDetailModel(selectedModelObj)}
-                            className="ui-btn-secondary flex items-center gap-1.5"
-                        >
-                            <Info size={14} />
-                            {selectedModelObj.display_name ||
-                                selectedModelObj.model_id}
-                        </button>
-                    )}
-                </div>
-
                 <div>
                     <PresetBar
                         items={CHAT_PERSONAS}
@@ -577,125 +560,145 @@ export function Chat() {
                 </div>
             </div>
 
-            {/* Messages */}
-            <div
-                ref={messagesContainerRef}
-                className="max-h-[calc(100vh-520px)] min-h-48 overflow-y-auto pr-1 space-y-4"
-            >
-                {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
-                        <Bot
-                            size={48}
-                            strokeWidth={1}
-                            className="mb-4 opacity-40"
-                        />
-                        <p>Select a model and start chatting</p>
-                    </div>
-                )}
+            {/* Chat Area: Model Details + Messages */}
+            <div className="flex gap-4">
+                {/* Model Details Pill */}
+                <div className="w-1/4 shrink-0">
+                    {selectedModelObj ? (
+                        <ModelDetailPill model={selectedModelObj} />
+                    ) : (
+                        <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs h-80">
+                            <Bot
+                                size={32}
+                                strokeWidth={1}
+                                className="mb-2 opacity-40"
+                            />
+                            <p>Select a model</p>
+                        </div>
+                    )}
+                </div>
+                {/* Messages */}
+                <div
+                    ref={messagesContainerRef}
+                    className="flex-1 max-h-[calc(100vh-520px)] min-h-48 overflow-y-auto pr-1 space-y-4"
+                >
+                    {messages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
+                            <Bot
+                                size={48}
+                                strokeWidth={1}
+                                className="mb-4 opacity-40"
+                            />
+                            <p>Start chatting</p>
+                        </div>
+                    )}
 
-                {messages.map((msg, i) => {
-                    if (msg.role === "system") return null;
-                    const isUser = msg.role === "user";
-                    const hasThinking =
-                        !isUser && (msg.thinkingContent || "").length > 0;
-                    const isStreamingThis =
-                        isStreaming && i === messages.length - 1;
+                    {messages.map((msg, i) => {
+                        if (msg.role === "system") return null;
+                        const isUser = msg.role === "user";
+                        const hasThinking =
+                            !isUser && (msg.thinkingContent || "").length > 0;
+                        const isStreamingThis =
+                            isStreaming && i === messages.length - 1;
 
-                    return (
-                        <div
-                            key={i}
-                            className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                        >
+                        return (
                             <div
-                                className={`max-w-[80%] rounded-xl p-4 ${
-                                    isUser
-                                        ? "bg-(--accent) text-white rounded-br-sm"
-                                        : "ui-card rounded-bl-sm"
-                                }`}
+                                key={i}
+                                className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                             >
-                                {!isUser && msg.model && (
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Bot
-                                            size={14}
-                                            className="text-(--accent)"
-                                        />
-                                        <span className="text-xs text-(--accent) font-medium">
-                                            {msg.model.split("/").pop()}
-                                        </span>
-                                        {isStreamingThis && (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse ml-1" />
-                                        )}
-                                    </div>
-                                )}
-                                {!isUser && hasThinking && (
-                                    <ChatThinkingBlock
-                                        thinking={msg.thinkingContent || ""}
-                                        isStreaming={isStreamingThis}
-                                    />
-                                )}
-                                {!isUser && msg.content ? (
-                                    <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                        >
-                                            {msg.content}
-                                        </ReactMarkdown>
-                                    </div>
-                                ) : !isUser &&
-                                  !hasThinking &&
-                                  isStreamingThis ? (
-                                    <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                        Waiting...
-                                    </div>
-                                ) : isUser ? (
-                                    <div className="whitespace-pre-wrap text-xs">
-                                        {msg.content}
-                                    </div>
-                                ) : null}
                                 <div
-                                    className={`flex items-center gap-3 mt-2 text-[11px] ${
+                                    className={`max-w-[80%] rounded-xl p-4 ${
                                         isUser
-                                            ? "text-white/60"
-                                            : "text-(--text-tertiary)"
+                                            ? "bg-(--accent) text-white rounded-br-sm"
+                                            : "ui-card rounded-bl-sm"
                                     }`}
                                 >
-                                    <span>{formatTime(msg.timestamp)}</span>
-                                    {msg.metrics && (
-                                        <>
-                                            <span className="flex items-center gap-1">
-                                                <Clock size={10} />
-                                                {formatDuration(
-                                                    msg.metrics.durationMs,
-                                                )}
+                                    {!isUser && msg.model && (
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Bot
+                                                size={14}
+                                                className="text-(--accent)"
+                                            />
+                                            <span className="text-xs text-(--accent) font-medium">
+                                                {msg.model.split("/").pop()}
                                             </span>
-                                            {msg.metrics.tokensPerSecond !==
-                                                null && (
-                                                <span className="flex items-center gap-1">
-                                                    <Zap size={10} />
-                                                    {msg.metrics.tokensPerSecond.toFixed(
-                                                        1,
-                                                    )}{" "}
-                                                    tok/s
-                                                </span>
+                                            {isStreamingThis && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse ml-1" />
                                             )}
-                                            {msg.metrics.promptTokens +
-                                                msg.metrics.completionTokens >
-                                                0 && (
-                                                <span>
-                                                    {msg.metrics.promptTokens +
-                                                        msg.metrics
-                                                            .completionTokens}{" "}
-                                                    tok
-                                                </span>
-                                            )}
-                                        </>
+                                        </div>
                                     )}
+                                    {!isUser && hasThinking && (
+                                        <ChatThinkingBlock
+                                            thinking={msg.thinkingContent || ""}
+                                            isStreaming={isStreamingThis}
+                                        />
+                                    )}
+                                    {!isUser && msg.content ? (
+                                        <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                            >
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    ) : !isUser &&
+                                      !hasThinking &&
+                                      isStreamingThis ? (
+                                        <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                                            Waiting...
+                                        </div>
+                                    ) : isUser ? (
+                                        <div className="whitespace-pre-wrap text-xs">
+                                            {msg.content}
+                                        </div>
+                                    ) : null}
+                                    <div
+                                        className={`flex items-center gap-3 mt-2 text-[11px] ${
+                                            isUser
+                                                ? "text-white/60"
+                                                : "text-(--text-tertiary)"
+                                        }`}
+                                    >
+                                        <span>{formatTime(msg.timestamp)}</span>
+                                        {msg.metrics && (
+                                            <>
+                                                <span className="flex items-center gap-1">
+                                                    <Clock size={10} />
+                                                    {formatDuration(
+                                                        msg.metrics.durationMs,
+                                                    )}
+                                                </span>
+                                                {msg.metrics.tokensPerSecond !==
+                                                    null && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Zap size={10} />
+                                                        {msg.metrics.tokensPerSecond.toFixed(
+                                                            1,
+                                                        )}{" "}
+                                                        tok/s
+                                                    </span>
+                                                )}
+                                                {msg.metrics.promptTokens +
+                                                    msg.metrics
+                                                        .completionTokens >
+                                                    0 && (
+                                                    <span>
+                                                        {msg.metrics
+                                                            .promptTokens +
+                                                            msg.metrics
+                                                                .completionTokens}{" "}
+                                                        tok
+                                                    </span>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Input */}
@@ -746,14 +749,6 @@ export function Chat() {
                     Press Enter to send, Shift+Enter for newline
                 </p>
             </div>
-
-            {/* Model Detail Modal */}
-            {detailModel && (
-                <ModelDetailModal
-                    model={detailModel}
-                    onClose={() => setDetailModel(null)}
-                />
-            )}
 
             {/* Persona Overwrite Confirmation */}
             {pendingPersona && (

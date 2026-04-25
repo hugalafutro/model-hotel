@@ -221,7 +221,7 @@ export function ModelPicker({
             </div>
 
             <div
-                className={`flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-wrap gap-1.5 h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"}`}
             >
                 {filteredModels.map((m) => {
                     const val = proxyModelID(m.provider_name, m.model_id);
