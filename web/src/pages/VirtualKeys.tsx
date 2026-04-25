@@ -631,6 +631,8 @@ export function VirtualKeys() {
                                     <svg
                                         className="win11-icon"
                                         viewBox="0 0 24 24"
+                                        width="14"
+                                        height="14"
                                         fill="currentColor"
                                     >
                                         <path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />

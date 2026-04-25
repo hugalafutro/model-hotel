@@ -1295,7 +1295,8 @@ html.light .terminal-tab-bar {
     gap: 8px;
 }
 
-.terminal-titlebar-win11 .win11-icon {
+.terminal-titlebar-win11 .win11-icon,
+.terminal-win11-titlebar .win11-icon {
     width: 14px;
     height: 14px;
     opacity: 0.6;

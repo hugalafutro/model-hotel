@@ -10,12 +10,12 @@ import {
     Zap,
     CheckCircle2,
     AlertCircle,
-    Settings as SettingsIcon,
-    ChevronDown,
-    ChevronUp,
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { ModelPicker } from "../components/ModelPicker";
+import { PresetBar } from "../components/PresetBar";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 
 function formatDuration(ms: number): string {
     if (ms < 1000) return `${ms.toFixed(0)}ms`;
@@ -66,7 +66,14 @@ export function Arena() {
     const [systemPrompt, setSystemPrompt] = useState<string>(
         () => localStorage.getItem("chat_system_prompt") || "",
     );
-    const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+    const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+    const [activePromptId, setActivePromptId] = useState<string | null>(null);
+    const [pendingPersona, setPendingPersona] = useState<
+        import("../data/presets").PersonaPreset | null
+    >(null);
+    const [pendingPrompt, setPendingPrompt] = useState<
+        import("../data/presets").ArenaPromptPreset | null
+    >(null);
     const [prompt, setPrompt] = useState("");
     const [responses, setResponses] = useState<ArenaResponse[]>([]);
     const [runningModels, setRunningModels] = useState<Set<string>>(new Set());
@@ -244,6 +251,52 @@ export function Arena() {
         );
     }, []);
 
+    const handlePersonaSelect = useCallback(
+        (persona: import("../data/presets").PersonaPreset) => {
+            if (systemPrompt.trim() && activePersonaId === null) {
+                setPendingPersona(persona);
+                return;
+            }
+            setSystemPrompt(persona.systemPrompt);
+            setActivePersonaId(persona.id);
+        },
+        [systemPrompt, activePersonaId],
+    );
+
+    const handleSystemPromptChange = useCallback(
+        (value: string) => {
+            setSystemPrompt(value);
+            const current = CHAT_PERSONAS.find((p) => p.id === activePersonaId);
+            if (current && value !== current.systemPrompt) {
+                setActivePersonaId(null);
+            }
+        },
+        [activePersonaId],
+    );
+
+    const handlePromptPresetSelect = useCallback(
+        (preset: import("../data/presets").ArenaPromptPreset) => {
+            if (prompt.trim() && activePromptId === null) {
+                setPendingPrompt(preset);
+                return;
+            }
+            setPrompt(preset.prompt);
+            setActivePromptId(preset.id);
+        },
+        [prompt, activePromptId],
+    );
+
+    const handlePromptChange = useCallback(
+        (value: string) => {
+            setPrompt(value);
+            const current = ARENA_PROMPTS.find((p) => p.id === activePromptId);
+            if (current && value !== current.prompt) {
+                setActivePromptId(null);
+            }
+        },
+        [activePromptId],
+    );
+
     const isRunning = runningModels.size > 0;
 
     return (
@@ -292,10 +345,15 @@ export function Arena() {
                     <label className="text-sm text-(--text-secondary) mb-2 block">
                         Prompt
                     </label>
+                    <PresetBar
+                        items={ARENA_PROMPTS}
+                        activeId={activePromptId}
+                        onSelect={handlePromptPresetSelect}
+                    />
                     <textarea
                         value={prompt}
                         onChange={(e) => {
-                            setPrompt(e.target.value);
+                            handlePromptChange(e.target.value);
                             e.target.style.height = "auto";
                             e.target.style.height =
                                 e.target.scrollHeight + "px";
@@ -303,7 +361,7 @@ export function Arena() {
                         placeholder="Enter your prompt..."
                         rows={1}
                         maxLength={10000}
-                        className="ui-input w-full resize-none max-h-32 overflow-y-auto"
+                        className="ui-input w-full resize-none max-h-32 min-h-11 overflow-y-auto mt-1.5"
                     />
                 </div>
 
@@ -327,33 +385,32 @@ export function Arena() {
                             </>
                         )}
                     </button>
-
-                    <button
-                        onClick={() => setShowSystemPrompt((s) => !s)}
-                        className="ui-btn-secondary flex items-center gap-2"
-                    >
-                        <SettingsIcon size={16} />
-                        System Prompt
-                        {showSystemPrompt ? (
-                            <ChevronUp size={14} />
-                        ) : (
-                            <ChevronDown size={14} />
-                        )}
-                    </button>
                 </div>
 
-                {showSystemPrompt && (
-                    <div className="mt-1">
-                        <textarea
-                            value={systemPrompt}
-                            onChange={(e) => setSystemPrompt(e.target.value)}
-                            placeholder="You are a helpful assistant..."
-                            rows={2}
-                            maxLength={5000}
-                            className="ui-input w-full resize-none text-sm"
-                        />
-                    </div>
-                )}
+                {/* System Prompt — always visible */}
+                <div>
+                    <label className="text-sm text-(--text-secondary) mb-2 block">
+                        System Prompt
+                    </label>
+                    <PresetBar
+                        items={CHAT_PERSONAS}
+                        activeId={activePersonaId}
+                        onSelect={handlePersonaSelect}
+                    />
+                    <textarea
+                        value={systemPrompt}
+                        onChange={(e) => {
+                            handleSystemPromptChange(e.target.value);
+                            e.target.style.height = "auto";
+                            e.target.style.height =
+                                e.target.scrollHeight + "px";
+                        }}
+                        placeholder="You are a helpful assistant..."
+                        rows={1}
+                        maxLength={5000}
+                        className="ui-input w-full resize-none max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                    />
+                </div>
             </div>
 
             {/* Responses Grid */}
@@ -458,6 +515,33 @@ export function Arena() {
                         </div>
                     ))}
                 </div>
+            )}
+            {/* Persona Overwrite Confirmation */}
+            {pendingPersona && (
+                <ConfirmDialog
+                    title="Overwrite System Prompt"
+                    fields={["System prompt"]}
+                    onConfirm={() => {
+                        setSystemPrompt(pendingPersona.systemPrompt);
+                        setActivePersonaId(pendingPersona.id);
+                        setPendingPersona(null);
+                    }}
+                    onCancel={() => setPendingPersona(null)}
+                />
+            )}
+
+            {/* Prompt Preset Overwrite Confirmation */}
+            {pendingPrompt && (
+                <ConfirmDialog
+                    title="Overwrite Prompt"
+                    fields={["Prompt"]}
+                    onConfirm={() => {
+                        setPrompt(pendingPrompt.prompt);
+                        setActivePromptId(pendingPrompt.id);
+                        setPendingPrompt(null);
+                    }}
+                    onCancel={() => setPendingPrompt(null)}
+                />
             )}
         </div>
     );

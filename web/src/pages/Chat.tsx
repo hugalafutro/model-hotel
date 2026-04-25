@@ -1,22 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useRef, useCallback, useEffect } from "react";
-import {
-    MessageSquare,
-    Send,
-    Settings as SettingsIcon,
-    X,
-    Bot,
-    Info,
-    Clock,
-    Zap,
-    ChevronDown,
-    ChevronUp,
-} from "lucide-react";
+import { MessageSquare, Send, X, Bot, Info, Clock, Zap } from "lucide-react";
 import type { Model } from "../api/types";
 import type { ChatMessage } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ModelPicker } from "../components/ModelPicker";
+import { PresetBar } from "../components/PresetBar";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { CHAT_PERSONAS } from "../data/presets";
 
 function formatDuration(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
@@ -182,7 +174,10 @@ export function Chat() {
     const [systemPrompt, setSystemPrompt] = useState<string>(
         () => localStorage.getItem("chat_system_prompt") || "",
     );
-    const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+    const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+    const [pendingPersona, setPendingPersona] = useState<
+        import("../data/presets").PersonaPreset | null
+    >(null);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
     const [detailModel, setDetailModel] = useState<Model | null>(null);
@@ -210,6 +205,31 @@ export function Chat() {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    const handlePersonaSelect = useCallback(
+        (persona: import("../data/presets").PersonaPreset) => {
+            if (systemPrompt.trim() && activePersonaId === null) {
+                // User has custom text — confirm before overwriting
+                setPendingPersona(persona);
+                return;
+            }
+            setSystemPrompt(persona.systemPrompt);
+            setActivePersonaId(persona.id);
+        },
+        [systemPrompt, activePersonaId],
+    );
+
+    const handleSystemPromptChange = useCallback(
+        (value: string) => {
+            setSystemPrompt(value);
+            // If user edits away from a preset, switch to custom
+            const current = CHAT_PERSONAS.find((p) => p.id === activePersonaId);
+            if (current && value !== current.systemPrompt) {
+                setActivePersonaId(null);
+            }
+        },
+        [activePersonaId],
+    );
 
     const handleSend = useCallback(async () => {
         if (!input.trim() || !selectedModel || isStreaming) return;
@@ -380,33 +400,29 @@ export function Chat() {
                                 selectedModelObj.model_id}
                         </button>
                     )}
-
-                    <button
-                        onClick={() => setShowSystemPrompt((s) => !s)}
-                        className="ui-btn-secondary flex items-center gap-2"
-                    >
-                        <SettingsIcon size={16} />
-                        System Prompt
-                        {showSystemPrompt ? (
-                            <ChevronUp size={14} />
-                        ) : (
-                            <ChevronDown size={14} />
-                        )}
-                    </button>
                 </div>
 
-                {showSystemPrompt && (
-                    <div className="mt-1">
-                        <textarea
-                            value={systemPrompt}
-                            onChange={(e) => setSystemPrompt(e.target.value)}
-                            placeholder="You are a helpful assistant..."
-                            rows={3}
-                            maxLength={5000}
-                            className="ui-input w-full resize-none text-sm"
-                        />
-                    </div>
-                )}
+                <div>
+                    <PresetBar
+                        items={CHAT_PERSONAS}
+                        activeId={activePersonaId}
+                        onSelect={handlePersonaSelect}
+                    />
+                    <textarea
+                        value={systemPrompt}
+                        onChange={(e) => {
+                            handleSystemPromptChange(e.target.value);
+                            e.target.style.height = "auto";
+                            e.target.style.height =
+                                e.target.scrollHeight + "px";
+                        }}
+                        placeholder="You are a helpful assistant..."
+                        rows={1}
+                        maxLength={5000}
+                        className="ui-input w-full resize-none max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                        style={{ height: "auto" }}
+                    />
+                </div>
             </div>
 
             {/* Messages */}
@@ -553,6 +569,20 @@ export function Chat() {
                 <ModelDetailModal
                     model={detailModel}
                     onClose={() => setDetailModel(null)}
+                />
+            )}
+
+            {/* Persona Overwrite Confirmation */}
+            {pendingPersona && (
+                <ConfirmDialog
+                    title="Overwrite System Prompt"
+                    fields={["System prompt"]}
+                    onConfirm={() => {
+                        setSystemPrompt(pendingPersona.systemPrompt);
+                        setActivePersonaId(pendingPersona.id);
+                        setPendingPersona(null);
+                    }}
+                    onCancel={() => setPendingPersona(null)}
                 />
             )}
         </div>
