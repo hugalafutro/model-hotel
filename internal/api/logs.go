@@ -124,7 +124,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		"ttft":     {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
 		"duration": {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
 		"overhead": {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
-		"key":      {"CASE WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN 2 WHEN vk.id IS NULL THEN 1 ELSE 0 END", "CASE WHEN vk.id IS NULL THEN '' ELSE COALESCE(rl.virtual_key_name, '') END"},
+		"key":      {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
 	}
 
 	if _, ok := sortColumns[sortBy]; !ok {
