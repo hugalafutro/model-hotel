@@ -154,6 +154,26 @@ export function Arena() {
         return true;
     }, [phase, group1Models, group2Models, prompt, crossDuplicates]);
 
+    const disabledReason = useMemo(() => {
+        if (phase === "setup") {
+            if (group1Models.length === 0) return "Select models for Match 1";
+            if (group1Models.length === 1) return "Pick 1 more model for Match 1";
+            if (new Set(group1Models).size !== group1Models.length)
+                return "No duplicate models in Match 1";
+            if (group2Models.length === 1)
+                return "Pick 1 more model for Match 2, or clear it";
+            if (crossDuplicates) return "Models can't appear in both matches";
+            if (
+                group2Models.length > 1 &&
+                new Set(group2Models).size !== group2Models.length
+            )
+                return "No duplicate models in Match 2";
+            if (!prompt.trim()) return "Enter a prompt";
+        }
+        if (phase === "voting") return "Vote on all matchups to continue";
+        return "";
+    }, [phase, group1Models, group2Models, prompt, crossDuplicates]);
+
     const buildInitialRounds = useCallback(
         (g1: string[], g2: string[]): BracketRound[] => {
             const makeSlots = (ids: string[]): MatchupSlot[] =>
@@ -542,7 +562,6 @@ export function Arena() {
 
         const currentPrompt = prompt.trim();
         setSavedPrompt(currentPrompt);
-        setPrompt("");
 
         const initialRounds = buildInitialRounds(group1Models, group2Models);
         setRounds(initialRounds);
@@ -1078,6 +1097,13 @@ export function Arena() {
                                         ? !allCurrentRoundVoted
                                         : false
                             }
+                            title={
+                                phase === "setup" && !canRun
+                                    ? disabledReason
+                                    : phase === "voting" && !allCurrentRoundVoted
+                                      ? disabledReason
+                                      : undefined
+                            }
                             className={`ui-btn flex items-center gap-2 ${
                                 isRunning
                                     ? "ui-btn-danger"
@@ -1115,15 +1141,21 @@ export function Arena() {
                     <label className="text-sm text-(--text-secondary) mb-2 block">
                         Prompt
                     </label>
-                    <PresetBar
-                        items={ARENA_PROMPTS}
-                        activeId={activePromptId}
-                        onSelect={handlePromptPresetSelect}
-                        onCustom={handleCustomPrompt}
-                    />
+                    {phase === "setup" && (
+                        <PresetBar
+                            items={ARENA_PROMPTS}
+                            activeId={activePromptId}
+                            onSelect={handlePromptPresetSelect}
+                            onCustom={handleCustomPrompt}
+                        />
+                    )}
                     <textarea
                         ref={promptRef}
-                        value={prompt}
+                        value={
+                            phase === "setup" || phase === "finished"
+                                ? prompt
+                                : savedPrompt
+                        }
                         onChange={(e) => {
                             handlePromptChange(e.target.value);
                             if (!e.target.value) {
@@ -1589,25 +1621,35 @@ function ResponseCard({
                 </div>
             </div>
 
-            <div className="flex-1 p-4 overflow-y-auto h-150">
+            <div className="p-4 overflow-y-auto h-150">
                 {response.error ? (
                     <div className="text-red-400 text-xs">
                         {response.error}
                     </div>
                 ) : (
                     <>
-                        {hasThinking && (
+                        {(hasThinking || !response.done) && (
                             <button
-                                onClick={() => setThinkingOpen(!thinkingOpen)}
-                                className="flex items-center gap-1.5 text-xs text-(--accent)/70 hover:text-(--accent) transition-colors mb-2 cursor-pointer w-full text-left"
+                                onClick={() =>
+                                    hasThinking &&
+                                    setThinkingOpen(!thinkingOpen)
+                                }
+                                className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
+                                    hasThinking && !response.done
+                                        ? "text-(--accent) animate-pulse cursor-pointer"
+                                        : hasThinking
+                                          ? "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
+                                          : "text-(--accent)/70 cursor-default"
+                                }`}
                             >
                                 <Brain size={12} />
                                 <span>Thinking</span>
-                                {thinkingOpen ? (
-                                    <ChevronDown size={12} />
-                                ) : (
-                                    <ChevronRight size={12} />
-                                )}
+                                {hasThinking &&
+                                    (thinkingOpen ? (
+                                        <ChevronDown size={12} />
+                                    ) : (
+                                        <ChevronRight size={12} />
+                                    ))}
                             </button>
                         )}
                         {hasThinking && thinkingOpen && (
@@ -1621,14 +1663,12 @@ function ResponseCard({
                                     {response.content}
                                 </ReactMarkdown>
                             </div>
-                        ) : (
+                        ) : !hasThinking && !response.done ? (
                             <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                {hasThinking
-                                    ? "Thinking..."
-                                    : "Waiting..."}
+                                Waiting...
                             </div>
-                        )}
+                        ) : null}
                     </>
                 )}
             </div>
