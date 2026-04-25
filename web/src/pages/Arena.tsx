@@ -823,6 +823,27 @@ export function Arena() {
             ctrl.abort();
         }
         abortMapRef.current.clear();
+
+        // Put all active reply pills with unfinished messages into "choose replacement model" state
+        setRounds((prev) => {
+            const next = prev.map((r) => ({
+                ...r,
+                matchups: r.matchups.map((m) => {
+                    const mu = { ...m };
+                    if (mu.responseA && !mu.responseA.done) {
+                        mu.slotA = null;
+                        mu.responseA = null;
+                    }
+                    if (mu.responseB && !mu.responseB.done) {
+                        mu.slotB = null;
+                        mu.responseB = null;
+                    }
+                    return mu;
+                }),
+            }));
+            return next;
+        });
+
         setRunningModels(new Set());
         setPhase("voting");
     }, []);
@@ -900,6 +921,43 @@ export function Arena() {
                 }));
                 const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
                 const respKey = slotKey === "A" ? "responseA" : "responseB";
+                if (next[roundIdx]?.matchups[matchupIdx]) {
+                    next[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
+                    next[roundIdx].matchups[matchupIdx][respKey] = null;
+                }
+                return next;
+            });
+        },
+        [],
+    );
+
+    const handleCancelSlot = useCallback(
+        (
+            roundIdx: number,
+            matchupIdx: number,
+            slotKey: "A" | "B",
+            modelId: string,
+        ) => {
+            // Abort the specific request
+            const ctrl = abortMapRef.current.get(modelId);
+            if (ctrl) {
+                ctrl.abort();
+                abortMapRef.current.delete(modelId);
+            }
+            setRunningModels((prev) => {
+                const next = new Set(prev);
+                next.delete(modelId);
+                return next;
+            });
+
+            // Put the pill into "choose replacement model" state
+            const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
+            const respKey = slotKey === "A" ? "responseA" : "responseB";
+            setRounds((prev) => {
+                const next = prev.map((r) => ({
+                    ...r,
+                    matchups: r.matchups.map((m) => ({ ...m })),
+                }));
                 if (next[roundIdx]?.matchups[matchupIdx]) {
                     next[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
                     next[roundIdx].matchups[matchupIdx][respKey] = null;
@@ -1417,6 +1475,9 @@ export function Arena() {
                                                             onSwapModel={
                                                                 handleSwapModel
                                                             }
+                                                            onCancelSlot={
+                                                                handleCancelSlot
+                                                            }
                                                             showVote={
                                                                 roundIdx <=
                                                                     currentRound &&
@@ -1497,6 +1558,9 @@ export function Arena() {
                                                             }
                                                             onSwapModel={
                                                                 handleSwapModel
+                                                            }
+                                                            onCancelSlot={
+                                                                handleCancelSlot
                                                             }
                                                             showVote={
                                                                 roundIdx <=
@@ -1775,6 +1839,12 @@ interface ResponseCardProps {
         slotKey: "A" | "B",
         failedModelId: string,
     ) => void;
+    onCancelSlot: (
+        roundIdx: number,
+        matchupIdx: number,
+        slotKey: "A" | "B",
+        modelId: string,
+    ) => void;
     showVote: boolean;
 }
 
@@ -1787,6 +1857,7 @@ function ResponseCard({
     onVote,
     onRetry,
     onSwapModel,
+    onCancelSlot,
     showVote,
 }: ResponseCardProps) {
     const [thinkingOpen, setThinkingOpen] = useState(false);
@@ -1858,6 +1929,18 @@ function ResponseCard({
                     )}
                     {isStreaming && (
                         <>
+                            <button
+                                onClick={() =>
+                                    onCancelSlot(
+                                        roundIdx,
+                                        matchupIdx,
+                                        slotKey,
+                                        response.model,
+                                    )
+                                }
+                                className="w-2 h-2 rounded-full bg-red-400/60 hover:bg-red-400 transition-colors cursor-pointer"
+                                title="Cancel"
+                            />
                             <span className="text-[11px] text-(--text-tertiary) tabular-nums">
                                 {elapsed}s
                             </span>
@@ -1870,7 +1953,7 @@ function ResponseCard({
                 </div>
             </div>
 
-            <div className="p-4 overflow-y-auto h-85">
+            <div className="px-4 pb-4 pt-0 overflow-y-auto h-85">
                 {response.error ? (
                     <div className="text-red-400 text-xs">{response.error}</div>
                 ) : (
