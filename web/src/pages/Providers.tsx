@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { PlugZap, Eye, EyeOff, X, RefreshCw } from "lucide-react";
+import { Spinner } from "../components/Spinner";
 import type {
     DeepSeekBalance,
     DeepSeekBalanceInfo,
@@ -10,6 +11,7 @@ import type {
     ZAIQuotaResponse,
 } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { useTheme } from "../context/ThemeContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
 const CACHE_PREFIX = "llm-proxy";
@@ -88,6 +90,7 @@ function NanoGPTQuotaModal({
     isRefreshing: boolean;
     onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
+    const { uiStyle } = useTheme();
     const weeklyLimit = usage.limits.weeklyInputTokens ?? 0;
     const weeklyUsed = usage.weeklyInputTokens?.used ?? 0;
     const weeklyPercent =
@@ -146,10 +149,14 @@ function NanoGPTQuotaModal({
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
-                            <RefreshCw
-                                size={18}
-                                className={isRefreshing ? "animate-spin" : ""}
-                            />
+                            {isRefreshing && uiStyle === "cyber-terminal" ? (
+                                <Spinner />
+                            ) : (
+                                <RefreshCw
+                                    size={18}
+                                    className={isRefreshing ? "animate-spin" : ""}
+                                />
+                            )}
                         </button>
                         <button
                             type="button"
@@ -321,6 +328,7 @@ function ZAIQuotaModal({
     isRefreshing: boolean;
     onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
+    const { uiStyle } = useTheme();
     const limits = usage.data?.limits || [];
 
     const fiveHourLimit = limits.find(
@@ -379,10 +387,14 @@ function ZAIQuotaModal({
                             aria-label="Refresh"
                             title="Refresh quota info"
                         >
-                            <RefreshCw
-                                size={18}
-                                className={isRefreshing ? "animate-spin" : ""}
-                            />
+                            {isRefreshing && uiStyle === "cyber-terminal" ? (
+                                <Spinner />
+                            ) : (
+                                <RefreshCw
+                                    size={18}
+                                    className={isRefreshing ? "animate-spin" : ""}
+                                />
+                            )}
                         </button>
                         <button
                             type="button"
@@ -1063,9 +1075,9 @@ export function Providers() {
                         disabled={discoverAllMutation.isPending}
                         className="ui-btn ui-btn-secondary"
                     >
-                        {discoverAllMutation.isPending
-                            ? "Discovering..."
-                            : "Discover All"}
+                        {discoverAllMutation.isPending ? (
+                            <><Spinner /> Discovering...</>
+                        ) : "Discover All"}
                     </button>
                     <button
                         type="button"
@@ -1276,17 +1288,17 @@ export function Providers() {
                                         onClick={() =>
                                             discoverMutation.mutate(provider.id)
                                         }
-                                        disabled={discoveringId !== null}
+                                        disabled={discoveringId !== null || discoverAllMutation.isPending}
                                         className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                                             discoveringId === provider.id
                                                 ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-                                                : discoveringId !== null
+                                                : discoveringId !== null || discoverAllMutation.isPending
                                                   ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
                                                   : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
                                         }`}
                                     >
                                         {discoveringId === provider.id
-                                            ? "Discovering..."
+                                            ? <><Spinner /> Discovering...</>
                                             : "Discover Models"}
                                     </button>
                                     <button

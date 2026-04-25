@@ -17,6 +17,7 @@ import {
     Bell,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
+import { Spinner } from "../components/Spinner";
 
 const DISCOVERY_INTERVALS = [
     { value: "30m", label: "30 minutes" },
@@ -670,14 +671,6 @@ export function Settings() {
 
                 {/* Provider List with Discovery Status */}
                 <div className="ui-card p-6">
-                    <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                            <Zap size={18} className="text-(--accent)" />
-                            <h2 className="text-xl font-semibold text-white">
-                                Provider Discovery Status
-                            </h2>
-                        </div>
-                    </div>
                     <ProviderDiscoveryList />
                 </div>
             </div>
@@ -1088,8 +1081,7 @@ function ProviderDiscoveryList() {
         },
     });
 
-    const discoverMutation = useMutation({
-        mutationFn: async (id: string) => {
+    const discoverMutation = useMutation({        mutationFn: async (id: string) => {
             setDiscoveringId(id);
             toast("Discovering models...", "info");
             return api.providers.discover(id);
@@ -1116,20 +1108,26 @@ function ProviderDiscoveryList() {
 
     return (
         <div className="space-y-3">
-            {providers && providers.length > 0 && (
-                <div className="flex justify-end">
+            <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                    <Zap size={18} className="text-(--accent)" />
+                    <h2 className="text-xl font-semibold text-white">
+                        Discovery Status
+                    </h2>
+                </div>
+                {providers && providers.length > 0 && (
                     <button
                         type="button"
                         onClick={() => discoverAllMutation.mutate()}
                         disabled={discoverAllMutation.isPending || discoveringId !== null}
                         className="ui-btn ui-btn-secondary"
                     >
-                        {discoverAllMutation.isPending
-                            ? "Discovering..."
-                            : "Discover All"}
+                        {discoverAllMutation.isPending ? (
+                            <><Spinner /> Discovering...</>
+                        ) : "Discover All"}
                     </button>
-                </div>
-            )}
+                )}
+            </div>
             {providers?.length === 0 && (
                 <p className="text-gray-500 text-sm">
                     No providers configured yet.
@@ -1158,17 +1156,17 @@ function ProviderDiscoveryList() {
                     <button
                         type="button"
                         onClick={() => discoverMutation.mutate(p.id)}
-                        disabled={discoveringId !== null}
+                        disabled={discoveringId !== null || discoverAllMutation.isPending}
                         className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                             discoveringId === p.id
                                 ? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
-                                : discoveringId !== null
+                                : discoveringId !== null || discoverAllMutation.isPending
                                   ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
                                   : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
                         }`}
                     >
                         {discoveringId === p.id
-                            ? "Discovering..."
+                            ? <><Spinner /> Discovering...</>
                             : "Discover Now"}
                     </button>
                 </div>

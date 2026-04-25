@@ -12,6 +12,7 @@ import {
 } from "../components/DataTable";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
+import { Spinner } from "../components/Spinner";
 import type { SortState } from "../components/DataTable";
 
 function normalizeProviderName(name: string): string {
@@ -887,9 +888,7 @@ function ModelDetailModal({
                                       : "bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(245,158,11,0.2)]"
                             }`}
                         >
-                            {testing && (
-                                <span className="inline-block w-3 h-3 border-2 border-amber-400/50 border-t-amber-300 rounded-full animate-spin" />
-                            )}
+                            {testing && <Spinner />}
                             {testing ? "Testing..." : "Test"}
                         </button>
                         {!confirmDelete ? (
