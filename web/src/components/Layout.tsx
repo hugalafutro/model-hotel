@@ -80,7 +80,6 @@ function SystemStatus() {
             ? formatMB(app.heap_alloc_mb) + " heap"
             : "-";
 
-    const showCgroup = inContainer || useDocker;
     const dash = <span className="text-(--text-muted)">-</span>;
 
     return (
@@ -132,44 +131,40 @@ function SystemStatus() {
             </div>
 
             {/* Network */}
-            {showCgroup && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title={useDocker
-                        ? `Aggregate network across ${docker.container_count} compose containers`
-                        : "Container network throughput (receive / transmit)"}
-                >
-                    <span>Network</span>
-                    <span className="text-(--text-secondary) tabular-nums">
-                        <span className="text-sky-400/60 inline-block min-w-22">
-                            ↓{formatBytesPerSec(netRx ?? 0)}
-                        </span>
-                        <span className="text-amber-400/60 inline-block min-w-22">
-                            ↑{formatBytesPerSec(netTx ?? 0)}
-                        </span>
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title={useDocker
+                    ? `Aggregate network across ${docker.container_count} compose containers`
+                    : "Container network throughput (receive / transmit)"}
+            >
+                <span>Network</span>
+                <span className="text-(--text-secondary) tabular-nums">
+                    <span className="text-sky-400/60 inline-block min-w-22 text-right">
+                        {typeof netRx === "number" ? `↓${formatBytesPerSec(netRx)}` : dash}
                     </span>
-                </div>
-            )}
+                    <span className="text-amber-400/60 inline-block min-w-22 text-right">
+                        {typeof netTx === "number" ? `↑${formatBytesPerSec(netTx)}` : dash}
+                    </span>
+                </span>
+            </div>
 
             {/* Disk I/O */}
-            {showCgroup && (
-                <div
-                    className="flex justify-between items-center text-(--text-tertiary)"
-                    title={useDocker
-                        ? `Aggregate disk I/O across ${docker.container_count} compose containers`
-                        : "Container disk I/O throughput (read / write)"}
-                >
-                    <span>Disk</span>
-                    <span className="text-(--text-secondary) tabular-nums">
-                        <span className="text-sky-400/60 inline-block min-w-22">
-                            ↓{formatBytesPerSec(diskRead ?? 0)}
-                        </span>
-                        <span className="text-amber-400/60 inline-block min-w-22">
-                            ↑{formatBytesPerSec(diskWrite ?? 0)}
-                        </span>
+            <div
+                className="flex justify-between items-center text-(--text-tertiary)"
+                title={useDocker
+                    ? `Aggregate disk I/O across ${docker.container_count} compose containers`
+                    : "Container disk I/O throughput (read / write)"}
+            >
+                <span>Disk</span>
+                <span className="text-(--text-secondary) tabular-nums">
+                    <span className="text-sky-400/60 inline-block min-w-22 text-right">
+                        {typeof diskRead === "number" ? `↓${formatBytesPerSec(diskRead)}` : dash}
                     </span>
-                </div>
-            )}
+                    <span className="text-amber-400/60 inline-block min-w-22 text-right">
+                        {typeof diskWrite === "number" ? `↑${formatBytesPerSec(diskWrite)}` : dash}
+                    </span>
+                </span>
+            </div>
 
             {/* Memory */}
             <div
