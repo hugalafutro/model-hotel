@@ -343,3 +343,14 @@ export interface ZAIQuotaResponse {
     data: ZAIQuotaData;
     success: boolean;
 }
+
+export interface ChatMessage {
+    role: "user" | "assistant" | "system";
+    content: string;
+    model?: string;
+    timestamp: number;
+    metrics?: {
+        tokensPerSecond: number | null;
+        durationMs: number;
+    };
+}

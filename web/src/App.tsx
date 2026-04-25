@@ -8,6 +8,8 @@ import { FailoverGroups } from "./pages/FailoverGroups";
 import { Logs } from "./pages/Logs";
 import { Settings } from "./pages/Settings";
 import { VirtualKeys } from "./pages/VirtualKeys";
+import { Chat } from "./pages/Chat";
+import { Arena } from "./pages/Arena";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 import { EventProvider } from "./context/EventContext";
@@ -132,6 +134,8 @@ function AppContent() {
                         element={<Navigate to="/dashboard" replace />}
                     />
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/chat" element={<Chat />} />
+                    <Route path="/arena" element={<Arena />} />
                     <Route path="/providers" element={<Providers />} />
                     <Route path="/models" element={<Models />} />
                     <Route path="/failover" element={<FailoverGroups />} />

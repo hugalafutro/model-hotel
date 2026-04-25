@@ -12,6 +12,8 @@ import {
     LogOut,
     BookOpen,
     GitBranch,
+    MessageSquare,
+    Swords,
 } from "lucide-react";
 import { Logo } from "./Logo";
 
@@ -240,6 +242,8 @@ export function Layout({ children }: LayoutProps) {
 
     const navigation = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Chat", href: "/chat", icon: MessageSquare },
+        { name: "Arena", href: "/arena", icon: Swords },
         { name: "Providers", href: "/providers", icon: PlugZap },
         { name: "Models", href: "/models", icon: Bot },
         { name: "Failover", href: "/failover", icon: Shuffle },
