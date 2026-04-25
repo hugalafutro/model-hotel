@@ -906,15 +906,22 @@ export function Providers() {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["providers"] });
             queryClient.invalidateQueries({ queryKey: ["models"] });
-            if (data.failed > 0) {
-                toast(
-                    `Discovered ${data.discovered} models (${data.succeeded} ok, ${data.failed} failed)`,
-                    "warning",
-                );
-            } else {
+            for (const r of data.results) {
+                if (r.error) {
+                    toast(`${r.provider_name}: ${r.error}`, "error");
+                } else {
+                    toast(`${r.provider_name}: ${r.discovered} models`, "success");
+                }
+            }
+            if (data.discovered > 0) {
                 toast(
                     `Discovered ${data.discovered} models across ${data.succeeded} providers`,
                     "success",
+                );
+            } else if (data.failed > 0) {
+                toast(
+                    `Discovery failed for all ${data.failed} providers`,
+                    "error",
                 );
             }
         },

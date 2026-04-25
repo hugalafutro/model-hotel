@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -196,7 +197,9 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		models, discoverErr := discovery.DiscoverModels(r.Context(), prov, h.cfg.MasterKey)
+		provCtx, provCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		models, discoverErr := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
+		provCancel()
 		result := DiscoverAllResult{
 			ProviderName: prov.Name,
 		}
@@ -272,6 +275,8 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		provCtx, provCancel := context.WithTimeout(context.Background(), 30*time.Second)
+
 		providerType := provider.DetectProviderType(prov.BaseURL)
 		result := QuotaRefreshResult{
 			ProviderName: prov.Name,
@@ -280,7 +285,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 
 		switch providerType {
 		case "nanogpt":
-			_, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
+			_, err := discovery.GetNanoGPTUsage(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++
@@ -289,7 +294,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 				refreshed++
 			}
 		case "zai":
-			_, err := discovery.GetZAIQuota(r.Context(), prov, h.cfg.MasterKey)
+			_, err := discovery.GetZAIQuota(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++
@@ -298,7 +303,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 				refreshed++
 			}
 		case "deepseek":
-			_, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
+			_, err := discovery.GetDeepSeekBalance(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++
@@ -307,10 +312,12 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 				refreshed++
 			}
 		default:
+			provCancel()
 			skipped++
 			continue
 		}
 
+		provCancel()
 		results = append(results, result)
 	}
 
