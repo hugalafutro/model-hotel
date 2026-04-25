@@ -5,7 +5,6 @@ import {
     useRef,
     useCallback,
     useMemo,
-    useEffect,
 } from "react";
 import {
     Swords,
@@ -20,6 +19,10 @@ import {
     ThumbsDown,
     Trophy,
     RotateCcw,
+    RefreshCw,
+    ChevronDown,
+    ChevronRight,
+    Brain,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,6 +40,7 @@ function formatDuration(ms: number): string {
 interface ArenaResponse {
     model: string;
     content: string;
+    thinkingContent: string;
     done: boolean;
     error: string | null;
     metrics: {
@@ -90,14 +94,8 @@ export function Arena() {
         staleTime: 60_000,
     });
 
-    const [selectedModels, setSelectedModels] = useState<string[]>(() => {
-        try {
-            const raw = localStorage.getItem("arena_selected_models");
-            return raw ? JSON.parse(raw) : [];
-        } catch {
-            return [];
-        }
-    });
+    const [group1Models, setGroup1Models] = useState<string[]>([]);
+    const [group2Models, setGroup2Models] = useState<string[]>([]);
 
     const [activePromptId, setActivePromptId] = useState<string | null>(null);
     const [pendingPrompt, setPendingPrompt] = useState<
@@ -111,6 +109,9 @@ export function Arena() {
     const [phase, setPhase] = useState<BracketPhase>("setup");
     const [runningModels, setRunningModels] = useState<Set<string>>(new Set());
     const [winnerModal, setWinnerModal] = useState<WinnerModal | null>(null);
+    const [disabledModels, setDisabledModels] = useState<Set<string>>(
+        new Set(),
+    );
 
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const currentRoundRef = useRef(0);
@@ -132,37 +133,50 @@ export function Arena() {
         [providers],
     );
 
-    useEffect(() => {
-        localStorage.setItem(
-            "arena_selected_models",
-            JSON.stringify(selectedModels),
-        );
-    }, [selectedModels]);
+    const crossDuplicates = useMemo(() => {
+        if (group2Models.length === 0) return false;
+        return group1Models.some((m) => group2Models.includes(m));
+    }, [group1Models, group2Models]);
 
     const canRun = useMemo(() => {
         if (phase !== "setup" && phase !== "next_round_ready") return false;
-        if (selectedModels.length < 2) return false;
-        if (selectedModels.length % 2 !== 0) return false;
-        if (selectedModels.length > 4) return false;
+        if (group1Models.length !== 2) return false;
+        if (group2Models.length !== 0 && group2Models.length !== 2)
+            return false;
         if (!prompt.trim()) return false;
-        const unique = new Set(selectedModels);
-        if (unique.size !== selectedModels.length) return false;
+        if (crossDuplicates) return false;
+        if (new Set(group1Models).size !== group1Models.length) return false;
+        if (
+            group2Models.length > 0 &&
+            new Set(group2Models).size !== group2Models.length
+        )
+            return false;
         return true;
-    }, [phase, selectedModels, prompt]);
+    }, [phase, group1Models, group2Models, prompt, crossDuplicates]);
 
     const buildInitialRounds = useCallback(
-        (models: string[]): BracketRound[] => {
-            const matchupSlots: MatchupSlot[] = models.map((m) => ({
-                modelId: m,
-                personaId: null,
-                personaPrompt: "",
-            }));
+        (g1: string[], g2: string[]): BracketRound[] => {
+            const makeSlots = (ids: string[]): MatchupSlot[] =>
+                ids.map((m) => ({
+                    modelId: m,
+                    personaId: null,
+                    personaPrompt: "",
+                }));
 
-            const firstRoundMatchups: Matchup[] = [];
-            for (let i = 0; i < matchupSlots.length; i += 2) {
+            const firstRoundMatchups: Matchup[] = [
+                {
+                    slotA: makeSlots(g1)[0] || null,
+                    slotB: makeSlots(g1)[1] || null,
+                    responseA: null,
+                    responseB: null,
+                    vote: null,
+                },
+            ];
+
+            if (g2.length === 2) {
                 firstRoundMatchups.push({
-                    slotA: matchupSlots[i],
-                    slotB: matchupSlots[i + 1],
+                    slotA: makeSlots(g2)[0],
+                    slotB: makeSlots(g2)[1],
                     responseA: null,
                     responseB: null,
                     vote: null,
@@ -173,7 +187,7 @@ export function Arena() {
                 { matchups: firstRoundMatchups },
             ];
 
-            if (models.length === 4) {
+            if (g2.length === 2) {
                 bracketRounds.push({
                     matchups: [
                         {
@@ -328,6 +342,39 @@ export function Arena() {
                                         return next;
                                     });
                                 }
+                                const thinkingDelta =
+                                    chunk.choices?.[0]?.delta
+                                        ?.reasoning_content;
+                                if (thinkingDelta) {
+                                    setRounds((prev) => {
+                                        const next = prev.map((r) => ({
+                                            ...r,
+                                            matchups: r.matchups.map((m) => ({
+                                                ...m,
+                                            })),
+                                        }));
+                                        if (
+                                            next[roundIdx]?.matchups[matchupIdx]
+                                        ) {
+                                            const mu =
+                                                next[roundIdx].matchups[
+                                                    matchupIdx
+                                                ];
+                                            const respKey =
+                                                slotKey === "A"
+                                                    ? "responseA"
+                                                    : "responseB";
+                                            mu[respKey] = {
+                                                ...mu[respKey]!,
+                                                thinkingContent:
+                                                    mu[respKey]!
+                                                        .thinkingContent +
+                                                    thinkingDelta,
+                                            };
+                                        }
+                                        return next;
+                                    });
+                                }
                                 if (chunk.usage) {
                                     promptTokens =
                                         chunk.usage.prompt_tokens ?? 0;
@@ -441,6 +488,7 @@ export function Arena() {
                                 ? {
                                       model: mu.slotA.modelId,
                                       content: "",
+                                      thinkingContent: "",
                                       done: false,
                                       error: null,
                                       metrics: null,
@@ -450,6 +498,7 @@ export function Arena() {
                                 ? {
                                       model: mu.slotB.modelId,
                                       content: "",
+                                      thinkingContent: "",
                                       done: false,
                                       error: null,
                                       metrics: null,
@@ -495,7 +544,7 @@ export function Arena() {
         setSavedPrompt(currentPrompt);
         setPrompt("");
 
-        const initialRounds = buildInitialRounds(selectedModels);
+        const initialRounds = buildInitialRounds(group1Models, group2Models);
         setRounds(initialRounds);
         currentRoundRef.current = 0;
         roundsLengthRef.current = initialRounds.length;
@@ -521,6 +570,7 @@ export function Arena() {
                         ? {
                               model: mu.slotA.modelId,
                               content: "",
+                              thinkingContent: "",
                               done: false,
                               error: null,
                               metrics: null,
@@ -530,6 +580,7 @@ export function Arena() {
                         ? {
                               model: mu.slotB.modelId,
                               content: "",
+                              thinkingContent: "",
                               done: false,
                               error: null,
                               metrics: null,
@@ -563,7 +614,7 @@ export function Arena() {
                 );
             }
         }
-    }, [canRun, prompt, selectedModels, buildInitialRounds, streamModel]);
+    }, [canRun, prompt, group1Models, group2Models, buildInitialRounds, streamModel]);
 
     const handleVote = useCallback(
         (roundIdx: number, matchupIdx: number, vote: "A" | "B") => {
@@ -659,7 +710,121 @@ export function Arena() {
         setRunningModels(new Set());
         setWinnerModal(null);
         setSavedPrompt("");
+        setDisabledModels(new Set());
     }, []);
+
+    const handleRetrySlot = useCallback(
+        (roundIdx: number, matchupIdx: number, slotKey: "A" | "B") => {
+            const round = rounds[roundIdx];
+            if (!round) return;
+            const mu = round.matchups[matchupIdx];
+            const slot = slotKey === "A" ? mu.slotA : mu.slotB;
+            if (!slot) return;
+
+            setRounds((prev) => {
+                const next = prev.map((r) => ({
+                    ...r,
+                    matchups: r.matchups.map((m) => ({ ...m })),
+                }));
+                const respKey = slotKey === "A" ? "responseA" : "responseB";
+                if (next[roundIdx]?.matchups[matchupIdx]) {
+                    next[roundIdx].matchups[matchupIdx][respKey] = {
+                        model: slot.modelId,
+                        content: "",
+                        thinkingContent: "",
+                        done: false,
+                        error: null,
+                        metrics: null,
+                    };
+                }
+                return next;
+            });
+            setRunningModels((prev) => new Set(prev).add(slot.modelId));
+            setPhase("running");
+
+            streamModel(
+                slot.modelId,
+                slot.personaPrompt,
+                savedPrompt,
+                roundIdx,
+                slotKey,
+                matchupIdx,
+            );
+        },
+        [rounds, savedPrompt, streamModel],
+    );
+
+    const handleSwapModel = useCallback(
+        (
+            roundIdx: number,
+            matchupIdx: number,
+            slotKey: "A" | "B",
+            failedModelId: string,
+        ) => {
+            setDisabledModels((prev) => new Set(prev).add(failedModelId));
+
+            setRounds((prev) => {
+                const next = prev.map((r) => ({
+                    ...r,
+                    matchups: r.matchups.map((m) => ({ ...m })),
+                }));
+                const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
+                const respKey = slotKey === "A" ? "responseA" : "responseB";
+                if (next[roundIdx]?.matchups[matchupIdx]) {
+                    next[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
+                    next[roundIdx].matchups[matchupIdx][respKey] = null;
+                }
+                return next;
+            });
+        },
+        [],
+    );
+
+    const handleSwapComplete = useCallback(
+        (
+            roundIdx: number,
+            matchupIdx: number,
+            slotKey: "A" | "B",
+            newModelId: string,
+        ) => {
+            setRounds((prev) => {
+                const next = prev.map((r) => ({
+                    ...r,
+                    matchups: r.matchups.map((m) => ({ ...m })),
+                }));
+                const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
+                const respKey = slotKey === "A" ? "responseA" : "responseB";
+                if (next[roundIdx]?.matchups[matchupIdx]) {
+                    next[roundIdx].matchups[matchupIdx][slotKeyStr] = {
+                        modelId: newModelId,
+                        personaId: null,
+                        personaPrompt: "",
+                    };
+                    next[roundIdx].matchups[matchupIdx][respKey] = {
+                        model: newModelId,
+                        content: "",
+                        thinkingContent: "",
+                        done: false,
+                        error: null,
+                        metrics: null,
+                    };
+                }
+                return next;
+            });
+            setRunningModels((prev) => new Set(prev).add(newModelId));
+            setPhase("running");
+
+            streamModel(
+                newModelId,
+                "",
+                savedPrompt,
+                roundIdx,
+                slotKey,
+                matchupIdx,
+            );
+        },
+        [savedPrompt, streamModel],
+    );
 
     const handlePersonaChange = useCallback(
         (
@@ -743,35 +908,62 @@ export function Arena() {
 
             {/* Controls */}
             <div className="ui-card p-4 space-y-4">
-                {/* Model selection — only visible in setup */}
                 {phase === "setup" && (
-                    <div>
-                        <label className="text-sm text-(--text-secondary) mb-2 block">
-                            Models ({selectedModels.length}/4) — pick 2 or 4
-                            unique models
-                        </label>
-                        <ModelPicker
-                            models={enabledModels}
-                            selected={selectedModels}
-                            onChange={setSelectedModels}
-                            multi={true}
-                            maxSelections={4}
-                            providers={providerData}
-                        />
-                        {selectedModels.length > 0 &&
-                            selectedModels.length % 2 !== 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-sm text-(--text-secondary) mb-2 block">
+                                Match 1 ({group1Models.length}/2)
+                            </label>
+                            <ModelPicker
+                                models={enabledModels}
+                                selected={group1Models}
+                                onChange={setGroup1Models}
+                                multi={true}
+                                maxSelections={2}
+                                providers={providerData}
+                            />
+                            {group1Models.length > 0 &&
+                                group1Models.length < 2 && (
+                                    <p className="text-xs text-amber-400 mt-2">
+                                        Pick exactly 2 models.
+                                    </p>
+                                )}
+                            {new Set(group1Models).size !==
+                                group1Models.length &&
+                                group1Models.length > 0 && (
+                                    <p className="text-xs text-amber-400 mt-2">
+                                        No duplicate models.
+                                    </p>
+                                )}
+                        </div>
+                        <div>
+                            <label className="text-sm text-(--text-secondary) mb-2 block">
+                                Match 2 ({group2Models.length}/2){" "}
+                                <span className="text-(--text-tertiary)">
+                                    — optional, adds a final round
+                                </span>
+                            </label>
+                            <ModelPicker
+                                models={enabledModels}
+                                selected={group2Models}
+                                onChange={setGroup2Models}
+                                multi={true}
+                                maxSelections={2}
+                                providers={providerData}
+                            />
+                            {group2Models.length > 0 &&
+                                group2Models.length < 2 && (
+                                    <p className="text-xs text-amber-400 mt-2">
+                                        Pick exactly 2 or leave empty for a
+                                        single match.
+                                    </p>
+                                )}
+                            {crossDuplicates && (
                                 <p className="text-xs text-amber-400 mt-2">
-                                    You need an even number of models (2 or 4).
+                                    Models can't appear in both matches.
                                 </p>
                             )}
-                        {selectedModels.length > 0 &&
-                            new Set(selectedModels).size !==
-                                selectedModels.length && (
-                                <p className="text-xs text-amber-400 mt-2">
-                                    Each model must be unique — no duplicates
-                                    allowed.
-                                </p>
-                            )}
+                        </div>
                     </div>
                 )}
 
@@ -957,7 +1149,11 @@ export function Arena() {
             {showResponseGrid &&
                 rounds.map((round, roundIdx) => {
                     const hasAnyResponse = round.matchups.some(
-                        (mu) => mu.responseA || mu.responseB,
+                        (mu) =>
+                            mu.responseA ||
+                            mu.responseB ||
+                            mu.slotA === null ||
+                            mu.slotB === null,
                     );
                     if (!hasAnyResponse) return null;
                     return (
@@ -966,55 +1162,123 @@ export function Arena() {
                                 Round {roundIdx + 1}
                             </div>
                             <div
-                                className={`rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 space-y-4 transition-opacity duration-500 ${
+                                className={`space-y-4 transition-opacity duration-500 ${
                                     roundIdx <= currentRound
                                         ? "opacity-100"
                                         : "opacity-20"
                                 }`}
                             >
                                 {round.matchups.map((mu, matchupIdx) => {
-                                    const hasResponse =
-                                        mu.responseA || mu.responseB;
-                                    if (!hasResponse) return null;
                                     return (
                                         <div
                                             key={matchupIdx}
-                                            className="grid grid-cols-1 md:grid-cols-2 gap-4 relative"
+                                            className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4"
                                         >
-                                            {mu.responseA && (
-                                                <ResponseCard
-                                                    response={mu.responseA}
-                                                    vote={mu.vote}
-                                                    slotKey="A"
-                                                    roundIdx={roundIdx}
-                                                    matchupIdx={matchupIdx}
-                                                    onVote={handleVote}
-                                                    showVote={
-                                                        roundIdx <=
-                                                            currentRound &&
-                                                        mu.responseA.done &&
-                                                        (!mu.responseB ||
-                                                            mu.responseB.done)
-                                                    }
-                                                />
+                                            {round.matchups.length > 1 && (
+                                                <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-3">
+                                                    Match {matchupIdx + 1}
+                                                </div>
                                             )}
-                                            {mu.responseB && (
-                                                <ResponseCard
-                                                    response={mu.responseB}
-                                                    vote={mu.vote}
-                                                    slotKey="B"
-                                                    roundIdx={roundIdx}
-                                                    matchupIdx={matchupIdx}
-                                                    onVote={handleVote}
-                                                    showVote={
-                                                        roundIdx <=
-                                                            currentRound &&
-                                                        mu.responseB.done &&
-                                                        (!mu.responseA ||
-                                                            mu.responseA.done)
-                                                    }
-                                                />
-                                            )}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {mu.slotA === null &&
+                                                roundIdx === currentRound ? (
+                                                    <SwapPicker
+                                                        enabledModels={enabledModels}
+                                                        disabledModels={disabledModels}
+                                                        alreadyUsed={[
+                                                            ...round.matchups.flatMap(
+                                                                (m, mi) => {
+                                                                    if (mi === matchupIdx) return [];
+                                                                    const ids: string[] = [];
+                                                                    if (m.slotA) ids.push(m.slotA.modelId);
+                                                                    if (m.slotB) ids.push(m.slotB.modelId);
+                                                                    return ids;
+                                                                },
+                                                            ),
+                                                            ...(mu.slotB
+                                                                ? [mu.slotB.modelId]
+                                                                : []),
+                                                        ]}
+                                                        onSelect={(modelId) =>
+                                                            handleSwapComplete(
+                                                                roundIdx,
+                                                                matchupIdx,
+                                                                "A",
+                                                                modelId,
+                                                            )
+                                                        }
+                                                    />
+                                                ) : (
+                                                    mu.responseA && (
+                                                        <ResponseCard
+                                                            response={mu.responseA}
+                                                            vote={mu.vote}
+                                                            slotKey="A"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={matchupIdx}
+                                                            onVote={handleVote}
+                                                            onRetry={handleRetrySlot}
+                                                            onSwapModel={handleSwapModel}
+                                                            showVote={
+                                                                roundIdx <=
+                                                                    currentRound &&
+                                                                mu.responseA.done &&
+                                                                (!mu.responseB ||
+                                                                    mu.responseB.done)
+                                                            }
+                                                        />
+                                                    )
+                                                )}
+                                                {mu.slotB === null &&
+                                                roundIdx === currentRound ? (
+                                                    <SwapPicker
+                                                        enabledModels={enabledModels}
+                                                        disabledModels={disabledModels}
+                                                        alreadyUsed={[
+                                                            ...round.matchups.flatMap(
+                                                                (m, mi) => {
+                                                                    if (mi === matchupIdx) return [];
+                                                                    const ids: string[] = [];
+                                                                    if (m.slotA) ids.push(m.slotA.modelId);
+                                                                    if (m.slotB) ids.push(m.slotB.modelId);
+                                                                    return ids;
+                                                                },
+                                                            ),
+                                                            ...(mu.slotA
+                                                                ? [mu.slotA.modelId]
+                                                                : []),
+                                                        ]}
+                                                        onSelect={(modelId) =>
+                                                            handleSwapComplete(
+                                                                roundIdx,
+                                                                matchupIdx,
+                                                                "B",
+                                                                modelId,
+                                                            )
+                                                        }
+                                                    />
+                                                ) : (
+                                                    mu.responseB && (
+                                                        <ResponseCard
+                                                            response={mu.responseB}
+                                                            vote={mu.vote}
+                                                            slotKey="B"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={matchupIdx}
+                                                            onVote={handleVote}
+                                                            onRetry={handleRetrySlot}
+                                                            onSwapModel={handleSwapModel}
+                                                            showVote={
+                                                                roundIdx <=
+                                                                    currentRound &&
+                                                                mu.responseB.done &&
+                                                                (!mu.responseA ||
+                                                                    mu.responseA.done)
+                                                            }
+                                                        />
+                                                    )
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -1235,6 +1499,17 @@ interface ResponseCardProps {
     roundIdx: number;
     matchupIdx: number;
     onVote: (roundIdx: number, matchupIdx: number, vote: "A" | "B") => void;
+    onRetry: (
+        roundIdx: number,
+        matchupIdx: number,
+        slotKey: "A" | "B",
+    ) => void;
+    onSwapModel: (
+        roundIdx: number,
+        matchupIdx: number,
+        slotKey: "A" | "B",
+        failedModelId: string,
+    ) => void;
     showVote: boolean;
 }
 
@@ -1245,14 +1520,18 @@ function ResponseCard({
     roundIdx,
     matchupIdx,
     onVote,
+    onRetry,
+    onSwapModel,
     showVote,
 }: ResponseCardProps) {
+    const [thinkingOpen, setThinkingOpen] = useState(false);
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
+    const hasThinking = response.thinkingContent.length > 0;
 
     return (
         <div
-            className={`ui-card flex flex-col h-full transition-all ${
+            className={`ui-card flex flex-col transition-all ${
                 isWinner
                     ? "ring-1 ring-green-500/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
                     : isLoser
@@ -1261,18 +1540,45 @@ function ResponseCard({
             }`}
         >
             <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-(--border-subtle)">
-                <div className="flex items-center gap-2">
-                    <Bot size={14} className="text-(--accent)" />
+                <div className="flex items-center gap-2 min-w-0">
+                    <Bot size={14} className="text-(--accent) shrink-0" />
                     <span className="text-sm font-medium text-(--text-primary) truncate">
                         {response.model.split("/").pop()}
                     </span>
+                    {response.error && response.done && (
+                        <button
+                            onClick={() =>
+                                onSwapModel(
+                                    roundIdx,
+                                    matchupIdx,
+                                    slotKey,
+                                    response.model,
+                                )
+                            }
+                            className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                            title="Swap model"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     {response.done && !response.error && (
                         <CheckCircle2 size={14} className="text-green-400" />
                     )}
                     {response.error && (
-                        <AlertCircle size={14} className="text-red-400" />
+                        <>
+                            <AlertCircle size={14} className="text-red-400" />
+                            <button
+                                onClick={() =>
+                                    onRetry(roundIdx, matchupIdx, slotKey)
+                                }
+                                className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
+                                title="Retry"
+                            >
+                                <RefreshCw size={14} />
+                            </button>
+                        </>
                     )}
                     {!response.done && (
                         <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
@@ -1283,20 +1589,47 @@ function ResponseCard({
                 </div>
             </div>
 
-            <div className="flex-1 p-4 overflow-y-auto min-h-50 max-h-150">
+            <div className="flex-1 p-4 overflow-y-auto h-150">
                 {response.error ? (
-                    <div className="text-red-400 text-sm">{response.error}</div>
-                ) : response.content ? (
-                    <div className="prose prose-invert prose-sm max-w-none text-(--text-primary) [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-xs [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {response.content}
-                        </ReactMarkdown>
+                    <div className="text-red-400 text-xs">
+                        {response.error}
                     </div>
                 ) : (
-                    <div className="text-(--text-tertiary) text-sm flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                        Thinking...
-                    </div>
+                    <>
+                        {hasThinking && (
+                            <button
+                                onClick={() => setThinkingOpen(!thinkingOpen)}
+                                className="flex items-center gap-1.5 text-xs text-(--accent)/70 hover:text-(--accent) transition-colors mb-2 cursor-pointer w-full text-left"
+                            >
+                                <Brain size={12} />
+                                <span>Thinking</span>
+                                {thinkingOpen ? (
+                                    <ChevronDown size={12} />
+                                ) : (
+                                    <ChevronRight size={12} />
+                                )}
+                            </button>
+                        )}
+                        {hasThinking && thinkingOpen && (
+                            <div className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto">
+                                {response.thinkingContent}
+                            </div>
+                        )}
+                        {response.content ? (
+                            <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {response.content}
+                                </ReactMarkdown>
+                            </div>
+                        ) : (
+                            <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                                {hasThinking
+                                    ? "Thinking..."
+                                    : "Waiting..."}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -1334,6 +1667,79 @@ function ResponseCard({
                             <ThumbsDown size={18} />
                         )}
                     </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+interface SwapPickerProps {
+    enabledModels: Array<{
+        provider_name: string;
+        model_id: string;
+        display_name?: string;
+        enabled?: boolean;
+    }>;
+    disabledModels: Set<string>;
+    alreadyUsed: string[];
+    onSelect: (modelId: string) => void;
+}
+
+function SwapPicker({
+    enabledModels,
+    disabledModels,
+    alreadyUsed,
+    onSelect,
+}: SwapPickerProps) {
+    const [search, setSearch] = useState("");
+
+    const proxyModelID = (providerName: string, modelId: string) =>
+        providerName.replace(/ /g, "-") + "/" + modelId;
+
+    const available = useMemo(() => {
+        const usedSet = new Set(alreadyUsed);
+        return enabledModels.filter((m) => {
+            const id = proxyModelID(m.provider_name, m.model_id);
+            if (disabledModels.has(id)) return false;
+            if (usedSet.has(id)) return false;
+            if (search.trim()) {
+                const q = search.trim().toLowerCase();
+                const name = (m.display_name || m.model_id).toLowerCase();
+                return name.includes(q) || m.model_id.toLowerCase().includes(q);
+            }
+            return true;
+        });
+    }, [enabledModels, disabledModels, alreadyUsed, search]);
+
+    return (
+        <div className="ui-card flex flex-col items-center justify-center min-h-50">
+            <p className="text-xs text-amber-400 mb-2">
+                Pick a replacement model
+            </p>
+            <input
+                type="text"
+                placeholder="Search models..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="ui-input h-8 py-0! text-xs w-full max-w-xs mb-2"
+            />
+            <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto w-full justify-center px-2">
+                {available.map((m) => {
+                    const id = proxyModelID(m.provider_name, m.model_id);
+                    return (
+                        <button
+                            key={id}
+                            onClick={() => onSelect(id)}
+                            className="px-2 py-0.5 text-[11px] rounded-md border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors cursor-pointer"
+                        >
+                            {m.display_name || m.model_id}
+                        </button>
+                    );
+                })}
+                {available.length === 0 && (
+                    <span className="text-xs text-(--text-muted)">
+                        No models available
+                    </span>
                 )}
             </div>
         </div>
