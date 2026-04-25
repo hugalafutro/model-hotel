@@ -523,7 +523,7 @@ function ProviderDoughnut({
                                     {it.name}
                                 </span>
                             </div>
-                            <div className="text-right shrink-0 flex justify-end tabular-nums">
+                            <div className="text-right shrink-0 flex items-baseline justify-end tabular-nums">
                                 <span className="text-sm font-medium text-(--text-primary) w-14 text-right">
                                     {it.share.toFixed(1)}%
                                 </span>

@@ -121,7 +121,7 @@ function SystemStatus() {
                             <span>{cpuPct.toFixed(1)}%</span>
                             {procs != null && procs > 0 && (
                                 <>
-                                    <span className="text-(--text-muted) mx-1">|</span>
+                                    <span className="text-(--text-secondary) mx-1">|</span>
                                     <span>{procs} proc{procs !== 1 ? "s" : ""}</span>
                                 </>
                             )}
@@ -139,12 +139,11 @@ function SystemStatus() {
                         : "Container network throughput (receive / transmit)"}
                 >
                     <span>Network</span>
-                    <span className="text-(--text-secondary)">
-                        <span className="text-sky-400/60">
+                    <span className="text-(--text-secondary) tabular-nums">
+                        <span className="text-sky-400/60 inline-block min-w-22">
                             ↓{formatBytesPerSec(netRx ?? 0)}
                         </span>
-                        <span className="text-(--text-muted) mx-1"></span>
-                        <span className="text-amber-400/60">
+                        <span className="text-amber-400/60 inline-block min-w-22">
                             ↑{formatBytesPerSec(netTx ?? 0)}
                         </span>
                     </span>
@@ -160,12 +159,11 @@ function SystemStatus() {
                         : "Container disk I/O throughput (read / write)"}
                 >
                     <span>Disk</span>
-                    <span className="text-(--text-secondary)">
-                        <span className="text-sky-400/60">
+                    <span className="text-(--text-secondary) tabular-nums">
+                        <span className="text-sky-400/60 inline-block min-w-22">
                             ↓{formatBytesPerSec(diskRead ?? 0)}
                         </span>
-                        <span className="text-(--text-muted) mx-1"></span>
-                        <span className="text-amber-400/60">
+                        <span className="text-amber-400/60 inline-block min-w-22">
                             ↑{formatBytesPerSec(diskWrite ?? 0)}
                         </span>
                     </span>

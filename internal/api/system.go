@@ -67,7 +67,7 @@ var (
 	cachedSystemMu   sync.Mutex
 )
 
-const systemCacheTTL = 5 * time.Second
+const systemCacheTTL = 3 * time.Second
 
 func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	cachedSystemMu.Lock()
