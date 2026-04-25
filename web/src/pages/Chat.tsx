@@ -382,7 +382,7 @@ export function Chat() {
                         <h1 className="text-3xl font-bold text-white">Chat</h1>
                     </div>
                     <p className="text-gray-400">
-                        Chat with enabled models through the proxy
+                        Test enabled models in temporary chat
                     </p>
                 </div>
             </div>
