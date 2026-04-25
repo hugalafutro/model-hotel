@@ -168,12 +168,8 @@ export function Chat() {
     });
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [selectedModel, setSelectedModel] = useState<string>(
-        () => localStorage.getItem("chat_selected_model") || "",
-    );
-    const [systemPrompt, setSystemPrompt] = useState<string>(
-        () => localStorage.getItem("chat_system_prompt") || "",
-    );
+    const [selectedModel, setSelectedModel] = useState<string>("");
+    const [systemPrompt, setSystemPrompt] = useState<string>("");
     const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
     const [pendingPersona, setPendingPersona] = useState<
         import("../data/presets").PersonaPreset | null
@@ -192,16 +188,6 @@ export function Chat() {
     const selectedModelObj = enabledModels.find(
         (m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
     );
-
-    useEffect(() => {
-        if (selectedModel) {
-            localStorage.setItem("chat_selected_model", selectedModel);
-        }
-    }, [selectedModel]);
-
-    useEffect(() => {
-        localStorage.setItem("chat_system_prompt", systemPrompt);
-    }, [systemPrompt]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

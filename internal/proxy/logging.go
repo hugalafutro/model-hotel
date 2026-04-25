@@ -10,15 +10,23 @@ import (
 func (h *Handler) insertRequestLog(_ context.Context, log *requestLogData) error {
 	log.id = uuid.New().String()
 	log.requestHash = generateRequestHash()
+	var vkID interface{}
+	if log.virtualKeyID != "" {
+		vkID = log.virtualKeyID
+	}
 	_, err := h.dbPool.Exec(context.Background(), `
 		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, log.virtualKeyID, log.failoverAttempt, log.state,
+		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, vkID, log.failoverAttempt, log.state,
 	)
 	return err
 }
 
 func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
+	var providerID interface{}
+	if log.providerID != uuid.Nil {
+		providerID = log.providerID
+	}
 	tag, err := h.dbPool.Exec(context.Background(), `
 		UPDATE request_logs SET
 			provider_id = $2,
@@ -39,7 +47,7 @@ func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
 			failover_attempt = $17,
 			state = $18
 		WHERE id = $1`,
-		log.id, log.providerID, log.statusCode, log.durationMs,
+		log.id, providerID, log.statusCode, log.durationMs,
 		log.proxyOverheadMs, log.parseMs, log.modelLookupMs, log.providerLookupMs,
 		log.keyDecryptMs, log.ttftMs, log.tokensPerSecond, log.tokensPrompt,
 		log.tokensCompletion, log.tokensPromptCacheHit, log.tokensPromptCacheMiss,
