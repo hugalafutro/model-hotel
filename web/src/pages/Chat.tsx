@@ -145,7 +145,7 @@ function ModelDetailPill({ model }: { model: Model }) {
         .map(([k]) => k.replace(/_/g, " "));
 
     return (
-        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto h-80">
+        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto min-h-80">
             <div>
                 <h3 className="text-sm font-semibold text-(--text-primary) leading-tight">
                     {model.display_name || model.model_id}
@@ -496,7 +496,7 @@ export function Chat() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6 h-[calc(100vh-64px)]">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -561,13 +561,13 @@ export function Chat() {
             </div>
 
             {/* Chat Area: Model Details + Messages */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-1 min-h-0">
                 {/* Model Details Pill */}
                 <div className="w-1/4 shrink-0">
                     {selectedModelObj ? (
                         <ModelDetailPill model={selectedModelObj} />
                     ) : (
-                        <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs h-80">
+                        <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs min-h-80">
                             <Bot
                                 size={32}
                                 strokeWidth={1}
@@ -580,7 +580,7 @@ export function Chat() {
                 {/* Messages */}
                 <div
                     ref={messagesContainerRef}
-                    className="flex-1 max-h-[calc(100vh-520px)] min-h-48 overflow-y-auto pr-1 space-y-4"
+                    className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4"
                 >
                     {messages.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
@@ -654,10 +654,10 @@ export function Chat() {
                                         </div>
                                     ) : null}
                                     <div
-                                        className={`flex items-center gap-3 mt-2 text-[11px] ${
+                                        className={`flex items-center gap-3 text-[11px] ${
                                             isUser
-                                                ? "text-white/60"
-                                                : "text-(--text-tertiary)"
+                                                ? "mt-0.5 text-white/60"
+                                                : "mt-2 text-(--text-tertiary)"
                                         }`}
                                     >
                                         <span>{formatTime(msg.timestamp)}</span>
