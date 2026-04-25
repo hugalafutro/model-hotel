@@ -37,20 +37,32 @@ function proxyModelID(providerName: string, modelId: string): string {
     return providerName.replace(/ /g, "-") + "/" + modelId;
 }
 
+type SortMode = "provider" | "model";
+
 function getProviderStyle(baseUrl: string, active: boolean) {
     const isNanoGPT = baseUrl.includes("nano-gpt.com");
     const isDeepSeek = baseUrl.includes("deepseek.com");
+    const isOllama = baseUrl.includes("ollama.com");
+    const isZAI = baseUrl.includes("z.ai");
     if (active) {
         if (isNanoGPT)
             return "bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]";
         if (isDeepSeek)
             return "bg-[#36aaff] text-white border-[#36aaff] shadow-[0_0_6px_1px_rgba(54,170,255,0.35)]";
+        if (isZAI)
+            return "bg-[#18181b] text-white border-[#18181b] shadow-[0_0_6px_1px_rgba(255,255,255,0.2)]";
+        if (isOllama)
+            return "bg-[#71717a] text-white border-[#71717a] shadow-[0_0_6px_1px_rgba(113,113,122,0.35)]";
         return "bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
     }
     if (isNanoGPT)
         return "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30";
     if (isDeepSeek)
         return "bg-[#36aaff]/20 text-[#36aaff] border-[#36aaff]/50 hover:bg-[#36aaff]/30";
+    if (isZAI)
+        return "bg-[#18181b]/25 text-[#d4d4d8] border-[#3f3f46]/60 hover:bg-[#18181b]/40";
+    if (isOllama)
+        return "bg-[#71717a]/20 text-[#a1a1aa] border-[#71717a]/40 hover:bg-[#71717a]/30";
     return "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
 }
 
@@ -67,6 +79,7 @@ export function ModelPicker({
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
         new Set(),
     );
+    const [sortMode, setSortMode] = useState<SortMode>("provider");
 
     const selectedSet = useMemo(() => {
         if (multi) return new Set(selected as string[]);
@@ -113,10 +126,22 @@ export function ModelPicker({
             const bVal = proxyModelID(b.provider_name, b.model_id);
             const aSel = selectedSet.has(aVal) ? 0 : 1;
             const bSel = selectedSet.has(bVal) ? 0 : 1;
-            return aSel - bSel;
+            if (aSel !== bSel) return aSel - bSel;
+            if (sortMode === "model") {
+                const aName = (a.display_name || a.model_id).toLowerCase();
+                const bName = (b.display_name || b.model_id).toLowerCase();
+                const cmp = aName.localeCompare(bName);
+                if (cmp !== 0) return cmp;
+                return a.provider_name.localeCompare(b.provider_name);
+            }
+            const cmp = a.provider_name.localeCompare(b.provider_name);
+            if (cmp !== 0) return cmp;
+            return (a.display_name || a.model_id).localeCompare(
+                b.display_name || b.model_id,
+            );
         });
         return result;
-    }, [enabledModels, providerFilter, search, selectedSet]);
+    }, [enabledModels, providerFilter, search, selectedSet, sortMode]);
 
     const toggleProvider = (provider: string) => {
         setProviderFilter((prev) => {
@@ -159,6 +184,14 @@ export function ModelPicker({
                     onChange={(e) => setSearch(e.target.value)}
                     className="ui-input h-9 py-0! w-[320px]!"
                 />
+                <select
+                    value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as SortMode)}
+                    className="ui-input h-9 py-0! w-auto! text-xs pr-6!"
+                >
+                    <option value="provider">By Provider</option>
+                    <option value="model">By Model</option>
+                </select>
                 <div className="flex flex-wrap gap-1">
                     {providerNames.map((name) => {
                         const active = providerFilter.has(name);

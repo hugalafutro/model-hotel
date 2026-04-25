@@ -127,7 +127,7 @@ export function Arena() {
                 let completionTokens = 0;
 
                 try {
-                    const resp = await api.chat.completions({
+                    const resp = await api.chat.arena({
                         model,
                         stream: true,
                         messages: chatMessages,
@@ -407,6 +407,7 @@ export function Arena() {
                             }
                         }}
                         placeholder="Enter your prompt..."
+                        autoFocus
                         rows={1}
                         maxLength={10000}
                         className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"

@@ -294,7 +294,7 @@ export function Chat() {
         setMessages((prev) => [...prev, assistantMessage]);
 
         try {
-            const resp = await api.chat.completions({
+            const resp = await api.chat.chat({
                 model: selectedModel,
                 stream: true,
                 messages: chatMessages,
@@ -569,6 +569,7 @@ export function Chat() {
                                 : "Select a model first"
                         }
                         disabled={!selectedModel || isStreaming}
+                        autoFocus
                         rows={1}
                         maxLength={10000}
                         className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"

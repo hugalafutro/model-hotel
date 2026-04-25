@@ -996,8 +996,7 @@ export function Models() {
     const [statusFilter, setStatusFilter] = useState<
         Set<"enabled" | "disabled">
     >(new Set());
-    const showAllStatus =
-        statusFilter.size === 0 || statusFilter.size === 2;
+    const showAllStatus = statusFilter.size === 0 || statusFilter.size === 2;
     const [pageSize, setPageSize] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -1236,7 +1235,15 @@ export function Models() {
                 pillAvailability: availability,
                 existingCaps: capsInData,
             };
-        }, [models, searchQuery, sort, capFilter, selectedProviders, statusFilter, showAllStatus]);
+        }, [
+            models,
+            searchQuery,
+            sort,
+            capFilter,
+            selectedProviders,
+            statusFilter,
+            showAllStatus,
+        ]);
 
     const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
     const paginatedModels = sortedAndFiltered.slice(
@@ -1420,18 +1427,32 @@ export function Models() {
                                             provider.base_url.includes(
                                                 "deepseek.com",
                                             );
+                                        const isOllama =
+                                            provider.base_url.includes(
+                                                "ollama.com",
+                                            );
+                                        const isZAI =
+                                            provider.base_url.includes("z.ai");
                                         const isSelected =
                                             selectedProviders.has(provider.id);
                                         const baseStyle = isNanoGPT
                                             ? "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30"
                                             : isDeepSeek
                                               ? "bg-[#36aaff]/20 text-[#36aaff] border-[#36aaff]/50 hover:bg-[#36aaff]/30"
-                                              : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
+                                              : isZAI
+                                                ? "bg-[#18181b]/25 text-[#d4d4d8] border-[#3f3f46]/60 hover:bg-[#18181b]/40"
+                                                : isOllama
+                                                  ? "bg-[#71717a]/20 text-[#a1a1aa] border-[#71717a]/40 hover:bg-[#71717a]/30"
+                                                  : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
                                         const activeStyle = isNanoGPT
                                             ? "bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]"
                                             : isDeepSeek
                                               ? "bg-[#36aaff] text-white border-[#36aaff] shadow-[0_0_6px_1px_rgba(54,170,255,0.35)]"
-                                              : "bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
+                                              : isZAI
+                                                ? "bg-[#18181b] text-white border-[#18181b] shadow-[0_0_6px_1px_rgba(255,255,255,0.2)]"
+                                                : isOllama
+                                                  ? "bg-[#71717a] text-white border-[#71717a] shadow-[0_0_6px_1px_rgba(113,113,122,0.35)]"
+                                                  : "bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
                                         return (
                                             <button
                                                 key={provider.id}

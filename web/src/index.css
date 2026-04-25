@@ -1470,3 +1470,61 @@ html.light .terminal-titlebar-win11 .win11-icon {
     border-color: rgba(255, 255, 255, 0.6);
     box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
 }
+
+/* Light theme overrides for toast slider */
+html.light .toast-timeout-slider,
+[data-ui-style].light .toast-timeout-slider {
+    background: #d1d5db;
+}
+
+html.light .toast-timeout-slider::-webkit-slider-runnable-track,
+[data-ui-style].light .toast-timeout-slider::-webkit-slider-runnable-track {
+    background: linear-gradient(
+        to right,
+        var(--accent) 0%,
+        var(--accent) var(--slider-fill, 0%),
+        #d1d5db var(--slider-fill, 0%),
+        #d1d5db 100%
+    );
+}
+
+html.light .toast-timeout-slider::-webkit-slider-thumb,
+[data-ui-style].light .toast-timeout-slider::-webkit-slider-thumb {
+    border-color: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+}
+
+html.light .toast-timeout-slider::-webkit-slider-thumb:hover,
+[data-ui-style].light .toast-timeout-slider::-webkit-slider-thumb:hover {
+    border-color: rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+html.light .toast-timeout-slider::-webkit-slider-thumb:active,
+[data-ui-style].light .toast-timeout-slider::-webkit-slider-thumb:active {
+    border-color: rgba(0, 0, 0, 0.45);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
+}
+
+html.light .toast-timeout-slider::-moz-range-track,
+[data-ui-style].light .toast-timeout-slider::-moz-range-track {
+    background: #d1d5db;
+}
+
+html.light .toast-timeout-slider::-moz-range-thumb,
+[data-ui-style].light .toast-timeout-slider::-moz-range-thumb {
+    border-color: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+}
+
+html.light .toast-timeout-slider::-moz-range-thumb:hover,
+[data-ui-style].light .toast-timeout-slider::-moz-range-thumb:hover {
+    border-color: rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+html.light .toast-timeout-slider::-moz-range-thumb:active,
+[data-ui-style].light .toast-timeout-slider::-moz-range-thumb:active {
+    border-color: rgba(0, 0, 0, 0.45);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
+}

@@ -66,6 +66,8 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	})
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 
+	r.Post("/chat", h.ChatCompletions)
+	r.Post("/arena", h.ChatCompletions)
 	r.Post("/completions", h.ChatCompletions)
 }
 

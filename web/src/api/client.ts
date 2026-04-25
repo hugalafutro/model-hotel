@@ -117,7 +117,11 @@ export const api = {
             succeeded: number;
             failed: number;
             discovered: number;
-            results: { provider_name: string; discovered: number; error?: string }[];
+            results: {
+                provider_name: string;
+                discovered: number;
+                error?: string;
+            }[];
         }> => {
             const response = await fetch(
                 `${API_BASE}/api/providers/discover-all`,
@@ -138,7 +142,12 @@ export const api = {
             refreshed: number;
             failed: number;
             skipped: number;
-            results: { provider_name: string; provider_type: string; refreshed: boolean; error?: string }[];
+            results: {
+                provider_name: string;
+                provider_type: string;
+                refreshed: boolean;
+                error?: string;
+            }[];
         }> => {
             const response = await fetch(
                 `${API_BASE}/api/providers/refresh-quotas`,
@@ -286,8 +295,7 @@ export const api = {
                 searchParams.append("status_code", params.status_code);
             if (params.from) searchParams.append("from", params.from);
             if (params.to) searchParams.append("to", params.to);
-            if (params.sort_by)
-                searchParams.append("sort_by", params.sort_by);
+            if (params.sort_by) searchParams.append("sort_by", params.sort_by);
             if (params.sort_dir)
                 searchParams.append("sort_dir", params.sort_dir);
 
@@ -497,19 +505,52 @@ export const api = {
             temperature?: number;
             max_tokens?: number;
         }): Promise<Response> => {
-            const response = await fetch(
-                `${API_BASE}/api/chat/completions`,
-                {
-                    method: "POST",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(body),
-                },
-            );
+            const response = await fetch(`${API_BASE}/api/chat/completions`, {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify(body),
+            });
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(
-                    `Chat failed: ${response.status} ${text}`,
-                );
+                throw new Error(`Chat failed: ${response.status} ${text}`);
+            }
+            return response;
+        },
+
+        chat: async (body: {
+            model: string;
+            stream: boolean;
+            messages: Array<{ role: string; content: string }>;
+            temperature?: number;
+            max_tokens?: number;
+        }): Promise<Response> => {
+            const response = await fetch(`${API_BASE}/api/chat/chat`, {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Chat failed: ${response.status} ${text}`);
+            }
+            return response;
+        },
+
+        arena: async (body: {
+            model: string;
+            stream: boolean;
+            messages: Array<{ role: string; content: string }>;
+            temperature?: number;
+            max_tokens?: number;
+        }): Promise<Response> => {
+            const response = await fetch(`${API_BASE}/api/chat/arena`, {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Arena failed: ${response.status} ${text}`);
             }
             return response;
         },
