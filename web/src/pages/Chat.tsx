@@ -587,7 +587,7 @@ export function Chat() {
                                 strokeWidth={1}
                                 className="mb-4 opacity-40"
                             />
-                            <p>Start chatting</p>
+                            <p>Chat will appear here</p>
                         </div>
                     )}
 
