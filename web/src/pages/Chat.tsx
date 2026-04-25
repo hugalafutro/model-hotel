@@ -549,7 +549,7 @@ export function Chat() {
                                     e.target.scrollHeight + "px";
                             }
                         }}
-                        placeholder="You are a helpful assistant..."
+                        placeholder="Enter your custom prompt here..."
                         rows={1}
                         maxLength={5000}
                         className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
@@ -605,10 +605,10 @@ export function Chat() {
                                 className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                             >
                                 <div
-                                    className={`max-w-[80%] rounded-xl p-4 ${
+                                    className={`max-w-[80%] rounded-xl ${
                                         isUser
-                                            ? "bg-(--accent) text-white rounded-br-sm"
-                                            : "ui-card rounded-bl-sm"
+                                            ? "bg-(--accent) text-white rounded-br-sm p-2.5"
+                                            : "ui-card rounded-bl-sm p-4"
                                     }`}
                                 >
                                     {!isUser && msg.model && (
@@ -701,7 +701,7 @@ export function Chat() {
 
             {/* Input */}
             <div className="ui-card p-4">
-                <div className="flex items-end gap-3">
+                <div className="flex items-center gap-3">
                     <textarea
                         value={input}
                         onChange={(e) => {

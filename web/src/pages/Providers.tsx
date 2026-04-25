@@ -154,7 +154,9 @@ function NanoGPTQuotaModal({
                             ) : (
                                 <RefreshCw
                                     size={18}
-                                    className={isRefreshing ? "animate-spin" : ""}
+                                    className={
+                                        isRefreshing ? "animate-spin" : ""
+                                    }
                                 />
                             )}
                         </button>
@@ -282,9 +284,7 @@ function NanoGPTQuotaModal({
                                     Period End
                                 </span>
                                 <p className="text-gray-200">
-                                    {formatDate(
-                                        usage.period.currentPeriodEnd,
-                                    )}
+                                    {formatDate(usage.period.currentPeriodEnd)}
                                 </p>
                             </div>
                             <div>
@@ -302,10 +302,7 @@ function NanoGPTQuotaModal({
                         <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
                             <p className="text-sm text-yellow-300">
                                 Subscription will cancel at period end (
-                                {formatDate(
-                                    usage.period.currentPeriodEnd,
-                                )}
-                                )
+                                {formatDate(usage.period.currentPeriodEnd)})
                             </p>
                         </div>
                     )}
@@ -392,7 +389,9 @@ function ZAIQuotaModal({
                             ) : (
                                 <RefreshCw
                                     size={18}
-                                    className={isRefreshing ? "animate-spin" : ""}
+                                    className={
+                                        isRefreshing ? "animate-spin" : ""
+                                    }
                                 />
                             )}
                         </button>
@@ -798,6 +797,27 @@ export function Providers() {
         queryFn: () => api.providers.list(),
     });
 
+    const { data: models } = useQuery({
+        queryKey: ["models"],
+        queryFn: () => api.models.list(),
+        staleTime: 60_000,
+    });
+
+    const modelCounts = useMemo(() => {
+        const map = new Map<string, number>();
+        if (models) {
+            for (const m of models) {
+                if (m.provider_name) {
+                    map.set(
+                        m.provider_name,
+                        (map.get(m.provider_name) || 0) + 1,
+                    );
+                }
+            }
+        }
+        return map;
+    }, [models]);
+
     const { data: settings } = useQuery({
         queryKey: ["settings"],
         queryFn: () => api.settings.get(),
@@ -805,19 +825,32 @@ export function Providers() {
 
     const nanogptProviderId = useMemo(() => {
         return providers?.find((p) => {
-            try { return new URL(p.base_url).hostname.endsWith("nano-gpt.com"); } catch { return false; }
+            try {
+                return new URL(p.base_url).hostname.endsWith("nano-gpt.com");
+            } catch {
+                return false;
+            }
         })?.id;
     }, [providers]);
 
     const zaiProviderId = useMemo(() => {
         return providers?.find((p) => {
-            try { const h = new URL(p.base_url).hostname; return h === "z.ai" || h.endsWith(".z.ai"); } catch { return false; }
+            try {
+                const h = new URL(p.base_url).hostname;
+                return h === "z.ai" || h.endsWith(".z.ai");
+            } catch {
+                return false;
+            }
         })?.id;
     }, [providers]);
 
     const deepseekProviderId = useMemo(() => {
         return providers?.find((p) => {
-            try { return new URL(p.base_url).hostname.endsWith("deepseek.com"); } catch { return false; }
+            try {
+                return new URL(p.base_url).hostname.endsWith("deepseek.com");
+            } catch {
+                return false;
+            }
         })?.id;
     }, [providers]);
 
@@ -910,7 +943,10 @@ export function Providers() {
                 if (r.error) {
                     toast(`${r.provider_name}: ${r.error}`, "error");
                 } else {
-                    toast(`${r.provider_name}: ${r.discovered} models`, "success");
+                    toast(
+                        `${r.provider_name}: ${r.discovered} models`,
+                        "success",
+                    );
                 }
             }
             if (data.discovered > 0) {
@@ -1079,12 +1115,19 @@ export function Providers() {
                     <button
                         type="button"
                         onClick={() => discoverAllMutation.mutate()}
-                        disabled={discoverAllMutation.isPending || discoveringId !== null}
+                        disabled={
+                            discoverAllMutation.isPending ||
+                            discoveringId !== null
+                        }
                         className="ui-btn ui-btn-secondary"
                     >
                         {discoverAllMutation.isPending ? (
-                            <><Spinner /> Discovering...</>
-                        ) : "Discover All Models"}
+                            <>
+                                <Spinner /> Discovering...
+                            </>
+                        ) : (
+                            "Discover All Models"
+                        )}
                     </button>
                     <button
                         type="button"
@@ -1162,6 +1205,22 @@ export function Providers() {
                                                 tokens
                                             </span>
                                         )}
+                                        {(() => {
+                                            const count =
+                                                modelCounts.get(
+                                                    provider.name,
+                                                ) ?? 0;
+                                            return (
+                                                count > 0 && (
+                                                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30">
+                                                        {count}{" "}
+                                                        {count === 1
+                                                            ? "model"
+                                                            : "models"}
+                                                    </span>
+                                                )
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 <p className="text-sm text-gray-400 mt-1 truncate">
@@ -1175,9 +1234,7 @@ export function Providers() {
                                         Created
                                     </span>
                                     <span className="text-gray-300">
-                                        {formatTimestamp(
-                                            provider.created_at,
-                                        )}
+                                        {formatTimestamp(provider.created_at)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -1295,18 +1352,26 @@ export function Providers() {
                                         onClick={() =>
                                             discoverMutation.mutate(provider.id)
                                         }
-                                        disabled={discoveringId !== null || discoverAllMutation.isPending}
+                                        disabled={
+                                            discoveringId !== null ||
+                                            discoverAllMutation.isPending
+                                        }
                                         className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                                             discoveringId === provider.id
                                                 ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-                                                : discoveringId !== null || discoverAllMutation.isPending
+                                                : discoveringId !== null ||
+                                                    discoverAllMutation.isPending
                                                   ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
                                                   : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
                                         }`}
                                     >
-                                        {discoveringId === provider.id
-                                            ? <><Spinner /> Discovering...</>
-                                            : "Discover Models"}
+                                        {discoveringId === provider.id ? (
+                                            <>
+                                                <Spinner /> Discovering...
+                                            </>
+                                        ) : (
+                                            "Discover Models"
+                                        )}
                                     </button>
                                     <button
                                         type="button"

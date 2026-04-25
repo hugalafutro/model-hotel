@@ -190,23 +190,23 @@ export function ModelPicker({
                 <div className="flex items-center gap-2 text-xs">
                     <button
                         onClick={() => setSortMode("model")}
-                        className={`transition-colors ${sortMode === "model" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
+                        className={`cursor-pointer transition-colors ${sortMode === "model" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
                     >
                         Name
                     </button>
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-(--border-subtle) bg-(--surface-hover)">
                         <button
                             onClick={() => setSortMode("model")}
-                            className="flex items-center"
+                            className="flex items-center cursor-pointer"
                         >
                             <span
                                 className={`w-2 h-2 rounded-full transition-colors ${sortMode === "model" ? "bg-(--accent)" : "border border-(--border-subtle)"}`}
                             />
                         </button>
-                        <span className="text-(--text-muted)">Sort by</span>
+                        <span className="text-(--text-secondary)">Sort by</span>
                         <button
                             onClick={() => setSortMode("provider")}
-                            className="flex items-center"
+                            className="flex items-center cursor-pointer"
                         >
                             <span
                                 className={`w-2 h-2 rounded-full transition-colors ${sortMode === "provider" ? "bg-(--accent)" : "border border-(--border-subtle)"}`}
@@ -215,7 +215,7 @@ export function ModelPicker({
                     </div>
                     <button
                         onClick={() => setSortMode("provider")}
-                        className={`transition-colors ${sortMode === "provider" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
+                        className={`cursor-pointer transition-colors ${sortMode === "provider" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
                     >
                         Provider
                     </button>
