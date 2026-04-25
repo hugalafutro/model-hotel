@@ -197,16 +197,17 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		provCtx, provCancel := context.WithTimeout(context.Background(), 60*time.Second)
-		models, discoverErr := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
-		provCancel()
+		provCtx, provCancel := context.WithTimeout(context.Background(), 180*time.Second)
 		result := DiscoverAllResult{
 			ProviderName: prov.Name,
 		}
 
+		models, discoverErr := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
+
 		if discoverErr != nil {
 			result.Error = discoverErr.Error()
 			failed++
+			provCancel()
 			results = append(results, result)
 			continue
 		}
@@ -217,26 +218,27 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 
 		existingModelIDs := make([]string, 0, len(models))
 		for _, m := range models {
-			if err := modelRepo.Upsert(r.Context(), m); err != nil {
+			if err := modelRepo.Upsert(provCtx, m); err != nil {
 				continue
 			}
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 		}
 
-		modelRepo.DisableMissingModels(r.Context(), prov.ID, existingModelIDs)
+		modelRepo.DisableMissingModels(provCtx, prov.ID, existingModelIDs)
 
 		seenModelIDs := make(map[string]bool)
 		for _, mid := range existingModelIDs {
 			seenModelIDs[mid] = true
 		}
 		for modelID := range seenModelIDs {
-			failoverRepo.SyncForModel(r.Context(), modelID)
+			failoverRepo.SyncForModel(provCtx, modelID)
 		}
 
 		now := time.Now()
-		h.dbPool.Pool().Exec(r.Context(),
+		h.dbPool.Pool().Exec(provCtx,
 			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID)
 
+		provCancel()
 		results = append(results, result)
 	}
 

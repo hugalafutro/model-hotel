@@ -1079,7 +1079,7 @@ export function Providers() {
                     <button
                         type="button"
                         onClick={() => discoverAllMutation.mutate()}
-                        disabled={discoverAllMutation.isPending}
+                        disabled={discoverAllMutation.isPending || discoveringId !== null}
                         className="ui-btn ui-btn-secondary"
                     >
                         {discoverAllMutation.isPending ? (
