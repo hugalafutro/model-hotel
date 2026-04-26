@@ -48,6 +48,8 @@ interface ModelReplyCardProps {
     bodyClassName?: string;
     /** Additional class names for the footer row */
     footerClassName?: string;
+    /** Tailwind max-width class for the model name (e.g. "max-w-60"), defaults to "max-w-45" */
+    modelMaxWidth?: string;
 }
 
 export function ModelReplyCard({
@@ -68,6 +70,7 @@ export function ModelReplyCard({
     headerClassName,
     bodyClassName,
     footerClassName,
+    modelMaxWidth = "max-w-45",
 }: ModelReplyCardProps) {
     const [elapsed, setElapsed] = useState(0);
 
@@ -101,7 +104,7 @@ export function ModelReplyCard({
                     <div className="flex items-center gap-2 min-w-0">
                         <Bot size={14} className="text-(--accent) shrink-0" />
                         <span
-                            className="text-sm font-medium text-(--text-primary) truncate max-w-45"
+                            className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
                             title={model.split("/").pop()}
                         >
                             {model.split("/").pop()}

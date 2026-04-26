@@ -1073,6 +1073,7 @@ export function Chat() {
                                 <div className="max-w-[80%]">
                                     <ModelReplyCard
                                         model={msg.model || ""}
+                                        modelMaxWidth="max-w-60"
                                         content={msg.content}
                                         thinkingContent={msg.thinkingContent}
                                         metrics={msg.metrics}
