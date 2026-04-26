@@ -1,9 +1,4 @@
-import {
-    createContext,
-    useContext,
-    useState,
-    type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 interface StorageContextType {
     persistChat: boolean;
@@ -51,12 +46,18 @@ export function StorageProvider({ children }: { children: ReactNode }) {
         if (!v) {
             localStorage.removeItem("arenaPrompt");
             localStorage.removeItem("arenaActivePromptId");
+            localStorage.removeItem("arenaState");
         }
     };
 
     return (
         <StorageContext.Provider
-            value={{ persistChat, setPersistChat, persistArena, setPersistArena }}
+            value={{
+                persistChat,
+                setPersistChat,
+                persistArena,
+                setPersistArena,
+            }}
         >
             {children}
         </StorageContext.Provider>

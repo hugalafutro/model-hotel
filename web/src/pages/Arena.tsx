@@ -16,6 +16,7 @@ import {
     ChevronsUpDown,
     ChevronsDownUp,
     CircleStop,
+    Copy,
 } from "lucide-react";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
@@ -89,8 +90,34 @@ export function Arena() {
     const { toast } = useToast();
     const { persistArena } = useStorage();
 
-    const [group1Models, setGroup1Models] = useState<string[]>([]);
-    const [group2Models, setGroup2Models] = useState<string[]>([]);
+    const [group1Models, setGroup1Models] = useState<string[]>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.group1Models ?? [];
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return [];
+    });
+    const [group2Models, setGroup2Models] = useState<string[]>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.group2Models ?? [];
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return [];
+    });
 
     const [activePromptId, setActivePromptId] = useState<string | null>(() => {
         try {
@@ -118,15 +145,67 @@ export function Arena() {
     });
     const [savedPrompt, setSavedPrompt] = useState<string>("");
 
-    const [rounds, setRounds] = useState<BracketRound[]>([]);
-    const [currentRound, setCurrentRound] = useState(0);
-    const [phase, setPhase] = useState<BracketPhase>("setup");
+    const [rounds, setRounds] = useState<BracketRound[]>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.rounds ?? [];
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return [];
+    });
+    const [currentRound, setCurrentRound] = useState(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.currentRound ?? 0;
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return 0;
+    });
+    const [phase, setPhase] = useState<BracketPhase>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.phase ?? "setup";
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return "setup";
+    });
     const [runningModels, setRunningModels] = useState<Set<string>>(new Set());
     const [winnerModal, setWinnerModal] = useState<WinnerModal | null>(null);
     const [disabledModels, setDisabledModels] = useState<Set<string>>(
         new Set(),
     );
-    const [arenaCollapsed, setArenaCollapsed] = useState(false);
+    const [arenaCollapsed, setArenaCollapsed] = useState<boolean>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.arenaCollapsed ?? false;
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return false;
+    });
     const [pendingReset, setPendingReset] = useState(false);
 
     useEffect(() => {
@@ -146,6 +225,33 @@ export function Arena() {
             /* quota exceeded */
         }
     }, [activePromptId, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaState",
+                JSON.stringify({
+                    group1Models,
+                    group2Models,
+                    rounds,
+                    currentRound,
+                    phase,
+                    arenaCollapsed,
+                }),
+            );
+        } catch {
+            /* quota exceeded */
+        }
+    }, [
+        group1Models,
+        group2Models,
+        rounds,
+        currentRound,
+        phase,
+        arenaCollapsed,
+        persistArena,
+    ]);
 
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const currentRoundRef = useRef(0);
@@ -1826,6 +1932,7 @@ function ResponseCard({
     onCancelSlot,
     showVote,
 }: ResponseCardProps) {
+    const { toast } = useToast();
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
 
@@ -1861,7 +1968,21 @@ function ResponseCard({
             headerEnd={
                 <>
                     {response.done && !response.error && (
-                        <CheckCircle2 size={14} className="text-green-400" />
+                        <>
+                            <CheckCircle2
+                                size={14}
+                                className="text-green-400"
+                            />
+                            <button
+                                onClick={() =>
+                                    onRetry(roundIdx, matchupIdx, slotKey)
+                                }
+                                className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
+                                title="Re-roll"
+                            >
+                                <RefreshCw size={14} />
+                            </button>
+                        </>
                     )}
                     {response.error && (
                         <>
@@ -1899,29 +2020,52 @@ function ResponseCard({
                 </>
             }
             footerEnd={
-                showVote ? (
-                    <button
-                        onClick={
-                            vote === null
-                                ? () => onVote(roundIdx, matchupIdx, slotKey)
-                                : undefined
-                        }
-                        disabled={vote !== null}
-                        className={`flex items-center gap-1 transition-all ${
-                            vote === null ? "cursor-pointer" : "cursor-default"
-                        } ${
-                            isWinner
-                                ? "text-green-400 hover:text-green-300"
-                                : "text-(--text-tertiary) hover:text-(--text-secondary)"
-                        }`}
-                    >
-                        <VoteThumb
-                            size={18}
-                            isWinner={isWinner}
-                            animating={vote === null}
-                        />
-                    </button>
-                ) : null
+                <div className="flex items-center gap-2">
+                    {response.done && !response.error && response.content && (
+                        <button
+                            className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
+                            onClick={() => {
+                                navigator.clipboard
+                                    .writeText(response.content)
+                                    .then(() =>
+                                        toast("Copied to clipboard", "info"),
+                                    )
+                                    .catch(() =>
+                                        toast("Failed to copy", "error"),
+                                    );
+                            }}
+                            title="Copy"
+                        >
+                            <Copy size={12} />
+                        </button>
+                    )}
+                    {showVote && (
+                        <button
+                            onClick={
+                                vote === null
+                                    ? () =>
+                                          onVote(roundIdx, matchupIdx, slotKey)
+                                    : undefined
+                            }
+                            disabled={vote !== null}
+                            className={`flex items-center gap-1 transition-all ${
+                                vote === null
+                                    ? "cursor-pointer"
+                                    : "cursor-default"
+                            } ${
+                                isWinner
+                                    ? "text-green-400 hover:text-green-300"
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                            }`}
+                        >
+                            <VoteThumb
+                                size={18}
+                                isWinner={isWinner}
+                                animating={vote === null}
+                            />
+                        </button>
+                    )}
+                </div>
             }
             className="flex flex-col"
             headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
