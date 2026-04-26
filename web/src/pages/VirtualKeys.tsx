@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState, useMemo, useCallback } from "react";
-import { KeyRound, X } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import type { VirtualKey } from "../api/types";
 import {
@@ -11,27 +11,12 @@ import {
     PaginationBar,
 } from "../components/DataTable";
 import { CopyablePill } from "../components/CopyablePill";
+import { Modal } from "../components/Modal";
+import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import type { SortState } from "../components/DataTable";
+import { formatRelativeTime, formatNumber } from "../utils/format";
 
 type VKSortField = "name" | "key" | "created" | "tokens" | "last_used";
-
-function formatRelativeTime(dateStr: string | null): string {
-    if (!dateStr) return "Never";
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "just now";
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay}d ago`;
-}
-
-function formatNumber(n: number): string {
-    return n.toLocaleString();
-}
 
 function CreateKeyModal({
     onClose,
@@ -63,108 +48,88 @@ function CreateKeyModal({
     };
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-            onKeyDown={(e) => {
-                if (e.key === "Escape") onClose();
-            }}
+        <Modal
+            title={createdKey ? "Virtual Key Created" : "Create Virtual Key"}
+            onClose={onClose}
         >
-            <div className="ui-card relative p-6 w-full max-w-md">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-                    aria-label="Close"
-                >
-                    <X size={20} />
-                </button>
-                {createdKey ? (
-                    <>
-                        <h2 className="text-xl font-bold text-white mb-4">
-                            Virtual Key Created
-                        </h2>
-                        <p className="text-sm text-gray-400 mb-3">
-                            Copy this key now. It won't be shown again.
-                        </p>
-                        <div className="bg-gray-950 rounded-lg p-3 mb-4">
-                            {createdKey.key && (
-                                <CopyablePill
-                                    text={createdKey.key}
-                                    displayText={createdKey.key}
-                                    textClassName="text-sm text-green-400 font-mono break-all"
-                                    tooltip="Click to copy key"
-                                />
-                            )}
+            {createdKey ? (
+                <>
+                    <p className="text-sm text-gray-400 mb-3">
+                        Copy this key now. It won't be shown again.
+                    </p>
+                    <div className="bg-gray-950 rounded-lg p-3 mb-4">
+                        {createdKey.key && (
+                            <CopyablePill
+                                text={createdKey.key}
+                                displayText={createdKey.key}
+                                textClassName="text-sm text-green-400 font-mono break-all"
+                                tooltip="Click to copy key"
+                            />
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-500 mb-4">
+                        Use as:{" "}
+                        <code className="text-gray-400">
+                            Bearer {createdKey.key}
+                        </code>{" "}
+                        at{" "}
+                        <code className="text-gray-400">
+                            {window.location.origin}/v1
+                        </code>
+                    </p>
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="ui-btn-secondary cursor-pointer"
+                        >
+                            Done
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label
+                                htmlFor="vk-name"
+                                className="block text-sm font-medium text-gray-300 mb-1"
+                            >
+                                Name
+                            </label>
+                            <input
+                                id="vk-name"
+                                type="text"
+                                required
+                                autoFocus={true}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="ui-input"
+                                placeholder="e.g., My App"
+                            />
                         </div>
-                        <p className="text-sm text-gray-500 mb-4">
-                            Use as:{" "}
-                            <code className="text-gray-400">
-                                Bearer {createdKey.key}
-                            </code>{" "}
-                            at{" "}
-                            <code className="text-gray-400">
-                                {window.location.origin}/v1
-                            </code>
-                        </p>
-                        <div className="flex justify-end">
+                        <div className="flex space-x-3 justify-end pt-2">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ui-btn-secondary cursor-pointer"
+                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                             >
-                                Done
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={createMutation.isPending}
+                                className="ui-btn ui-btn-primary disabled:opacity-50"
+                            >
+                                {createMutation.isPending
+                                    ? "Creating…"
+                                    : "Create Key"}
                             </button>
                         </div>
-                    </>
-                ) : (
-                    <>
-                        <h2 className="text-xl font-bold text-white mb-4">
-                            Create Virtual Key
-                        </h2>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label
-                                    htmlFor="vk-name"
-                                    className="block text-sm font-medium text-gray-300 mb-1"
-                                >
-                                    Name
-                                </label>
-                                <input
-                                    id="vk-name"
-                                    type="text"
-                                    required
-                                    autoFocus={true}
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="ui-input"
-                                    placeholder="e.g., My App"
-                                />
-                            </div>
-                            <div className="flex space-x-3 justify-end pt-2">
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={createMutation.isPending}
-                                    className="ui-btn ui-btn-primary disabled:opacity-50"
-                                >
-                                    {createMutation.isPending
-                                        ? "Creating…"
-                                        : "Create Key"}
-                                </button>
-                            </div>
-                        </form>
-                    </>
-                )}
-            </div>
-        </div>
+                    </form>
+                </>
+            )}
+        </Modal>
     );
 }
 
@@ -178,7 +143,6 @@ function KeyDetailModal({
     onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
     const queryClient = useQueryClient();
-    const [confirmDelete, setConfirmDelete] = useState(false);
 
     const deleteMutation = useMutation({
         mutationFn: () => api.virtualKeys.delete(vk.id),
@@ -189,102 +153,51 @@ function KeyDetailModal({
         },
         onError: (err: Error) => {
             onToast(`Failed to delete: ${err.message}`, "error");
-            setConfirmDelete(false);
         },
     });
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-            onKeyDown={(e) => {
-                if (e.key === "Escape") onClose();
-            }}
-        >
-            <div className="ui-card p-6 w-full max-w-md relative">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-                >
-                    <X size={20} />
-                </button>
-                <h2 className="text-xl font-bold text-white mb-4">
-                    Virtual Key Details
-                </h2>
-
-                <div className="space-y-3 mb-6">
-                    <div>
-                        <span className="text-sm text-gray-500">Name</span>
-                        <p className="text-gray-200">{vk.name}</p>
-                    </div>
-                    <div>
-                        <span className="text-sm text-gray-500">Key</span>
-                        <p className="text-gray-200 font-mono">
-                            {vk.key_preview}
-                        </p>
-                    </div>
-                    <div>
-                        <span className="text-sm text-gray-500">Created</span>
-                        <p className="text-gray-200">
-                            {new Date(vk.created_at).toLocaleString()}
-                        </p>
-                    </div>
-                    <div>
-                        <span className="text-sm text-gray-500">
-                            Tokens Consumed
-                        </span>
-                        <p className="text-gray-200">
-                            {formatNumber(vk.tokens_used)}
-                        </p>
-                    </div>
-                    <div>
-                        <span className="text-sm text-gray-500">Last Used</span>
-                        <p className="text-gray-200">
-                            {vk.last_used_at
-                                ? new Date(vk.last_used_at).toLocaleString()
-                                : "Never"}
-                        </p>
-                    </div>
+        <Modal title="Virtual Key Details" onClose={onClose}>
+            <div className="space-y-3 mb-6">
+                <div>
+                    <span className="text-sm text-gray-500">Name</span>
+                    <p className="text-gray-200">{vk.name}</p>
                 </div>
-
-                <div className="flex justify-start items-center">
-                    {!confirmDelete ? (
-                        <button
-                            type="button"
-                            onClick={() => setConfirmDelete(true)}
-                            className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] cursor-pointer transition-all"
-                        >
-                            Delete Key
-                        </button>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-red-400">
-                                Are you sure?
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => deleteMutation.mutate()}
-                                disabled={deleteMutation.isPending}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all"
-                            >
-                                {deleteMutation.isPending
-                                    ? "Deleting…"
-                                    : "Yes, delete"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setConfirmDelete(false)}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    )}
+                <div>
+                    <span className="text-sm text-gray-500">Key</span>
+                    <p className="text-gray-200 font-mono">{vk.key_preview}</p>
+                </div>
+                <div>
+                    <span className="text-sm text-gray-500">Created</span>
+                    <p className="text-gray-200">
+                        {new Date(vk.created_at).toLocaleString()}
+                    </p>
+                </div>
+                <div>
+                    <span className="text-sm text-gray-500">
+                        Tokens Consumed
+                    </span>
+                    <p className="text-gray-200">
+                        {formatNumber(vk.tokens_used)}
+                    </p>
+                </div>
+                <div>
+                    <span className="text-sm text-gray-500">Last Used</span>
+                    <p className="text-gray-200">
+                        {vk.last_used_at
+                            ? new Date(vk.last_used_at).toLocaleString()
+                            : "Never"}
+                    </p>
                 </div>
             </div>
-        </div>
+
+            <div className="flex justify-start items-center">
+                <ConfirmDeleteButton
+                    onConfirm={() => deleteMutation.mutate()}
+                    loading={deleteMutation.isPending}
+                />
+            </div>
+        </Modal>
     );
 }
 

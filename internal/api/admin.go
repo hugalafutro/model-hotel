@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/user/llm-proxy/internal/admin"
 	"github.com/user/llm-proxy/internal/auth"
@@ -163,10 +162,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
 
 	response := provider.ToResponse(p)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	writeJSONCreated(w, response)
 }
 
 func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
@@ -219,15 +215,12 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		responses[i].TotalTokens = tokenCounts[p.ID.String()]
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	writeJSON(w, responses)
 }
 
 func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
 		return
 	}
 
@@ -248,15 +241,12 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 		response.ModelCount = modelCount
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
 func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
 		return
 	}
 
@@ -320,16 +310,12 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := provider.ToResponse(p)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
 func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
 		return
 	}
 

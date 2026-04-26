@@ -40,6 +40,31 @@ type ModelResponse struct {
 	LastSeenAt            string   `json:"last_seen_at"`
 }
 
+func modelToResponse(m model.Model) ModelResponse {
+	return ModelResponse{
+		ID:                    m.ID.String(),
+		ModelID:               m.ModelID,
+		Name:                  m.Name,
+		Description:           m.Description,
+		DisplayName:           m.DisplayName,
+		ProviderID:            m.ProviderID.String(),
+		ProviderName:          m.ProviderName,
+		Capabilities:          m.Capabilities,
+		Params:                m.Params,
+		Modality:              m.Modality,
+		InputModalities:       m.InputModalities,
+		OutputModalities:      m.OutputModalities,
+		ContextLength:         m.ContextLength,
+		MaxOutputTokens:       m.MaxOutputTokens,
+		InputPricePerMillion:  m.InputPricePerMillion,
+		OutputPricePerMillion: m.OutputPricePerMillion,
+		OwnedBy:               m.OwnedBy,
+		Enabled:               m.Enabled,
+		CreatedAt:             m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		LastSeenAt:            m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
 		r.Get("/", h.ListModels)
@@ -72,39 +97,15 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	responses := make([]ModelResponse, len(models))
 	for i, m := range models {
-		responses[i] = ModelResponse{
-			ID:                    m.ID.String(),
-			ModelID:               m.ModelID,
-			Name:                  m.Name,
-			Description:           m.Description,
-			DisplayName:           m.DisplayName,
-			ProviderID:            m.ProviderID.String(),
-			ProviderName:          m.ProviderName,
-			Capabilities:          m.Capabilities,
-			Params:                m.Params,
-			Modality:              m.Modality,
-			InputModalities:       m.InputModalities,
-			OutputModalities:      m.OutputModalities,
-			ContextLength:         m.ContextLength,
-			MaxOutputTokens:       m.MaxOutputTokens,
-			InputPricePerMillion:  m.InputPricePerMillion,
-			OutputPricePerMillion: m.OutputPricePerMillion,
-			OwnedBy:               m.OwnedBy,
-			Enabled:               m.Enabled,
-			CreatedAt:             m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			LastSeenAt:            m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
-		}
+		responses[i] = modelToResponse(*m)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	writeJSON(w, responses)
 }
 
 func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid model ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "model ID")
+	if !ok {
 		return
 	}
 
@@ -128,38 +129,13 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := ModelResponse{
-		ID:                    m.ID.String(),
-		ModelID:               m.ModelID,
-		Name:                  m.Name,
-		Description:           m.Description,
-		DisplayName:           m.DisplayName,
-		ProviderID:            m.ProviderID.String(),
-		ProviderName:          m.ProviderName,
-		Capabilities:          m.Capabilities,
-		Params:                m.Params,
-		Modality:              m.Modality,
-		InputModalities:       m.InputModalities,
-		OutputModalities:      m.OutputModalities,
-		ContextLength:         m.ContextLength,
-		MaxOutputTokens:       m.MaxOutputTokens,
-		InputPricePerMillion:  m.InputPricePerMillion,
-		OutputPricePerMillion: m.OutputPricePerMillion,
-		OwnedBy:               m.OwnedBy,
-		Enabled:               m.Enabled,
-		CreatedAt:             m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		LastSeenAt:            m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	resp := modelToResponse(*m)
+	writeJSON(w, resp)
 }
 
 func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid model ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "model ID")
+	if !ok {
 		return
 	}
 
@@ -181,10 +157,8 @@ type TestModelResponse struct {
 }
 
 func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid model ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "model ID")
+	if !ok {
 		return
 	}
 
@@ -258,8 +232,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			fmt.Printf("TestModel log insert failed: %v\n", logErr)
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(TestModelResponse{Error: err.Error()})
+		writeJSON(w, TestModelResponse{Error: err.Error()})
 		return
 	}
 	defer resp.Body.Close()
@@ -293,8 +266,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			fmt.Printf("TestModel log insert failed: %v\n", logErr)
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(TestModelResponse{DurationMs: duration, Error: errMsg})
+		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
 		return
 	}
 
@@ -341,8 +313,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("TestModel log insert failed: %v\n", logErr)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(TestModelResponse{
+	writeJSON(w, TestModelResponse{
 		Success:    true,
 		TTFTMs:     duration,
 		DurationMs: duration,

@@ -40,16 +40,16 @@ type FailoverEntryResponse struct {
 }
 
 type FailoverGroupResponse struct {
-	ID           string                   `json:"id"`
-	DisplayModel string                   `json:"display_model"`
-	DisplayName  *string                  `json:"display_name"`
-	Description  string                   `json:"description"`
-	GroupEnabled bool                      `json:"group_enabled"`
-	AutoCreated  bool                      `json:"auto_created"`
-	Entries      []FailoverEntryResponse  `json:"entries"`
-	TotalTokens  int                      `json:"total_tokens"`
-	CreatedAt    string                   `json:"created_at"`
-	UpdatedAt    string                   `json:"updated_at"`
+	ID           string                  `json:"id"`
+	DisplayModel string                  `json:"display_model"`
+	DisplayName  *string                 `json:"display_name"`
+	Description  string                  `json:"description"`
+	GroupEnabled bool                    `json:"group_enabled"`
+	AutoCreated  bool                    `json:"auto_created"`
+	Entries      []FailoverEntryResponse `json:"entries"`
+	TotalTokens  int                     `json:"total_tokens"`
+	CreatedAt    string                  `json:"created_at"`
+	UpdatedAt    string                  `json:"updated_at"`
 }
 
 type FailoverListResponse struct {
@@ -58,10 +58,10 @@ type FailoverListResponse struct {
 }
 
 type FailoverGroupBrief struct {
-	ID            string `json:"id"`
-	DisplayModel  string `json:"display_model"`
-	Position      int    `json:"position"`
-	TotalEntries  int    `json:"total_entries"`
+	ID           string `json:"id"`
+	DisplayModel string `json:"display_model"`
+	Position     int    `json:"position"`
+	TotalEntries int    `json:"total_entries"`
 }
 
 func (h *FailoverHandler) Register(r chi.Router) {
@@ -108,8 +108,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 		lastSyncedAtPtr = &lastSyncedAt
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(FailoverListResponse{
+	writeJSON(w, FailoverListResponse{
 		Groups:       responses,
 		LastSyncedAt: lastSyncedAtPtr,
 	})
@@ -140,10 +139,8 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, e
 }
 
 func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid failover group ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
+	if !ok {
 		return
 	}
 
@@ -159,8 +156,7 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 type CreateFailoverGroupRequest struct {
@@ -203,7 +199,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	autoCreated := false
-	group, err := h.failoverRepo.UpsertWithConfig(r.Context(), req.DisplayModel, priorityOrder, 
+	group, err := h.failoverRepo.UpsertWithConfig(r.Context(), req.DisplayModel, priorityOrder,
 		entryEnabled, nil, req.DisplayName, req.Description, &autoCreated)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -216,24 +212,20 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	writeJSONCreated(w, resp)
 }
 
 type UpdateFailoverGroupRequest struct {
-	DisplayName   *string             `json:"display_name"`
-	Description   *string             `json:"description"`
-	GroupEnabled  *bool               `json:"group_enabled"`
-	PriorityOrder []string            `json:"priority_order"`
-	EntryEnabled  map[string]bool     `json:"entry_enabled"`
+	DisplayName   *string         `json:"display_name"`
+	Description   *string         `json:"description"`
+	GroupEnabled  *bool           `json:"group_enabled"`
+	PriorityOrder []string        `json:"priority_order"`
+	EntryEnabled  map[string]bool `json:"entry_enabled"`
 }
 
 func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid failover group ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
+	if !ok {
 		return
 	}
 
@@ -268,7 +260,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		entryEnabled = req.EntryEnabled
 	}
 
-	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled, 
+	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
 		req.GroupEnabled, req.DisplayName, req.Description)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -281,15 +273,12 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid failover group ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
+	if !ok {
 		return
 	}
 
@@ -311,8 +300,7 @@ func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	settingsRepo := settings.NewRepository(h.dbPool)
 	settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339))
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	writeJSON(w, result)
 }
 
 type CandidateModelResponse struct {
@@ -348,15 +336,12 @@ func (h *FailoverHandler) Candidates(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(candidates)
+	writeJSON(w, candidates)
 }
 
 func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request) {
-	modelUUIDStr := chi.URLParam(r, "model_uuid")
-	modelUUID, err := uuid.Parse(modelUUIDStr)
-	if err != nil {
-		http.Error(w, "invalid model UUID", http.StatusBadRequest)
+	modelUUID, ok := parseUUIDParam(w, r, "model_uuid", "model UUID")
+	if !ok {
 		return
 	}
 
@@ -375,8 +360,7 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 					Position:     i + 1,
 					TotalEntries: len(g.PriorityOrder),
 				}
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(resp)
+				writeJSON(w, resp)
 				return
 			}
 		}
@@ -392,7 +376,7 @@ func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.Fa
 		if err != nil {
 			continue
 		}
-		
+
 		enabled := true
 		if val, ok := g.EntryEnabled[modelUUID.String()]; ok {
 			enabled = val

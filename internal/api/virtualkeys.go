@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
 
@@ -76,9 +75,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := virtualKeyToResponse(vk, true, rawKey)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	writeJSONCreated(w, resp)
 }
 
 func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
@@ -93,15 +90,12 @@ func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
 		responses[i] = virtualKeyToResponse(vk, false, "")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	writeJSON(w, responses)
 }
 
 func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid virtual key ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "virtual key ID")
+	if !ok {
 		return
 	}
 
@@ -112,15 +106,12 @@ func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := virtualKeyToResponse(vk, false, "")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid virtual key ID", http.StatusBadRequest)
+	id, ok := parseUUIDParam(w, r, "id", "virtual key ID")
+	if !ok {
 		return
 	}
 

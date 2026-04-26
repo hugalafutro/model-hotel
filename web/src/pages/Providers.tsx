@@ -13,6 +13,8 @@ import type {
 import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/ThemeContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { Modal } from "../components/Modal";
+import { formatTokens, formatTimestamp, formatDate } from "../utils/format";
 
 const CACHE_PREFIX = "llm-proxy";
 
@@ -32,31 +34,6 @@ function setCachedData<T>(key: string, data: T) {
     } catch {
         /* ignore */
     }
-}
-
-function formatTokens(n: number | null | undefined): string {
-    if (n == null) return "-";
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toString();
-}
-
-function formatTimestamp(ts: number | string): string {
-    return new Date(ts).toLocaleString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
-
-function formatDate(ts: number | string): string {
-    return new Date(ts).toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
 }
 
 function formatTimeUntil(ts: number): string {
@@ -106,21 +83,8 @@ function NanoGPTQuotaModal({
     };
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 flex items-center justify-center z-50"
-            onKeyDown={(e) => {
-                if (e.key === "Escape") onClose();
-            }}
-        >
-            <button
-                type="button"
-                className="absolute inset-0 bg-black/60 cursor-default"
-                onClick={onClose}
-                aria-label="Close dialog"
-            />
-            <div className="relative ui-card p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
+        <Modal
+            header={
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h2 className="text-xl font-bold text-white">
@@ -171,144 +135,141 @@ function NanoGPTQuotaModal({
                         </button>
                     </div>
                 </div>
+            }
+            onClose={onClose}
+            scrollable
+        >
+            <div className="space-y-6">
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-300">
+                            Weekly Token Quota
+                        </span>
+                        <span className="text-sm text-gray-400">
+                            {formatTokens(weeklyUsed)} /{" "}
+                            {formatTokens(weeklyLimit)}
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                        <div
+                            className="bg-[#0690a8] h-3 rounded-full transition-all"
+                            style={{
+                                width: `${Math.min(weeklyPercent, 100)}%`,
+                            }}
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                        {weeklyPercent.toFixed(1)}% used. Resets{" "}
+                        {usage.weeklyInputTokens?.resetAt
+                            ? `${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
+                            : "N/A"}
+                    </p>
+                </div>
 
-                <div className="space-y-6">
+                {usage.dailyImages && (
                     <div>
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium text-gray-300">
-                                Weekly Token Quota
+                                Daily Images
                             </span>
                             <span className="text-sm text-gray-400">
-                                {formatTokens(weeklyUsed)} /{" "}
-                                {formatTokens(weeklyLimit)}
+                                {usage.dailyImages.used} /{" "}
+                                {usage.limits.dailyImages ?? "∞"}
                             </span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-3">
                             <div
-                                className="bg-[#0690a8] h-3 rounded-full transition-all"
+                                className="bg-purple-500 h-3 rounded-full transition-all"
                                 style={{
-                                    width: `${Math.min(weeklyPercent, 100)}%`,
+                                    width: `${Math.min(usage.dailyImages.percentUsed * 100, 100)}%`,
                                 }}
                             />
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                            {weeklyPercent.toFixed(1)}% used. Resets{" "}
-                            {usage.weeklyInputTokens?.resetAt
-                                ? `${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
+                            {usage.dailyImages.percentUsed.toFixed(1)}% used.
+                            Resets{" "}
+                            {usage.dailyImages.resetAt
+                                ? `${formatTimestamp(usage.dailyImages.resetAt)} - ${formatTimeUntil(usage.dailyImages.resetAt)}`
                                 : "N/A"}
                         </p>
                     </div>
+                )}
 
-                    {usage.dailyImages && (
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-gray-300">
-                                    Daily Images
-                                </span>
-                                <span className="text-sm text-gray-400">
-                                    {usage.dailyImages.used} /{" "}
-                                    {usage.limits.dailyImages ?? "∞"}
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
-                                <div
-                                    className="bg-purple-500 h-3 rounded-full transition-all"
-                                    style={{
-                                        width: `${Math.min(usage.dailyImages.percentUsed * 100, 100)}%`,
-                                    }}
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {usage.dailyImages.percentUsed.toFixed(1)}%
-                                used. Resets{" "}
-                                {usage.dailyImages.resetAt
-                                    ? `${formatTimestamp(usage.dailyImages.resetAt)} - ${formatTimeUntil(usage.dailyImages.resetAt)}`
-                                    : "N/A"}
-                            </p>
-                        </div>
-                    )}
-
-                    {usage.dailyInputTokens && (
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-gray-300">
-                                    Daily Input Tokens
-                                </span>
-                                <span className="text-sm text-gray-400">
-                                    {formatTokens(usage.dailyInputTokens.used)}{" "}
-                                    /{" "}
-                                    {usage.limits.dailyInputTokens
-                                        ? formatTokens(
-                                              usage.limits.dailyInputTokens,
-                                          )
-                                        : "∞"}
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
-                                <div
-                                    className="bg-amber-500 h-3 rounded-full transition-all"
-                                    style={{
-                                        width: `${Math.min(usage.dailyInputTokens.percentUsed * 100, 100)}%`,
-                                    }}
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {usage.dailyInputTokens.percentUsed.toFixed(1)}%
-                                used. Resets{" "}
-                                {usage.dailyInputTokens.resetAt
-                                    ? `${formatTimestamp(usage.dailyInputTokens.resetAt)} - ${formatTimeUntil(usage.dailyInputTokens.resetAt)}`
-                                    : "N/A"}
-                            </p>
-                        </div>
-                    )}
-
+                {usage.dailyInputTokens && (
                     <div>
-                        <h3 className="text-sm font-medium text-gray-300 mb-3">
-                            Subscription Details
-                        </h3>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <span className="text-gray-500">Provider</span>
-                                <p className="text-gray-200 capitalize">
-                                    {usage.provider}
-                                </p>
-                            </div>
-                            <div>
-                                <span className="text-gray-500">Status</span>
-                                <p className="text-gray-200 capitalize">
-                                    {usage.providerStatus}
-                                </p>
-                            </div>
-                            <div>
-                                <span className="text-gray-500">
-                                    Period End
-                                </span>
-                                <p className="text-gray-200">
-                                    {formatDate(usage.period.currentPeriodEnd)}
-                                </p>
-                            </div>
-                            <div>
-                                <span className="text-gray-500">
-                                    Allow Overage
-                                </span>
-                                <p className="text-gray-200">
-                                    {usage.allowOverage ? "Yes" : "No"}
-                                </p>
-                            </div>
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-gray-300">
+                                Daily Input Tokens
+                            </span>
+                            <span className="text-sm text-gray-400">
+                                {formatTokens(usage.dailyInputTokens.used)} /{" "}
+                                {usage.limits.dailyInputTokens
+                                    ? formatTokens(
+                                          usage.limits.dailyInputTokens,
+                                      )
+                                    : "∞"}
+                            </span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-3">
+                            <div
+                                className="bg-amber-500 h-3 rounded-full transition-all"
+                                style={{
+                                    width: `${Math.min(usage.dailyInputTokens.percentUsed * 100, 100)}%`,
+                                }}
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {usage.dailyInputTokens.percentUsed.toFixed(1)}%
+                            used. Resets{" "}
+                            {usage.dailyInputTokens.resetAt
+                                ? `${formatTimestamp(usage.dailyInputTokens.resetAt)} - ${formatTimeUntil(usage.dailyInputTokens.resetAt)}`
+                                : "N/A"}
+                        </p>
+                    </div>
+                )}
+
+                <div>
+                    <h3 className="text-sm font-medium text-gray-300 mb-3">
+                        Subscription Details
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span className="text-gray-500">Provider</span>
+                            <p className="text-gray-200 capitalize">
+                                {usage.provider}
+                            </p>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">Status</span>
+                            <p className="text-gray-200 capitalize">
+                                {usage.providerStatus}
+                            </p>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">Period End</span>
+                            <p className="text-gray-200">
+                                {formatDate(usage.period.currentPeriodEnd)}
+                            </p>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">Allow Overage</span>
+                            <p className="text-gray-200">
+                                {usage.allowOverage ? "Yes" : "No"}
+                            </p>
                         </div>
                     </div>
-
-                    {usage.cancelAtPeriodEnd && (
-                        <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
-                            <p className="text-sm text-yellow-300">
-                                Subscription will cancel at period end (
-                                {formatDate(usage.period.currentPeriodEnd)})
-                            </p>
-                        </div>
-                    )}
                 </div>
+
+                {usage.cancelAtPeriodEnd && (
+                    <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                        <p className="text-sm text-yellow-300">
+                            Subscription will cancel at period end (
+                            {formatDate(usage.period.currentPeriodEnd)})
+                        </p>
+                    </div>
+                )}
             </div>
-        </div>
+        </Modal>
     );
 }
 
@@ -348,21 +309,8 @@ function ZAIQuotaModal({
     };
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 flex items-center justify-center z-50"
-            onKeyDown={(e) => {
-                if (e.key === "Escape") onClose();
-            }}
-        >
-            <button
-                type="button"
-                className="absolute inset-0 bg-black/60 cursor-default"
-                onClick={onClose}
-                aria-label="Close dialog"
-            />
-            <div className="relative ui-card p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
+        <Modal
+            header={
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h2 className="text-xl font-bold text-white">
@@ -406,114 +354,111 @@ function ZAIQuotaModal({
                         </button>
                     </div>
                 </div>
-
-                <div className="space-y-6">
-                    {fiveHourLimit && (
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-gray-300">
-                                    5h Token Quota
-                                </span>
-                                <span className="text-sm text-gray-400">
-                                    {(100 - fiveHourLimit.percentage).toFixed(
-                                        0,
-                                    )}
-                                    % left
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
-                                <div
-                                    className="bg-[#36aaff] h-3 rounded-full transition-all"
-                                    style={{
-                                        width: `${Math.min(100 - fiveHourLimit.percentage, 100)}%`,
-                                    }}
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {fiveHourLimit.percentage.toFixed(0)}% used.
-                                Resets{" "}
-                                {fiveHourLimit.nextResetTime
-                                    ? `${formatTimestamp(fiveHourLimit.nextResetTime)} - ${formatTimeUntil(fiveHourLimit.nextResetTime)}`
-                                    : "N/A"}
-                            </p>
+            }
+            onClose={onClose}
+            scrollable
+        >
+            <div className="space-y-6">
+                {fiveHourLimit && (
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-gray-300">
+                                5h Token Quota
+                            </span>
+                            <span className="text-sm text-gray-400">
+                                {(100 - fiveHourLimit.percentage).toFixed(0)}%
+                                left
+                            </span>
                         </div>
-                    )}
-
-                    {weeklyLimit && (
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-gray-300">
-                                    Weekly Token Quota
-                                </span>
-                                <span className="text-sm text-gray-400">
-                                    {(100 - weeklyLimit.percentage).toFixed(0)}%
-                                    left
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
-                                <div
-                                    className="bg-[#36aaff] h-3 rounded-full transition-all"
-                                    style={{
-                                        width: `${Math.min(100 - weeklyLimit.percentage, 100)}%`,
-                                    }}
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {weeklyLimit.percentage.toFixed(0)}% used.
-                                Resets{" "}
-                                {weeklyLimit.nextResetTime
-                                    ? `${formatTimestamp(weeklyLimit.nextResetTime)} - ${formatTimeUntil(weeklyLimit.nextResetTime)}`
-                                    : "N/A"}
-                            </p>
+                        <div className="w-full bg-gray-700 rounded-full h-3">
+                            <div
+                                className="bg-[#36aaff] h-3 rounded-full transition-all"
+                                style={{
+                                    width: `${Math.min(100 - fiveHourLimit.percentage, 100)}%`,
+                                }}
+                            />
                         </div>
-                    )}
+                        <p className="text-xs text-gray-500 mt-1">
+                            {fiveHourLimit.percentage.toFixed(0)}% used. Resets{" "}
+                            {fiveHourLimit.nextResetTime
+                                ? `${formatTimestamp(fiveHourLimit.nextResetTime)} - ${formatTimeUntil(fiveHourLimit.nextResetTime)}`
+                                : "N/A"}
+                        </p>
+                    </div>
+                )}
 
-                    {mcpLimit && (
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-gray-300">
-                                    MCP Time Quota
-                                </span>
-                                <span className="text-sm text-gray-400">
-                                    {(100 - mcpLimit.percentage).toFixed(0)}%
-                                    left
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
-                                <div
-                                    className="bg-purple-500 h-3 rounded-full transition-all"
-                                    style={{
-                                        width: `${Math.min(100 - mcpLimit.percentage, 100)}%`,
-                                    }}
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {mcpLimit.percentage.toFixed(0)}% used. Resets{" "}
-                                {mcpLimit.nextResetTime
-                                    ? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
-                                    : "N/A"}
-                            </p>
-                            {mcpLimit.usageDetails &&
-                                mcpLimit.usageDetails.length > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                        {mcpLimit.usageDetails.map((detail) => (
-                                            <div
-                                                key={detail.modelCode}
-                                                className="flex justify-between text-xs text-gray-500"
-                                            >
-                                                <span className="capitalize">
-                                                    {detail.modelCode}
-                                                </span>
-                                                <span>{detail.usage} used</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                {weeklyLimit && (
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-gray-300">
+                                Weekly Token Quota
+                            </span>
+                            <span className="text-sm text-gray-400">
+                                {(100 - weeklyLimit.percentage).toFixed(0)}%
+                                left
+                            </span>
                         </div>
-                    )}
-                </div>
+                        <div className="w-full bg-gray-700 rounded-full h-3">
+                            <div
+                                className="bg-[#36aaff] h-3 rounded-full transition-all"
+                                style={{
+                                    width: `${Math.min(100 - weeklyLimit.percentage, 100)}%`,
+                                }}
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {weeklyLimit.percentage.toFixed(0)}% used. Resets{" "}
+                            {weeklyLimit.nextResetTime
+                                ? `${formatTimestamp(weeklyLimit.nextResetTime)} - ${formatTimeUntil(weeklyLimit.nextResetTime)}`
+                                : "N/A"}
+                        </p>
+                    </div>
+                )}
+
+                {mcpLimit && (
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-gray-300">
+                                MCP Time Quota
+                            </span>
+                            <span className="text-sm text-gray-400">
+                                {(100 - mcpLimit.percentage).toFixed(0)}% left
+                            </span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-3">
+                            <div
+                                className="bg-purple-500 h-3 rounded-full transition-all"
+                                style={{
+                                    width: `${Math.min(100 - mcpLimit.percentage, 100)}%`,
+                                }}
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {mcpLimit.percentage.toFixed(0)}% used. Resets{" "}
+                            {mcpLimit.nextResetTime
+                                ? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
+                                : "N/A"}
+                        </p>
+                        {mcpLimit.usageDetails &&
+                            mcpLimit.usageDetails.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                    {mcpLimit.usageDetails.map((detail) => (
+                                        <div
+                                            key={detail.modelCode}
+                                            className="flex justify-between text-xs text-gray-500"
+                                        >
+                                            <span className="capitalize">
+                                                {detail.modelCode}
+                                            </span>
+                                            <span>{detail.usage} used</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                    </div>
+                )}
             </div>
-        </div>
+        </Modal>
     );
 }
 
@@ -592,170 +537,143 @@ function EditProviderModal({
 
     return (
         <>
-            <div
-                role="dialog"
-                aria-modal="true"
-                className="fixed inset-0 flex items-center justify-center z-50"
-                onKeyDown={(e) => {
-                    if (e.key === "Escape") handleClose();
-                }}
-            >
-                <button
-                    type="button"
-                    className="absolute inset-0 bg-black/60 cursor-default"
-                    onClick={handleClose}
-                    aria-label="Close dialog"
-                />
-                <div className="relative ui-card p-6 w-full max-w-md">
-                    <button
-                        type="button"
-                        onClick={handleClose}
-                        className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-                        aria-label="Close"
-                    >
-                        <X size={20} />
-                    </button>
-                    <h2 className="text-xl font-bold text-white mb-4">
-                        Edit Provider
-                    </h2>
+            <Modal title="Edit Provider" onClose={handleClose}>
+                {error && (
+                    <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+                        {error}
+                    </div>
+                )}
 
-                    {error && (
-                        <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-                            {error}
-                        </div>
-                    )}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label
+                            htmlFor="edit-provider-name"
+                            className="block text-sm font-medium text-gray-300 mb-1"
+                        >
+                            Name
+                        </label>
+                        <input
+                            id="edit-provider-name"
+                            type="text"
+                            required
+                            autoFocus={true}
+                            value={formData.name}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    name: e.target.value,
+                                })
+                            }
+                            className="ui-input"
+                            placeholder="e.g., OpenAI"
+                        />
+                    </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label
-                                htmlFor="edit-provider-name"
-                                className="block text-sm font-medium text-gray-300 mb-1"
-                            >
-                                Name
-                            </label>
-                            <input
-                                id="edit-provider-name"
-                                type="text"
-                                required
-                                autoFocus={true}
-                                value={formData.name}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        name: e.target.value,
-                                    })
-                                }
-                                className="ui-input"
-                                placeholder="e.g., OpenAI"
-                            />
-                        </div>
+                    <div>
+                        <label
+                            htmlFor="edit-provider-base-url"
+                            className="block text-sm font-medium text-gray-300 mb-1"
+                        >
+                            Base URL
+                        </label>
+                        <input
+                            id="edit-provider-base-url"
+                            type="url"
+                            required
+                            value={formData.base_url}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    base_url: e.target.value,
+                                })
+                            }
+                            className="ui-input"
+                            placeholder="https://api.openai.com/v1"
+                        />
+                    </div>
 
-                        <div>
-                            <label
-                                htmlFor="edit-provider-base-url"
-                                className="block text-sm font-medium text-gray-300 mb-1"
-                            >
-                                Base URL
-                            </label>
-                            <input
-                                id="edit-provider-base-url"
-                                type="url"
-                                required
-                                value={formData.base_url}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        base_url: e.target.value,
-                                    })
-                                }
-                                className="ui-input"
-                                placeholder="https://api.openai.com/v1"
-                            />
-                        </div>
+                    <div>
+                        <label
+                            htmlFor="edit-provider-api-key"
+                            className="block text-sm font-medium text-gray-300 mb-1"
+                        >
+                            API Key
+                        </label>
+                        <input
+                            id="edit-provider-api-key"
+                            type="password"
+                            value={formData.api_key}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    api_key: e.target.value,
+                                })
+                            }
+                            className="ui-input"
+                            placeholder="Leave blank to keep current key"
+                        />
+                        <p className="text-gray-500 text-xs mt-1">
+                            Current: {provider.masked_key}
+                        </p>
+                    </div>
 
-                        <div>
-                            <label
-                                htmlFor="edit-provider-api-key"
-                                className="block text-sm font-medium text-gray-300 mb-1"
-                            >
-                                API Key
-                            </label>
-                            <input
-                                id="edit-provider-api-key"
-                                type="password"
-                                value={formData.api_key}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        api_key: e.target.value,
-                                    })
-                                }
-                                className="ui-input"
-                                placeholder="Leave blank to keep current key"
-                            />
-                            <p className="text-gray-500 text-xs mt-1">
-                                Current: {provider.masked_key}
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <label
-                                htmlFor="edit-provider-enabled"
-                                className="text-sm font-medium text-gray-300"
-                            >
-                                Enabled
-                            </label>
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-checked={formData.enabled}
-                                onClick={() =>
-                                    setFormData({
-                                        ...formData,
-                                        enabled: !formData.enabled,
-                                    })
-                                }
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-(--accent) focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                    <div className="flex items-center gap-3">
+                        <label
+                            htmlFor="edit-provider-enabled"
+                            className="text-sm font-medium text-gray-300"
+                        >
+                            Enabled
+                        </label>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={formData.enabled}
+                            onClick={() =>
+                                setFormData({
+                                    ...formData,
+                                    enabled: !formData.enabled,
+                                })
+                            }
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-(--accent) focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                                formData.enabled
+                                    ? "bg-(--accent)"
+                                    : "bg-gray-600"
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                                     formData.enabled
-                                        ? "bg-(--accent)"
-                                        : "bg-gray-600"
+                                        ? "translate-x-6"
+                                        : "translate-x-1"
                                 }`}
-                            >
-                                <span
-                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                        formData.enabled
-                                            ? "translate-x-6"
-                                            : "translate-x-1"
-                                    }`}
-                                />
-                            </button>
-                        </div>
+                            />
+                        </button>
+                    </div>
 
-                        <div className="flex space-x-3 justify-end pt-4">
-                            <button
-                                type="button"
-                                onClick={handleClose}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={updateMutation.isPending}
-                                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-                                    updateMutation.isPending
-                                        ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-                                        : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
-                                }`}
-                            >
-                                {updateMutation.isPending
-                                    ? "Saving…"
-                                    : "Save Changes"}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+                    <div className="flex space-x-3 justify-end pt-4">
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={updateMutation.isPending}
+                            className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                                updateMutation.isPending
+                                    ? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+                                    : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+                            }`}
+                        >
+                            {updateMutation.isPending
+                                ? "Saving…"
+                                : "Save Changes"}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
             {confirmFields && (
                 <ConfirmDialog
                     title="Unsaved Changes"

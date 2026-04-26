@@ -2,12 +2,10 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
@@ -28,10 +26,8 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 }
 
 func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	providerID, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
 		return
 	}
 
@@ -93,15 +89,12 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		"models":     models,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
 func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	providerID, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
 		return
 	}
 
@@ -120,8 +113,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(quota)
+		writeJSON(w, quota)
 		return
 	case "nanogpt":
 		usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
@@ -129,8 +121,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(usage)
+		writeJSON(w, usage)
 		return
 	default:
 		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
@@ -139,10 +130,8 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	providerID, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
 		return
 	}
 
@@ -161,8 +150,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to fetch balance: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(balance)
+		writeJSON(w, balance)
 		return
 	default:
 		http.Error(w, "balance information not supported for this provider type", http.StatusBadRequest)
@@ -242,8 +230,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		results = append(results, result)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"results":    results,
 		"succeeded":  succeeded,
 		"failed":     failed,
@@ -323,8 +310,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		results = append(results, result)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"results":   results,
 		"refreshed": refreshed,
 		"failed":    failed,

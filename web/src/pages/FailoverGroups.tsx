@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
-import { Shuffle, X } from "lucide-react";
+import { Shuffle } from "lucide-react";
 import type { FailoverGroup, CandidateModel } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { Modal } from "../components/Modal";
 import {
     DndContext,
     closestCenter,
@@ -21,28 +22,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
-function formatTokens(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toString();
-}
-
-function formatSyncTime(isoStr: string | null | undefined): string {
-    if (!isoStr) return "";
-    try {
-        const date = new Date(isoStr);
-        return date.toLocaleString(undefined, {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    } catch {
-        return "";
-    }
-}
+import { formatTokens, formatTimestamp } from "../utils/format";
 
 interface SortableEntryProps {
     entry: FailoverGroup["entries"][0];
@@ -308,161 +288,134 @@ function CreateGroupModal({
     };
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 flex items-center justify-center z-50"
-            onKeyDown={(e) => e.key === "Escape" && onClose()}
+        <Modal
+            title="Create Failover Group"
+            onClose={onClose}
+            maxWidth="max-w-lg"
+            scrollable
         >
-            <button
-                type="button"
-                className="absolute inset-0 bg-black/60 cursor-default"
-                onClick={onClose}
-                aria-label="Close dialog"
-            />
-            <div className="relative ui-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
-                <div className="flex justify-between items-start mb-4">
-                    <h2 className="text-xl font-bold text-white">
-                        Create Failover Group
-                    </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label
+                        htmlFor="display-model"
+                        className="block text-sm font-medium text-gray-300 mb-1"
+                    >
+                        Display Model Name
+                    </label>
+                    <input
+                        id="display-model"
+                        type="text"
+                        required
+                        autoFocus
+                        value={displayModel}
+                        onChange={(e) => setDisplayModel(e.target.value)}
+                        className="ui-input"
+                        placeholder="e.g., glm-5"
+                    />
+                    <p className="text-gray-500 text-xs mt-1">
+                        This becomes hotel/{displayModel || "model-name"} in the
+                        model list
+                    </p>
+                </div>
+
+                <div>
+                    <label
+                        htmlFor="display-name"
+                        className="block text-sm font-medium text-gray-300 mb-1"
+                    >
+                        Display Name (optional)
+                    </label>
+                    <input
+                        id="display-name"
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="ui-input"
+                        placeholder="e.g., GLM-5 Failover"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Model Entries
+                    </label>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="ui-input mb-2"
+                        placeholder="Search providers/models…"
+                    />
+                    <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
+                        {Object.entries(grouped).map(([modelId, models]) => (
+                            <div key={modelId} className="space-y-0.5">
+                                <div className="text-xs text-gray-500 px-1 pt-1">
+                                    {modelId}
+                                </div>
+                                {models.map((m) => (
+                                    <label
+                                        key={m.model_uuid}
+                                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-800 cursor-pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedEntries.includes(
+                                                m.model_uuid,
+                                            )}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedEntries([
+                                                        ...selectedEntries,
+                                                        m.model_uuid,
+                                                    ]);
+                                                } else {
+                                                    setSelectedEntries(
+                                                        selectedEntries.filter(
+                                                            (id) =>
+                                                                id !==
+                                                                m.model_uuid,
+                                                        ),
+                                                    );
+                                                }
+                                            }}
+                                            className="rounded border-gray-600 text-(--accent) focus:ring-(--accent)"
+                                        />
+                                        <span className="text-sm text-gray-300">
+                                            {m.provider_name}
+                                            <span className="text-gray-500 ml-1 text-xs">
+                                                ({m.display_name || modelId})
+                                            </span>
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                    <p className="text-gray-500 text-xs mt-1">
+                        {selectedEntries.length} selected
+                    </p>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-                        aria-label="Close"
+                        className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
                     >
-                        <X size={20} />
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={createMutation.isPending}
+                        className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all disabled:opacity-50"
+                    >
+                        {createMutation.isPending
+                            ? "Creating…"
+                            : "Create Group"}
                     </button>
                 </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label
-                            htmlFor="display-model"
-                            className="block text-sm font-medium text-gray-300 mb-1"
-                        >
-                            Display Model Name
-                        </label>
-                        <input
-                            id="display-model"
-                            type="text"
-                            required
-                            autoFocus
-                            value={displayModel}
-                            onChange={(e) => setDisplayModel(e.target.value)}
-                            className="ui-input"
-                            placeholder="e.g., glm-5"
-                        />
-                        <p className="text-gray-500 text-xs mt-1">
-                            This becomes hotel/{displayModel || "model-name"} in
-                            the model list
-                        </p>
-                    </div>
-
-                    <div>
-                        <label
-                            htmlFor="display-name"
-                            className="block text-sm font-medium text-gray-300 mb-1"
-                        >
-                            Display Name (optional)
-                        </label>
-                        <input
-                            id="display-name"
-                            type="text"
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
-                            className="ui-input"
-                            placeholder="e.g., GLM-5 Failover"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">
-                            Model Entries
-                        </label>
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="ui-input mb-2"
-                            placeholder="Search providers/models…"
-                        />
-                        <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
-                            {Object.entries(grouped).map(
-                                ([modelId, models]) => (
-                                    <div key={modelId} className="space-y-0.5">
-                                        <div className="text-xs text-gray-500 px-1 pt-1">
-                                            {modelId}
-                                        </div>
-                                        {models.map((m) => (
-                                            <label
-                                                key={m.model_uuid}
-                                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-800 cursor-pointer"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedEntries.includes(
-                                                        m.model_uuid,
-                                                    )}
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) {
-                                                            setSelectedEntries([
-                                                                ...selectedEntries,
-                                                                m.model_uuid,
-                                                            ]);
-                                                        } else {
-                                                            setSelectedEntries(
-                                                                selectedEntries.filter(
-                                                                    (id) =>
-                                                                        id !==
-                                                                        m.model_uuid,
-                                                                ),
-                                                            );
-                                                        }
-                                                    }}
-                                                    className="rounded border-gray-600 text-(--accent) focus:ring-(--accent)"
-                                                />
-                                                <span className="text-sm text-gray-300">
-                                                    {m.provider_name}
-                                                    <span className="text-gray-500 ml-1 text-xs">
-                                                        (
-                                                        {m.display_name ||
-                                                            modelId}
-                                                        )
-                                                    </span>
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                ),
-                            )}
-                        </div>
-                        <p className="text-gray-500 text-xs mt-1">
-                            {selectedEntries.length} selected
-                        </p>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={createMutation.isPending}
-                            className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all disabled:opacity-50"
-                        >
-                            {createMutation.isPending
-                                ? "Creating…"
-                                : "Create Group"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 }
 
@@ -620,7 +573,8 @@ export function FailoverGroups() {
                 <div className="flex items-center gap-3">
                     {lastSyncedAt && (
                         <span className="text-xs text-gray-500">
-                            Last sync: {formatSyncTime(lastSyncedAt)}
+                            Last sync:{" "}
+                            {lastSyncedAt ? formatTimestamp(lastSyncedAt) : ""}
                         </span>
                     )}
                     <button
@@ -684,52 +638,36 @@ export function FailoverGroups() {
             )}
 
             {deleteGroup && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    className="fixed inset-0 flex items-center justify-center z-50"
-                    onKeyDown={(e) =>
-                        e.key === "Escape" && setDeleteGroup(null)
-                    }
+                <Modal
+                    title="Delete Failover Group"
+                    onClose={() => setDeleteGroup(null)}
+                    maxWidth="max-w-sm"
                 >
-                    <button
-                        type="button"
-                        className="absolute inset-0 bg-black/60 cursor-default"
-                        onClick={() => setDeleteGroup(null)}
-                        aria-label="Close dialog"
-                    />
-                    <div className="relative ui-card p-6 w-full max-w-sm">
-                        <h2 className="text-lg font-bold text-white mb-2">
-                            Delete Failover Group
-                        </h2>
-                        <p className="text-sm text-gray-300 mb-4">
-                            Are you sure you want to delete{" "}
-                            <span className="text-white font-medium">
-                                hotel/{deleteGroup.display_model}
-                            </span>
-                            ? This cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setDeleteGroup(null)}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmDelete}
-                                disabled={deleteMutation.isPending}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50"
-                            >
-                                {deleteMutation.isPending
-                                    ? "Deleting…"
-                                    : "Delete"}
-                            </button>
-                        </div>
+                    <p className="text-sm text-gray-300 mb-4">
+                        Are you sure you want to delete{" "}
+                        <span className="text-white font-medium">
+                            hotel/{deleteGroup.display_model}
+                        </span>
+                        ? This cannot be undone.
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setDeleteGroup(null)}
+                            className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmDelete}
+                            disabled={deleteMutation.isPending}
+                            className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50"
+                        >
+                            {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                        </button>
                     </div>
-                </div>
+                </Modal>
             )}
         </div>
     );

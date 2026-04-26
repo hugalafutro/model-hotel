@@ -17,60 +17,13 @@ import { Spinner } from "../components/Spinner";
 import type { SortState } from "../components/DataTable";
 import { CAP_META, type CapKey, hasCap } from "../components/capMeta";
 import { CapBadge } from "../components/CapBadge";
-
-function normalizeProviderName(name: string): string {
-    return name.replace(/ /g, "-");
-}
-
-function proxyModelID(providerName: string, modelId: string): string {
-    return normalizeProviderName(providerName) + "/" + modelId;
-}
-
-function formatRelativeTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "just now";
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay}d ago`;
-}
-
-function formatNumber(n: number | null | undefined): string {
-    if (n == null) return "-";
-    return n.toLocaleString();
-}
-
-function formatPrice(n: number | null | undefined): string {
-    if (n == null) return "-";
-    const rounded = Math.round(n * 10000) / 10000;
-    const str = rounded.toString();
-    const [intPart, decPart] = str.split(".");
-    if (!decPart) return intPart;
-    const trimmed = decPart.replace(/0+$/, "");
-    return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
-}
-
-function formatPriceInput(n: number | null | undefined): string {
-    if (n == null) return "";
-    const rounded = Math.round(n * 10000) / 10000;
-    const str = rounded.toString();
-    const [intPart, decPart] = str.split(".");
-    if (!decPart) return intPart;
-    const trimmed = decPart.replace(/0+$/, "");
-    return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
-}
-
-function parseCapabilities(raw: string): ModelCapabilities | null {
-    try {
-        return JSON.parse(raw);
-    } catch {
-        return null;
-    }
-}
+import { formatRelativeTime, formatNumber } from "../utils/format";
+import {
+    proxyModelID,
+    formatPrice,
+    formatPriceInput,
+    parseCapabilities,
+} from "../utils/model";
 
 function parseParams(raw: string): Record<string, unknown> | null {
     try {
