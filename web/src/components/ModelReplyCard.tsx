@@ -106,13 +106,8 @@ export function ModelReplyCard({
                         {afterModel}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                        {isStreaming && startTimeMs && startTimeMs !== 0 && (
-                            <>
-                                <span className="text-[11px] text-(--text-tertiary) tabular-nums">
-                                    {elapsed}s
-                                </span>
-                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                            </>
+                        {isStreaming && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
                         )}
                         {headerEnd}
                     </div>
@@ -145,11 +140,16 @@ export function ModelReplyCard({
 
             {/* ── Footer ── */}
             <div
-                className={`flex items-center justify-between text-[11px] text-(--text-tertiary) min-h-5 ${footerClassName || ""}`}
+                className={`flex items-center justify-between text-[11px] text-(--text-tertiary) shrink-0 ${footerClassName || ""}`}
             >
                 <div className="flex items-center gap-3">
                     {footerStart}
-                    {metrics && (
+                    {isStreaming && startTimeMs && startTimeMs !== 0 ? (
+                        <span className="flex items-center gap-1 tabular-nums">
+                            <Clock size={10} />
+                            {elapsed}s
+                        </span>
+                    ) : metrics ? (
                         <>
                             <span className="flex items-center gap-1">
                                 <Clock size={10} />
@@ -170,7 +170,7 @@ export function ModelReplyCard({
                                 </span>
                             )}
                         </>
-                    )}
+                    ) : null}
                 </div>
                 {footerEnd}
             </div>
