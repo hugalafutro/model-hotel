@@ -77,6 +77,8 @@ interface ModelDetailPanelProps {
     onParamsChange?: (params: GenerationParams) => void;
     /** Optional close callback — when provided, shows an X button in the header */
     onClose?: () => void;
+    /** Whether to show the collapse/expand toggle (default: true) */
+    collapsible?: boolean;
 }
 
 export function ModelDetailPanel({
@@ -84,6 +86,7 @@ export function ModelDetailPanel({
     params,
     onParamsChange,
     onClose,
+    collapsible = true,
 }: ModelDetailPanelProps) {
     const caps = parseCapabilities(model.capabilities);
     const [open, setOpen] = useState(false);
@@ -150,27 +153,31 @@ export function ModelDetailPanel({
                             <X size={14} />
                         </button>
                     )}
-                    <button
-                        onClick={() => setCollapsed((c) => !c)}
-                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                        title={
-                            collapsed
-                                ? "Expand model details"
-                                : "Collapse model details"
-                        }
-                    >
-                        {collapsed ? (
-                            <ChevronsUpDown size={14} />
-                        ) : (
-                            <ChevronsDownUp size={14} />
-                        )}
-                    </button>
+                    {collapsible && (
+                        <button
+                            onClick={() => setCollapsed((c) => !c)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                            title={
+                                collapsed
+                                    ? "Expand model details"
+                                    : "Collapse model details"
+                            }
+                        >
+                            {collapsed ? (
+                                <ChevronsUpDown size={14} />
+                            ) : (
+                                <ChevronsDownUp size={14} />
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
             <div
                 className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                    collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+                    collapsed && collapsible
+                        ? "grid-rows-[0fr]"
+                        : "grid-rows-[1fr]"
                 }`}
             >
                 <div className="overflow-hidden">
@@ -392,9 +399,15 @@ export function ModelDetailPanel({
 interface ModelDetailModalProps {
     model: Model;
     onClose: () => void;
+    /** Whether the panel can be collapsed (default: false) */
+    collapsible?: boolean;
 }
 
-export function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
+export function ModelDetailModal({
+    model,
+    onClose,
+    collapsible = false,
+}: ModelDetailModalProps) {
     return (
         <div
             role="dialog"
@@ -409,7 +422,11 @@ export function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
         >
             <div className="absolute inset-0 bg-black/50" />
             <div className="relative w-full max-w-sm max-h-[80vh] mx-4">
-                <ModelDetailPanel model={model} onClose={onClose} />
+                <ModelDetailPanel
+                    model={model}
+                    onClose={onClose}
+                    collapsible={collapsible}
+                />
             </div>
         </div>
     );
