@@ -156,7 +156,7 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
         params.presence_penalty !== undefined;
 
     return (
-        <div className={`ui-card p-3 text-xs relative ${collapsed ? "" : "space-y-3 overflow-y-auto max-h-full"}`}>
+        <div className="ui-card p-3 text-xs relative overflow-y-auto max-h-full">
             {/* Header with collapse arrow + cog */}
             <div className="flex items-start justify-between">
                 <div className="min-w-0">
@@ -202,8 +202,13 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                 </div>
             </div>
 
-            {!collapsed && (
-            <>
+            <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                    collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+                }`}
+            >
+                <div className="overflow-hidden">
+                <div className="space-y-3 pt-3">
             <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
                     open ? "max-h-125 opacity-100 pt-2 mt-1" : "max-h-0 opacity-0 pt-0 mt-0"
@@ -381,8 +386,9 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                     {proxyModelID(model.provider_name, model.model_id)}
                 </code>
             </div>
-            </>
-            )}
+            </div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -726,71 +732,66 @@ export function Chat() {
 
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
-                {controlsCollapsed ? (
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm text-(--text-secondary)">Model</label>
-                        <button
-                            onClick={() => setControlsCollapsed(false)}
-                            className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                            title="Expand controls"
-                        >
-                            <ChevronsUpDown size={14} />
-                        </button>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm text-(--text-secondary)">Model</label>
-                            <button
-                                onClick={() => setControlsCollapsed(true)}
-                                className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                                title="Collapse controls"
-                            >
-                                <ChevronsDownUp size={14} />
-                            </button>
-                        </div>
-                        <ModelPicker
-                            models={enabledModels}
-                            selected={selectedModel}
-                            onChange={setSelectedModel}
-                            multi={false}
-                            providers={
-                                providers?.map((p) => ({
-                                    name: p.name,
-                                    base_url: p.base_url,
-                                })) ?? []
-                            }
-                        />
-                        <div>
-                            <PresetBar
-                                items={CHAT_PERSONAS}
-                                activeId={activePersonaId}
-                                onSelect={handlePersonaSelect}
-                                onCustom={handleCustomPersona}
+                <div className="flex items-center justify-between">
+                    <label className="text-sm text-(--text-secondary)">Model</label>
+                    <button
+                        onClick={() => setControlsCollapsed((c) => !c)}
+                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                        title={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+                    >
+                        {controlsCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                    </button>
+                </div>
+                <div
+                    className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                        controlsCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+                    }`}
+                >
+                    <div className="overflow-hidden">
+                        <div className="space-y-4 pt-4">
+                            <ModelPicker
+                                models={enabledModels}
+                                selected={selectedModel}
+                                onChange={setSelectedModel}
+                                multi={false}
+                                providers={
+                                    providers?.map((p) => ({
+                                        name: p.name,
+                                        base_url: p.base_url,
+                                    })) ?? []
+                                }
                             />
-                            <textarea
-                                ref={systemPromptRef}
-                                value={systemPrompt}
-                                onChange={(e) => {
-                                    handleSystemPromptChange(e.target.value);
-                                    if (!e.target.value) {
-                                        e.target.style.height = "auto";
-                                    } else if (
-                                        e.target.scrollHeight > e.target.clientHeight
-                                    ) {
-                                        e.target.style.height =
-                                            e.target.scrollHeight + "px";
-                                    }
-                                }}
-                                placeholder="Enter your custom prompt here..."
-                                rows={1}
-                                maxLength={5000}
-                                className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                                style={{ height: "auto" }}
-                            />
+                            <div>
+                                <PresetBar
+                                    items={CHAT_PERSONAS}
+                                    activeId={activePersonaId}
+                                    onSelect={handlePersonaSelect}
+                                    onCustom={handleCustomPersona}
+                                />
+                                <textarea
+                                    ref={systemPromptRef}
+                                    value={systemPrompt}
+                                    onChange={(e) => {
+                                        handleSystemPromptChange(e.target.value);
+                                        if (!e.target.value) {
+                                            e.target.style.height = "auto";
+                                        } else if (
+                                            e.target.scrollHeight > e.target.clientHeight
+                                        ) {
+                                            e.target.style.height =
+                                                e.target.scrollHeight + "px";
+                                        }
+                                    }}
+                                    placeholder="Enter your custom prompt here..."
+                                    rows={1}
+                                    maxLength={5000}
+                                    className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                                    style={{ height: "auto" }}
+                                />
+                            </div>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Chat Area: Model Details + Messages */}

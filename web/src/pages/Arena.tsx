@@ -15,6 +15,8 @@ import {
     Trophy,
     RotateCcw,
     RefreshCw,
+    ChevronsUpDown,
+    ChevronsDownUp,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -146,6 +148,7 @@ export function Arena() {
     const [disabledModels, setDisabledModels] = useState<Set<string>>(
         new Set(),
     );
+    const [arenaCollapsed, setArenaCollapsed] = useState(false);
 
     useEffect(() => {
         if (!persistArena) return;
@@ -1118,7 +1121,24 @@ export function Arena() {
             </div>
 
             {/* Controls */}
-            <div className="ui-card p-4 space-y-4">
+            <div className="ui-card p-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-(--text-primary)">Controls</span>
+                    <button
+                        onClick={() => setArenaCollapsed((c) => !c)}
+                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                        title={arenaCollapsed ? "Expand controls" : "Collapse controls"}
+                    >
+                        {arenaCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                    </button>
+                </div>
+                <div
+                    className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                        arenaCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+                    }`}
+                >
+                    <div className="overflow-hidden">
+                        <div className="space-y-4 pt-4">
                 {phase === "setup" && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div>
@@ -1391,6 +1411,9 @@ export function Arena() {
                         className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
                         disabled={phase !== "setup" && phase !== "finished"}
                     />
+                </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
