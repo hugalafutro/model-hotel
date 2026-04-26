@@ -11,7 +11,7 @@
 > This project was created with assistance from multiple AI models:
 > - **GLM-5.1** (mostly design and planning / backend)
 > - **Kimi-K2.6** (mostly UX / theming / frontend)
-> - **Minimax-M2.7** (small code/style adjustments)
+> - **Minimax-M2.7** (small code / style adjustments)
 >
 > Development was done in [Zed](https://zed.dev) editor and/or [Opencode](https://opencode.ai), with extensive human testing and iterative refinement.
 >
