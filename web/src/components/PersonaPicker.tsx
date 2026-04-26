@@ -22,6 +22,8 @@ interface PersonaPickerProps {
     className?: string;
     /** Whether the textarea is disabled */
     disabled?: boolean;
+    /** When true, persona buttons wrap to multiple rows instead of scrolling horizontally */
+    wrap?: boolean;
 }
 
 export function PersonaPicker({
@@ -34,6 +36,7 @@ export function PersonaPicker({
     textareaPlaceholder = "Enter your custom prompt here...",
     className,
     disabled = false,
+    wrap = false,
 }: PersonaPickerProps) {
     const [pendingPersona, setPendingPersona] = useState<PersonaPreset | null>(
         null,
@@ -64,7 +67,13 @@ export function PersonaPicker({
             onActivePersonaChange(persona.id);
             autoExpand(textareaRef);
         },
-        [systemPrompt, activePersonaId, onSystemPromptChange, onActivePersonaChange, autoExpand],
+        [
+            systemPrompt,
+            activePersonaId,
+            onSystemPromptChange,
+            onActivePersonaChange,
+            autoExpand,
+        ],
     );
 
     const handleCustom = useCallback(() => {
@@ -89,7 +98,12 @@ export function PersonaPicker({
                 onActivePersonaChange(null);
             }
         },
-        [personas, activePersonaId, onSystemPromptChange, onActivePersonaChange],
+        [
+            personas,
+            activePersonaId,
+            onSystemPromptChange,
+            onActivePersonaChange,
+        ],
     );
 
     const handleConfirmOverwrite = useCallback(() => {
@@ -103,7 +117,12 @@ export function PersonaPicker({
             autoExpand(textareaRef);
         }
         setPendingPersona(null);
-    }, [pendingPersona, onSystemPromptChange, onActivePersonaChange, autoExpand]);
+    }, [
+        pendingPersona,
+        onSystemPromptChange,
+        onActivePersonaChange,
+        autoExpand,
+    ]);
 
     return (
         <div className={className}>
@@ -117,6 +136,7 @@ export function PersonaPicker({
                 activeId={activePersonaId}
                 onSelect={handleSelect}
                 onCustom={handleCustom}
+                wrap={wrap}
             />
             <textarea
                 ref={textareaRef}

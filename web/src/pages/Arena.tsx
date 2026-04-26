@@ -1484,6 +1484,7 @@ export function Arena() {
                                                 setComparePersonaPrompt
                                             }
                                             textareaPlaceholder="Optional system prompt applied to all models…"
+                                            wrap
                                         />
                                     </div>
                                 </div>
