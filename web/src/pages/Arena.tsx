@@ -181,7 +181,20 @@ export function Arena() {
         }
         return "";
     });
-    const [savedPrompt, setSavedPrompt] = useState<string>("");
+    const [savedPrompt, setSavedPrompt] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.savedPrompt ?? "";
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return "";
+    });
 
     const [comparePersonaId, setComparePersonaId] = useState<string | null>(
         () => {
@@ -330,6 +343,7 @@ export function Arena() {
                     currentRound,
                     phase,
                     arenaCollapsed,
+                    savedPrompt,
                 }),
             );
         } catch {
@@ -344,6 +358,7 @@ export function Arena() {
         currentRound,
         phase,
         arenaCollapsed,
+        savedPrompt,
         persistArena,
     ]);
 
