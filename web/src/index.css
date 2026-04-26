@@ -1534,3 +1534,14 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
     border-color: rgba(0, 0, 0, 0.45);
     box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
 }
+
+/* Hide native number input spinners */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.no-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}

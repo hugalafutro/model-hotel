@@ -12,6 +12,7 @@ import {
     ChevronDown,
     ChevronRight,
     Settings,
+    RotateCcw,
 } from "lucide-react";
 import type { Model, ChatMessage, GenerationParams } from "../api/types";
 
@@ -175,6 +176,7 @@ function ParamSlider({
     onChange: (v: number | undefined) => void;
 }) {
     const isSet = value !== undefined;
+    const pct = isSet ? ((value - min) / (max - min)) * 100 : 0;
     return (
         <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -197,7 +199,7 @@ function ParamSlider({
                         if (!isNaN(n)) onChange(n);
                     }}
                     placeholder="off"
-                    className="w-16 text-right px-1 py-0.5 rounded bg-(--surface-input) text-[10px] text-(--text-primary) border border-transparent focus:border-(--accent) outline-none placeholder:text-(--text-tertiary)"
+                    className="w-14 text-right px-1.5 py-0.5 rounded bg-(--surface-input) text-[10px] text-(--text-primary) border border-transparent focus:border-(--accent) outline-none placeholder:text-(--text-tertiary) no-spinner"
                 />
             </div>
             <input
@@ -210,7 +212,7 @@ function ParamSlider({
                 className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-(--surface-hover) accent-(--accent)"
                 style={{
                     background: isSet
-                        ? `linear-gradient(to right, var(--accent) ${((value! - min) / (max - min)) * 100}%, var(--surface-hover) ${((value! - min) / (max - min)) * 100}%)`
+                        ? `linear-gradient(to right, var(--accent) ${pct}%, var(--surface-hover) ${pct}%)`
                         : undefined,
                 }}
             />
@@ -245,17 +247,28 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                         </p>
                     )}
                 </div>
-                <button
-                    onClick={() => setOpen((s) => !s)}
-                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                        open || hasCustom
-                            ? "text-(--accent)"
-                            : "text-(--text-tertiary) hover:text-(--accent)"
-                    }`}
-                    title="Generation parameters"
-                >
-                    <Settings size={14} />
-                </button>
+                <div className="flex items-start gap-0.5">
+                    {hasCustom && (
+                        <button
+                            onClick={() => onParamsChange({})}
+                            className="p-1.5 rounded-md transition-all cursor-pointer shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]"
+                            title="Reset parameters"
+                        >
+                            <RotateCcw size={14} />
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setOpen((s) => !s)}
+                        className={`p-1.5 rounded-md transition-all cursor-pointer shrink-0 ${
+                            open || hasCustom
+                                ? "text-(--accent) drop-shadow-[0_0_6px_var(--accent)]"
+                                : "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                        }`}
+                        title="Generation parameters"
+                    >
+                        <Settings size={14} />
+                    </button>
+                </div>
             </div>
 
             {/* Slide-out panel */}
@@ -349,12 +362,6 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                             })
                         }
                     />
-                    <button
-                        onClick={() => onParamsChange({})}
-                        className="w-full py-1 text-[10px] text-(--accent) hover:text-(--accent)/80 text-center border border-(--accent)/20 rounded hover:bg-(--accent)/5 transition-colors cursor-pointer"
-                    >
-                        Reset all
-                    </button>
                 </div>
             </div>
 
