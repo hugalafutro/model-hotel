@@ -655,7 +655,12 @@ export function Chat() {
                         if (isUser) {
                             return (
                                 <div key={i} className="flex justify-end">
-                                    <div className="max-w-[80%] rounded-xl bg-(--accent) text-white rounded-br-sm p-2.5">
+                                    <div
+                                        className="max-w-[80%] bg-(--accent) text-white p-2.5"
+                                        style={{
+                                            borderRadius: "var(--radius-card)",
+                                        }}
+                                    >
                                         <MarkdownContent className="[&_strong]:text-white [&_em]:text-white/80">
                                             {msg.content}
                                         </MarkdownContent>
