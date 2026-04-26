@@ -238,7 +238,6 @@ export function Arena() {
     const currentRoundRef = useRef(0);
     const roundsLengthRef = useRef(0);
     const promptRef = useRef<HTMLTextAreaElement>(null);
-    const { toast } = useToast();
 
     const enabledModels = useMemo(
         () => models?.filter((m) => m.enabled && m.provider_name) || [],

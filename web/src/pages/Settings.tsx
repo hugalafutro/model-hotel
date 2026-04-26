@@ -704,7 +704,16 @@ export function Settings() {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setPersistChat(!persistChat)}
+                                onClick={() => {
+                                    const next = !persistChat;
+                                    setPersistChat(next);
+                                    toast(
+                                        next
+                                            ? "Chat persistence enabled"
+                                            : "Chat data cleared",
+                                        next ? "success" : "info",
+                                    );
+                                }}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                                     persistChat
                                         ? "bg-(--accent)"
@@ -733,9 +742,16 @@ export function Settings() {
                             </div>
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setPersistArena(!persistArena)
-                                }
+                                onClick={() => {
+                                    const next = !persistArena;
+                                    setPersistArena(next);
+                                    toast(
+                                        next
+                                            ? "Arena persistence enabled"
+                                            : "Arena data cleared",
+                                        next ? "success" : "info",
+                                    );
+                                }}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                                     persistArena
                                         ? "bg-(--accent)"

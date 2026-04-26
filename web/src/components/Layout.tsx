@@ -400,18 +400,18 @@ export function Layout({ children }: LayoutProps) {
 
     return (
         <div className="flex h-screen ui-surface-bg">
-            <aside className="w-64 ui-sidebar shrink-0">
-                <div className="p-6 text-center">
-                    <Logo className="h-12 w-auto text-white mx-auto ml-[9%]" />
-                    <p className="text-sm text-gray-200 mt-2">
+            <aside className="w-64 ui-sidebar shrink-0 flex flex-col min-h-0">
+                <div className="px-6 pt-5 pb-3 text-center shrink-0">
+                    <Logo className="h-10 w-auto text-white mx-auto ml-[9%]" />
+                    <p className="text-sm text-gray-200 mt-1">
                         Multi-Provider AI Gateway
                     </p>
-                    <p className="text-xs text-(--accent) mt-1 italic">
+                    <p className="text-xs text-(--accent) mt-0.5 italic">
                         "Because we have LiteLLM at home"
                     </p>
                 </div>
-                <nav className="flex-1 p-4 overflow-y-auto">
-                    <ul className="space-y-1">
+                <nav className="flex-1 min-h-0 px-4 py-2 overflow-y-auto">
+                    <ul className="space-y-0.5">
                         {navigation.map((item) => {
                             const Icon = item.icon;
                             const active = isActive(item.href);
@@ -419,7 +419,7 @@ export function Layout({ children }: LayoutProps) {
                                 <li key={item.name}>
                                     <Link
                                         to={item.href}
-                                        className={`sidebar-link flex items-center px-4 py-3 transition-colors ${
+                                        className={`sidebar-link flex items-center px-4 py-2 transition-colors ${
                                             active
                                                 ? "sidebar-link-active"
                                                 : "sidebar-link-inactive"
@@ -438,13 +438,13 @@ export function Layout({ children }: LayoutProps) {
                         })}
                     </ul>
                 </nav>
-                <div className="p-4 shrink-0">
-                    <div className="flex justify-between mb-3">
+                <div className="px-4 pb-4 shrink-0">
+                    <div className="flex justify-between mb-2">
                         <a
                             href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
                             <BookOpen size={14} strokeWidth={2} />
                             Docs
@@ -454,7 +454,7 @@ export function Layout({ children }: LayoutProps) {
                             onClick={() =>
                                 setTheme(theme === "dark" ? "light" : "dark")
                             }
-                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
+                            className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
                             title={
                                 theme === "dark"
                                     ? "Switch to light mode"
@@ -471,7 +471,7 @@ export function Layout({ children }: LayoutProps) {
                             href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="sidebar-footer-link flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
                             <GitBranch size={14} strokeWidth={2} />
                             GitHub
