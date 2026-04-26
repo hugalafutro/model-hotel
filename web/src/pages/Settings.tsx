@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
+import { useStorage } from "../context/StorageContext";
 import React, { useState, useCallback } from "react";
 import {
     Monitor,
@@ -15,6 +16,7 @@ import {
     ScrollText,
     Zap,
     Bell,
+    Database,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Spinner } from "../components/Spinner";
@@ -171,6 +173,8 @@ export function Settings() {
         timeout,
         setTimeout: setToastTimeout,
     } = useToast();
+    const { persistChat, setPersistChat, persistArena, setPersistArena } =
+        useStorage();
     const queryClient = useQueryClient();
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerColor, setPickerColor] = useState(accentColor);
@@ -672,6 +676,83 @@ export function Settings() {
 
                 {/* Logging */}
                 <LoggingSettings />
+
+                {/* Data Storage */}
+                <div className="ui-card p-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Database size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Data Storage
+                        </h2>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Persist chat and arena sessions in your browser. When
+                        enabled, your session survives navigation and page reloads.
+                        When disabled, data is lost when you leave the page.
+                    </p>
+
+                    <div className="space-y-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-300">
+                                    Persist Chat
+                                </p>
+                                <p className="text-gray-500 text-xs mt-0.5">
+                                    Save chat messages and model selection across
+                                    page visits
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setPersistChat(!persistChat)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    persistChat
+                                        ? "bg-(--accent)"
+                                        : "bg-gray-600"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        persistChat
+                                            ? "translate-x-6"
+                                            : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-300">
+                                    Persist Arena
+                                </p>
+                                <p className="text-gray-500 text-xs mt-0.5">
+                                    Save arena bracket state and model selections
+                                    across page visits
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPersistArena(!persistArena)
+                                }
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    persistArena
+                                        ? "bg-(--accent)"
+                                        : "bg-gray-600"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        persistArena
+                                            ? "translate-x-6"
+                                            : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Rate Limiting */}
                 <RateLimitSettings />

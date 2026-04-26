@@ -13,6 +13,7 @@ import { Arena } from "./pages/Arena";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 import { EventProvider } from "./context/EventContext";
+import { StorageProvider } from "./context/StorageContext";
 import { setAdminToken } from "./api/client";
 
 const Dashboard = lazy(() =>
@@ -151,11 +152,13 @@ function AppContent() {
 function App() {
     return (
         <ThemeProvider>
-            <ToastProvider>
-                <EventProvider>
-                    <AppContent />
-                </EventProvider>
-            </ToastProvider>
+            <StorageProvider>
+                <ToastProvider>
+                    <EventProvider>
+                        <AppContent />
+                    </EventProvider>
+                </ToastProvider>
+            </StorageProvider>
         </ThemeProvider>
     );
 }

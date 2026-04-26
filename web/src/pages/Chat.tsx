@@ -15,6 +15,7 @@ import {
 import type { Model } from "../api/types";
 import type { ChatMessage } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -256,10 +257,42 @@ export function Chat() {
         staleTime: 60_000,
     });
 
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [selectedModel, setSelectedModel] = useState<string>("");
-    const [systemPrompt, setSystemPrompt] = useState<string>("");
-    const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<ChatMessage[]>(() => {
+        try {
+            if (localStorage.getItem("persistChat") === "true") {
+                const stored = localStorage.getItem("chatMessages");
+                if (stored) return JSON.parse(stored);
+            }
+        } catch { /* ignore corrupt stored data */ }
+        return [];
+    });
+    const [selectedModel, setSelectedModel] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistChat") === "true") {
+                return localStorage.getItem("chatSelectedModel") ?? "";
+            }
+        } catch { /* ignore */ }
+        return "";
+    });
+    const [systemPrompt, setSystemPrompt] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistChat") === "true") {
+                return localStorage.getItem("chatSystemPrompt") ?? "";
+            }
+        } catch { /* ignore */ }
+        return "";
+    });
+    const [activePersonaId, setActivePersonaId] = useState<string | null>(
+        () => {
+            try {
+                if (localStorage.getItem("persistChat") === "true") {
+                    const v = localStorage.getItem("chatActivePersonaId");
+                    return v || null;
+                }
+            } catch { /* ignore */ }
+            return null;
+        },
+    );
     const [pendingPersona, setPendingPersona] = useState<
         import("../data/presets").PersonaPreset | null
     >(null);
@@ -269,6 +302,7 @@ export function Chat() {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const systemPromptRef = useRef<HTMLTextAreaElement>(null);
     const { toast } = useToast();
+    const { persistChat } = useStorage();
 
     const enabledModels =
         models?.filter((m) => m.enabled && m.provider_name) || [];
@@ -281,6 +315,37 @@ export function Chat() {
         const el = messagesContainerRef.current;
         if (el) el.scrollTop = el.scrollHeight;
     }, [messages]);
+
+    useEffect(() => {
+        if (!persistChat) return;
+        try {
+            localStorage.setItem("chatMessages", JSON.stringify(messages));
+        } catch { /* quota exceeded */ }
+    }, [messages, persistChat]);
+
+    useEffect(() => {
+        if (!persistChat) return;
+        try {
+            localStorage.setItem("chatSelectedModel", selectedModel);
+        } catch { /* quota exceeded */ }
+    }, [selectedModel, persistChat]);
+
+    useEffect(() => {
+        if (!persistChat) return;
+        try {
+            localStorage.setItem("chatSystemPrompt", systemPrompt);
+        } catch { /* quota exceeded */ }
+    }, [systemPrompt, persistChat]);
+
+    useEffect(() => {
+        if (!persistChat) return;
+        try {
+            localStorage.setItem(
+                "chatActivePersonaId",
+                activePersonaId ?? "",
+            );
+        } catch { /* quota exceeded */ }
+    }, [activePersonaId, persistChat]);
 
     const autoExpandTextarea = useCallback(
         (ref: React.RefObject<HTMLTextAreaElement | null>) => {

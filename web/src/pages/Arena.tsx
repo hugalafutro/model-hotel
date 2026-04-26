@@ -22,6 +22,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useToast } from "../context/ToastContext";
+import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -141,15 +142,51 @@ export function Arena() {
         staleTime: 60_000,
     });
 
-    const [group1Models, setGroup1Models] = useState<string[]>([]);
-    const [group2Models, setGroup2Models] = useState<string[]>([]);
+    const { toast } = useToast();
+    const { persistArena } = useStorage();
 
-    const [activePromptId, setActivePromptId] = useState<string | null>(null);
+    const [group1Models, setGroup1Models] = useState<string[]>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const stored = localStorage.getItem("arenaGroup1Models");
+                if (stored) return JSON.parse(stored);
+            }
+        } catch { /* ignore corrupt stored data */ }
+        return [];
+    });
+    const [group2Models, setGroup2Models] = useState<string[]>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const stored = localStorage.getItem("arenaGroup2Models");
+                if (stored) return JSON.parse(stored);
+            }
+        } catch { /* ignore corrupt stored data */ }
+        return [];
+    });
+
+    const [activePromptId, setActivePromptId] = useState<string | null>(
+        () => {
+            try {
+                if (localStorage.getItem("persistArena") === "true") {
+                    const v = localStorage.getItem("arenaActivePromptId");
+                    return v || null;
+                }
+            } catch { /* ignore */ }
+            return null;
+        },
+    );
     const [pendingPrompt, setPendingPrompt] = useState<
         import("../data/presets").ArenaPromptPreset | null
     >(null);
-    const [prompt, setPrompt] = useState("");
-    const [savedPrompt, setSavedPrompt] = useState("");
+    const [prompt, setPrompt] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                return localStorage.getItem("arenaPrompt") ?? "";
+            }
+        } catch { /* ignore */ }
+        return "";
+    });
+    const [savedPrompt, setSavedPrompt] = useState<string>("");
 
     const [rounds, setRounds] = useState<BracketRound[]>([]);
     const [currentRound, setCurrentRound] = useState(0);
@@ -159,6 +196,43 @@ export function Arena() {
     const [disabledModels, setDisabledModels] = useState<Set<string>>(
         new Set(),
     );
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaGroup1Models",
+                JSON.stringify(group1Models),
+            );
+        } catch { /* quota exceeded */ }
+    }, [group1Models, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaGroup2Models",
+                JSON.stringify(group2Models),
+            );
+        } catch { /* quota exceeded */ }
+    }, [group2Models, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem("arenaPrompt", prompt);
+        } catch { /* quota exceeded */ }
+    }, [prompt, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaActivePromptId",
+                activePromptId ?? "",
+            );
+        } catch { /* quota exceeded */ }
+    }, [activePromptId, persistArena]);
 
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const currentRoundRef = useRef(0);
