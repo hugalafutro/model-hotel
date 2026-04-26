@@ -170,13 +170,6 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                     )}
                 </div>
                 <div className="flex items-start gap-0.5 shrink-0 ml-2">
-                    <button
-                        onClick={() => setCollapsed((c) => !c)}
-                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                        title={collapsed ? "Expand model details" : "Collapse model details"}
-                    >
-                        {collapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
-                    </button>
                     {!collapsed && hasCustom && (
                         <button
                             onClick={() => onParamsChange({})}
@@ -199,6 +192,13 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                             <Settings size={14} />
                         </button>
                     )}
+                    <button
+                        onClick={() => setCollapsed((c) => !c)}
+                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                        title={collapsed ? "Expand model details" : "Collapse model details"}
+                    >
+                        {collapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                    </button>
                 </div>
             </div>
 
@@ -442,6 +442,7 @@ export function Chat() {
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
     const [messageParams, setMessageParams] = useState<GenerationParams>({});
+    const [controlsCollapsed, setControlsCollapsed] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const systemPromptRef = useRef<HTMLTextAreaElement>(null);
@@ -724,49 +725,72 @@ export function Chat() {
             </div>
 
             {/* Controls */}
-            <div className="ui-card p-4 space-y-4 shrink-0">
-                <ModelPicker
-                    models={enabledModels}
-                    selected={selectedModel}
-                    onChange={setSelectedModel}
-                    multi={false}
-                    label="Model"
-                    providers={
-                        providers?.map((p) => ({
-                            name: p.name,
-                            base_url: p.base_url,
-                        })) ?? []
-                    }
-                />
-
-                <div>
-                    <PresetBar
-                        items={CHAT_PERSONAS}
-                        activeId={activePersonaId}
-                        onSelect={handlePersonaSelect}
-                        onCustom={handleCustomPersona}
-                    />
-                    <textarea
-                        ref={systemPromptRef}
-                        value={systemPrompt}
-                        onChange={(e) => {
-                            handleSystemPromptChange(e.target.value);
-                            if (!e.target.value) {
-                                e.target.style.height = "auto";
-                            } else if (
-                                e.target.scrollHeight > e.target.clientHeight
-                            ) {
-                                e.target.style.height =
-                                    e.target.scrollHeight + "px";
+            <div className="ui-card p-4 shrink-0">
+                {controlsCollapsed ? (
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm text-(--text-secondary)">Model</label>
+                        <button
+                            onClick={() => setControlsCollapsed(false)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                            title="Expand controls"
+                        >
+                            <ChevronsUpDown size={14} />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm text-(--text-secondary)">Model</label>
+                            <button
+                                onClick={() => setControlsCollapsed(true)}
+                                className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                                title="Collapse controls"
+                            >
+                                <ChevronsDownUp size={14} />
+                            </button>
+                        </div>
+                        <ModelPicker
+                            models={enabledModels}
+                            selected={selectedModel}
+                            onChange={setSelectedModel}
+                            multi={false}
+                            providers={
+                                providers?.map((p) => ({
+                                    name: p.name,
+                                    base_url: p.base_url,
+                                })) ?? []
                             }
-                        }}
-                        placeholder="Enter your custom prompt here..."
-                        rows={1}
-                        maxLength={5000}
-                        className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                        style={{ height: "auto" }}
-                    />
-                </div>
+                        />
+                        <div>
+                            <PresetBar
+                                items={CHAT_PERSONAS}
+                                activeId={activePersonaId}
+                                onSelect={handlePersonaSelect}
+                                onCustom={handleCustomPersona}
+                            />
+                            <textarea
+                                ref={systemPromptRef}
+                                value={systemPrompt}
+                                onChange={(e) => {
+                                    handleSystemPromptChange(e.target.value);
+                                    if (!e.target.value) {
+                                        e.target.style.height = "auto";
+                                    } else if (
+                                        e.target.scrollHeight > e.target.clientHeight
+                                    ) {
+                                        e.target.style.height =
+                                            e.target.scrollHeight + "px";
+                                    }
+                                }}
+                                placeholder="Enter your custom prompt here..."
+                                rows={1}
+                                maxLength={5000}
+                                className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                                style={{ height: "auto" }}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Chat Area: Model Details + Messages */}
