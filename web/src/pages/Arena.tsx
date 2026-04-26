@@ -1277,7 +1277,7 @@ export function Arena() {
     return (
         <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="grid grid-cols-3 items-center">
                 <div>
                     <div className="flex items-center gap-3">
                         <Swords
@@ -1292,6 +1292,21 @@ export function Arena() {
                             ? "Bracket tournament — models compete head-to-head"
                             : "Side-by-side — compare model outputs on the same prompt"}
                     </p>
+                </div>
+                <div />
+                <div className="text-right">
+                    <div className="inline-block text-left max-w-sm rounded-lg border border-(--border-subtle) bg-(--surface)/50 px-4 py-3">
+                        <p className="text-xs font-semibold text-(--text-secondary) mb-1.5">
+                            {arenaMode === "competition"
+                                ? "Competition Mode"
+                                : "Comparison Mode"}
+                        </p>
+                        <p className="text-xs text-(--text-tertiary) leading-relaxed">
+                            {arenaMode === "competition"
+                                ? "Models are paired in a single-elimination bracket. Each round, every pair receives the same prompt — you vote for the better response. Winners advance until one model remains. The prompts are designed to stress-test creativity, reasoning, and instruction-following."
+                                : "Pick any models and run the same prompt through them simultaneously. No voting, no bracket — just pure side-by-side output comparison to evaluate which model best fits your needs."}
+                        </p>
+                    </div>
                 </div>
             </div>
 
