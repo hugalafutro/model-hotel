@@ -1,41 +1,37 @@
+name: model-hotel
 services:
-  app:
-    build: .
-    ports:
-      - "8081:8080"
-    environment:
-      - MASTER_KEY=${MASTER_KEY:-default-master-key-change-in-production}
-      - DATABASE_URL=postgres://llmproxy:changeme@db:5432/llmproxy
-      - ALLOW_HTTP_PROVIDERS=false
-      - DATA_DIR=/data
-      - RATE_LIMIT_ENABLED=true
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:8081
-      - ALLOWED_PROVIDER_HOSTS=
-    volumes:
-      - ./.data:/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    app:
+        build: .
+        ports:
+            - "8081:8080"
+        environment:
+            - MASTER_KEY=${MASTER_KEY:-default-master-key-change-in-production}
+            - DATABASE_URL=postgres://llmproxy:changeme@db:5432/llmproxy
+            - ALLOW_HTTP_PROVIDERS=false
+            - DATA_DIR=/data
+            - RATE_LIMIT_ENABLED=true
+            - CORS_ORIGINS=http://localhost:5173,http://localhost:8081
+            - ALLOWED_PROVIDER_HOSTS=
+        volumes:
+            - ./.data:/data
+            # read-only access for compose-wide stats in sidebar; remove to isolate, but app-only metrics will be unreliable
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        depends_on:
+            db:
+                condition: service_healthy
 
-  db:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_USER=llmproxy
-      - POSTGRES_PASSWORD=changeme
-      - POSTGRES_DB=llmproxy
-    volumes:
-      - ./.data/pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U llmproxy"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    db:
+        image: postgres:16-alpine
+        environment:
+            - POSTGRES_USER=llmproxy
+            - POSTGRES_PASSWORD=changeme
+            - POSTGRES_DB=llmproxy
+        volumes:
+            - ./.data/pgdata:/var/lib/postgresql/data
+        ports:
+            - "5432:5432"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U llmproxy"]
+            interval: 5s
+            timeout: 5s
+            retries: 5

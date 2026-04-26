@@ -490,7 +490,7 @@ export function Layout({ children }: LayoutProps) {
             </aside>
 
             <main className="flex-1 ui-main overflow-auto">
-                <div className="p-8 max-w-7xl mx-auto">{children}</div>
+                <div className="p-2 max-w-7xl mx-auto">{children}</div>
             </main>
         </div>
     );

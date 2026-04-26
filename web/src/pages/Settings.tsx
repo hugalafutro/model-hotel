@@ -1239,7 +1239,11 @@ function ProviderDiscoveryList() {
                     No providers configured yet.
                 </p>
             )}
-            {providers?.map((p) => (
+            {[...(providers ?? [])].sort((a, b) => {
+                const aTime = a.last_discovered_at ? new Date(a.last_discovered_at).getTime() : 0;
+                const bTime = b.last_discovered_at ? new Date(b.last_discovered_at).getTime() : 0;
+                return bTime - aTime;
+            }).map((p) => (
                 <div
                     key={p.id}
                     className="flex items-center justify-between py-2"
