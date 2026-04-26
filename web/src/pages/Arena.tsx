@@ -1277,7 +1277,7 @@ export function Arena() {
     return (
         <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
             {/* Header */}
-            <div className="flex items-center">
+            <div className="flex items-center justify-between">
                 <div className="shrink-0">
                     <div className="flex items-center gap-3">
                         <Swords
@@ -1293,9 +1293,8 @@ export function Arena() {
                             : "Side-by-side — compare model outputs on the same prompt"}
                     </p>
                 </div>
-                <div className="flex-1" />
                 <div className="shrink-0">
-                    <div className="max-w-md rounded-lg border border-(--border-subtle) bg-(--surface)/50 px-3.5 py-2.5">
+                    <div className="rounded-lg border border-(--border-subtle) bg-(--surface)/50 px-3.5 py-2.5">
                         <p className="text-xs font-semibold text-(--text-secondary) mb-1">
                             {arenaMode === "competition"
                                 ? "Competition Mode"
