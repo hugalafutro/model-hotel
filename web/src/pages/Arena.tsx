@@ -2069,7 +2069,7 @@ function ResponseCard({
                         {hasThinking && (
                             <ThinkingBlock
                                 thinking={response.thinkingContent}
-                                isStreaming={isStreaming}
+                                isStreaming={isStreaming && !response.content}
                             />
                         )}
                         {response.content ? (

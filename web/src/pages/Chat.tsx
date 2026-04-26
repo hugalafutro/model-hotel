@@ -14,6 +14,8 @@ import {
     ChevronsUpDown,
     Copy,
     Trash2,
+    CircleStop,
+    RefreshCw,
 } from "lucide-react";
 import type { Model, ChatMessage, GenerationParams } from "../api/types";
 
@@ -720,6 +722,174 @@ export function Chat() {
         setIsStreaming(false);
     }, []);
 
+    const handleRegenerate = useCallback(() => {
+        if (isStreaming) return;
+        let lastUserIdx = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "user") {
+                lastUserIdx = i;
+                break;
+            }
+        }
+        if (lastUserIdx === -1) return;
+        const userContent = messages[lastUserIdx].content;
+        const baseMessages = messages.slice(0, lastUserIdx);
+        setMessages(baseMessages);
+        setInput(userContent);
+
+        const chatMessages: Array<{ role: string; content: string }> = [];
+        if (systemPrompt.trim()) {
+            chatMessages.push({ role: "system", content: systemPrompt.trim() });
+        }
+        for (const m of baseMessages) {
+            chatMessages.push({ role: m.role, content: m.content });
+        }
+        chatMessages.push({ role: "user", content: userContent });
+
+        const userMessage: ChatMessage = {
+            role: "user",
+            content: userContent,
+            timestamp: Date.now(),
+        };
+        const updatedMessages = [...baseMessages, userMessage];
+        setMessages(updatedMessages);
+        setInput("");
+        setIsStreaming(true);
+
+        const abortCtrl = new AbortController();
+        abortRef.current = abortCtrl;
+        const startTime = performance.now();
+        let charCount = 0;
+        let promptTokens = 0;
+        let completionTokens = 0;
+
+        const assistantMessage: ChatMessage = {
+            role: "assistant",
+            content: "",
+            rawContent: "",
+            thinkingContent: "",
+            model: selectedModel || "",
+            timestamp: Date.now(),
+            params: hasAnyParam(messageParams) ? messageParams : undefined,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        api.chat
+            .chat({
+                model: selectedModel || "",
+                stream: true,
+                messages: chatMessages,
+                ...(hasAnyParam(messageParams) ? messageParams : {}),
+            })
+            .then((resp) => {
+                const reader = resp.body?.getReader();
+                if (!reader) throw new Error("No readable stream");
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                const processStream = async () => {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done || abortCtrl.signal.aborted) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split("\n");
+                        buffer = lines.pop() || "";
+                        for (const line of lines) {
+                            if (!line.startsWith("data: ")) continue;
+                            const data = line.slice(6);
+                            if (data === "[DONE]") break;
+                            try {
+                                const chunk = JSON.parse(data);
+                                const delta = chunk.choices?.[0]?.delta?.content;
+                                if (delta) {
+                                    charCount += delta.length;
+                                    assistantMessage.rawContent =
+                                        (assistantMessage.rawContent || "") +
+                                        delta;
+                                    const extracted = extractThinking(
+                                        assistantMessage.rawContent,
+                                    );
+                                    assistantMessage.content = extracted.content;
+                                    assistantMessage.thinkingContent =
+                                        extracted.thinking ||
+                                        assistantMessage.thinkingContent;
+                                    setMessages((prev) => {
+                                        const next = [...prev];
+                                        next[next.length - 1] = {
+                                            ...assistantMessage,
+                                        };
+                                        return next;
+                                    });
+                                }
+                                const thinkingDelta =
+                                    chunk.choices?.[0]?.delta
+                                        ?.reasoning_content ??
+                                    chunk.choices?.[0]?.delta?.reasoning;
+                                if (thinkingDelta) {
+                                    assistantMessage.thinkingContent =
+                                        (assistantMessage.thinkingContent ||
+                                            "") + thinkingDelta;
+                                    setMessages((prev) => {
+                                        const next = [...prev];
+                                        next[next.length - 1] = {
+                                            ...assistantMessage,
+                                        };
+                                        return next;
+                                    });
+                                }
+                                if (chunk.usage) {
+                                    promptTokens =
+                                        chunk.usage.prompt_tokens ?? 0;
+                                    completionTokens =
+                                        chunk.usage.completion_tokens ?? 0;
+                                }
+                            } catch {
+                                // ignore
+                            }
+                        }
+                    }
+                };
+                return processStream();
+            })
+            .then(() => {
+                const durationMs = performance.now() - startTime;
+                assistantMessage.metrics = {
+                    tokensPerSecond:
+                        durationMs > 0
+                            ? charCount / (durationMs / 1000)
+                            : null,
+                    durationMs: Math.round(durationMs),
+                    promptTokens,
+                    completionTokens,
+                };
+                setMessages((prev) => {
+                    const next = [...prev];
+                    next[next.length - 1] = { ...assistantMessage };
+                    return next;
+                });
+            })
+            .catch((err) => {
+                const msg = err instanceof Error ? err.message : "Unknown error";
+                assistantMessage.content = `**Error:** ${msg}`;
+                assistantMessage.metrics = {
+                    tokensPerSecond: null,
+                    durationMs: Math.round(performance.now() - startTime),
+                    promptTokens: 0,
+                    completionTokens: 0,
+                };
+                setMessages((prev) => {
+                    const next = [...prev];
+                    next[next.length - 1] = { ...assistantMessage };
+                    return next;
+                });
+                toast(msg, "error");
+            })
+            .finally(() => {
+                setIsStreaming(false);
+                abortRef.current = null;
+            });
+    }, [isStreaming, messages, selectedModel, systemPrompt, messageParams, toast]);
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -888,15 +1058,40 @@ export function Chat() {
                                             <span className="text-xs text-(--accent) font-medium">
                                                 {msg.model.split("/").pop()}
                                             </span>
-                                            {isStreamingThis && (
-                                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse ml-1" />
+                                            {isStreamingThis ? (
+                                                <button
+                                                    onClick={handleStop}
+                                                    className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
+                                                    title="Cancel"
+                                                >
+                                                    <CircleStop size={14} />
+                                                </button>
+                                            ) : (
+                                                i ===
+                                                    messages.findLastIndex(
+                                                        (m) =>
+                                                            m.role ===
+                                                            "assistant",
+                                                    ) && (
+                                                    <button
+                                                        onClick={
+                                                            handleRegenerate
+                                                        }
+                                                        className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer ml-1"
+                                                        title="Regenerate"
+                                                    >
+                                                        <RefreshCw
+                                                            size={14}
+                                                        />
+                                                    </button>
+                                                )
                                             )}
                                         </div>
                                     )}
                                     {!isUser && hasThinking && (
                                         <ThinkingBlock
                                             thinking={msg.thinkingContent || ""}
-                                            isStreaming={isStreamingThis}
+                                            isStreaming={isStreamingThis && !msg.content}
                                         />
                                     )}
                                     {!isUser && msg.content ? (
