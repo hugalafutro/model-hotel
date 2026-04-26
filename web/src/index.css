@@ -1545,3 +1545,61 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
     -moz-appearance: textfield;
     appearance: textfield;
 }
+
+/* Generation param slider styling */
+.gen-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: transparent;
+}
+
+.gen-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    margin-top: -3px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.gen-slider[data-set="true"]::-webkit-slider-thumb {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+}
+
+.gen-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.gen-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: transparent;
+}
+
+.gen-slider::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.gen-slider[data-set="true"]::-moz-range-thumb {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+}
+
+.gen-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}

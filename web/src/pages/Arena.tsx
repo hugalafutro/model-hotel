@@ -15,12 +15,11 @@ import {
     Trophy,
     RotateCcw,
     RefreshCw,
-    ChevronDown,
-    ChevronRight,
-    Brain,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { extractThinking } from "../utils/thinking";
+import { ThinkingBlock } from "../components/ThinkingBlock";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
@@ -48,55 +47,6 @@ interface ArenaResponse {
         promptTokens: number;
         completionTokens: number;
     } | null;
-}
-
-const THINKING_OPEN_RE = /<(?:thought|start_thought|think)>/g;
-const THINKING_CLOSE_RE = /<\/(?:thought|end_thought|think)>/g;
-
-function extractThinking(raw: string): {
-    thinking: string;
-    content: string;
-} {
-    let content = raw;
-    let thinking = "";
-
-    const fenceMatch = content.match(/^<<\s*\n([\s\S]*?)\n>>\s*\n?/);
-    if (fenceMatch) {
-        thinking = fenceMatch[1].trim();
-        content = content.slice(fenceMatch[0].length);
-    }
-
-    const tagOpen = content.search(/<(?:thought|start_thought|think)>/i);
-    if (tagOpen !== -1) {
-        const afterOpen = content.slice(tagOpen);
-        const closeMatch = afterOpen.match(
-            /<\/(?:thought|end_thought|think)>/i,
-        );
-        if (closeMatch) {
-            const tagLen = afterOpen.indexOf(">");
-            const closeEnd =
-                afterOpen.indexOf(closeMatch[0]) + closeMatch[0].length;
-            const inner = afterOpen.slice(
-                tagLen + 1,
-                afterOpen.indexOf(closeMatch[0]),
-            );
-            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
-            content =
-                content.slice(0, tagOpen) + content.slice(tagOpen + closeEnd);
-        } else {
-            const tagLen = afterOpen.indexOf(">");
-            const inner = afterOpen.slice(tagLen + 1);
-            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
-            content = content.slice(0, tagOpen);
-        }
-    }
-
-    content = content
-        .replace(THINKING_OPEN_RE, "")
-        .replace(THINKING_CLOSE_RE, "")
-        .trimStart();
-
-    return { thinking, content };
 }
 
 interface MatchupSlot {
@@ -1933,7 +1883,6 @@ function ResponseCard({
     onCancelSlot,
     showVote,
 }: ResponseCardProps) {
-    const [thinkingOpen, setThinkingOpen] = useState(false);
     const [elapsed, setElapsed] = useState(0);
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
@@ -2032,27 +1981,10 @@ function ResponseCard({
                 ) : (
                     <>
                         {hasThinking && (
-                            <button
-                                onClick={() => setThinkingOpen(!thinkingOpen)}
-                                className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
-                                    isStreaming
-                                        ? "text-(--accent) animate-pulse cursor-pointer"
-                                        : "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
-                                }`}
-                            >
-                                <Brain size={12} />
-                                <span>Thinking</span>
-                                {thinkingOpen ? (
-                                    <ChevronDown size={12} />
-                                ) : (
-                                    <ChevronRight size={12} />
-                                )}
-                            </button>
-                        )}
-                        {hasThinking && thinkingOpen && (
-                            <div className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto">
-                                {response.thinkingContent}
-                            </div>
+                            <ThinkingBlock
+                                thinking={response.thinkingContent}
+                                isStreaming={isStreaming}
+                            />
                         )}
                         {response.content ? (
                             <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">

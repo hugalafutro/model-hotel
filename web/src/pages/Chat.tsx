@@ -8,11 +8,10 @@ import {
     Bot,
     Clock,
     Zap,
-    Brain,
-    ChevronDown,
-    ChevronRight,
     Settings,
     RotateCcw,
+    ChevronsDownUp,
+    ChevronsUpDown,
 } from "lucide-react";
 import type { Model, ChatMessage, GenerationParams } from "../api/types";
 
@@ -25,6 +24,8 @@ import { CAP_META } from "../components/capMeta";
 import { CHAT_PERSONAS } from "../data/presets";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { extractThinking } from "../utils/thinking";
+import { ThinkingBlock } from "../components/ThinkingBlock";
 
 function formatDuration(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
@@ -61,55 +62,6 @@ function formatPrice(n: number | null | undefined): string {
     return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
 }
 
-const THINKING_OPEN_RE = /<(?:thought|start_thought|think)>/g;
-const THINKING_CLOSE_RE = /<\/(?:thought|end_thought|think)>/g;
-
-function extractThinking(raw: string): {
-    thinking: string;
-    content: string;
-} {
-    let content = raw;
-    let thinking = "";
-
-    const fenceMatch = content.match(/^<<\s*\n([\s\S]*?)\n>>\s*\n?/);
-    if (fenceMatch) {
-        thinking = fenceMatch[1].trim();
-        content = content.slice(fenceMatch[0].length);
-    }
-
-    const tagOpen = content.search(/<(?:thought|start_thought|think)>/i);
-    if (tagOpen !== -1) {
-        const afterOpen = content.slice(tagOpen);
-        const closeMatch = afterOpen.match(
-            /<\/(?:thought|end_thought|think)>/i,
-        );
-        if (closeMatch) {
-            const tagLen = afterOpen.indexOf(">");
-            const closeEnd =
-                afterOpen.indexOf(closeMatch[0]) + closeMatch[0].length;
-            const inner = afterOpen.slice(
-                tagLen + 1,
-                afterOpen.indexOf(closeMatch[0]),
-            );
-            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
-            content =
-                content.slice(0, tagOpen) + content.slice(tagOpen + closeEnd);
-        } else {
-            const tagLen = afterOpen.indexOf(">");
-            const inner = afterOpen.slice(tagLen + 1);
-            thinking = thinking ? thinking + "\n" + inner.trim() : inner.trim();
-            content = content.slice(0, tagOpen);
-        }
-    }
-
-    content = content
-        .replace(THINKING_OPEN_RE, "")
-        .replace(THINKING_CLOSE_RE, "")
-        .trimStart();
-
-    return { thinking, content };
-}
-
 function hasAnyParam(p: GenerationParams): boolean {
     return (
         p.temperature !== undefined ||
@@ -119,38 +71,6 @@ function hasAnyParam(p: GenerationParams): boolean {
         p.top_k !== undefined ||
         p.frequency_penalty !== undefined ||
         p.presence_penalty !== undefined
-    );
-}
-
-function ChatThinkingBlock({
-    thinking,
-    isStreaming,
-}: {
-    thinking: string;
-    isStreaming: boolean;
-}) {
-    const [open, setOpen] = useState(false);
-
-    return (
-        <>
-            <button
-                onClick={() => setOpen(!open)}
-                className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
-                    isStreaming
-                        ? "text-(--accent) animate-pulse cursor-pointer"
-                        : "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
-                }`}
-            >
-                <Brain size={12} />
-                <span>Thinking</span>
-                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
-            {open && (
-                <div className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto">
-                    {thinking}
-                </div>
-            )}
-        </>
     );
 }
 
@@ -178,7 +98,7 @@ function ParamSlider({
     const isSet = value !== undefined;
     const pct = isSet ? ((value - min) / (max - min)) * 100 : 0;
     return (
-        <div className="space-y-1">
+        <div>
             <div className="flex items-center justify-between">
                 <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
                     {label}
@@ -208,8 +128,9 @@ function ParamSlider({
                 max={max}
                 step={step}
                 value={isSet ? value : min}
+                data-set={isSet ? "true" : undefined}
                 onChange={(e) => onChange(parseFloat(e.target.value))}
-                className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-(--surface-hover) accent-(--accent)"
+                className="gen-slider w-full h-1 rounded-lg appearance-none cursor-pointer bg-(--surface-hover) accent-(--accent) mt-0.5"
                 style={{
                     background: isSet
                         ? `linear-gradient(to right, var(--accent) ${pct}%, var(--surface-hover) ${pct}%)`
@@ -223,6 +144,7 @@ function ParamSlider({
 function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps) {
     const caps = parseCapabilities(model.capabilities);
     const [open, setOpen] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
 
     const hasCustom =
         params.temperature !== undefined ||
@@ -234,21 +156,28 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
         params.presence_penalty !== undefined;
 
     return (
-        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto max-h-full relative">
-            {/* Header with cog */}
+        <div className={`ui-card p-3 text-xs relative ${collapsed ? "" : "space-y-3 overflow-y-auto max-h-full"}`}>
+            {/* Header with collapse arrow + cog */}
             <div className="flex items-start justify-between">
-                <div>
-                    <h3 className="text-sm font-semibold text-(--text-primary) leading-tight">
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-(--text-primary) leading-tight truncate">
                         {model.display_name || model.model_id}
                     </h3>
-                    {model.description && (
+                    {!collapsed && model.description && (
                         <p className="text-(--text-secondary) mt-1 line-clamp-4 text-[11px]">
                             {model.description}
                         </p>
                     )}
                 </div>
-                <div className="flex items-start gap-0.5">
-                    {hasCustom && (
+                <div className="flex items-start gap-0.5 shrink-0 ml-2">
+                    <button
+                        onClick={() => setCollapsed((c) => !c)}
+                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                        title={collapsed ? "Expand model details" : "Collapse model details"}
+                    >
+                        {collapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                    </button>
+                    {!collapsed && hasCustom && (
                         <button
                             onClick={() => onParamsChange({})}
                             className="p-1.5 rounded-md transition-all cursor-pointer shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]"
@@ -257,27 +186,30 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                             <RotateCcw size={14} />
                         </button>
                     )}
-                    <button
-                        onClick={() => setOpen((s) => !s)}
-                        className={`p-1.5 rounded-md transition-all cursor-pointer shrink-0 ${
-                            open || hasCustom
-                                ? "text-(--accent) drop-shadow-[0_0_6px_var(--accent)]"
-                                : "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                        }`}
-                        title="Generation parameters"
-                    >
-                        <Settings size={14} />
-                    </button>
+                    {!collapsed && (
+                        <button
+                            onClick={() => setOpen((s) => !s)}
+                            className={`p-1.5 rounded-md transition-all cursor-pointer shrink-0 ${
+                                open || hasCustom
+                                    ? "text-(--accent) drop-shadow-[0_0_6px_var(--accent)]"
+                                    : "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                            }`}
+                            title="Generation parameters"
+                        >
+                            <Settings size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Slide-out panel */}
+            {!collapsed && (
+            <>
             <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
                     open ? "max-h-125 opacity-100 pt-2 mt-1" : "max-h-0 opacity-0 pt-0 mt-0"
                 }`}
             >
-                <div className="space-y-3">
+                <div className="space-y-2">
                     <ParamSlider
                         label="Temperature"
                         value={params.temperature}
@@ -449,6 +381,8 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                     {proxyModelID(model.provider_name, model.model_id)}
                 </code>
             </div>
+            </>
+            )}
         </div>
     );
 }
@@ -771,9 +705,9 @@ export function Chat() {
     };
 
     return (
-        <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
+        <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] lg:overflow-hidden">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center shrink-0">
                 <div>
                     <div className="flex items-center gap-3">
                         <MessageSquare
@@ -790,7 +724,7 @@ export function Chat() {
             </div>
 
             {/* Controls */}
-            <div className="ui-card p-4 space-y-4">
+            <div className="ui-card p-4 space-y-4 shrink-0">
                 <ModelPicker
                     models={enabledModels}
                     selected={selectedModel}
@@ -836,9 +770,9 @@ export function Chat() {
             </div>
 
             {/* Chat Area: Model Details + Messages */}
-            <div className="flex gap-4 flex-1 min-h-0">
+            <div className="flex gap-4 flex-1 min-h-0 lg:overflow-hidden">
                 {/* Model Details Pill */}
-                <div className="w-1/4 shrink-0 flex flex-col min-h-0">
+                <div className="w-1/4 shrink-0 flex flex-col min-h-0 lg:overflow-y-auto">
                     {selectedModelObj ? (
                         <ModelDetailPill
                             model={selectedModelObj}
@@ -907,7 +841,7 @@ export function Chat() {
                                         </div>
                                     )}
                                     {!isUser && hasThinking && (
-                                        <ChatThinkingBlock
+                                        <ThinkingBlock
                                             thinking={msg.thinkingContent || ""}
                                             isStreaming={isStreamingThis}
                                         />
@@ -992,7 +926,7 @@ export function Chat() {
             </div>
 
             {/* Input */}
-            <div className="ui-card p-4">
+            <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center gap-3">
                     <textarea
                         value={input}
