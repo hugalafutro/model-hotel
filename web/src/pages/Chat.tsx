@@ -166,7 +166,7 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                         {model.display_name || model.model_id}
                     </h3>
                     {!collapsed && model.description && (
-                        <p className="text-(--text-secondary) mt-1 line-clamp-4 text-[11px]">
+                        <p className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px]" title={model.description}>
                             {model.description}
                         </p>
                     )}
@@ -958,7 +958,11 @@ export function Chat() {
                                             </>
                                         )}
                                         <button
-                                            className={`inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] text-(--accent) transition-all`}
+                                            className={`inline-flex items-center cursor-pointer transition-all ${
+                                                isUser
+                                                    ? "text-white hover:drop-shadow-[0_0_4px_white]"
+                                                    : "text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                            }`}
                                             onClick={() => {
                                                 navigator.clipboard
                                                     .writeText(msg.content)
