@@ -82,7 +82,6 @@ export function ModelReplyCard({
     }, [isStreaming, startTimeMs]);
 
     const hasThinking = (thinkingContent || "").length > 0;
-    const hasFooter = !!(footerStart || metrics || footerEnd);
 
     const stateClass = isWinner
         ? "ring-1 ring-green-500/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
@@ -145,42 +144,36 @@ export function ModelReplyCard({
             </div>
 
             {/* ── Footer ── */}
-            {hasFooter && (
-                <div
-                    className={`flex items-center justify-between text-[11px] text-(--text-tertiary) ${footerClassName || ""}`}
-                >
-                    <div className="flex items-center gap-3">
-                        {footerStart}
-                        {metrics && (
-                            <>
+            <div
+                className={`flex items-center justify-between text-[11px] text-(--text-tertiary) min-h-5 ${footerClassName || ""}`}
+            >
+                <div className="flex items-center gap-3">
+                    {footerStart}
+                    {metrics && (
+                        <>
+                            <span className="flex items-center gap-1">
+                                <Clock size={10} />
+                                {formatDuration(metrics.durationMs)}
+                            </span>
+                            {metrics.tokensPerSecond !== null && (
                                 <span className="flex items-center gap-1">
-                                    <Clock size={10} />
-                                    {formatDuration(metrics.durationMs)}
+                                    <Zap size={10} />
+                                    {metrics.tokensPerSecond.toFixed(1)} tok/s
                                 </span>
-                                {metrics.tokensPerSecond !== null && (
-                                    <span className="flex items-center gap-1">
-                                        <Zap size={10} />
-                                        {metrics.tokensPerSecond.toFixed(
-                                            1,
-                                        )}{" "}
-                                        tok/s
-                                    </span>
-                                )}
-                                {metrics.promptTokens +
-                                    metrics.completionTokens >
-                                    0 && (
-                                    <span>
-                                        {metrics.promptTokens +
-                                            metrics.completionTokens}{" "}
-                                        tok
-                                    </span>
-                                )}
-                            </>
-                        )}
-                    </div>
-                    {footerEnd}
+                            )}
+                            {metrics.promptTokens + metrics.completionTokens >
+                                0 && (
+                                <span>
+                                    {metrics.promptTokens +
+                                        metrics.completionTokens}{" "}
+                                    tok
+                                </span>
+                            )}
+                        </>
+                    )}
                 </div>
-            )}
+                {footerEnd}
+            </div>
         </div>
     );
 }

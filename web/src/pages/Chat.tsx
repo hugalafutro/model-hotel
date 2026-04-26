@@ -20,8 +20,8 @@ import type { Model, ChatMessage, GenerationParams } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
-import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PersonaPicker } from "../components/PersonaPicker";
 import { CAP_META } from "../components/capMeta";
 import { CHAT_PERSONAS } from "../data/presets";
 import { extractThinking } from "../utils/thinking";
@@ -474,9 +474,6 @@ export function Chat() {
             return null;
         },
     );
-    const [pendingPersona, setPendingPersona] = useState<
-        import("../data/presets").PersonaPreset | null
-    >(null);
     const [pendingReset, setPendingReset] = useState(false);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
@@ -484,7 +481,6 @@ export function Chat() {
     const [controlsCollapsed, setControlsCollapsed] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const systemPromptRef = useRef<HTMLTextAreaElement>(null);
     const { toast } = useToast();
     const { persistChat } = useStorage();
 
@@ -538,58 +534,6 @@ export function Chat() {
             /* quota exceeded */
         }
     }, [activePersonaId, persistChat]);
-
-    const autoExpandTextarea = useCallback(
-        (ref: React.RefObject<HTMLTextAreaElement | null>) => {
-            requestAnimationFrame(() => {
-                const el = ref.current;
-                if (el) {
-                    el.style.height = "auto";
-                    el.style.height = el.scrollHeight + "px";
-                }
-            });
-        },
-        [],
-    );
-
-    const handlePersonaSelect = useCallback(
-        (persona: import("../data/presets").PersonaPreset) => {
-            if (systemPrompt.trim() && activePersonaId === null) {
-                // User has custom text — confirm before overwriting
-                setPendingPersona(persona);
-                return;
-            }
-            setSystemPrompt(persona.systemPrompt);
-            setActivePersonaId(persona.id);
-            autoExpandTextarea(systemPromptRef);
-        },
-        [systemPrompt, activePersonaId, autoExpandTextarea],
-    );
-
-    const handleCustomPersona = useCallback(() => {
-        if (activePersonaId !== null) {
-            // A preset is active — warn that switching to custom will clear
-            setPendingPersona({
-                id: "__custom__",
-                icon: "✏️",
-                label: "Custom",
-                systemPrompt: "",
-            } as import("../data/presets").PersonaPreset);
-            return;
-        }
-    }, [activePersonaId]);
-
-    const handleSystemPromptChange = useCallback(
-        (value: string) => {
-            setSystemPrompt(value);
-            // If user edits away from a preset, switch to custom
-            const current = CHAT_PERSONAS.find((p) => p.id === activePersonaId);
-            if (current && value !== current.systemPrompt) {
-                setActivePersonaId(null);
-            }
-        },
-        [activePersonaId],
-    );
 
     const handleSend = useCallback(async () => {
         if (!input.trim() || !selectedModel || isStreaming) return;
@@ -1011,37 +955,13 @@ export function Chat() {
                                     })) ?? []
                                 }
                             />
-                            <div>
-                                <PresetBar
-                                    items={CHAT_PERSONAS}
-                                    activeId={activePersonaId}
-                                    onSelect={handlePersonaSelect}
-                                    onCustom={handleCustomPersona}
-                                />
-                                <textarea
-                                    ref={systemPromptRef}
-                                    value={systemPrompt}
-                                    onChange={(e) => {
-                                        handleSystemPromptChange(
-                                            e.target.value,
-                                        );
-                                        if (!e.target.value) {
-                                            e.target.style.height = "auto";
-                                        } else if (
-                                            e.target.scrollHeight >
-                                            e.target.clientHeight
-                                        ) {
-                                            e.target.style.height =
-                                                e.target.scrollHeight + "px";
-                                        }
-                                    }}
-                                    placeholder="Enter your custom prompt here..."
-                                    rows={1}
-                                    maxLength={5000}
-                                    className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                                    style={{ height: "auto" }}
-                                />
-                            </div>
+                            <PersonaPicker
+                                personas={CHAT_PERSONAS}
+                                activePersonaId={activePersonaId}
+                                systemPrompt={systemPrompt}
+                                onActivePersonaChange={setActivePersonaId}
+                                onSystemPromptChange={setSystemPrompt}
+                            />
                         </div>
                     </div>
                 </div>
@@ -1316,30 +1236,6 @@ export function Chat() {
                     Press Enter to send, Shift+Enter for newline
                 </p>
             </div>
-
-            {/* Persona Overwrite Confirmation */}
-            {pendingPersona && (
-                <ConfirmDialog
-                    title={
-                        pendingPersona.id === "__custom__"
-                            ? "Switch to Custom"
-                            : "Overwrite System Prompt"
-                    }
-                    fields={["System prompt"]}
-                    onConfirm={() => {
-                        if (pendingPersona.id === "__custom__") {
-                            setSystemPrompt("");
-                            setActivePersonaId(null);
-                        } else {
-                            setSystemPrompt(pendingPersona.systemPrompt);
-                            setActivePersonaId(pendingPersona.id);
-                        }
-                        setPendingPersona(null);
-                        autoExpandTextarea(systemPromptRef);
-                    }}
-                    onCancel={() => setPendingPersona(null)}
-                />
-            )}
 
             {pendingReset && (
                 <ConfirmDialog

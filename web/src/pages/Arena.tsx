@@ -25,6 +25,7 @@ import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
+import { PersonaPicker } from "../components/PersonaPicker";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterInput } from "../components/FilterInput";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
@@ -179,6 +180,34 @@ export function Arena() {
     });
     const [savedPrompt, setSavedPrompt] = useState<string>("");
 
+    const [comparePersonaId, setComparePersonaId] = useState<string | null>(
+        () => {
+            try {
+                if (localStorage.getItem("persistArena") === "true") {
+                    const v = localStorage.getItem("arenaComparePersonaId");
+                    return v || null;
+                }
+            } catch {
+                /* ignore */
+            }
+            return null;
+        },
+    );
+    const [comparePersonaPrompt, setComparePersonaPrompt] = useState<string>(
+        () => {
+            try {
+                if (localStorage.getItem("persistArena") === "true") {
+                    return (
+                        localStorage.getItem("arenaComparePersonaPrompt") ?? ""
+                    );
+                }
+            } catch {
+                /* ignore */
+            }
+            return "";
+        },
+    );
+
     const [rounds, setRounds] = useState<BracketRound[]>(() => {
         try {
             if (localStorage.getItem("persistArena") === "true") {
@@ -259,6 +288,30 @@ export function Arena() {
             /* quota exceeded */
         }
     }, [activePromptId, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaComparePersonaId",
+                comparePersonaId ?? "",
+            );
+        } catch {
+            /* quota exceeded */
+        }
+    }, [comparePersonaId, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaComparePersonaPrompt",
+                comparePersonaPrompt,
+            );
+        } catch {
+            /* quota exceeded */
+        }
+    }, [comparePersonaPrompt, persistArena]);
 
     useEffect(() => {
         if (!persistArena) return;
@@ -450,14 +503,18 @@ export function Arena() {
     );
 
     const buildCompareRound = useCallback(
-        (modelIds: string[]): BracketRound[] => {
+        (
+            modelIds: string[],
+            personaId: string | null = null,
+            personaPrompt: string = "",
+        ): BracketRound[] => {
             return [
                 {
                     matchups: modelIds.map((id) => ({
                         slotA: {
                             modelId: id,
-                            personaId: null,
-                            personaPrompt: "",
+                            personaId,
+                            personaPrompt,
                         } as MatchupSlot,
                         slotB: null,
                         responseA: null,
@@ -828,7 +885,11 @@ export function Arena() {
 
         const initialRounds =
             arenaMode === "compare"
-                ? buildCompareRound(compareModels)
+                ? buildCompareRound(
+                      compareModels,
+                      comparePersonaId,
+                      comparePersonaPrompt,
+                  )
                 : buildInitialRounds(group1Models, group2Models);
         setRounds(initialRounds);
         currentRoundRef.current = 0;
@@ -909,6 +970,8 @@ export function Arena() {
         prompt,
         arenaMode,
         compareModels,
+        comparePersonaId,
+        comparePersonaPrompt,
         group1Models,
         group2Models,
         buildInitialRounds,
@@ -1408,6 +1471,20 @@ export function Arena() {
                                                     No duplicate models.
                                                 </p>
                                             )}
+                                    </div>
+                                    <div>
+                                        <PersonaPicker
+                                            personas={CHAT_PERSONAS}
+                                            activePersonaId={comparePersonaId}
+                                            systemPrompt={comparePersonaPrompt}
+                                            onActivePersonaChange={
+                                                setComparePersonaId
+                                            }
+                                            onSystemPromptChange={
+                                                setComparePersonaPrompt
+                                            }
+                                            textareaPlaceholder="Optional system prompt applied to all models…"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -1943,6 +2020,8 @@ export function Arena() {
                         setPrompt("");
                         setSavedPrompt("");
                         setActivePromptId(null);
+                        setComparePersonaId(null);
+                        setComparePersonaPrompt("");
                         setRounds([]);
                         setCurrentRound(0);
                         setPhase("setup");
@@ -1953,6 +2032,10 @@ export function Arena() {
                         try {
                             localStorage.removeItem("arenaPrompt");
                             localStorage.removeItem("arenaActivePromptId");
+                            localStorage.removeItem("arenaComparePersonaId");
+                            localStorage.removeItem(
+                                "arenaComparePersonaPrompt",
+                            );
                         } catch {
                             /* ignore */
                         }
