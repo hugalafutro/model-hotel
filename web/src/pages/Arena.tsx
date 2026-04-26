@@ -845,30 +845,6 @@ export function Arena() {
         setPhase("voting");
     }, []);
 
-    const handleReset = useCallback(() => {
-        for (const [, ctrl] of abortMapRef.current) {
-            ctrl.abort();
-        }
-        abortMapRef.current.clear();
-        setGroup1Models([]);
-        setGroup2Models([]);
-        setPrompt("");
-        setActivePromptId(null);
-        setRounds([]);
-        setCurrentRound(0);
-        setPhase("setup");
-        setRunningModels(new Set());
-        setWinnerModal(null);
-        setSavedPrompt("");
-        setDisabledModels(new Set());
-        try {
-            localStorage.removeItem("arenaPrompt");
-            localStorage.removeItem("arenaActivePromptId");
-        } catch {
-            /* ignore */
-        }
-    }, []);
-
     const handleRetrySlot = useCallback(
         (roundIdx: number, matchupIdx: number, slotKey: "A" | "B") => {
             const round = rounds[roundIdx];
@@ -1090,15 +1066,6 @@ export function Arena() {
                         Bracket tournament — models compete head-to-head
                     </p>
                 </div>
-                {phase !== "setup" && (
-                    <button
-                        onClick={handleReset}
-                        className="ui-btn ui-btn-secondary flex items-center gap-2"
-                    >
-                        <RotateCcw size={16} />
-                        Reset
-                    </button>
-                )}
             </div>
 
             {/* Controls */}
@@ -1155,6 +1122,7 @@ export function Arena() {
                                             maxSelections={2}
                                             providers={providerData}
                                             align="left"
+                                            exclude={group2Models}
                                         />
                                         {group1Models.length > 0 &&
                                             group1Models.length < 2 && (
@@ -1191,6 +1159,7 @@ export function Arena() {
                                             maxSelections={2}
                                             providers={providerData}
                                             align="right"
+                                            exclude={group1Models}
                                         />
                                         {group2Models.length > 0 &&
                                             group2Models.length < 2 && (
@@ -1199,12 +1168,6 @@ export function Arena() {
                                                     empty for a single match.
                                                 </p>
                                             )}
-                                        {crossDuplicates && (
-                                            <p className="text-xs text-amber-400 mt-2">
-                                                Models can't appear in both
-                                                matches.
-                                            </p>
-                                        )}
                                     </div>
                                 </div>
                             )}

@@ -21,6 +21,7 @@ interface SingleProps {
     label?: string;
     providers?: ProviderInfo[];
     align?: "left" | "right";
+    exclude?: string[];
 }
 
 interface MultiProps {
@@ -32,6 +33,7 @@ interface MultiProps {
     label?: string;
     providers?: ProviderInfo[];
     align?: "left" | "right";
+    exclude?: string[];
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -78,6 +80,7 @@ export function ModelPicker({
     label,
     providers = [],
     align,
+    exclude = [],
 }: ModelPickerProps) {
     const [search, setSearch] = useState("");
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
@@ -90,10 +93,14 @@ export function ModelPicker({
         return new Set(selected ? [selected as string] : []);
     }, [selected, multi]);
 
-    const enabledModels = useMemo(
-        () => models.filter((m) => m.provider_name),
-        [models],
-    );
+    const enabledModels = useMemo(() => {
+        const excludeSet = new Set(exclude);
+        return models.filter(
+            (m) =>
+                m.provider_name &&
+                !excludeSet.has(proxyModelID(m.provider_name, m.model_id)),
+        );
+    }, [models, exclude]);
 
     const providerNames = useMemo(
         () =>
