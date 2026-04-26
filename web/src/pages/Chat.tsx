@@ -750,13 +750,15 @@ export function Chat() {
                 <div className="flex items-center justify-between">
                     <label className="text-sm text-(--text-secondary)">Model</label>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setPendingReset(true)}
-                            className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-                            title="Reset chat"
-                        >
-                            <RotateCcw size={14} />
-                        </button>
+                        {messages.some((m) => m.role === "assistant") && (
+                            <button
+                                onClick={() => setPendingReset(true)}
+                                className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                title="Reset chat"
+                            >
+                                <RotateCcw size={14} />
+                            </button>
+                        )}
                         <button
                             onClick={() => setControlsCollapsed((c) => !c)}
                             className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"

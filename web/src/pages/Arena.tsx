@@ -1126,13 +1126,15 @@ export function Arena() {
                 <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-(--text-primary)">Controls</span>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setPendingReset(true)}
-                            className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-                            title="Reset arena"
-                        >
-                            <RotateCcw size={14} />
-                        </button>
+                        {phase !== "setup" && (
+                            <button
+                                onClick={() => setPendingReset(true)}
+                                className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                title="Reset arena"
+                            >
+                                <RotateCcw size={14} />
+                            </button>
+                        )}
                         <button
                             onClick={() => setArenaCollapsed((c) => !c)}
                             className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
