@@ -26,6 +26,7 @@ import { CAP_META } from "../components/capMeta";
 import { CHAT_PERSONAS } from "../data/presets";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
+import { MarkdownContent } from "../components/MarkdownContent";
 
 function formatTime(ts: number): string {
     const d = new Date(ts);
@@ -1094,9 +1095,9 @@ export function Chat() {
                             return (
                                 <div key={i} className="flex justify-end">
                                     <div className="max-w-[80%] rounded-xl bg-(--accent) text-white rounded-br-sm p-2.5">
-                                        <div className="whitespace-pre-wrap text-xs">
+                                        <MarkdownContent className="[&_strong]:text-white [&_em]:text-white/80">
                                             {msg.content}
-                                        </div>
+                                        </MarkdownContent>
                                         <div className="flex items-center gap-3 text-[11px] mt-0.5 text-white/60">
                                             <span>
                                                 {formatTime(msg.timestamp)}

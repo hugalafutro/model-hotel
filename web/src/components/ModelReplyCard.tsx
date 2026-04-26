@@ -1,22 +1,10 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Bot, Clock, Zap } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { formatDuration } from "../utils/format";
+import { MarkdownContent, MARKDOWN_PROSE_CLASSES } from "./MarkdownContent";
 
-export const MARKDOWN_PROSE_CLASSES =
-    "prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs " +
-    "[&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 " +
-    "[&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs " +
-    "[&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] " +
-    "[&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] " +
-    "[&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) " +
-    "[&_strong]:text-white [&_em]:text-(--text-secondary) " +
-    "[&_a]:text-(--accent) [&_a]:underline " +
-    "[&_hr]:border-(--border-subtle) " +
-    "[&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 " +
-    "[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
+export { MARKDOWN_PROSE_CLASSES };
 
 export interface ModelReplyMetrics {
     tokensPerSecond: number | null;
@@ -112,10 +100,7 @@ export function ModelReplyCard({
                     className={`flex items-center justify-between ${headerClassName || ""}`}
                 >
                     <div className="flex items-center gap-2 min-w-0">
-                        <Bot
-                            size={14}
-                            className="text-(--accent) shrink-0"
-                        />
+                        <Bot size={14} className="text-(--accent) shrink-0" />
                         <span className="text-sm font-medium text-(--text-primary) truncate">
                             {model.split("/").pop()}
                         </span>
@@ -148,11 +133,7 @@ export function ModelReplyCard({
                             />
                         )}
                         {content ? (
-                            <div className={MARKDOWN_PROSE_CLASSES}>
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {content}
-                                </ReactMarkdown>
-                            </div>
+                            <MarkdownContent>{content}</MarkdownContent>
                         ) : !hasThinking && isStreaming ? (
                             <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
@@ -179,7 +160,9 @@ export function ModelReplyCard({
                                 {metrics.tokensPerSecond !== null && (
                                     <span className="flex items-center gap-1">
                                         <Zap size={10} />
-                                        {metrics.tokensPerSecond.toFixed(1)}{" "}
+                                        {metrics.tokensPerSecond.toFixed(
+                                            1,
+                                        )}{" "}
                                         tok/s
                                     </span>
                                 )}
