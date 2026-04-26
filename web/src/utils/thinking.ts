@@ -1,5 +1,27 @@
-const THINKING_OPEN_RE = /<(?:thought|start_thought|think)>/g;
-const THINKING_CLOSE_RE = /<\/(?:thought|end_thought|think)>/g;
+const THINKING_TAG_NAMES = ["thinking", "thought", "start_thought", "think"];
+const THINKING_OPEN_RE = new RegExp(
+    `<(?:${THINKING_TAG_NAMES.join("|")})>`,
+    "g",
+);
+const THINKING_CLOSE_RE = new RegExp(
+    `<\\/(?:${THINKING_TAG_NAMES.join("|")})>`,
+    "g",
+);
+const THINKING_TAG_RE = new RegExp(
+    `<(?:${THINKING_TAG_NAMES.join("|")})>`,
+    "i",
+);
+const THINKING_CLOSE_TAG_RE = new RegExp(
+    `<\\/(?:${THINKING_TAG_NAMES.join("|")})>`,
+    "i",
+);
+
+const PARTIAL_TAG_RE = /<([a-z]*)$/i;
+
+function isPartialThinkingTag(partial: string): boolean {
+    const lower = partial.toLowerCase();
+    return THINKING_TAG_NAMES.some((name) => name.startsWith(lower) || lower.startsWith(name));
+}
 
 export function extractThinking(raw: string): {
     thinking: string;
@@ -14,12 +36,10 @@ export function extractThinking(raw: string): {
         content = content.slice(fenceMatch[0].length);
     }
 
-    const tagOpen = content.search(/<(?:thought|start_thought|think)>/i);
+    const tagOpen = content.search(THINKING_TAG_RE);
     if (tagOpen !== -1) {
         const afterOpen = content.slice(tagOpen);
-        const closeMatch = afterOpen.match(
-            /<\/(?:thought|end_thought|think)>/i,
-        );
+        const closeMatch = afterOpen.match(THINKING_CLOSE_TAG_RE);
         if (closeMatch) {
             const tagLen = afterOpen.indexOf(">");
             const closeEnd =
@@ -43,6 +63,13 @@ export function extractThinking(raw: string): {
         .replace(THINKING_OPEN_RE, "")
         .replace(THINKING_CLOSE_RE, "")
         .trimStart();
+
+    if (content) {
+        const partialMatch = content.match(PARTIAL_TAG_RE);
+        if (partialMatch && isPartialThinkingTag(partialMatch[1])) {
+            content = content.slice(0, content.length - partialMatch[0].length);
+        }
+    }
 
     return { thinking, content };
 }

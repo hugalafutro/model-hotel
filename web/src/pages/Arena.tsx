@@ -446,7 +446,8 @@ export function Arena() {
                                 }
                                 const thinkingDelta =
                                     chunk.choices?.[0]?.delta
-                                        ?.reasoning_content;
+                                        ?.reasoning_content ??
+                                    chunk.choices?.[0]?.delta?.reasoning;
                                 if (thinkingDelta) {
                                     setRounds((prev) => {
                                         const next = prev.map((r) => ({

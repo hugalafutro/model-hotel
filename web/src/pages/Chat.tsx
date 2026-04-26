@@ -652,7 +652,8 @@ export function Chat() {
                             });
                         }
                         const thinkingDelta =
-                            chunk.choices?.[0]?.delta?.reasoning_content;
+                            chunk.choices?.[0]?.delta?.reasoning_content ??
+                            chunk.choices?.[0]?.delta?.reasoning;
                         if (thinkingDelta) {
                             assistantMessage.thinkingContent =
                                 (assistantMessage.thinkingContent || "") +
