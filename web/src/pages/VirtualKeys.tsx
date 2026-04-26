@@ -156,7 +156,7 @@ function CreateKeyModal({
                                     className="ui-btn ui-btn-primary disabled:opacity-50"
                                 >
                                     {createMutation.isPending
-                                        ? "Creating..."
+                                        ? "Creating…"
                                         : "Create Key"}
                                 </button>
                             </div>
@@ -270,7 +270,7 @@ function KeyDetailModal({
                                 className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all"
                             >
                                 {deleteMutation.isPending
-                                    ? "Deleting..."
+                                    ? "Deleting…"
                                     : "Yes, delete"}
                             </button>
                             <button

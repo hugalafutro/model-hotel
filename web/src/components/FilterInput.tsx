@@ -11,7 +11,7 @@ interface FilterInputProps {
 export function FilterInput({
     value,
     onChange,
-    placeholder = "Filter...",
+    placeholder = "Filter…",
     className = "",
     autoFocus,
 }: FilterInputProps) {

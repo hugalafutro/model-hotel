@@ -33,7 +33,7 @@ export function PersonaPicker({
     onActivePersonaChange,
     onSystemPromptChange,
     label = "Persona",
-    textareaPlaceholder = "Enter your custom prompt here...",
+    textareaPlaceholder = "Enter your custom prompt here…",
     className,
     disabled = false,
     wrap = false,

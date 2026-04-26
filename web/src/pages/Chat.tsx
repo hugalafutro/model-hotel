@@ -1202,7 +1202,7 @@ export function Chat() {
                         onKeyDown={handleKeyDown}
                         placeholder={
                             selectedModel
-                                ? "Type a message..."
+                                ? "Type a message…"
                                 : "Select a model first"
                         }
                         disabled={!selectedModel || isStreaming}

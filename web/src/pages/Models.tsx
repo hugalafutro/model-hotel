@@ -786,7 +786,7 @@ function ModelDetailModal({
                             }`}
                         >
                             {testing && <Spinner />}
-                            {testing ? "Testing..." : "Test"}
+                            {testing ? "Testing…" : "Test"}
                         </button>
                         {!confirmDelete ? (
                             <button
@@ -830,7 +830,7 @@ function ModelDetailModal({
                             }`}
                         >
                             {discovering
-                                ? "Updating..."
+                                ? "Updating…"
                                 : cooldown > 0
                                   ? `Update (${cooldown}s)`
                                   : "Update info"}
@@ -977,7 +977,7 @@ export function Models() {
 
     const handleDiscover = useCallback(
         async (providerId: string) => {
-            toast("Discovering models...", "info");
+            toast("Discovering models…", "info");
             const result = await api.providers.discover(providerId);
             queryClient.invalidateQueries({ queryKey: ["models"] });
             queryClient.invalidateQueries({ queryKey: ["providers"] });
@@ -1197,7 +1197,7 @@ export function Models() {
                             setSearchQuery(v);
                             setCurrentPage(1);
                         }}
-                        placeholder="Search models..."
+                        placeholder="Search models…"
                         className="w-[320px]"
                         autoFocus
                     />

@@ -556,7 +556,7 @@ export function Logs() {
                             setFilters({ ...filters, model_id: v });
                             setPage(1);
                         }}
-                        placeholder="Filter by model ID..."
+                        placeholder="Filter by model ID…"
                         className="w-[320px]"
                         autoFocus
                     />
@@ -846,7 +846,7 @@ export function Logs() {
                                             ) : isInProgress(log) &&
                                               !log.provider_name ? (
                                                 <span className="text-blue-400/60 italic">
-                                                    Resolving...
+                                                    Resolving…
                                                 </span>
                                             ) : (
                                                 log.provider_name || "-"
@@ -865,7 +865,7 @@ export function Logs() {
                                                         {log.state ===
                                                         "streaming"
                                                             ? "Live"
-                                                            : "..."}
+                                                            : "…"}
                                                     </span>
                                                 ) : (
                                                     log.status_code

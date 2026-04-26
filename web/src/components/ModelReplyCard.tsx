@@ -100,7 +100,10 @@ export function ModelReplyCard({
                 >
                     <div className="flex items-center gap-2 min-w-0">
                         <Bot size={14} className="text-(--accent) shrink-0" />
-                        <span className="text-sm font-medium text-(--text-primary) truncate">
+                        <span
+                            className="text-sm font-medium text-(--text-primary) truncate max-w-45"
+                            title={model.split("/").pop()}
+                        >
                             {model.split("/").pop()}
                         </span>
                         {afterModel}
@@ -131,7 +134,7 @@ export function ModelReplyCard({
                         ) : !hasThinking && isStreaming ? (
                             <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                Waiting...
+                                Waiting…
                             </div>
                         ) : null}
                     </>

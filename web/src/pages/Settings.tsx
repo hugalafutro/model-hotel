@@ -1157,7 +1157,7 @@ function ProviderDiscoveryList() {
 
     const discoverAllMutation = useMutation({
         mutationFn: async () => {
-            toast("Discovering models for all providers...", "info");
+            toast("Discovering models for all providers…", "info");
             return api.providers.discoverAll();
         },
         onSuccess: (data) => {
@@ -1167,7 +1167,10 @@ function ProviderDiscoveryList() {
                 if (r.error) {
                     toast(`${r.provider_name}: ${r.error}`, "error");
                 } else {
-                    toast(`${r.provider_name}: ${r.discovered} models`, "success");
+                    toast(
+                        `${r.provider_name}: ${r.discovered} models`,
+                        "success",
+                    );
                 }
             }
             if (data.discovered > 0) {
@@ -1187,9 +1190,10 @@ function ProviderDiscoveryList() {
         },
     });
 
-    const discoverMutation = useMutation({        mutationFn: async (id: string) => {
+    const discoverMutation = useMutation({
+        mutationFn: async (id: string) => {
             setDiscoveringId(id);
-            toast("Discovering models...", "info");
+            toast("Discovering models…", "info");
             return api.providers.discover(id);
         },
         onSuccess: (data) => {
@@ -1225,12 +1229,19 @@ function ProviderDiscoveryList() {
                     <button
                         type="button"
                         onClick={() => discoverAllMutation.mutate()}
-                        disabled={discoverAllMutation.isPending || discoveringId !== null}
+                        disabled={
+                            discoverAllMutation.isPending ||
+                            discoveringId !== null
+                        }
                         className="ui-btn ui-btn-secondary"
                     >
                         {discoverAllMutation.isPending ? (
-                            <><Spinner /> Discovering...</>
-                        ) : "Discover All"}
+                            <>
+                                <Spinner /> Discovering…
+                            </>
+                        ) : (
+                            "Discover All"
+                        )}
                     </button>
                 )}
             </div>
@@ -1239,48 +1250,62 @@ function ProviderDiscoveryList() {
                     No providers configured yet.
                 </p>
             )}
-            {[...(providers ?? [])].sort((a, b) => {
-                const aTime = a.last_discovered_at ? new Date(a.last_discovered_at).getTime() : 0;
-                const bTime = b.last_discovered_at ? new Date(b.last_discovered_at).getTime() : 0;
-                return bTime - aTime;
-            }).map((p) => (
-                <div
-                    key={p.id}
-                    className="flex items-center justify-between py-2"
-                >
-                    <div className="flex items-center gap-3">
-                        <span
-                            className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
-                        />
-                        <div>
-                            <p className="text-sm font-medium text-white">
-                                {p.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                {modelCounts[p.id] || 0} models
-                                {p.last_discovered_at &&
-                                    ` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => discoverMutation.mutate(p.id)}
-                        disabled={discoveringId !== null || discoverAllMutation.isPending}
-                        className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-                            discoveringId === p.id
-                                ? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
-                                : discoveringId !== null || discoverAllMutation.isPending
-                                  ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-                                  : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
-                        }`}
+            {[...(providers ?? [])]
+                .sort((a, b) => {
+                    const aTime = a.last_discovered_at
+                        ? new Date(a.last_discovered_at).getTime()
+                        : 0;
+                    const bTime = b.last_discovered_at
+                        ? new Date(b.last_discovered_at).getTime()
+                        : 0;
+                    return bTime - aTime;
+                })
+                .map((p) => (
+                    <div
+                        key={p.id}
+                        className="flex items-center justify-between py-2"
                     >
-                        {discoveringId === p.id
-                            ? <><Spinner /> Discovering...</>
-                            : "Discover Now"}
-                    </button>
-                </div>
-            ))}
+                        <div className="flex items-center gap-3">
+                            <span
+                                className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
+                            />
+                            <div>
+                                <p className="text-sm font-medium text-white">
+                                    {p.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {modelCounts[p.id] || 0} models
+                                    {p.last_discovered_at &&
+                                        ` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => discoverMutation.mutate(p.id)}
+                            disabled={
+                                discoveringId !== null ||
+                                discoverAllMutation.isPending
+                            }
+                            className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                                discoveringId === p.id
+                                    ? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
+                                    : discoveringId !== null ||
+                                        discoverAllMutation.isPending
+                                      ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
+                                      : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
+                            }`}
+                        >
+                            {discoveringId === p.id ? (
+                                <>
+                                    <Spinner /> Discovering…
+                                </>
+                            ) : (
+                                "Discover Now"
+                            )}
+                        </button>
+                    </div>
+                ))}
         </div>
     );
 }

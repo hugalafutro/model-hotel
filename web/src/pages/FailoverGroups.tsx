@@ -385,7 +385,7 @@ function CreateGroupModal({
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="ui-input mb-2"
-                            placeholder="Search providers/models..."
+                            placeholder="Search providers/models…"
                         />
                         <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
                             {Object.entries(grouped).map(
@@ -456,7 +456,7 @@ function CreateGroupModal({
                             className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all disabled:opacity-50"
                         >
                             {createMutation.isPending
-                                ? "Creating..."
+                                ? "Creating…"
                                 : "Create Group"}
                         </button>
                     </div>
@@ -606,11 +606,14 @@ export function FailoverGroups() {
                         </h1>
                     </div>
                     <p className="text-gray-400">
-                        Route requests through multiple providers in priority order via{" "}
+                        Route requests through multiple providers in priority
+                        order via{" "}
                         <code className="text-(--accent)">hotel/model</code>
                     </p>
                     <p className="text-(--text-muted) text-xs flex items-center gap-1.5 mt-0.5">
-                        <span className="shrink-0" aria-hidden="true">⠿</span>
+                        <span className="shrink-0" aria-hidden="true">
+                            ⠿
+                        </span>
                         Drag models by the handle (⠿) to reorder priority
                     </p>
                 </div>
@@ -626,7 +629,7 @@ export function FailoverGroups() {
                         disabled={syncMutation.isPending}
                         className="ui-btn ui-btn-secondary"
                     >
-                        {syncMutation.isPending ? "Syncing..." : "Sync"}
+                        {syncMutation.isPending ? "Syncing…" : "Sync"}
                     </button>
                     <button
                         type="button"
@@ -721,7 +724,7 @@ export function FailoverGroups() {
                                 className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50"
                             >
                                 {deleteMutation.isPending
-                                    ? "Deleting..."
+                                    ? "Deleting…"
                                     : "Delete"}
                             </button>
                         </div>

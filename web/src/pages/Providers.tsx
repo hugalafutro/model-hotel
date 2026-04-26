@@ -749,7 +749,7 @@ function EditProviderModal({
                                 }`}
                             >
                                 {updateMutation.isPending
-                                    ? "Saving..."
+                                    ? "Saving…"
                                     : "Save Changes"}
                             </button>
                         </div>
@@ -933,7 +933,7 @@ export function Providers() {
 
     const discoverAllMutation = useMutation({
         mutationFn: async () => {
-            toast("Discovering models for all providers...", "info");
+            toast("Discovering models for all providers…", "info");
             return api.providers.discoverAll();
         },
         onSuccess: (data) => {
@@ -968,7 +968,7 @@ export function Providers() {
 
     const refreshQuotasMutation = useMutation({
         mutationFn: async () => {
-            toast("Refreshing quotas and balances...", "info");
+            toast("Refreshing quotas and balances…", "info");
             return api.providers.refreshQuotas();
         },
         onSuccess: (data) => {
@@ -992,7 +992,7 @@ export function Providers() {
     const discoverMutation = useMutation({
         mutationFn: async (id: string) => {
             setDiscoveringId(id);
-            toast("Discovering models...", "info");
+            toast("Discovering models…", "info");
             return api.providers.discover(id);
         },
         onSuccess: (data) => {
@@ -1029,7 +1029,7 @@ export function Providers() {
                 settings?.discovery_on_provider_create !== "false";
             if (shouldDiscover) {
                 try {
-                    toast("Discovering models...", "info");
+                    toast("Discovering models…", "info");
                     const result = await api.providers.discover(newProvider.id);
                     queryClient.invalidateQueries({ queryKey: ["models"] });
                     queryClient.invalidateQueries({ queryKey: ["providers"] });
@@ -1136,7 +1136,7 @@ export function Providers() {
                         className="ui-btn ui-btn-secondary"
                     >
                         {refreshQuotasMutation.isPending
-                            ? "Refreshing..."
+                            ? "Refreshing…"
                             : "Refresh Quotas/Balances"}
                     </button>
                     <button
@@ -1574,7 +1574,7 @@ export function Providers() {
                                     className="ui-btn ui-btn-primary disabled:opacity-50"
                                 >
                                     {createMutation.isPending
-                                        ? "Adding..."
+                                        ? "Adding…"
                                         : "Add Provider"}
                                 </button>
                             </div>

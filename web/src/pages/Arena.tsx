@@ -1523,7 +1523,7 @@ export function Arena() {
                                                 e.target.scrollHeight + "px";
                                         }
                                     }}
-                                    placeholder="Enter your prompt..."
+                                    placeholder="Enter your prompt…"
                                     autoFocus
                                     rows={1}
                                     maxLength={10000}
@@ -2482,17 +2482,17 @@ function SwapPicker({
     }, [enabledModels, disabledModels, alreadyUsed, search]);
 
     return (
-        <div className="ui-card flex flex-col items-center justify-center min-h-50">
-            <p className="text-xs text-amber-400 mb-2">
+        <div className="flex flex-col items-center flex-1 min-h-0">
+            <p className="text-xs text-amber-400 mb-2 shrink-0">
                 Pick a replacement model
             </p>
             <FilterInput
                 value={search}
                 onChange={setSearch}
-                placeholder="Search models..."
-                className="max-w-xs mb-2"
+                placeholder="Search models…"
+                className="w-full max-w-xs mb-2 shrink-0"
             />
-            <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto w-full justify-center px-2">
+            <div className="flex flex-wrap gap-1 overflow-y-auto w-full justify-center content-start px-2 flex-1 min-h-0">
                 {available.map((m) => {
                     const id = proxyModelID(m.provider_name, m.model_id);
                     return (

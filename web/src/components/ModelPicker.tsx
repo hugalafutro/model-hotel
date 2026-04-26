@@ -191,7 +191,7 @@ export function ModelPicker({
                 <FilterInput
                     value={search}
                     onChange={setSearch}
-                    placeholder="Filter models..."
+                    placeholder="Filter models…"
                     className="w-[320px]"
                 />
                 <div className="flex items-center gap-2 text-xs">
