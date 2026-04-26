@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
+import { ModelDetailModal } from "../components/ModelDetailPanel";
+import { proxyModelID } from "../utils/model";
+import type { Model } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
@@ -1794,6 +1797,9 @@ export function Arena() {
                                                             onCancelSlot={
                                                                 handleCancelSlot
                                                             }
+                                                            enabledModels={
+                                                                enabledModels
+                                                            }
                                                             showVote={false}
                                                         />
                                                     )
@@ -1886,6 +1892,9 @@ export function Arena() {
                                                             onCancelSlot={
                                                                 handleCancelSlot
                                                             }
+                                                            enabledModels={
+                                                                enabledModels
+                                                            }
                                                             showVote={
                                                                 roundIdx <=
                                                                     currentRound &&
@@ -1969,6 +1978,9 @@ export function Arena() {
                                                             }
                                                             onCancelSlot={
                                                                 handleCancelSlot
+                                                            }
+                                                            enabledModels={
+                                                                enabledModels
                                                             }
                                                             showVote={
                                                                 roundIdx <=
@@ -2293,6 +2305,7 @@ interface ResponseCardProps {
         modelId: string,
     ) => void;
     showVote: boolean;
+    enabledModels: Model[];
 }
 
 function ResponseCard({
@@ -2306,147 +2319,179 @@ function ResponseCard({
     onSwapModel,
     onCancelSlot,
     showVote,
+    enabledModels,
 }: ResponseCardProps) {
     const { toast } = useToast();
+    const [detailModel, setDetailModel] = useState<Model | null>(null);
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
 
+    const modelObj = enabledModels.find(
+        (m) => proxyModelID(m.provider_name, m.model_id) === response.model,
+    );
+
     return (
-        <ModelReplyCard
-            model={response.model}
-            content={response.content}
-            thinkingContent={response.thinkingContent}
-            error={response.error}
-            metrics={response.metrics}
-            isStreaming={!response.done}
-            startTimeMs={response.startTimeMs}
-            isWinner={isWinner}
-            isLoser={isLoser}
-            afterModel={
-                response.error && response.done ? (
-                    <button
-                        onClick={() =>
-                            onSwapModel(
-                                roundIdx,
-                                matchupIdx,
-                                slotKey,
-                                response.model,
-                            )
-                        }
-                        className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                        title="Swap model"
-                    >
-                        <X size={14} />
-                    </button>
-                ) : null
-            }
-            headerEnd={
-                <>
-                    {response.done && !response.error && (
-                        <>
-                            <CheckCircle2
-                                size={14}
-                                className="text-green-400"
-                            />
-                            <button
-                                onClick={() =>
-                                    onRetry(roundIdx, matchupIdx, slotKey)
-                                }
-                                className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
-                                title="Re-roll"
-                            >
-                                <RefreshCw size={14} />
-                            </button>
-                        </>
-                    )}
-                    {response.error && (
-                        <>
-                            <AlertCircle size={14} className="text-red-400" />
-                            <button
-                                onClick={() =>
-                                    onRetry(roundIdx, matchupIdx, slotKey)
-                                }
-                                className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
-                                title="Retry"
-                            >
-                                <RefreshCw size={14} />
-                            </button>
-                        </>
-                    )}
-                    {!response.done && (
+        <>
+            <ModelReplyCard
+                model={response.model}
+                content={response.content}
+                thinkingContent={response.thinkingContent}
+                error={response.error}
+                metrics={response.metrics}
+                isStreaming={!response.done}
+                startTimeMs={response.startTimeMs}
+                isWinner={isWinner}
+                isLoser={isLoser}
+                onModelNameClick={
+                    modelObj ? () => setDetailModel(modelObj) : undefined
+                }
+                afterModel={
+                    response.error && response.done ? (
                         <button
                             onClick={() =>
-                                onCancelSlot(
+                                onSwapModel(
                                     roundIdx,
                                     matchupIdx,
                                     slotKey,
                                     response.model,
                                 )
                             }
-                            className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
-                            title="Cancel"
+                            className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                            title="Swap model"
                         >
-                            <CircleStop size={14} />
+                            <X size={14} />
                         </button>
-                    )}
-                    {isWinner && (
-                        <Trophy size={14} className="text-amber-400" />
-                    )}
-                </>
-            }
-            footerEnd={
-                <div className="flex items-center gap-2">
-                    {response.done && !response.error && response.content && (
-                        <button
-                            className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
-                            onClick={() => {
-                                navigator.clipboard
-                                    .writeText(response.content)
-                                    .then(() =>
-                                        toast("Copied to clipboard", "info"),
+                    ) : null
+                }
+                headerEnd={
+                    <>
+                        {response.done && !response.error && (
+                            <>
+                                <CheckCircle2
+                                    size={14}
+                                    className="text-green-400"
+                                />
+                                <button
+                                    onClick={() =>
+                                        onRetry(roundIdx, matchupIdx, slotKey)
+                                    }
+                                    className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
+                                    title="Re-roll"
+                                >
+                                    <RefreshCw size={14} />
+                                </button>
+                            </>
+                        )}
+                        {response.error && (
+                            <>
+                                <AlertCircle
+                                    size={14}
+                                    className="text-red-400"
+                                />
+                                <button
+                                    onClick={() =>
+                                        onRetry(roundIdx, matchupIdx, slotKey)
+                                    }
+                                    className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
+                                    title="Retry"
+                                >
+                                    <RefreshCw size={14} />
+                                </button>
+                            </>
+                        )}
+                        {!response.done && (
+                            <button
+                                onClick={() =>
+                                    onCancelSlot(
+                                        roundIdx,
+                                        matchupIdx,
+                                        slotKey,
+                                        response.model,
                                     )
-                                    .catch(() =>
-                                        toast("Failed to copy", "error"),
-                                    );
-                            }}
-                            title="Copy"
-                        >
-                            <Copy size={12} />
-                        </button>
-                    )}
-                    {showVote && (
-                        <button
-                            onClick={
-                                vote === null
-                                    ? () =>
-                                          onVote(roundIdx, matchupIdx, slotKey)
-                                    : undefined
-                            }
-                            disabled={vote !== null}
-                            className={`flex items-center gap-1 transition-all ${
-                                vote === null
-                                    ? "cursor-pointer"
-                                    : "cursor-default"
-                            } ${
-                                isWinner
-                                    ? "text-green-400 hover:text-green-300"
-                                    : "text-(--text-tertiary) hover:text-(--text-secondary)"
-                            }`}
-                        >
-                            <VoteThumb
-                                size={18}
-                                isWinner={isWinner}
-                                animating={vote === null}
-                            />
-                        </button>
-                    )}
-                </div>
-            }
-            className="flex flex-col"
-            headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
-            bodyClassName="px-4 pb-4 pt-0 overflow-y-auto h-85"
-            footerClassName="px-4 py-2 border-t border-(--border-subtle)"
-        />
+                                }
+                                className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
+                                title="Cancel"
+                            >
+                                <CircleStop size={14} />
+                            </button>
+                        )}
+                        {isWinner && (
+                            <Trophy size={14} className="text-amber-400" />
+                        )}
+                    </>
+                }
+                footerEnd={
+                    <div className="flex items-center gap-2">
+                        {response.done &&
+                            !response.error &&
+                            response.content && (
+                                <button
+                                    className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                    onClick={() => {
+                                        navigator.clipboard
+                                            .writeText(response.content)
+                                            .then(() =>
+                                                toast(
+                                                    "Copied to clipboard",
+                                                    "info",
+                                                ),
+                                            )
+                                            .catch(() =>
+                                                toast(
+                                                    "Failed to copy",
+                                                    "error",
+                                                ),
+                                            );
+                                    }}
+                                    title="Copy"
+                                >
+                                    <Copy size={12} />
+                                </button>
+                            )}
+                        {showVote && (
+                            <button
+                                onClick={
+                                    vote === null
+                                        ? () =>
+                                              onVote(
+                                                  roundIdx,
+                                                  matchupIdx,
+                                                  slotKey,
+                                              )
+                                        : undefined
+                                }
+                                disabled={vote !== null}
+                                className={`flex items-center gap-1 transition-all ${
+                                    vote === null
+                                        ? "cursor-pointer"
+                                        : "cursor-default"
+                                } ${
+                                    isWinner
+                                        ? "text-green-400 hover:text-green-300"
+                                        : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                                }`}
+                            >
+                                <VoteThumb
+                                    size={18}
+                                    isWinner={isWinner}
+                                    animating={vote === null}
+                                />
+                            </button>
+                        )}
+                    </div>
+                }
+                className="flex flex-col"
+                headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
+                bodyClassName="px-4 pb-4 pt-0 overflow-y-auto h-85"
+                footerClassName="px-4 py-2 border-t border-(--border-subtle)"
+            />
+            {detailModel && (
+                <ModelDetailModal
+                    model={detailModel}
+                    onClose={() => setDetailModel(null)}
+                />
+            )}
+        </>
     );
 }
 
@@ -2469,9 +2514,6 @@ function SwapPicker({
     onSelect,
 }: SwapPickerProps) {
     const [search, setSearch] = useState("");
-
-    const proxyModelID = (providerName: string, modelId: string) =>
-        providerName.replace(/ /g, "-") + "/" + modelId;
 
     const available = useMemo(() => {
         const usedSet = new Set(alreadyUsed);

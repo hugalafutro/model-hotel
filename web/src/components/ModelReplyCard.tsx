@@ -50,6 +50,8 @@ interface ModelReplyCardProps {
     footerClassName?: string;
     /** Tailwind max-width class for the model name (e.g. "max-w-60"), defaults to "max-w-45" */
     modelMaxWidth?: string;
+    /** Called when the model name is clicked; enables clickable styling with accent glow */
+    onModelNameClick?: () => void;
 }
 
 export function ModelReplyCard({
@@ -71,6 +73,7 @@ export function ModelReplyCard({
     bodyClassName,
     footerClassName,
     modelMaxWidth = "max-w-45",
+    onModelNameClick,
 }: ModelReplyCardProps) {
     const [elapsed, setElapsed] = useState(0);
 
@@ -103,12 +106,22 @@ export function ModelReplyCard({
                 >
                     <div className="flex items-center gap-2 min-w-0">
                         <Bot size={14} className="text-(--accent) shrink-0" />
-                        <span
-                            className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
-                            title={model.split("/").pop()}
-                        >
-                            {model.split("/").pop()}
-                        </span>
+                        {onModelNameClick ? (
+                            <button
+                                onClick={onModelNameClick}
+                                className={`text-sm font-medium text-(--text-primary) truncate cursor-pointer hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth}`}
+                                title={model.split("/").pop()}
+                            >
+                                {model.split("/").pop()}
+                            </button>
+                        ) : (
+                            <span
+                                className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
+                                title={model.split("/").pop()}
+                            >
+                                {model.split("/").pop()}
+                            </span>
+                        )}
                         {afterModel}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
