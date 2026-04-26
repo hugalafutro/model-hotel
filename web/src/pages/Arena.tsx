@@ -1177,6 +1177,134 @@ export function Arena() {
                 </div>
             </div>
 
+            {/* Bracket + Run Bar */}
+            <div className="ui-card p-4 shrink-0">
+                <div className="flex items-center gap-4 flex-wrap">
+                    {/* Bracket Pills */}
+                    {rounds.length > 0 && (
+                        <div className="flex flex-col gap-2 flex-1 min-w-0">
+                            {rounds.map((round, roundIdx) => {
+                                if (
+                                    phase !== "setup" &&
+                                    roundIdx < currentRound
+                                )
+                                    return null;
+                                if (
+                                    phase === "finished" &&
+                                    roundIdx < rounds.length - 1
+                                )
+                                    return null;
+                                const isLastRound =
+                                    roundIdx === rounds.length - 1 &&
+                                    rounds.length > 1;
+                                return (
+                                    <div
+                                        key={roundIdx}
+                                        className={`flex items-center gap-2 transition-opacity duration-500 ${
+                                            roundIdx > currentRound + 1 ||
+                                            (roundIdx > currentRound &&
+                                                phase === "voting")
+                                                ? "opacity-30"
+                                                : roundIdx > currentRound
+                                                  ? "opacity-50"
+                                                  : "opacity-100"
+                                        }`}
+                                    >
+                                        <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
+                                            {isLastRound
+                                                ? "Final"
+                                                : `R${roundIdx + 1}`}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {round.matchups.map(
+                                                (mu, matchupIdx) => (
+                                                    <div
+                                                        key={matchupIdx}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <MatchupCard
+                                                            slot={mu.slotA}
+                                                            slotKey="A"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            vote={mu.vote}
+                                                            response={
+                                                                mu.responseA
+                                                            }
+                                                            isRunning={
+                                                                isRunning
+                                                            }
+                                                            phase={phase}
+                                                            onPersonaChange={
+                                                                handlePersonaChange
+                                                            }
+                                                            onVote={handleVote}
+                                                        />
+                                                        <span className="text-(--accent) font-bold text-xs px-1">
+                                                            VS
+                                                        </span>
+                                                        <MatchupCard
+                                                            slot={mu.slotB}
+                                                            slotKey="B"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            vote={mu.vote}
+                                                            response={
+                                                                mu.responseB
+                                                            }
+                                                            isRunning={
+                                                                isRunning
+                                                            }
+                                                            phase={phase}
+                                                            onPersonaChange={
+                                                                handlePersonaChange
+                                                            }
+                                                            onVote={handleVote}
+                                                        />
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Run Button */}
+                    {buttonLabel && (
+                        <button
+                            onClick={isRunning ? handleStopAll : handleRunArena}
+                            disabled={phase === "setup" && !canRun}
+                            title={
+                                phase === "setup" && !canRun
+                                    ? disabledReason
+                                    : undefined
+                            }
+                            className={`ui-btn flex items-center gap-2 shrink-0 ${
+                                isRunning ? "ui-btn-danger" : "ui-btn-primary"
+                            } disabled:opacity-40`}
+                        >
+                            {isRunning ? (
+                                <>
+                                    <X size={16} />
+                                    {buttonLabel}
+                                </>
+                            ) : (
+                                <>
+                                    <Play size={16} />
+                                    {buttonLabel}
+                                </>
+                            )}
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {/* Response Grid */}
             {showResponseGrid &&
                 rounds.map((round, roundIdx) => {
@@ -1398,142 +1526,6 @@ export function Arena() {
                     );
                 })}
 
-            {/* Bottom Bracket + Run Bar */}
-            <div className="ui-card p-4 shrink-0 mt-auto">
-                <div className="flex items-center gap-4 flex-wrap">
-                    {/* Bracket Pills */}
-                    {rounds.length > 0 && (
-                        <div className="flex flex-col gap-2 flex-1 min-w-0">
-                            {rounds.map((round, roundIdx) => {
-                                if (
-                                    phase !== "setup" &&
-                                    roundIdx < currentRound
-                                )
-                                    return null;
-                                const isLastRound =
-                                    roundIdx === rounds.length - 1 &&
-                                    rounds.length > 1;
-                                return (
-                                    <div
-                                        key={roundIdx}
-                                        className={`flex items-center gap-2 transition-opacity duration-500 ${
-                                            roundIdx > currentRound + 1 ||
-                                            (roundIdx > currentRound &&
-                                                phase === "voting")
-                                                ? "opacity-30"
-                                                : roundIdx > currentRound
-                                                  ? "opacity-50"
-                                                  : "opacity-100"
-                                        }`}
-                                    >
-                                        <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
-                                            {isLastRound
-                                                ? "Final"
-                                                : `R${roundIdx + 1}`}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {round.matchups.map(
-                                                (mu, matchupIdx) => (
-                                                    <div
-                                                        key={matchupIdx}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <MatchupCard
-                                                            slot={mu.slotA}
-                                                            slotKey="A"
-                                                            roundIdx={roundIdx}
-                                                            matchupIdx={
-                                                                matchupIdx
-                                                            }
-                                                            vote={mu.vote}
-                                                            response={
-                                                                mu.responseA
-                                                            }
-                                                            isRunning={
-                                                                isRunning
-                                                            }
-                                                            phase={phase}
-                                                            onPersonaChange={
-                                                                handlePersonaChange
-                                                            }
-                                                            onVote={handleVote}
-                                                        />
-                                                        <span className="text-(--accent) font-bold text-xs px-1">
-                                                            VS
-                                                        </span>
-                                                        <MatchupCard
-                                                            slot={mu.slotB}
-                                                            slotKey="B"
-                                                            roundIdx={roundIdx}
-                                                            matchupIdx={
-                                                                matchupIdx
-                                                            }
-                                                            vote={mu.vote}
-                                                            response={
-                                                                mu.responseB
-                                                            }
-                                                            isRunning={
-                                                                isRunning
-                                                            }
-                                                            phase={phase}
-                                                            onPersonaChange={
-                                                                handlePersonaChange
-                                                            }
-                                                            onVote={handleVote}
-                                                        />
-                                                    </div>
-                                                ),
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {phase === "finished" && (
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                                        <Trophy
-                                            size={14}
-                                            className="text-amber-400"
-                                        />
-                                        <span className="text-xs font-bold text-amber-300">
-                                            {winnerModal?.winner}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Run Button */}
-                    {buttonLabel && (
-                        <button
-                            onClick={isRunning ? handleStopAll : handleRunArena}
-                            disabled={phase === "setup" && !canRun}
-                            title={
-                                phase === "setup" && !canRun
-                                    ? disabledReason
-                                    : undefined
-                            }
-                            className={`ui-btn flex items-center gap-2 shrink-0 ${
-                                isRunning ? "ui-btn-danger" : "ui-btn-primary"
-                            } disabled:opacity-40`}
-                        >
-                            {isRunning ? (
-                                <>
-                                    <X size={16} />
-                                    {buttonLabel}
-                                </>
-                            ) : (
-                                <>
-                                    <Play size={16} />
-                                    {buttonLabel}
-                                </>
-                            )}
-                        </button>
-                    )}
-                </div>
-            </div>
-
             {/* Prompt Preset Overwrite Confirmation */}
             {pendingPrompt && (
                 <ConfirmDialog
@@ -1707,14 +1699,32 @@ function MatchupCard({
                 {isRunning && !response?.done && (
                     <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse shrink-0" />
                 )}
-                {response?.done && !response?.error && (
-                    <CheckCircle2
-                        size={12}
-                        className="text-green-400 shrink-0"
-                    />
-                )}
                 {response?.error && (
                     <AlertCircle size={12} className="text-red-400 shrink-0" />
+                )}
+                {phase === "finished" && isWinner && (
+                    <Trophy size={14} className="text-amber-400 shrink-0" />
+                )}
+                {isVotingPhase && phase !== "finished" && (
+                    <button
+                        onClick={
+                            vote === null
+                                ? () => onVote(roundIdx, matchupIdx, slotKey)
+                                : undefined
+                        }
+                        disabled={vote !== null}
+                        className={`flex items-center text-xs transition-all ${
+                            vote === null
+                                ? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
+                                : "cursor-default"
+                        } ${isWinner ? "text-green-400" : ""}`}
+                    >
+                        <VoteThumb
+                            size={14}
+                            isWinner={isWinner}
+                            animating={!isWinner && !isLoser}
+                        />
+                    </button>
                 )}
             </div>
 
@@ -1753,28 +1763,6 @@ function MatchupCard({
                         customLabel="✏️"
                     />
                 </div>
-            )}
-
-            {isVotingPhase && (
-                <button
-                    onClick={
-                        vote === null
-                            ? () => onVote(roundIdx, matchupIdx, slotKey)
-                            : undefined
-                    }
-                    disabled={vote !== null}
-                    className={`mt-1 flex items-center gap-1 text-xs transition-all ${
-                        vote === null
-                            ? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
-                            : "cursor-default"
-                    } ${isWinner ? "text-green-400" : ""}`}
-                >
-                    <VoteThumb
-                        size={14}
-                        isWinner={isWinner}
-                        animating={!isWinner && !isLoser}
-                    />
-                </button>
             )}
 
             {pendingPersona && (
