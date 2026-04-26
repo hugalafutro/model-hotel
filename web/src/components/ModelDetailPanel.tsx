@@ -75,12 +75,15 @@ interface ModelDetailPanelProps {
     model: Model;
     params?: GenerationParams;
     onParamsChange?: (params: GenerationParams) => void;
+    /** Optional close callback — when provided, shows an X button in the header */
+    onClose?: () => void;
 }
 
 export function ModelDetailPanel({
     model,
     params,
     onParamsChange,
+    onClose,
 }: ModelDetailPanelProps) {
     const caps = parseCapabilities(model.capabilities);
     const [open, setOpen] = useState(false);
@@ -136,6 +139,15 @@ export function ModelDetailPanel({
                             title="Generation parameters"
                         >
                             <Settings size={14} />
+                        </button>
+                    )}
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
+                            title="Close"
+                        >
+                            <X size={14} />
                         </button>
                     )}
                     <button
@@ -397,13 +409,7 @@ export function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
         >
             <div className="absolute inset-0 bg-black/50" />
             <div className="relative w-full max-w-sm max-h-[80vh] mx-4">
-                <button
-                    onClick={onClose}
-                    className="absolute top-3 right-3 z-10 p-1 rounded-md text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
-                >
-                    <X size={16} />
-                </button>
-                <ModelDetailPanel model={model} />
+                <ModelDetailPanel model={model} onClose={onClose} />
             </div>
         </div>
     );

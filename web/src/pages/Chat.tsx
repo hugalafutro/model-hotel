@@ -700,6 +700,7 @@ export function Chat() {
                                         thinkingContent={msg.thinkingContent}
                                         metrics={msg.metrics}
                                         isStreaming={isStreamingThis}
+                                        shortenModelName={false}
                                         headerEnd={
                                             isStreamingThis ? (
                                                 <button

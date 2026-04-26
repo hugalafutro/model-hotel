@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Bot, Clock, Zap } from "lucide-react";
+import { Bot, Clock, Info, Zap } from "lucide-react";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { formatDuration } from "../utils/format";
 import { MarkdownContent, MARKDOWN_PROSE_CLASSES } from "./MarkdownContent";
@@ -52,6 +52,10 @@ interface ModelReplyCardProps {
     modelMaxWidth?: string;
     /** Called when the model name is clicked; enables clickable styling with accent glow */
     onModelNameClick?: () => void;
+    /** Whether to shorten the model name to the part after the last "/" (default: true) */
+    shortenModelName?: boolean;
+    /** Whether to show a small info icon after the model name to indicate clickability */
+    showInfoIcon?: boolean;
 }
 
 export function ModelReplyCard({
@@ -74,6 +78,8 @@ export function ModelReplyCard({
     footerClassName,
     modelMaxWidth = "max-w-45",
     onModelNameClick,
+    shortenModelName = true,
+    showInfoIcon = false,
 }: ModelReplyCardProps) {
     const [elapsed, setElapsed] = useState(0);
 
@@ -88,6 +94,7 @@ export function ModelReplyCard({
     }, [isStreaming, startTimeMs]);
 
     const hasThinking = (thinkingContent || "").length > 0;
+    const displayName = shortenModelName ? model.split("/").pop()! : model;
 
     const stateClass = isWinner
         ? "ring-1 ring-green-500/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
@@ -110,17 +117,26 @@ export function ModelReplyCard({
                             <button
                                 onClick={onModelNameClick}
                                 className={`text-sm font-medium text-(--text-primary) truncate cursor-pointer hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth}`}
-                                title={model.split("/").pop()}
+                                title={model}
                             >
-                                {model.split("/").pop()}
+                                {displayName}
                             </button>
                         ) : (
                             <span
                                 className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
-                                title={model.split("/").pop()}
+                                title={model}
                             >
-                                {model.split("/").pop()}
+                                {displayName}
                             </span>
+                        )}
+                        {showInfoIcon && onModelNameClick && (
+                            <button
+                                onClick={onModelNameClick}
+                                className="shrink-0 text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
+                                title="Model details"
+                            >
+                                <Info size={12} />
+                            </button>
                         )}
                         {afterModel}
                     </div>

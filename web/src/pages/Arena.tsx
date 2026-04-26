@@ -2342,6 +2342,8 @@ function ResponseCard({
                 startTimeMs={response.startTimeMs}
                 isWinner={isWinner}
                 isLoser={isLoser}
+                shortenModelName={true}
+                showInfoIcon={true}
                 onModelNameClick={
                     modelObj ? () => setDetailModel(modelObj) : undefined
                 }
@@ -2531,7 +2533,7 @@ function SwapPicker({
     }, [enabledModels, disabledModels, alreadyUsed, search]);
 
     return (
-        <div className="flex flex-col items-center flex-1 min-h-0">
+        <div className="flex flex-col items-center max-h-60 min-h-0">
             <p className="text-xs text-amber-400 mb-2 shrink-0">
                 Pick a replacement model
             </p>
@@ -2541,7 +2543,7 @@ function SwapPicker({
                 placeholder="Search models…"
                 className="w-full max-w-xs mb-2 shrink-0"
             />
-            <div className="flex flex-wrap gap-1 overflow-y-auto w-full justify-center content-start px-2 flex-1 min-h-0">
+            <div className="flex flex-wrap gap-1 overflow-y-auto w-full justify-center content-start px-2 min-h-0">
                 {available.map((m) => {
                     const id = proxyModelID(m.provider_name, m.model_id);
                     return (
