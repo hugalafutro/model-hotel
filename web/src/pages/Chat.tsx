@@ -642,7 +642,8 @@ export function Chat() {
                             );
                             assistantMessage.content = extracted.content;
                             assistantMessage.thinkingContent =
-                                extracted.thinking;
+                                extracted.thinking ||
+                                assistantMessage.thinkingContent;
                             setMessages((prev) => {
                                 const next = [...prev];
                                 next[next.length - 1] = {

@@ -438,7 +438,8 @@ export function Arena() {
                                                 rawContent: newRaw,
                                                 content: extracted.content,
                                                 thinkingContent:
-                                                    extracted.thinking,
+                                                    extracted.thinking ||
+                                                    prev.thinkingContent,
                                             };
                                         }
                                         return next;
@@ -882,6 +883,10 @@ export function Arena() {
             ctrl.abort();
         }
         abortMapRef.current.clear();
+        setGroup1Models([]);
+        setGroup2Models([]);
+        setPrompt("");
+        setActivePromptId(null);
         setRounds([]);
         setCurrentRound(0);
         setPhase("setup");
@@ -889,6 +894,12 @@ export function Arena() {
         setWinnerModal(null);
         setSavedPrompt("");
         setDisabledModels(new Set());
+        try {
+            localStorage.removeItem("arenaGroup1Models");
+            localStorage.removeItem("arenaGroup2Models");
+            localStorage.removeItem("arenaPrompt");
+            localStorage.removeItem("arenaActivePromptId");
+        } catch { /* ignore */ }
     }, []);
 
     const handleRetrySlot = useCallback(
@@ -1686,6 +1697,12 @@ export function Arena() {
                         setWinnerModal(null);
                         setDisabledModels(new Set());
                         setPendingReset(false);
+                        try {
+                            localStorage.removeItem("arenaGroup1Models");
+                            localStorage.removeItem("arenaGroup2Models");
+                            localStorage.removeItem("arenaPrompt");
+                            localStorage.removeItem("arenaActivePromptId");
+                        } catch { /* ignore */ }
                         toast("Arena reset", "info");
                     }}
                     onCancel={() => setPendingReset(false)}
