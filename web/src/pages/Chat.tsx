@@ -464,12 +464,22 @@ export function Chat() {
         (m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
     );
 
-    useEffect(() => {
+    const scrollToBottom = useCallback(() => {
         requestAnimationFrame(() => {
             const el = messagesContainerRef.current;
             if (el) el.scrollTop = el.scrollHeight;
         });
-    }, [messages, controlsCollapsed]);
+    }, []);
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, scrollToBottom]);
+
+    useEffect(() => {
+        scrollToBottom();
+        const timer = setTimeout(scrollToBottom, 320);
+        return () => clearTimeout(timer);
+    }, [controlsCollapsed, scrollToBottom]);
 
     useEffect(() => {
         if (!persistChat) return;
@@ -952,7 +962,7 @@ export function Chat() {
                                         </button>
                                         {!isUser && (
                                             <button
-                                                className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,_red)] text-red-500 transition-all"
+                                                className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
                                                 onClick={() => {
                                                     setMessages((prev) => {
                                                         const idx = prev.findIndex(
