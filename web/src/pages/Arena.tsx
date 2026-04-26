@@ -101,17 +101,17 @@ export function Arena() {
     const [group1Models, setGroup1Models] = useState<string[]>([]);
     const [group2Models, setGroup2Models] = useState<string[]>([]);
 
-    const [activePromptId, setActivePromptId] = useState<string | null>(
-        () => {
-            try {
-                if (localStorage.getItem("persistArena") === "true") {
-                    const v = localStorage.getItem("arenaActivePromptId");
-                    return v || null;
-                }
-            } catch { /* ignore */ }
-            return null;
-        },
-    );
+    const [activePromptId, setActivePromptId] = useState<string | null>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const v = localStorage.getItem("arenaActivePromptId");
+                return v || null;
+            }
+        } catch {
+            /* ignore */
+        }
+        return null;
+    });
     const [pendingPrompt, setPendingPrompt] = useState<
         import("../data/presets").ArenaPromptPreset | null
     >(null);
@@ -120,7 +120,9 @@ export function Arena() {
             if (localStorage.getItem("persistArena") === "true") {
                 return localStorage.getItem("arenaPrompt") ?? "";
             }
-        } catch { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
         return "";
     });
     const [savedPrompt, setSavedPrompt] = useState<string>("");
@@ -140,17 +142,18 @@ export function Arena() {
         if (!persistArena) return;
         try {
             localStorage.setItem("arenaPrompt", prompt);
-        } catch { /* quota exceeded */ }
+        } catch {
+            /* quota exceeded */
+        }
     }, [prompt, persistArena]);
 
     useEffect(() => {
         if (!persistArena) return;
         try {
-            localStorage.setItem(
-                "arenaActivePromptId",
-                activePromptId ?? "",
-            );
-        } catch { /* quota exceeded */ }
+            localStorage.setItem("arenaActivePromptId", activePromptId ?? "");
+        } catch {
+            /* quota exceeded */
+        }
     }, [activePromptId, persistArena]);
 
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
@@ -861,7 +864,9 @@ export function Arena() {
         try {
             localStorage.removeItem("arenaPrompt");
             localStorage.removeItem("arenaActivePromptId");
-        } catch { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
     }, []);
 
     const handleRetrySlot = useCallback(
@@ -1069,7 +1074,7 @@ export function Arena() {
     const showResponseGrid = phase !== "setup";
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -1099,7 +1104,9 @@ export function Arena() {
             {/* Controls */}
             <div className="ui-card p-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-(--text-primary)">Controls</span>
+                    <span className="text-sm font-semibold text-(--text-primary)">
+                        Controls
+                    </span>
                     <div className="flex items-center gap-1">
                         {phase !== "setup" && (
                             <button
@@ -1113,9 +1120,17 @@ export function Arena() {
                         <button
                             onClick={() => setArenaCollapsed((c) => !c)}
                             className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                            title={arenaCollapsed ? "Expand controls" : "Collapse controls"}
+                            title={
+                                arenaCollapsed
+                                    ? "Expand controls"
+                                    : "Collapse controls"
+                            }
                         >
-                            {arenaCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                            {arenaCollapsed ? (
+                                <ChevronsUpDown size={14} />
+                            ) : (
+                                <ChevronsDownUp size={14} />
+                            )}
                         </button>
                     </div>
                 </div>
@@ -1126,279 +1141,118 @@ export function Arena() {
                 >
                     <div className="overflow-hidden">
                         <div className="space-y-4 pt-4">
-                {phase === "setup" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-sm text-(--text-secondary) mb-2 block">
-                                Match 1 ({group1Models.length}/2)
-                            </label>
-                            <ModelPicker
-                                models={enabledModels}
-                                selected={group1Models}
-                                onChange={setGroup1Models}
-                                multi={true}
-                                maxSelections={2}
-                                providers={providerData}
-                                align="left"
-                            />
-                            {group1Models.length > 0 &&
-                                group1Models.length < 2 && (
-                                    <p className="text-xs text-amber-400 mt-2">
-                                        Pick exactly 2 models.
-                                    </p>
-                                )}
-                            {new Set(group1Models).size !==
-                                group1Models.length &&
-                                group1Models.length > 0 && (
-                                    <p className="text-xs text-amber-400 mt-2">
-                                        No duplicate models.
-                                    </p>
-                                )}
-                        </div>
-                        <div
-                            className={`transition-opacity duration-300 ${
-                                group1Models.length < 2
-                                    ? "opacity-30 pointer-events-none select-none"
-                                    : "opacity-100"
-                            }`}
-                        >
-                            <label className="text-sm text-(--text-secondary) mb-2 block">
-                                Match 2 ({group2Models.length}/2){" "}
-                                <span className="text-(--text-tertiary)">
-                                    — optional, adds a final round
-                                </span>
-                            </label>
-                            <ModelPicker
-                                models={enabledModels}
-                                selected={group2Models}
-                                onChange={setGroup2Models}
-                                multi={true}
-                                maxSelections={2}
-                                providers={providerData}
-                                align="right"
-                            />
-                            {group2Models.length > 0 &&
-                                group2Models.length < 2 && (
-                                    <p className="text-xs text-amber-400 mt-2">
-                                        Pick exactly 2 or leave empty for a
-                                        single match.
-                                    </p>
-                                )}
-                            {crossDuplicates && (
-                                <p className="text-xs text-amber-400 mt-2">
-                                    Models can't appear in both matches.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Bracket Grid */}
-                {rounds.length > 0 && (
-                    <div className="space-y-3">
-                        <div className="flex flex-col gap-3">
-                            {rounds.map((round, roundIdx) => {
-                                if (
-                                    phase !== "setup" &&
-                                    roundIdx < currentRound
-                                )
-                                    return null;
-                                const isLastRound =
-                                    roundIdx === rounds.length - 1 &&
-                                    rounds.length > 1;
-                                return (
+                            {phase === "setup" && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm text-(--text-secondary) mb-2 block">
+                                            Match 1 ({group1Models.length}/2)
+                                        </label>
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={group1Models}
+                                            onChange={setGroup1Models}
+                                            multi={true}
+                                            maxSelections={2}
+                                            providers={providerData}
+                                            align="left"
+                                        />
+                                        {group1Models.length > 0 &&
+                                            group1Models.length < 2 && (
+                                                <p className="text-xs text-amber-400 mt-2">
+                                                    Pick exactly 2 models.
+                                                </p>
+                                            )}
+                                        {new Set(group1Models).size !==
+                                            group1Models.length &&
+                                            group1Models.length > 0 && (
+                                                <p className="text-xs text-amber-400 mt-2">
+                                                    No duplicate models.
+                                                </p>
+                                            )}
+                                    </div>
                                     <div
-                                        key={roundIdx}
-                                        className={`flex items-center gap-2 transition-opacity duration-500 ${
-                                            roundIdx > currentRound + 1 ||
-                                            (roundIdx > currentRound &&
-                                                phase === "voting")
-                                                ? "opacity-30"
-                                                : roundIdx > currentRound
-                                                  ? "opacity-50"
-                                                  : "opacity-100"
+                                        className={`transition-opacity duration-300 ${
+                                            group1Models.length < 2
+                                                ? "opacity-30 pointer-events-none select-none"
+                                                : "opacity-100"
                                         }`}
                                     >
-                                        <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
-                                            {isLastRound
-                                                ? "Final Round"
-                                                : `Round ${roundIdx + 1}`}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {round.matchups.map(
-                                                (mu, matchupIdx) => (
-                                                    <div
-                                                        key={matchupIdx}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <MatchupCard
-                                                            slot={mu.slotA}
-                                                            slotKey="A"
-                                                            roundIdx={roundIdx}
-                                                            matchupIdx={
-                                                                matchupIdx
-                                                            }
-                                                            vote={mu.vote}
-                                                            response={
-                                                                mu.responseA
-                                                            }
-                                                            isRunning={
-                                                                isRunning
-                                                            }
-                                                            phase={phase}
-                                                            onPersonaChange={
-                                                                handlePersonaChange
-                                                            }
-                                                            onVote={handleVote}
-                                                        />
-                                                        <span className="text-(--accent) font-bold text-xs px-1">
-                                                            VS
-                                                        </span>
-                                                        <MatchupCard
-                                                            slot={mu.slotB}
-                                                            slotKey="B"
-                                                            roundIdx={roundIdx}
-                                                            matchupIdx={
-                                                                matchupIdx
-                                                            }
-                                                            vote={mu.vote}
-                                                            response={
-                                                                mu.responseB
-                                                            }
-                                                            isRunning={
-                                                                isRunning
-                                                            }
-                                                            phase={phase}
-                                                            onPersonaChange={
-                                                                handlePersonaChange
-                                                            }
-                                                            onVote={handleVote}
-                                                        />
-                                                    </div>
-                                                ),
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {phase === "finished" && (
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                                        <Trophy
-                                            size={14}
-                                            className="text-amber-400"
+                                        <label className="text-sm text-(--text-secondary) mb-2 block">
+                                            Match 2 ({group2Models.length}/2){" "}
+                                            <span className="text-(--text-tertiary)">
+                                                — optional, adds a final round
+                                            </span>
+                                        </label>
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={group2Models}
+                                            onChange={setGroup2Models}
+                                            multi={true}
+                                            maxSelections={2}
+                                            providers={providerData}
+                                            align="right"
                                         />
-                                        <span className="text-xs font-bold text-amber-300">
-                                            {winnerModal?.winner}
-                                        </span>
+                                        {group2Models.length > 0 &&
+                                            group2Models.length < 2 && (
+                                                <p className="text-xs text-amber-400 mt-2">
+                                                    Pick exactly 2 or leave
+                                                    empty for a single match.
+                                                </p>
+                                            )}
+                                        {crossDuplicates && (
+                                            <p className="text-xs text-amber-400 mt-2">
+                                                Models can't appear in both
+                                                matches.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                )}
 
-                {/* Action Button */}
-                {buttonLabel && (
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <button
-                            onClick={
-                                isRunning
-                                    ? handleStopAll
-                                    : phase === "voting" && allCurrentRoundVoted
-                                      ? handleAdvanceRound
-                                      : phase === "next_round_ready"
-                                        ? handleRunNextRound
-                                        : handleRunArena
-                            }
-                            disabled={
-                                isRunning
-                                    ? false
-                                    : phase === "setup"
-                                      ? !canRun
-                                      : phase === "voting"
-                                        ? !allCurrentRoundVoted
-                                        : false
-                            }
-                            title={
-                                phase === "setup" && !canRun
-                                    ? disabledReason
-                                    : phase === "voting" &&
-                                        !allCurrentRoundVoted
-                                      ? disabledReason
-                                      : undefined
-                            }
-                            className={`ui-btn flex items-center gap-2 ${
-                                isRunning
-                                    ? "ui-btn-danger"
-                                    : phase === "voting" &&
-                                        allCurrentRoundVoted &&
-                                        currentRound >= rounds.length - 1
-                                      ? "bg-amber-600 hover:bg-amber-500 text-white"
-                                      : "ui-btn-primary"
-                            } disabled:opacity-40`}
-                        >
-                            {isRunning ? (
-                                <>
-                                    <X size={16} />
-                                    {buttonLabel}
-                                </>
-                            ) : phase === "voting" &&
-                              allCurrentRoundVoted &&
-                              currentRound >= rounds.length - 1 ? (
-                                <>
-                                    <Trophy size={16} />
-                                    {buttonLabel}
-                                </>
-                            ) : (
-                                <>
-                                    <Play size={16} />
-                                    {buttonLabel}
-                                </>
-                            )}
-                        </button>
-                    </div>
-                )}
-
-                {/* Prompt */}
-                <div>
-                    <label className="text-sm text-(--text-secondary) mb-2 block">
-                        Prompt
-                    </label>
-                    {phase === "setup" && (
-                        <PresetBar
-                            items={ARENA_PROMPTS}
-                            activeId={activePromptId}
-                            onSelect={handlePromptPresetSelect}
-                            onCustom={handleCustomPrompt}
-                        />
-                    )}
-                    <textarea
-                        ref={promptRef}
-                        value={
-                            phase === "setup" || phase === "finished"
-                                ? prompt
-                                : savedPrompt
-                        }
-                        onChange={(e) => {
-                            handlePromptChange(e.target.value);
-                            if (!e.target.value) {
-                                e.target.style.height = "auto";
-                            } else if (
-                                e.target.scrollHeight > e.target.clientHeight
-                            ) {
-                                e.target.style.height =
-                                    e.target.scrollHeight + "px";
-                            }
-                        }}
-                        placeholder="Enter your prompt..."
-                        autoFocus
-                        rows={1}
-                        maxLength={10000}
-                        className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                        disabled={phase !== "setup" && phase !== "finished"}
-                    />
-                </div>
+                            {/* Prompt */}
+                            <div>
+                                <label className="text-sm text-(--text-secondary) mb-2 block">
+                                    Prompt
+                                </label>
+                                {phase === "setup" && (
+                                    <PresetBar
+                                        items={ARENA_PROMPTS}
+                                        activeId={activePromptId}
+                                        onSelect={handlePromptPresetSelect}
+                                        onCustom={handleCustomPrompt}
+                                    />
+                                )}
+                                <textarea
+                                    ref={promptRef}
+                                    value={
+                                        phase === "setup" ||
+                                        phase === "finished"
+                                            ? prompt
+                                            : savedPrompt
+                                    }
+                                    onChange={(e) => {
+                                        handlePromptChange(e.target.value);
+                                        if (!e.target.value) {
+                                            e.target.style.height = "auto";
+                                        } else if (
+                                            e.target.scrollHeight >
+                                            e.target.clientHeight
+                                        ) {
+                                            e.target.style.height =
+                                                e.target.scrollHeight + "px";
+                                        }
+                                    }}
+                                    placeholder="Enter your prompt..."
+                                    autoFocus
+                                    rows={1}
+                                    maxLength={10000}
+                                    className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                                    disabled={
+                                        phase !== "setup" &&
+                                        phase !== "finished"
+                                    }
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1616,6 +1470,174 @@ export function Arena() {
                     );
                 })}
 
+            {/* Bottom Bracket + Run Bar */}
+            <div className="ui-card p-4 shrink-0 mt-auto">
+                <div className="flex items-center gap-4 flex-wrap">
+                    {/* Bracket Pills */}
+                    {rounds.length > 0 && (
+                        <div className="flex flex-col gap-2 flex-1 min-w-0">
+                            {rounds.map((round, roundIdx) => {
+                                if (
+                                    phase !== "setup" &&
+                                    roundIdx < currentRound
+                                )
+                                    return null;
+                                const isLastRound =
+                                    roundIdx === rounds.length - 1 &&
+                                    rounds.length > 1;
+                                return (
+                                    <div
+                                        key={roundIdx}
+                                        className={`flex items-center gap-2 transition-opacity duration-500 ${
+                                            roundIdx > currentRound + 1 ||
+                                            (roundIdx > currentRound &&
+                                                phase === "voting")
+                                                ? "opacity-30"
+                                                : roundIdx > currentRound
+                                                  ? "opacity-50"
+                                                  : "opacity-100"
+                                        }`}
+                                    >
+                                        <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
+                                            {isLastRound
+                                                ? "Final"
+                                                : `R${roundIdx + 1}`}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {round.matchups.map(
+                                                (mu, matchupIdx) => (
+                                                    <div
+                                                        key={matchupIdx}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <MatchupCard
+                                                            slot={mu.slotA}
+                                                            slotKey="A"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            vote={mu.vote}
+                                                            response={
+                                                                mu.responseA
+                                                            }
+                                                            isRunning={
+                                                                isRunning
+                                                            }
+                                                            phase={phase}
+                                                            onPersonaChange={
+                                                                handlePersonaChange
+                                                            }
+                                                            onVote={handleVote}
+                                                        />
+                                                        <span className="text-(--accent) font-bold text-xs px-1">
+                                                            VS
+                                                        </span>
+                                                        <MatchupCard
+                                                            slot={mu.slotB}
+                                                            slotKey="B"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            vote={mu.vote}
+                                                            response={
+                                                                mu.responseB
+                                                            }
+                                                            isRunning={
+                                                                isRunning
+                                                            }
+                                                            phase={phase}
+                                                            onPersonaChange={
+                                                                handlePersonaChange
+                                                            }
+                                                            onVote={handleVote}
+                                                        />
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {phase === "finished" && (
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                                        <Trophy
+                                            size={14}
+                                            className="text-amber-400"
+                                        />
+                                        <span className="text-xs font-bold text-amber-300">
+                                            {winnerModal?.winner}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Run Button */}
+                    {buttonLabel && (
+                        <button
+                            onClick={
+                                isRunning
+                                    ? handleStopAll
+                                    : phase === "voting" && allCurrentRoundVoted
+                                      ? handleAdvanceRound
+                                      : phase === "next_round_ready"
+                                        ? handleRunNextRound
+                                        : handleRunArena
+                            }
+                            disabled={
+                                isRunning
+                                    ? false
+                                    : phase === "setup"
+                                      ? !canRun
+                                      : phase === "voting"
+                                        ? !allCurrentRoundVoted
+                                        : false
+                            }
+                            title={
+                                phase === "setup" && !canRun
+                                    ? disabledReason
+                                    : phase === "voting" &&
+                                        !allCurrentRoundVoted
+                                      ? disabledReason
+                                      : undefined
+                            }
+                            className={`ui-btn flex items-center gap-2 shrink-0 ${
+                                isRunning
+                                    ? "ui-btn-danger"
+                                    : phase === "voting" &&
+                                        allCurrentRoundVoted &&
+                                        currentRound >= rounds.length - 1
+                                      ? "bg-amber-600 hover:bg-amber-500 text-white"
+                                      : "ui-btn-primary"
+                            } disabled:opacity-40`}
+                        >
+                            {isRunning ? (
+                                <>
+                                    <X size={16} />
+                                    {buttonLabel}
+                                </>
+                            ) : phase === "voting" &&
+                              allCurrentRoundVoted &&
+                              currentRound >= rounds.length - 1 ? (
+                                <>
+                                    <Trophy size={16} />
+                                    {buttonLabel}
+                                </>
+                            ) : (
+                                <>
+                                    <Play size={16} />
+                                    {buttonLabel}
+                                </>
+                            )}
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {/* Prompt Preset Overwrite Confirmation */}
             {pendingPrompt && (
                 <ConfirmDialog
@@ -1662,7 +1684,9 @@ export function Arena() {
                         try {
                             localStorage.removeItem("arenaPrompt");
                             localStorage.removeItem("arenaActivePromptId");
-                        } catch { /* ignore */ }
+                        } catch {
+                            /* ignore */
+                        }
                         toast("Arena reset", "info");
                     }}
                     onCancel={() => setPendingReset(false)}
@@ -1837,17 +1861,17 @@ function MatchupCard({
 
             {isVotingPhase && (
                 <button
-                    onClick={vote === null ? () => onVote(roundIdx, matchupIdx, slotKey) : undefined}
+                    onClick={
+                        vote === null
+                            ? () => onVote(roundIdx, matchupIdx, slotKey)
+                            : undefined
+                    }
                     disabled={vote !== null}
                     className={`mt-1 flex items-center gap-1 text-xs transition-all ${
                         vote === null
                             ? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
                             : "cursor-default"
-                    } ${
-                        isWinner
-                            ? "text-green-400"
-                            : ""
-                    }`}
+                    } ${isWinner ? "text-green-400" : ""}`}
                 >
                     <VoteThumb
                         size={14}
@@ -2077,12 +2101,14 @@ function ResponseCard({
                 )}
                 {showVote && (
                     <button
-                        onClick={vote === null ? () => onVote(roundIdx, matchupIdx, slotKey) : undefined}
+                        onClick={
+                            vote === null
+                                ? () => onVote(roundIdx, matchupIdx, slotKey)
+                                : undefined
+                        }
                         disabled={vote !== null}
                         className={`flex items-center gap-1 transition-all ${
-                            vote === null
-                                ? "cursor-pointer"
-                                : "cursor-default"
+                            vote === null ? "cursor-pointer" : "cursor-default"
                         } ${
                             isWinner
                                 ? "text-green-400 hover:text-green-300"
