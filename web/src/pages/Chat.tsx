@@ -12,6 +12,8 @@ import {
     RotateCcw,
     ChevronsDownUp,
     ChevronsUpDown,
+    Copy,
+    Trash2,
 } from "lucide-react";
 import type { Model, ChatMessage, GenerationParams } from "../api/types";
 
@@ -931,18 +933,55 @@ export function Chat() {
                                                         tok
                                                     </span>
                                                 )}
-                                                {msg.params && (
-                                                    <span
-                                                        className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
-                                                        title={`Settings: ${Object.entries(msg.params)
-                                                            .filter(([, v]) => v !== undefined)
-                                                            .map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
-                                                            .join(", ")}`}
-                                                    >
-                                                        <Settings size={10} />
-                                                    </span>
-                                                )}
                                             </>
+                                        )}
+                                        <button
+                                            className={`inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] text-(--accent) transition-all`}
+                                            onClick={() => {
+                                                navigator.clipboard
+                                                    .writeText(msg.content)
+                                                    .then(() =>
+                                                        toast("Copied to clipboard", "info"),
+                                                    )
+                                                    .catch(() =>
+                                                        toast("Failed to copy", "error"),
+                                                    );
+                                            }}
+                                        >
+                                            <Copy size={10} />
+                                        </button>
+                                        {!isUser && (
+                                            <button
+                                                className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,_red)] text-red-500 transition-all"
+                                                onClick={() => {
+                                                    setMessages((prev) => {
+                                                        const idx = prev.findIndex(
+                                                            (m) => m === msg,
+                                                        );
+                                                        if (idx === -1) return prev;
+                                                        const toRemove = new Set([idx]);
+                                                        if (idx > 0 && prev[idx - 1].role === "user")
+                                                            toRemove.add(idx - 1);
+                                                        return prev.filter(
+                                                            (_, i) => !toRemove.has(i),
+                                                        );
+                                                    });
+                                                    toast("Message deleted", "info");
+                                                }}
+                                            >
+                                                <Trash2 size={10} />
+                                            </button>
+                                        )}
+                                        {!isUser && msg.params && (
+                                            <span
+                                                className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
+                                                title={`Settings: ${Object.entries(msg.params)
+                                                    .filter(([, v]) => v !== undefined)
+                                                    .map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
+                                                    .join(", ")}`}
+                                            >
+                                                <Settings size={10} />
+                                            </span>
                                         )}
                                     </div>
                                 </div>
