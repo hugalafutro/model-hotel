@@ -1295,13 +1295,13 @@ export function Arena() {
                 </div>
                 <div className="flex-1" />
                 <div className="shrink-0">
-                    <div className="max-w-sm rounded-lg border border-(--border-subtle) bg-(--surface)/50 px-4 py-3">
-                        <p className="text-xs font-semibold text-(--text-secondary) mb-1.5">
+                    <div className="max-w-md rounded-lg border border-(--border-subtle) bg-(--surface)/50 px-3.5 py-2.5">
+                        <p className="text-xs font-semibold text-(--text-secondary) mb-1">
                             {arenaMode === "competition"
                                 ? "Competition Mode"
                                 : "Comparison Mode"}
                         </p>
-                        <p className="text-xs text-(--text-tertiary) leading-relaxed line-clamp-3">
+                        <p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3">
                             {arenaMode === "competition"
                                 ? "Models are paired in a single-elimination bracket. Each round, every pair receives the same prompt — you vote for the better response. Winners advance until one model remains. The prompts are designed to stress-test creativity, reasoning, and instruction-following."
                                 : "Pick models and run the same prompt through them simultaneously. No voting, no bracket — just pure side-by-side output comparison to evaluate which model best fits your needs."}
