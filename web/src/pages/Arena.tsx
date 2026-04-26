@@ -1261,18 +1261,27 @@ export function Arena() {
             {/* Response Grid */}
             {showResponseGrid &&
                 rounds.map((round, roundIdx) => {
-                    const hasAnyResponse = round.matchups.some(
-                        (mu) =>
-                            mu.responseA ||
-                            mu.responseB ||
-                            mu.slotA === null ||
-                            mu.slotB === null,
+                    const hasActualResponse = round.matchups.some(
+                        (mu) => mu.responseA || mu.responseB,
                     );
-                    if (!hasAnyResponse) return null;
+                    if (!hasActualResponse) return null;
+                    // Once a later round has responses, skip earlier rounds
+                    const laterRoundHasResponses = rounds.some(
+                        (r, ri) =>
+                            ri > roundIdx &&
+                            r.matchups.some(
+                                (mu) => mu.responseA || mu.responseB,
+                            ),
+                    );
+                    if (laterRoundHasResponses) return null;
+                    const isLastRound =
+                        roundIdx === rounds.length - 1 && rounds.length > 1;
                     return (
                         <div key={roundIdx}>
                             <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
-                                Round {roundIdx + 1}
+                                {isLastRound
+                                    ? "Final Round"
+                                    : `Round ${roundIdx + 1}`}
                             </div>
                             <div
                                 className={`space-y-4 transition-opacity duration-500 ${
