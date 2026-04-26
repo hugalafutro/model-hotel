@@ -1286,7 +1286,23 @@ export function Arena() {
                             className="text-(--accent)"
                         />
                         <h1 className="text-3xl font-bold text-white">Arena</h1>
-                        <div className="flex items-center gap-1 ml-3">
+                    </div>
+                    <p className="text-gray-400">
+                        {arenaMode === "competition"
+                            ? "Bracket tournament — models compete head-to-head"
+                            : "Side-by-side — compare model outputs on the same prompt"}
+                    </p>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="ui-card p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-(--text-primary)">
+                            Controls
+                        </span>
+                        <div className="flex items-center gap-1">
                             <button
                                 onClick={() => {
                                     if (phase === "setup")
@@ -1327,20 +1343,6 @@ export function Arena() {
                             </button>
                         </div>
                     </div>
-                    <p className="text-gray-400">
-                        {arenaMode === "competition"
-                            ? "Bracket tournament — models compete head-to-head"
-                            : "Side-by-side — compare model outputs on the same prompt"}
-                    </p>
-                </div>
-            </div>
-
-            {/* Controls */}
-            <div className="ui-card p-4">
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-(--text-primary)">
-                        Controls
-                    </span>
                     <div className="flex items-center gap-1">
                         {phase !== "setup" && (
                             <button

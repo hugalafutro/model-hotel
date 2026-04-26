@@ -713,7 +713,7 @@ function UsageBarPanel({
                                             : ""}
                                     </span>
                                 </div>
-                                <div className="h-1.5 rounded-full overflow-hidden bg-(--border-subtle)">
+                                <div className="h-1 rounded-full overflow-hidden bg-(--border-subtle)">
                                     <div
                                         className="h-full rounded-full transition-all duration-700"
                                         style={{
