@@ -17,6 +17,7 @@ import {
     ChevronsDownUp,
     CircleStop,
     Copy,
+    Columns3,
 } from "lucide-react";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
@@ -62,6 +63,8 @@ interface BracketRound {
     matchups: Matchup[];
 }
 
+type ArenaMode = "competition" | "compare";
+
 type BracketPhase =
     | "setup"
     | "running"
@@ -89,6 +92,37 @@ export function Arena() {
 
     const { toast } = useToast();
     const { persistArena } = useStorage();
+
+    const [arenaMode, setArenaMode] = useState<ArenaMode>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw)
+                    return (
+                        (JSON.parse(raw).arenaMode as ArenaMode) ??
+                        "competition"
+                    );
+            }
+        } catch {
+            /* ignore */
+        }
+        return "competition";
+    });
+
+    const [compareModels, setCompareModels] = useState<string[]>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.compareModels ?? [];
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return [];
+    });
 
     const [group1Models, setGroup1Models] = useState<string[]>(() => {
         try {
@@ -232,6 +266,8 @@ export function Arena() {
             localStorage.setItem(
                 "arenaState",
                 JSON.stringify({
+                    arenaMode,
+                    compareModels,
                     group1Models,
                     group2Models,
                     rounds,
@@ -244,6 +280,8 @@ export function Arena() {
             /* quota exceeded */
         }
     }, [
+        arenaMode,
+        compareModels,
         group1Models,
         group2Models,
         rounds,
@@ -253,11 +291,16 @@ export function Arena() {
         persistArena,
     ]);
 
+    const arenaModeRef = useRef<ArenaMode>(arenaMode);
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const currentRoundRef = useRef(0);
     const roundsLengthRef = useRef(0);
     const roundsRef = useRef<BracketRound[]>([]);
     const promptRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        arenaModeRef.current = arenaMode;
+    }, [arenaMode]);
 
     useEffect(() => {
         roundsRef.current = rounds;
@@ -278,16 +321,24 @@ export function Arena() {
     );
 
     const crossDuplicates = useMemo(() => {
+        if (arenaMode !== "competition") return false;
         if (group2Models.length === 0) return false;
         return group1Models.some((m) => group2Models.includes(m));
-    }, [group1Models, group2Models]);
+    }, [arenaMode, group1Models, group2Models]);
 
     const canRun = useMemo(() => {
         if (phase !== "setup" && phase !== "next_round_ready") return false;
+        if (!prompt.trim()) return false;
+        if (arenaMode === "compare") {
+            if (compareModels.length < 2) return false;
+            if (new Set(compareModels).size !== compareModels.length)
+                return false;
+            return true;
+        }
+        // Competition mode
         if (group1Models.length !== 2) return false;
         if (group2Models.length !== 0 && group2Models.length !== 2)
             return false;
-        if (!prompt.trim()) return false;
         if (crossDuplicates) return false;
         if (new Set(group1Models).size !== group1Models.length) return false;
         if (
@@ -296,10 +347,29 @@ export function Arena() {
         )
             return false;
         return true;
-    }, [phase, group1Models, group2Models, prompt, crossDuplicates]);
+    }, [
+        phase,
+        arenaMode,
+        compareModels,
+        group1Models,
+        group2Models,
+        prompt,
+        crossDuplicates,
+    ]);
 
     const disabledReason = useMemo(() => {
         if (phase === "setup") {
+            if (arenaMode === "compare") {
+                if (compareModels.length === 0)
+                    return "Select at least 2 models";
+                if (compareModels.length === 1)
+                    return "Pick at least 1 more model";
+                if (new Set(compareModels).size !== compareModels.length)
+                    return "No duplicate models";
+                if (!prompt.trim()) return "Enter a prompt";
+                return "";
+            }
+            // Competition mode
             if (group1Models.length === 0) return "Select models for Match 1";
             if (group1Models.length === 1)
                 return "Pick 1 more model for Match 1";
@@ -317,7 +387,15 @@ export function Arena() {
         }
         if (phase === "voting") return "Vote on all matchups to continue";
         return "";
-    }, [phase, group1Models, group2Models, prompt, crossDuplicates]);
+    }, [
+        phase,
+        arenaMode,
+        compareModels,
+        group1Models,
+        group2Models,
+        prompt,
+        crossDuplicates,
+    ]);
 
     const buildInitialRounds = useCallback(
         (g1: string[], g2: string[]): BracketRound[] => {
@@ -367,6 +445,27 @@ export function Arena() {
             }
 
             return bracketRounds;
+        },
+        [],
+    );
+
+    const buildCompareRound = useCallback(
+        (modelIds: string[]): BracketRound[] => {
+            return [
+                {
+                    matchups: modelIds.map((id) => ({
+                        slotA: {
+                            modelId: id,
+                            personaId: null,
+                            personaPrompt: "",
+                        } as MatchupSlot,
+                        slotB: null,
+                        responseA: null,
+                        responseB: null,
+                        vote: null,
+                    })),
+                },
+            ];
         },
         [],
     );
@@ -620,7 +719,11 @@ export function Arena() {
                         const next = new Set(prev);
                         next.delete(model);
                         if (next.size === 0) {
-                            setPhase("voting");
+                            setPhase(
+                                arenaModeRef.current === "compare"
+                                    ? "finished"
+                                    : "voting",
+                            );
                         }
                         return next;
                     });
@@ -723,7 +826,10 @@ export function Arena() {
         const currentPrompt = prompt.trim();
         setSavedPrompt(currentPrompt);
 
-        const initialRounds = buildInitialRounds(group1Models, group2Models);
+        const initialRounds =
+            arenaMode === "compare"
+                ? buildCompareRound(compareModels)
+                : buildInitialRounds(group1Models, group2Models);
         setRounds(initialRounds);
         currentRoundRef.current = 0;
         roundsLengthRef.current = initialRounds.length;
@@ -801,9 +907,12 @@ export function Arena() {
     }, [
         canRun,
         prompt,
+        arenaMode,
+        compareModels,
         group1Models,
         group2Models,
         buildInitialRounds,
+        buildCompareRound,
         streamModel,
     ]);
 
@@ -1114,9 +1223,51 @@ export function Arena() {
                             className="text-(--accent)"
                         />
                         <h1 className="text-3xl font-bold text-white">Arena</h1>
+                        <div className="flex items-center gap-1 ml-3">
+                            <button
+                                onClick={() => {
+                                    if (phase === "setup")
+                                        setArenaMode("competition");
+                                }}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                    arenaMode === "competition"
+                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                        : phase === "setup"
+                                          ? "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                                          : "text-(--text-tertiary) border border-transparent cursor-default"
+                                }`}
+                            >
+                                <Swords
+                                    size={12}
+                                    className="inline mr-1 -mt-0.5"
+                                />
+                                Competition
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (phase === "setup")
+                                        setArenaMode("compare");
+                                }}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                    arenaMode === "compare"
+                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                        : phase === "setup"
+                                          ? "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                                          : "text-(--text-tertiary) border border-transparent cursor-default"
+                                }`}
+                            >
+                                <Columns3
+                                    size={12}
+                                    className="inline mr-1 -mt-0.5"
+                                />
+                                Compare
+                            </button>
+                        </div>
                     </div>
                     <p className="text-gray-400">
-                        Bracket tournament — models compete head-to-head
+                        {arenaMode === "competition"
+                            ? "Bracket tournament — models compete head-to-head"
+                            : "Side-by-side — compare model outputs on the same prompt"}
                     </p>
                 </div>
             </div>
@@ -1161,64 +1312,100 @@ export function Arena() {
                 >
                     <div className="overflow-hidden">
                         <div className="space-y-4 pt-4">
-                            {phase === "setup" && (
+                            {phase === "setup" &&
+                                arenaMode === "competition" && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-sm text-(--text-secondary) mb-2 block">
+                                                Match 1 ({group1Models.length}
+                                                /2)
+                                            </label>
+                                            <ModelPicker
+                                                models={enabledModels}
+                                                selected={group1Models}
+                                                onChange={setGroup1Models}
+                                                multi={true}
+                                                maxSelections={2}
+                                                providers={providerData}
+                                                align="left"
+                                                exclude={group2Models}
+                                            />
+                                            {group1Models.length > 0 &&
+                                                group1Models.length < 2 && (
+                                                    <p className="text-xs text-amber-400 mt-2">
+                                                        Pick exactly 2 models.
+                                                    </p>
+                                                )}
+                                            {new Set(group1Models).size !==
+                                                group1Models.length &&
+                                                group1Models.length > 0 && (
+                                                    <p className="text-xs text-amber-400 mt-2">
+                                                        No duplicate models.
+                                                    </p>
+                                                )}
+                                        </div>
+                                        <div
+                                            className={`transition-opacity duration-300 ${
+                                                group1Models.length < 2
+                                                    ? "opacity-30 pointer-events-none select-none"
+                                                    : "opacity-100"
+                                            }`}
+                                        >
+                                            <label className="text-sm text-(--text-secondary) mb-2 block">
+                                                Match 2 ({group2Models.length}
+                                                /2){" "}
+                                                <span className="text-(--text-tertiary)">
+                                                    — optional, adds a final
+                                                    round
+                                                </span>
+                                            </label>
+                                            <ModelPicker
+                                                models={enabledModels}
+                                                selected={group2Models}
+                                                onChange={setGroup2Models}
+                                                multi={true}
+                                                maxSelections={2}
+                                                providers={providerData}
+                                                align="right"
+                                                exclude={group1Models}
+                                            />
+                                            {group2Models.length > 0 &&
+                                                group2Models.length < 2 && (
+                                                    <p className="text-xs text-amber-400 mt-2">
+                                                        Pick exactly 2 or leave
+                                                        empty for a single
+                                                        match.
+                                                    </p>
+                                                )}
+                                        </div>
+                                    </div>
+                                )}
+                            {phase === "setup" && arenaMode === "compare" && (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-sm text-(--text-secondary) mb-2 block">
-                                            Match 1 ({group1Models.length}/2)
+                                            Models ({compareModels.length}/6)
                                         </label>
                                         <ModelPicker
                                             models={enabledModels}
-                                            selected={group1Models}
-                                            onChange={setGroup1Models}
+                                            selected={compareModels}
+                                            onChange={setCompareModels}
                                             multi={true}
-                                            maxSelections={2}
+                                            maxSelections={6}
                                             providers={providerData}
                                             align="left"
-                                            exclude={group2Models}
                                         />
-                                        {group1Models.length > 0 &&
-                                            group1Models.length < 2 && (
+                                        {compareModels.length > 0 &&
+                                            compareModels.length < 2 && (
                                                 <p className="text-xs text-amber-400 mt-2">
-                                                    Pick exactly 2 models.
+                                                    Pick at least 2 models.
                                                 </p>
                                             )}
-                                        {new Set(group1Models).size !==
-                                            group1Models.length &&
-                                            group1Models.length > 0 && (
+                                        {new Set(compareModels).size !==
+                                            compareModels.length &&
+                                            compareModels.length > 0 && (
                                                 <p className="text-xs text-amber-400 mt-2">
                                                     No duplicate models.
-                                                </p>
-                                            )}
-                                    </div>
-                                    <div
-                                        className={`transition-opacity duration-300 ${
-                                            group1Models.length < 2
-                                                ? "opacity-30 pointer-events-none select-none"
-                                                : "opacity-100"
-                                        }`}
-                                    >
-                                        <label className="text-sm text-(--text-secondary) mb-2 block">
-                                            Match 2 ({group2Models.length}/2){" "}
-                                            <span className="text-(--text-tertiary)">
-                                                — optional, adds a final round
-                                            </span>
-                                        </label>
-                                        <ModelPicker
-                                            models={enabledModels}
-                                            selected={group2Models}
-                                            onChange={setGroup2Models}
-                                            multi={true}
-                                            maxSelections={2}
-                                            providers={providerData}
-                                            align="right"
-                                            exclude={group1Models}
-                                        />
-                                        {group2Models.length > 0 &&
-                                            group2Models.length < 2 && (
-                                                <p className="text-xs text-amber-400 mt-2">
-                                                    Pick exactly 2 or leave
-                                                    empty for a single match.
                                                 </p>
                                             )}
                                     </div>
@@ -1312,7 +1499,7 @@ export function Arena() {
                                                 ? "Final"
                                                 : `R${roundIdx + 1}`}
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {round.matchups.map(
                                                 (mu, matchupIdx) => (
                                                     <div
@@ -1339,29 +1526,43 @@ export function Arena() {
                                                             }
                                                             onVote={handleVote}
                                                         />
-                                                        <span className="text-(--accent) font-bold text-xs px-1">
-                                                            VS
-                                                        </span>
-                                                        <MatchupCard
-                                                            slot={mu.slotB}
-                                                            slotKey="B"
-                                                            roundIdx={roundIdx}
-                                                            matchupIdx={
-                                                                matchupIdx
-                                                            }
-                                                            vote={mu.vote}
-                                                            response={
-                                                                mu.responseB
-                                                            }
-                                                            isRunning={
-                                                                isRunning
-                                                            }
-                                                            phase={phase}
-                                                            onPersonaChange={
-                                                                handlePersonaChange
-                                                            }
-                                                            onVote={handleVote}
-                                                        />
+                                                        {mu.slotB !== null && (
+                                                            <>
+                                                                <span className="text-(--accent) font-bold text-xs px-1">
+                                                                    VS
+                                                                </span>
+                                                                <MatchupCard
+                                                                    slot={
+                                                                        mu.slotB
+                                                                    }
+                                                                    slotKey="B"
+                                                                    roundIdx={
+                                                                        roundIdx
+                                                                    }
+                                                                    matchupIdx={
+                                                                        matchupIdx
+                                                                    }
+                                                                    vote={
+                                                                        mu.vote
+                                                                    }
+                                                                    response={
+                                                                        mu.responseB
+                                                                    }
+                                                                    isRunning={
+                                                                        isRunning
+                                                                    }
+                                                                    phase={
+                                                                        phase
+                                                                    }
+                                                                    onPersonaChange={
+                                                                        handlePersonaChange
+                                                                    }
+                                                                    onVote={
+                                                                        handleVote
+                                                                    }
+                                                                />
+                                                            </>
+                                                        )}
                                                     </div>
                                                 ),
                                             )}
@@ -1420,21 +1621,103 @@ export function Arena() {
                     if (laterRoundHasResponses) return null;
                     const isLastRound =
                         roundIdx === rounds.length - 1 && rounds.length > 1;
+                    const isCompare =
+                        arenaMode === "compare" &&
+                        round.matchups.every((m) => m.slotB === null);
                     return (
                         <div key={roundIdx}>
                             <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
-                                {isLastRound
-                                    ? "Final Round"
-                                    : `Round ${roundIdx + 1}`}
+                                {isCompare
+                                    ? "Responses"
+                                    : isLastRound
+                                      ? "Final Round"
+                                      : `Round ${roundIdx + 1}`}
                             </div>
                             <div
-                                className={`space-y-4 transition-opacity duration-500 ${
+                                className={`${
+                                    isCompare
+                                        ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                                        : "space-y-4"
+                                } transition-opacity duration-500 ${
                                     roundIdx <= currentRound
                                         ? "opacity-100"
                                         : "opacity-20"
                                 }`}
                             >
                                 {round.matchups.map((mu, matchupIdx) => {
+                                    // Compare mode: flat grid of individual cards
+                                    if (isCompare) {
+                                        return (
+                                            <div
+                                                key={matchupIdx}
+                                                className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4"
+                                            >
+                                                {mu.slotA === null &&
+                                                roundIdx === currentRound ? (
+                                                    <SwapPicker
+                                                        enabledModels={
+                                                            enabledModels
+                                                        }
+                                                        disabledModels={
+                                                            disabledModels
+                                                        }
+                                                        alreadyUsed={round.matchups.flatMap(
+                                                            (m, mi) => {
+                                                                if (
+                                                                    mi ===
+                                                                    matchupIdx
+                                                                )
+                                                                    return [];
+                                                                const ids: string[] =
+                                                                    [];
+                                                                if (m.slotA)
+                                                                    ids.push(
+                                                                        m.slotA
+                                                                            .modelId,
+                                                                    );
+                                                                return ids;
+                                                            },
+                                                        )}
+                                                        onSelect={(modelId) =>
+                                                            handleSwapComplete(
+                                                                roundIdx,
+                                                                matchupIdx,
+                                                                "A",
+                                                                modelId,
+                                                            )
+                                                        }
+                                                    />
+                                                ) : (
+                                                    mu.responseA && (
+                                                        <ResponseCard
+                                                            response={
+                                                                mu.responseA
+                                                            }
+                                                            vote={mu.vote}
+                                                            slotKey="A"
+                                                            roundIdx={roundIdx}
+                                                            matchupIdx={
+                                                                matchupIdx
+                                                            }
+                                                            onVote={handleVote}
+                                                            onRetry={
+                                                                handleRetrySlot
+                                                            }
+                                                            onSwapModel={
+                                                                handleSwapModel
+                                                            }
+                                                            onCancelSlot={
+                                                                handleCancelSlot
+                                                            }
+                                                            showVote={false}
+                                                        />
+                                                    )
+                                                )}
+                                            </div>
+                                        );
+                                    }
+
+                                    // Competition mode: A-vs-B pairs
                                     return (
                                         <div
                                             key={matchupIdx}
@@ -1654,6 +1937,7 @@ export function Arena() {
                     fields={[]}
                     confirmLabel="Reset"
                     onConfirm={() => {
+                        setCompareModels([]);
                         setGroup1Models([]);
                         setGroup2Models([]);
                         setPrompt("");
