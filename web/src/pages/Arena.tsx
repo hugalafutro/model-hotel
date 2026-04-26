@@ -6,8 +6,6 @@ import {
     Play,
     X,
     Bot,
-    Clock,
-    Zap,
     CheckCircle2,
     AlertCircle,
     ThumbsUp,
@@ -19,10 +17,8 @@ import {
     ChevronsDownUp,
     CircleStop,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { extractThinking } from "../utils/thinking";
-import { ThinkingBlock } from "../components/ThinkingBlock";
+import { ModelReplyCard } from "../components/ModelReplyCard";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
@@ -30,11 +26,6 @@ import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterInput } from "../components/FilterInput";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
-
-function formatDuration(ms: number): string {
-    if (ms < 1000) return `${ms.toFixed(0)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-}
 
 interface ArenaResponse {
     model: string;
@@ -1835,55 +1826,40 @@ function ResponseCard({
     onCancelSlot,
     showVote,
 }: ResponseCardProps) {
-    const [elapsed, setElapsed] = useState(0);
     const isWinner = vote === slotKey;
     const isLoser = vote !== null && vote !== slotKey;
-    const hasThinking = response.thinkingContent.length > 0;
-    const isStreaming = !response.done;
-
-    useEffect(() => {
-        if (response.done || response.startTimeMs === 0) return;
-        const tick = () =>
-            setElapsed(Math.round((Date.now() - response.startTimeMs) / 1000));
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, [response.done, response.startTimeMs]);
 
     return (
-        <div
-            className={`ui-card flex flex-col transition-all ${
-                isWinner
-                    ? "ring-1 ring-green-500/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
-                    : isLoser
-                      ? "opacity-60"
-                      : ""
-            }`}
-        >
-            <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-(--border-subtle)">
-                <div className="flex items-center gap-2 min-w-0">
-                    <Bot size={14} className="text-(--accent) shrink-0" />
-                    <span className="text-sm font-medium text-(--text-primary) truncate">
-                        {response.model.split("/").pop()}
-                    </span>
-                    {response.error && response.done && (
-                        <button
-                            onClick={() =>
-                                onSwapModel(
-                                    roundIdx,
-                                    matchupIdx,
-                                    slotKey,
-                                    response.model,
-                                )
-                            }
-                            className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                            title="Swap model"
-                        >
-                            <X size={14} />
-                        </button>
-                    )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
+        <ModelReplyCard
+            model={response.model}
+            content={response.content}
+            thinkingContent={response.thinkingContent}
+            error={response.error}
+            metrics={response.metrics}
+            isStreaming={!response.done}
+            startTimeMs={response.startTimeMs}
+            isWinner={isWinner}
+            isLoser={isLoser}
+            afterModel={
+                response.error && response.done ? (
+                    <button
+                        onClick={() =>
+                            onSwapModel(
+                                roundIdx,
+                                matchupIdx,
+                                slotKey,
+                                response.model,
+                            )
+                        }
+                        className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                        title="Swap model"
+                    >
+                        <X size={14} />
+                    </button>
+                ) : null
+            }
+            headerEnd={
+                <>
                     {response.done && !response.error && (
                         <CheckCircle2 size={14} className="text-green-400" />
                     )}
@@ -1901,89 +1877,29 @@ function ResponseCard({
                             </button>
                         </>
                     )}
-                    {isStreaming && (
-                        <>
-                            <button
-                                onClick={() =>
-                                    onCancelSlot(
-                                        roundIdx,
-                                        matchupIdx,
-                                        slotKey,
-                                        response.model,
-                                    )
-                                }
-                                className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
-                                title="Cancel"
-                            >
-                                <CircleStop size={14} />
-                            </button>
-                            <span className="text-[11px] text-(--text-tertiary) tabular-nums">
-                                {elapsed}s
-                            </span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                        </>
+                    {!response.done && (
+                        <button
+                            onClick={() =>
+                                onCancelSlot(
+                                    roundIdx,
+                                    matchupIdx,
+                                    slotKey,
+                                    response.model,
+                                )
+                            }
+                            className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
+                            title="Cancel"
+                        >
+                            <CircleStop size={14} />
+                        </button>
                     )}
                     {isWinner && (
                         <Trophy size={14} className="text-amber-400" />
                     )}
-                </div>
-            </div>
-
-            <div className="px-4 pb-4 pt-0 overflow-y-auto h-85">
-                {response.error ? (
-                    <div className="text-red-400 text-xs">{response.error}</div>
-                ) : (
-                    <>
-                        {hasThinking && (
-                            <ThinkingBlock
-                                thinking={response.thinkingContent}
-                                isStreaming={isStreaming && !response.content}
-                            />
-                        )}
-                        {response.content ? (
-                            <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {response.content}
-                                </ReactMarkdown>
-                            </div>
-                        ) : !hasThinking && isStreaming ? (
-                            <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                Waiting...
-                            </div>
-                        ) : null}
-                    </>
-                )}
-            </div>
-
-            <div className="px-4 py-2 border-t border-(--border-subtle) flex items-center justify-between">
-                {response.metrics && (
-                    <div className="flex items-center gap-3 text-[11px] text-(--text-tertiary)">
-                        <span className="flex items-center gap-1">
-                            <Clock size={10} />
-                            {formatDuration(response.metrics.durationMs)}
-                        </span>
-                        {response.metrics.tokensPerSecond !== null && (
-                            <span className="flex items-center gap-1">
-                                <Zap size={10} />
-                                {response.metrics.tokensPerSecond.toFixed(
-                                    1,
-                                )}{" "}
-                                tok/s
-                            </span>
-                        )}
-                        {response.metrics.promptTokens +
-                            response.metrics.completionTokens >
-                            0 && (
-                            <span>
-                                {response.metrics.promptTokens +
-                                    response.metrics.completionTokens}{" "}
-                                tok
-                            </span>
-                        )}
-                    </div>
-                )}
-                {showVote && (
+                </>
+            }
+            footerEnd={
+                showVote ? (
                     <button
                         onClick={
                             vote === null
@@ -2005,9 +1921,13 @@ function ResponseCard({
                             animating={vote === null}
                         />
                     </button>
-                )}
-            </div>
-        </div>
+                ) : null
+            }
+            className="flex flex-col"
+            headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
+            bodyClassName="px-4 pb-4 pt-0 overflow-y-auto h-85"
+            footerClassName="px-4 py-2 border-t border-(--border-subtle)"
+        />
     );
 }
 

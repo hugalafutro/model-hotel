@@ -6,8 +6,6 @@ import {
     Send,
     X,
     Bot,
-    Clock,
-    Zap,
     Settings,
     RotateCcw,
     ChevronsDownUp,
@@ -26,15 +24,8 @@ import { PresetBar } from "../components/PresetBar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CAP_META } from "../components/capMeta";
 import { CHAT_PERSONAS } from "../data/presets";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { extractThinking } from "../utils/thinking";
-import { ThinkingBlock } from "../components/ThinkingBlock";
-
-function formatDuration(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
-}
+import { ModelReplyCard } from "../components/ModelReplyCard";
 
 function formatTime(ts: number): string {
     const d = new Date(ts);
@@ -145,7 +136,11 @@ function ParamSlider({
     );
 }
 
-function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps) {
+function ModelDetailPill({
+    model,
+    params,
+    onParamsChange,
+}: ModelDetailPillProps) {
     const caps = parseCapabilities(model.capabilities);
     const [open, setOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
@@ -168,7 +163,10 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                         {model.display_name || model.model_id}
                     </h3>
                     {!collapsed && model.description && (
-                        <p className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px]" title={model.description}>
+                        <p
+                            className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px]"
+                            title={model.description}
+                        >
                             {model.description}
                         </p>
                     )}
@@ -199,9 +197,17 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                     <button
                         onClick={() => setCollapsed((c) => !c)}
                         className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                        title={collapsed ? "Expand model details" : "Collapse model details"}
+                        title={
+                            collapsed
+                                ? "Expand model details"
+                                : "Collapse model details"
+                        }
                     >
-                        {collapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                        {collapsed ? (
+                            <ChevronsUpDown size={14} />
+                        ) : (
+                            <ChevronsDownUp size={14} />
+                        )}
                     </button>
                 </div>
             </div>
@@ -212,185 +218,207 @@ function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps
                 }`}
             >
                 <div className="overflow-hidden">
-                <div className="space-y-3 pt-3">
-            <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
-                    open ? "max-h-125 opacity-100 pt-2 mt-1" : "max-h-0 opacity-0 pt-0 mt-0"
-                }`}
-            >
-                <div className="space-y-2">
-                    <ParamSlider
-                        label="Temperature"
-                        value={params.temperature}
-                        min={0}
-                        max={2}
-                        step={0.01}
-                        onChange={(v) =>
-                            onParamsChange({ ...params, temperature: v })
-                        }
-                    />
-                    <ParamSlider
-                        label="Max Tokens"
-                        value={params.max_tokens}
-                        min={1}
-                        max={32768}
-                        step={1}
-                        onChange={(v) =>
-                            onParamsChange({
-                                ...params,
-                                max_tokens:
-                                    v === undefined ? undefined : Math.round(v),
-                            })
-                        }
-                    />
-                    <ParamSlider
-                        label="Top P"
-                        value={params.top_p}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onChange={(v) =>
-                            onParamsChange({ ...params, top_p: v })
-                        }
-                    />
-                    <ParamSlider
-                        label="Min P"
-                        value={params.min_p}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onChange={(v) =>
-                            onParamsChange({ ...params, min_p: v })
-                        }
-                    />
-                    <ParamSlider
-                        label="Top K"
-                        value={params.top_k}
-                        min={1}
-                        max={100}
-                        step={1}
-                        onChange={(v) =>
-                            onParamsChange({
-                                ...params,
-                                top_k:
-                                    v === undefined ? undefined : Math.round(v),
-                            })
-                        }
-                    />
-                    <ParamSlider
-                        label="Freq Penalty"
-                        value={params.frequency_penalty}
-                        min={-2}
-                        max={2}
-                        step={0.01}
-                        onChange={(v) =>
-                            onParamsChange({
-                                ...params,
-                                frequency_penalty: v,
-                            })
-                        }
-                    />
-                    <ParamSlider
-                        label="Pres Penalty"
-                        value={params.presence_penalty}
-                        min={-2}
-                        max={2}
-                        step={0.01}
-                        onChange={(v) =>
-                            onParamsChange({
-                                ...params,
-                                presence_penalty: v,
-                            })
-                        }
-                    />
-                </div>
-            </div>
+                    <div className="space-y-3 pt-3">
+                        <div
+                            className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
+                                open
+                                    ? "max-h-125 opacity-100 pt-2 mt-1"
+                                    : "max-h-0 opacity-0 pt-0 mt-0"
+                            }`}
+                        >
+                            <div className="space-y-2">
+                                <ParamSlider
+                                    label="Temperature"
+                                    value={params.temperature}
+                                    min={0}
+                                    max={2}
+                                    step={0.01}
+                                    onChange={(v) =>
+                                        onParamsChange({
+                                            ...params,
+                                            temperature: v,
+                                        })
+                                    }
+                                />
+                                <ParamSlider
+                                    label="Max Tokens"
+                                    value={params.max_tokens}
+                                    min={1}
+                                    max={32768}
+                                    step={1}
+                                    onChange={(v) =>
+                                        onParamsChange({
+                                            ...params,
+                                            max_tokens:
+                                                v === undefined
+                                                    ? undefined
+                                                    : Math.round(v),
+                                        })
+                                    }
+                                />
+                                <ParamSlider
+                                    label="Top P"
+                                    value={params.top_p}
+                                    min={0}
+                                    max={1}
+                                    step={0.01}
+                                    onChange={(v) =>
+                                        onParamsChange({ ...params, top_p: v })
+                                    }
+                                />
+                                <ParamSlider
+                                    label="Min P"
+                                    value={params.min_p}
+                                    min={0}
+                                    max={1}
+                                    step={0.01}
+                                    onChange={(v) =>
+                                        onParamsChange({ ...params, min_p: v })
+                                    }
+                                />
+                                <ParamSlider
+                                    label="Top K"
+                                    value={params.top_k}
+                                    min={1}
+                                    max={100}
+                                    step={1}
+                                    onChange={(v) =>
+                                        onParamsChange({
+                                            ...params,
+                                            top_k:
+                                                v === undefined
+                                                    ? undefined
+                                                    : Math.round(v),
+                                        })
+                                    }
+                                />
+                                <ParamSlider
+                                    label="Freq Penalty"
+                                    value={params.frequency_penalty}
+                                    min={-2}
+                                    max={2}
+                                    step={0.01}
+                                    onChange={(v) =>
+                                        onParamsChange({
+                                            ...params,
+                                            frequency_penalty: v,
+                                        })
+                                    }
+                                />
+                                <ParamSlider
+                                    label="Pres Penalty"
+                                    value={params.presence_penalty}
+                                    min={-2}
+                                    max={2}
+                                    step={0.01}
+                                    onChange={(v) =>
+                                        onParamsChange({
+                                            ...params,
+                                            presence_penalty: v,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </div>
 
-            <div className="space-y-2">
-                <div>
-                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                        Provider
-                    </span>
-                    <div className="text-(--text-primary) font-medium">
-                        {model.provider_name}
-                    </div>
-                </div>
-                <div>
-                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                        Model ID
-                    </span>
-                    <div
-                        className="text-(--text-primary) font-medium truncate"
-                        title={model.model_id}
-                    >
-                        {model.model_id}
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                            Context
-                        </span>
-                        <div className="text-(--text-primary) font-medium">
-                            {model.context_length?.toLocaleString() ?? "-"}
+                        <div className="space-y-2">
+                            <div>
+                                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                    Provider
+                                </span>
+                                <div className="text-(--text-primary) font-medium">
+                                    {model.provider_name}
+                                </div>
+                            </div>
+                            <div>
+                                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                    Model ID
+                                </span>
+                                <div
+                                    className="text-(--text-primary) font-medium truncate"
+                                    title={model.model_id}
+                                >
+                                    {model.model_id}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                        Context
+                                    </span>
+                                    <div className="text-(--text-primary) font-medium">
+                                        {model.context_length?.toLocaleString() ??
+                                            "-"}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                        Max Out
+                                    </span>
+                                    <div className="text-(--text-primary) font-medium">
+                                        {model.max_output_tokens?.toLocaleString() ??
+                                            "-"}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                        In $/1M
+                                    </span>
+                                    <div className="text-(--text-primary) font-medium">
+                                        $
+                                        {formatPrice(
+                                            model.input_price_per_million,
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                        Out $/1M
+                                    </span>
+                                    <div className="text-(--text-primary) font-medium">
+                                        $
+                                        {formatPrice(
+                                            model.output_price_per_million,
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                            Max Out
-                        </span>
-                        <div className="text-(--text-primary) font-medium">
-                            {model.max_output_tokens?.toLocaleString() ?? "-"}
-                        </div>
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                            In $/1M
-                        </span>
-                        <div className="text-(--text-primary) font-medium">
-                            ${formatPrice(model.input_price_per_million)}
-                        </div>
-                    </div>
-                    <div>
-                        <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                            Out $/1M
-                        </span>
-                        <div className="text-(--text-primary) font-medium">
-                            ${formatPrice(model.output_price_per_million)}
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            {CAP_META.some((m) => caps[m.key]) && (
-                <div>
-                    <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                        Capabilities
-                    </span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                        {CAP_META.filter((m) => caps[m.key]).map((m) => (
-                            <span
-                                key={m.key}
-                                className={`px-1.5 py-0.5 text-[10px] rounded-full border ${m.style}`}
-                            >
-                                {m.label}
+                        {CAP_META.some((m) => caps[m.key]) && (
+                            <div>
+                                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                    Capabilities
+                                </span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {CAP_META.filter((m) => caps[m.key]).map(
+                                        (m) => (
+                                            <span
+                                                key={m.key}
+                                                className={`px-1.5 py-0.5 text-[10px] rounded-full border ${m.style}`}
+                                            >
+                                                {m.label}
+                                            </span>
+                                        ),
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                                Proxy ID
                             </span>
-                        ))}
+                            <code className="block mt-0.5 p-1.5 rounded bg-(--surface-input) text-[10px] text-(--text-secondary) break-all">
+                                {proxyModelID(
+                                    model.provider_name,
+                                    model.model_id,
+                                )}
+                            </code>
+                        </div>
                     </div>
-                </div>
-            )}
-
-            <div>
-                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-                    Proxy ID
-                </span>
-                <code className="block mt-0.5 p-1.5 rounded bg-(--surface-input) text-[10px] text-(--text-secondary) break-all">
-                    {proxyModelID(model.provider_name, model.model_id)}
-                </code>
-            </div>
-            </div>
                 </div>
             </div>
         </div>
@@ -416,7 +444,9 @@ export function Chat() {
                 const stored = localStorage.getItem("chatMessages");
                 if (stored) return JSON.parse(stored);
             }
-        } catch { /* ignore corrupt stored data */ }
+        } catch {
+            /* ignore corrupt stored data */
+        }
         return [];
     });
     const [selectedModel, setSelectedModel] = useState("");
@@ -425,7 +455,9 @@ export function Chat() {
             if (localStorage.getItem("persistChat") === "true") {
                 return localStorage.getItem("chatSystemPrompt") ?? "";
             }
-        } catch { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
         return "";
     });
     const [activePersonaId, setActivePersonaId] = useState<string | null>(
@@ -435,7 +467,9 @@ export function Chat() {
                     const v = localStorage.getItem("chatActivePersonaId");
                     return v || null;
                 }
-            } catch { /* ignore */ }
+            } catch {
+                /* ignore */
+            }
             return null;
         },
     );
@@ -481,24 +515,27 @@ export function Chat() {
         if (!persistChat) return;
         try {
             localStorage.setItem("chatMessages", JSON.stringify(messages));
-        } catch { /* quota exceeded */ }
+        } catch {
+            /* quota exceeded */
+        }
     }, [messages, persistChat]);
 
     useEffect(() => {
         if (!persistChat) return;
         try {
             localStorage.setItem("chatSystemPrompt", systemPrompt);
-        } catch { /* quota exceeded */ }
+        } catch {
+            /* quota exceeded */
+        }
     }, [systemPrompt, persistChat]);
 
     useEffect(() => {
         if (!persistChat) return;
         try {
-            localStorage.setItem(
-                "chatActivePersonaId",
-                activePersonaId ?? "",
-            );
-        } catch { /* quota exceeded */ }
+            localStorage.setItem("chatActivePersonaId", activePersonaId ?? "");
+        } catch {
+            /* quota exceeded */
+        }
     }, [activePersonaId, persistChat]);
 
     const autoExpandTextarea = useCallback(
@@ -700,7 +737,15 @@ export function Chat() {
             setIsStreaming(false);
             abortRef.current = null;
         }
-    }, [input, selectedModel, isStreaming, messages, systemPrompt, messageParams, toast]);
+    }, [
+        input,
+        selectedModel,
+        isStreaming,
+        messages,
+        systemPrompt,
+        messageParams,
+        toast,
+    ]);
 
     const handleStop = useCallback(() => {
         abortRef.current?.abort();
@@ -786,7 +831,8 @@ export function Chat() {
                             if (data === "[DONE]") break;
                             try {
                                 const chunk = JSON.parse(data);
-                                const delta = chunk.choices?.[0]?.delta?.content;
+                                const delta =
+                                    chunk.choices?.[0]?.delta?.content;
                                 if (delta) {
                                     charCount += delta.length;
                                     assistantMessage.rawContent =
@@ -795,7 +841,8 @@ export function Chat() {
                                     const extracted = extractThinking(
                                         assistantMessage.rawContent,
                                     );
-                                    assistantMessage.content = extracted.content;
+                                    assistantMessage.content =
+                                        extracted.content;
                                     assistantMessage.thinkingContent =
                                         extracted.thinking ||
                                         assistantMessage.thinkingContent;
@@ -841,9 +888,7 @@ export function Chat() {
                 const durationMs = performance.now() - startTime;
                 assistantMessage.metrics = {
                     tokensPerSecond:
-                        durationMs > 0
-                            ? charCount / (durationMs / 1000)
-                            : null,
+                        durationMs > 0 ? charCount / (durationMs / 1000) : null,
                     durationMs: Math.round(durationMs),
                     promptTokens,
                     completionTokens,
@@ -855,7 +900,8 @@ export function Chat() {
                 });
             })
             .catch((err) => {
-                const msg = err instanceof Error ? err.message : "Unknown error";
+                const msg =
+                    err instanceof Error ? err.message : "Unknown error";
                 assistantMessage.content = `**Error:** ${msg}`;
                 assistantMessage.metrics = {
                     tokensPerSecond: null,
@@ -874,7 +920,14 @@ export function Chat() {
                 setIsStreaming(false);
                 abortRef.current = null;
             });
-    }, [isStreaming, messages, selectedModel, systemPrompt, messageParams, toast]);
+    }, [
+        isStreaming,
+        messages,
+        selectedModel,
+        systemPrompt,
+        messageParams,
+        toast,
+    ]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -906,7 +959,9 @@ export function Chat() {
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
-                    <label className="text-sm text-(--text-secondary)">Model</label>
+                    <label className="text-sm text-(--text-secondary)">
+                        Model
+                    </label>
                     <div className="flex items-center gap-1">
                         {messages.some((m) => m.role === "assistant") && (
                             <button
@@ -920,15 +975,25 @@ export function Chat() {
                         <button
                             onClick={() => setControlsCollapsed((c) => !c)}
                             className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                            title={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+                            title={
+                                controlsCollapsed
+                                    ? "Expand controls"
+                                    : "Collapse controls"
+                            }
                         >
-                            {controlsCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                            {controlsCollapsed ? (
+                                <ChevronsUpDown size={14} />
+                            ) : (
+                                <ChevronsDownUp size={14} />
+                            )}
                         </button>
                     </div>
                 </div>
                 <div
                     className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                        controlsCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+                        controlsCollapsed
+                            ? "grid-rows-[0fr]"
+                            : "grid-rows-[1fr]"
                     }`}
                 >
                     <div className="overflow-hidden">
@@ -956,11 +1021,14 @@ export function Chat() {
                                     ref={systemPromptRef}
                                     value={systemPrompt}
                                     onChange={(e) => {
-                                        handleSystemPromptChange(e.target.value);
+                                        handleSystemPromptChange(
+                                            e.target.value,
+                                        );
                                         if (!e.target.value) {
                                             e.target.style.height = "auto";
                                         } else if (
-                                            e.target.scrollHeight > e.target.clientHeight
+                                            e.target.scrollHeight >
+                                            e.target.clientHeight
                                         ) {
                                             e.target.style.height =
                                                 e.target.scrollHeight + "px";
@@ -1018,33 +1086,60 @@ export function Chat() {
                     {messages.map((msg, i) => {
                         if (msg.role === "system") return null;
                         const isUser = msg.role === "user";
-                        const hasThinking =
-                            !isUser && (msg.thinkingContent || "").length > 0;
                         const isStreamingThis =
                             isStreaming && i === messages.length - 1;
 
-                        return (
-                            <div
-                                key={i}
-                                className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                            >
-                                <div
-                                    className={`max-w-[80%] rounded-xl ${
-                                        isUser
-                                            ? "bg-(--accent) text-white rounded-br-sm p-2.5"
-                                            : "ui-card rounded-bl-sm p-4"
-                                    }`}
-                                >
-                                    {!isUser && msg.model && (
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Bot
-                                                size={14}
-                                                className="text-(--accent)"
-                                            />
-                                            <span className="text-xs text-(--accent) font-medium">
-                                                {msg.model.split("/").pop()}
+                        /* ── User message ── */
+                        if (isUser) {
+                            return (
+                                <div key={i} className="flex justify-end">
+                                    <div className="max-w-[80%] rounded-xl bg-(--accent) text-white rounded-br-sm p-2.5">
+                                        <div className="whitespace-pre-wrap text-xs">
+                                            {msg.content}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[11px] mt-0.5 text-white/60">
+                                            <span>
+                                                {formatTime(msg.timestamp)}
                                             </span>
-                                            {isStreamingThis ? (
+                                            <button
+                                                className="inline-flex items-center cursor-pointer transition-all text-white hover:drop-shadow-[0_0_4px_white]"
+                                                onClick={() => {
+                                                    navigator.clipboard
+                                                        .writeText(msg.content)
+                                                        .then(() =>
+                                                            toast(
+                                                                "Copied to clipboard",
+                                                                "info",
+                                                            ),
+                                                        )
+                                                        .catch(() =>
+                                                            toast(
+                                                                "Failed to copy",
+                                                                "error",
+                                                            ),
+                                                        );
+                                                }}
+                                            >
+                                                <Copy size={10} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        /* ── Assistant message ── */
+                        return (
+                            <div key={i} className="flex justify-start">
+                                <div className="max-w-[80%]">
+                                    <ModelReplyCard
+                                        model={msg.model || ""}
+                                        content={msg.content}
+                                        thinkingContent={msg.thinkingContent}
+                                        metrics={msg.metrics}
+                                        isStreaming={isStreamingThis}
+                                        headerEnd={
+                                            isStreamingThis ? (
                                                 <button
                                                     onClick={handleStop}
                                                     className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
@@ -1066,133 +1161,105 @@ export function Chat() {
                                                         className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer ml-1"
                                                         title="Regenerate"
                                                     >
-                                                        <RefreshCw
-                                                            size={14}
-                                                        />
+                                                        <RefreshCw size={14} />
                                                     </button>
                                                 )
-                                            )}
-                                        </div>
-                                    )}
-                                    {!isUser && hasThinking && (
-                                        <ThinkingBlock
-                                            thinking={msg.thinkingContent || ""}
-                                            isStreaming={isStreamingThis && !msg.content}
-                                        />
-                                    )}
-                                    {!isUser && msg.content ? (
-                                        <div className="prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] [&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-2 [&_pre]:text-[11px] [&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-3 [&_blockquote]:text-(--text-secondary) [&_strong]:text-white [&_em]:text-(--text-secondary) [&_a]:text-(--accent) [&_a]:underline [&_hr]:border-(--border-subtle) [&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)">
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                            >
-                                                {msg.content}
-                                            </ReactMarkdown>
-                                        </div>
-                                    ) : !isUser &&
-                                      !hasThinking &&
-                                      isStreamingThis ? (
-                                        <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                            Waiting...
-                                        </div>
-                                    ) : isUser ? (
-                                        <div className="whitespace-pre-wrap text-xs">
-                                            {msg.content}
-                                        </div>
-                                    ) : null}
-                                    <div
-                                        className={`flex items-center gap-3 text-[11px] ${
-                                            isUser
-                                                ? "mt-0.5 text-white/60"
-                                                : "mt-2 text-(--text-tertiary)"
-                                        }`}
-                                    >
-                                        <span>{formatTime(msg.timestamp)}</span>
-                                        {msg.metrics && (
-                                            <>
-                                                <span className="flex items-center gap-1">
-                                                    <Clock size={10} />
-                                                    {formatDuration(
-                                                        msg.metrics.durationMs,
-                                                    )}
-                                                </span>
-                                                {msg.metrics.tokensPerSecond !==
-                                                    null && (
-                                                    <span className="flex items-center gap-1">
-                                                        <Zap size={10} />
-                                                        {msg.metrics.tokensPerSecond.toFixed(
-                                                            1,
-                                                        )}{" "}
-                                                        tok/s
-                                                    </span>
-                                                )}
-                                                {msg.metrics.promptTokens +
-                                                    msg.metrics
-                                                        .completionTokens >
-                                                    0 && (
-                                                    <span>
-                                                        {msg.metrics
-                                                            .promptTokens +
-                                                            msg.metrics
-                                                                .completionTokens}{" "}
-                                                        tok
-                                                    </span>
-                                                )}
-                                            </>
-                                        )}
-                                        <button
-                                            className={`inline-flex items-center cursor-pointer transition-all ${
-                                                isUser
-                                                    ? "text-white hover:drop-shadow-[0_0_4px_white]"
-                                                    : "text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
-                                            }`}
-                                            onClick={() => {
-                                                navigator.clipboard
-                                                    .writeText(msg.content)
-                                                    .then(() =>
-                                                        toast("Copied to clipboard", "info"),
-                                                    )
-                                                    .catch(() =>
-                                                        toast("Failed to copy", "error"),
-                                                    );
-                                            }}
-                                        >
-                                            <Copy size={10} />
-                                        </button>
-                                        {!isUser && (
-                                            <button
-                                                className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
-                                                onClick={() => {
-                                                    setMessages((prev) => {
-                                                        const idx = prev.findIndex(
-                                                            (m) => m === msg,
-                                                        );
-                                                        if (idx === -1) return prev;
-                                                        const toRemove = new Set([idx]);
-                                                        if (idx > 0 && prev[idx - 1].role === "user")
-                                                            toRemove.add(idx - 1);
-                                                        return prev.filter(
-                                                            (_, i) => !toRemove.has(i),
-                                                        );
-                                                    });
-                                                    toast("Message deleted", "info");
-                                                }}
-                                            >
-                                                <Trash2 size={10} />
-                                            </button>
-                                        )}
-                                        {!isUser && msg.params && (
-                                            <span
-                                                className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
-                                                title={`Settings: ${Object.entries(msg.params)
-                                                    .filter(([, v]) => v !== undefined)
-                                                    .map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
-                                                    .join(", ")}`}
-                                            >
-                                                <Settings size={10} />
+                                            )
+                                        }
+                                        footerStart={
+                                            <span>
+                                                {formatTime(msg.timestamp)}
                                             </span>
-                                        )}
-                                    </div>
+                                        }
+                                        footerEnd={
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                                    onClick={() => {
+                                                        navigator.clipboard
+                                                            .writeText(
+                                                                msg.content,
+                                                            )
+                                                            .then(() =>
+                                                                toast(
+                                                                    "Copied to clipboard",
+                                                                    "info",
+                                                                ),
+                                                            )
+                                                            .catch(() =>
+                                                                toast(
+                                                                    "Failed to copy",
+                                                                    "error",
+                                                                ),
+                                                            );
+                                                    }}
+                                                >
+                                                    <Copy size={10} />
+                                                </button>
+                                                <button
+                                                    className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+                                                    onClick={() => {
+                                                        setMessages((prev) => {
+                                                            const idx =
+                                                                prev.findIndex(
+                                                                    (m) =>
+                                                                        m ===
+                                                                        msg,
+                                                                );
+                                                            if (idx === -1)
+                                                                return prev;
+                                                            const toRemove =
+                                                                new Set([idx]);
+                                                            if (
+                                                                idx > 0 &&
+                                                                prev[idx - 1]
+                                                                    .role ===
+                                                                    "user"
+                                                            )
+                                                                toRemove.add(
+                                                                    idx - 1,
+                                                                );
+                                                            return prev.filter(
+                                                                (_, i) =>
+                                                                    !toRemove.has(
+                                                                        i,
+                                                                    ),
+                                                            );
+                                                        });
+                                                        toast(
+                                                            "Message deleted",
+                                                            "info",
+                                                        );
+                                                    }}
+                                                >
+                                                    <Trash2 size={10} />
+                                                </button>
+                                                {msg.params && (
+                                                    <span
+                                                        className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
+                                                        title={`Settings: ${Object.entries(
+                                                            msg.params,
+                                                        )
+                                                            .filter(
+                                                                ([, v]) =>
+                                                                    v !==
+                                                                    undefined,
+                                                            )
+                                                            .map(
+                                                                ([k, v]) =>
+                                                                    `${k.replace(/_/g, " ")}=${v}`,
+                                                            )
+                                                            .join(", ")}`}
+                                                    >
+                                                        <Settings size={10} />
+                                                    </span>
+                                                )}
+                                            </div>
+                                        }
+                                        className="rounded-xl rounded-bl-sm p-4"
+                                        headerClassName="mb-2"
+                                        footerClassName="mt-2"
+                                    />
                                 </div>
                             </div>
                         );
