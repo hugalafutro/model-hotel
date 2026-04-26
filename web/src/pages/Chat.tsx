@@ -463,9 +463,11 @@ export function Chat() {
     );
 
     useEffect(() => {
-        const el = messagesContainerRef.current;
-        if (el) el.scrollTop = el.scrollHeight;
-    }, [messages]);
+        requestAnimationFrame(() => {
+            const el = messagesContainerRef.current;
+            if (el) el.scrollTop = el.scrollHeight;
+        });
+    }, [messages, controlsCollapsed]);
 
     useEffect(() => {
         if (!persistChat) return;
