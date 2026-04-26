@@ -149,6 +149,7 @@ export function Arena() {
         new Set(),
     );
     const [arenaCollapsed, setArenaCollapsed] = useState(false);
+    const [pendingReset, setPendingReset] = useState(false);
 
     useEffect(() => {
         if (!persistArena) return;
@@ -1124,13 +1125,22 @@ export function Arena() {
             <div className="ui-card p-4">
                 <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-(--text-primary)">Controls</span>
-                    <button
-                        onClick={() => setArenaCollapsed((c) => !c)}
-                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                        title={arenaCollapsed ? "Expand controls" : "Collapse controls"}
-                    >
-                        {arenaCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPendingReset(true)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                            title="Reset arena"
+                        >
+                            <RotateCcw size={14} />
+                        </button>
+                        <button
+                            onClick={() => setArenaCollapsed((c) => !c)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                            title={arenaCollapsed ? "Expand controls" : "Collapse controls"}
+                        >
+                            {arenaCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                        </button>
+                    </div>
                 </div>
                 <div
                     className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
@@ -1650,6 +1660,31 @@ export function Arena() {
                         autoExpandTextarea(promptRef);
                     }}
                     onCancel={() => setPendingPrompt(null)}
+                />
+            )}
+
+            {pendingReset && (
+                <ConfirmDialog
+                    title="Reset Arena"
+                    message="This will clear the bracket and all results. Continue?"
+                    fields={[]}
+                    confirmLabel="Reset"
+                    onConfirm={() => {
+                        setGroup1Models([]);
+                        setGroup2Models([]);
+                        setPrompt("");
+                        setSavedPrompt("");
+                        setActivePromptId(null);
+                        setRounds([]);
+                        setCurrentRound(0);
+                        setPhase("setup");
+                        setRunningModels(new Set());
+                        setWinnerModal(null);
+                        setDisabledModels(new Set());
+                        setPendingReset(false);
+                        toast("Arena reset", "info");
+                    }}
+                    onCancel={() => setPendingReset(false)}
                 />
             )}
 

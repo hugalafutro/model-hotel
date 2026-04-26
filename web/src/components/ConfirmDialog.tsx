@@ -2,14 +2,18 @@ import { X } from "lucide-react";
 
 interface ConfirmDialogProps {
     title: string;
+    message?: string;
     fields: string[];
+    confirmLabel?: string;
     onConfirm: () => void;
     onCancel: () => void;
 }
 
 export function ConfirmDialog({
     title,
+    message = "Discard changes to:",
     fields,
+    confirmLabel = "Discard",
     onConfirm,
     onCancel,
 }: ConfirmDialogProps) {
@@ -36,7 +40,7 @@ export function ConfirmDialog({
                 </button>
                 <h2 className="text-lg font-bold text-white mb-3">{title}</h2>
                 <p className="text-sm text-gray-300 mb-1">
-                    Discard changes to:
+                    {message}
                 </p>
                 <ul className="text-sm text-gray-400 mb-5 list-disc list-inside">
                     {fields.map((f) => (
@@ -56,7 +60,7 @@ export function ConfirmDialog({
                         onClick={onConfirm}
                         className="ui-btn ui-btn-danger"
                     >
-                        Discard
+                        {confirmLabel}
                     </button>
                 </div>
             </div>

@@ -447,6 +447,7 @@ export function Chat() {
     const [pendingPersona, setPendingPersona] = useState<
         import("../data/presets").PersonaPreset | null
     >(null);
+    const [pendingReset, setPendingReset] = useState(false);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
     const [messageParams, setMessageParams] = useState<GenerationParams>({});
@@ -748,13 +749,22 @@ export function Chat() {
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
                     <label className="text-sm text-(--text-secondary)">Model</label>
-                    <button
-                        onClick={() => setControlsCollapsed((c) => !c)}
-                        className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-                        title={controlsCollapsed ? "Expand controls" : "Collapse controls"}
-                    >
-                        {controlsCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPendingReset(true)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                            title="Reset chat"
+                        >
+                            <RotateCcw size={14} />
+                        </button>
+                        <button
+                            onClick={() => setControlsCollapsed((c) => !c)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                            title={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+                        >
+                            {controlsCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                        </button>
+                    </div>
                 </div>
                 <div
                     className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
@@ -1071,6 +1081,25 @@ export function Chat() {
                         autoExpandTextarea(systemPromptRef);
                     }}
                     onCancel={() => setPendingPersona(null)}
+                />
+            )}
+
+            {pendingReset && (
+                <ConfirmDialog
+                    title="Reset Chat"
+                    message="This will clear all messages and reset the chat. Continue?"
+                    fields={[]}
+                    confirmLabel="Reset"
+                    onConfirm={() => {
+                        setMessages([]);
+                        setInput("");
+                        setSystemPrompt("");
+                        setActivePersonaId(null);
+                        setMessageParams({});
+                        setPendingReset(false);
+                        toast("Chat reset", "info");
+                    }}
+                    onCancel={() => setPendingReset(false)}
                 />
             )}
         </div>
