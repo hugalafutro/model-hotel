@@ -159,7 +159,12 @@ export function Arena() {
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const currentRoundRef = useRef(0);
     const roundsLengthRef = useRef(0);
+    const roundsRef = useRef<BracketRound[]>([]);
     const promptRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        roundsRef.current = rounds;
+    }, [rounds]);
 
     const enabledModels = useMemo(
         () => models?.filter((m) => m.enabled && m.provider_name) || [],
@@ -533,7 +538,7 @@ export function Arena() {
 
     const runRound = useCallback(
         (roundIdx: number) => {
-            const round = rounds[roundIdx];
+            const round = roundsRef.current[roundIdx];
             if (!round) return;
 
             const currentPrompt = savedPrompt || prompt.trim();
@@ -612,7 +617,7 @@ export function Arena() {
                 }
             }
         },
-        [rounds, savedPrompt, prompt, streamModel],
+        [savedPrompt, prompt, streamModel],
     );
 
     const handleRunArena = useCallback(() => {
@@ -709,6 +714,7 @@ export function Arena() {
         (roundIdx: number, matchupIdx: number, vote: "A" | "B") => {
             let shouldAdvance = false;
             let advanceRoundIdx = -1;
+            let shouldDeclareWinner = false;
 
             setRounds((prev) => {
                 const next = prev.map((r) => ({
@@ -723,27 +729,31 @@ export function Arena() {
                 if (
                     roundIdx === currentRoundRef.current &&
                     mu?.vote !== null &&
-                    next[roundIdx].matchups.every((m) => m.vote !== null) &&
-                    roundIdx < next.length - 1
+                    next[roundIdx].matchups.every((m) => m.vote !== null)
                 ) {
-                    shouldAdvance = true;
-                    advanceRoundIdx = roundIdx;
+                    if (roundIdx < next.length - 1) {
+                        shouldAdvance = true;
+                        advanceRoundIdx = roundIdx;
 
-                    const winners = next[roundIdx].matchups.map((m) =>
-                        m.vote === "A" ? m.slotA : m.slotB,
-                    );
-                    const nextRoundIdx = roundIdx + 1;
-                    if (next[nextRoundIdx] && winners.length >= 2) {
-                        next[nextRoundIdx].matchups[0] = {
-                            slotA: winners[0] ? { ...winners[0] } : null,
-                            slotB: winners[1] ? { ...winners[1] } : null,
-                            responseA: null,
-                            responseB: null,
-                            vote: null,
-                        };
+                        const winners = next[roundIdx].matchups.map((m) =>
+                            m.vote === "A" ? m.slotA : m.slotB,
+                        );
+                        const nextRoundIdx = roundIdx + 1;
+                        if (next[nextRoundIdx] && winners.length >= 2) {
+                            next[nextRoundIdx].matchups[0] = {
+                                slotA: winners[0] ? { ...winners[0] } : null,
+                                slotB: winners[1] ? { ...winners[1] } : null,
+                                responseA: null,
+                                responseB: null,
+                                vote: null,
+                            };
+                        }
+                    } else {
+                        shouldDeclareWinner = true;
                     }
                 }
 
+                roundsRef.current = next;
                 return next;
             });
 
@@ -754,66 +764,22 @@ export function Arena() {
                 setPhase("running");
                 queueMicrotask(() => runRound(nextRI));
             }
+
+            if (shouldDeclareWinner) {
+                const finalRound = roundsRef.current[roundIdx];
+                const finalMu = finalRound?.matchups[0];
+                const winner =
+                    finalMu?.vote === "A"
+                        ? finalMu.slotA?.modelId
+                        : finalMu.slotB?.modelId;
+                if (winner) {
+                    setWinnerModal({ winner, rounds: roundsRef.current });
+                    setPhase("finished");
+                }
+            }
         },
         [runRound],
     );
-
-    const handleAdvanceRound = useCallback(() => {
-        const round = rounds[currentRound];
-        if (!round) return;
-
-        const allVoted = round.matchups.every((mu) => mu.vote !== null);
-        if (!allVoted) return;
-
-        const isLastRound = currentRound >= rounds.length - 1;
-
-        if (isLastRound) {
-            const finalMu = round.matchups[0];
-            const winner =
-                finalMu?.vote === "A"
-                    ? finalMu.slotA?.modelId
-                    : finalMu.slotB?.modelId;
-            if (winner) {
-                setWinnerModal({ winner, rounds });
-                setPhase("finished");
-            }
-            return;
-        }
-
-        const winners = round.matchups.map((mu) =>
-            mu.vote === "A" ? mu.slotA : mu.slotB,
-        );
-
-        setRounds((prev) => {
-            const next = prev.map((r) => ({
-                ...r,
-                matchups: r.matchups.map((m) => ({ ...m })),
-            }));
-            const nextRoundIdx = currentRound + 1;
-            if (next[nextRoundIdx] && winners.length >= 2) {
-                next[nextRoundIdx].matchups[0] = {
-                    slotA: winners[0] ? { ...winners[0] } : null,
-                    slotB: winners[1] ? { ...winners[1] } : null,
-                    responseA: null,
-                    responseB: null,
-                    vote: null,
-                };
-            }
-            return next;
-        });
-
-        setCurrentRound((prev) => {
-            const next = prev + 1;
-            currentRoundRef.current = next;
-            return next;
-        });
-        setPhase("next_round_ready");
-    }, [rounds, currentRound]);
-
-    const handleRunNextRound = useCallback(() => {
-        if (phase !== "next_round_ready") return;
-        runRound(currentRound);
-    }, [phase, currentRound, runRound]);
 
     const handleStopAll = useCallback(() => {
         for (const [, ctrl] of abortMapRef.current) {
@@ -1031,21 +997,11 @@ export function Arena() {
 
     const isRunning = runningModels.size > 0;
 
-    const allCurrentRoundVoted = useMemo(() => {
-        const round = rounds[currentRound];
-        if (!round) return false;
-        return round.matchups.every((mu) => mu.vote !== null);
-    }, [rounds, currentRound]);
-
     const buttonLabel = useMemo(() => {
         if (isRunning) return "Stop";
         if (phase === "setup") return "Run Arena";
-        if (phase === "voting" && allCurrentRoundVoted) {
-            const isLastRound = currentRound >= rounds.length - 1;
-            return isLastRound ? "Confirm Winner" : null;
-        }
         return null;
-    }, [isRunning, phase, currentRound, allCurrentRoundVoted, rounds.length]);
+    }, [isRunning, phase]);
 
     const showResponseGrid = phase !== "setup";
 
@@ -1551,52 +1507,20 @@ export function Arena() {
                     {/* Run Button */}
                     {buttonLabel && (
                         <button
-                            onClick={
-                                isRunning
-                                    ? handleStopAll
-                                    : phase === "voting" && allCurrentRoundVoted
-                                      ? handleAdvanceRound
-                                      : phase === "next_round_ready"
-                                        ? handleRunNextRound
-                                        : handleRunArena
-                            }
-                            disabled={
-                                isRunning
-                                    ? false
-                                    : phase === "setup"
-                                      ? !canRun
-                                      : phase === "voting"
-                                        ? !allCurrentRoundVoted
-                                        : false
-                            }
+                            onClick={isRunning ? handleStopAll : handleRunArena}
+                            disabled={phase === "setup" && !canRun}
                             title={
                                 phase === "setup" && !canRun
                                     ? disabledReason
-                                    : phase === "voting" &&
-                                        !allCurrentRoundVoted
-                                      ? disabledReason
-                                      : undefined
+                                    : undefined
                             }
                             className={`ui-btn flex items-center gap-2 shrink-0 ${
-                                isRunning
-                                    ? "ui-btn-danger"
-                                    : phase === "voting" &&
-                                        allCurrentRoundVoted &&
-                                        currentRound >= rounds.length - 1
-                                      ? "bg-amber-600 hover:bg-amber-500 text-white"
-                                      : "ui-btn-primary"
+                                isRunning ? "ui-btn-danger" : "ui-btn-primary"
                             } disabled:opacity-40`}
                         >
                             {isRunning ? (
                                 <>
                                     <X size={16} />
-                                    {buttonLabel}
-                                </>
-                            ) : phase === "voting" &&
-                              allCurrentRoundVoted &&
-                              currentRound >= rounds.length - 1 ? (
-                                <>
-                                    <Trophy size={16} />
                                     {buttonLabel}
                                 </>
                             ) : (
