@@ -419,14 +419,7 @@ export function Chat() {
         } catch { /* ignore corrupt stored data */ }
         return [];
     });
-    const [selectedModel, setSelectedModel] = useState<string>(() => {
-        try {
-            if (localStorage.getItem("persistChat") === "true") {
-                return localStorage.getItem("chatSelectedModel") ?? "";
-            }
-        } catch { /* ignore */ }
-        return "";
-    });
+    const [selectedModel, setSelectedModel] = useState("");
     const [systemPrompt, setSystemPrompt] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistChat") === "true") {
@@ -490,13 +483,6 @@ export function Chat() {
             localStorage.setItem("chatMessages", JSON.stringify(messages));
         } catch { /* quota exceeded */ }
     }, [messages, persistChat]);
-
-    useEffect(() => {
-        if (!persistChat) return;
-        try {
-            localStorage.setItem("chatSelectedModel", selectedModel);
-        } catch { /* quota exceeded */ }
-    }, [selectedModel, persistChat]);
 
     useEffect(() => {
         if (!persistChat) return;
@@ -1296,6 +1282,7 @@ export function Chat() {
                     onConfirm={() => {
                         setMessages([]);
                         setInput("");
+                        setSelectedModel("");
                         setSystemPrompt("");
                         setActivePersonaId(null);
                         setMessageParams({});

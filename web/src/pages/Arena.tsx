@@ -98,24 +98,8 @@ export function Arena() {
     const { toast } = useToast();
     const { persistArena } = useStorage();
 
-    const [group1Models, setGroup1Models] = useState<string[]>(() => {
-        try {
-            if (localStorage.getItem("persistArena") === "true") {
-                const stored = localStorage.getItem("arenaGroup1Models");
-                if (stored) return JSON.parse(stored);
-            }
-        } catch { /* ignore corrupt stored data */ }
-        return [];
-    });
-    const [group2Models, setGroup2Models] = useState<string[]>(() => {
-        try {
-            if (localStorage.getItem("persistArena") === "true") {
-                const stored = localStorage.getItem("arenaGroup2Models");
-                if (stored) return JSON.parse(stored);
-            }
-        } catch { /* ignore corrupt stored data */ }
-        return [];
-    });
+    const [group1Models, setGroup1Models] = useState<string[]>([]);
+    const [group2Models, setGroup2Models] = useState<string[]>([]);
 
     const [activePromptId, setActivePromptId] = useState<string | null>(
         () => {
@@ -151,26 +135,6 @@ export function Arena() {
     );
     const [arenaCollapsed, setArenaCollapsed] = useState(false);
     const [pendingReset, setPendingReset] = useState(false);
-
-    useEffect(() => {
-        if (!persistArena) return;
-        try {
-            localStorage.setItem(
-                "arenaGroup1Models",
-                JSON.stringify(group1Models),
-            );
-        } catch { /* quota exceeded */ }
-    }, [group1Models, persistArena]);
-
-    useEffect(() => {
-        if (!persistArena) return;
-        try {
-            localStorage.setItem(
-                "arenaGroup2Models",
-                JSON.stringify(group2Models),
-            );
-        } catch { /* quota exceeded */ }
-    }, [group2Models, persistArena]);
 
     useEffect(() => {
         if (!persistArena) return;
@@ -895,8 +859,6 @@ export function Arena() {
         setSavedPrompt("");
         setDisabledModels(new Set());
         try {
-            localStorage.removeItem("arenaGroup1Models");
-            localStorage.removeItem("arenaGroup2Models");
             localStorage.removeItem("arenaPrompt");
             localStorage.removeItem("arenaActivePromptId");
         } catch { /* ignore */ }
@@ -1698,8 +1660,6 @@ export function Arena() {
                         setDisabledModels(new Set());
                         setPendingReset(false);
                         try {
-                            localStorage.removeItem("arenaGroup1Models");
-                            localStorage.removeItem("arenaGroup2Models");
                             localStorage.removeItem("arenaPrompt");
                             localStorage.removeItem("arenaActivePromptId");
                         } catch { /* ignore */ }

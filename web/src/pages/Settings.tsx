@@ -686,9 +686,9 @@ export function Settings() {
                         </h2>
                     </div>
                     <p className="text-gray-400 text-sm mb-6">
-                        Persist chat and arena sessions in your browser. When
-                        enabled, your session survives navigation and page reloads.
-                        When disabled, data is lost when you leave the page.
+                        Persist session data in your browser. When enabled, your
+                        conversations and arena state survive page reloads. When
+                        disabled, all session data is lost on navigation.
                     </p>
 
                     <div className="space-y-5">
@@ -698,8 +698,8 @@ export function Settings() {
                                     Persist Chat
                                 </p>
                                 <p className="text-gray-500 text-xs mt-0.5">
-                                    Save chat messages and model selection across
-                                    page visits
+                                    Remember chat messages, prompt, and persona
+                                    across sessions
                                 </p>
                             </div>
                             <button
@@ -736,8 +736,8 @@ export function Settings() {
                                     Persist Arena
                                 </p>
                                 <p className="text-gray-500 text-xs mt-0.5">
-                                    Save arena bracket state and model selections
-                                    across page visits
+                                    Remember arena bracket state and prompts
+                                    across sessions
                                 </p>
                             </div>
                             <button

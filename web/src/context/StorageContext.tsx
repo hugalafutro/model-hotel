@@ -40,7 +40,6 @@ export function StorageProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(CHAT_KEY, String(v));
         if (!v) {
             localStorage.removeItem("chatMessages");
-            localStorage.removeItem("chatSelectedModel");
             localStorage.removeItem("chatSystemPrompt");
             localStorage.removeItem("chatActivePersonaId");
         }
@@ -50,8 +49,6 @@ export function StorageProvider({ children }: { children: ReactNode }) {
         setPersistArenaState(v);
         localStorage.setItem(ARENA_KEY, String(v));
         if (!v) {
-            localStorage.removeItem("arenaGroup1Models");
-            localStorage.removeItem("arenaGroup2Models");
             localStorage.removeItem("arenaPrompt");
             localStorage.removeItem("arenaActivePromptId");
         }
