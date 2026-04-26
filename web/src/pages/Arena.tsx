@@ -1277,36 +1277,20 @@ export function Arena() {
     return (
         <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="shrink-0">
-                    <div className="flex items-center gap-3">
-                        <Swords
-                            size={28}
-                            strokeWidth={2}
-                            className="text-(--accent)"
-                        />
-                        <h1 className="text-3xl font-bold text-white">Arena</h1>
-                    </div>
-                    <p className="text-gray-400">
-                        {arenaMode === "competition"
-                            ? "Bracket tournament — models compete head-to-head"
-                            : "Side-by-side — compare model outputs on the same prompt"}
-                    </p>
+            <div>
+                <div className="flex items-center gap-3">
+                    <Swords
+                        size={28}
+                        strokeWidth={2}
+                        className="text-(--accent)"
+                    />
+                    <h1 className="text-3xl font-bold text-white">Arena</h1>
                 </div>
-                <div className="min-w-0 max-w-80">
-                    <div className="rounded-lg border border-(--border-subtle) bg-(--surface)/50 px-3.5 py-2.5">
-                        <p className="text-xs font-semibold text-(--text-secondary) mb-1">
-                            {arenaMode === "competition"
-                                ? "Competition Mode"
-                                : "Comparison Mode"}
-                        </p>
-                        <p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3">
-                            {arenaMode === "competition"
-                                ? "Models are paired in a single-elimination bracket. Each round, every pair receives the same prompt — you vote for the better response. Winners advance until one model remains. The prompts are designed to stress-test creativity, reasoning, and instruction-following."
-                                : "Pick models and run the same prompt through them simultaneously. No voting, no bracket — just pure side-by-side output comparison to evaluate which model best fits your needs."}
-                        </p>
-                    </div>
-                </div>
+                <p className="text-gray-400">
+                    {arenaMode === "competition"
+                        ? "Bracket tournament — models compete head-to-head"
+                        : "Side-by-side — compare model outputs on the same prompt"}
+                </p>
             </div>
 
             {/* Controls */}
@@ -1695,6 +1679,13 @@ export function Arena() {
                         </button>
                     )}
                 </div>
+
+                {/* Mode Description */}
+                <p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3 mt-3">
+                    {arenaMode === "competition"
+                        ? "Models are paired in a single-elimination bracket. Each round, every pair receives the same prompt — you vote for the better response. Winners advance until one model remains. The prompts are designed to stress-test creativity, reasoning, and instruction-following."
+                        : "Pick models and run the same prompt through them simultaneously. No voting, no bracket — just pure side-by-side output comparison to evaluate which model best fits your needs."}
+                </p>
             </div>
 
             {/* Response Grid */}

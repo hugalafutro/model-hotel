@@ -450,7 +450,16 @@ export function Chat() {
         }
         return [];
     });
-    const [selectedModel, setSelectedModel] = useState("");
+    const [selectedModel, setSelectedModel] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistChat") === "true") {
+                return localStorage.getItem("chatSelectedModel") ?? "";
+            }
+        } catch {
+            /* ignore */
+        }
+        return "";
+    });
     const [systemPrompt, setSystemPrompt] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistChat") === "true") {
@@ -534,6 +543,15 @@ export function Chat() {
             /* quota exceeded */
         }
     }, [activePersonaId, persistChat]);
+
+    useEffect(() => {
+        if (!persistChat) return;
+        try {
+            localStorage.setItem("chatSelectedModel", selectedModel);
+        } catch {
+            /* quota exceeded */
+        }
+    }, [selectedModel, persistChat]);
 
     const handleSend = useCallback(async () => {
         if (!input.trim() || !selectedModel || isStreaming) return;

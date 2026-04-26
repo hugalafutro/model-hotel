@@ -109,9 +109,6 @@ export function ModelReplyCard({
                         {afterModel}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                        {isStreaming && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                        )}
                         {headerEnd}
                     </div>
                 </div>
