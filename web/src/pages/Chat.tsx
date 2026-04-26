@@ -143,7 +143,7 @@ function ModelDetailPill({ model }: { model: Model }) {
     const caps = parseCapabilities(model.capabilities);
 
     return (
-        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto min-h-80">
+        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto max-h-full">
             <div>
                 <h3 className="text-sm font-semibold text-(--text-primary) leading-tight">
                     {model.display_name || model.model_id}
@@ -494,7 +494,7 @@ export function Chat() {
     };
 
     return (
-        <div className="flex flex-col gap-6 h-[calc(100vh-64px)]">
+        <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -561,11 +561,11 @@ export function Chat() {
             {/* Chat Area: Model Details + Messages */}
             <div className="flex gap-4 flex-1 min-h-0">
                 {/* Model Details Pill */}
-                <div className="w-1/4 shrink-0">
+                <div className="w-1/4 shrink-0 flex flex-col min-h-0">
                     {selectedModelObj ? (
                         <ModelDetailPill model={selectedModelObj} />
                     ) : (
-                        <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs min-h-80">
+                        <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
                             <Bot
                                 size={32}
                                 strokeWidth={1}
