@@ -287,7 +287,17 @@ function OverheadModal({
    Main Logs page
    ===================================================== */
 export function Logs() {
-    type LogSortField = "time" | "model" | "provider" | "status" | "tokens" | "tps" | "ttft" | "duration" | "overhead" | "key";
+    type LogSortField =
+        | "time"
+        | "model"
+        | "provider"
+        | "status"
+        | "tokens"
+        | "tps"
+        | "ttft"
+        | "duration"
+        | "overhead"
+        | "key";
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
@@ -683,9 +693,9 @@ export function Logs() {
             <div className="ui-card overflow-x-auto">
                 <table className="w-full table-fixed ui-table min-w-250">
                     <colgroup>
-                        <col className="w-37.5" />
-                        <col className="w-32.5" />
-                        <col className="w-37.5" />
+                        <col className="w-30" />
+                        <col className="w-27" />
+                        <col className="w-50" />
                         <col className="w-25" />
                         <col className="w-15" />
                         <col className="w-17.5" />
@@ -811,7 +821,19 @@ export function Logs() {
                                             className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate"
                                             title={log.model_id}
                                         >
-                                            {log.model_id || "-"}
+                                            {log.model_id
+                                                ? log.model_id.startsWith(
+                                                      "hotel/",
+                                                  )
+                                                    ? log.model_id
+                                                    : log.model_id.includes("/")
+                                                      ? log.model_id.slice(
+                                                            log.model_id.indexOf(
+                                                                "/",
+                                                            ) + 1,
+                                                        )
+                                                      : log.model_id
+                                                : "-"}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
                                             {log.provider_name === "Deleted" ? (
