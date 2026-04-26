@@ -26,7 +26,7 @@ export function ThinkingBlock({
             </button>
             {open && (
                 <div className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto">
-                    {thinking}
+                    {thinking.replace(/^\n+/, "")}
                 </div>
             )}
         </>
