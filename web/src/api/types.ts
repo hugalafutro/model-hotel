@@ -344,6 +344,16 @@ export interface ZAIQuotaResponse {
     success: boolean;
 }
 
+export interface GenerationParams {
+    temperature?: number;
+    max_tokens?: number;
+    top_p?: number;
+    min_p?: number;
+    top_k?: number;
+    frequency_penalty?: number;
+    presence_penalty?: number;
+}
+
 export interface ChatMessage {
     role: "user" | "assistant" | "system";
     content: string;
@@ -357,4 +367,5 @@ export interface ChatMessage {
         promptTokens: number;
         completionTokens: number;
     };
+    params?: GenerationParams;
 }

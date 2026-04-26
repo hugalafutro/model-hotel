@@ -11,9 +11,10 @@ import {
     Brain,
     ChevronDown,
     ChevronRight,
+    Settings,
 } from "lucide-react";
-import type { Model } from "../api/types";
-import type { ChatMessage } from "../api/types";
+import type { Model, ChatMessage, GenerationParams } from "../api/types";
+
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
@@ -108,6 +109,18 @@ function extractThinking(raw: string): {
     return { thinking, content };
 }
 
+function hasAnyParam(p: GenerationParams): boolean {
+    return (
+        p.temperature !== undefined ||
+        p.max_tokens !== undefined ||
+        p.top_p !== undefined ||
+        p.min_p !== undefined ||
+        p.top_k !== undefined ||
+        p.frequency_penalty !== undefined ||
+        p.presence_penalty !== undefined
+    );
+}
+
 function ChatThinkingBlock({
     thinking,
     isStreaming,
@@ -140,20 +153,209 @@ function ChatThinkingBlock({
     );
 }
 
-function ModelDetailPill({ model }: { model: Model }) {
+interface ModelDetailPillProps {
+    model: Model;
+    params: GenerationParams;
+    onParamsChange: (params: GenerationParams) => void;
+}
+
+function ParamSlider({
+    label,
+    value,
+    min,
+    max,
+    step,
+    onChange,
+}: {
+    label: string;
+    value: number | undefined;
+    min: number;
+    max: number;
+    step: number;
+    onChange: (v: number | undefined) => void;
+}) {
+    const isSet = value !== undefined;
+    return (
+        <div className="space-y-1">
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                    {label}
+                </span>
+                <input
+                    type="number"
+                    value={isSet ? value : ""}
+                    min={min}
+                    max={max}
+                    step={step}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "" || v === "-" || v === ".") {
+                            onChange(undefined);
+                            return;
+                        }
+                        const n = parseFloat(v);
+                        if (!isNaN(n)) onChange(n);
+                    }}
+                    placeholder="off"
+                    className="w-16 text-right px-1 py-0.5 rounded bg-(--surface-input) text-[10px] text-(--text-primary) border border-transparent focus:border-(--accent) outline-none placeholder:text-(--text-tertiary)"
+                />
+            </div>
+            <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={isSet ? value : min}
+                onChange={(e) => onChange(parseFloat(e.target.value))}
+                className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-(--surface-hover) accent-(--accent)"
+                style={{
+                    background: isSet
+                        ? `linear-gradient(to right, var(--accent) ${((value! - min) / (max - min)) * 100}%, var(--surface-hover) ${((value! - min) / (max - min)) * 100}%)`
+                        : undefined,
+                }}
+            />
+        </div>
+    );
+}
+
+function ModelDetailPill({ model, params, onParamsChange }: ModelDetailPillProps) {
     const caps = parseCapabilities(model.capabilities);
+    const [open, setOpen] = useState(false);
+
+    const hasCustom =
+        params.temperature !== undefined ||
+        params.max_tokens !== undefined ||
+        params.top_p !== undefined ||
+        params.min_p !== undefined ||
+        params.top_k !== undefined ||
+        params.frequency_penalty !== undefined ||
+        params.presence_penalty !== undefined;
 
     return (
-        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto max-h-full">
-            <div>
-                <h3 className="text-sm font-semibold text-(--text-primary) leading-tight">
-                    {model.display_name || model.model_id}
-                </h3>
-                {model.description && (
-                    <p className="text-(--text-secondary) mt-1 line-clamp-4 text-[11px]">
-                        {model.description}
-                    </p>
-                )}
+        <div className="ui-card p-3 space-y-3 text-xs overflow-y-auto max-h-full relative">
+            {/* Header with cog */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h3 className="text-sm font-semibold text-(--text-primary) leading-tight">
+                        {model.display_name || model.model_id}
+                    </h3>
+                    {model.description && (
+                        <p className="text-(--text-secondary) mt-1 line-clamp-4 text-[11px]">
+                            {model.description}
+                        </p>
+                    )}
+                </div>
+                <button
+                    onClick={() => setOpen((s) => !s)}
+                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
+                        open || hasCustom
+                            ? "text-(--accent)"
+                            : "text-(--text-tertiary) hover:text-(--accent)"
+                    }`}
+                    title="Generation parameters"
+                >
+                    <Settings size={14} />
+                </button>
+            </div>
+
+            {/* Slide-out panel */}
+            <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
+                    open ? "max-h-125 opacity-100 pt-2 mt-1" : "max-h-0 opacity-0 pt-0 mt-0"
+                }`}
+            >
+                <div className="space-y-3">
+                    <ParamSlider
+                        label="Temperature"
+                        value={params.temperature}
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        onChange={(v) =>
+                            onParamsChange({ ...params, temperature: v })
+                        }
+                    />
+                    <ParamSlider
+                        label="Max Tokens"
+                        value={params.max_tokens}
+                        min={1}
+                        max={32768}
+                        step={1}
+                        onChange={(v) =>
+                            onParamsChange({
+                                ...params,
+                                max_tokens:
+                                    v === undefined ? undefined : Math.round(v),
+                            })
+                        }
+                    />
+                    <ParamSlider
+                        label="Top P"
+                        value={params.top_p}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onChange={(v) =>
+                            onParamsChange({ ...params, top_p: v })
+                        }
+                    />
+                    <ParamSlider
+                        label="Min P"
+                        value={params.min_p}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onChange={(v) =>
+                            onParamsChange({ ...params, min_p: v })
+                        }
+                    />
+                    <ParamSlider
+                        label="Top K"
+                        value={params.top_k}
+                        min={1}
+                        max={100}
+                        step={1}
+                        onChange={(v) =>
+                            onParamsChange({
+                                ...params,
+                                top_k:
+                                    v === undefined ? undefined : Math.round(v),
+                            })
+                        }
+                    />
+                    <ParamSlider
+                        label="Freq Penalty"
+                        value={params.frequency_penalty}
+                        min={-2}
+                        max={2}
+                        step={0.01}
+                        onChange={(v) =>
+                            onParamsChange({
+                                ...params,
+                                frequency_penalty: v,
+                            })
+                        }
+                    />
+                    <ParamSlider
+                        label="Pres Penalty"
+                        value={params.presence_penalty}
+                        min={-2}
+                        max={2}
+                        step={0.01}
+                        onChange={(v) =>
+                            onParamsChange({
+                                ...params,
+                                presence_penalty: v,
+                            })
+                        }
+                    />
+                    <button
+                        onClick={() => onParamsChange({})}
+                        className="w-full py-1 text-[10px] text-(--accent) hover:text-(--accent)/80 text-center border border-(--accent)/20 rounded hover:bg-(--accent)/5 transition-colors cursor-pointer"
+                    >
+                        Reset all
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-2">
@@ -298,6 +500,7 @@ export function Chat() {
     >(null);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
+    const [messageParams, setMessageParams] = useState<GenerationParams>({});
     const abortRef = useRef<AbortController | null>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const systemPromptRef = useRef<HTMLTextAreaElement>(null);
@@ -434,6 +637,7 @@ export function Chat() {
             thinkingContent: "",
             model: selectedModel,
             timestamp: Date.now(),
+            params: hasAnyParam(messageParams) ? messageParams : undefined,
         };
         setMessages((prev) => [...prev, assistantMessage]);
 
@@ -442,6 +646,7 @@ export function Chat() {
                 model: selectedModel,
                 stream: true,
                 messages: chatMessages,
+                ...(hasAnyParam(messageParams) ? messageParams : {}),
             });
 
             const reader = resp.body?.getReader();
@@ -542,7 +747,7 @@ export function Chat() {
             setIsStreaming(false);
             abortRef.current = null;
         }
-    }, [input, selectedModel, isStreaming, messages, systemPrompt, toast]);
+    }, [input, selectedModel, isStreaming, messages, systemPrompt, messageParams, toast]);
 
     const handleStop = useCallback(() => {
         abortRef.current?.abort();
@@ -628,7 +833,11 @@ export function Chat() {
                 {/* Model Details Pill */}
                 <div className="w-1/4 shrink-0 flex flex-col min-h-0">
                     {selectedModelObj ? (
-                        <ModelDetailPill model={selectedModelObj} />
+                        <ModelDetailPill
+                            model={selectedModelObj}
+                            params={messageParams}
+                            onParamsChange={setMessageParams}
+                        />
                     ) : (
                         <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
                             <Bot
@@ -752,6 +961,17 @@ export function Chat() {
                                                             msg.metrics
                                                                 .completionTokens}{" "}
                                                         tok
+                                                    </span>
+                                                )}
+                                                {msg.params && (
+                                                    <span
+                                                        className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
+                                                        title={`Settings: ${Object.entries(msg.params)
+                                                            .filter(([, v]) => v !== undefined)
+                                                            .map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
+                                                            .join(", ")}`}
+                                                    >
+                                                        <Settings size={10} />
                                                     </span>
                                                 )}
                                             </>

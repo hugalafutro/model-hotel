@@ -497,14 +497,19 @@ export const api = {
         },
     },
 
-    chat: {
-        completions: async (body: {
-            model: string;
-            stream: boolean;
-            messages: Array<{ role: string; content: string }>;
-            temperature?: number;
-            max_tokens?: number;
-        }): Promise<Response> => {
+        chat: {
+            completions: async (body: {
+                model: string;
+                stream: boolean;
+                messages: Array<{ role: string; content: string }>;
+                temperature?: number;
+                max_tokens?: number;
+                top_p?: number;
+                min_p?: number;
+                top_k?: number;
+                frequency_penalty?: number;
+                presence_penalty?: number;
+            }): Promise<Response> => {
             const response = await fetch(`${API_BASE}/api/chat/completions`, {
                 method: "POST",
                 headers: getAuthHeaders(),
@@ -523,6 +528,11 @@ export const api = {
             messages: Array<{ role: string; content: string }>;
             temperature?: number;
             max_tokens?: number;
+            top_p?: number;
+            min_p?: number;
+            top_k?: number;
+            frequency_penalty?: number;
+            presence_penalty?: number;
         }): Promise<Response> => {
             const response = await fetch(`${API_BASE}/api/chat/chat`, {
                 method: "POST",
