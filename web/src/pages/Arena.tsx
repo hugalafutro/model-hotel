@@ -17,6 +17,7 @@ import {
     RefreshCw,
     ChevronsUpDown,
     ChevronsDownUp,
+    CircleStop,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -1858,11 +1859,16 @@ function MatchupCard({
 
             {isVotingPhase && (
                 <button
-                    onClick={() => onVote(roundIdx, matchupIdx, slotKey)}
-                    className={`mt-1 flex items-center gap-1 text-xs transition-all cursor-pointer ${
+                    onClick={vote === null ? () => onVote(roundIdx, matchupIdx, slotKey) : undefined}
+                    disabled={vote !== null}
+                    className={`mt-1 flex items-center gap-1 text-xs transition-all ${
+                        vote === null
+                            ? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
+                            : "cursor-default"
+                    } ${
                         isWinner
                             ? "text-green-400"
-                            : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                            : ""
                     }`}
                 >
                     <VoteThumb
@@ -2020,9 +2026,11 @@ function ResponseCard({
                                         response.model,
                                     )
                                 }
-                                className="w-2 h-2 rounded-full bg-red-400/60 hover:bg-red-400 transition-colors cursor-pointer"
+                                className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
                                 title="Cancel"
-                            />
+                            >
+                                <CircleStop size={14} />
+                            </button>
                             <span className="text-[11px] text-(--text-tertiary) tabular-nums">
                                 {elapsed}s
                             </span>
@@ -2091,8 +2099,13 @@ function ResponseCard({
                 )}
                 {showVote && (
                     <button
-                        onClick={() => onVote(roundIdx, matchupIdx, slotKey)}
-                        className={`flex items-center gap-1 transition-all cursor-pointer ${
+                        onClick={vote === null ? () => onVote(roundIdx, matchupIdx, slotKey) : undefined}
+                        disabled={vote !== null}
+                        className={`flex items-center gap-1 transition-all ${
+                            vote === null
+                                ? "cursor-pointer"
+                                : "cursor-default"
+                        } ${
                             isWinner
                                 ? "text-green-400 hover:text-green-300"
                                 : "text-(--text-tertiary) hover:text-(--text-secondary)"
