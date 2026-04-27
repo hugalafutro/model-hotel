@@ -343,8 +343,8 @@ function ModelDetailModal({
         {
             name: pMid,
             display_name: model.name,
-            max_tokens: model.context_length,
-            max_output_tokens: model.max_output_tokens,
+            max_tokens: model.max_output_tokens,
+            context_length: model.context_length,
             capabilities: {
                 tools: hasCap(caps, "tool_calling"),
                 images: hasCap(caps, "vision"),

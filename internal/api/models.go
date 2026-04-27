@@ -18,50 +18,52 @@ import (
 )
 
 type ModelResponse struct {
-	ID                    string   `json:"id"`
-	ModelID               string   `json:"model_id"`
-	Name                  string   `json:"name"`
-	Description           string   `json:"description"`
-	DisplayName           string   `json:"display_name"`
-	ProviderID            string   `json:"provider_id"`
-	ProviderName          string   `json:"provider_name"`
-	Capabilities          string   `json:"capabilities"`
-	Params                string   `json:"params"`
-	Modality              string   `json:"modality"`
-	InputModalities       string   `json:"input_modalities"`
-	OutputModalities      string   `json:"output_modalities"`
-	ContextLength         *int     `json:"context_length"`
-	MaxOutputTokens       *int     `json:"max_output_tokens"`
-	InputPricePerMillion  *float64 `json:"input_price_per_million"`
-	OutputPricePerMillion *float64 `json:"output_price_per_million"`
-	OwnedBy               string   `json:"owned_by"`
-	Enabled               bool     `json:"enabled"`
-	CreatedAt             string   `json:"created_at"`
-	LastSeenAt            string   `json:"last_seen_at"`
+	ID                           string   `json:"id"`
+	ModelID                      string   `json:"model_id"`
+	Name                         string   `json:"name"`
+	Description                  string   `json:"description"`
+	DisplayName                  string   `json:"display_name"`
+	ProviderID                   string   `json:"provider_id"`
+	ProviderName                 string   `json:"provider_name"`
+	Capabilities                 string   `json:"capabilities"`
+	Params                       string   `json:"params"`
+	Modality                     string   `json:"modality"`
+	InputModalities              string   `json:"input_modalities"`
+	OutputModalities             string   `json:"output_modalities"`
+	ContextLength                *int     `json:"context_length"`
+	MaxOutputTokens              *int     `json:"max_output_tokens"`
+	InputPricePerMillion         *float64 `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit *float64 `json:"input_price_per_million_cache_hit"`
+	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
+	OwnedBy                      string   `json:"owned_by"`
+	Enabled                      bool     `json:"enabled"`
+	CreatedAt                    string   `json:"created_at"`
+	LastSeenAt                   string   `json:"last_seen_at"`
 }
 
 func modelToResponse(m model.Model) ModelResponse {
 	return ModelResponse{
-		ID:                    m.ID.String(),
-		ModelID:               m.ModelID,
-		Name:                  m.Name,
-		Description:           m.Description,
-		DisplayName:           m.DisplayName,
-		ProviderID:            m.ProviderID.String(),
-		ProviderName:          m.ProviderName,
-		Capabilities:          m.Capabilities,
-		Params:                m.Params,
-		Modality:              m.Modality,
-		InputModalities:       m.InputModalities,
-		OutputModalities:      m.OutputModalities,
-		ContextLength:         m.ContextLength,
-		MaxOutputTokens:       m.MaxOutputTokens,
-		InputPricePerMillion:  m.InputPricePerMillion,
-		OutputPricePerMillion: m.OutputPricePerMillion,
-		OwnedBy:               m.OwnedBy,
-		Enabled:               m.Enabled,
-		CreatedAt:             m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		LastSeenAt:            m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:                           m.ID.String(),
+		ModelID:                      m.ModelID,
+		Name:                         m.Name,
+		Description:                  m.Description,
+		DisplayName:                  m.DisplayName,
+		ProviderID:                   m.ProviderID.String(),
+		ProviderName:                 m.ProviderName,
+		Capabilities:                 m.Capabilities,
+		Params:                       m.Params,
+		Modality:                     m.Modality,
+		InputModalities:              m.InputModalities,
+		OutputModalities:             m.OutputModalities,
+		ContextLength:                m.ContextLength,
+		MaxOutputTokens:              m.MaxOutputTokens,
+		InputPricePerMillion:         m.InputPricePerMillion,
+		InputPricePerMillionCacheHit: m.InputPricePerMillionCacheHit,
+		OutputPricePerMillion:        m.OutputPricePerMillion,
+		OwnedBy:                      m.OwnedBy,
+		Enabled:                      m.Enabled,
+		CreatedAt:                    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		LastSeenAt:                   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 
@@ -150,7 +152,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 
 type TestModelResponse struct {
 	Success    bool   `json:"success"`
-	TTFTMs     int64  `json:"ttft_ms"`
+	TTFTMs     *int64 `json:"ttft_ms,omitempty"`
 	DurationMs int64  `json:"duration_ms"`
 	Response   string `json:"response"`
 	Error      string `json:"error,omitempty"`
@@ -224,7 +226,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		durationMs := float64(time.Since(start).Milliseconds())
 		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 			m.ProviderID, m.ModelID, reqHash, reqHash, 502,
-			durationMs, durationMs, durationMs,
+			durationMs, durationMs, 0,
 			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
 			err.Error(), false, "internal", nil, 0, "failed",
 		)
@@ -258,7 +260,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		durationMs := float64(duration)
 		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 			m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
-			durationMs, durationMs, durationMs,
+			durationMs, durationMs, 0,
 			proxyOverheadMs, 0, 0, 0, keyDecryptMs,
 			errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
 		)
@@ -303,9 +305,12 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 	`
 	durationMs := float64(duration)
+	// For a non-streaming test request, TTFT = total duration because there is
+	// no separate streaming phase. Mark ttft_ms = 0 in the log to indicate
+	// this was not a streaming request and TTFT is not meaningful.
 	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 		m.ProviderID, m.ModelID, reqHash, reqHash, resp.StatusCode,
-		durationMs, durationMs, durationMs,
+		durationMs, durationMs, 0,
 		proxyOverheadMs, 0, 0, 0, keyDecryptMs,
 		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "internal", nil, 0, "completed",
 	)
@@ -315,7 +320,6 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, TestModelResponse{
 		Success:    true,
-		TTFTMs:     duration,
 		DurationMs: duration,
 		Response:   content,
 	})
