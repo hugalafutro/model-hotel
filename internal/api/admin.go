@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/user/llm-proxy/internal/admin"
 	"github.com/user/llm-proxy/internal/auth"
@@ -236,7 +237,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.providerRepo.Get(r.Context(), id)
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
@@ -311,7 +312,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
 			return
 		}
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
@@ -330,7 +331,7 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.providerRepo.Delete(r.Context(), id); err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}

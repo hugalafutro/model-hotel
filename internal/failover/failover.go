@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -24,20 +23,6 @@ type FailoverGroup struct {
 	AutoCreated   bool            `json:"auto_created"`
 	CreatedAt     time.Time       `json:"created_at"`
 	UpdatedAt     time.Time       `json:"updated_at"`
-}
-
-type RoutingEntry struct {
-	ModelID   string            `json:"model_id"`
-	Providers []RoutingProvider `json:"providers"`
-}
-
-type RoutingProvider struct {
-	ModelUUID    uuid.UUID `json:"model_uuid"`
-	ProviderID   uuid.UUID `json:"provider_id"`
-	ProviderName string    `json:"provider_name"`
-	ModelID      string    `json:"model_id"`
-	Priority     int       `json:"priority"`
-	Enabled      bool      `json:"enabled"`
 }
 
 type Repository struct {
@@ -194,6 +179,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 		return nil, err
 	}
 
+	cacheFailoverGroup(&fg)
 	return &fg, nil
 }
 
@@ -314,16 +300,13 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		var entryEnabledJSON []byte
 		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 			&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
-			log.Printf("scanFailoverGroups: skipping row due to scan error: %v", err)
-			continue
+			return nil, fmt.Errorf("scanFailoverGroups: row scan failed: %w", err)
 		}
 		if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
-			log.Printf("scanFailoverGroups: skipping failover group %s due to priority JSON error: %v", fg.DisplayModel, err)
-			continue
+			return nil, fmt.Errorf("scanFailoverGroups: unmarshal priority for %s: %w", fg.DisplayModel, err)
 		}
 		if err := json.Unmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
-			log.Printf("scanFailoverGroups: skipping failover group %s due to entry_enabled JSON error: %v", fg.DisplayModel, err)
-			continue
+			return nil, fmt.Errorf("scanFailoverGroups: unmarshal entry_enabled for %s: %w", fg.DisplayModel, err)
 		}
 		groups = append(groups, &fg)
 	}
