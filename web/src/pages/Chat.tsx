@@ -1211,7 +1211,16 @@ export function Chat() {
                                 selectedModelB)) && (
                             <button
                                 onClick={() => setPendingReset(true)}
-                                className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${
+                                    (chatSubMode === "conversation" &&
+                                        (conversationState === "completed" ||
+                                            conversationState === "paused")) ||
+                                    (chatSubMode === "chat" &&
+                                        messages.length > 0 &&
+                                        !isStreaming)
+                                        ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
+                                        : "hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                }`}
                                 title="Reset chat"
                             >
                                 <RotateCcw size={14} />
@@ -1356,6 +1365,7 @@ export function Chat() {
                     input={input}
                     onInputChange={setInput}
                     onStart={() => runConversation(false)}
+                    onContinue={() => runConversation(true)}
                     canStart={canStartConversation}
                     selectedModel={selectedModel}
                     selectedModelB={selectedModelB}
@@ -1380,6 +1390,15 @@ export function Chat() {
                                 model={selectedModelObj}
                                 params={messageParams}
                                 onParamsChange={setMessageParams}
+                                pulseBorder={
+                                    isStreaming &&
+                                    chatSubMode === "chat" &&
+                                    messages.length > 0 &&
+                                    messages[messages.length - 1].role ===
+                                        "assistant" &&
+                                    messages[messages.length - 1].model ===
+                                        chatSelectedModel
+                                }
                             />
                         ) : (
                             <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
@@ -1400,6 +1419,14 @@ export function Chat() {
                                     onParamsChange={setMessageParams}
                                     collapsible
                                     tint="default"
+                                    pulseBorder={
+                                        isStreaming &&
+                                        messages.length > 0 &&
+                                        messages[messages.length - 1].role ===
+                                            "assistant" &&
+                                        messages[messages.length - 1].model ===
+                                            selectedModel
+                                    }
                                 />
                             ) : (
                                 <div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
@@ -1417,6 +1444,14 @@ export function Chat() {
                                     onParamsChange={setMessageParamsB}
                                     collapsible
                                     tint="blue"
+                                    pulseBorder={
+                                        isStreaming &&
+                                        messages.length > 0 &&
+                                        messages[messages.length - 1].role ===
+                                            "assistant" &&
+                                        messages[messages.length - 1].model ===
+                                            selectedModelB
+                                    }
                                 />
                             ) : (
                                 <div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
@@ -1488,6 +1523,41 @@ export function Chat() {
                             (isLastAssistant && !isStreaming) ||
                             (isStreamingThis && isLastAssistant);
 
+                        // Turn number: count assistant messages up to and including this one
+                        const turnNumber =
+                            msg.role === "assistant"
+                                ? messages.filter(
+                                      (m, mi) =>
+                                          m.role === "assistant" && mi <= i,
+                                  ).length
+                                : undefined;
+
+                        // Persona lookup for conversation mode
+                        const personaForModel = isModelB
+                            ? CHAT_PERSONAS.find(
+                                  (p) => p.id === activePersonaIdB,
+                              )
+                            : chatSubMode === "conversation"
+                              ? CHAT_PERSONAS.find(
+                                    (p) =>
+                                        p.id === conversationActivePersonaIdA,
+                                )
+                              : CHAT_PERSONAS.find(
+                                    (p) => p.id === chatActivePersonaId,
+                                );
+                        const personaName =
+                            chatSubMode === "conversation" &&
+                            msg.role === "assistant" &&
+                            personaForModel
+                                ? `${personaForModel.icon} ${personaForModel.label}`
+                                : chatSubMode === "chat" &&
+                                    msg.role === "assistant" &&
+                                    personaForModel
+                                  ? `${personaForModel.icon} ${personaForModel.label}`
+                                  : undefined;
+                        const personaTooltip =
+                            personaForModel?.systemPrompt || undefined;
+
                         /* ── User message ── */
                         if (isUser) {
                             // In conversation mode, user message is centered and gray
@@ -1558,6 +1628,9 @@ export function Chat() {
                                             isStreaming={isStreamingThis}
                                             shortenModelName={false}
                                             tint="blue"
+                                            personaName={personaName}
+                                            personaTooltip={personaTooltip}
+                                            turnNumber={turnNumber}
                                             headerEnd={
                                                 isStreamingThis ? (
                                                     <button
@@ -1636,6 +1709,9 @@ export function Chat() {
                                         metrics={msg.metrics}
                                         isStreaming={isStreamingThis}
                                         shortenModelName={false}
+                                        personaName={personaName}
+                                        personaTooltip={personaTooltip}
+                                        turnNumber={turnNumber}
                                         headerEnd={
                                             isStreamingThis ? (
                                                 <button

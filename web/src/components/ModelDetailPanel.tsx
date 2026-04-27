@@ -81,6 +81,8 @@ interface ModelDetailPanelProps {
     collapsible?: boolean;
     /** Tint style for the panel — "accent" applies accent border tint, "blue" applies blue border tint */
     tint?: "accent" | "blue" | "default";
+    /** When true, the panel border pulses with an accent glow (e.g. while the model is generating) */
+    pulseBorder?: boolean;
 }
 
 export function ModelDetailPanel({
@@ -90,6 +92,7 @@ export function ModelDetailPanel({
     onClose,
     collapsible = true,
     tint = "default",
+    pulseBorder = false,
 }: ModelDetailPanelProps) {
     const caps = parseCapabilities(model.capabilities);
     const [open, setOpen] = useState(false);
@@ -114,8 +117,14 @@ export function ModelDetailPanel({
               ? "ui-card-tint-blue"
               : "";
 
+    const pulseClass = pulseBorder
+        ? "animate-[pulse-border_2s_ease-in-out_infinite]"
+        : "";
+
     return (
-        <div className={`ui-card p-3 text-xs relative overflow-y-auto max-h-full ${tintClass}`}>
+        <div
+            className={`ui-card p-3 text-xs relative overflow-y-auto max-h-full ${tintClass} ${pulseClass}`}
+        >
             {/* Header with collapse arrow + cog */}
             <div className="flex items-start justify-between">
                 <div className="min-w-0">

@@ -1443,10 +1443,10 @@ export function Arena() {
                         {phase !== "setup" && (
                             <button
                                 onClick={() => setPendingReset(true)}
-                                className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)] ${
+                                className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${
                                     phase === "finished" || phase === "voting"
                                         ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
-                                        : ""
+                                        : "hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
                                 }`}
                                 title="Reset arena"
                             >

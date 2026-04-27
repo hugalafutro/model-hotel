@@ -19,7 +19,7 @@ export function PresetBar<T extends PresetItem>({
     activeId,
     onSelect,
     onCustom,
-    customLabel = "✏️ Custom",
+    customLabel = "✏️Custom",
     wrap = false,
 }: PresetBarProps<T>) {
     return (
@@ -48,7 +48,8 @@ export function PresetBar<T extends PresetItem>({
                             : "ui-btn-secondary"
                     }`}
                 >
-                    {item.icon}{item.label}
+                    {item.icon}
+                    {item.label}
                 </button>
             ))}
         </div>

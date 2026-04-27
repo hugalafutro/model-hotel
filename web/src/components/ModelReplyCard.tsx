@@ -61,6 +61,12 @@ interface ModelReplyCardProps {
     showInfoIcon?: boolean;
     /** Generation params used for this response — shown as tooltip on a settings indicator */
     params?: GenerationParams;
+    /** Persona name to display in the footer/status bar */
+    personaName?: string;
+    /** Tooltip text for the persona badge (e.g. full persona prompt) */
+    personaTooltip?: string;
+    /** Turn number to display in the header (e.g. "Turn 3") */
+    turnNumber?: number;
 }
 
 export function ModelReplyCard({
@@ -82,11 +88,14 @@ export function ModelReplyCard({
     headerClassName,
     bodyClassName,
     footerClassName,
-    modelMaxWidth = "max-w-45",
+    modelMaxWidth = "max-w-60",
     onModelNameClick,
     shortenModelName = true,
     showInfoIcon = false,
     params,
+    personaName,
+    personaTooltip,
+    turnNumber,
 }: ModelReplyCardProps) {
     const [elapsed, setElapsed] = useState(0);
 
@@ -180,6 +189,11 @@ export function ModelReplyCard({
                         {afterModel}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                        {turnNumber != null && (
+                            <span className="text-[11px] text-(--text-tertiary) tabular-nums">
+                                Turn {turnNumber}
+                            </span>
+                        )}
                         {headerEnd}
                     </div>
                 </div>
@@ -220,6 +234,14 @@ export function ModelReplyCard({
             >
                 <div className="flex items-center gap-3">
                     {footerStart}
+                    {personaName && (
+                        <span
+                            className="text-[11px] text-(--accent) cursor-help truncate max-w-30"
+                            title={personaTooltip || personaName}
+                        >
+                            {personaName}
+                        </span>
+                    )}
                     {isStreaming && startTimeMs && startTimeMs !== 0 ? (
                         <span className="flex items-center gap-1 tabular-nums">
                             <Clock size={10} />

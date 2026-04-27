@@ -531,7 +531,11 @@ html[data-ui-style="glassmorphism-lite"].light .sidebar-footer-link:hover {
 
 [data-ui-style] .ui-card-tint-blue,
 .ui-card-tint-blue {
-    background-color: color-mix(in srgb, #3b82f6 15%, var(--surface-elevated)) !important;
+    background-color: color-mix(
+        in srgb,
+        #3b82f6 15%,
+        var(--surface-elevated)
+    ) !important;
     border-color: rgba(59, 130, 246, 0.5) !important;
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
 }
@@ -1360,10 +1364,24 @@ html.light .terminal-titlebar-win11 .win11-icon {
 @keyframes pulse-ring {
     0%,
     100% {
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+        filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4));
     }
     50% {
-        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+        filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.8));
+    }
+}
+
+@keyframes pulse-border {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 1px var(--accent),
+            0 0 4px 0px var(--accent);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1px var(--accent),
+            0 0 12px 2px var(--accent);
     }
 }
 

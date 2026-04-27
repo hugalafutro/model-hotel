@@ -5,6 +5,7 @@ import {
     Timer,
     Gauge,
     Play,
+    FastForward,
 } from "lucide-react";
 
 interface ConversationConfigProps {
@@ -20,6 +21,8 @@ interface ConversationConfigProps {
     input: string;
     onInputChange: (value: string) => void;
     onStart: () => void;
+    /** Called when resuming a paused conversation */
+    onContinue?: () => void;
     canStart: boolean;
     selectedModel: string;
     selectedModelB: string;
@@ -38,10 +41,16 @@ export function ConversationConfig({
     input,
     onInputChange,
     onStart,
+    onContinue,
     canStart,
     selectedModel,
     selectedModelB,
 }: ConversationConfigProps) {
+    const isPaused = conversationState === "paused";
+    const isIdle = conversationState === "idle";
+    const showStartArea = isIdle || isPaused;
+    const isContinue = isPaused || (isIdle && currentTurn > 0);
+
     return (
         <div className="ui-card p-4 shrink-0">
             {/* Header */}
@@ -75,20 +84,21 @@ export function ConversationConfig({
                         </span>
                     )}
                     {/* Round counter (when active) — each round = both models respond */}
-                    {conversationState !== "idle" && (
-                        <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
-                            <Gauge size={12} />
-                            Round:{" "}
-                            <span className="text-(--text-primary)">
-                                {Math.ceil(currentTurn / 2)} / {maxTurns}
-                            </span>
-                            {turnCountdown > 0 && (
-                                <span className="text-(--accent) ml-1">
-                                    Next in {turnCountdown}s…
+                    {conversationState !== "idle" &&
+                        conversationState !== "paused" && (
+                            <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
+                                <Gauge size={12} />
+                                Round:{" "}
+                                <span className="text-(--text-primary)">
+                                    {Math.ceil(currentTurn / 2)} / {maxTurns}
                                 </span>
-                            )}
-                        </span>
-                    )}
+                                {turnCountdown > 0 && (
+                                    <span className="text-(--accent) ml-1">
+                                        Next in {turnCountdown}s…
+                                    </span>
+                                )}
+                            </span>
+                        )}
                     {/* Status */}
                     <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
                         <Timer size={12} />
@@ -117,11 +127,12 @@ export function ConversationConfig({
                 }`}
             >
                 <div className="overflow-hidden">
-                    <div className="grid grid-cols-[5rem_6rem] gap-4 pt-4">
-                        {/* Max Turns - disabled when not idle */}
-                        <div>
-                            <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
-                                <span>Rounds</span>
+                    {/* Compact row: Rounds + Delay + (Prompt area or Continue) */}
+                    <div className="flex items-end gap-3 pt-4">
+                        {/* Max Turns */}
+                        <div className="flex flex-col">
+                            <label className="text-xs text-(--text-secondary) mb-1">
+                                Rounds
                             </label>
                             <input
                                 type="number"
@@ -142,15 +153,15 @@ export function ConversationConfig({
                                 onFocus={(e) => e.target.select()}
                                 min={1}
                                 max={50}
-                                className="ui-input w-full text-sm text-center"
+                                className="ui-input w-16 text-sm text-center"
                                 disabled={conversationState !== "idle"}
                             />
                         </div>
 
-                        {/* Turn Delay - disabled when not idle */}
-                        <div>
-                            <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
-                                <span>Delay (ms)</span>
+                        {/* Turn Delay */}
+                        <div className="flex flex-col">
+                            <label className="text-xs text-(--text-secondary) mb-1">
+                                Delay (ms)
                             </label>
                             <input
                                 type="number"
@@ -174,45 +185,64 @@ export function ConversationConfig({
                                 min={0}
                                 max={5000}
                                 step={100}
-                                className="ui-input w-full text-sm text-center"
+                                className="ui-input w-20 text-sm text-center"
                                 disabled={conversationState !== "idle"}
                             />
                         </div>
-                    </div>
 
-                    {/* Prompt + Start - only visible when idle */}
-                    {conversationState === "idle" && (
-                        <div className="pt-4">
-                            <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
-                                <span>Prompt</span>
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <textarea
-                                    value={input}
-                                    onChange={(e) =>
-                                        onInputChange(e.target.value)
-                                    }
-                                    placeholder={
-                                        !selectedModel || !selectedModelB
-                                            ? "Select both models first"
-                                            : "Enter a topic or question…"
-                                    }
-                                    className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-11"
-                                    style={{ height: "auto" }}
-                                    disabled={!selectedModel || !selectedModelB}
-                                    rows={1}
-                                />
-                                <button
-                                    onClick={onStart}
-                                    disabled={!canStart}
-                                    className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
-                                >
-                                    <Play size={16} />
-                                    Start
-                                </button>
+                        {/* Prompt + Start/Continue */}
+                        {showStartArea && (
+                            <div className="flex items-end gap-2 flex-1 min-w-0">
+                                {isIdle && (
+                                    <>
+                                        <div className="flex flex-col flex-1 min-w-0">
+                                            <label className="text-xs text-(--text-secondary) mb-1">
+                                                Prompt
+                                            </label>
+                                            <textarea
+                                                value={input}
+                                                onChange={(e) =>
+                                                    onInputChange(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder={
+                                                    !selectedModel ||
+                                                    !selectedModelB
+                                                        ? "Select both models first"
+                                                        : "Enter a topic or question…"
+                                                }
+                                                className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-9"
+                                                style={{ height: "auto" }}
+                                                disabled={
+                                                    !selectedModel ||
+                                                    !selectedModelB
+                                                }
+                                                rows={1}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={onStart}
+                                            disabled={!canStart}
+                                            className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+                                        >
+                                            <Play size={16} />
+                                            {isContinue ? "Continue" : "Start"}
+                                        </button>
+                                    </>
+                                )}
+                                {isPaused && (
+                                    <button
+                                        onClick={onContinue}
+                                        className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+                                    >
+                                        <FastForward size={16} />
+                                        Continue
+                                    </button>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
