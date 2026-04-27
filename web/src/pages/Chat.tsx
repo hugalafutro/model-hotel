@@ -973,39 +973,62 @@ export function Chat() {
         setConversationState("paused");
     }, []);
 
-    // Helper to delete a message and reset to idle if only user message remains
+    // Helper to delete a message
     const handleDeleteMessage = useCallback(
         (msgIndex: number) => {
             setMessages((prev) => {
-                const toRemove = new Set([msgIndex]);
-                // In chat mode, also remove the preceding user message
-                if (
-                    chatSubMode === "chat" &&
-                    msgIndex > 0 &&
-                    prev[msgIndex - 1].role === "user"
-                ) {
-                    toRemove.add(msgIndex - 1);
-                }
-                const newMessages = prev.filter((_, i) => !toRemove.has(i));
+                const msg = prev[msgIndex];
+                if (!msg) return prev;
 
-                // In conversation mode, if we're left with just the user message,
-                // reset to idle state and restore the message to input
-                if (
-                    chatSubMode === "conversation" &&
-                    newMessages.length === 1 &&
-                    newMessages[0]?.role === "user"
-                ) {
-                    setConversationState("idle");
-                    setCurrentTurn(0);
-                    setInput(newMessages[0].content);
-                    return [];
+                const toRemove = new Set<number>();
+
+                if (chatSubMode === "chat") {
+                    // In chat mode, delete the assistant and preceding user message
+                    toRemove.add(msgIndex);
+                    if (msgIndex > 0 && prev[msgIndex - 1].role === "user") {
+                        toRemove.add(msgIndex - 1);
+                    }
+                } else {
+                    // In conversation mode:
+                    // - If streaming, can only delete the last (currently generating) message
+                    // - If not streaming, can only delete the last pair
+                    const lastAssistantIdx = prev.findLastIndex(
+                        (m) => m.role === "assistant",
+                    );
+                    const isLastAssistant = msgIndex === lastAssistantIdx;
+                    const isStreamingLast =
+                        isStreaming && msgIndex === prev.length - 1;
+
+                    if (!isLastAssistant && !isStreamingLast) {
+                        // Can't delete - not the last message
+                        toast("Can only delete the most recent response", "error");
+                        return prev;
+                    }
+
+                    // Delete this assistant message and the preceding message (either user or other assistant)
+                    toRemove.add(msgIndex);
+                    if (msgIndex > 0) {
+                        toRemove.add(msgIndex - 1);
+                    }
+
+                    // If we're deleting the very last messages and left with just user, reset
+                    const remaining = prev.filter((_, i) => !toRemove.has(i));
+                    if (
+                        remaining.length === 1 &&
+                        remaining[0]?.role === "user"
+                    ) {
+                        setConversationState("idle");
+                        setCurrentTurn(0);
+                        setInput(remaining[0].content);
+                        return [];
+                    }
                 }
 
-                return newMessages;
+                return prev.filter((_, i) => !toRemove.has(i));
             });
             toast("Message deleted", "info");
         },
-        [chatSubMode, toast],
+        [chatSubMode, toast, isStreaming],
     );
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1373,6 +1396,15 @@ export function Chat() {
                         const isModelB =
                             msg.role === "assistant" &&
                             msg.model === selectedModelB;
+                        const lastAssistantIdx = messages.findLastIndex(
+                            (m) => m.role === "assistant",
+                        );
+                        const isLastAssistant = i === lastAssistantIdx;
+                        // In conversation mode, only show delete on last assistant (or currently streaming)
+                        const canDelete =
+                            chatSubMode === "chat" ||
+                            (isLastAssistant && !isStreaming) ||
+                            (isStreamingThis && isLastAssistant);
 
                         /* ── User message ── */
                         if (isUser) {
@@ -1487,18 +1519,23 @@ export function Chat() {
                                                     >
                                                         <Copy size={10} />
                                                     </button>
-                                                    <button
-                                                        className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
-                                                        onClick={() =>
-                                                            handleDeleteMessage(
-                                                                i,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 size={10} />
-                                                    </button>
+                                                    {canDelete && (
+                                                        <button
+                                                            className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+                                                            onClick={() =>
+                                                                handleDeleteMessage(
+                                                                    i,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             }
+                                            className="rounded-xl rounded-br-sm p-4"
+                                            headerClassName="mb-2"
+                                            footerClassName="mt-2"
                                         />
                                     </div>
                                 </div>
@@ -1581,14 +1618,18 @@ export function Chat() {
                                                 >
                                                     <Copy size={10} />
                                                 </button>
-                                                <button
-                                                    className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
-                                                    onClick={() =>
-                                                        handleDeleteMessage(i)
-                                                    }
-                                                >
-                                                    <Trash2 size={10} />
-                                                </button>
+                                                {canDelete && (
+                                                    <button
+                                                        className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+                                                        onClick={() =>
+                                                            handleDeleteMessage(
+                                                                i,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 size={10} />
+                                                    </button>
+                                                )}
                                                 {msg.params && (
                                                     <span
                                                         className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"

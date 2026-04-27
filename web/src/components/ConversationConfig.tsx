@@ -40,8 +40,6 @@ export function ConversationConfig({
     selectedModel,
     selectedModelB,
 }: ConversationConfigProps) {
-    const isRunning = conversationState === "running";
-
     return (
         <div className="ui-card p-4 shrink-0">
             {/* Header */}
@@ -74,7 +72,17 @@ export function ConversationConfig({
                             </span>
                         </span>
                     )}
-                    {/* Status always in top-right corner */}
+                    {/* Turn counter (when active) */}
+                    {conversationState !== "idle" && (
+                        <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
+                            <Gauge size={12} />
+                            Turn:{" "}
+                            <span className="text-(--text-primary)">
+                                {Math.ceil(currentTurn / 2)} / {maxTurns}
+                            </span>
+                        </span>
+                    )}
+                    {/* Status */}
                     <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
                         <Timer size={12} />
                         Status:{" "}
@@ -102,8 +110,8 @@ export function ConversationConfig({
                 }`}
             >
                 <div className="overflow-hidden">
-                    <div className="grid grid-cols-[5rem_6rem_1fr] gap-4 pt-4">
-                        {/* Max Turns */}
+                    <div className="grid grid-cols-[5rem_6rem] gap-4 pt-4">
+                        {/* Max Turns - disabled when not idle */}
                         <div>
                             <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
                                 <span>Turns</span>
@@ -128,11 +136,11 @@ export function ConversationConfig({
                                 min={1}
                                 max={50}
                                 className="ui-input w-full text-sm text-center"
-                                disabled={isRunning}
+                                disabled={conversationState !== "idle"}
                             />
                         </div>
 
-                        {/* Turn Delay */}
+                        {/* Turn Delay - disabled when not idle */}
                         <div>
                             <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
                                 <span>Delay (ms)</span>
@@ -160,12 +168,15 @@ export function ConversationConfig({
                                 max={5000}
                                 step={100}
                                 className="ui-input w-full text-sm text-center"
-                                disabled={isRunning}
+                                disabled={conversationState !== "idle"}
                             />
                         </div>
 
-                        {/* Prompt + Start */}
-                        <div>
+                    </div>
+
+                    {/* Prompt + Start - only visible when idle */}
+                    {conversationState === "idle" && (
+                        <div className="pt-4">
                             <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
                                 <span>Prompt</span>
                             </label>
@@ -183,9 +194,7 @@ export function ConversationConfig({
                                     className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-11"
                                     style={{ height: "auto" }}
                                     disabled={
-                                        !selectedModel ||
-                                        !selectedModelB ||
-                                        isRunning
+                                        !selectedModel || !selectedModelB
                                     }
                                     rows={1}
                                 />
@@ -197,21 +206,6 @@ export function ConversationConfig({
                                     <Play size={16} />
                                     Start
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Turn progress (when active) */}
-                    {conversationState !== "idle" && (
-                        <div className="pt-3 text-xs text-(--text-secondary)">
-                            <div className="flex items-center gap-2">
-                                <Gauge size={12} />
-                                <span>
-                                    Turn:{" "}
-                                    <span className="text-(--text-primary)">
-                                        {Math.ceil(currentTurn / 2)} / {maxTurns}
-                                    </span>
-                                </span>
                             </div>
                         </div>
                     )}
