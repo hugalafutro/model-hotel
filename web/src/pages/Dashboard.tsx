@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { MetricType } from "../api/types";
 import {
@@ -325,14 +325,24 @@ function TimeSeriesChart({
     scale?: number;
     loading?: boolean;
 }) {
-    const grid =
-        getComputedStyle(document.documentElement)
-            .getPropertyValue("--border-subtle")
-            .trim() || "rgba(255,255,255,0.04)";
-    const text =
-        getComputedStyle(document.documentElement)
-            .getPropertyValue("--text-muted")
-            .trim() || "#7a7e8c";
+    const [chartStyles, setChartStyles] = useState({
+        grid: "rgba(255,255,255,0.04)",
+        text: "#7a7e8c",
+    });
+
+    useEffect(() => {
+        const grid =
+            getComputedStyle(document.documentElement)
+                .getPropertyValue("--border-subtle")
+                .trim() || "rgba(255,255,255,0.04)";
+        const text =
+            getComputedStyle(document.documentElement)
+                .getPropertyValue("--text-muted")
+                .trim() || "#7a7e8c";
+        setChartStyles({ grid, text });
+    }, []);
+
+    const { grid, text } = chartStyles;
 
     if (data.length === 0) {
         return (
@@ -583,7 +593,23 @@ function TokenSplitBar({
     onRangeChange: (r: Range) => void;
 }) {
     const totalPC = prompt + completion;
-    if (totalPC === 0) return null;
+    if (totalPC === 0) {
+        return (
+            <div className="ui-card p-6">
+                <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+                        <Target size={18} className="text-(--accent)" />
+                        Token Mix
+                    </h3>
+                    <RangeToggle value={range} onChange={onRangeChange} />
+                </div>
+                <p className="text-sm text-(--text-muted) text-center py-12">
+                    No token data yet. Token mix will appear here once traffic
+                    flows.
+                </p>
+            </div>
+        );
+    }
     const promptPct = (prompt / totalPC) * 100;
     const completionPct = (completion / totalPC) * 100;
 
@@ -875,6 +901,7 @@ function Gauge({
     color,
     onClick,
     tooltip,
+    maxScale,
 }: {
     label: string;
     value: number;
@@ -883,11 +910,15 @@ function Gauge({
     color: string;
     onClick?: () => void;
     tooltip?: string;
+    maxScale?: number;
 }) {
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
     const pathArc = circumference / 2;
-    const pct = Math.min(Math.max(value, 0), 100);
+    // For percentage metrics (error rate), cap at 100. For absolute metrics
+    // (requests, ms), scale relative to maxScale so the arc is meaningful.
+    const scaleMax = maxScale ?? 100;
+    const pct = Math.min(Math.max((value / scaleMax) * 100, 0), 100);
     const dashOffset = pathArc - (pathArc * pct) / 100;
 
     return (
@@ -1062,24 +1093,10 @@ export function Dashboard() {
         placeholderData: (prev) => prev,
     });
 
-    useQuery({
-        queryKey: ["check-auth"],
-        queryFn: async () => {
-            const response = await fetch("/api/stats", {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
-                },
-            });
-            if (response.status === 401) {
-                localStorage.removeItem("adminToken");
-                window.location.reload();
-            }
-            return null;
-        },
-        enabled: !!statsError,
-    });
-
-    if (statsError) {
+    // Auth check: on stats error, test if token is still valid.
+    // Wrapped in useEffect so window.location.reload() never runs during render.
+    useEffect(() => {
+        if (!statsError) return;
         const errMsg = statsError.message || "";
         if (
             errMsg.includes("401") ||
@@ -1089,7 +1106,7 @@ export function Dashboard() {
             localStorage.removeItem("adminToken");
             window.location.reload();
         }
-    }
+    }, [statsError]);
 
     if (statsLoading) {
         return (
@@ -1283,6 +1300,10 @@ export function Dashboard() {
                                 color={accents.requests}
                                 onClick={() => setRequestsModalOpen(true)}
                                 tooltip="Click to view request history"
+                                maxScale={Math.max(
+                                    100,
+                                    (gaugeStats?.requests_last_1h || 0) * 1.2,
+                                )}
                             />
                             <Gauge
                                 label="Avg TTFT/1h"
@@ -1292,6 +1313,11 @@ export function Dashboard() {
                                 color={accents.latency}
                                 onClick={() => setTtftModalOpen(true)}
                                 tooltip="Click to view TTFT history"
+                                maxScale={Math.max(
+                                    1,
+                                    ((gaugeStats?.avg_ttft_ms || 0) / 1000) *
+                                        1.5,
+                                )}
                             />
                             <Gauge
                                 label="Avg Overhead/1h"
@@ -1301,6 +1327,10 @@ export function Dashboard() {
                                 color={accents.overhead}
                                 onClick={() => setOverheadModalOpen(true)}
                                 tooltip="Click to view overhead history"
+                                maxScale={Math.max(
+                                    100,
+                                    (gaugeStats?.avg_overhead_ms || 0) * 1.5,
+                                )}
                             />
                             <Gauge
                                 label="Rate Limit Hits/1h"
@@ -1310,6 +1340,10 @@ export function Dashboard() {
                                 color="#a855f7"
                                 onClick={() => setRateLimitModalOpen(true)}
                                 tooltip="Click to view rate limit hit history"
+                                maxScale={Math.max(
+                                    10,
+                                    (gaugeStats?.rate_limit_hits || 0) * 1.5,
+                                )}
                             />
                             <Gauge
                                 label="Error Rate/1h"
