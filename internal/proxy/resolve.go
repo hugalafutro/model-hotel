@@ -135,12 +135,12 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, t, nil
 }
 
-func (h *Handler) shouldFailover(statusCode int) bool {
+func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode >= 500 {
 		return true
 	}
 	if statusCode == 429 {
-		return h.settingsRepo.GetBool(context.Background(), "failover_on_rate_limit", true)
+		return h.settingsRepo.GetBool(ctx, "failover_on_rate_limit", true)
 	}
 	if statusCode == 401 || statusCode == 403 {
 		return true

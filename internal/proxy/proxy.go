@@ -405,7 +405,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		hasMoreCandidates := attempt < len(candidates)-1
-		shouldFailoverNow := h.shouldFailover(resp.StatusCode) && hasMoreCandidates
+		shouldFailoverNow := h.shouldFailover(r.Context(), resp.StatusCode) && hasMoreCandidates
 
 		if shouldFailoverNow {
 			io.ReadAll(resp.Body)
