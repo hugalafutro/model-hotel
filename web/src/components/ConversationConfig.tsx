@@ -124,6 +124,7 @@ export function ConversationConfig({
                                     if (isNaN(v) || v < 1) onMaxTurnsChange(1);
                                     else if (v > 50) onMaxTurnsChange(50);
                                 }}
+                                onFocus={(e) => e.target.select()}
                                 min={1}
                                 max={50}
                                 className="ui-input w-full text-sm text-center"
@@ -154,6 +155,7 @@ export function ConversationConfig({
                                     else if (v > 5000)
                                         onTurnDelayMsChange(5000);
                                 }}
+                                onFocus={(e) => e.target.select()}
                                 min={0}
                                 max={5000}
                                 step={100}

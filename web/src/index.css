@@ -518,18 +518,22 @@ html[data-ui-style="glassmorphism-lite"].light .sidebar-footer-link:hover {
     box-shadow: var(--shadow-md);
 }
 
-[data-ui-style] .ui-card-tint-accent {
+/* Card tint styles - work with or without data-ui-style parent */
+[data-ui-style] .ui-card-tint-accent,
+.ui-card-tint-accent {
     background-color: color-mix(
         in srgb,
-        var(--accent) 10%,
+        var(--accent) 12%,
         var(--surface-elevated)
-    );
-    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    ) !important;
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
 }
 
-[data-ui-style] .ui-card-tint-blue {
-    background-color: color-mix(in srgb, #3b82f6 10%, var(--surface-elevated));
-    border-color: rgba(59, 130, 246, 0.3);
+[data-ui-style] .ui-card-tint-blue,
+.ui-card-tint-blue {
+    background-color: color-mix(in srgb, #3b82f6 15%, var(--surface-elevated)) !important;
+    border-color: rgba(59, 130, 246, 0.5) !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
 }
 
 html[data-ui-style="clean-saas"] .ui-card {

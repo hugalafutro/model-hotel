@@ -229,7 +229,8 @@ export function Chat() {
         }
         return [];
     });
-    const [selectedModel, setSelectedModel] = useState<string>(() => {
+    // ── Chat mode state ──
+    const [chatSelectedModel, setChatSelectedModel] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistChat") === "true") {
                 return localStorage.getItem("chatSelectedModel") ?? "";
@@ -239,7 +240,7 @@ export function Chat() {
         }
         return "";
     });
-    const [systemPrompt, setSystemPrompt] = useState<string>(() => {
+    const [chatSystemPrompt, setChatSystemPrompt] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistChat") === "true") {
                 return localStorage.getItem("chatSystemPrompt") ?? "";
@@ -249,30 +250,64 @@ export function Chat() {
         }
         return "";
     });
-    const [activePersonaId, setActivePersonaId] = useState<string | null>(
-        () => {
+    const [chatActivePersonaId, setChatActivePersonaId] = useState<
+        string | null
+    >(() => {
+        try {
+            if (localStorage.getItem("persistChat") === "true") {
+                const v = localStorage.getItem("chatActivePersonaId");
+                return v || null;
+            }
+        } catch {
+            /* ignore */
+        }
+        return null;
+    });
+    const [chatMessageParams, setChatMessageParams] =
+        useState<GenerationParams>({});
+
+    // ── Conversation mode state (Model A) ──
+    const [conversationModelA, setConversationModelA] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistConversation") === "true") {
+                return localStorage.getItem("conversationModelA") ?? "";
+            }
+        } catch {
+            /* ignore */
+        }
+        return "";
+    });
+    const [conversationSystemPromptA, setConversationSystemPromptA] =
+        useState<string>(() => {
             try {
-                if (localStorage.getItem("persistChat") === "true") {
-                    const v = localStorage.getItem("chatActivePersonaId");
+                if (localStorage.getItem("persistConversation") === "true") {
+                    return (
+                        localStorage.getItem("conversationSystemPromptA") ?? ""
+                    );
+                }
+            } catch {
+                /* ignore */
+            }
+            return "";
+        });
+    const [conversationActivePersonaIdA, setConversationActivePersonaIdA] =
+        useState<string | null>(() => {
+            try {
+                if (localStorage.getItem("persistConversation") === "true") {
+                    const v = localStorage.getItem(
+                        "conversationActivePersonaIdA",
+                    );
                     return v || null;
                 }
             } catch {
                 /* ignore */
             }
             return null;
-        },
-    );
-    const [pendingReset, setPendingReset] = useState(false);
-    const [input, setInput] = useState("");
-    const [isStreaming, setIsStreaming] = useState(false);
-    const [messageParams, setMessageParams] = useState<GenerationParams>({});
-    const [controlsCollapsed, setControlsCollapsed] = useState(false);
-    const abortRef = useRef<AbortController | null>(null);
-    const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const { toast } = useToast();
-    const { persistChat } = useStorage();
+        });
+    const [conversationParamsA, setConversationParamsA] =
+        useState<GenerationParams>({});
 
-    // ── Conversation mode state ──
+    // ── Conversation mode state (Model B) ──
     const [selectedModelB, setSelectedModelB] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistConversation") === "true") {
@@ -324,6 +359,46 @@ export function Chat() {
     const [conversationState, setConversationState] =
         useState<ConversationState>("idle");
     const [currentTurn, setCurrentTurn] = useState(0);
+
+    // ── Shared state ──
+    const [pendingReset, setPendingReset] = useState(false);
+    const [input, setInput] = useState("");
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [controlsCollapsed, setControlsCollapsed] = useState(false);
+    const abortRef = useRef<AbortController | null>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
+    const { persistChat, persistConversation } = useStorage();
+
+    // Derived state based on current mode
+    const selectedModel =
+        chatSubMode === "chat" ? chatSelectedModel : conversationModelA;
+    const setSelectedModel =
+        chatSubMode === "chat"
+            ? setChatSelectedModel
+            : setConversationModelA;
+    const systemPrompt =
+        chatSubMode === "chat"
+            ? chatSystemPrompt
+            : conversationSystemPromptA;
+    const setSystemPrompt =
+        chatSubMode === "chat"
+            ? setChatSystemPrompt
+            : setConversationSystemPromptA;
+    const activePersonaId =
+        chatSubMode === "chat"
+            ? chatActivePersonaId
+            : conversationActivePersonaIdA;
+    const setActivePersonaId =
+        chatSubMode === "chat"
+            ? setChatActivePersonaId
+            : setConversationActivePersonaIdA;
+    const messageParams =
+        chatSubMode === "chat" ? chatMessageParams : conversationParamsA;
+    const setMessageParams =
+        chatSubMode === "chat"
+            ? setChatMessageParams
+            : setConversationParamsA;
 
     // Reset conversation state when chatSubMode changes (e.g. sidebar click),
     // but skip the initial mount so we don't wipe persisted messages.
@@ -389,6 +464,7 @@ export function Chat() {
         return () => clearTimeout(timer);
     }, [controlsCollapsed, scrollToBottom]);
 
+    // ── Chat mode persistence effects ──
     useEffect(() => {
         if (!persistChat) return;
         try {
@@ -401,29 +477,66 @@ export function Chat() {
     useEffect(() => {
         if (!persistChat) return;
         try {
-            localStorage.setItem("chatSystemPrompt", systemPrompt);
+            localStorage.setItem("chatSystemPrompt", chatSystemPrompt);
         } catch {
             /* quota exceeded */
         }
-    }, [systemPrompt, persistChat]);
+    }, [chatSystemPrompt, persistChat]);
 
     useEffect(() => {
         if (!persistChat) return;
         try {
-            localStorage.setItem("chatActivePersonaId", activePersonaId ?? "");
+            localStorage.setItem(
+                "chatActivePersonaId",
+                chatActivePersonaId ?? "",
+            );
         } catch {
             /* quota exceeded */
         }
-    }, [activePersonaId, persistChat]);
+    }, [chatActivePersonaId, persistChat]);
 
     useEffect(() => {
         if (!persistChat) return;
         try {
-            localStorage.setItem("chatSelectedModel", selectedModel);
+            localStorage.setItem("chatSelectedModel", chatSelectedModel);
         } catch {
             /* quota exceeded */
         }
-    }, [selectedModel, persistChat]);
+    }, [chatSelectedModel, persistChat]);
+
+    // ── Conversation mode persistence effects ──
+    useEffect(() => {
+        if (!persistConversation) return;
+        try {
+            localStorage.setItem("conversationModelA", conversationModelA);
+        } catch {
+            /* ignore */
+        }
+    }, [conversationModelA, persistConversation]);
+
+    useEffect(() => {
+        if (!persistConversation) return;
+        try {
+            localStorage.setItem(
+                "conversationSystemPromptA",
+                conversationSystemPromptA,
+            );
+        } catch {
+            /* ignore */
+        }
+    }, [conversationSystemPromptA, persistConversation]);
+
+    useEffect(() => {
+        if (!persistConversation) return;
+        try {
+            localStorage.setItem(
+                "conversationActivePersonaIdA",
+                conversationActivePersonaIdA ?? "",
+            );
+        } catch {
+            /* ignore */
+        }
+    }, [conversationActivePersonaIdA, persistConversation]);
 
     // ── Conversation persistence effects ──
     useEffect(() => {
@@ -865,6 +978,41 @@ export function Chat() {
         setConversationState("paused");
     }, []);
 
+    // Helper to delete a message and reset to idle if only user message remains
+    const handleDeleteMessage = useCallback(
+        (msgIndex: number) => {
+            setMessages((prev) => {
+                const toRemove = new Set([msgIndex]);
+                // In chat mode, also remove the preceding user message
+                if (
+                    chatSubMode === "chat" &&
+                    msgIndex > 0 &&
+                    prev[msgIndex - 1].role === "user"
+                ) {
+                    toRemove.add(msgIndex - 1);
+                }
+                const newMessages = prev.filter((_, i) => !toRemove.has(i));
+
+                // In conversation mode, if we're left with just the user message,
+                // reset to idle state and restore the message to input
+                if (
+                    chatSubMode === "conversation" &&
+                    newMessages.length === 1 &&
+                    newMessages[0]?.role === "user"
+                ) {
+                    setConversationState("idle");
+                    setCurrentTurn(0);
+                    setInput(newMessages[0].content);
+                    return [];
+                }
+
+                return newMessages;
+            });
+            toast("Message deleted", "info");
+        },
+        [chatSubMode, toast],
+    );
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -888,12 +1036,13 @@ export function Chat() {
         0,
     );
 
+    // Can start if: both models selected, has input, and not currently running
     const canStartConversation =
         chatSubMode === "conversation" &&
         !!selectedModel &&
         !!selectedModelB &&
         !!input.trim() &&
-        conversationState === "idle";
+        conversationState !== "running";
 
     return (
         <div
@@ -1026,6 +1175,9 @@ export function Chat() {
                                             onChange={setSelectedModel}
                                             multi={false}
                                             providers={providerData}
+                                            disabled={
+                                                conversationState === "running"
+                                            }
                                         />
                                         <div className="mt-3">
                                             <PersonaPicker
@@ -1041,6 +1193,10 @@ export function Chat() {
                                                     setSystemPrompt
                                                 }
                                                 label="Persona A"
+                                                disabled={
+                                                    conversationState ===
+                                                    "running"
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1054,6 +1210,9 @@ export function Chat() {
                                             onChange={setSelectedModelB}
                                             multi={false}
                                             providers={providerData}
+                                            disabled={
+                                                conversationState === "running"
+                                            }
                                         />
                                         <div className="mt-3">
                                             <PersonaPicker
@@ -1069,6 +1228,10 @@ export function Chat() {
                                                     setSystemPromptB
                                                 }
                                                 label="Persona B"
+                                                disabled={
+                                                    conversationState ===
+                                                    "running"
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -1131,15 +1294,13 @@ export function Chat() {
                     ) : (
                         <>
                             {selectedModelObj ? (
-                                <div className="border-l-2 border-(--accent)">
-                                    <ModelDetailPanel
-                                        model={selectedModelObj}
-                                        params={messageParams}
-                                        onParamsChange={setMessageParams}
-                                        collapsible
-                                        tint="accent"
-                                    />
-                                </div>
+                                <ModelDetailPanel
+                                    model={selectedModelObj}
+                                    params={messageParams}
+                                    onParamsChange={setMessageParams}
+                                    collapsible
+                                    tint="default"
+                                />
                             ) : (
                                 <div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
                                     <Bot
@@ -1150,15 +1311,13 @@ export function Chat() {
                                 </div>
                             )}
                             {selectedModelObjB ? (
-                                <div className="border-l-2 border-blue-500">
-                                    <ModelDetailPanel
-                                        model={selectedModelObjB}
-                                        params={messageParamsB}
-                                        onParamsChange={setMessageParamsB}
-                                        collapsible
-                                        tint="blue"
-                                    />
-                                </div>
+                                <ModelDetailPanel
+                                    model={selectedModelObjB}
+                                    params={messageParamsB}
+                                    onParamsChange={setMessageParamsB}
+                                    collapsible
+                                    tint="blue"
+                                />
                             ) : (
                                 <div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
                                     <Bot
@@ -1335,37 +1494,11 @@ export function Chat() {
                                                     </button>
                                                     <button
                                                         className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
-                                                        onClick={() => {
-                                                            setMessages(
-                                                                (prev) => {
-                                                                    const idx =
-                                                                        prev.findIndex(
-                                                                            (
-                                                                                m,
-                                                                            ) =>
-                                                                                m ===
-                                                                                msg,
-                                                                        );
-                                                                    if (
-                                                                        idx ===
-                                                                        -1
-                                                                    )
-                                                                        return prev;
-                                                                    return prev.filter(
-                                                                        (
-                                                                            _,
-                                                                            i,
-                                                                        ) =>
-                                                                            i !==
-                                                                            idx,
-                                                                    );
-                                                                },
-                                                            );
-                                                            toast(
-                                                                "Message deleted",
-                                                                "info",
-                                                            );
-                                                        }}
+                                                        onClick={() =>
+                                                            handleDeleteMessage(
+                                                                i,
+                                                            )
+                                                        }
                                                     >
                                                         <Trash2 size={10} />
                                                     </button>
@@ -1455,39 +1588,9 @@ export function Chat() {
                                                 </button>
                                                 <button
                                                     className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
-                                                    onClick={() => {
-                                                        setMessages((prev) => {
-                                                            const idx =
-                                                                prev.findIndex(
-                                                                    (m) =>
-                                                                        m ===
-                                                                        msg,
-                                                                );
-                                                            if (idx === -1)
-                                                                return prev;
-                                                            const toRemove =
-                                                                new Set([idx]);
-                                                            if (
-                                                                idx > 0 &&
-                                                                prev[idx - 1]
-                                                                    .role ===
-                                                                    "user"
-                                                            )
-                                                                toRemove.add(
-                                                                    idx - 1,
-                                                                );
-                                                            return prev.filter(
-                                                                (_, i) =>
-                                                                    !toRemove.has(
-                                                                        i,
-                                                                    ),
-                                                            );
-                                                        });
-                                                        toast(
-                                                            "Message deleted",
-                                                            "info",
-                                                        );
-                                                    }}
+                                                    onClick={() =>
+                                                        handleDeleteMessage(i)
+                                                    }
                                                 >
                                                     <Trash2 size={10} />
                                                 </button>
@@ -1650,19 +1753,19 @@ export function Chat() {
                         setConversationState("idle");
                         setCurrentTurn(0);
                         if (chatSubMode === "chat") {
-                            setSelectedModel("");
-                            setSystemPrompt("");
-                            setActivePersonaId(null);
-                            setMessageParams({});
+                            setChatSelectedModel("");
+                            setChatSystemPrompt("");
+                            setChatActivePersonaId(null);
+                            setChatMessageParams({});
                         } else {
                             // conversation mode: also clear both models, personas, and params
-                            setSelectedModel("");
+                            setConversationModelA("");
                             setSelectedModelB("");
-                            setSystemPrompt("");
+                            setConversationSystemPromptA("");
                             setSystemPromptB("");
-                            setActivePersonaId(null);
+                            setConversationActivePersonaIdA(null);
                             setActivePersonaIdB(null);
-                            setMessageParams({});
+                            setConversationParamsA({});
                             setMessageParamsB({});
                         }
                         setPendingReset(false);

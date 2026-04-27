@@ -6,6 +6,7 @@ interface FilterInputProps {
     placeholder?: string;
     className?: string;
     autoFocus?: boolean;
+    disabled?: boolean;
 }
 
 export function FilterInput({
@@ -14,6 +15,7 @@ export function FilterInput({
     placeholder = "Filter…",
     className = "",
     autoFocus,
+    disabled = false,
 }: FilterInputProps) {
     return (
         <div className={`relative ${className}`}>
@@ -23,7 +25,8 @@ export function FilterInput({
                 autoFocus={autoFocus}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="ui-input h-9 py-0! w-full pr-7!"
+                disabled={disabled}
+                className="ui-input h-9 py-0! w-full pr-7! disabled:opacity-50 disabled:cursor-not-allowed"
             />
             {value.length > 0 && (
                 <button

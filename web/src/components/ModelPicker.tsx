@@ -30,6 +30,8 @@ interface SingleProps {
     onConfigureParams?: (modelId: string) => void;
     /** When true, param cogs are non-interactive (e.g. arena is running) */
     paramsReadonly?: boolean;
+    /** When true, the picker is disabled (e.g. conversation is running) */
+    disabled?: boolean;
 }
 
 interface MultiProps {
@@ -48,6 +50,8 @@ interface MultiProps {
     onConfigureParams?: (modelId: string) => void;
     /** When true, param cogs are non-interactive (e.g. arena is running) */
     paramsReadonly?: boolean;
+    /** When true, the picker is disabled (e.g. conversation is running) */
+    disabled?: boolean;
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -98,6 +102,7 @@ export function ModelPicker({
     slotParams,
     onConfigureParams,
     paramsReadonly = false,
+    disabled = false,
 }: ModelPickerProps) {
     const [search, setSearch] = useState("");
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
@@ -181,6 +186,7 @@ export function ModelPicker({
     };
 
     const toggleModel = (val: string) => {
+        if (disabled) return;
         if (multi) {
             const current = [...(selected as string[])];
             if (current.includes(val)) {
@@ -210,6 +216,7 @@ export function ModelPicker({
                     onChange={setSearch}
                     placeholder="Filter models…"
                     className="w-[320px]"
+                    disabled={disabled}
                 />
                 <div className="flex items-center gap-2 text-xs">
                     <button
@@ -270,7 +277,7 @@ export function ModelPicker({
             </div>
 
             <div
-                className={`flex flex-wrap gap-1.5 h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-wrap gap-1.5 h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"} ${disabled ? "opacity-50 pointer-events-none" : ""}`}
             >
                 {filteredModels.map((m) => {
                     const val = proxyModelID(m.provider_name, m.model_id);
@@ -293,7 +300,8 @@ export function ModelPicker({
                         >
                             <button
                                 onClick={() => toggleModel(val)}
-                                className="cursor-pointer"
+                                className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+                                disabled={disabled}
                             >
                                 {m.display_name || m.model_id}
                             </button>
