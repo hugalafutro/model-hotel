@@ -322,7 +322,7 @@ export function ModelPicker({
                                         className={
                                             hasParams
                                                 ? "text-(--accent)"
-                                                : "text-(--text-tertiary)"
+                                                : "text-white"
                                         }
                                     />
                                 </button>
