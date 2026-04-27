@@ -24,6 +24,7 @@ import type { ChatMessage, GenerationParams } from "../api/types";
 
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
+import { useSidebarMode } from "../context/SidebarModeContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { PersonaPicker } from "../components/PersonaPicker";
@@ -56,7 +57,6 @@ function hasAnyParam(p: GenerationParams): boolean {
     );
 }
 
-type ChatMode = "chat" | "conversation";
 type ConversationState = "idle" | "running" | "paused" | "completed";
 
 function getApiMessagesForModel(
@@ -219,13 +219,7 @@ export function Chat() {
         staleTime: 60_000,
     });
 
-    const [chatMode, setChatMode] = useState<ChatMode>(() => {
-        try {
-            return (localStorage.getItem("chatMode") as ChatMode) ?? "chat";
-        } catch {
-            return "chat";
-        }
-    });
+    const { chatSubMode, setChatSubMode } = useSidebarMode();
 
     const [messages, setMessages] = useState<ChatMessage[]>(() => {
         try {
@@ -333,6 +327,19 @@ export function Chat() {
     const [conversationState, setConversationState] =
         useState<ConversationState>("idle");
     const [currentTurn, setCurrentTurn] = useState(0);
+
+    // Reset conversation state when chatSubMode changes (e.g. sidebar click),
+    // but skip the initial mount so we don't wipe persisted messages.
+    const prevChatSubModeRef = useRef(chatSubMode);
+    useEffect(() => {
+        if (prevChatSubModeRef.current !== chatSubMode) {
+            prevChatSubModeRef.current = chatSubMode;
+            setMessages([]);
+            setConversationState("idle");
+            setCurrentTurn(0);
+            setInput("");
+        }
+    }, [chatSubMode]);
     const [maxTurns, setMaxTurns] = useState(() => {
         try {
             const v = localStorage.getItem("conversationMaxTurns");
@@ -420,10 +427,6 @@ export function Chat() {
             /* quota exceeded */
         }
     }, [selectedModel, persistChat]);
-
-    useEffect(() => {
-        localStorage.setItem("chatMode", chatMode);
-    }, [chatMode]);
 
     // ── Conversation persistence effects ──
     useEffect(() => {
@@ -868,7 +871,7 @@ export function Chat() {
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (chatMode === "chat") {
+            if (chatSubMode === "chat") {
                 if (isStreaming) handleStop();
                 else handleSend();
             }
@@ -889,7 +892,7 @@ export function Chat() {
     );
 
     const canStartConversation =
-        chatMode === "conversation" &&
+        chatSubMode === "conversation" &&
         selectedModel &&
         selectedModelB &&
         input.trim() &&
@@ -909,58 +912,51 @@ export function Chat() {
                         <h1 className="text-3xl font-bold text-white">Chat</h1>
                     </div>
                     <p className="text-gray-400">
-                        {chatMode === "chat"
+                        {chatSubMode === "chat"
                             ? "Test enabled models in temporary chat"
                             : "Watch two models converse with each other"}
                     </p>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={() => {
-                            setChatMode("chat");
-                            setMessages([]);
-                            setConversationState("idle");
-                            setCurrentTurn(0);
-                            setInput("");
-                        }}
-                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                            chatMode === "chat"
-                                ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-                        }`}
-                    >
-                        <MessageSquare
-                            size={12}
-                            className="inline mr-1 -mt-0.5"
-                        />
-                        Chat with AI
-                    </button>
-                    <button
-                        onClick={() => {
-                            setChatMode("conversation");
-                            setMessages([]);
-                            setConversationState("idle");
-                            setCurrentTurn(0);
-                            setInput("");
-                        }}
-                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                            chatMode === "conversation"
-                                ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-                        }`}
-                    >
-                        <Users size={12} className="inline mr-1 -mt-0.5" />
-                        AI Conversation
-                    </button>
                 </div>
             </div>
 
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
-                    <label className="text-sm text-(--text-secondary)">
-                        {chatMode === "chat" ? "Model" : "Models"}
-                    </label>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-(--text-primary)">
+                            Controls
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setChatSubMode("chat")}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                    chatSubMode === "chat"
+                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                                }`}
+                            >
+                                <MessageSquare
+                                    size={12}
+                                    className="inline mr-1 -mt-0.5"
+                                />
+                                Chat with AI
+                            </button>
+                            <button
+                                onClick={() => setChatSubMode("conversation")}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                    chatSubMode === "conversation"
+                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                                }`}
+                            >
+                                <Users
+                                    size={12}
+                                    className="inline mr-1 -mt-0.5"
+                                />
+                                AI Conversation
+                            </button>
+                        </div>
+                    </div>
                     <div className="flex items-center gap-1">
                         {messages.some((m) => m.role === "assistant") && (
                             <button
@@ -997,7 +993,7 @@ export function Chat() {
                 >
                     <div className="overflow-hidden">
                         <div className="space-y-4 pt-4">
-                            {chatMode === "chat" ? (
+                            {chatSubMode === "chat" ? (
                                 <>
                                     <ModelPicker
                                         models={enabledModels}
@@ -1082,7 +1078,7 @@ export function Chat() {
             </div>
 
             {/* Conversation Config */}
-            {chatMode === "conversation" && (
+            {chatSubMode === "conversation" && (
                 <ConversationConfig
                     maxTurns={maxTurns}
                     onMaxTurnsChange={setMaxTurns}
@@ -1100,10 +1096,10 @@ export function Chat() {
                 {/* Sidebar */}
                 <div
                     className={`shrink-0 flex flex-col min-h-0 lg:overflow-y-auto ${
-                        chatMode === "conversation" ? "w-1/3 gap-3" : "w-1/4"
+                        chatSubMode === "conversation" ? "w-1/3 gap-3" : "w-1/4"
                     }`}
                 >
-                    {chatMode === "chat" ? (
+                    {chatSubMode === "chat" ? (
                         selectedModelObj ? (
                             <ModelDetailPanel
                                 model={selectedModelObj}
@@ -1175,7 +1171,7 @@ export function Chat() {
                                 className="mb-4 opacity-40"
                             />
                             <p>
-                                {chatMode === "chat"
+                                {chatSubMode === "chat"
                                     ? "Chat will appear here"
                                     : "Conversation will appear here"}
                             </p>
@@ -1236,7 +1232,7 @@ export function Chat() {
                         }
 
                         /* ── Model B message (conversation mode, right side) ── */
-                        if (chatMode === "conversation" && isModelB) {
+                        if (chatSubMode === "conversation" && isModelB) {
                             return (
                                 <ConversationModelBubble
                                     key={i}
@@ -1291,7 +1287,7 @@ export function Chat() {
                                             isStreamingThis ? (
                                                 <button
                                                     onClick={
-                                                        chatMode ===
+                                                        chatSubMode ===
                                                         "conversation"
                                                             ? handleStopConversation
                                                             : handleStop
@@ -1308,7 +1304,7 @@ export function Chat() {
                                                             m.role ===
                                                             "assistant",
                                                     ) &&
-                                                chatMode === "chat" && (
+                                                chatSubMode === "chat" && (
                                                     <button
                                                         onClick={
                                                             handleRegenerate
@@ -1427,7 +1423,7 @@ export function Chat() {
 
             {/* Input / Stats Area */}
             <div className="ui-card p-4 shrink-0">
-                {chatMode === "conversation" &&
+                {chatSubMode === "conversation" &&
                 (conversationState === "running" ||
                     conversationState === "paused" ||
                     conversationState === "completed") ? (
@@ -1511,7 +1507,7 @@ export function Chat() {
                                 }}
                                 onKeyDown={handleKeyDown}
                                 placeholder={
-                                    chatMode === "chat"
+                                    chatSubMode === "chat"
                                         ? selectedModel
                                             ? "Type a message…"
                                             : "Select a model first"
@@ -1521,7 +1517,7 @@ export function Chat() {
                                 }
                                 disabled={
                                     !selectedModel ||
-                                    (chatMode === "conversation" &&
+                                    (chatSubMode === "conversation" &&
                                         !selectedModelB) ||
                                     isStreaming
                                 }
@@ -1531,7 +1527,7 @@ export function Chat() {
                                 className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
                                 style={{ height: "auto" }}
                             />
-                            {chatMode === "chat" ? (
+                            {chatSubMode === "chat" ? (
                                 <button
                                     onClick={
                                         isStreaming ? handleStop : handleSend
@@ -1588,7 +1584,7 @@ export function Chat() {
                             )}
                         </div>
                         <p className="text-xs text-(--text-muted)">
-                            {chatMode === "chat"
+                            {chatSubMode === "chat"
                                 ? "Press Enter to send, Shift+Enter for newline"
                                 : "Enter a topic or question to start the conversation"}
                         </p>
@@ -1599,12 +1595,12 @@ export function Chat() {
             {pendingReset && (
                 <ConfirmDialog
                     title={
-                        chatMode === "chat"
+                        chatSubMode === "chat"
                             ? "Reset Chat"
                             : "Reset Conversation"
                     }
                     message={
-                        chatMode === "chat"
+                        chatSubMode === "chat"
                             ? "This will clear all messages and reset the chat. Continue?"
                             : "This will clear the conversation and reset both models. Continue?"
                     }
@@ -1615,7 +1611,7 @@ export function Chat() {
                         setInput("");
                         setConversationState("idle");
                         setCurrentTurn(0);
-                        if (chatMode === "chat") {
+                        if (chatSubMode === "chat") {
                             setSelectedModel("");
                             setSystemPrompt("");
                             setActivePersonaId(null);
@@ -1623,7 +1619,7 @@ export function Chat() {
                         }
                         setPendingReset(false);
                         toast(
-                            chatMode === "chat"
+                            chatSubMode === "chat"
                                 ? "Chat reset"
                                 : "Conversation reset",
                             "info",

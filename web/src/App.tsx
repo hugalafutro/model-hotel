@@ -14,6 +14,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 import { EventProvider } from "./context/EventContext";
 import { StorageProvider } from "./context/StorageContext";
+import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { setAdminToken } from "./api/client";
 
 const Dashboard = lazy(() =>
@@ -153,11 +154,13 @@ function App() {
     return (
         <ThemeProvider>
             <StorageProvider>
-                <ToastProvider>
-                    <EventProvider>
-                        <AppContent />
-                    </EventProvider>
-                </ToastProvider>
+                <SidebarModeProvider>
+                    <ToastProvider>
+                        <EventProvider>
+                            <AppContent />
+                        </EventProvider>
+                    </ToastProvider>
+                </SidebarModeProvider>
             </StorageProvider>
         </ThemeProvider>
     );

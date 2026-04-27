@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useTheme } from "../context/ThemeContext";
+import { useSidebarMode } from "../context/SidebarModeContext";
 
 const u = "text-(--text-muted)";
 
@@ -378,10 +379,29 @@ export function Layout({ children }: LayoutProps) {
     const navigate = useNavigate();
     const { theme, setTheme } = useTheme();
 
+    const { chatSubMode, setChatSubMode, arenaSubMode, setArenaSubMode } =
+        useSidebarMode();
+
     const navigation = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { name: "Chat", href: "/chat", icon: MessageSquare },
-        { name: "Arena", href: "/arena", icon: Swords },
+        {
+            name: "Chat",
+            href: "/chat",
+            icon: MessageSquare,
+            subModes: [
+                { label: "Chat", value: "chat" as const },
+                { label: "Conversation", value: "conversation" as const },
+            ],
+        },
+        {
+            name: "Arena",
+            href: "/arena",
+            icon: Swords,
+            subModes: [
+                { label: "Arena", value: "competition" as const },
+                { label: "Comparison", value: "compare" as const },
+            ],
+        },
         { name: "Providers", href: "/providers", icon: PlugZap },
         { name: "Models", href: "/models", icon: Bot },
         { name: "Failover", href: "/failover", icon: Shuffle },
@@ -389,6 +409,24 @@ export function Layout({ children }: LayoutProps) {
         { name: "Logs", href: "/logs", icon: ScrollText },
         { name: "Settings", href: "/settings", icon: Settings },
     ];
+
+    const handleChatSubModeClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const nextMode: typeof chatSubMode =
+            chatSubMode === "chat" ? "conversation" : "chat";
+        setChatSubMode(nextMode);
+        navigate("/chat");
+    };
+
+    const handleArenaSubModeClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const nextMode: typeof arenaSubMode =
+            arenaSubMode === "competition" ? "compare" : "competition";
+        setArenaSubMode(nextMode);
+        navigate("/arena");
+    };
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -415,6 +453,9 @@ export function Layout({ children }: LayoutProps) {
                         {navigation.map((item) => {
                             const Icon = item.icon;
                             const active = isActive(item.href);
+                            const hasSubModes =
+                                "subModes" in item && item.subModes;
+
                             return (
                                 <li key={item.name}>
                                     <Link
@@ -431,7 +472,50 @@ export function Layout({ children }: LayoutProps) {
                                                 strokeWidth={active ? 2.5 : 2}
                                             />
                                         </span>
-                                        {item.name}
+                                        {hasSubModes ? (
+                                            <span className="flex items-baseline gap-1.5">
+                                                <span
+                                                    className={
+                                                        active
+                                                            ? "font-semibold"
+                                                            : ""
+                                                    }
+                                                >
+                                                    {item.href === "/chat"
+                                                        ? chatSubMode === "chat"
+                                                            ? "Chat"
+                                                            : "Conversation"
+                                                        : arenaSubMode ===
+                                                            "competition"
+                                                          ? "Arena"
+                                                          : "Comparison"}
+                                                </span>
+                                                <span className="text-(--text-muted) text-[10px] opacity-60">
+                                                    /
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={
+                                                        item.href === "/chat"
+                                                            ? handleChatSubModeClick
+                                                            : handleArenaSubModeClick
+                                                    }
+                                                    className="text-[10px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer"
+                                                    title={`Switch to ${item.href === "/chat" ? (chatSubMode === "chat" ? "Conversation" : "Chat") : arenaSubMode === "competition" ? "Comparison" : "Arena"} mode`}
+                                                >
+                                                    {item.href === "/chat"
+                                                        ? chatSubMode === "chat"
+                                                            ? "Conversation"
+                                                            : "Chat"
+                                                        : arenaSubMode ===
+                                                            "competition"
+                                                          ? "Comparison"
+                                                          : "Arena"}
+                                                </button>
+                                            </span>
+                                        ) : (
+                                            item.name
+                                        )}
                                     </Link>
                                 </li>
                             );

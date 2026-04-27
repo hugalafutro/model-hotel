@@ -27,6 +27,10 @@ import { proxyModelID } from "../utils/model";
 import type { Model, GenerationParams } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
+import {
+    useSidebarMode,
+    type ArenaSubMode,
+} from "../context/SidebarModeContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
 import { PersonaPicker } from "../components/PersonaPicker";
@@ -81,8 +85,6 @@ interface BracketRound {
     matchups: Matchup[];
 }
 
-type ArenaMode = "competition" | "compare";
-
 type BracketPhase =
     | "setup"
     | "running"
@@ -110,22 +112,10 @@ export function Arena() {
 
     const { toast } = useToast();
     const { persistArena } = useStorage();
+    const { arenaSubMode, setArenaSubMode } = useSidebarMode();
 
-    const [arenaMode, setArenaMode] = useState<ArenaMode>(() => {
-        try {
-            if (localStorage.getItem("persistArena") === "true") {
-                const raw = localStorage.getItem("arenaState");
-                if (raw)
-                    return (
-                        (JSON.parse(raw).arenaMode as ArenaMode) ??
-                        "competition"
-                    );
-            }
-        } catch {
-            /* ignore */
-        }
-        return "competition";
-    });
+    const arenaMode = arenaSubMode;
+    const setArenaMode = setArenaSubMode;
 
     const [compareModels, setCompareModels] = useState<string[]>(() => {
         try {
@@ -399,7 +389,7 @@ export function Arena() {
         persistArena,
     ]);
 
-    const arenaModeRef = useRef<ArenaMode>(arenaMode);
+    const arenaModeRef = useRef<ArenaSubMode>(arenaMode);
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const currentRoundRef = useRef(0);
     const roundsLengthRef = useRef(0);
