@@ -616,7 +616,7 @@ export function Logs() {
                             setPage(1);
                         }}
                         placeholder="Filter by provider…"
-                        className="w-[200px]"
+                        className="w-50"
                     />
                     <select
                         value={filters.status_code}
