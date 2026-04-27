@@ -15,8 +15,6 @@ import {
     CircleStop,
     RefreshCw,
     Users,
-    Play,
-    Pause,
     Timer,
     Gauge,
 } from "lucide-react";
@@ -727,7 +725,7 @@ export function Chat() {
                 currentMessages = [...messages, userMessage];
                 setMessages(currentMessages);
                 setInput("");
-                modelTurn = "B";
+                modelTurn = "A";
             } else {
                 // Resume: figure out whose turn it is based on last assistant
                 const lastAssistantIdx = currentMessages.findLastIndex(
@@ -1139,6 +1137,7 @@ export function Chat() {
                                         params={messageParams}
                                         onParamsChange={setMessageParams}
                                         collapsible
+                                        tint="accent"
                                     />
                                 </div>
                             ) : (
@@ -1151,12 +1150,13 @@ export function Chat() {
                                 </div>
                             )}
                             {selectedModelObjB ? (
-                                <div className="border-l-2 border-(--accent) bg-(--accent)/5">
+                                <div className="border-l-2 border-blue-500">
                                     <ModelDetailPanel
                                         model={selectedModelObjB}
                                         params={messageParamsB}
                                         onParamsChange={setMessageParamsB}
                                         collapsible
+                                        tint="blue"
                                     />
                                 </div>
                             ) : (
@@ -1222,23 +1222,33 @@ export function Chat() {
 
                         /* ── User message ── */
                         if (isUser) {
+                            // In conversation mode, user message is centered and gray
+                            const isConversationMode =
+                                chatSubMode === "conversation";
                             return (
-                                <div key={i} className="flex justify-end">
+                                <div
+                                    key={i}
+                                    className={`flex ${isConversationMode ? "justify-center" : "justify-end"}`}
+                                >
                                     <div
-                                        className="max-w-[80%] bg-(--accent) text-white p-2.5"
+                                        className={`max-w-[80%] p-2.5 ${isConversationMode ? "bg-gray-500/20 text-(--text-primary) border border-gray-500/30" : "bg-(--accent) text-white"}`}
                                         style={{
                                             borderRadius: "var(--radius-card)",
                                         }}
                                     >
-                                        <MarkdownContent className="[&_strong]:text-white [&_em]:text-white/80">
+                                        <MarkdownContent
+                                            className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
+                                        >
                                             {msg.content}
                                         </MarkdownContent>
-                                        <div className="flex items-center gap-3 text-[11px] mt-0.5 text-white/60">
+                                        <div
+                                            className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
+                                        >
                                             <span>
                                                 {formatTime(msg.timestamp)}
                                             </span>
                                             <button
-                                                className="inline-flex items-center cursor-pointer transition-all text-white hover:drop-shadow-[0_0_4px_white]"
+                                                className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[0_0_4px_white]"}`}
                                                 onClick={() => {
                                                     navigator.clipboard
                                                         .writeText(msg.content)
@@ -1581,7 +1591,7 @@ export function Chat() {
                                 <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
                                     <span className="flex items-center gap-1.5">
                                         <Gauge size={14} />
-                                        Turn {currentTurn} / {maxTurns * 2}
+                                        Turn {Math.ceil(currentTurn / 2)} / {maxTurns}
                                     </span>
                                     <span className="flex items-center gap-1.5">
                                         <Timer size={14} />
@@ -1593,43 +1603,18 @@ export function Chat() {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {conversationState === "running" && (
-                                        <button
-                                            onClick={handleStopConversation}
-                                            className="ui-btn ui-btn-danger flex items-center gap-2"
-                                        >
-                                            <Pause size={16} />
-                                            Pause
-                                        </button>
-                                    )}
-                                    {(conversationState === "paused" ||
+                                    {(conversationState === "running" ||
+                                        conversationState === "paused" ||
                                         conversationState === "completed") && (
-                                        <>
-                                            <button
-                                                onClick={() =>
-                                                    runConversation(true)
-                                                }
-                                                disabled={
-                                                    currentTurn >= maxTurns * 2
-                                                }
-                                                className="ui-btn ui-btn-primary flex items-center gap-2"
-                                            >
-                                                <Play size={16} />
-                                                {conversationState ===
-                                                "completed"
-                                                    ? "Continue"
-                                                    : "Resume"}
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    setPendingReset(true)
-                                                }
-                                                className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-                                            >
-                                                <RotateCcw size={16} />
-                                                Reset
-                                            </button>
-                                        </>
+                                        <button
+                                            onClick={() =>
+                                                setPendingReset(true)
+                                            }
+                                            className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                        >
+                                            <RotateCcw size={16} />
+                                            Reset
+                                        </button>
                                     )}
                                 </div>
                             </div>

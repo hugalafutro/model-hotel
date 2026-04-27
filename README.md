@@ -10,9 +10,10 @@
 >
 > This project was created with assistance from multiple AI models:
 > - **GLM-5.1** (mostly design and planning / backend)
-> - **Kimi-K2.6** (mostly UX / theming / frontend)
-> - **Minimax-M2.7** (small code / style adjustments)
+> - **Kimi-K2.6** (mostly UX and visuals planning / frontend)
+> - **Kimi-K2.5, GLM-5, Minimax-M2.7** (small code / style adjustments)
 >
+> Thanks ollama cloud for generous limits. I have nothing nice to say about Z.ai in that regard.
 > Development was done in [Zed](https://zed.dev) editor and/or [Opencode](https://opencode.ai), with extensive human testing and iterative refinement.
 >
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.

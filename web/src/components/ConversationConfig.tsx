@@ -207,7 +207,7 @@ export function ConversationConfig({
                                 <span>
                                     Turn:{" "}
                                     <span className="text-(--text-primary)">
-                                        {currentTurn} / {maxTurns * 2}
+                                        {Math.ceil(currentTurn / 2)} / {maxTurns}
                                     </span>
                                 </span>
                             </div>

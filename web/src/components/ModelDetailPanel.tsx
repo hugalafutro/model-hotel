@@ -79,6 +79,8 @@ interface ModelDetailPanelProps {
     onClose?: () => void;
     /** Whether to show the collapse/expand toggle (default: true) */
     collapsible?: boolean;
+    /** Tint style for the panel — "accent" applies accent border tint, "blue" applies blue border tint */
+    tint?: "accent" | "blue" | "default";
 }
 
 export function ModelDetailPanel({
@@ -87,6 +89,7 @@ export function ModelDetailPanel({
     onParamsChange,
     onClose,
     collapsible = true,
+    tint = "default",
 }: ModelDetailPanelProps) {
     const caps = parseCapabilities(model.capabilities);
     const [open, setOpen] = useState(false);
@@ -104,8 +107,15 @@ export function ModelDetailPanel({
           params.presence_penalty !== undefined
         : false;
 
+    const tintClass =
+        tint === "accent"
+            ? "ui-card-tint-accent"
+            : tint === "blue"
+              ? "ui-card-tint-blue"
+              : "";
+
     return (
-        <div className="ui-card p-3 text-xs relative overflow-y-auto max-h-full">
+        <div className={`ui-card p-3 text-xs relative overflow-y-auto max-h-full ${tintClass}`}>
             {/* Header with collapse arrow + cog */}
             <div className="flex items-start justify-between">
                 <div className="min-w-0">
