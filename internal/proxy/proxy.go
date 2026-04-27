@@ -364,7 +364,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	for attempt, candidate := range candidates {
 		logData.providerID = candidate.provider.ID
 		go func(pid uuid.UUID) {
-			h.providerRepo.TouchLastUsed(context.Background(), pid)
+			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer tcancel()
+			h.providerRepo.TouchLastUsed(tctx, pid)
 		}(candidate.provider.ID)
 		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
 
@@ -388,15 +390,14 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		proxyReq.Header.Set("Authorization", "Bearer "+candidate.apiKey)
 		proxyReq.Header.Set("Content-Type", "application/json")
 
-		streamingClient := &http.Client{
-			Transport: &http.Transport{
-				// 2 min to wait for upstream headers (TTFT). Once headers arrive,
-				// the streaming body reads indefinitely — no read deadline.
-				// A non-zero value ensures failover isn't stuck on a dead provider.
-				ResponseHeaderTimeout: 120 * time.Second,
-			},
+		// Reuse the shared upstream Transport instead of creating a new one
+		// per request. A fresh Transport spawns persistent readLoop/writeLoop
+		// goroutines per connection that only die after IdleConnTimeout, so
+		// creating one per request causes unbounded goroutine growth.
+		upstreamClient := &http.Client{
+			Transport: h.upstreamTransport,
 		}
-		resp, err := streamingClient.Do(proxyReq)
+		resp, err := upstreamClient.Do(proxyReq)
 		if err != nil {
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 			continue

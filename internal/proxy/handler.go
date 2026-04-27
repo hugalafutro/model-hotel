@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,6 +26,10 @@ type Handler struct {
 	failoverRepo   *failover.Repository
 	settingsRepo   *settings.Repository
 	rateLimiter    *ratelimit.Limiter
+	// upstreamTransport is a shared Transport for all outbound proxy
+	// requests.  Reusing one Transport avoids creating a fresh Transport
+	// (and its persistent readLoop/writeLoop goroutines) per request.
+	upstreamTransport *http.Transport
 }
 
 func NewHandler(
@@ -46,6 +51,19 @@ func NewHandler(
 		failoverRepo:   failoverRepo,
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
+		upstreamTransport: &http.Transport{
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
+}
+
+// Close releases resources owned by the handler. Call during server
+// shutdown so the shared upstream Transport terminates its idle
+// connection goroutines.
+func (h *Handler) Close() {
+	if h.upstreamTransport != nil {
+		h.upstreamTransport.CloseIdleConnections()
 	}
 }
 
@@ -95,7 +113,13 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
 		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID.String())
 		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
-		h.virtualKeyRepo.TouchLastUsed(context.Background(), keyHash)
+		// Fire-and-forget touch with a timeout so the goroutine cannot
+		// outlive the server if the DB is slow.
+		go func(hash string) {
+			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer tcancel()
+			h.virtualKeyRepo.TouchLastUsed(tctx, hash)
+		}(keyHash)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

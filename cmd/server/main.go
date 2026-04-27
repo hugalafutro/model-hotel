@@ -29,6 +29,7 @@ import (
 	"github.com/user/llm-proxy/internal/proxy"
 	"github.com/user/llm-proxy/internal/ratelimit"
 	"github.com/user/llm-proxy/internal/settings"
+	"github.com/user/llm-proxy/internal/util"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
 
@@ -215,10 +216,21 @@ func main() {
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter)
 
-	// API routes — standard 60s timeout is appropriate for admin/API calls
+	// API routes
 	r.Route("/api", func(r chi.Router) {
-		r.Use(middleware.Timeout(60 * time.Second))
-		apiHandler.Register(r)
+		// SSE endpoint — long-lived connection, must NOT have a request
+		// timeout.  The handler detects client disconnect via
+		// r.Context().Done() instead.
+		r.Group(func(r chi.Router) {
+			apiHandler.RegisterEvents(r)
+		})
+
+		// All other API routes — standard 60s timeout is appropriate for
+		// admin/API calls.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
+			apiHandler.Register(r)
+		})
 	})
 
 	// Admin chat routes — admin-authenticated proxy for the Chat/Arena UI.
@@ -381,15 +393,27 @@ func main() {
 	// When discovery_on_startup is true, the startup go runDiscovery() above already
 	// handles immediate discovery; when false, we must not discover on startup either.
 	go func() {
+		// Use a reusable timer instead of time.After, which leaks a
+		// timer until it fires (the GC eventually collects it, but at
+		// high intervals the accumulation is wasteful).
+		interval := settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
+		if interval == 0 {
+			interval = 1 * time.Minute
+		}
+		timer := time.NewTimer(interval)
+		defer timer.Stop()
+
 		for {
-			interval := settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
-			if interval == 0 {
-				interval = 1 * time.Minute
-			}
 			select {
-			case <-time.After(interval):
+			case <-timer.C:
 				result := runDiscovery()
 				publishDiscoveryEvent("Scheduled", result)
+				// Re-read interval in case the setting changed.
+				interval = settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
+				if interval == 0 {
+					interval = 1 * time.Minute
+				}
+				timer.Reset(interval)
 			case <-ctx.Done():
 				return
 			}
@@ -409,14 +433,17 @@ func main() {
 	//      updateRequestLog). The timeout is generous to avoid killing
 	//      legitimate long-running streaming requests.
 	go func() {
+		timer := time.NewTimer(5 * time.Minute)
+		defer timer.Stop()
 		for {
 			select {
-			case <-time.After(5 * time.Minute):
+			case <-timer.C:
 			case <-ctx.Done():
 				return
 			}
 			staleTimeout := settingsRepo.GetDuration(context.Background(), "stale_request_timeout", 30*time.Minute)
 			if staleTimeout <= 0 {
+				timer.Reset(5 * time.Minute)
 				continue
 			}
 			// Build a PostgreSQL-safe interval string from the parsed duration.
@@ -443,19 +470,23 @@ func main() {
 			} else if err != nil {
 				log.Printf("Stale log cleanup: failed: %v", err)
 			}
+			timer.Reset(5 * time.Minute)
 		}
 	}()
 
 	// Log retention cleanup
 	go func() {
+		timer := time.NewTimer(1 * time.Hour)
+		defer timer.Stop()
 		for {
 			select {
-			case <-time.After(1 * time.Hour):
+			case <-timer.C:
 			case <-ctx.Done():
 				return
 			}
 			retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
 			if retention == "" {
+				timer.Reset(1 * time.Hour)
 				continue
 			}
 			var cutoff time.Time
@@ -469,6 +500,7 @@ func main() {
 			case "1m":
 				cutoff = time.Now().Add(-30 * 24 * time.Hour)
 			default:
+				timer.Reset(1 * time.Hour)
 				continue
 			}
 			tag, err := database.Pool().Exec(context.Background(),
@@ -476,6 +508,7 @@ func main() {
 			if err == nil {
 				log.Printf("Log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
 			}
+			timer.Reset(1 * time.Hour)
 		}
 	}()
 
@@ -496,6 +529,11 @@ func main() {
 	<-sigChan
 
 	log.Println("Shutting down server gracefully...")
+
+	// Release goroutine-leaking resources before draining HTTP connections.
+	proxyHandler.Close()
+	util.CloseDockerClient()
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer shutdownCancel()
 

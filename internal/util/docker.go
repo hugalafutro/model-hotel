@@ -17,8 +17,10 @@ import (
 const dockerSocketPath = "/var/run/docker.sock"
 
 var (
-	dockerAvailable bool
-	dockerCheckMu   sync.Once
+	dockerAvailable  bool
+	dockerCheckMu    sync.Once
+	sharedDockerOnce sync.Once
+	sharedDockerCli  *http.Client
 )
 
 func IsDockerAvailable() bool {
@@ -44,14 +46,34 @@ func IsDockerAvailable() bool {
 	return dockerAvailable
 }
 
+// dockerHTTPClient returns a singleton HTTP client for Docker socket
+// communication.  Previously every caller constructed a fresh
+// http.Transport, each of which spawns persistent readLoop/writeLoop
+// goroutines per connection that only die after IdleConnTimeout (90 s
+// default).  Reusing a single Transport avoids that unbounded goroutine
+// growth while still pooling connections efficiently.
 func dockerHTTPClient() *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", dockerSocketPath)
+	sharedDockerOnce.Do(func() {
+		sharedDockerCli = &http.Client{
+			Transport: &http.Transport{
+				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+					return net.Dial("unix", dockerSocketPath)
+				},
+				IdleConnTimeout: 30 * time.Second,
 			},
-		},
-		Timeout: 5 * time.Second,
+			Timeout: 5 * time.Second,
+		}
+	})
+	return sharedDockerCli
+}
+
+// CloseDockerClient closes idle connections on the shared Docker HTTP
+// client. Call during server shutdown so Transport goroutines are released.
+func CloseDockerClient() {
+	if sharedDockerCli != nil {
+		if t, ok := sharedDockerCli.Transport.(*http.Transport); ok {
+			t.CloseIdleConnections()
+		}
 	}
 }
 
@@ -63,22 +85,22 @@ type DockerContainer struct {
 }
 
 type ContainerStats struct {
-	Name         string
-	CPUPercent   float64
-	MemoryUsage  int64
-	MemoryLimit  int64
-	NetRxBytes   int64
-	NetTxBytes   int64
-	BlockRead    int64
-	BlockWrite   int64
-	Procs        int
-	Pids         int
+	Name        string
+	CPUPercent  float64
+	MemoryUsage int64
+	MemoryLimit int64
+	NetRxBytes  int64
+	NetTxBytes  int64
+	BlockRead   int64
+	BlockWrite  int64
+	Procs       int
+	Pids        int
 }
 
 type dockerStatsResponse struct {
-	Read      string `json:"read"`
-	PreRead   string `json:"preread"`
-	CPUStats  struct {
+	Read     string `json:"read"`
+	PreRead  string `json:"preread"`
+	CPUStats struct {
 		CPUUsage struct {
 			TotalUsage  int64   `json:"total_usage"`
 			PerCPUUsage []int64 `json:"percpu_usage"`
@@ -100,10 +122,10 @@ type dockerStatsResponse struct {
 		OnlineCPUs     int   `json:"online_cpus"`
 	} `json:"precpu_stats"`
 	MemoryStats struct {
-		Usage    int64 `json:"usage"`
-		Limit    int64 `json:"limit"`
-		Stats    map[string]int64 `json:"stats"`
-		Cache    int64 `json:"cache"`
+		Usage int64            `json:"usage"`
+		Limit int64            `json:"limit"`
+		Stats map[string]int64 `json:"stats"`
+		Cache int64            `json:"cache"`
 	} `json:"memory_stats"`
 	Networks map[string]struct {
 		RxBytes int64 `json:"rx_bytes"`
@@ -117,7 +139,7 @@ type dockerStatsResponse struct {
 			Value int64  `json:"value"`
 		} `json:"io_service_bytes_recursive"`
 	} `json:"blkio_stats"`
-	NumProcs int `json:"num_procs"`
+	NumProcs  int `json:"num_procs"`
 	PidsStats struct {
 		Current int `json:"current"`
 	} `json:"pids_stats"`
@@ -162,7 +184,6 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 			result = append(result, c)
 		}
 	}
-
 
 	return result, nil
 }
@@ -238,25 +259,25 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 }
 
 type AggregatedDockerStats struct {
-	Available       bool    `json:"available"`
-	CPUPercent      float64 `json:"cpu_percent"`
-	MemoryUsage     int64   `json:"memory_usage_bytes"`
-	MemoryLimit     int64   `json:"memory_limit_bytes"`
-	NetRxBytesSec   float64 `json:"net_rx_bytes_sec"`
-	NetTxBytesSec   float64 `json:"net_tx_bytes_sec"`
-	DiskReadBytesSec float64 `json:"disk_read_bytes_sec"`
+	Available         bool    `json:"available"`
+	CPUPercent        float64 `json:"cpu_percent"`
+	MemoryUsage       int64   `json:"memory_usage_bytes"`
+	MemoryLimit       int64   `json:"memory_limit_bytes"`
+	NetRxBytesSec     float64 `json:"net_rx_bytes_sec"`
+	NetTxBytesSec     float64 `json:"net_tx_bytes_sec"`
+	DiskReadBytesSec  float64 `json:"disk_read_bytes_sec"`
 	DiskWriteBytesSec float64 `json:"disk_write_bytes_sec"`
-	Procs           int     `json:"procs"`
-	ContainerCount  int     `json:"container_count"`
+	Procs             int     `json:"procs"`
+	ContainerCount    int     `json:"container_count"`
 }
 
 var (
-	prevDockerNetRx   int64
-	prevDockerNetTx   int64
-	prevDockerBlkRead int64
+	prevDockerNetRx    int64
+	prevDockerNetTx    int64
+	prevDockerBlkRead  int64
 	prevDockerBlkWrite int64
-	prevDockerTime    time.Time
-	prevDockerMu      sync.Mutex
+	prevDockerTime     time.Time
+	prevDockerMu       sync.Mutex
 )
 
 func CollectDockerStats(composeProject string) AggregatedDockerStats {
@@ -421,7 +442,6 @@ func DetectComposeProject() string {
 		}
 		cancel()
 	}
-
 
 	return ""
 }

@@ -53,8 +53,6 @@ func (h *Handler) Register(r chi.Router) {
 		r.Delete("/{id}", h.DeleteProvider)
 	})
 
-	r.Get("/events", h.StreamEvents)
-
 	h.RegisterModels(r)
 	h.RegisterProviderDiscovery(r)
 	h.RegisterLogs(r)
@@ -84,6 +82,15 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// RegisterEvents registers the SSE endpoint on a route group that is
+// exempt from the chi Timeout middleware.  SSE connections are long-lived
+// and must not be killed by a 60-second request deadline; the handler
+// detects client disconnect via r.Context().Done() instead.
+func (h *Handler) RegisterEvents(r chi.Router) {
+	r.Use(h.AuthMiddleware)
+	r.Get("/events", h.StreamEvents)
 }
 
 func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
