@@ -174,7 +174,7 @@ export function ModelReplyCard({
 
             {/* ── Body ── */}
             <div className={bodyClassName || ""}>
-                {error ? (
+                {error && !content ? (
                     <div className="text-red-400 text-xs">{error}</div>
                 ) : (
                     <>
@@ -192,6 +192,11 @@ export function ModelReplyCard({
                                 Waiting…
                             </div>
                         ) : null}
+                        {error && content && (
+                            <div className="mt-3 px-3 py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
+                                ⚠ {error}
+                            </div>
+                        )}
                     </>
                 )}
             </div>

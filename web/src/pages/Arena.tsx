@@ -820,12 +820,17 @@ export function Arena() {
                                 done: true,
                                 error: msg,
                                 metrics: {
-                                    tokensPerSecond: null,
+                                    tokensPerSecond:
+                                        charCount > 0
+                                            ? charCount /
+                                              ((performance.now() - startTime) /
+                                                  1000)
+                                            : null,
                                     durationMs: Math.round(
                                         performance.now() - startTime,
                                     ),
-                                    promptTokens: 0,
-                                    completionTokens: 0,
+                                    promptTokens,
+                                    completionTokens,
                                 },
                             };
                         }
@@ -2556,32 +2561,27 @@ function ResponseCard({
                 }
                 footerEnd={
                     <div className="flex items-center gap-2">
-                        {response.done &&
-                            !response.error &&
-                            response.content && (
-                                <button
-                                    className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
-                                    onClick={() => {
-                                        navigator.clipboard
-                                            .writeText(response.content)
-                                            .then(() =>
-                                                toast(
-                                                    "Copied to clipboard",
-                                                    "info",
-                                                ),
-                                            )
-                                            .catch(() =>
-                                                toast(
-                                                    "Failed to copy",
-                                                    "error",
-                                                ),
-                                            );
-                                    }}
-                                    title="Copy"
-                                >
-                                    <Copy size={12} />
-                                </button>
-                            )}
+                        {response.done && response.content && (
+                            <button
+                                className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                onClick={() => {
+                                    navigator.clipboard
+                                        .writeText(response.content)
+                                        .then(() =>
+                                            toast(
+                                                "Copied to clipboard",
+                                                "info",
+                                            ),
+                                        )
+                                        .catch(() =>
+                                            toast("Failed to copy", "error"),
+                                        );
+                                }}
+                                title="Copy"
+                            >
+                                <Copy size={12} />
+                            </button>
+                        )}
                         {showVote && (
                             <button
                                 onClick={

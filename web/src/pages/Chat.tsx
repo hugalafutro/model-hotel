@@ -306,12 +306,18 @@ export function Chat() {
             });
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Unknown error";
-            assistantMessage.content = `**Error:** ${msg}`;
+            const existingContent = assistantMessage.content || "";
+            assistantMessage.content = existingContent
+                ? `${existingContent}\n\n---\n\n**⚠ Error:** ${msg}`
+                : `**Error:** ${msg}`;
             assistantMessage.metrics = {
-                tokensPerSecond: null,
+                tokensPerSecond:
+                    charCount > 0
+                        ? charCount / ((performance.now() - startTime) / 1000)
+                        : null,
                 durationMs: Math.round(performance.now() - startTime),
-                promptTokens: 0,
-                completionTokens: 0,
+                promptTokens,
+                completionTokens,
             };
             setMessages((prev) => {
                 const next = [...prev];
@@ -488,12 +494,19 @@ export function Chat() {
             .catch((err) => {
                 const msg =
                     err instanceof Error ? err.message : "Unknown error";
-                assistantMessage.content = `**Error:** ${msg}`;
+                const existingContent = assistantMessage.content || "";
+                assistantMessage.content = existingContent
+                    ? `${existingContent}\n\n---\n\n**⚠ Error:** ${msg}`
+                    : `**Error:** ${msg}`;
                 assistantMessage.metrics = {
-                    tokensPerSecond: null,
+                    tokensPerSecond:
+                        charCount > 0
+                            ? charCount /
+                              ((performance.now() - startTime) / 1000)
+                            : null,
                     durationMs: Math.round(performance.now() - startTime),
-                    promptTokens: 0,
-                    completionTokens: 0,
+                    promptTokens,
+                    completionTokens,
                 };
                 setMessages((prev) => {
                     const next = [...prev];
