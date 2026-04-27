@@ -70,7 +70,7 @@ export function Logo({ className = "" }: { className?: string }) {
             {/* Text: Model Hotel */}
             <text
                 x="69"
-                y="30"
+                y="33"
                 fill="currentColor"
                 fontFamily="ui-sans-serif, system-ui, -apple-system, sans-serif"
                 fontSize="22"
@@ -81,7 +81,7 @@ export function Logo({ className = "" }: { className?: string }) {
             </text>
             <text
                 x="139"
-                y="30"
+                y="33"
                 fill="var(--accent, #4f8cff)"
                 fontFamily="ui-sans-serif, system-ui, -apple-system, sans-serif"
                 fontSize="22"
