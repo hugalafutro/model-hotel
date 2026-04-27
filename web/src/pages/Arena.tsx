@@ -20,7 +20,7 @@ import {
     Columns3,
     Settings,
 } from "lucide-react";
-import { extractThinking } from "../utils/thinking";
+import { extractThinking, sanitizeDelta } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { proxyModelID } from "../utils/model";
@@ -685,7 +685,8 @@ export function Arena() {
                                 const delta =
                                     chunk.choices?.[0]?.delta?.content;
                                 if (delta) {
-                                    charCount += delta.length;
+                                    const clean = sanitizeDelta(delta);
+                                    charCount += clean.length;
                                     setRounds((prev) => {
                                         const next = prev.map((r) => ({
                                             ...r,
@@ -706,7 +707,7 @@ export function Arena() {
                                                     : "responseB";
                                             const prev = mu[respKey]!;
                                             const newRaw =
-                                                prev.rawContent + delta;
+                                                prev.rawContent + clean;
                                             const extracted =
                                                 extractThinking(newRaw);
                                             mu[respKey] = {

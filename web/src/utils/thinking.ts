@@ -20,7 +20,9 @@ const PARTIAL_TAG_RE = /<([a-z]*)$/i;
 
 function isPartialThinkingTag(partial: string): boolean {
     const lower = partial.toLowerCase();
-    return THINKING_TAG_NAMES.some((name) => name.startsWith(lower) || lower.startsWith(name));
+    return THINKING_TAG_NAMES.some(
+        (name) => name.startsWith(lower) || lower.startsWith(name),
+    );
 }
 
 export function extractThinking(raw: string): {
@@ -72,4 +74,15 @@ export function extractThinking(raw: string): {
     }
 
     return { thinking, content };
+}
+
+// ── Special-token sanitization ──────────────────────────────────────────
+// Some providers leak raw model special tokens into delta.content, e.g.
+//   <｜begin▁of▁sentence｜>  <｜end▁of▁sentence｜>  <｜Assistant｜>
+// These use fullwidth vertical lines (U+FF5C) as delimiters.
+// Only used by the web UI (Chat / Arena), not the pass-through proxy paths.
+const SPECIAL_TOKEN_RE = /<\uff5c[^\uff5c]*\uff5c>/g;
+
+export function sanitizeDelta(text: string): string {
+    return text.replace(SPECIAL_TOKEN_RE, "");
 }

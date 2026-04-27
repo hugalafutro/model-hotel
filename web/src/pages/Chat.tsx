@@ -29,7 +29,7 @@ import { PersonaPicker } from "../components/PersonaPicker";
 import { ModelDetailPanel } from "../components/ModelDetailPanel";
 import { proxyModelID } from "../utils/model";
 import { CHAT_PERSONAS } from "../data/presets";
-import { extractThinking } from "../utils/thinking";
+import { extractThinking, sanitizeDelta } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { MarkdownContent } from "../components/MarkdownContent";
 import { ConversationConfig } from "../components/ConversationConfig";
@@ -147,8 +147,9 @@ async function streamModelResponse(
                     const chunk = JSON.parse(data);
                     const delta = chunk.choices?.[0]?.delta?.content;
                     if (delta) {
-                        charCount += delta.length;
-                        rawContent += delta;
+                        const clean = sanitizeDelta(delta);
+                        charCount += clean.length;
+                        rawContent += clean;
                         const extracted = extractThinking(rawContent);
                         content = extracted.content;
                         thinkingContent = extracted.thinking || thinkingContent;
@@ -374,13 +375,9 @@ export function Chat() {
     const selectedModel =
         chatSubMode === "chat" ? chatSelectedModel : conversationModelA;
     const setSelectedModel =
-        chatSubMode === "chat"
-            ? setChatSelectedModel
-            : setConversationModelA;
+        chatSubMode === "chat" ? setChatSelectedModel : setConversationModelA;
     const systemPrompt =
-        chatSubMode === "chat"
-            ? chatSystemPrompt
-            : conversationSystemPromptA;
+        chatSubMode === "chat" ? chatSystemPrompt : conversationSystemPromptA;
     const setSystemPrompt =
         chatSubMode === "chat"
             ? setChatSystemPrompt
@@ -396,9 +393,7 @@ export function Chat() {
     const messageParams =
         chatSubMode === "chat" ? chatMessageParams : conversationParamsA;
     const setMessageParams =
-        chatSubMode === "chat"
-            ? setChatMessageParams
-            : setConversationParamsA;
+        chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
     // Reset conversation state when chatSubMode changes (e.g. sidebar click),
     // but skip the initial mount so we don't wipe persisted messages.
@@ -1694,7 +1689,8 @@ export function Chat() {
                                 <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
                                     <span className="flex items-center gap-1.5">
                                         <Gauge size={14} />
-                                        Turn {Math.ceil(currentTurn / 2)} / {maxTurns}
+                                        Turn {Math.ceil(currentTurn / 2)} /{" "}
+                                        {maxTurns}
                                     </span>
                                     <span className="flex items-center gap-1.5">
                                         <Timer size={14} />
