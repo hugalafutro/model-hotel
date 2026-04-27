@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -9,6 +10,23 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// AllowedSettings is the allowlist of keys the API will accept.
+// Any key not in this set is rejected by UpdateSettings.
+var AllowedSettings = map[string]bool{
+	"discovery_interval":           true,
+	"discovery_on_startup":         true,
+	"discovery_on_provider_create": true,
+	"log_retention":                true,
+	"stale_request_timeout":        true,
+	"failover_on_rate_limit":       true,
+	"rate_limit_enabled":           true,
+	"rate_limit_rps":               true,
+	"rate_limit_burst":             true,
+	"theme":                        true,
+	"ui_style":                     true,
+	"accent_color":                 true,
+}
 
 type cacheEntry struct {
 	value     string
@@ -73,6 +91,9 @@ func (r *Repository) Set(ctx context.Context, key string, value string) error {
 }
 
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
+	if !AllowedSettings[key] {
+		return fmt.Errorf("setting %q is not in allowlist", key)
+	}
 	_, err := tx.Exec(ctx, `
 		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
 		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
@@ -97,7 +118,7 @@ func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {
 	for rows.Next() {
 		var key, value string
 		if err := rows.Scan(&key, &value); err != nil {
-			continue
+			return nil, fmt.Errorf("settings scan error: %w", err)
 		}
 		result[key] = value
 	}

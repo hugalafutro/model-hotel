@@ -100,7 +100,16 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	page := util.GetIntQueryParam(r, "page", 1)
+	if page < 1 {
+		page = 1
+	}
 	perPage := util.GetIntQueryParam(r, "per_page", 20)
+	if perPage < 1 {
+		perPage = 1
+	}
+	if perPage > 200 {
+		perPage = 200
+	}
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
 	statusCodeStr := r.URL.Query().Get("status_code")
@@ -166,8 +175,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	argIndex := 1
 
 	if modelID != "" {
-		query += " AND rl.model_id = $" + util.IntToStr(argIndex)
-		args = append(args, modelID)
+		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
+		args = append(args, "%"+modelID+"%")
 		argIndex++
 	}
 
@@ -217,8 +226,69 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	}
 
 	var total int
-	countQuery := "SELECT COUNT(*) FROM (" + query + ") as count_query"
-	err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, args...).Scan(&total)
+	// Build a lean COUNT query from the same WHERE conditions instead of
+	// wrapping the full SELECT as a subquery (which forces PostgreSQL to
+	// materialise all columns/rows just to count them).
+	countQuery := `
+		SELECT COUNT(*)
+		FROM request_logs rl
+		LEFT JOIN providers p ON rl.provider_id = p.id
+		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
+		WHERE 1=1
+	`
+	countArgs := []interface{}{}
+	countArgIndex := 1
+
+	if modelID != "" {
+		countQuery += " AND rl.model_id ILIKE $" + util.IntToStr(countArgIndex)
+		countArgs = append(countArgs, "%"+modelID+"%")
+		countArgIndex++
+	}
+
+	if providerID != "" {
+		providerUUID, err := uuid.Parse(providerID)
+		if err == nil {
+			countQuery += " AND rl.provider_id = $" + util.IntToStr(countArgIndex)
+			countArgs = append(countArgs, providerUUID)
+			countArgIndex++
+		}
+	}
+
+	if statusCodeStr != "" {
+		if statusCodeStr == "4xx" {
+			countQuery += " AND rl.status_code >= 400 AND rl.status_code < 500"
+		} else if statusCodeStr == "5xx" {
+			countQuery += " AND rl.status_code >= 500"
+		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
+			if statusCode == 0 {
+				countQuery += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
+			} else {
+				countQuery += " AND rl.status_code = $" + util.IntToStr(countArgIndex)
+				countArgs = append(countArgs, statusCode)
+				countArgIndex++
+			}
+		}
+	}
+
+	if fromDate != "" {
+		parsedFrom, err := time.Parse(time.RFC3339, fromDate)
+		if err == nil {
+			countQuery += " AND rl.created_at >= $" + util.IntToStr(countArgIndex)
+			countArgs = append(countArgs, parsedFrom)
+			countArgIndex++
+		}
+	}
+
+	if toDate != "" {
+		parsedTo, err := time.Parse(time.RFC3339, toDate)
+		if err == nil {
+			countQuery += " AND rl.created_at <= $" + util.IntToStr(countArgIndex)
+			countArgs = append(countArgs, parsedTo)
+			countArgIndex++
+		}
+	}
+
+	err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
