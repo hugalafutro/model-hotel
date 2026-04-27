@@ -34,7 +34,6 @@ import { CHAT_PERSONAS } from "../data/presets";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { MarkdownContent } from "../components/MarkdownContent";
-import { ConversationModelBubble } from "../components/ConversationModelBubble";
 import { ConversationConfig } from "../components/ConversationConfig";
 
 function formatTime(ts: number): string {
@@ -1253,40 +1252,103 @@ export function Chat() {
                         /* ── Model B message (conversation mode, right side) ── */
                         if (chatSubMode === "conversation" && isModelB) {
                             return (
-                                <ConversationModelBubble
-                                    key={i}
-                                    msg={msg}
-                                    isStreaming={isStreamingThis}
-                                    onCopy={(text) => {
-                                        navigator.clipboard
-                                            .writeText(text)
-                                            .then(() =>
-                                                toast(
-                                                    "Copied to clipboard",
-                                                    "info",
-                                                ),
-                                            )
-                                            .catch(() =>
-                                                toast(
-                                                    "Failed to copy",
-                                                    "error",
-                                                ),
-                                            );
-                                    }}
-                                    onDelete={() => {
-                                        setMessages((prev) => {
-                                            const idx = prev.findIndex(
-                                                (m) => m === msg,
-                                            );
-                                            if (idx === -1) return prev;
-                                            return prev.filter(
-                                                (_, i) => i !== idx,
-                                            );
-                                        });
-                                        toast("Message deleted", "info");
-                                    }}
-                                    onStop={handleStopConversation}
-                                />
+                                <div key={i} className="flex justify-end">
+                                    <div className="max-w-[80%]">
+                                        <ModelReplyCard
+                                            model={msg.model || ""}
+                                            content={msg.content}
+                                            thinkingContent={
+                                                msg.thinkingContent
+                                            }
+                                            error={msg.error}
+                                            metrics={msg.metrics}
+                                            isStreaming={isStreamingThis}
+                                            shortenModelName={false}
+                                            tint="accent"
+                                            headerEnd={
+                                                isStreamingThis ? (
+                                                    <button
+                                                        onClick={
+                                                            handleStopConversation
+                                                        }
+                                                        className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
+                                                        title="Cancel"
+                                                    >
+                                                        <CircleStop size={14} />
+                                                    </button>
+                                                ) : null
+                                            }
+                                            footerStart={
+                                                <span>
+                                                    {formatTime(msg.timestamp)}
+                                                </span>
+                                            }
+                                            footerEnd={
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                                        onClick={() => {
+                                                            navigator.clipboard
+                                                                .writeText(
+                                                                    msg.content,
+                                                                )
+                                                                .then(() =>
+                                                                    toast(
+                                                                        "Copied to clipboard",
+                                                                        "info",
+                                                                    ),
+                                                                )
+                                                                .catch(() =>
+                                                                    toast(
+                                                                        "Failed to copy",
+                                                                        "error",
+                                                                    ),
+                                                                );
+                                                        }}
+                                                    >
+                                                        <Copy size={10} />
+                                                    </button>
+                                                    <button
+                                                        className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+                                                        onClick={() => {
+                                                            setMessages(
+                                                                (prev) => {
+                                                                    const idx =
+                                                                        prev.findIndex(
+                                                                            (
+                                                                                m,
+                                                                            ) =>
+                                                                                m ===
+                                                                                msg,
+                                                                        );
+                                                                    if (
+                                                                        idx ===
+                                                                        -1
+                                                                    )
+                                                                        return prev;
+                                                                    return prev.filter(
+                                                                        (
+                                                                            _,
+                                                                            i,
+                                                                        ) =>
+                                                                            i !==
+                                                                            idx,
+                                                                    );
+                                                                },
+                                                            );
+                                                            toast(
+                                                                "Message deleted",
+                                                                "info",
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Trash2 size={10} />
+                                                    </button>
+                                                </div>
+                                            }
+                                        />
+                                    </div>
+                                </div>
                             );
                         }
 

@@ -41,6 +41,8 @@ interface ModelReplyCardProps {
     footerStart?: ReactNode;
     /** Content rendered on the right side of the footer */
     footerEnd?: ReactNode;
+    /** Tint style for the card — "accent" applies a light accent background tint */
+    tint?: "accent" | "default";
     /** Additional class names for the root card element */
     className?: string;
     /** Additional class names for the header row */
@@ -71,6 +73,7 @@ export function ModelReplyCard({
     startTimeMs,
     isWinner = false,
     isLoser = false,
+    tint = "default",
     afterModel,
     headerEnd,
     footerStart,
@@ -120,9 +123,12 @@ export function ModelReplyCard({
           ? "opacity-60"
           : "";
 
+    const tintClass =
+        tint === "accent" ? "bg-(--accent)/10 border-(--accent)/30" : "";
+
     return (
         <div
-            className={`ui-card transition-all ${stateClass} ${className || ""}`}
+            className={`ui-card transition-all ${stateClass} ${tintClass} ${className || ""}`}
         >
             {/* ── Header ── */}
             {model && (
@@ -137,14 +143,14 @@ export function ModelReplyCard({
                         >
                             {onModelNameClick ? (
                                 <span
-                                    className={`text-sm font-medium text-(--text-primary) truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth}`}
+                                    className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth} ${tint === "accent" ? "text-(--accent)" : "text-(--text-primary)"}`}
                                     title={model}
                                 >
                                     {displayName}
                                 </span>
                             ) : (
                                 <span
-                                    className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
+                                    className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" ? "text-(--accent)" : "text-(--text-primary)"}`}
                                     title={model}
                                 >
                                     {displayName}

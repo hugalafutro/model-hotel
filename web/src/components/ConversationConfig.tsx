@@ -27,8 +27,8 @@ interface ConversationConfigProps {
 export function ConversationConfig({
     maxTurns,
     onMaxTurnsChange,
-    turnDelayMs,
     onTurnDelayMsChange,
+    turnDelayMs,
     conversationState,
     currentTurn,
     configCollapsed,
@@ -102,71 +102,69 @@ export function ConversationConfig({
                 }`}
             >
                 <div className="overflow-hidden">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+                    <div className="grid grid-cols-[5rem_6rem_1fr] gap-4 pt-4">
                         {/* Max Turns */}
                         <div>
-                            <label className="flex items-center gap-1.5 text-xs text-(--text-secondary) mb-1.5">
-                                <span>Max Turns</span>
-                                <span className="text-(--text-muted)">
-                                    (responses per model)
-                                </span>
+                            <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
+                                <span>Turns</span>
                             </label>
                             <input
                                 type="number"
                                 value={maxTurns}
-                                onChange={(e) =>
-                                    onMaxTurnsChange(
-                                        Math.max(
-                                            1,
-                                            Math.min(
-                                                50,
-                                                parseInt(e.target.value, 10) ||
-                                                    1,
-                                            ),
-                                        ),
-                                    )
-                                }
+                                onChange={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    if (!isNaN(v)) {
+                                        onMaxTurnsChange(
+                                            Math.max(1, Math.min(50, v)),
+                                        );
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    if (isNaN(v) || v < 1) onMaxTurnsChange(1);
+                                    else if (v > 50) onMaxTurnsChange(50);
+                                }}
                                 min={1}
                                 max={50}
-                                className="ui-input w-full text-sm"
+                                className="ui-input w-full text-sm text-center"
                                 disabled={isRunning}
                             />
                         </div>
 
                         {/* Turn Delay */}
                         <div>
-                            <label className="flex items-center gap-1.5 text-xs text-(--text-secondary) mb-1.5">
-                                <span>Turn Delay</span>
-                                <span className="text-(--text-muted)">
-                                    (ms between turns)
-                                </span>
+                            <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
+                                <span>Delay (ms)</span>
                             </label>
                             <input
                                 type="number"
                                 value={turnDelayMs}
-                                onChange={(e) =>
-                                    onTurnDelayMsChange(
-                                        Math.max(
-                                            0,
-                                            Math.min(
-                                                5000,
-                                                parseInt(e.target.value, 10) ||
-                                                    0,
-                                            ),
-                                        ),
-                                    )
-                                }
+                                onChange={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    if (!isNaN(v)) {
+                                        onTurnDelayMsChange(
+                                            Math.max(0, Math.min(5000, v)),
+                                        );
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    if (isNaN(v) || v < 0)
+                                        onTurnDelayMsChange(0);
+                                    else if (v > 5000)
+                                        onTurnDelayMsChange(5000);
+                                }}
                                 min={0}
                                 max={5000}
                                 step={100}
-                                className="ui-input w-full text-sm"
+                                className="ui-input w-full text-sm text-center"
                                 disabled={isRunning}
                             />
                         </div>
 
                         {/* Prompt + Start */}
-                        <div className="flex flex-col">
-                            <label className="flex items-center gap-1.5 text-xs text-(--text-secondary) mb-1.5">
+                        <div>
+                            <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
                                 <span>Prompt</span>
                             </label>
                             <div className="flex items-center gap-2">
@@ -180,7 +178,8 @@ export function ConversationConfig({
                                             ? "Select both models first"
                                             : "Enter a topic or question…"
                                     }
-                                    className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
+                                    className="flex-1 ui-input resize-none overflow-y-auto text-sm"
+                                    style={{ height: "2.25rem" }}
                                     disabled={
                                         !selectedModel ||
                                         !selectedModelB ||
