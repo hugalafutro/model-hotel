@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export const MARKDOWN_PROSE_CLASSES =
@@ -19,10 +20,23 @@ interface MarkdownContentProps {
     className?: string;
 }
 
+const markdownComponents: Components = {
+    a: ({ children, ...props }) => (
+        <a {...props} target="_blank" rel="noopener noreferrer">
+            {children}
+        </a>
+    ),
+};
+
 export function MarkdownContent({ children, className }: MarkdownContentProps) {
     return (
         <div className={`${MARKDOWN_PROSE_CLASSES} ${className || ""}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+            >
+                {children}
+            </ReactMarkdown>
         </div>
     );
 }
