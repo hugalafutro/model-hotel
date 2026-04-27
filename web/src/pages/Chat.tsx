@@ -1199,7 +1199,7 @@ export function Chat() {
                                     <Bot
                                         size={48}
                                         strokeWidth={1}
-                                        className="opacity-40 absolute right-0"
+                                        className="opacity-40 absolute right-0 scale-x-[-1]"
                                     />
                                 </div>
                             )}

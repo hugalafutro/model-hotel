@@ -125,9 +125,9 @@ export function ModelReplyCard({
 
     const tintClass =
         tint === "accent"
-            ? "bg-(--accent)/10 border-(--accent)/30"
+            ? "ui-card-tint-accent"
             : tint === "blue"
-              ? "bg-blue-500/10 border-blue-500/30"
+              ? "ui-card-tint-blue"
               : "";
 
     return (
