@@ -49,6 +49,9 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 function hexToHSL(hex: string): { h: number; s: number; l: number } {
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        return { h: 0, s: 0, l: 50 };
+    }
     const r = parseInt(hex.slice(1, 3), 16) / 255;
     const g = parseInt(hex.slice(3, 5), 16) / 255;
     const b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -77,6 +80,9 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
 
 function applyAccentColor(color: string, theme: Theme) {
     const hsl = hexToHSL(color);
+    if (Number.isNaN(hsl.h) || Number.isNaN(hsl.s) || Number.isNaN(hsl.l)) {
+        return;
+    }
     const root = document.documentElement;
 
     // Clamp lightness to ensure readability while preserving the color's character

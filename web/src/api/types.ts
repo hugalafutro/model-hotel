@@ -57,6 +57,7 @@ export interface Model {
     output_price_per_million: number | null;
     owned_by: string;
     enabled: boolean;
+    disabled_manually: boolean;
     created_at: string;
     last_seen_at: string;
 }

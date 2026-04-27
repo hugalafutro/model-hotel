@@ -302,6 +302,13 @@ export function Logs() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [filters, setFilters] = useState({ model_id: "", status_code: "" });
+    const [debouncedModelId, setDebouncedModelId] = useState("");
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedModelId(filters.model_id);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [filters.model_id]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [sort, setSort] = useState<SortState<LogSortField>>({
@@ -337,12 +344,21 @@ export function Logs() {
     });
 
     const { data: logsData } = useQuery({
-        queryKey: ["logs", page, pageSize, filters, dateFrom, dateTo, sort],
+        queryKey: [
+            "logs",
+            page,
+            pageSize,
+            debouncedModelId,
+            filters.status_code,
+            dateFrom,
+            dateTo,
+            sort,
+        ],
         queryFn: () =>
             api.logs.list({
                 page,
                 per_page: pageSize,
-                model_id: filters.model_id || undefined,
+                model_id: debouncedModelId || undefined,
                 status_code: filters.status_code || undefined,
                 from: dateFrom || undefined,
                 to: dateTo || undefined,
@@ -483,7 +499,14 @@ export function Logs() {
     };
     const staleMs = parseGoDuration(settings?.stale_request_timeout || "30m0s");
     const STALE_THRESHOLD_MS = staleMs > 0 ? staleMs : 30 * 60 * 1000;
-    const [nowMs] = useState(() => Date.now());
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    useEffect(() => {
+        setNowMs(Date.now());
+        const id = setInterval(() => {
+            setNowMs(Date.now());
+        }, 60_000);
+        return () => clearInterval(id);
+    }, [liveEnabled]);
 
     const isStale = (log: LogEntry) => {
         if (log.state !== "pending" && log.state !== "streaming") return false;

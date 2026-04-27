@@ -939,7 +939,7 @@ export function Providers() {
                 name: "",
                 base_url: "",
                 api_key: "",
-                provider_type: "custom",
+                provider_type: "openai",
             });
             setError(null);
             toast(`Provider "${newProvider.name}" added`, "success");
@@ -1293,9 +1293,16 @@ export function Providers() {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            deleteMutation.mutate(provider.id)
-                                        }
+                                        onClick={() => {
+                                            if (
+                                                window.confirm(
+                                                    "Delete this provider? This cannot be undone.",
+                                                )
+                                            )
+                                                deleteMutation.mutate(
+                                                    provider.id,
+                                                );
+                                        }}
                                         className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] cursor-pointer transition-all"
                                     >
                                         Delete
@@ -1327,7 +1334,7 @@ export function Providers() {
                                     name: "",
                                     base_url: "",
                                     api_key: "",
-                                    provider_type: "custom",
+                                    provider_type: "openai",
                                 });
                                 setError(null);
                             }}
@@ -1477,7 +1484,7 @@ export function Providers() {
                                             name: "",
                                             base_url: "",
                                             api_key: "",
-                                            provider_type: "custom",
+                                            provider_type: "openai",
                                         });
                                         setShowApiKey(false);
                                         setError(null);

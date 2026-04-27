@@ -61,7 +61,12 @@ function CreateKeyModal({
                         {createdKey.key && (
                             <CopyablePill
                                 text={createdKey.key}
-                                displayText={createdKey.key}
+                                displayText={
+                                    createdKey.key_preview ||
+                                    createdKey.key.slice(0, 5) +
+                                        "..." +
+                                        createdKey.key.slice(-4)
+                                }
                                 textClassName="text-sm text-green-400 font-mono break-all"
                                 tooltip="Click to copy key"
                             />

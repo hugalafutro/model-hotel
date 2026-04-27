@@ -124,6 +124,22 @@ function ModelDetailModal({
         };
     }, []);
 
+    useEffect(() => {
+        if (editing) {
+            setEditData({
+                display_name: model.display_name || "",
+                context_length: model.context_length?.toString() || "",
+                max_output_tokens: model.max_output_tokens?.toString() || "",
+                input_price_per_million: formatPriceInput(
+                    model.input_price_per_million,
+                ),
+                output_price_per_million: formatPriceInput(
+                    model.output_price_per_million,
+                ),
+            });
+        }
+    }, [model, editing]);
+
     const handleDiscover = async () => {
         if (cooldown > 0 || discovering) return;
         setDiscovering(true);
@@ -238,31 +254,34 @@ function ModelDetailModal({
     };
 
     const handleSave = () => {
+        const changed = getChangedFields();
+        if (changed.length === 0) {
+            setEditing(false);
+            return;
+        }
         const updates: Record<string, unknown> = {};
-        if (editData.display_name !== (model.display_name || ""))
+        if (changed.includes("display_name"))
             updates.display_name = editData.display_name;
-        const cl =
-            editData.context_length === ""
-                ? null
-                : Number(editData.context_length);
-        if (cl !== model.context_length) updates.context_length = cl;
-        const mot =
-            editData.max_output_tokens === ""
-                ? null
-                : Number(editData.max_output_tokens);
-        if (mot !== model.max_output_tokens) updates.max_output_tokens = mot;
-        const ipm =
-            editData.input_price_per_million === ""
-                ? null
-                : Number(editData.input_price_per_million);
-        if (ipm !== model.input_price_per_million)
-            updates.input_price_per_million = ipm;
-        const opm =
-            editData.output_price_per_million === ""
-                ? null
-                : Number(editData.output_price_per_million);
-        if (opm !== model.output_price_per_million)
-            updates.output_price_per_million = opm;
+        if (changed.includes("context_length"))
+            updates.context_length =
+                editData.context_length === ""
+                    ? null
+                    : Number(editData.context_length);
+        if (changed.includes("max_output_tokens"))
+            updates.max_output_tokens =
+                editData.max_output_tokens === ""
+                    ? null
+                    : Number(editData.max_output_tokens);
+        if (changed.includes("input_price_per_million"))
+            updates.input_price_per_million =
+                editData.input_price_per_million === ""
+                    ? null
+                    : Number(editData.input_price_per_million);
+        if (changed.includes("output_price_per_million"))
+            updates.output_price_per_million =
+                editData.output_price_per_million === ""
+                    ? null
+                    : Number(editData.output_price_per_million);
         if (Object.keys(updates).length > 0) {
             onUpdate(model.id, updates as Partial<Model>);
         }

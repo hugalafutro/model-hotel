@@ -182,6 +182,8 @@ export function Settings() {
         },
     });
 
+    const isUpdating = updateMutation.isPending;
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -245,6 +247,7 @@ export function Settings() {
                                     })
                                 }
                                 className="ui-input"
+                                disabled={isUpdating}
                             >
                                 {DISCOVERY_INTERVALS.map((opt) => (
                                     <option key={opt.value} value={opt.value}>
@@ -282,6 +285,7 @@ export function Settings() {
                                         ? "bg-(--accent)"
                                         : "bg-gray-600"
                                 }`}
+                                disabled={isUpdating}
                             >
                                 <span
                                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -318,6 +322,7 @@ export function Settings() {
                                         ? "bg-(--accent)"
                                         : "bg-gray-600"
                                 }`}
+                                disabled={isUpdating}
                             >
                                 <span
                                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -682,6 +687,13 @@ export function Settings() {
                                 type="button"
                                 onClick={() => {
                                     const next = !persistChat;
+                                    if (
+                                        !next &&
+                                        !confirm(
+                                            "This will clear all saved chat messages. Continue?",
+                                        )
+                                    )
+                                        return;
                                     setPersistChat(next);
                                     toast(
                                         next
@@ -720,6 +732,13 @@ export function Settings() {
                                 type="button"
                                 onClick={() => {
                                     const next = !persistArena;
+                                    if (
+                                        !next &&
+                                        !confirm(
+                                            "This will clear all saved arena data. Continue?",
+                                        )
+                                    )
+                                        return;
                                     setPersistArena(next);
                                     toast(
                                         next
@@ -758,6 +777,13 @@ export function Settings() {
                                 type="button"
                                 onClick={() => {
                                     const next = !persistConversation;
+                                    if (
+                                        !next &&
+                                        !confirm(
+                                            "This will clear all saved conversation data. Continue?",
+                                        )
+                                    )
+                                        return;
                                     setPersistConversation(next);
                                     toast(
                                         next

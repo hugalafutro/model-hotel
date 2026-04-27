@@ -18,6 +18,7 @@ import {
     Gauge as GaugeIcon,
     ShieldAlert,
 } from "lucide-react";
+import { Spinner } from "../components/Spinner";
 import {
     AreaChart,
     Area,
@@ -200,6 +201,7 @@ function StatCard({
     formatter,
     onClick,
     tooltip,
+    loading,
 }: {
     label: string;
     value: number;
@@ -212,6 +214,7 @@ function StatCard({
     formatter?: (val: number) => string;
     onClick?: () => void;
     tooltip?: string;
+    loading?: boolean;
 }) {
     return (
         <div
@@ -252,6 +255,7 @@ function StatCard({
                     suffix={suffix}
                     formatter={formatter}
                 />
+                {loading && <Spinner className="ml-1" />}
             </p>
             {sparkline != null && (
                 <div
@@ -287,6 +291,7 @@ function TimeSeriesChart({
     height = 240,
     showToggle = true,
     scale = 1,
+    loading,
 }: {
     data: {
         hour: string;
@@ -318,6 +323,7 @@ function TimeSeriesChart({
     height?: number;
     showToggle?: boolean;
     scale?: number;
+    loading?: boolean;
 }) {
     const grid =
         getComputedStyle(document.documentElement)
@@ -334,6 +340,7 @@ function TimeSeriesChart({
                 <h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
                     <Icon size={18} style={{ color }} />
                     {metric} / Hour
+                    {loading && <Spinner className="ml-1" />}
                 </h3>
                 <p className="text-sm text-(--text-muted) text-center py-12">
                     No time-series data yet. {metric} will appear here once
@@ -351,6 +358,7 @@ function TimeSeriesChart({
                 <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
                     <Icon size={18} style={{ color }} />
                     {metric} / {range === "24h" ? "Hour" : "Day"}
+                    {loading && <Spinner className="ml-1" />}
                 </h3>
                 {showToggle && (
                     <RangeToggle value={range} onChange={onRangeChange} />
@@ -464,12 +472,14 @@ function ProviderDoughnut({
     onRangeChange,
     metric,
     onMetricChange,
+    loading,
 }: {
     items: { name: string; count: number; tokens: number; share: number }[];
     range: Range;
     onRangeChange: (r: Range) => void;
     metric: MetricType;
     onMetricChange: (m: MetricType) => void;
+    loading?: boolean;
 }) {
     const colors = ["#818cf8", "#059669", "#fbbf24", "#f87171", "#a78bfa"];
 
@@ -487,6 +497,7 @@ function ProviderDoughnut({
                 <h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
                     <TrendingUp size={18} className="text-(--accent)" />
                     Provider Breakdown
+                    {loading && <Spinner className="ml-1" />}
                 </h3>
                 <div className="flex items-center gap-1.5">
                     <MetricToggle value={metric} onChange={onMetricChange} />
@@ -651,6 +662,7 @@ function UsageBarPanel({
     onRangeChange,
     metric,
     onMetricChange,
+    loading,
 }: {
     title: string;
     icon: React.ElementType;
@@ -664,6 +676,7 @@ function UsageBarPanel({
     onRangeChange: (r: Range) => void;
     metric?: MetricType;
     onMetricChange?: (m: MetricType) => void;
+    loading?: boolean;
 }) {
     const max =
         entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0;
@@ -676,6 +689,7 @@ function UsageBarPanel({
                     <h3 className="text-lg font-semibold text-(--text-primary)">
                         {title}
                     </h3>
+                    {loading && <Spinner className="ml-1" />}
                 </div>
                 <div className="flex items-center gap-1.5">
                     {metric !== undefined && onMetricChange !== undefined && (
@@ -952,37 +966,49 @@ export function Dashboard() {
         retry: 1,
     });
 
-    const { data: gaugeStats } = useQuery({
+    const {
+        data: gaugeStats,
+        isLoading: gaugeStatsLoading,
+        error: gaugeStatsError,
+    } = useQuery({
         queryKey: ["stats", "1h", excludeDeleted],
         queryFn: () => api.stats.get({ period: "1h", excludeDeleted }),
         retry: 1,
     });
 
-    const { data: models } = useQuery({
-        queryKey: ["models"],
-        queryFn: () => api.models.list(),
+    const { data: models, isLoading: modelsLoading } = useQuery({
+        queryKey: ["models", excludeDeleted],
+        queryFn: () =>
+            api.models
+                .list()
+                .then((d) =>
+                    excludeDeleted ? d.filter((m) => !m.disabled_manually) : d,
+                ),
     });
 
-    const { data: providers } = useQuery({
-        queryKey: ["providers"],
-        queryFn: () => api.providers.list(),
+    const { data: providers, isLoading: providersLoading } = useQuery({
+        queryKey: ["providers", excludeDeleted],
+        queryFn: () =>
+            api.providers
+                .list()
+                .then((d) => (excludeDeleted ? d.filter((p) => p.enabled) : d)),
     });
 
-    const { data: tsData } = useQuery({
+    const { data: tsData, isLoading: tsDataLoading } = useQuery({
         queryKey: ["stats-timeseries", tsRange, excludeDeleted],
         queryFn: () =>
             api.stats.getTimeSeries({ period: tsRange, excludeDeleted }),
         placeholderData: (prev) => prev,
     });
 
-    const { data: tokenTsData } = useQuery({
+    const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
         queryKey: ["stats-timeseries-tokens", tokenTsRange, excludeDeleted],
         queryFn: () =>
             api.stats.getTimeSeries({ period: tokenTsRange, excludeDeleted }),
         placeholderData: (prev) => prev,
     });
 
-    const { data: provDist } = useQuery({
+    const { data: provDist, isLoading: provDistLoading } = useQuery({
         queryKey: [
             "stats-provider-distribution",
             provRange,
@@ -998,7 +1024,7 @@ export function Dashboard() {
         placeholderData: (prev) => prev,
     });
 
-    const { data: modelStats } = useQuery({
+    const { data: modelStats, isLoading: modelStatsLoading } = useQuery({
         queryKey: ["stats-top-models", modelRange, modelMetric, excludeDeleted],
         queryFn: () =>
             api.stats.get({
@@ -1009,7 +1035,7 @@ export function Dashboard() {
         placeholderData: (prev) => prev,
     });
 
-    const { data: providerStats } = useQuery({
+    const { data: providerStats, isLoading: providerStatsLoading } = useQuery({
         queryKey: [
             "stats-top-providers",
             providerRange,
@@ -1025,7 +1051,7 @@ export function Dashboard() {
         placeholderData: (prev) => prev,
     });
 
-    const { data: vkStats } = useQuery({
+    const { data: vkStats, isLoading: vkStatsLoading } = useQuery({
         queryKey: ["stats-top-virtual-keys", vkRange, vkMetric, excludeDeleted],
         queryFn: () =>
             api.stats.get({
@@ -1238,51 +1264,64 @@ export function Dashboard() {
                     </p>
                 </div>
                 <div className="flex gap-4">
-                    <Gauge
-                        label="Requests/1h"
-                        value={gaugeStats?.requests_last_1h || 0}
-                        decimals={0}
-                        suffix=""
-                        color={accents.requests}
-                        onClick={() => setRequestsModalOpen(true)}
-                        tooltip="Click to view request history"
-                    />
-                    <Gauge
-                        label="Avg TTFT/1h"
-                        value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
-                        decimals={1}
-                        suffix="s"
-                        color={accents.latency}
-                        onClick={() => setTtftModalOpen(true)}
-                        tooltip="Click to view TTFT history"
-                    />
-                    <Gauge
-                        label="Avg Overhead/1h"
-                        value={gaugeStats?.avg_overhead_ms || 0}
-                        decimals={1}
-                        suffix="ms"
-                        color={accents.overhead}
-                        onClick={() => setOverheadModalOpen(true)}
-                        tooltip="Click to view overhead history"
-                    />
-                    <Gauge
-                        label="Rate Limit Hits/1h"
-                        value={gaugeStats?.rate_limit_hits || 0}
-                        decimals={0}
-                        suffix=""
-                        color="#a855f7"
-                        onClick={() => setRateLimitModalOpen(true)}
-                        tooltip="Click to view rate limit hit history"
-                    />
-                    <Gauge
-                        label="Error Rate/1h"
-                        value={(gaugeStats?.error_rate || 0) * 100}
-                        decimals={1}
-                        suffix="%"
-                        color={accents.errors}
-                        onClick={() => setErrorModalOpen(true)}
-                        tooltip="Click to view error rate history"
-                    />
+                    {gaugeStatsLoading ? (
+                        <div className="flex items-center justify-center gap-2 py-4 text-sm text-(--text-muted)">
+                            <Spinner /> Loading gauges…
+                        </div>
+                    ) : gaugeStatsError ? (
+                        <div className="flex items-center justify-center gap-2 py-4 text-sm text-red-400">
+                            <AlertTriangle size={14} /> Failed to load gauge
+                            stats
+                        </div>
+                    ) : (
+                        <>
+                            <Gauge
+                                label="Requests/1h"
+                                value={gaugeStats?.requests_last_1h || 0}
+                                decimals={0}
+                                suffix=""
+                                color={accents.requests}
+                                onClick={() => setRequestsModalOpen(true)}
+                                tooltip="Click to view request history"
+                            />
+                            <Gauge
+                                label="Avg TTFT/1h"
+                                value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
+                                decimals={1}
+                                suffix="s"
+                                color={accents.latency}
+                                onClick={() => setTtftModalOpen(true)}
+                                tooltip="Click to view TTFT history"
+                            />
+                            <Gauge
+                                label="Avg Overhead/1h"
+                                value={gaugeStats?.avg_overhead_ms || 0}
+                                decimals={1}
+                                suffix="ms"
+                                color={accents.overhead}
+                                onClick={() => setOverheadModalOpen(true)}
+                                tooltip="Click to view overhead history"
+                            />
+                            <Gauge
+                                label="Rate Limit Hits/1h"
+                                value={gaugeStats?.rate_limit_hits || 0}
+                                decimals={0}
+                                suffix=""
+                                color="#a855f7"
+                                onClick={() => setRateLimitModalOpen(true)}
+                                tooltip="Click to view rate limit hit history"
+                            />
+                            <Gauge
+                                label="Error Rate/1h"
+                                value={(gaugeStats?.error_rate || 0) * 100}
+                                decimals={1}
+                                suffix="%"
+                                color={accents.errors}
+                                onClick={() => setErrorModalOpen(true)}
+                                tooltip="Click to view error rate history"
+                            />
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -1293,12 +1332,14 @@ export function Dashboard() {
                     value={providers?.length || 0}
                     icon={PlugZap}
                     accent={accents.providers}
+                    loading={providersLoading}
                 />
                 <StatCard
                     label="Total Models"
                     value={models?.length || 0}
                     icon={Bot}
                     accent={accents.models}
+                    loading={modelsLoading}
                 />
                 <StatCard
                     label="Requests/1d"
@@ -1351,6 +1392,7 @@ export function Dashboard() {
                     color={accents.requests}
                     label="Requests"
                     dataKey="total"
+                    loading={tsDataLoading}
                 />
                 <TimeSeriesChart
                     data={tokenAcData}
@@ -1362,6 +1404,7 @@ export function Dashboard() {
                     label="Tokens"
                     dataKey="tokens"
                     allowDecimals
+                    loading={tokenTsDataLoading}
                 />
             </div>
 
@@ -1373,6 +1416,7 @@ export function Dashboard() {
                     onRangeChange={setProvRange}
                     metric={provMetric}
                     onMetricChange={setProvMetric}
+                    loading={provDistLoading}
                 />
                 {totalTokens > 0 && (
                     <TokenSplitBar
@@ -1395,6 +1439,7 @@ export function Dashboard() {
                     onRangeChange={setModelRange}
                     metric={modelMetric}
                     onMetricChange={setModelMetric}
+                    loading={modelStatsLoading}
                 />
                 <UsageBarPanel
                     title="Top Providers"
@@ -1404,6 +1449,7 @@ export function Dashboard() {
                     onRangeChange={setProviderRange}
                     metric={providerMetric}
                     onMetricChange={setProviderMetric}
+                    loading={providerStatsLoading}
                 />
                 <UsageBarPanel
                     title="Top Virtual Keys"
@@ -1413,6 +1459,7 @@ export function Dashboard() {
                     onRangeChange={setVkRange}
                     metric={vkMetric}
                     onMetricChange={setVkMetric}
+                    loading={vkStatsLoading}
                 />
             </div>
 

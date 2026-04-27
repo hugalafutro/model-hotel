@@ -25,7 +25,7 @@ export function CopyablePill({
         navigator.clipboard
             .writeText(text)
             .then(() => {
-                toast(`Copied ${text}`, "info");
+                toast("Copied!", "info");
             })
             .catch(() => {
                 toast("Failed to copy", "error");

@@ -228,6 +228,10 @@ export function Chat() {
                 const stored = localStorage.getItem("chatMessages");
                 if (stored) return JSON.parse(stored);
             }
+            if (localStorage.getItem("persistConversation") === "true") {
+                const stored = localStorage.getItem("conversationMessages");
+                if (stored) return JSON.parse(stored);
+            }
         } catch {
             /* ignore */
         }
@@ -410,6 +414,21 @@ export function Chat() {
             setInput("");
         }
     }, [chatSubMode]);
+
+    // Cleanup: abort streams on unmount
+    // We store the abort controllers in separate cleanup refs so the React
+    // Compiler doesn't mark conversationAbortRef as "effect-only" and forbid
+    // mutation in event handlers — which is perfectly valid React.
+    const cleanupAbortRef = useRef<AbortController | null>(null);
+    const cleanupConvAbortRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        return () => {
+            cleanupAbortRef.current?.abort();
+            cleanupConvAbortRef.current?.abort();
+        };
+    }, []);
+
     const [maxTurns, setMaxTurns] = useState(() => {
         try {
             const v = localStorage.getItem("conversationMaxTurns");
@@ -428,6 +447,9 @@ export function Chat() {
     });
     const [configCollapsed, setConfigCollapsed] = useState(false);
     const conversationAbortRef = useRef<AbortController | null>(null);
+    const conversationRunningRef = useRef(false);
+    const capturedModelARef = useRef<string>("");
+    const capturedModelBRef = useRef<string>("");
 
     const enabledModels =
         models?.filter((m) => m.enabled && m.provider_name) || [];
@@ -471,6 +493,20 @@ export function Chat() {
             /* quota exceeded */
         }
     }, [messages, persistChat]);
+
+    // ── Conversation messages persistence effect ──
+    useEffect(() => {
+        if (!persistConversation) return;
+        if (chatSubMode !== "conversation") return;
+        try {
+            localStorage.setItem(
+                "conversationMessages",
+                JSON.stringify(messages),
+            );
+        } catch {
+            /* quota exceeded */
+        }
+    }, [messages, persistConversation, chatSubMode]);
 
     useEffect(() => {
         if (!persistChat) return;
@@ -613,6 +649,7 @@ export function Chat() {
 
         const abortCtrl = new AbortController();
         abortRef.current = abortCtrl;
+        cleanupAbortRef.current = abortCtrl;
 
         const chatMessages: Array<{ role: string; content: string }> = [];
         if (systemPrompt.trim()) {
@@ -693,6 +730,7 @@ export function Chat() {
     const handleStop = useCallback(() => {
         abortRef.current?.abort();
         abortRef.current = null;
+        cleanupAbortRef.current = null;
         setIsStreaming(false);
     }, []);
 
@@ -735,6 +773,7 @@ export function Chat() {
 
         const abortCtrl = new AbortController();
         abortRef.current = abortCtrl;
+        cleanupAbortRef.current = abortCtrl;
 
         const assistantMessage: ChatMessage = {
             role: "assistant",
@@ -795,6 +834,7 @@ export function Chat() {
         } finally {
             setIsStreaming(false);
             abortRef.current = null;
+            cleanupAbortRef.current = null;
         }
     }, [
         isStreaming,
@@ -808,6 +848,8 @@ export function Chat() {
     // ── Unified conversation orchestration ──
     const runConversation = useCallback(
         async (resume = false) => {
+            if (conversationRunningRef.current) return;
+
             const canStart =
                 selectedModel &&
                 selectedModelB &&
@@ -816,8 +858,11 @@ export function Chat() {
 
             if (!canStart) return;
 
+            conversationRunningRef.current = true;
+
             const abortCtrl = new AbortController();
             conversationAbortRef.current = abortCtrl;
+            cleanupConvAbortRef.current = abortCtrl;
             setConversationState("running");
             setIsStreaming(true);
 
@@ -826,6 +871,8 @@ export function Chat() {
             let modelTurn: "A" | "B";
 
             if (!resume) {
+                capturedModelARef.current = selectedModel;
+                capturedModelBRef.current = selectedModelB;
                 setCurrentTurn(0);
                 turn = 0;
                 const userMessage: ChatMessage = {
@@ -844,14 +891,17 @@ export function Chat() {
                 );
                 modelTurn =
                     lastAssistantIdx >= 0 &&
-                    currentMessages[lastAssistantIdx].model === selectedModel
+                    currentMessages[lastAssistantIdx].model ===
+                        capturedModelARef.current
                         ? "B"
                         : "A";
             }
 
             while (turn < maxTurns * 2 && !abortCtrl.signal.aborted) {
                 const isModelA = modelTurn === "A";
-                const modelId = isModelA ? selectedModel : selectedModelB;
+                const modelId = isModelA
+                    ? capturedModelARef.current
+                    : capturedModelBRef.current;
                 const persona = isModelA ? systemPrompt : systemPromptB;
                 const params = isModelA ? messageParams : messageParamsB;
 
@@ -950,6 +1000,8 @@ export function Chat() {
                 prev === "running" ? "completed" : prev,
             );
             conversationAbortRef.current = null;
+            cleanupConvAbortRef.current = null;
+            conversationRunningRef.current = false;
         },
         [
             selectedModel,
@@ -971,8 +1023,10 @@ export function Chat() {
     const handleStopConversation = useCallback(() => {
         conversationAbortRef.current?.abort();
         conversationAbortRef.current = null;
+        cleanupConvAbortRef.current = null;
         setIsStreaming(false);
         setConversationState("paused");
+        conversationRunningRef.current = false;
     }, []);
 
     // Helper to delete a message
@@ -1064,6 +1118,7 @@ export function Chat() {
         chatSubMode === "conversation" &&
         !!selectedModel &&
         !!selectedModelB &&
+        selectedModel !== selectedModelB &&
         !!input.trim() &&
         conversationState !== "running";
 
