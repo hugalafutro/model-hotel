@@ -52,7 +52,7 @@ func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, 
 		contextLen := spec.ContextLength
 		maxOutput := spec.MaxOutputTokens
 
-		inputMods := `"text"`
+		inputMods := `["text"]`
 		if spec.Modality == "vision" {
 			inputMods = `["text","image","video","file"]`
 		}
