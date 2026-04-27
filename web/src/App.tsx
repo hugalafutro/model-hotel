@@ -2,14 +2,6 @@ import { Suspense, lazy, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Layout } from "./components/Layout";
-import { Providers } from "./pages/Providers";
-import { Models } from "./pages/Models";
-import { FailoverGroups } from "./pages/FailoverGroups";
-import { Logs } from "./pages/Logs";
-import { Settings } from "./pages/Settings";
-import { VirtualKeys } from "./pages/VirtualKeys";
-import { Chat } from "./pages/Chat";
-import { Arena } from "./pages/Arena";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 import { EventProvider } from "./context/EventContext";
@@ -19,6 +11,32 @@ import { setAdminToken } from "./api/client";
 
 const Dashboard = lazy(() =>
     import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
+const Providers = lazy(() =>
+    import("./pages/Providers").then((m) => ({ default: m.Providers })),
+);
+const Models = lazy(() =>
+    import("./pages/Models").then((m) => ({ default: m.Models })),
+);
+const FailoverGroups = lazy(() =>
+    import("./pages/FailoverGroups").then((m) => ({
+        default: m.FailoverGroups,
+    })),
+);
+const Logs = lazy(() =>
+    import("./pages/Logs").then((m) => ({ default: m.Logs })),
+);
+const Settings = lazy(() =>
+    import("./pages/Settings").then((m) => ({ default: m.Settings })),
+);
+const VirtualKeys = lazy(() =>
+    import("./pages/VirtualKeys").then((m) => ({ default: m.VirtualKeys })),
+);
+const Chat = lazy(() =>
+    import("./pages/Chat").then((m) => ({ default: m.Chat })),
+);
+const Arena = lazy(() =>
+    import("./pages/Arena").then((m) => ({ default: m.Arena })),
 );
 
 function LoginScreen() {
