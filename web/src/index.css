@@ -744,6 +744,12 @@ html[data-ui-style="glassmorphism-lite"] .ui-input {
     background: var(--surface-input);
 }
 
+/* textareas need less rounding so resize handle and text don't escape corners */
+html[data-ui-style="clean-saas"] textarea.ui-input,
+html[data-ui-style="glassmorphism-lite"] textarea.ui-input {
+    border-radius: 0.625rem;
+}
+
 html[data-ui-style="glassmorphism-lite"].dark select.ui-input {
     outline: none;
     border: 1px solid var(--border-input);
