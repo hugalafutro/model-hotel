@@ -41,8 +41,8 @@ interface ModelReplyCardProps {
     footerStart?: ReactNode;
     /** Content rendered on the right side of the footer */
     footerEnd?: ReactNode;
-    /** Tint style for the card — "accent" applies a light accent background tint */
-    tint?: "accent" | "default";
+    /** Tint style for the card — "accent" applies a light accent background tint, "blue" applies a light blue tint */
+    tint?: "accent" | "blue" | "default";
     /** Additional class names for the root card element */
     className?: string;
     /** Additional class names for the header row */
@@ -124,7 +124,11 @@ export function ModelReplyCard({
           : "";
 
     const tintClass =
-        tint === "accent" ? "bg-(--accent)/10 border-(--accent)/30" : "";
+        tint === "accent"
+            ? "bg-(--accent)/10 border-(--accent)/30"
+            : tint === "blue"
+              ? "bg-blue-500/10 border-blue-500/30"
+              : "";
 
     return (
         <div
@@ -143,14 +147,14 @@ export function ModelReplyCard({
                         >
                             {onModelNameClick ? (
                                 <span
-                                    className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth} ${tint === "accent" ? "text-(--accent)" : "text-(--text-primary)"}`}
+                                    className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
                                     title={model}
                                 >
                                     {displayName}
                                 </span>
                             ) : (
                                 <span
-                                    className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" ? "text-(--accent)" : "text-(--text-primary)"}`}
+                                    className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
                                     title={model}
                                 >
                                     {displayName}

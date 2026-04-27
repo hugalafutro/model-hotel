@@ -1264,7 +1264,7 @@ export function Chat() {
                                             metrics={msg.metrics}
                                             isStreaming={isStreamingThis}
                                             shortenModelName={false}
-                                            tint="accent"
+                                            tint="blue"
                                             headerEnd={
                                                 isStreamingThis ? (
                                                     <button
@@ -1654,6 +1654,16 @@ export function Chat() {
                             setSystemPrompt("");
                             setActivePersonaId(null);
                             setMessageParams({});
+                        } else {
+                            // conversation mode: also clear both models, personas, and params
+                            setSelectedModel("");
+                            setSelectedModelB("");
+                            setSystemPrompt("");
+                            setSystemPromptB("");
+                            setActivePersonaId(null);
+                            setActivePersonaIdB(null);
+                            setMessageParams({});
+                            setMessageParamsB({});
                         }
                         setPendingReset(false);
                         toast(

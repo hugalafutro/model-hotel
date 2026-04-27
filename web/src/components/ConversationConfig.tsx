@@ -178,8 +178,8 @@ export function ConversationConfig({
                                             ? "Select both models first"
                                             : "Enter a topic or question…"
                                     }
-                                    className="flex-1 ui-input resize-none overflow-y-auto text-sm"
-                                    style={{ height: "2.25rem" }}
+                                    className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-11"
+                                    style={{ height: "auto" }}
                                     disabled={
                                         !selectedModel ||
                                         !selectedModelB ||
