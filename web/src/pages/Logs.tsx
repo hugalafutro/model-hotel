@@ -501,7 +501,6 @@ export function Logs() {
     const STALE_THRESHOLD_MS = staleMs > 0 ? staleMs : 30 * 60 * 1000;
     const [nowMs, setNowMs] = useState(() => Date.now());
     useEffect(() => {
-        setNowMs(Date.now());
         const id = setInterval(() => {
             setNowMs(Date.now());
         }, 60_000);
