@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Bot, Clock, Info, Zap } from "lucide-react";
+import { Bot, Clock, Info, Zap, Settings } from "lucide-react";
+import type { GenerationParams } from "../api/types";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { formatDuration } from "../utils/format";
 import { MarkdownContent, MARKDOWN_PROSE_CLASSES } from "./MarkdownContent";
@@ -56,6 +57,8 @@ interface ModelReplyCardProps {
     shortenModelName?: boolean;
     /** Whether to show a small info icon after the model name to indicate clickability */
     showInfoIcon?: boolean;
+    /** Generation params used for this response — shown as tooltip on a settings indicator */
+    params?: GenerationParams;
 }
 
 export function ModelReplyCard({
@@ -80,6 +83,7 @@ export function ModelReplyCard({
     onModelNameClick,
     shortenModelName = true,
     showInfoIcon = false,
+    params,
 }: ModelReplyCardProps) {
     const [elapsed, setElapsed] = useState(0);
 
@@ -95,6 +99,20 @@ export function ModelReplyCard({
 
     const hasThinking = (thinkingContent || "").length > 0;
     const displayName = shortenModelName ? model.split("/").pop()! : model;
+
+    const hasCustomParams =
+        !!params && Object.values(params).some((v) => v !== undefined);
+    const paramsTooltip = hasCustomParams
+        ? Object.entries(params!)
+              .filter(([, v]) => v !== undefined)
+              .map(([k, v]) => {
+                  const label = k
+                      .replace(/_/g, " ")
+                      .replace(/^\w/, (c) => c.toUpperCase());
+                  return `${label}: ${v}`;
+              })
+              .join("\n")
+        : undefined;
 
     const stateClass = isWinner
         ? "ring-1 ring-green-500/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
@@ -137,6 +155,14 @@ export function ModelReplyCard({
                             >
                                 <Info size={12} />
                             </button>
+                        )}
+                        {hasCustomParams && (
+                            <span
+                                className="shrink-0 text-(--accent) cursor-help"
+                                title={paramsTooltip}
+                            >
+                                <Settings size={10} />
+                            </span>
                         )}
                         {afterModel}
                     </div>

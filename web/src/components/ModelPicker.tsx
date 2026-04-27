@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
+import { Settings } from "lucide-react";
 import { FilterInput } from "./FilterInput";
+import type { GenerationParams } from "../api/types";
 
 interface ProviderInfo {
     name: string;
@@ -22,6 +24,12 @@ interface SingleProps {
     providers?: ProviderInfo[];
     align?: "left" | "right";
     exclude?: string[];
+    /** Per-model generation params shown on selected pills */
+    slotParams?: Record<string, GenerationParams>;
+    /** Called when user clicks the cog on a selected pill */
+    onConfigureParams?: (modelId: string) => void;
+    /** When true, param cogs are non-interactive (e.g. arena is running) */
+    paramsReadonly?: boolean;
 }
 
 interface MultiProps {
@@ -34,6 +42,12 @@ interface MultiProps {
     providers?: ProviderInfo[];
     align?: "left" | "right";
     exclude?: string[];
+    /** Per-model generation params shown on selected pills */
+    slotParams?: Record<string, GenerationParams>;
+    /** Called when user clicks the cog on a selected pill */
+    onConfigureParams?: (modelId: string) => void;
+    /** When true, param cogs are non-interactive (e.g. arena is running) */
+    paramsReadonly?: boolean;
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -81,6 +95,9 @@ export function ModelPicker({
     providers = [],
     align,
     exclude = [],
+    slotParams,
+    onConfigureParams,
+    paramsReadonly = false,
 }: ModelPickerProps) {
     const [search, setSearch] = useState("");
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
@@ -258,19 +275,59 @@ export function ModelPicker({
                 {filteredModels.map((m) => {
                     const val = proxyModelID(m.provider_name, m.model_id);
                     const isSelected = selectedSet.has(val);
+                    const hasParams = !!(
+                        slotParams?.[val] &&
+                        Object.values(slotParams[val]).some(
+                            (v) => v !== undefined,
+                        )
+                    );
                     return (
-                        <button
+                        <div
                             key={val}
-                            onClick={() => toggleModel(val)}
-                            className={`px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
                                 isSelected
                                     ? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
                                     : "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
                             }`}
                             title={m.display_name || m.model_id}
                         >
-                            {m.display_name || m.model_id}
-                        </button>
+                            <button
+                                onClick={() => toggleModel(val)}
+                                className="cursor-pointer"
+                            >
+                                {m.display_name || m.model_id}
+                            </button>
+                            {isSelected && onConfigureParams && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onConfigureParams(val);
+                                    }}
+                                    disabled={paramsReadonly}
+                                    className={`shrink-0 transition-all ${
+                                        paramsReadonly
+                                            ? "opacity-30 cursor-not-allowed"
+                                            : "cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                    }`}
+                                    title={
+                                        paramsReadonly
+                                            ? "Parameters locked while running"
+                                            : hasParams
+                                              ? "Edit generation parameters"
+                                              : "Add generation parameters"
+                                    }
+                                >
+                                    <Settings
+                                        size={10}
+                                        className={
+                                            hasParams
+                                                ? "text-(--accent)"
+                                                : "text-(--text-tertiary)"
+                                        }
+                                    />
+                                </button>
+                            )}
+                        </div>
                     );
                 })}
                 {filteredModels.length === 0 && (

@@ -18,12 +18,13 @@ import {
     CircleStop,
     Copy,
     Columns3,
+    Settings,
 } from "lucide-react";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { proxyModelID } from "../utils/model";
-import type { Model } from "../api/types";
+import type { Model, GenerationParams } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
 import { ModelPicker } from "../components/ModelPicker";
@@ -32,6 +33,18 @@ import { PersonaPicker } from "../components/PersonaPicker";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterInput } from "../components/FilterInput";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+
+function hasAnyParam(p: GenerationParams): boolean {
+    return (
+        p.temperature !== undefined ||
+        p.max_tokens !== undefined ||
+        p.top_p !== undefined ||
+        p.min_p !== undefined ||
+        p.top_k !== undefined ||
+        p.frequency_penalty !== undefined ||
+        p.presence_penalty !== undefined
+    );
+}
 
 interface ArenaResponse {
     model: string;
@@ -53,6 +66,7 @@ interface MatchupSlot {
     modelId: string;
     personaId: string | null;
     personaPrompt: string;
+    params?: GenerationParams;
 }
 
 interface Matchup {
@@ -287,6 +301,27 @@ export function Arena() {
     });
     const [pendingReset, setPendingReset] = useState(false);
 
+    const [modelParams, setModelParams] = useState<
+        Record<string, GenerationParams>
+    >(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const raw = localStorage.getItem("arenaState");
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    return s.modelParams ?? {};
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        return {};
+    });
+
+    const [paramEditorModel, setParamEditorModel] = useState<string | null>(
+        null,
+    );
+
     useEffect(() => {
         if (!persistArena) return;
         try {
@@ -344,6 +379,7 @@ export function Arena() {
                     phase,
                     arenaCollapsed,
                     savedPrompt,
+                    modelParams,
                 }),
             );
         } catch {
@@ -359,6 +395,7 @@ export function Arena() {
         phase,
         arenaCollapsed,
         savedPrompt,
+        modelParams,
         persistArena,
     ]);
 
@@ -468,6 +505,32 @@ export function Arena() {
         crossDuplicates,
     ]);
 
+    const buildCompareRound = useCallback(
+        (
+            modelIds: string[],
+            personaId: string | null = null,
+            personaPrompt: string = "",
+        ): BracketRound[] => {
+            return [
+                {
+                    matchups: modelIds.map((id) => ({
+                        slotA: {
+                            modelId: id,
+                            personaId,
+                            personaPrompt,
+                            params: modelParams[id],
+                        } as MatchupSlot,
+                        slotB: null,
+                        responseA: null,
+                        responseB: null,
+                        vote: null,
+                    })),
+                },
+            ];
+        },
+        [modelParams],
+    );
+
     const buildInitialRounds = useCallback(
         (g1: string[], g2: string[]): BracketRound[] => {
             const makeSlots = (ids: string[]): MatchupSlot[] =>
@@ -475,6 +538,7 @@ export function Arena() {
                     modelId: m,
                     personaId: null,
                     personaPrompt: "",
+                    params: modelParams[m],
                 }));
 
             const firstRoundMatchups: Matchup[] = [
@@ -517,32 +581,7 @@ export function Arena() {
 
             return bracketRounds;
         },
-        [],
-    );
-
-    const buildCompareRound = useCallback(
-        (
-            modelIds: string[],
-            personaId: string | null = null,
-            personaPrompt: string = "",
-        ): BracketRound[] => {
-            return [
-                {
-                    matchups: modelIds.map((id) => ({
-                        slotA: {
-                            modelId: id,
-                            personaId,
-                            personaPrompt,
-                        } as MatchupSlot,
-                        slotB: null,
-                        responseA: null,
-                        responseB: null,
-                        vote: null,
-                    })),
-                },
-            ];
-        },
-        [],
+        [modelParams],
     );
 
     const autoExpandTextarea = useCallback(
@@ -602,6 +641,7 @@ export function Arena() {
             roundIdx: number,
             slotKey: "A" | "B",
             matchupIdx: number,
+            slotParams?: GenerationParams,
         ) => {
             const abortCtrl = new AbortController();
             abortMapRef.current.set(model, abortCtrl);
@@ -627,6 +667,9 @@ export function Arena() {
                         model,
                         stream: true,
                         messages: chatMessages,
+                        ...(slotParams && hasAnyParam(slotParams)
+                            ? slotParams
+                            : {}),
                     });
 
                     const reader = resp.body?.getReader();
@@ -878,6 +921,7 @@ export function Arena() {
                         roundIdx,
                         "A",
                         mi,
+                        mu.slotA.params,
                     );
                 }
                 if (mu.slotB) {
@@ -888,6 +932,7 @@ export function Arena() {
                         roundIdx,
                         "B",
                         mi,
+                        mu.slotB.params,
                     );
                 }
             }
@@ -970,6 +1015,7 @@ export function Arena() {
                     0,
                     "A",
                     mi,
+                    mu.slotA.params,
                 );
             }
             if (mu.slotB) {
@@ -980,6 +1026,7 @@ export function Arena() {
                     0,
                     "B",
                     mi,
+                    mu.slotB.params,
                 );
             }
         }
@@ -1136,6 +1183,7 @@ export function Arena() {
                 roundIdx,
                 slotKey,
                 matchupIdx,
+                slot.params,
             );
         },
         [rounds, savedPrompt, streamModel],
@@ -1223,6 +1271,7 @@ export function Arena() {
                         modelId: newModelId,
                         personaId: null,
                         personaPrompt: "",
+                        params: modelParams[newModelId],
                     };
                     next[roundIdx].matchups[matchupIdx][respKey] = {
                         model: newModelId,
@@ -1247,9 +1296,10 @@ export function Arena() {
                 roundIdx,
                 slotKey,
                 matchupIdx,
+                modelParams[newModelId],
             );
         },
-        [savedPrompt, streamModel],
+        [savedPrompt, streamModel, modelParams],
     );
 
     const handlePersonaChange = useCallback(
@@ -1410,6 +1460,13 @@ export function Arena() {
                                                 providers={providerData}
                                                 align="left"
                                                 exclude={group2Models}
+                                                slotParams={modelParams}
+                                                onConfigureParams={
+                                                    setParamEditorModel
+                                                }
+                                                paramsReadonly={
+                                                    phase !== "setup"
+                                                }
                                             />
                                             {group1Models.length > 0 &&
                                                 group1Models.length < 2 && (
@@ -1449,6 +1506,13 @@ export function Arena() {
                                                 providers={providerData}
                                                 align="right"
                                                 exclude={group1Models}
+                                                slotParams={modelParams}
+                                                onConfigureParams={
+                                                    setParamEditorModel
+                                                }
+                                                paramsReadonly={
+                                                    phase !== "setup"
+                                                }
                                             />
                                             {group2Models.length > 0 &&
                                                 group2Models.length < 2 && (
@@ -1475,6 +1539,11 @@ export function Arena() {
                                             maxSelections={6}
                                             providers={providerData}
                                             align="left"
+                                            slotParams={modelParams}
+                                            onConfigureParams={
+                                                setParamEditorModel
+                                            }
+                                            paramsReadonly={phase !== "setup"}
                                         />
                                         {compareModels.length > 0 &&
                                             compareModels.length < 2 && (
@@ -1816,6 +1885,9 @@ export function Arena() {
                                                                 enabledModels
                                                             }
                                                             showVote={false}
+                                                            params={
+                                                                mu.slotA?.params
+                                                            }
                                                         />
                                                     )
                                                 )}
@@ -1919,6 +1991,9 @@ export function Arena() {
                                                                     mu.responseB
                                                                         .done)
                                                             }
+                                                            params={
+                                                                mu.slotA?.params
+                                                            }
                                                         />
                                                     )
                                                 )}
@@ -2006,6 +2081,9 @@ export function Arena() {
                                                                     mu.responseA
                                                                         .done)
                                                             }
+                                                            params={
+                                                                mu.slotB?.params
+                                                            }
                                                         />
                                                     )
                                                 )}
@@ -2063,6 +2141,7 @@ export function Arena() {
                         setRunningModels(new Set());
                         setWinnerModal(null);
                         setDisabledModels(new Set());
+                        setModelParams({});
                         setPendingReset(false);
                         try {
                             localStorage.removeItem("arenaPrompt");
@@ -2088,6 +2167,21 @@ export function Arena() {
                     onClose={() => setWinnerModal(null)}
                 />
             )}
+
+            {/* Inline Param Editor */}
+            {paramEditorModel && (
+                <ParamEditorModal
+                    modelId={paramEditorModel}
+                    params={modelParams[paramEditorModel] ?? {}}
+                    onChange={(params) =>
+                        setModelParams((prev) => ({
+                            ...prev,
+                            [paramEditorModel]: params,
+                        }))
+                    }
+                    onClose={() => setParamEditorModel(null)}
+                />
+            )}
         </div>
     );
 }
@@ -2109,6 +2203,25 @@ interface MatchupCardProps {
         personaPrompt: string,
     ) => void;
     onVote: (roundIdx: number, matchupIdx: number, vote: "A" | "B") => void;
+}
+
+function SlotParamsTooltip({ params }: { params?: GenerationParams }) {
+    if (!params) return null;
+    const entries = Object.entries(params).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return null;
+    const lines = entries
+        .map(([k, v]) => {
+            const label = k
+                .replace(/_/g, " ")
+                .replace(/^\w/, (c) => c.toUpperCase());
+            return `${label}: ${v}`;
+        })
+        .join("\n");
+    return (
+        <span className="shrink-0 text-(--accent) cursor-help" title={lines}>
+            <Settings size={10} />
+        </span>
+    );
 }
 
 function VoteThumb({
@@ -2195,6 +2308,7 @@ function MatchupCard({
                 <span className="text-xs font-medium text-(--text-primary) truncate">
                     {slot.modelId.split("/").pop()}
                 </span>
+                <SlotParamsTooltip params={slot.params} />
                 {isRunning && !response?.done && (
                     <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse shrink-0" />
                 )}
@@ -2321,6 +2435,7 @@ interface ResponseCardProps {
     ) => void;
     showVote: boolean;
     enabledModels: Model[];
+    params?: GenerationParams;
 }
 
 function ResponseCard({
@@ -2335,6 +2450,7 @@ function ResponseCard({
     onCancelSlot,
     showVote,
     enabledModels,
+    params,
 }: ResponseCardProps) {
     const { toast } = useToast();
     const [detailModel, setDetailModel] = useState<Model | null>(null);
@@ -2359,6 +2475,7 @@ function ResponseCard({
                 isLoser={isLoser}
                 shortenModelName={true}
                 showInfoIcon={true}
+                params={params}
                 onModelNameClick={
                     modelObj ? () => setDetailModel(modelObj) : undefined
                 }
@@ -2522,6 +2639,198 @@ interface SwapPickerProps {
     disabledModels: Set<string>;
     alreadyUsed: string[];
     onSelect: (modelId: string) => void;
+}
+
+function ParamEditorModal({
+    modelId,
+    params,
+    onChange,
+    onClose,
+}: {
+    modelId: string;
+    params: GenerationParams;
+    onChange: (params: GenerationParams) => void;
+    onClose: () => void;
+}) {
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="ui-card p-4 w-full max-w-sm space-y-4"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-(--text-primary)">
+                        {modelId.split("/").pop()}
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+
+                <div className="space-y-3">
+                    <ParamSlider
+                        label="Temperature"
+                        value={params.temperature}
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        onChange={(v) =>
+                            onChange({ ...params, temperature: v })
+                        }
+                    />
+                    <ParamSlider
+                        label="Max Tokens"
+                        value={params.max_tokens}
+                        min={1}
+                        max={32768}
+                        step={1}
+                        onChange={(v) =>
+                            onChange({
+                                ...params,
+                                max_tokens:
+                                    v === undefined ? undefined : Math.round(v),
+                            })
+                        }
+                    />
+                    <ParamSlider
+                        label="Top P"
+                        value={params.top_p}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onChange={(v) => onChange({ ...params, top_p: v })}
+                    />
+                    <ParamSlider
+                        label="Min P"
+                        value={params.min_p}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onChange={(v) => onChange({ ...params, min_p: v })}
+                    />
+                    <ParamSlider
+                        label="Top K"
+                        value={params.top_k}
+                        min={1}
+                        max={100}
+                        step={1}
+                        onChange={(v) =>
+                            onChange({
+                                ...params,
+                                top_k:
+                                    v === undefined ? undefined : Math.round(v),
+                            })
+                        }
+                    />
+                    <ParamSlider
+                        label="Freq Penalty"
+                        value={params.frequency_penalty}
+                        min={-2}
+                        max={2}
+                        step={0.01}
+                        onChange={(v) =>
+                            onChange({ ...params, frequency_penalty: v })
+                        }
+                    />
+                    <ParamSlider
+                        label="Pres Penalty"
+                        value={params.presence_penalty}
+                        min={-2}
+                        max={2}
+                        step={0.01}
+                        onChange={(v) =>
+                            onChange({ ...params, presence_penalty: v })
+                        }
+                    />
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-(--border-subtle)">
+                    {hasAnyParam(params) && (
+                        <button
+                            onClick={() => onChange({})}
+                            className="text-[11px] text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                        >
+                            Reset all
+                        </button>
+                    )}
+                    <div />
+                    <button
+                        onClick={onClose}
+                        className="ui-btn ui-btn-primary text-xs px-3 py-1"
+                    >
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ParamSlider({
+    label,
+    value,
+    min,
+    max,
+    step,
+    onChange,
+}: {
+    label: string;
+    value: number | undefined;
+    min: number;
+    max: number;
+    step: number;
+    onChange: (v: number | undefined) => void;
+}) {
+    const isSet = value !== undefined;
+    const pct = isSet ? ((value - min) / (max - min)) * 100 : 0;
+    return (
+        <div>
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+                    {label}
+                </span>
+                <input
+                    type="number"
+                    value={isSet ? value : ""}
+                    min={min}
+                    max={max}
+                    step={step}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "" || v === "-" || v === ".") {
+                            onChange(undefined);
+                            return;
+                        }
+                        const n = parseFloat(v);
+                        if (!isNaN(n)) onChange(n);
+                    }}
+                    placeholder="off"
+                    className="w-14 text-right px-1.5 py-0.5 rounded bg-(--surface-input) text-[10px] text-(--text-primary) border border-transparent focus:border-(--accent) outline-none placeholder:text-(--text-tertiary) no-spinner"
+                />
+            </div>
+            <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={isSet ? value : min}
+                data-set={isSet ? "true" : undefined}
+                onChange={(e) => onChange(parseFloat(e.target.value))}
+                className="gen-slider w-full h-1 rounded-lg appearance-none cursor-pointer bg-(--surface-hover) accent-(--accent) mt-0.5"
+                style={{
+                    background: isSet
+                        ? `linear-gradient(to right, var(--accent) ${pct}%, var(--surface-hover) ${pct}%)`
+                        : undefined,
+                }}
+            />
+        </div>
+    );
 }
 
 function SwapPicker({
