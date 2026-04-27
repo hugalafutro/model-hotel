@@ -311,6 +311,27 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		}
 	}
 
+	// Query 4c: Chat and Arena -- stored via virtual_key_name for admin chat/arena routes
+	for _, keyName := range []string{"chat", "arena"} {
+		var val int64
+		if metric == "tokens" {
+			err = h.dbPool.QueryRow(ctx, `
+				SELECT COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0)
+				FROM request_logs rl
+				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
+				since, keyName).Scan(&val)
+		} else {
+			err = h.dbPool.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM request_logs rl
+				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
+				since, keyName).Scan(&val)
+		}
+		if err == nil && val > 0 {
+			stats.ByVirtualKey[keyName] = val
+		}
+	}
+
 	// Query 5: Avg latency
 	query = `
 		SELECT COALESCE(AVG(rl.duration_ms), 0) as avg_duration
