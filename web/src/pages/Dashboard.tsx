@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api/client";
 import type { MetricType } from "../api/types";
 import {
@@ -325,22 +325,16 @@ function TimeSeriesChart({
     scale?: number;
     loading?: boolean;
 }) {
-    const [chartStyles, setChartStyles] = useState({
-        grid: "rgba(255,255,255,0.04)",
-        text: "#7a7e8c",
-    });
-
-    useEffect(() => {
-        const grid =
+    const chartStyles = {
+        grid:
             getComputedStyle(document.documentElement)
                 .getPropertyValue("--border-subtle")
-                .trim() || "rgba(255,255,255,0.04)";
-        const text =
+                .trim() || "rgba(255,255,255,0.04)",
+        text:
             getComputedStyle(document.documentElement)
                 .getPropertyValue("--text-muted")
-                .trim() || "#7a7e8c";
-        setChartStyles({ grid, text });
-    }, []);
+                .trim() || "#7a7e8c",
+    };
 
     const { grid, text } = chartStyles;
 
