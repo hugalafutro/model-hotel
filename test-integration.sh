@@ -14,11 +14,15 @@ fi
 echo "✅ Docker is running"
 echo ""
 
-# Get admin token from logs
+# The admin token is configured via the ADMIN_TOKEN environment variable in docker-compose.
+# This avoids the need to delete/recreate the token file or scrape logs for the plaintext token.
 echo "2. Getting admin token..."
-ADMIN_TOKEN=$(docker compose logs app 2>/dev/null | grep "ADMIN_TOKEN=" | tail -1 | sed 's/.*ADMIN_TOKEN=//')
+
+ADMIN_TOKEN="${ADMIN_TOKEN:-}"
+
 if [ -z "$ADMIN_TOKEN" ]; then
-    echo "❌ Could not get admin token"
+    echo "❌ ADMIN_TOKEN environment variable is not set. Set it before running this script, e.g.:"
+    echo "   ADMIN_TOKEN=test-admin-token ./test-integration.sh"
     exit 1
 fi
 echo "✅ Admin token: $ADMIN_TOKEN"

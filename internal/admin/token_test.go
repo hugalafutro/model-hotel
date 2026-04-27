@@ -14,7 +14,7 @@ func TestNewCreatesHashedToken(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mgr, isNew, err := New(tmpDir)
+	mgr, isNew, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestValidationWithHashedToken(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mgr, _, err := New(tmpDir)
+	mgr, _, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -79,12 +79,12 @@ func TestTokenNotShownOnReload(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	_, _, err = New(tmpDir)
+	_, _, err = New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("First New() failed: %v", err)
 	}
 
-	mgr2, isNew2, err := New(tmpDir)
+	mgr2, isNew2, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("Second New() failed: %v", err)
 	}
@@ -105,13 +105,13 @@ func TestValidationPersistsAcrossReload(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mgr1, _, err := New(tmpDir)
+	mgr1, _, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("First New() failed: %v", err)
 	}
 	token := mgr1.Token()
 
-	mgr2, _, err := New(tmpDir)
+	mgr2, _, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("Second New() failed: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestLegacyPlaintextMigration(t *testing.T) {
 		t.Fatalf("Failed to write legacy token: %v", err)
 	}
 
-	mgr, isNew, err := New(tmpDir)
+	mgr, isNew, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestLegacyPlaintextMigration(t *testing.T) {
 		t.Errorf("Migrated file should be 64-char hash, got %d chars", len(data))
 	}
 
-	mgr2, _, err := New(tmpDir)
+	mgr2, _, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("Reload after migration failed: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestExistingHashTokenNotMigrated(t *testing.T) {
 		t.Fatalf("Failed to write hash token: %v", err)
 	}
 
-	_, isNew, err := New(tmpDir)
+	_, isNew, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestRegenerationByDeletingFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mgr1, _, err := New(tmpDir)
+	mgr1, _, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("First New() failed: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestRegenerationByDeletingFile(t *testing.T) {
 	tokenPath := filepath.Join(tmpDir, "admin-token")
 	os.Remove(tokenPath)
 
-	mgr2, isNew, err := New(tmpDir)
+	mgr2, isNew, err := New(tmpDir, "")
 	if err != nil {
 		t.Fatalf("Second New() failed: %v", err)
 	}
@@ -230,5 +230,62 @@ func TestRegenerationByDeletingFile(t *testing.T) {
 	}
 	if !mgr2.Validate(newToken) {
 		t.Error("New token should validate")
+	}
+}
+
+func TestNewWithExplicitToken(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	explicitToken := "my-explicit-admin-token-value"
+	mgr, isNew, err := New(tmpDir, explicitToken)
+	if err != nil {
+		t.Fatalf("New() with explicit token failed: %v", err)
+	}
+
+	if !isNew {
+		t.Error("Expected isNew=true when creating with explicit token")
+	}
+
+	if mgr.Token() != explicitToken {
+		t.Errorf("Token() should return the explicit token, got %q", mgr.Token())
+	}
+
+	if !mgr.Validate(explicitToken) {
+		t.Error("Explicit token should pass validation")
+	}
+
+	// Verify the file stores the hash, not the plaintext
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("Failed to read token file: %v", err)
+	}
+	if string(data) == explicitToken {
+		t.Error("Stored file should NOT contain the plaintext token")
+	}
+	if len(data) != 64 {
+		t.Errorf("Stored token should be 64-char SHA-256 hash, got %d chars", len(data))
+	}
+
+	// Verify the token persists across reload (and explicit token is ignored on reload)
+	mgr2, isNew2, err := New(tmpDir, "some-other-token")
+	if err != nil {
+		t.Fatalf("Reload New() failed: %v", err)
+	}
+
+	if isNew2 {
+		t.Error("Should not be new on reload")
+	}
+
+	if !mgr2.Validate(explicitToken) {
+		t.Error("Explicit token should still validate after reload")
+	}
+
+	if mgr2.Validate("some-other-token") {
+		t.Error("Ignored explicit token on reload should NOT validate")
 	}
 }

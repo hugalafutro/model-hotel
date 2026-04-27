@@ -114,7 +114,7 @@ func main() {
 		log.Printf("Startup cleanup: failed to clean stale logs: %v", err)
 	}
 
-	adminMgr, isNew, err := admin.New(cfg.DataDir)
+	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
 	if err != nil {
 		log.Fatalf("Failed to initialize admin manager: %v", err)
 	}

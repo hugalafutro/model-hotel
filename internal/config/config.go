@@ -17,6 +17,7 @@ type Config struct {
 	MasterKey   string
 
 	DataDir              string
+	AdminToken           string
 	AllowHTTPProviders   bool
 	RateLimitEnabled     bool
 	MaxRequestSize       int64
@@ -46,6 +47,7 @@ func Load() (*Config, error) {
 		MasterKey:   getEnv("MASTER_KEY"),
 
 		DataDir:              getEnvWithDefault("DATA_DIR", "./data"),
+		AdminToken:           getEnv("ADMIN_TOKEN"),
 		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
 		MaxRequestSize:       getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB
@@ -72,6 +74,13 @@ func (c *Config) String() string {
 		maskedKey = "***"
 	}
 
+	var adminTokenDisplay string
+	if c.AdminToken != "" {
+		adminTokenDisplay = "***set***"
+	} else {
+		adminTokenDisplay = "(auto-generated)"
+	}
+
 	var maskedURL string
 	u, err := url.Parse(c.DatabaseURL)
 	if err != nil {
@@ -84,8 +93,8 @@ func (c *Config) String() string {
 	}
 
 	return fmt.Sprintf(
-		"Port: %s\nDatabaseURL: %s\nMasterKey: %s\nDataDir: %s\nAllowHTTPProviders: %t\nRateLimitEnabled: %t\nMaxRequestSize: %d\nCORSOrigins: %v",
-		c.Port, maskedURL, maskedKey, c.DataDir, c.AllowHTTPProviders, c.RateLimitEnabled, c.MaxRequestSize, c.CORSOrigins,
+		"Port: %s\nDatabaseURL: %s\nMasterKey: %s\nDataDir: %s\nAdminToken: %s\nAllowHTTPProviders: %t\nRateLimitEnabled: %t\nMaxRequestSize: %d\nCORSOrigins: %v",
+		c.Port, maskedURL, maskedKey, c.DataDir, adminTokenDisplay, c.AllowHTTPProviders, c.RateLimitEnabled, c.MaxRequestSize, c.CORSOrigins,
 	)
 }
 

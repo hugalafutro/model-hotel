@@ -7,6 +7,7 @@ services:
         environment:
             - MASTER_KEY=${MASTER_KEY:-default-master-key-change-in-production}
             - DATABASE_URL=postgres://llmproxy:changeme@db:5432/llmproxy
+            - ADMIN_TOKEN=${ADMIN_TOKEN:-}
             - ALLOW_HTTP_PROVIDERS=false
             - DATA_DIR=/data
             - RATE_LIMIT_ENABLED=true
