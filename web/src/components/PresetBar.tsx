@@ -48,7 +48,7 @@ export function PresetBar<T extends PresetItem>({
                             : "ui-btn-secondary"
                     }`}
                 >
-                    {item.icon} {item.label}
+                    {item.icon}{item.label}
                 </button>
             ))}
         </div>
