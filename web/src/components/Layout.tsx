@@ -13,7 +13,9 @@ import {
     BookOpen,
     GitBranch,
     MessageSquare,
+    MessagesSquare,
     Swords,
+    GitCompare,
     Sun,
     Moon,
 } from "lucide-react";
@@ -387,7 +389,8 @@ export function Layout({ children }: LayoutProps) {
         {
             name: "Chat",
             href: "/chat",
-            icon: MessageSquare,
+            icon: (mode: string) =>
+                mode === "conversation" ? MessagesSquare : MessageSquare,
             subModes: [
                 { label: "Chat", value: "chat" as const },
                 { label: "Conversation", value: "conversation" as const },
@@ -396,7 +399,7 @@ export function Layout({ children }: LayoutProps) {
         {
             name: "Arena",
             href: "/arena",
-            icon: Swords,
+            icon: (mode: string) => (mode === "compare" ? GitCompare : Swords),
             subModes: [
                 { label: "Arena", value: "competition" as const },
                 { label: "Comparison", value: "compare" as const },
@@ -451,7 +454,20 @@ export function Layout({ children }: LayoutProps) {
                 <nav className="flex-1 min-h-0 px-4 py-2 overflow-y-auto">
                     <ul className="space-y-0.5">
                         {navigation.map((item) => {
-                            const Icon = item.icon;
+                            const currentMode =
+                                item.href === "/chat"
+                                    ? chatSubMode
+                                    : item.href === "/arena"
+                                      ? arenaSubMode
+                                      : "";
+                            const Icon: typeof MessageSquare =
+                                typeof item.icon === "function"
+                                    ? (
+                                          item.icon as (
+                                              mode: string,
+                                          ) => typeof MessageSquare
+                                      )(currentMode)
+                                    : item.icon;
                             const active = isActive(item.href);
                             const hasSubModes =
                                 "subModes" in item && item.subModes;
