@@ -14,6 +14,7 @@
 > - **Kimi-K2.5, GLM-5, Minimax-M2.7** (small code / style adjustments)
 >
 > Thanks ollama cloud for generous limits. I have nothing nice to say about Z.ai or Opencode Go in that regard.
+>
 > Development was done in [Zed](https://zed.dev) editor and/or [Opencode](https://opencode.ai), with extensive human testing and iterative refinement.
 >
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
