@@ -359,6 +359,7 @@ export interface ChatMessage {
     content: string;
     rawContent?: string;
     thinkingContent?: string;
+    error?: string | null;
     model?: string;
     timestamp: number;
     metrics?: {

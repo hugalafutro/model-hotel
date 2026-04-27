@@ -306,10 +306,7 @@ export function Chat() {
             });
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Unknown error";
-            const existingContent = assistantMessage.content || "";
-            assistantMessage.content = existingContent
-                ? `${existingContent}\n\n---\n\n**⚠ Error:** ${msg}`
-                : `**Error:** ${msg}`;
+            assistantMessage.error = msg;
             assistantMessage.metrics = {
                 tokensPerSecond:
                     charCount > 0
@@ -494,10 +491,7 @@ export function Chat() {
             .catch((err) => {
                 const msg =
                     err instanceof Error ? err.message : "Unknown error";
-                const existingContent = assistantMessage.content || "";
-                assistantMessage.content = existingContent
-                    ? `${existingContent}\n\n---\n\n**⚠ Error:** ${msg}`
-                    : `**Error:** ${msg}`;
+                assistantMessage.error = msg;
                 assistantMessage.metrics = {
                     tokensPerSecond:
                         charCount > 0
@@ -716,6 +710,7 @@ export function Chat() {
                                         model={msg.model || ""}
                                         content={msg.content}
                                         thinkingContent={msg.thinkingContent}
+                                        error={msg.error}
                                         metrics={msg.metrics}
                                         isStreaming={isStreamingThis}
                                         shortenModelName={false}
