@@ -96,9 +96,7 @@ func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, 
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}
 
-	raw := util.SanitizeBaseURL(provider.BaseURL)
-	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
-	quotaURL := baseURL + "/api/monitor/usage/quota/limit"
+	quotaURL := "https://api.z.ai/api/monitor/usage/quota/limit"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, nil)
 	if err != nil {

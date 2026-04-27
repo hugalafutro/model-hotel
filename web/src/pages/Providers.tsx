@@ -886,7 +886,6 @@ export function Providers() {
 
     const refreshQuotasMutation = useMutation({
         mutationFn: async () => {
-            toast("Refreshing quotas and balances…", "info");
             return api.providers.refreshQuotas();
         },
         onSuccess: (data) => {
