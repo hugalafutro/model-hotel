@@ -131,31 +131,34 @@ export function ModelReplyCard({
                 >
                     <div className="flex items-center gap-2 min-w-0">
                         <Bot size={14} className="text-(--accent) shrink-0" />
-                        {onModelNameClick ? (
-                            <button
-                                onClick={onModelNameClick}
-                                className={`text-sm font-medium text-(--text-primary) truncate cursor-pointer hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth}`}
-                                title={model}
-                            >
-                                {displayName}
-                            </button>
-                        ) : (
-                            <span
-                                className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
-                                title={model}
-                            >
-                                {displayName}
-                            </span>
-                        )}
-                        {showInfoIcon && onModelNameClick && (
-                            <button
-                                onClick={onModelNameClick}
-                                className="shrink-0 text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
-                                title="Model details"
-                            >
-                                <Info size={12} />
-                            </button>
-                        )}
+                        <div
+                            className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
+                            onClick={onModelNameClick}
+                        >
+                            {onModelNameClick ? (
+                                <span
+                                    className={`text-sm font-medium text-(--text-primary) truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth}`}
+                                    title={model}
+                                >
+                                    {displayName}
+                                </span>
+                            ) : (
+                                <span
+                                    className={`text-sm font-medium text-(--text-primary) truncate ${modelMaxWidth}`}
+                                    title={model}
+                                >
+                                    {displayName}
+                                </span>
+                            )}
+                            {showInfoIcon && onModelNameClick && (
+                                <span
+                                    className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all"
+                                    title="Model details"
+                                >
+                                    <Info size={12} />
+                                </span>
+                            )}
+                        </div>
                         {hasCustomParams && (
                             <span
                                 className="shrink-0 text-(--accent) cursor-help"

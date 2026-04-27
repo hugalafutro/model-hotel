@@ -24,16 +24,25 @@ export function PresetBar<T extends PresetItem>({
 }: PresetBarProps<T>) {
     return (
         <div
-            className={`flex items-center gap-1.5 ${
+            className={`flex items-center gap-1 ${
                 wrap ? "flex-wrap" : "overflow-x-auto pb-1 scrollbar-none"
             }`}
         >
+            <button
+                type="button"
+                onClick={onCustom}
+                className={`ui-btn text-[11px] py-0.5 px-2 whitespace-nowrap ${
+                    activeId === null ? "ui-btn-primary" : "ui-btn-secondary"
+                }`}
+            >
+                {customLabel}
+            </button>
             {items.map((item) => (
                 <button
                     key={item.id}
                     type="button"
                     onClick={() => onSelect(item)}
-                    className={`ui-btn text-xs whitespace-nowrap ${
+                    className={`ui-btn text-[11px] py-0.5 px-2 whitespace-nowrap ${
                         activeId === item.id
                             ? "ui-btn-primary"
                             : "ui-btn-secondary"
@@ -42,15 +51,6 @@ export function PresetBar<T extends PresetItem>({
                     {item.icon} {item.label}
                 </button>
             ))}
-            <button
-                type="button"
-                onClick={onCustom}
-                className={`ui-btn text-xs whitespace-nowrap ${
-                    activeId === null ? "ui-btn-primary" : "ui-btn-secondary"
-                }`}
-            >
-                {customLabel}
-            </button>
         </div>
     );
 }

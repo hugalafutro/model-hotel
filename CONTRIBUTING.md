@@ -1,4 +1,4 @@
-# Contributing to ModelHotel
+# Contributing to Model Hotel
 
 Thank you for considering a contribution! This project is released under the MIT License, and we want to keep things simple and open.
 

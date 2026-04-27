@@ -440,7 +440,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex h-screen ui-surface-bg">
             <aside className="w-64 ui-sidebar shrink-0 flex flex-col min-h-0">
                 <div className="px-6 pt-5 pb-3 text-center shrink-0">
-                    <Logo className="h-10 w-auto text-white mx-auto ml-[9%]" />
+                    <Logo className="h-10 w-auto text-white mx-auto" />
                     <p className="text-sm text-gray-200 mt-1">
                         Multi-Provider AI Gateway
                     </p>

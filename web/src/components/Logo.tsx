@@ -8,7 +8,7 @@ export function Logo({ className = "" }: { className?: string }) {
             aria-label="Model Hotel"
         >
             {/* Hotel Building Icon */}
-            <g transform="translate(0, 6)">
+            <g transform="translate(25, 6)">
                 {/* Roof */}
                 <path
                     d="M18 2L4 14v2h28v-2L18 2z"
@@ -69,7 +69,7 @@ export function Logo({ className = "" }: { className?: string }) {
 
             {/* Text: Model Hotel */}
             <text
-                x="44"
+                x="69"
                 y="30"
                 fill="currentColor"
                 fontFamily="ui-sans-serif, system-ui, -apple-system, sans-serif"
@@ -80,7 +80,7 @@ export function Logo({ className = "" }: { className?: string }) {
                 Model
             </text>
             <text
-                x="106"
+                x="139"
                 y="30"
                 fill="var(--accent, #4f8cff)"
                 fontFamily="ui-sans-serif, system-ui, -apple-system, sans-serif"
