@@ -97,18 +97,6 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		return nil, err
 	}
 
-	var fg FailoverGroup
-	var rawPriority, rawEntryEnabled []byte
-
-	query := `
-		INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, display_name, description, auto_created)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (display_model)
-		DO UPDATE SET priority_order = $2, entry_enabled = $3, group_enabled = $4, display_name = $5, description = $6, updated_at = now()
-		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		          created_at, COALESCE(updated_at, created_at)`
-
 	var groupEnabledVal bool = true
 	if groupEnabled != nil {
 		groupEnabledVal = *groupEnabled
@@ -118,6 +106,37 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	if autoCreated != nil {
 		autoCreatedVal = *autoCreated
 	}
+
+	// Build ON CONFLICT DO UPDATE SET clause dynamically
+	// so that nil display_name/description means "don't touch",
+	// not "overwrite with NULL".
+	// The INSERT VALUES positions are fixed ($1-$7), so the DO UPDATE SET
+	// clause can reference them directly — we just conditionally include
+	// display_name and description columns.
+	doSetClauses := []string{
+		"priority_order = $2",
+		"entry_enabled = $3",
+		"group_enabled = $4",
+	}
+	if displayName != nil {
+		doSetClauses = append(doSetClauses, "display_name = $5")
+	}
+	if description != nil {
+		doSetClauses = append(doSetClauses, "description = $6")
+	}
+	doSetClauses = append(doSetClauses, "auto_created = $7")
+	doSetClauses = append(doSetClauses, "updated_at = now()")
+
+	query := fmt.Sprintf(`INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, display_name, description, auto_created)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (display_model)
+		DO UPDATE SET %s
+		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
+		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
+		          created_at, COALESCE(updated_at, created_at)`, strings.Join(doSetClauses, ", "))
+
+	var fg FailoverGroup
+	var rawPriority, rawEntryEnabled []byte
 
 	err = r.pool.QueryRow(ctx, query, displayModel, priorityJSON, entryEnabledJSON, groupEnabledVal, displayName, description, autoCreatedVal).
 		Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &rawPriority, &rawEntryEnabled,
@@ -207,23 +226,52 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
-	var fg FailoverGroup
-	var rawPriority, rawEntryEnabled []byte
-
-	query := `
-		UPDATE model_failover_groups
-		SET priority_order = $2, entry_enabled = $3, group_enabled = $4, display_name = $5, description = $6, updated_at = now()
-		WHERE id = $1
-		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		          created_at, COALESCE(updated_at, created_at)`
-
 	var groupEnabledVal bool = true
 	if groupEnabled != nil {
 		groupEnabledVal = *groupEnabled
 	}
 
-	err = r.pool.QueryRow(ctx, query, id, priorityJSON, entryEnabledJSON, groupEnabledVal, displayName, description).
+	var setClauses []string
+	var args []interface{}
+	argIdx := 2 // $1 is reserved for id
+
+	setClauses = append(setClauses, fmt.Sprintf("priority_order = $%d", argIdx))
+	args = append(args, priorityJSON)
+	argIdx++
+
+	setClauses = append(setClauses, fmt.Sprintf("entry_enabled = $%d", argIdx))
+	args = append(args, entryEnabledJSON)
+	argIdx++
+
+	setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
+	args = append(args, groupEnabledVal)
+	argIdx++
+
+	if displayName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
+		args = append(args, *displayName)
+		argIdx++
+	}
+
+	if description != nil {
+		setClauses = append(setClauses, fmt.Sprintf("description = $%d", argIdx))
+		args = append(args, *description)
+		argIdx++
+	}
+
+	setClauses = append(setClauses, "updated_at = now()")
+
+	args = append([]interface{}{id}, args...)
+
+	query := fmt.Sprintf(`UPDATE model_failover_groups SET %s WHERE id = $1
+		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
+		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
+		          created_at, COALESCE(updated_at, created_at)`, strings.Join(setClauses, ", "))
+
+	var fg FailoverGroup
+	var rawPriority, rawEntryEnabled []byte
+
+	err = r.pool.QueryRow(ctx, query, args...).
 		Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &rawPriority, &rawEntryEnabled,
 			&fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
 	if err != nil {
@@ -283,10 +331,10 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 }
 
 type DisabledGroupInfo struct {
-	DisplayModel   string   `json:"display_model"`
-	Reason         string   `json:"reason"`
-	ProviderCount  int      `json:"provider_count"`
-	ProviderNames  []string `json:"provider_names"`
+	DisplayModel  string   `json:"display_model"`
+	Reason        string   `json:"reason"`
+	ProviderCount int      `json:"provider_count"`
+	ProviderNames []string `json:"provider_names"`
 }
 
 type SyncResult struct {
@@ -374,10 +422,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 					reason = "only 1 enabled provider (need 2+ for failover)"
 				}
 				result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
-					DisplayModel:   base,
-					ProviderCount:  len(models),
-					Reason:         reason,
-					ProviderNames:  providerNames,
+					DisplayModel:  base,
+					ProviderCount: len(models),
+					Reason:        reason,
+					ProviderNames: providerNames,
 				})
 			}
 			continue
@@ -402,7 +450,14 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		syncedBases[base] = true
 		groupEnabled := true
 		autoCreated := true
-		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+		var syncDisplayName, syncDescription *string
+		if existing != nil {
+			syncDisplayName = existing.DisplayName
+			if existing.Description != "" {
+				syncDescription = &existing.Description
+			}
+		}
+		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
 		if err != nil {
 			return nil, err
 		}
@@ -414,10 +469,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 			if _, ok := syncedBases[g.DisplayModel]; !ok {
 				if r.disableAutoGroup(ctx, g.DisplayModel) {
 					result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
-						DisplayModel:   g.DisplayModel,
-						ProviderCount:  0,
-						Reason:         "no enabled providers found",
-						ProviderNames:  []string{},
+						DisplayModel:  g.DisplayModel,
+						ProviderCount: 0,
+						Reason:        "no enabled providers found",
+						ProviderNames: []string{},
 					})
 				}
 			}
@@ -481,7 +536,14 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 
 	groupEnabled := true
 	autoCreated := true
-	_, err = r.UpsertWithConfig(ctx, base, modelUUIDs, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+	var syncDisplayName, syncDescription *string
+	if existing != nil {
+		syncDisplayName = existing.DisplayName
+		if existing.Description != "" {
+			syncDescription = &existing.Description
+		}
+	}
+	_, err = r.UpsertWithConfig(ctx, base, modelUUIDs, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
 	return err
 }
 

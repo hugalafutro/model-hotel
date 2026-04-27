@@ -6,7 +6,7 @@ import (
 )
 
 type failoverCacheEntry struct {
-	group     *FailoverGroup
+	group     FailoverGroup
 	expiresAt time.Time
 }
 
@@ -21,7 +21,7 @@ func cacheFailoverGroup(fg *FailoverGroup) {
 	if fg == nil {
 		return
 	}
-	entry := failoverCacheEntry{group: fg, expiresAt: time.Now().Add(failoverCacheTTL)}
+	entry := failoverCacheEntry{group: *fg, expiresAt: time.Now().Add(failoverCacheTTL)}
 	failoverCacheMu.Lock()
 	failoverByModelCache[fg.DisplayModel] = entry
 	failoverCacheMu.Unlock()
@@ -34,7 +34,8 @@ func GetCachedFailoverByModel(displayModel string) (*FailoverGroup, bool) {
 	if !ok || time.Now().After(entry.expiresAt) {
 		return nil, false
 	}
-	return entry.group, true
+	copy := entry.group
+	return &copy, true
 }
 
 func InvalidateFailoverCache() {

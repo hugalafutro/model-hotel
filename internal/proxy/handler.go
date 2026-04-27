@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -107,7 +108,11 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		keyHash := virtualkey.Hash(token)
 		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
 		if err != nil {
-			http.Error(w, "Invalid virtual key", http.StatusUnauthorized)
+			if errors.Is(err, virtualkey.ErrNotFound) {
+				http.Error(w, "Invalid virtual key", http.StatusUnauthorized)
+			} else {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+			}
 			return
 		}
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)

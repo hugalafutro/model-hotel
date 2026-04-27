@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -281,18 +283,55 @@ type UpdateModelRequest struct {
 }
 
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRequest) (*Model, error) {
-	query := `
-		UPDATE models
-		SET display_name = COALESCE($1, display_name),
-		    context_length = COALESCE($2, context_length),
-		    max_output_tokens = COALESCE($3, max_output_tokens),
-		    input_price_per_million = COALESCE($4, input_price_per_million),
-		    output_price_per_million = COALESCE($5, output_price_per_million),
-		    enabled = COALESCE($6, enabled),
-		    disabled_manually = CASE WHEN $6 IS NULL THEN disabled_manually WHEN $6 = false THEN true ELSE false END
-		WHERE id = $7
-	`
-	_, err := r.pool.Exec(ctx, query, req.DisplayName, req.ContextLength, req.MaxOutputTokens, req.InputPricePerMillion, req.OutputPricePerMillion, req.Enabled, id)
+	var setClauses []string
+	var args []interface{}
+	argIdx := 2 // $1 is reserved for id
+
+	if req.DisplayName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
+		args = append(args, *req.DisplayName)
+		argIdx++
+	}
+	if req.ContextLength != nil {
+		setClauses = append(setClauses, fmt.Sprintf("context_length = $%d", argIdx))
+		args = append(args, *req.ContextLength)
+		argIdx++
+	}
+	if req.MaxOutputTokens != nil {
+		setClauses = append(setClauses, fmt.Sprintf("max_output_tokens = $%d", argIdx))
+		args = append(args, *req.MaxOutputTokens)
+		argIdx++
+	}
+	if req.InputPricePerMillion != nil {
+		setClauses = append(setClauses, fmt.Sprintf("input_price_per_million = $%d", argIdx))
+		args = append(args, *req.InputPricePerMillion)
+		argIdx++
+	}
+	if req.OutputPricePerMillion != nil {
+		setClauses = append(setClauses, fmt.Sprintf("output_price_per_million = $%d", argIdx))
+		args = append(args, *req.OutputPricePerMillion)
+		argIdx++
+	}
+	if req.Enabled != nil {
+		setClauses = append(setClauses, fmt.Sprintf("enabled = $%d", argIdx))
+		args = append(args, *req.Enabled)
+		argIdx++
+		setClauses = append(setClauses, fmt.Sprintf("disabled_manually = $%d", argIdx))
+		args = append(args, !*req.Enabled)
+		argIdx++
+	}
+
+	if len(setClauses) == 0 {
+		return r.Get(ctx, id)
+	}
+
+	setClauses = append(setClauses, "updated_at = now()")
+
+	args = append([]interface{}{id}, args...)
+
+	query := fmt.Sprintf("UPDATE models SET %s WHERE id = $1", strings.Join(setClauses, ", "))
+
+	_, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

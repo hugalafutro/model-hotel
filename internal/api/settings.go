@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/user/llm-proxy/internal/settings"
 )
 
 func (h *Handler) RegisterSettings(r chi.Router) {
@@ -16,8 +15,7 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 }
 
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
-	settingsRepo := settings.NewRepository(h.dbPool.Pool())
-	all, err := settingsRepo.GetAll(r.Context())
+	all, err := h.settingsRepo.GetAll(r.Context())
 	if err != nil {
 		http.Error(w, "failed to load settings", http.StatusInternalServerError)
 		return
@@ -34,15 +32,31 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settingsRepo := settings.NewRepository(h.dbPool.Pool())
+	tx, err := h.dbPool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, "failed to begin transaction", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	for key, value := range req {
-		if err := settingsRepo.Set(r.Context(), key, value); err != nil {
+		if err := h.settingsRepo.SetTx(r.Context(), tx, key, value); err != nil {
 			http.Error(w, "failed to save setting", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	all, _ := settingsRepo.GetAll(r.Context())
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, "failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	// Invalidate cache for updated keys after successful commit
+	for key := range req {
+		h.settingsRepo.InvalidateCache(key)
+	}
+
+	all, _ := h.settingsRepo.GetAll(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(all)

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -69,6 +70,20 @@ func (r *Repository) Set(ctx context.Context, key string, value string) error {
 		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
 	`, key, value)
 	return err
+}
+
+func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
+	`, key, value)
+	return err
+}
+
+func (r *Repository) InvalidateCache(key string) {
+	r.mu.Lock()
+	delete(r.cache, key)
+	r.mu.Unlock()
 }
 
 func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {

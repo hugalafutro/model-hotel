@@ -18,13 +18,15 @@ type FailoverHandler struct {
 	failoverRepo *failover.Repository
 	modelRepo    *model.Repository
 	dbPool       *pgxpool.Pool
+	settingsRepo *settings.Repository
 }
 
-func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository) *FailoverHandler {
+func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo *settings.Repository) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
 		modelRepo:    modelRepo,
 		dbPool:       dbPool,
+		settingsRepo: settingsRepo,
 	}
 }
 
@@ -100,8 +102,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 		responses[i] = resp
 	}
 
-	settingsRepo := settings.NewRepository(h.dbPool)
-	lastSyncedAt := settingsRepo.GetWithDefault(r.Context(), "failover_last_synced_at", "")
+	lastSyncedAt := h.settingsRepo.GetWithDefault(r.Context(), "failover_last_synced_at", "")
 
 	var lastSyncedAtPtr *string
 	if lastSyncedAt != "" {
@@ -118,7 +119,7 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, e
 	rows, err := h.dbPool.Query(ctx, `
 		SELECT model_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) as total_tokens
 		FROM request_logs
-		WHERE model_id LIKE 'hotel/%'
+		WHERE model_id LIKE 'hotel/%' AND created_at > now() - interval '30 days'
 		GROUP BY model_id
 	`)
 	if err != nil {
@@ -155,6 +156,12 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	tokenCounts, err := h.getTokenCounts(r.Context())
+	if err != nil {
+		tokenCounts = make(map[string]int)
+	}
+	resp.TotalTokens = tokenCounts["hotel/"+g.DisplayModel]
 
 	writeJSON(w, resp)
 }
@@ -196,6 +203,12 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	entryEnabled := make(map[string]bool)
 	for _, id := range priorityOrder {
 		entryEnabled[id.String()] = true
+	}
+
+	existing, _ := h.failoverRepo.GetByModel(r.Context(), req.DisplayModel)
+	if existing != nil {
+		http.Error(w, "failover group with display_model '"+req.DisplayModel+"' already exists", http.StatusConflict)
+		return
 	}
 
 	autoCreated := false
@@ -297,8 +310,7 @@ func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settingsRepo := settings.NewRepository(h.dbPool)
-	settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339))
+	h.settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339))
 
 	writeJSON(w, result)
 }

@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+var (
+	keyCacheEvictionStop chan struct{}
+	keyCacheEvictionDone chan struct{}
+)
+
 type cacheEntry struct {
 	plaintext string
 	expiresAt time.Time
@@ -72,4 +77,46 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 
 func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 	DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
+}
+
+func startKeyCacheEviction() {
+	keyCacheEvictionStop = make(chan struct{})
+	keyCacheEvictionDone = make(chan struct{})
+	go func() {
+		defer close(keyCacheEvictionDone)
+		ticker := time.NewTicker(keyCacheTTL)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				evictExpiredKeyCacheEntries()
+			case <-keyCacheEvictionStop:
+				return
+			}
+		}
+	}()
+}
+
+func evictExpiredKeyCacheEntries() {
+	keyCacheMu.Lock()
+	defer keyCacheMu.Unlock()
+	now := time.Now()
+	for k, v := range keyCache {
+		if now.After(v.expiresAt) {
+			delete(keyCache, k)
+		}
+	}
+}
+
+func StopKeyCacheEviction() {
+	if keyCacheEvictionStop != nil {
+		close(keyCacheEvictionStop)
+		<-keyCacheEvictionDone
+		keyCacheEvictionStop = nil
+		keyCacheEvictionDone = nil
+	}
+}
+
+func init() {
+	startKeyCacheEviction()
 }

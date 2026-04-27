@@ -16,6 +16,7 @@ import (
 	"github.com/user/llm-proxy/internal/failover"
 	"github.com/user/llm-proxy/internal/model"
 	"github.com/user/llm-proxy/internal/provider"
+	"github.com/user/llm-proxy/internal/settings"
 	"github.com/user/llm-proxy/internal/util"
 	"github.com/user/llm-proxy/internal/virtualkey"
 )
@@ -26,15 +27,17 @@ type Handler struct {
 	dbPool         *db.DB
 	adminMgr       *admin.Manager
 	virtualKeyRepo *virtualkey.Repository
+	settingsRepo   *settings.Repository
 }
 
-func NewHandler(cfg *config.Config, providerRepo *provider.Repository, database *db.DB, adminMgr *admin.Manager, vkRepo *virtualkey.Repository) *Handler {
+func NewHandler(cfg *config.Config, providerRepo *provider.Repository, database *db.DB, adminMgr *admin.Manager, vkRepo *virtualkey.Repository, settingsRepo *settings.Repository) *Handler {
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,
 		dbPool:         database,
 		adminMgr:       adminMgr,
 		virtualKeyRepo: vkRepo,
+		settingsRepo:   settingsRepo,
 	}
 }
 
@@ -61,7 +64,7 @@ func (h *Handler) Register(r chi.Router) {
 
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
 	modelRepo := model.NewRepository(h.dbPool.Pool())
-	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo).Register(r)
+	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo).Register(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 	NewSystemHandler(h.dbPool.Pool()).Register(r)

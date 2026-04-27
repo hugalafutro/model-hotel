@@ -7,14 +7,14 @@ import (
 	"github.com/google/uuid"
 )
 
-func (h *Handler) insertRequestLog(_ context.Context, log *requestLogData) error {
+func (h *Handler) insertRequestLog(ctx context.Context, log *requestLogData) error {
 	log.id = uuid.New().String()
 	log.requestHash = generateRequestHash()
 	var vkID interface{}
 	if log.virtualKeyID != "" {
 		vkID = log.virtualKeyID
 	}
-	_, err := h.dbPool.Exec(context.Background(), `
+	_, err := h.dbPool.Exec(ctx, `
 		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, vkID, log.failoverAttempt, log.state,
@@ -22,12 +22,12 @@ func (h *Handler) insertRequestLog(_ context.Context, log *requestLogData) error
 	return err
 }
 
-func (h *Handler) updateRequestLog(_ context.Context, log *requestLogData) {
+func (h *Handler) updateRequestLog(ctx context.Context, log *requestLogData) {
 	var providerID interface{}
 	if log.providerID != uuid.Nil {
 		providerID = log.providerID
 	}
-	tag, err := h.dbPool.Exec(context.Background(), `
+	tag, err := h.dbPool.Exec(ctx, `
 		UPDATE request_logs SET
 			provider_id = $2,
 			status_code = $3,

@@ -56,6 +56,10 @@ func (db *DB) Pool() *pgxpool.Pool {
 	return db.pool
 }
 
+func (db *DB) Begin(ctx context.Context) (pgx.Tx, error) {
+	return db.pool.Begin(ctx)
+}
+
 func (db *DB) runMigrations(ctx context.Context) error {
 	entries, err := migrationFS.ReadDir("migrations")
 	if err != nil {

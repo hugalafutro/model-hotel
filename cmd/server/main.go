@@ -213,7 +213,7 @@ func main() {
 	})
 
 	// Handlers shared across route groups
-	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo)
+	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter)
 
 	// API routes
