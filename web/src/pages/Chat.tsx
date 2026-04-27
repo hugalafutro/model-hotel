@@ -1183,11 +1183,26 @@ export function Chat() {
                 >
                     {messages.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
-                            <Bot
-                                size={48}
-                                strokeWidth={1}
-                                className="mb-4 opacity-40"
-                            />
+                            {chatSubMode === "chat" ? (
+                                <Bot
+                                    size={48}
+                                    strokeWidth={1}
+                                    className="mb-4 opacity-40"
+                                />
+                            ) : (
+                                <div className="relative mb-4 w-20 h-12 flex items-center justify-center">
+                                    <Bot
+                                        size={48}
+                                        strokeWidth={1}
+                                        className="opacity-40 absolute left-0"
+                                    />
+                                    <Bot
+                                        size={48}
+                                        strokeWidth={1}
+                                        className="opacity-40 absolute right-0"
+                                    />
+                                </div>
+                            )}
                             <p>
                                 {chatSubMode === "chat"
                                     ? "Chat will appear here"
