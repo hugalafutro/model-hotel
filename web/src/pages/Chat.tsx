@@ -367,6 +367,7 @@ export function Chat() {
     const [conversationState, setConversationState] =
         useState<ConversationState>("idle");
     const [currentTurn, setCurrentTurn] = useState(0);
+    const [turnCountdown, setTurnCountdown] = useState(0);
 
     // ── Shared state ──
     const [pendingReset, setPendingReset] = useState(false);
@@ -897,6 +898,9 @@ export function Chat() {
                         : "A";
             }
 
+            // maxTurns = number of conversation rounds; each round involves
+            // 2 model responses (Model A then Model B), so the loop runs
+            // maxTurns * 2 iterations total.
             while (turn < maxTurns * 2 && !abortCtrl.signal.aborted) {
                 const isModelA = modelTurn === "A";
                 const modelId = isModelA
@@ -990,11 +994,27 @@ export function Chat() {
                 modelTurn = modelTurn === "A" ? "B" : "A";
                 setCurrentTurn(turn);
 
+                // Same maxTurns * 2 semantics as the loop condition above.
                 if (turn < maxTurns * 2 && !abortCtrl.signal.aborted) {
-                    await new Promise((r) => setTimeout(r, turnDelayMs));
+                    const countdownSeconds = Math.ceil(turnDelayMs / 1000);
+                    setTurnCountdown(countdownSeconds);
+                    await new Promise<void>((resolve) => {
+                        let remaining = countdownSeconds;
+                        const interval = setInterval(() => {
+                            remaining--;
+                            if (remaining <= 0) {
+                                clearInterval(interval);
+                                setTurnCountdown(0);
+                                resolve();
+                            } else {
+                                setTurnCountdown(remaining);
+                            }
+                        }, 1000);
+                    });
                 }
             }
 
+            setTurnCountdown(0);
             setIsStreaming(false);
             setConversationState((prev) =>
                 prev === "running" ? "completed" : prev,
@@ -1024,6 +1044,7 @@ export function Chat() {
         conversationAbortRef.current?.abort();
         conversationAbortRef.current = null;
         cleanupConvAbortRef.current = null;
+        setTurnCountdown(0);
         setIsStreaming(false);
         setConversationState("paused");
         conversationRunningRef.current = false;
@@ -1329,6 +1350,7 @@ export function Chat() {
                     onTurnDelayMsChange={setTurnDelayMs}
                     conversationState={conversationState}
                     currentTurn={currentTurn}
+                    turnCountdown={turnCountdown}
                     configCollapsed={configCollapsed}
                     onToggleCollapsed={() => setConfigCollapsed((c) => !c)}
                     input={input}

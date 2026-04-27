@@ -24,7 +24,12 @@ import { useToast } from "../context/ToastContext";
    Date helpers for the accent-themed calendar picker
    ===================================================== */
 function toISODate(d: Date): string {
-    return d.toISOString().split("T")[0];
+    // Use local date components so "today" matches the user's timezone
+    // rather than UTC (which would differ near midnight).
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
 }
 
 function todayISO(): string {
@@ -301,14 +306,25 @@ export function Logs() {
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
-    const [filters, setFilters] = useState({ model_id: "", status_code: "" });
+    const [filters, setFilters] = useState({
+        model_id: "",
+        provider_id: "",
+        status_code: "",
+    });
     const [debouncedModelId, setDebouncedModelId] = useState("");
+    const [debouncedProviderId, setDebouncedProviderId] = useState("");
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedModelId(filters.model_id);
         }, 300);
         return () => clearTimeout(timer);
     }, [filters.model_id]);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedProviderId(filters.provider_id);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [filters.provider_id]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [sort, setSort] = useState<SortState<LogSortField>>({
@@ -343,12 +359,17 @@ export function Logs() {
         queryFn: () => api.settings.get(),
     });
 
-    const { data: logsData } = useQuery({
+    const {
+        data: logsData,
+        isLoading,
+        error,
+    } = useQuery({
         queryKey: [
             "logs",
             page,
             pageSize,
             debouncedModelId,
+            debouncedProviderId,
             filters.status_code,
             dateFrom,
             dateTo,
@@ -359,6 +380,7 @@ export function Logs() {
                 page,
                 per_page: pageSize,
                 model_id: debouncedModelId || undefined,
+                provider_id: debouncedProviderId || undefined,
                 status_code: filters.status_code || undefined,
                 from: dateFrom || undefined,
                 to: dateTo || undefined,
@@ -429,11 +451,16 @@ export function Logs() {
 
     const applyDateFilter = () => {
         if (pendingFrom) {
-            setDateFrom(pendingFrom + "T00:00:00.000Z");
+            // Construct dates in the browser's local timezone so the filter
+            // range matches what the user sees via toLocaleString() rather
+            // than UTC (which would shift near midnight).
+            setDateFrom(new Date(pendingFrom + "T00:00:00").toISOString());
             if (pendingTo && pendingTo >= pendingFrom) {
-                setDateTo(pendingTo + "T23:59:59.999Z");
+                setDateTo(new Date(pendingTo + "T23:59:59.999").toISOString());
             } else {
-                setDateTo(pendingFrom + "T23:59:59.999Z");
+                setDateTo(
+                    new Date(pendingFrom + "T23:59:59.999").toISOString(),
+                );
             }
         } else {
             setDateFrom("");
@@ -582,6 +609,15 @@ export function Logs() {
                         className="w-[320px]"
                         autoFocus
                     />
+                    <FilterInput
+                        value={filters.provider_id}
+                        onChange={(v) => {
+                            setFilters({ ...filters, provider_id: v });
+                            setPage(1);
+                        }}
+                        placeholder="Filter by provider…"
+                        className="w-[200px]"
+                    />
                     <select
                         value={filters.status_code}
                         onChange={(e) => {
@@ -712,290 +748,319 @@ export function Logs() {
                 </div>
             </div>
 
-            <div className="ui-card overflow-x-auto">
-                <table className="w-full table-fixed ui-table min-w-250">
-                    <colgroup>
-                        <col className="w-30" />
-                        <col className="w-27" />
-                        <col className="w-50" />
-                        <col className="w-25" />
-                        <col className="w-15" />
-                        <col className="w-17.5" />
-                        <col className="w-13.75" />
-                        <col className="w-16.25" />
-                        <col className="w-16.25" />
-                        <col className="w-17.5" />
-                        <col className="w-25" />
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <SortableHeader
-                                label="Time"
-                                field="time"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Timestamp of the request"
-                            />
-                            <StaticHeader tooltip="Unique hash of the request body">
-                                Hash
-                            </StaticHeader>
-                            <SortableHeader
-                                label="Model"
-                                field="model"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Model ID used for the request"
-                            />
-                            <SortableHeader
-                                label="Provider"
-                                field="provider"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Provider handling the request"
-                            />
-                            <SortableHeader
-                                label="Status"
-                                field="status"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="HTTP status code of the response"
-                            />
-                            <SortableHeader
-                                label="Tokens"
-                                field="tokens"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Prompt + completion tokens (if available)"
-                            />
-                            <SortableHeader
-                                label="T/s"
-                                field="tps"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Tokens generated per second"
-                            />
-                            <SortableHeader
-                                label="TTFT"
-                                field="ttft"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Time to first token"
-                            />
-                            <SortableHeader
-                                label="Duration"
-                                field="duration"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Total request duration"
-                            />
-                            <SortableHeader
-                                label="Overhead"
-                                field="overhead"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Proxy overhead (parsing, lookups, etc)"
-                            />
-                            <SortableHeader
-                                label="Key"
-                                field="key"
-                                sort={sort}
-                                onSort={handleSort}
-                                tooltip="Virtual key used for authentication"
-                            />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {displayEntries && displayEntries.length > 0 ? (
-                            displayEntries.map((log, idx) => {
-                                const hasOverhead =
-                                    log.proxy_overhead_ms != null &&
-                                    log.proxy_overhead_ms > 0 &&
-                                    (log.parse_ms > 0 ||
-                                        log.model_lookup_ms > 0 ||
-                                        log.provider_lookup_ms > 0 ||
-                                        log.key_decrypt_ms > 0);
-                                return (
-                                    <Row
-                                        key={log.id}
-                                        index={idx}
-                                        className={
-                                            isInProgress(log)
-                                                ? "animate-pulse-subtle"
-                                                : ""
-                                        }
-                                    >
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
-                                            {log.created_at
-                                                ? new Date(
-                                                      log.created_at,
-                                                  ).toLocaleString()
-                                                : "-"}
-                                        </td>
-                                        <td
-                                            className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400"
-                                            title={log.request_hash}
+            {/* Initial loading state — show spinner when first fetch hasn't arrived */}
+            {isLoading && !hasFetchedData && (
+                <div className="flex items-center justify-center py-20">
+                    <div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
+                </div>
+            )}
+
+            {/* Error state — show message when fetch fails and no fallback data */}
+            {error && !hasFetchedData && !fallback.entries.length && (
+                <div className="ui-card p-8 text-center">
+                    <p className="text-red-400 text-sm">
+                        Failed to load logs:{" "}
+                        {(error as Error).message || "Unknown error"}
+                    </p>
+                </div>
+            )}
+
+            {(!isLoading || hasFetchedData) && (
+                <div className="ui-card overflow-x-auto">
+                    <table className="w-full table-fixed ui-table min-w-250">
+                        <colgroup>
+                            <col className="w-30" />
+                            <col className="w-27" />
+                            <col className="w-50" />
+                            <col className="w-25" />
+                            <col className="w-15" />
+                            <col className="w-17.5" />
+                            <col className="w-13.75" />
+                            <col className="w-16.25" />
+                            <col className="w-16.25" />
+                            <col className="w-17.5" />
+                            <col className="w-25" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <SortableHeader
+                                    label="Time"
+                                    field="time"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Timestamp of the request"
+                                />
+                                <StaticHeader tooltip="Unique hash of the request body">
+                                    Hash
+                                </StaticHeader>
+                                <SortableHeader
+                                    label="Model"
+                                    field="model"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Model ID used for the request"
+                                />
+                                <SortableHeader
+                                    label="Provider"
+                                    field="provider"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Provider handling the request"
+                                />
+                                <SortableHeader
+                                    label="Status"
+                                    field="status"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="HTTP status code of the response"
+                                />
+                                <SortableHeader
+                                    label="Tokens"
+                                    field="tokens"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Prompt + completion tokens (if available)"
+                                />
+                                <SortableHeader
+                                    label="T/s"
+                                    field="tps"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Tokens generated per second"
+                                />
+                                <SortableHeader
+                                    label="TTFT"
+                                    field="ttft"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Time to first token"
+                                />
+                                <SortableHeader
+                                    label="Duration"
+                                    field="duration"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Total request duration"
+                                />
+                                <SortableHeader
+                                    label="Overhead"
+                                    field="overhead"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Proxy overhead (parsing, lookups, etc)"
+                                />
+                                <SortableHeader
+                                    label="Key"
+                                    field="key"
+                                    sort={sort}
+                                    onSort={handleSort}
+                                    tooltip="Virtual key used for authentication"
+                                />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {displayEntries && displayEntries.length > 0 ? (
+                                displayEntries.map((log, idx) => {
+                                    const hasOverhead =
+                                        log.proxy_overhead_ms != null &&
+                                        log.proxy_overhead_ms > 0 &&
+                                        (log.parse_ms > 0 ||
+                                            log.model_lookup_ms > 0 ||
+                                            log.provider_lookup_ms > 0 ||
+                                            log.key_decrypt_ms > 0);
+                                    return (
+                                        <Row
+                                            key={log.id}
+                                            index={idx}
+                                            className={
+                                                isInProgress(log)
+                                                    ? "animate-pulse-subtle"
+                                                    : ""
+                                            }
                                         >
-                                            {log.request_hash
-                                                ? log.request_hash.slice(0, 16)
-                                                : "-"}
-                                        </td>
-                                        <td
-                                            className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate"
-                                            title={log.model_id}
-                                        >
-                                            {log.model_id
-                                                ? log.model_id.startsWith(
-                                                      "hotel/",
-                                                  )
-                                                    ? log.model_id
-                                                    : log.model_id.includes("/")
-                                                      ? log.model_id.slice(
-                                                            log.model_id.indexOf(
-                                                                "/",
-                                                            ) + 1,
-                                                        )
-                                                      : log.model_id
-                                                : "-"}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
-                                            {log.provider_name === "Deleted" ? (
-                                                <span
-                                                    className="text-red-400 italic"
-                                                    title="Provider was deleted"
-                                                >
-                                                    Deleted
-                                                </span>
-                                            ) : isInProgress(log) &&
-                                              !log.provider_name ? (
-                                                <span className="text-blue-400/60 italic">
-                                                    Resolving…
-                                                </span>
-                                            ) : (
-                                                log.provider_name || "-"
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap">
-                                            <span
-                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getStatusBg(log.status_code, log.error_message)}`}
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+                                                {log.created_at
+                                                    ? new Date(
+                                                          log.created_at,
+                                                      ).toLocaleString()
+                                                    : "-"}
+                                            </td>
+                                            <td
+                                                className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400"
+                                                title={log.request_hash}
                                             >
-                                                {isStale(log) ? (
-                                                    <span className="text-yellow-500/70">
-                                                        ⚠
+                                                {log.request_hash
+                                                    ? log.request_hash.slice(
+                                                          0,
+                                                          16,
+                                                      )
+                                                    : "-"}
+                                            </td>
+                                            <td
+                                                className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate"
+                                                title={log.model_id}
+                                            >
+                                                {log.model_id
+                                                    ? log.model_id.startsWith(
+                                                          "hotel/",
+                                                      )
+                                                        ? log.model_id
+                                                        : log.model_id.includes(
+                                                                "/",
+                                                            )
+                                                          ? log.model_id.slice(
+                                                                log.model_id.indexOf(
+                                                                    "/",
+                                                                ) + 1,
+                                                            )
+                                                          : log.model_id
+                                                    : "-"}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
+                                                {log.provider_name ===
+                                                "Deleted" ? (
+                                                    <span
+                                                        className="text-red-400 italic"
+                                                        title="Provider was deleted"
+                                                    >
+                                                        Deleted
                                                     </span>
-                                                ) : isInProgress(log) ? (
-                                                    <span className="text-blue-400">
-                                                        {log.state ===
-                                                        "streaming"
-                                                            ? "Live"
-                                                            : "…"}
+                                                ) : isInProgress(log) &&
+                                                  !log.provider_name ? (
+                                                    <span className="text-blue-400/60 italic">
+                                                        Resolving…
                                                     </span>
                                                 ) : (
-                                                    log.status_code
+                                                    log.provider_name || "-"
                                                 )}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                                            {isCancelled(log.error_message)
-                                                ? "Interrupted"
-                                                : log.tokens_prompt +
-                                                        log.tokens_completion >
-                                                    0
-                                                  ? `${log.tokens_prompt}+${log.tokens_completion}`
-                                                  : "-"}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                                            {isCancelled(log.error_message)
-                                                ? "-"
-                                                : formatTPS(
-                                                      log.tokens_per_second,
-                                                  )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                                            {log.ttft_ms > 0
-                                                ? formatMs(log.ttft_ms, 1)
-                                                : "-"}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
-                                            {isInProgress(log) &&
-                                            log.duration_ms === 0 ? (
-                                                <span className="inline-block animate-pulse text-blue-400">
-                                                    —
-                                                </span>
-                                            ) : log.duration_ms > 0 ? (
-                                                log.duration_ms >= 1000 ? (
-                                                    `${(log.duration_ms / 1000).toFixed(1)}s`
-                                                ) : (
-                                                    `${log.duration_ms.toFixed(0)}ms`
-                                                )
-                                            ) : (
-                                                "-"
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
-                                            {log.proxy_overhead_ms != null &&
-                                            log.proxy_overhead_ms > 0 ? (
-                                                <button
-                                                    type="button"
-                                                    className={`${hasOverhead ? "text-(--accent) hover:text-(--accent-hover) cursor-pointer" : "text-gray-400"}`}
-                                                    onClick={() =>
-                                                        hasOverhead
-                                                            ? setOverheadBreakdown(
-                                                                  {
-                                                                      proxy_overhead_ms:
-                                                                          log.proxy_overhead_ms,
-                                                                      parse_ms:
-                                                                          log.parse_ms ||
-                                                                          0,
-                                                                      model_lookup_ms:
-                                                                          log.model_lookup_ms ||
-                                                                          0,
-                                                                      provider_lookup_ms:
-                                                                          log.provider_lookup_ms ||
-                                                                          0,
-                                                                      key_decrypt_ms:
-                                                                          log.key_decrypt_ms ||
-                                                                          0,
-                                                                  },
-                                                              )
-                                                            : undefined
-                                                    }
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap">
+                                                <span
+                                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getStatusBg(log.status_code, log.error_message)}`}
                                                 >
-                                                    {formatMs(
-                                                        log.proxy_overhead_ms,
+                                                    {isStale(log) ? (
+                                                        <span className="text-yellow-500/70">
+                                                            ⚠
+                                                        </span>
+                                                    ) : isInProgress(log) ? (
+                                                        <span className="text-blue-400">
+                                                            {log.state ===
+                                                            "streaming"
+                                                                ? "Live"
+                                                                : "…"}
+                                                        </span>
+                                                    ) : (
+                                                        log.status_code
                                                     )}
-                                                </button>
-                                            ) : (
-                                                <span className="text-gray-400">
-                                                    -
                                                 </span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
-                                            {log.virtual_key_deleted ? (
-                                                <span className="text-red-400 italic">
-                                                    Deleted
-                                                </span>
-                                            ) : log.virtual_key_name &&
-                                              log.virtual_key_name.toLowerCase() ===
-                                                  "internal" ? (
-                                                <span className="text-gray-400 italic">
-                                                    internal
-                                                </span>
-                                            ) : (
-                                                log.virtual_key_name ||
-                                                log.virtual_key_id ||
-                                                "-"
-                                            )}
-                                        </td>
-                                    </Row>
-                                );
-                            })
-                        ) : (
-                            <EmptyRow colSpan={11} message="No logs found" />
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                                                {isCancelled(log.error_message)
+                                                    ? "Interrupted"
+                                                    : log.tokens_prompt +
+                                                            log.tokens_completion >
+                                                        0
+                                                      ? `${log.tokens_prompt}+${log.tokens_completion}`
+                                                      : "-"}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                                                {isCancelled(log.error_message)
+                                                    ? "-"
+                                                    : formatTPS(
+                                                          log.tokens_per_second,
+                                                      )}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                                                {log.ttft_ms > 0
+                                                    ? formatMs(log.ttft_ms, 1)
+                                                    : "-"}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+                                                {isInProgress(log) &&
+                                                log.duration_ms === 0 ? (
+                                                    <span className="inline-block animate-pulse text-blue-400">
+                                                        —
+                                                    </span>
+                                                ) : log.duration_ms > 0 ? (
+                                                    log.duration_ms >= 1000 ? (
+                                                        `${(log.duration_ms / 1000).toFixed(1)}s`
+                                                    ) : (
+                                                        `${log.duration_ms.toFixed(0)}ms`
+                                                    )
+                                                ) : (
+                                                    "-"
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
+                                                {log.proxy_overhead_ms !=
+                                                    null &&
+                                                log.proxy_overhead_ms > 0 ? (
+                                                    <button
+                                                        type="button"
+                                                        className={`${hasOverhead ? "text-(--accent) hover:text-(--accent-hover) cursor-pointer" : "text-gray-400"}`}
+                                                        onClick={() =>
+                                                            hasOverhead
+                                                                ? setOverheadBreakdown(
+                                                                      {
+                                                                          proxy_overhead_ms:
+                                                                              log.proxy_overhead_ms,
+                                                                          parse_ms:
+                                                                              log.parse_ms ||
+                                                                              0,
+                                                                          model_lookup_ms:
+                                                                              log.model_lookup_ms ||
+                                                                              0,
+                                                                          provider_lookup_ms:
+                                                                              log.provider_lookup_ms ||
+                                                                              0,
+                                                                          key_decrypt_ms:
+                                                                              log.key_decrypt_ms ||
+                                                                              0,
+                                                                      },
+                                                                  )
+                                                                : undefined
+                                                        }
+                                                    >
+                                                        {formatMs(
+                                                            log.proxy_overhead_ms,
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-gray-400">
+                                                        -
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+                                                {log.virtual_key_deleted ? (
+                                                    <span className="text-red-400 italic">
+                                                        Deleted
+                                                    </span>
+                                                ) : log.virtual_key_name &&
+                                                  log.virtual_key_name.toLowerCase() ===
+                                                      "internal" ? (
+                                                    <span className="text-gray-400 italic">
+                                                        internal
+                                                    </span>
+                                                ) : (
+                                                    log.virtual_key_name ||
+                                                    log.virtual_key_id ||
+                                                    "-"
+                                                )}
+                                            </td>
+                                        </Row>
+                                    );
+                                })
+                            ) : (
+                                <EmptyRow
+                                    colSpan={11}
+                                    message="No logs found"
+                                />
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }

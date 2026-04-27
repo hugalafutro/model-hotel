@@ -266,21 +266,6 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 	return &m, nil
 }
 
-func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM models WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
-	if err != nil {
-		return err
-	}
-
-	if result.RowsAffected() == 0 {
-		return pgx.ErrNoRows
-	}
-
-	InvalidateModelCache()
-	return nil
-}
-
 func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, existingModelIDs []string) (int64, error) {
 	query := `
 		UPDATE models

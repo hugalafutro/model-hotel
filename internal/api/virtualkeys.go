@@ -66,7 +66,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyHash := virtualkey.Hash(rawKey)
-	keyPreview := rawKey[:5] + "..." + rawKey[len(rawKey)-2:]
+	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
 
 	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview)
 	if err != nil {

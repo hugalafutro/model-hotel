@@ -27,11 +27,14 @@ func (h *Handler) updateRequestLog(ctx context.Context, log *requestLogData) {
 	if log.providerID != uuid.Nil {
 		providerID = log.providerID
 	}
+	log.latencyMs = log.durationMs - log.proxyOverheadMs
+
 	tag, err := h.dbPool.Exec(ctx, `
 		UPDATE request_logs SET
 			provider_id = $2,
 			status_code = $3,
 			duration_ms = $4,
+			latency_ms = $19,
 			proxy_overhead_ms = $5,
 			parse_ms = $6,
 			model_lookup_ms = $7,
@@ -51,7 +54,7 @@ func (h *Handler) updateRequestLog(ctx context.Context, log *requestLogData) {
 		log.proxyOverheadMs, log.parseMs, log.modelLookupMs, log.providerLookupMs,
 		log.keyDecryptMs, log.ttftMs, log.tokensPerSecond, log.tokensPrompt,
 		log.tokensCompletion, log.tokensPromptCacheHit, log.tokensPromptCacheMiss,
-		log.errorMessage, log.failoverAttempt, log.state,
+		log.errorMessage, log.failoverAttempt, log.state, log.latencyMs,
 	)
 	if err != nil {
 		fmt.Printf("Failed to update request log %s: %v\n", log.id, err)

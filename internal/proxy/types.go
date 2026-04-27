@@ -25,6 +25,7 @@ type requestLogData struct {
 	providerName          string
 	statusCode            int
 	durationMs            float64
+	latencyMs             float64
 	proxyOverheadMs       float64
 	parseMs               float64
 	modelLookupMs         float64

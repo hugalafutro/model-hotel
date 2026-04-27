@@ -14,6 +14,7 @@ interface ConversationConfigProps {
     onTurnDelayMsChange: (v: number) => void;
     conversationState: string;
     currentTurn: number;
+    turnCountdown: number;
     configCollapsed: boolean;
     onToggleCollapsed: () => void;
     input: string;
@@ -31,6 +32,7 @@ export function ConversationConfig({
     turnDelayMs,
     conversationState,
     currentTurn,
+    turnCountdown,
     configCollapsed,
     onToggleCollapsed,
     input,
@@ -58,7 +60,7 @@ export function ConversationConfig({
                     {configCollapsed && (
                         <span className="text-xs text-(--text-muted) flex items-center gap-3">
                             <span>
-                                Turns:{" "}
+                                Rounds:{" "}
                                 <span className="text-(--text-primary)">
                                     {maxTurns}
                                 </span>
@@ -72,14 +74,19 @@ export function ConversationConfig({
                             </span>
                         </span>
                     )}
-                    {/* Turn counter (when active) */}
+                    {/* Round counter (when active) — each round = both models respond */}
                     {conversationState !== "idle" && (
                         <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
                             <Gauge size={12} />
-                            Turn:{" "}
+                            Round:{" "}
                             <span className="text-(--text-primary)">
                                 {Math.ceil(currentTurn / 2)} / {maxTurns}
                             </span>
+                            {turnCountdown > 0 && (
+                                <span className="text-(--accent) ml-1">
+                                    Next in {turnCountdown}s…
+                                </span>
+                            )}
                         </span>
                     )}
                     {/* Status */}
@@ -114,7 +121,7 @@ export function ConversationConfig({
                         {/* Max Turns - disabled when not idle */}
                         <div>
                             <label className="flex items-center gap-1 text-xs text-(--text-secondary) mb-1.5">
-                                <span>Turns</span>
+                                <span>Rounds</span>
                             </label>
                             <input
                                 type="number"
@@ -171,7 +178,6 @@ export function ConversationConfig({
                                 disabled={conversationState !== "idle"}
                             />
                         </div>
-
                     </div>
 
                     {/* Prompt + Start - only visible when idle */}
@@ -193,9 +199,7 @@ export function ConversationConfig({
                                     }
                                     className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-11"
                                     style={{ height: "auto" }}
-                                    disabled={
-                                        !selectedModel || !selectedModelB
-                                    }
+                                    disabled={!selectedModel || !selectedModelB}
                                     rows={1}
                                 />
                                 <button

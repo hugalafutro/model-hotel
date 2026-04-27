@@ -91,6 +91,7 @@ function ModelDetailModal({
     const [testError, setTestError] = useState(false);
     const [snippetTab, setSnippetTab] = useState<"curl" | "zed">("curl");
     const [editing, setEditing] = useState(false);
+    const [editVersion, setEditVersion] = useState("");
     const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -124,21 +125,24 @@ function ModelDetailModal({
         };
     }, []);
 
-    useEffect(() => {
-        if (editing) {
-            setEditData({
-                display_name: model.display_name || "",
-                context_length: model.context_length?.toString() || "",
-                max_output_tokens: model.max_output_tokens?.toString() || "",
-                input_price_per_million: formatPriceInput(
-                    model.input_price_per_million,
-                ),
-                output_price_per_million: formatPriceInput(
-                    model.output_price_per_million,
-                ),
-            });
-        }
-    }, [model, editing]);
+    // Re-sync editData when model changes while editing (e.g. after save round-trips)
+    // Uses a version string derived from model.id so the compiler doesn't
+    // complain about refs or setState-in-effect.
+    const currentEditVersion = editing ? model.id : "";
+    if (editing && currentEditVersion !== editVersion) {
+        setEditVersion(currentEditVersion);
+        setEditData({
+            display_name: model.display_name || "",
+            context_length: model.context_length?.toString() || "",
+            max_output_tokens: model.max_output_tokens?.toString() || "",
+            input_price_per_million: formatPriceInput(
+                model.input_price_per_million,
+            ),
+            output_price_per_million: formatPriceInput(
+                model.output_price_per_million,
+            ),
+        });
+    }
 
     const handleDiscover = async () => {
         if (cooldown > 0 || discovering) return;
@@ -1089,6 +1093,15 @@ export function Models() {
                             ((a.max_output_tokens ?? 0) -
                                 (b.max_output_tokens ?? 0))
                         );
+                    case "capabilities": {
+                        const capsA = Object.values(
+                            parseCapabilities(a.capabilities),
+                        ).filter(Boolean).length;
+                        const capsB = Object.values(
+                            parseCapabilities(b.capabilities),
+                        ).filter(Boolean).length;
+                        return dir * (capsA - capsB);
+                    }
                     case "status":
                         return (
                             dir *
