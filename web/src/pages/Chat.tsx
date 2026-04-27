@@ -59,7 +59,6 @@ type ConversationState = "idle" | "running" | "paused" | "completed";
 function getApiMessagesForModel(
     allMessages: ChatMessage[],
     targetModelId: string,
-    modelAId: string,
     persona: string,
 ): Array<{ role: string; content: string }> {
     const apiMessages: Array<{ role: string; content: string }> = [];
@@ -859,7 +858,6 @@ export function Chat() {
                 const apiMessages = getApiMessagesForModel(
                     currentMessages,
                     modelId,
-                    selectedModel,
                     persona,
                 );
 
