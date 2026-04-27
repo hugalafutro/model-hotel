@@ -143,8 +143,14 @@ export function Settings() {
         timeout,
         setTimeout: setToastTimeout,
     } = useToast();
-    const { persistChat, setPersistChat, persistArena, setPersistArena } =
-        useStorage();
+    const {
+        persistChat,
+        setPersistChat,
+        persistArena,
+        setPersistArena,
+        persistConversation,
+        setPersistConversation,
+    } = useStorage();
     const queryClient = useQueryClient();
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerColor, setPickerColor] = useState(accentColor);
@@ -731,6 +737,44 @@ export function Settings() {
                                 <span
                                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                                         persistArena
+                                            ? "translate-x-6"
+                                            : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-300">
+                                    Persist AI Conversation
+                                </p>
+                                <p className="text-gray-500 text-xs mt-0.5">
+                                    Remember AI conversation state and settings
+                                    across sessions
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const next = !persistConversation;
+                                    setPersistConversation(next);
+                                    toast(
+                                        next
+                                            ? "Conversation persistence enabled"
+                                            : "Conversation data cleared",
+                                        next ? "success" : "info",
+                                    );
+                                }}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    persistConversation
+                                        ? "bg-(--accent)"
+                                        : "bg-gray-600"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        persistConversation
                                             ? "translate-x-6"
                                             : "translate-x-1"
                                     }`}

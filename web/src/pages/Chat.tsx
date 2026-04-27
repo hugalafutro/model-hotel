@@ -14,6 +14,11 @@ import {
     Trash2,
     CircleStop,
     RefreshCw,
+    Users,
+    Play,
+    Pause,
+    Timer,
+    Gauge,
 } from "lucide-react";
 import type { ChatMessage, GenerationParams } from "../api/types";
 
@@ -28,6 +33,8 @@ import { CHAT_PERSONAS } from "../data/presets";
 import { extractThinking } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { MarkdownContent } from "../components/MarkdownContent";
+import { ConversationModelBubble } from "../components/ConversationModelBubble";
+import { ConversationConfig } from "../components/ConversationConfig";
 
 function formatTime(ts: number): string {
     const d = new Date(ts);
@@ -49,6 +56,156 @@ function hasAnyParam(p: GenerationParams): boolean {
     );
 }
 
+type ChatMode = "chat" | "conversation";
+type ConversationState = "idle" | "running" | "paused" | "completed";
+
+function getApiMessagesForModel(
+    allMessages: ChatMessage[],
+    targetModelId: string,
+    modelAId: string,
+    persona: string,
+): Array<{ role: string; content: string }> {
+    const apiMessages: Array<{ role: string; content: string }> = [];
+    if (persona.trim()) {
+        apiMessages.push({ role: "system", content: persona.trim() });
+    }
+    const isModelA = targetModelId === modelAId;
+
+    for (const msg of allMessages) {
+        if (msg.role === "user") {
+            apiMessages.push({
+                role: isModelA ? "assistant" : "user",
+                content: msg.content,
+            });
+        } else if (msg.role === "assistant") {
+            if (msg.model === targetModelId) {
+                apiMessages.push({
+                    role: "assistant",
+                    content: msg.content,
+                });
+            } else {
+                apiMessages.push({
+                    role: "user",
+                    content: msg.content,
+                });
+            }
+        }
+    }
+    return apiMessages;
+}
+
+interface StreamResult {
+    rawContent: string;
+    content: string;
+    thinkingContent: string;
+    error: string | null;
+    durationMs: number;
+    tokensPerSecond: number | null;
+    promptTokens: number;
+    completionTokens: number;
+}
+
+async function streamModelResponse(
+    modelId: string,
+    apiMessages: Array<{ role: string; content: string }>,
+    params: GenerationParams,
+    abortCtrl: AbortController,
+    onDelta: (raw: string, content: string, thinking: string) => void,
+): Promise<StreamResult> {
+    const startTime = performance.now();
+    let charCount = 0;
+    let promptTokens = 0;
+    let completionTokens = 0;
+    let rawContent = "";
+    let content = "";
+    let thinkingContent = "";
+
+    try {
+        const resp = await api.chat.chat({
+            model: modelId,
+            stream: true,
+            messages: apiMessages,
+            ...(hasAnyParam(params) ? params : {}),
+        });
+
+        const reader = resp.body?.getReader();
+        if (!reader) throw new Error("No readable stream");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done || abortCtrl.signal.aborted) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                const data = line.slice(6);
+                if (data === "[DONE]") break;
+                try {
+                    const chunk = JSON.parse(data);
+                    const delta = chunk.choices?.[0]?.delta?.content;
+                    if (delta) {
+                        charCount += delta.length;
+                        rawContent += delta;
+                        const extracted = extractThinking(rawContent);
+                        content = extracted.content;
+                        thinkingContent = extracted.thinking || thinkingContent;
+                        onDelta(rawContent, content, thinkingContent);
+                    }
+                    const thinkingDelta =
+                        chunk.choices?.[0]?.delta?.reasoning_content ??
+                        chunk.choices?.[0]?.delta?.reasoning;
+                    if (thinkingDelta) {
+                        thinkingContent += thinkingDelta;
+                        onDelta(rawContent, content, thinkingContent);
+                    }
+                    if (chunk.usage) {
+                        promptTokens = chunk.usage.prompt_tokens ?? 0;
+                        completionTokens = chunk.usage.completion_tokens ?? 0;
+                    }
+                } catch {
+                    // ignore parse errors
+                }
+            }
+        }
+    } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        return {
+            rawContent,
+            content,
+            thinkingContent,
+            error: errorMsg,
+            durationMs: Math.round(performance.now() - startTime),
+            tokensPerSecond:
+                performance.now() - startTime > 0
+                    ? charCount / ((performance.now() - startTime) / 1000)
+                    : null,
+            promptTokens,
+            completionTokens,
+        };
+    }
+
+    const durationMs = performance.now() - startTime;
+    const tokensPerSecond =
+        durationMs > 0 ? charCount / (durationMs / 1000) : null;
+
+    return {
+        rawContent,
+        content,
+        thinkingContent,
+        error: null,
+        durationMs: Math.round(durationMs),
+        tokensPerSecond,
+        promptTokens,
+        completionTokens,
+    };
+}
+
 export function Chat() {
     const { data: models } = useQuery({
         queryKey: ["models"],
@@ -62,6 +219,14 @@ export function Chat() {
         staleTime: 60_000,
     });
 
+    const [chatMode, setChatMode] = useState<ChatMode>(() => {
+        try {
+            return (localStorage.getItem("chatMode") as ChatMode) ?? "chat";
+        } catch {
+            return "chat";
+        }
+    });
+
     const [messages, setMessages] = useState<ChatMessage[]>(() => {
         try {
             if (localStorage.getItem("persistChat") === "true") {
@@ -69,7 +234,7 @@ export function Chat() {
                 if (stored) return JSON.parse(stored);
             }
         } catch {
-            /* ignore corrupt stored data */
+            /* ignore */
         }
         return [];
     });
@@ -116,12 +281,92 @@ export function Chat() {
     const { toast } = useToast();
     const { persistChat } = useStorage();
 
+    // ── Conversation mode state ──
+    const [selectedModelB, setSelectedModelB] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistConversation") === "true") {
+                return localStorage.getItem("conversationModelB") ?? "";
+            }
+        } catch {
+            /* ignore */
+        }
+        return "";
+    });
+    const [systemPromptB, setSystemPromptB] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistConversation") === "true") {
+                return localStorage.getItem("conversationSystemPromptB") ?? "";
+            }
+        } catch {
+            /* ignore */
+        }
+        return "";
+    });
+    const [activePersonaIdB, setActivePersonaIdB] = useState<string | null>(
+        () => {
+            try {
+                if (localStorage.getItem("persistConversation") === "true") {
+                    const v = localStorage.getItem(
+                        "conversationActivePersonaIdB",
+                    );
+                    return v || null;
+                }
+            } catch {
+                /* ignore */
+            }
+            return null;
+        },
+    );
+    const [messageParamsB, setMessageParamsB] = useState<GenerationParams>(
+        () => {
+            try {
+                if (localStorage.getItem("persistConversation") === "true") {
+                    const v = localStorage.getItem("conversationParamsB");
+                    if (v) return JSON.parse(v);
+                }
+            } catch {
+                /* ignore */
+            }
+            return {};
+        },
+    );
+    const [conversationState, setConversationState] =
+        useState<ConversationState>("idle");
+    const [currentTurn, setCurrentTurn] = useState(0);
+    const [maxTurns, setMaxTurns] = useState(() => {
+        try {
+            const v = localStorage.getItem("conversationMaxTurns");
+            return v ? parseInt(v, 10) : 10;
+        } catch {
+            return 10;
+        }
+    });
+    const [turnDelayMs, setTurnDelayMs] = useState(() => {
+        try {
+            const v = localStorage.getItem("conversationTurnDelayMs");
+            return v ? parseInt(v, 10) : 500;
+        } catch {
+            return 500;
+        }
+    });
+    const [configCollapsed, setConfigCollapsed] = useState(false);
+    const conversationAbortRef = useRef<AbortController | null>(null);
+
     const enabledModels =
         models?.filter((m) => m.enabled && m.provider_name) || [];
 
     const selectedModelObj = enabledModels.find(
         (m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
     );
+    const selectedModelObjB = enabledModels.find(
+        (m) => proxyModelID(m.provider_name, m.model_id) === selectedModelB,
+    );
+
+    const providerData =
+        providers?.map((p) => ({
+            name: p.name,
+            base_url: p.base_url,
+        })) ?? [];
 
     const scrollToBottom = useCallback(() => {
         requestAnimationFrame(() => {
@@ -176,6 +421,72 @@ export function Chat() {
         }
     }, [selectedModel, persistChat]);
 
+    useEffect(() => {
+        localStorage.setItem("chatMode", chatMode);
+    }, [chatMode]);
+
+    // ── Conversation persistence effects ──
+    useEffect(() => {
+        if (localStorage.getItem("persistConversation") !== "true") return;
+        try {
+            localStorage.setItem("conversationModelB", selectedModelB);
+        } catch {
+            /* ignore */
+        }
+    }, [selectedModelB]);
+
+    useEffect(() => {
+        if (localStorage.getItem("persistConversation") !== "true") return;
+        try {
+            localStorage.setItem("conversationSystemPromptB", systemPromptB);
+        } catch {
+            /* ignore */
+        }
+    }, [systemPromptB]);
+
+    useEffect(() => {
+        if (localStorage.getItem("persistConversation") !== "true") return;
+        try {
+            localStorage.setItem(
+                "conversationActivePersonaIdB",
+                activePersonaIdB ?? "",
+            );
+        } catch {
+            /* ignore */
+        }
+    }, [activePersonaIdB]);
+
+    useEffect(() => {
+        if (localStorage.getItem("persistConversation") !== "true") return;
+        try {
+            localStorage.setItem(
+                "conversationParamsB",
+                JSON.stringify(messageParamsB),
+            );
+        } catch {
+            /* ignore */
+        }
+    }, [messageParamsB]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem("conversationMaxTurns", String(maxTurns));
+        } catch {
+            /* ignore */
+        }
+    }, [maxTurns]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(
+                "conversationTurnDelayMs",
+                String(turnDelayMs),
+            );
+        } catch {
+            /* ignore */
+        }
+    }, [turnDelayMs]);
+
     const handleSend = useCallback(async () => {
         if (!input.trim() || !selectedModel || isStreaming) return;
 
@@ -191,14 +502,13 @@ export function Chat() {
 
         const abortCtrl = new AbortController();
         abortRef.current = abortCtrl;
-        const startTime = performance.now();
-        let charCount = 0;
-        let promptTokens = 0;
-        let completionTokens = 0;
 
         const chatMessages: Array<{ role: string; content: string }> = [];
         if (systemPrompt.trim()) {
-            chatMessages.push({ role: "system", content: systemPrompt.trim() });
+            chatMessages.push({
+                role: "system",
+                content: systemPrompt.trim(),
+            });
         }
         for (const m of updatedMessages) {
             chatMessages.push({ role: m.role, content: m.content });
@@ -214,118 +524,51 @@ export function Chat() {
             params: hasAnyParam(messageParams) ? messageParams : undefined,
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        const messageIndex = updatedMessages.length;
 
-        try {
-            const resp = await api.chat.chat({
-                model: selectedModel,
-                stream: true,
-                messages: chatMessages,
-                ...(hasAnyParam(messageParams) ? messageParams : {}),
-            });
+        const result = await streamModelResponse(
+            selectedModel,
+            chatMessages,
+            messageParams,
+            abortCtrl,
+            (raw, content, thinking) => {
+                setMessages((prev) => {
+                    if (prev.length <= messageIndex) return prev;
+                    const next = [...prev];
+                    next[messageIndex] = {
+                        ...next[messageIndex],
+                        rawContent: raw,
+                        content,
+                        thinkingContent: thinking,
+                    };
+                    return next;
+                });
+            },
+        );
 
-            const reader = resp.body?.getReader();
-            if (!reader) throw new Error("No readable stream");
-
-            const decoder = new TextDecoder();
-            let buffer = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done || abortCtrl.signal.aborted) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
-
-                for (const line of lines) {
-                    if (!line.startsWith("data: ")) continue;
-                    const data = line.slice(6);
-                    if (data === "[DONE]") break;
-                    try {
-                        const chunk = JSON.parse(data);
-                        const delta = chunk.choices?.[0]?.delta?.content;
-                        if (delta) {
-                            charCount += delta.length;
-                            assistantMessage.rawContent =
-                                (assistantMessage.rawContent || "") + delta;
-                            const extracted = extractThinking(
-                                assistantMessage.rawContent,
-                            );
-                            assistantMessage.content = extracted.content;
-                            assistantMessage.thinkingContent =
-                                extracted.thinking ||
-                                assistantMessage.thinkingContent;
-                            setMessages((prev) => {
-                                const next = [...prev];
-                                next[next.length - 1] = {
-                                    ...assistantMessage,
-                                };
-                                return next;
-                            });
-                        }
-                        const thinkingDelta =
-                            chunk.choices?.[0]?.delta?.reasoning_content ??
-                            chunk.choices?.[0]?.delta?.reasoning;
-                        if (thinkingDelta) {
-                            assistantMessage.thinkingContent =
-                                (assistantMessage.thinkingContent || "") +
-                                thinkingDelta;
-                            setMessages((prev) => {
-                                const next = [...prev];
-                                next[next.length - 1] = {
-                                    ...assistantMessage,
-                                };
-                                return next;
-                            });
-                        }
-                        if (chunk.usage) {
-                            promptTokens = chunk.usage.prompt_tokens ?? 0;
-                            completionTokens =
-                                chunk.usage.completion_tokens ?? 0;
-                        }
-                    } catch {
-                        // ignore parse errors
-                    }
-                }
-            }
-
-            const durationMs = performance.now() - startTime;
-            const tokensPerSecond =
-                durationMs > 0 ? charCount / (durationMs / 1000) : null;
-
-            assistantMessage.metrics = {
-                tokensPerSecond,
-                durationMs: Math.round(durationMs),
-                promptTokens,
-                completionTokens,
+        setMessages((prev) => {
+            if (prev.length <= messageIndex) return prev;
+            const next = [...prev];
+            next[messageIndex] = {
+                ...next[messageIndex],
+                rawContent: result.rawContent,
+                content: result.content,
+                thinkingContent: result.thinkingContent,
+                error: result.error,
+                metrics: {
+                    tokensPerSecond: result.tokensPerSecond,
+                    durationMs: result.durationMs,
+                    promptTokens: result.promptTokens,
+                    completionTokens: result.completionTokens,
+                },
             };
-            setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = { ...assistantMessage };
-                return next;
-            });
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Unknown error";
-            assistantMessage.error = msg;
-            assistantMessage.metrics = {
-                tokensPerSecond:
-                    charCount > 0
-                        ? charCount / ((performance.now() - startTime) / 1000)
-                        : null,
-                durationMs: Math.round(performance.now() - startTime),
-                promptTokens,
-                completionTokens,
-            };
-            setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = { ...assistantMessage };
-                return next;
-            });
-            toast(msg, "error");
-        } finally {
-            setIsStreaming(false);
-            abortRef.current = null;
-        }
+            return next;
+        });
+
+        if (result.error) toast(result.error, "error");
+
+        setIsStreaming(false);
+        abortRef.current = null;
     }, [
         input,
         selectedModel,
@@ -342,7 +585,7 @@ export function Chat() {
         setIsStreaming(false);
     }, []);
 
-    const handleRegenerate = useCallback(() => {
+    const handleRegenerate = useCallback(async () => {
         if (isStreaming) return;
         let lastUserIdx = -1;
         for (let i = messages.length - 1; i >= 0; i--) {
@@ -359,7 +602,10 @@ export function Chat() {
 
         const chatMessages: Array<{ role: string; content: string }> = [];
         if (systemPrompt.trim()) {
-            chatMessages.push({ role: "system", content: systemPrompt.trim() });
+            chatMessages.push({
+                role: "system",
+                content: systemPrompt.trim(),
+            });
         }
         for (const m of baseMessages) {
             chatMessages.push({ role: m.role, content: m.content });
@@ -378,10 +624,6 @@ export function Chat() {
 
         const abortCtrl = new AbortController();
         abortRef.current = abortCtrl;
-        const startTime = performance.now();
-        let charCount = 0;
-        let promptTokens = 0;
-        let completionTokens = 0;
 
         const assistantMessage: ChatMessage = {
             role: "assistant",
@@ -393,126 +635,56 @@ export function Chat() {
             params: hasAnyParam(messageParams) ? messageParams : undefined,
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        const messageIndex = updatedMessages.length;
 
-        api.chat
-            .chat({
-                model: selectedModel || "",
-                stream: true,
-                messages: chatMessages,
-                ...(hasAnyParam(messageParams) ? messageParams : {}),
-            })
-            .then((resp) => {
-                const reader = resp.body?.getReader();
-                if (!reader) throw new Error("No readable stream");
-                const decoder = new TextDecoder();
-                let buffer = "";
+        try {
+            const result = await streamModelResponse(
+                selectedModel || "",
+                chatMessages,
+                messageParams,
+                abortCtrl,
+                (raw, content, thinking) => {
+                    setMessages((prev) => {
+                        if (prev.length <= messageIndex) return prev;
+                        const next = [...prev];
+                        next[messageIndex] = {
+                            ...next[messageIndex],
+                            rawContent: raw,
+                            content,
+                            thinkingContent: thinking,
+                        };
+                        return next;
+                    });
+                },
+            );
 
-                const processStream = async () => {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done || abortCtrl.signal.aborted) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split("\n");
-                        buffer = lines.pop() || "";
-                        for (const line of lines) {
-                            if (!line.startsWith("data: ")) continue;
-                            const data = line.slice(6);
-                            if (data === "[DONE]") break;
-                            try {
-                                const chunk = JSON.parse(data);
-                                const delta =
-                                    chunk.choices?.[0]?.delta?.content;
-                                if (delta) {
-                                    charCount += delta.length;
-                                    assistantMessage.rawContent =
-                                        (assistantMessage.rawContent || "") +
-                                        delta;
-                                    const extracted = extractThinking(
-                                        assistantMessage.rawContent,
-                                    );
-                                    assistantMessage.content =
-                                        extracted.content;
-                                    assistantMessage.thinkingContent =
-                                        extracted.thinking ||
-                                        assistantMessage.thinkingContent;
-                                    setMessages((prev) => {
-                                        const next = [...prev];
-                                        next[next.length - 1] = {
-                                            ...assistantMessage,
-                                        };
-                                        return next;
-                                    });
-                                }
-                                const thinkingDelta =
-                                    chunk.choices?.[0]?.delta
-                                        ?.reasoning_content ??
-                                    chunk.choices?.[0]?.delta?.reasoning;
-                                if (thinkingDelta) {
-                                    assistantMessage.thinkingContent =
-                                        (assistantMessage.thinkingContent ||
-                                            "") + thinkingDelta;
-                                    setMessages((prev) => {
-                                        const next = [...prev];
-                                        next[next.length - 1] = {
-                                            ...assistantMessage,
-                                        };
-                                        return next;
-                                    });
-                                }
-                                if (chunk.usage) {
-                                    promptTokens =
-                                        chunk.usage.prompt_tokens ?? 0;
-                                    completionTokens =
-                                        chunk.usage.completion_tokens ?? 0;
-                                }
-                            } catch {
-                                // ignore
-                            }
-                        }
-                    }
+            setMessages((prev) => {
+                if (prev.length <= messageIndex) return prev;
+                const next = [...prev];
+                next[messageIndex] = {
+                    ...next[messageIndex],
+                    rawContent: result.rawContent,
+                    content: result.content,
+                    thinkingContent: result.thinkingContent,
+                    error: result.error,
+                    metrics: {
+                        tokensPerSecond: result.tokensPerSecond,
+                        durationMs: result.durationMs,
+                        promptTokens: result.promptTokens,
+                        completionTokens: result.completionTokens,
+                    },
                 };
-                return processStream();
-            })
-            .then(() => {
-                const durationMs = performance.now() - startTime;
-                assistantMessage.metrics = {
-                    tokensPerSecond:
-                        durationMs > 0 ? charCount / (durationMs / 1000) : null,
-                    durationMs: Math.round(durationMs),
-                    promptTokens,
-                    completionTokens,
-                };
-                setMessages((prev) => {
-                    const next = [...prev];
-                    next[next.length - 1] = { ...assistantMessage };
-                    return next;
-                });
-            })
-            .catch((err) => {
-                const msg =
-                    err instanceof Error ? err.message : "Unknown error";
-                assistantMessage.error = msg;
-                assistantMessage.metrics = {
-                    tokensPerSecond:
-                        charCount > 0
-                            ? charCount /
-                              ((performance.now() - startTime) / 1000)
-                            : null,
-                    durationMs: Math.round(performance.now() - startTime),
-                    promptTokens,
-                    completionTokens,
-                };
-                setMessages((prev) => {
-                    const next = [...prev];
-                    next[next.length - 1] = { ...assistantMessage };
-                    return next;
-                });
-                toast(msg, "error");
-            })
-            .finally(() => {
-                setIsStreaming(false);
-                abortRef.current = null;
+                return next;
             });
+
+            if (result.error) toast(result.error, "error");
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            toast(msg, "error");
+        } finally {
+            setIsStreaming(false);
+            abortRef.current = null;
+        }
     }, [
         isStreaming,
         messages,
@@ -522,13 +694,206 @@ export function Chat() {
         toast,
     ]);
 
+    // ── Unified conversation orchestration ──
+    const runConversation = useCallback(
+        async (resume = false) => {
+            const canStart =
+                selectedModel &&
+                selectedModelB &&
+                (resume || input.trim()) &&
+                conversationState !== "running";
+
+            if (!canStart) return;
+
+            const abortCtrl = new AbortController();
+            conversationAbortRef.current = abortCtrl;
+            setConversationState("running");
+            setIsStreaming(true);
+
+            let currentMessages = messages;
+            let turn = currentTurn;
+            let modelTurn: "A" | "B";
+
+            if (!resume) {
+                setCurrentTurn(0);
+                turn = 0;
+                const userMessage: ChatMessage = {
+                    role: "user",
+                    content: input.trim(),
+                    timestamp: Date.now(),
+                };
+                currentMessages = [...messages, userMessage];
+                setMessages(currentMessages);
+                setInput("");
+                modelTurn = "B";
+            } else {
+                // Resume: figure out whose turn it is based on last assistant
+                const lastAssistantIdx = currentMessages.findLastIndex(
+                    (m) => m.role === "assistant",
+                );
+                modelTurn =
+                    lastAssistantIdx >= 0 &&
+                    currentMessages[lastAssistantIdx].model === selectedModel
+                        ? "B"
+                        : "A";
+            }
+
+            while (turn < maxTurns * 2 && !abortCtrl.signal.aborted) {
+                const isModelA = modelTurn === "A";
+                const modelId = isModelA ? selectedModel : selectedModelB;
+                const persona = isModelA ? systemPrompt : systemPromptB;
+                const params = isModelA ? messageParams : messageParamsB;
+
+                const apiMessages = getApiMessagesForModel(
+                    currentMessages,
+                    modelId,
+                    selectedModel,
+                    persona,
+                );
+
+                const assistantMessage: ChatMessage = {
+                    role: "assistant",
+                    content: "",
+                    rawContent: "",
+                    thinkingContent: "",
+                    model: modelId,
+                    timestamp: Date.now(),
+                    params: hasAnyParam(params) ? params : undefined,
+                };
+                currentMessages = [...currentMessages, assistantMessage];
+                setMessages(currentMessages);
+                const messageIndex = currentMessages.length - 1;
+
+                const result = await streamModelResponse(
+                    modelId,
+                    apiMessages,
+                    params,
+                    abortCtrl,
+                    (raw, content, thinking) => {
+                        setMessages((prev) => {
+                            if (prev.length <= messageIndex) return prev;
+                            const next = [...prev];
+                            next[messageIndex] = {
+                                ...next[messageIndex],
+                                rawContent: raw,
+                                content,
+                                thinkingContent: thinking,
+                            };
+                            return next;
+                        });
+                    },
+                );
+
+                setMessages((prev) => {
+                    if (prev.length <= messageIndex) return prev;
+                    const next = [...prev];
+                    next[messageIndex] = {
+                        ...next[messageIndex],
+                        rawContent: result.rawContent,
+                        content: result.content,
+                        thinkingContent: result.thinkingContent,
+                        error: result.error,
+                        metrics: {
+                            tokensPerSecond: result.tokensPerSecond,
+                            durationMs: result.durationMs,
+                            promptTokens: result.promptTokens,
+                            completionTokens: result.completionTokens,
+                        },
+                    };
+                    return next;
+                });
+
+                currentMessages = currentMessages.map((m, i) =>
+                    i === messageIndex
+                        ? {
+                              ...m,
+                              rawContent: result.rawContent,
+                              content: result.content,
+                              thinkingContent: result.thinkingContent,
+                              error: result.error,
+                              metrics: {
+                                  tokensPerSecond: result.tokensPerSecond,
+                                  durationMs: result.durationMs,
+                                  promptTokens: result.promptTokens,
+                                  completionTokens: result.completionTokens,
+                              },
+                          }
+                        : m,
+                );
+
+                if (result.error) {
+                    toast(`${modelId}: ${result.error}`, "error");
+                    break;
+                }
+
+                turn++;
+                modelTurn = modelTurn === "A" ? "B" : "A";
+                setCurrentTurn(turn);
+
+                if (turn < maxTurns * 2 && !abortCtrl.signal.aborted) {
+                    await new Promise((r) => setTimeout(r, turnDelayMs));
+                }
+            }
+
+            setIsStreaming(false);
+            setConversationState((prev) =>
+                prev === "running" ? "completed" : prev,
+            );
+            conversationAbortRef.current = null;
+        },
+        [
+            selectedModel,
+            selectedModelB,
+            input,
+            messages,
+            currentTurn,
+            maxTurns,
+            turnDelayMs,
+            systemPrompt,
+            systemPromptB,
+            messageParams,
+            messageParamsB,
+            toast,
+            conversationState,
+        ],
+    );
+
+    const handleStopConversation = useCallback(() => {
+        conversationAbortRef.current?.abort();
+        conversationAbortRef.current = null;
+        setIsStreaming(false);
+        setConversationState("paused");
+    }, []);
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (isStreaming) handleStop();
-            else handleSend();
+            if (chatMode === "chat") {
+                if (isStreaming) handleStop();
+                else handleSend();
+            }
+            // In conversation mode, Enter doesn't auto-submit
         }
     };
+
+    const totalTokens = messages.reduce(
+        (acc, m) =>
+            acc +
+            (m.metrics?.promptTokens ?? 0) +
+            (m.metrics?.completionTokens ?? 0),
+        0,
+    );
+    const totalDuration = messages.reduce(
+        (acc, m) => acc + (m.metrics?.durationMs ?? 0),
+        0,
+    );
+
+    const canStartConversation =
+        chatMode === "conversation" &&
+        selectedModel &&
+        selectedModelB &&
+        input.trim() &&
+        conversationState === "idle";
 
     return (
         <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] lg:overflow-hidden">
@@ -544,8 +909,49 @@ export function Chat() {
                         <h1 className="text-3xl font-bold text-white">Chat</h1>
                     </div>
                     <p className="text-gray-400">
-                        Test enabled models in temporary chat
+                        {chatMode === "chat"
+                            ? "Test enabled models in temporary chat"
+                            : "Watch two models converse with each other"}
                     </p>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => {
+                            setChatMode("chat");
+                            setMessages([]);
+                            setConversationState("idle");
+                            setCurrentTurn(0);
+                            setInput("");
+                        }}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                            chatMode === "chat"
+                                ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                        }`}
+                    >
+                        <MessageSquare
+                            size={12}
+                            className="inline mr-1 -mt-0.5"
+                        />
+                        Chat with AI
+                    </button>
+                    <button
+                        onClick={() => {
+                            setChatMode("conversation");
+                            setMessages([]);
+                            setConversationState("idle");
+                            setCurrentTurn(0);
+                            setInput("");
+                        }}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                            chatMode === "conversation"
+                                ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                        }`}
+                    >
+                        <Users size={12} className="inline mr-1 -mt-0.5" />
+                        AI Conversation
+                    </button>
                 </div>
             </div>
 
@@ -553,7 +959,7 @@ export function Chat() {
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
                     <label className="text-sm text-(--text-secondary)">
-                        Model
+                        {chatMode === "chat" ? "Model" : "Models"}
                     </label>
                     <div className="flex items-center gap-1">
                         {messages.some((m) => m.role === "assistant") && (
@@ -591,51 +997,171 @@ export function Chat() {
                 >
                     <div className="overflow-hidden">
                         <div className="space-y-4 pt-4">
-                            <ModelPicker
-                                models={enabledModels}
-                                selected={selectedModel}
-                                onChange={setSelectedModel}
-                                multi={false}
-                                providers={
-                                    providers?.map((p) => ({
-                                        name: p.name,
-                                        base_url: p.base_url,
-                                    })) ?? []
-                                }
-                            />
-                            <PersonaPicker
-                                personas={CHAT_PERSONAS}
-                                activePersonaId={activePersonaId}
-                                systemPrompt={systemPrompt}
-                                onActivePersonaChange={setActivePersonaId}
-                                onSystemPromptChange={setSystemPrompt}
-                            />
+                            {chatMode === "chat" ? (
+                                <>
+                                    <ModelPicker
+                                        models={enabledModels}
+                                        selected={selectedModel}
+                                        onChange={setSelectedModel}
+                                        multi={false}
+                                        providers={providerData}
+                                    />
+                                    <PersonaPicker
+                                        personas={CHAT_PERSONAS}
+                                        activePersonaId={activePersonaId}
+                                        systemPrompt={systemPrompt}
+                                        onActivePersonaChange={
+                                            setActivePersonaId
+                                        }
+                                        onSystemPromptChange={setSystemPrompt}
+                                    />
+                                </>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm text-(--text-secondary) mb-2 block">
+                                            Model A
+                                        </label>
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={selectedModel}
+                                            onChange={setSelectedModel}
+                                            multi={false}
+                                            providers={providerData}
+                                        />
+                                        <div className="mt-3">
+                                            <PersonaPicker
+                                                personas={CHAT_PERSONAS}
+                                                activePersonaId={
+                                                    activePersonaId
+                                                }
+                                                systemPrompt={systemPrompt}
+                                                onActivePersonaChange={
+                                                    setActivePersonaId
+                                                }
+                                                onSystemPromptChange={
+                                                    setSystemPrompt
+                                                }
+                                                label="Persona A"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-(--text-secondary) mb-2 block">
+                                            Model B
+                                        </label>
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={selectedModelB}
+                                            onChange={setSelectedModelB}
+                                            multi={false}
+                                            providers={providerData}
+                                        />
+                                        <div className="mt-3">
+                                            <PersonaPicker
+                                                personas={CHAT_PERSONAS}
+                                                activePersonaId={
+                                                    activePersonaIdB
+                                                }
+                                                systemPrompt={systemPromptB}
+                                                onActivePersonaChange={
+                                                    setActivePersonaIdB
+                                                }
+                                                onSystemPromptChange={
+                                                    setSystemPromptB
+                                                }
+                                                label="Persona B"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* Conversation Config */}
+            {chatMode === "conversation" && (
+                <ConversationConfig
+                    maxTurns={maxTurns}
+                    onMaxTurnsChange={setMaxTurns}
+                    turnDelayMs={turnDelayMs}
+                    onTurnDelayMsChange={setTurnDelayMs}
+                    conversationState={conversationState}
+                    currentTurn={currentTurn}
+                    configCollapsed={configCollapsed}
+                    onToggleCollapsed={() => setConfigCollapsed((c) => !c)}
+                />
+            )}
+
             {/* Chat Area: Model Details + Messages */}
             <div className="flex gap-4 flex-1 min-h-0 lg:overflow-hidden">
-                {/* Model Details Pill */}
-                <div className="w-1/4 shrink-0 flex flex-col min-h-0 lg:overflow-y-auto">
-                    {selectedModelObj ? (
-                        <ModelDetailPanel
-                            model={selectedModelObj}
-                            params={messageParams}
-                            onParamsChange={setMessageParams}
-                        />
-                    ) : (
-                        <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
-                            <Bot
-                                size={32}
-                                strokeWidth={1}
-                                className="mb-2 opacity-40"
+                {/* Sidebar */}
+                <div
+                    className={`shrink-0 flex flex-col min-h-0 lg:overflow-y-auto ${
+                        chatMode === "conversation" ? "w-1/3 gap-3" : "w-1/4"
+                    }`}
+                >
+                    {chatMode === "chat" ? (
+                        selectedModelObj ? (
+                            <ModelDetailPanel
+                                model={selectedModelObj}
+                                params={messageParams}
+                                onParamsChange={setMessageParams}
                             />
-                            <p>Select a model</p>
-                        </div>
+                        ) : (
+                            <div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
+                                <Bot
+                                    size={32}
+                                    strokeWidth={1}
+                                    className="mb-2 opacity-40"
+                                />
+                                <p>Select a model</p>
+                            </div>
+                        )
+                    ) : (
+                        <>
+                            {selectedModelObj ? (
+                                <div className="border-l-2 border-(--accent) rounded-lg overflow-hidden">
+                                    <ModelDetailPanel
+                                        model={selectedModelObj}
+                                        params={messageParams}
+                                        onParamsChange={setMessageParams}
+                                        collapsible
+                                    />
+                                </div>
+                            ) : (
+                                <div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
+                                    <Bot
+                                        size={20}
+                                        className="mr-2 opacity-40"
+                                    />
+                                    Select Model A
+                                </div>
+                            )}
+                            {selectedModelObjB ? (
+                                <div className="border-l-2 border-[#8b5cf6] rounded-lg overflow-hidden">
+                                    <ModelDetailPanel
+                                        model={selectedModelObjB}
+                                        params={messageParamsB}
+                                        onParamsChange={setMessageParamsB}
+                                        collapsible
+                                    />
+                                </div>
+                            ) : (
+                                <div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
+                                    <Bot
+                                        size={20}
+                                        className="mr-2 opacity-40"
+                                    />
+                                    Select Model B
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
+
                 {/* Messages */}
                 <div
                     ref={messagesContainerRef}
@@ -648,7 +1174,11 @@ export function Chat() {
                                 strokeWidth={1}
                                 className="mb-4 opacity-40"
                             />
-                            <p>Chat will appear here</p>
+                            <p>
+                                {chatMode === "chat"
+                                    ? "Chat will appear here"
+                                    : "Conversation will appear here"}
+                            </p>
                         </div>
                     )}
 
@@ -657,6 +1187,9 @@ export function Chat() {
                         const isUser = msg.role === "user";
                         const isStreamingThis =
                             isStreaming && i === messages.length - 1;
+                        const isModelB =
+                            msg.role === "assistant" &&
+                            msg.model === selectedModelB;
 
                         /* ── User message ── */
                         if (isUser) {
@@ -702,7 +1235,47 @@ export function Chat() {
                             );
                         }
 
-                        /* ── Assistant message ── */
+                        /* ── Model B message (conversation mode, right side) ── */
+                        if (chatMode === "conversation" && isModelB) {
+                            return (
+                                <ConversationModelBubble
+                                    key={i}
+                                    msg={msg}
+                                    isStreaming={isStreamingThis}
+                                    onCopy={(text) => {
+                                        navigator.clipboard
+                                            .writeText(text)
+                                            .then(() =>
+                                                toast(
+                                                    "Copied to clipboard",
+                                                    "info",
+                                                ),
+                                            )
+                                            .catch(() =>
+                                                toast(
+                                                    "Failed to copy",
+                                                    "error",
+                                                ),
+                                            );
+                                    }}
+                                    onDelete={() => {
+                                        setMessages((prev) => {
+                                            const idx = prev.findIndex(
+                                                (m) => m === msg,
+                                            );
+                                            if (idx === -1) return prev;
+                                            return prev.filter(
+                                                (_, i) => i !== idx,
+                                            );
+                                        });
+                                        toast("Message deleted", "info");
+                                    }}
+                                    onStop={handleStopConversation}
+                                />
+                            );
+                        }
+
+                        /* ── Assistant message (Model A or chat mode) ── */
                         return (
                             <div key={i} className="flex justify-start">
                                 <div className="max-w-[80%]">
@@ -717,7 +1290,12 @@ export function Chat() {
                                         headerEnd={
                                             isStreamingThis ? (
                                                 <button
-                                                    onClick={handleStop}
+                                                    onClick={
+                                                        chatMode ===
+                                                        "conversation"
+                                                            ? handleStopConversation
+                                                            : handleStop
+                                                    }
                                                     className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
                                                     title="Cancel"
                                                 >
@@ -729,7 +1307,8 @@ export function Chat() {
                                                         (m) =>
                                                             m.role ===
                                                             "assistant",
-                                                    ) && (
+                                                    ) &&
+                                                chatMode === "chat" && (
                                                     <button
                                                         onClick={
                                                             handleRegenerate
@@ -823,7 +1402,10 @@ export function Chat() {
                                                             )
                                                             .map(
                                                                 ([k, v]) =>
-                                                                    `${k.replace(/_/g, " ")}=${v}`,
+                                                                    `${k.replace(
+                                                                        /_/g,
+                                                                        " ",
+                                                                    )}=${v}`,
                                                             )
                                                             .join(", ")}`}
                                                     >
@@ -843,70 +1425,209 @@ export function Chat() {
                 </div>
             </div>
 
-            {/* Input */}
+            {/* Input / Stats Area */}
             <div className="ui-card p-4 shrink-0">
-                <div className="flex items-center gap-3">
-                    <textarea
-                        value={input}
-                        onChange={(e) => {
-                            setInput(e.target.value);
-                            e.target.style.height = "auto";
-                            e.target.style.height =
-                                e.target.scrollHeight + "px";
-                        }}
-                        onKeyDown={handleKeyDown}
-                        placeholder={
-                            selectedModel
-                                ? "Type a message…"
-                                : "Select a model first"
-                        }
-                        disabled={!selectedModel || isStreaming}
-                        autoFocus
-                        rows={1}
-                        maxLength={10000}
-                        className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
-                        style={{ height: "auto" }}
-                    />
-                    <button
-                        onClick={isStreaming ? handleStop : handleSend}
-                        disabled={!selectedModel}
-                        className={`ui-btn flex items-center gap-2 shrink-0 ${
-                            isStreaming ? "ui-btn-danger" : "ui-btn-primary"
-                        }`}
-                    >
-                        {isStreaming ? (
-                            <>
-                                <X size={16} />
-                                Stop
-                            </>
-                        ) : (
-                            <>
-                                <Send size={16} />
-                                Send
-                            </>
+                {chatMode === "conversation" &&
+                (conversationState === "running" ||
+                    conversationState === "paused" ||
+                    conversationState === "completed") ? (
+                    /* ── Conversation Stats ── */
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
+                                <span className="flex items-center gap-1.5">
+                                    <Gauge size={14} />
+                                    Turn {currentTurn} / {maxTurns * 2}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <Timer size={14} />
+                                    {(totalDuration / 1000).toFixed(1)}s
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <Bot size={14} />
+                                    {totalTokens} tokens
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {conversationState === "running" && (
+                                    <button
+                                        onClick={handleStopConversation}
+                                        className="ui-btn ui-btn-danger flex items-center gap-2"
+                                    >
+                                        <Pause size={16} />
+                                        Pause
+                                    </button>
+                                )}
+                                {(conversationState === "paused" ||
+                                    conversationState === "completed") && (
+                                    <>
+                                        <button
+                                            onClick={() =>
+                                                runConversation(true)
+                                            }
+                                            disabled={
+                                                currentTurn >= maxTurns * 2
+                                            }
+                                            className="ui-btn ui-btn-primary flex items-center gap-2"
+                                        >
+                                            <Play size={16} />
+                                            {conversationState === "completed"
+                                                ? "Continue"
+                                                : "Resume"}
+                                        </button>
+                                        <button
+                                            onClick={() =>
+                                                setPendingReset(true)
+                                            }
+                                            className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                        >
+                                            <RotateCcw size={16} />
+                                            Reset
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        {conversationState === "running" && (
+                            <div className="flex items-center gap-2 text-xs text-(--text-muted)">
+                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                                {isStreaming
+                                    ? "Model is generating…"
+                                    : "Waiting for next turn…"}
+                            </div>
                         )}
-                    </button>
-                </div>
-                <p className="text-xs text-(--text-muted) mt-2">
-                    Press Enter to send, Shift+Enter for newline
-                </p>
+                    </div>
+                ) : (
+                    /* ── Input ── */
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <textarea
+                                value={input}
+                                onChange={(e) => {
+                                    setInput(e.target.value);
+                                    e.target.style.height = "auto";
+                                    e.target.style.height =
+                                        e.target.scrollHeight + "px";
+                                }}
+                                onKeyDown={handleKeyDown}
+                                placeholder={
+                                    chatMode === "chat"
+                                        ? selectedModel
+                                            ? "Type a message…"
+                                            : "Select a model first"
+                                        : selectedModel && selectedModelB
+                                          ? "Enter initial prompt…"
+                                          : "Select both models first"
+                                }
+                                disabled={
+                                    !selectedModel ||
+                                    (chatMode === "conversation" &&
+                                        !selectedModelB) ||
+                                    isStreaming
+                                }
+                                autoFocus
+                                rows={1}
+                                maxLength={10000}
+                                className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
+                                style={{ height: "auto" }}
+                            />
+                            {chatMode === "chat" ? (
+                                <button
+                                    onClick={
+                                        isStreaming ? handleStop : handleSend
+                                    }
+                                    disabled={!selectedModel}
+                                    className={`ui-btn flex items-center gap-2 shrink-0 ${
+                                        isStreaming
+                                            ? "ui-btn-danger"
+                                            : "ui-btn-primary"
+                                    }`}
+                                >
+                                    {isStreaming ? (
+                                        <>
+                                            <X size={16} />
+                                            Stop
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send size={16} />
+                                            Send
+                                        </>
+                                    )}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={
+                                        conversationState === "idle"
+                                            ? () => runConversation(false)
+                                            : conversationState === "running"
+                                              ? handleStopConversation
+                                              : () => runConversation(true)
+                                    }
+                                    disabled={!canStartConversation}
+                                    className={`ui-btn flex items-center gap-2 shrink-0 ${
+                                        conversationState === "running"
+                                            ? "ui-btn-danger"
+                                            : "ui-btn-primary"
+                                    }`}
+                                >
+                                    {conversationState === "running" ? (
+                                        <>
+                                            <Pause size={16} />
+                                            Stop
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play size={16} />
+                                            {conversationState === "completed"
+                                                ? "Continue"
+                                                : "Start"}
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-xs text-(--text-muted)">
+                            {chatMode === "chat"
+                                ? "Press Enter to send, Shift+Enter for newline"
+                                : "Enter a topic or question to start the conversation"}
+                        </p>
+                    </div>
+                )}
             </div>
 
             {pendingReset && (
                 <ConfirmDialog
-                    title="Reset Chat"
-                    message="This will clear all messages and reset the chat. Continue?"
+                    title={
+                        chatMode === "chat"
+                            ? "Reset Chat"
+                            : "Reset Conversation"
+                    }
+                    message={
+                        chatMode === "chat"
+                            ? "This will clear all messages and reset the chat. Continue?"
+                            : "This will clear the conversation and reset both models. Continue?"
+                    }
                     fields={[]}
                     confirmLabel="Reset"
                     onConfirm={() => {
                         setMessages([]);
                         setInput("");
-                        setSelectedModel("");
-                        setSystemPrompt("");
-                        setActivePersonaId(null);
-                        setMessageParams({});
+                        setConversationState("idle");
+                        setCurrentTurn(0);
+                        if (chatMode === "chat") {
+                            setSelectedModel("");
+                            setSystemPrompt("");
+                            setActivePersonaId(null);
+                            setMessageParams({});
+                        }
                         setPendingReset(false);
-                        toast("Chat reset", "info");
+                        toast(
+                            chatMode === "chat"
+                                ? "Chat reset"
+                                : "Conversation reset",
+                            "info",
+                        );
                     }}
                     onCancel={() => setPendingReset(false)}
                 />
