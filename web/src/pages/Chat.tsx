@@ -893,13 +893,15 @@ export function Chat() {
 
     const canStartConversation =
         chatSubMode === "conversation" &&
-        selectedModel &&
-        selectedModelB &&
-        input.trim() &&
+        !!selectedModel &&
+        !!selectedModelB &&
+        !!input.trim() &&
         conversationState === "idle";
 
     return (
-        <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] lg:overflow-hidden">
+        <div
+            className={`flex flex-col gap-6 min-h-[calc(100vh-64px)] ${chatSubMode === "conversation" ? "" : "lg:h-[calc(100vh-64px)] lg:overflow-hidden"}`}
+        >
             {/* Header */}
             <div className="flex justify-between items-center shrink-0">
                 <div>
@@ -958,7 +960,10 @@ export function Chat() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        {messages.some((m) => m.role === "assistant") && (
+                        {(messages.length > 0 ||
+                            selectedModel ||
+                            (chatSubMode === "conversation" &&
+                                selectedModelB)) && (
                             <button
                                 onClick={() => setPendingReset(true)}
                                 className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
@@ -1088,15 +1093,25 @@ export function Chat() {
                     currentTurn={currentTurn}
                     configCollapsed={configCollapsed}
                     onToggleCollapsed={() => setConfigCollapsed((c) => !c)}
+                    input={input}
+                    onInputChange={setInput}
+                    onStart={() => runConversation(false)}
+                    canStart={canStartConversation}
+                    selectedModel={selectedModel}
+                    selectedModelB={selectedModelB}
                 />
             )}
 
             {/* Chat Area: Model Details + Messages */}
-            <div className="flex gap-4 flex-1 min-h-0 lg:overflow-hidden">
+            <div
+                className={`flex gap-4 flex-1 ${chatSubMode === "conversation" ? "overflow-visible" : "min-h-0 lg:overflow-hidden"}`}
+            >
                 {/* Sidebar */}
                 <div
-                    className={`shrink-0 flex flex-col min-h-0 lg:overflow-y-auto ${
-                        chatSubMode === "conversation" ? "w-1/3 gap-3" : "w-1/4"
+                    className={`shrink-0 flex flex-col ${
+                        chatSubMode === "conversation"
+                            ? "w-1/3 gap-3 overflow-visible"
+                            : "min-h-0 lg:overflow-y-auto w-1/4"
                     }`}
                 >
                     {chatSubMode === "chat" ? (
@@ -1119,7 +1134,7 @@ export function Chat() {
                     ) : (
                         <>
                             {selectedModelObj ? (
-                                <div className="border-l-2 border-(--accent) rounded-lg overflow-hidden">
+                                <div className="border-l-2 border-(--accent)">
                                     <ModelDetailPanel
                                         model={selectedModelObj}
                                         params={messageParams}
@@ -1137,7 +1152,7 @@ export function Chat() {
                                 </div>
                             )}
                             {selectedModelObjB ? (
-                                <div className="border-l-2 border-[#8b5cf6] rounded-lg overflow-hidden">
+                                <div className="border-l-2 border-(--accent) bg-(--accent)/5">
                                     <ModelDetailPanel
                                         model={selectedModelObjB}
                                         params={messageParamsB}
@@ -1161,7 +1176,11 @@ export function Chat() {
                 {/* Messages */}
                 <div
                     ref={messagesContainerRef}
-                    className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4"
+                    className={`flex-1 pr-1 space-y-4 ${
+                        chatSubMode === "conversation"
+                            ? "overflow-visible"
+                            : "min-h-0 overflow-y-auto"
+                    }`}
                 >
                     {messages.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-(--text-tertiary)">
@@ -1421,80 +1440,9 @@ export function Chat() {
                 </div>
             </div>
 
-            {/* Input / Stats Area */}
-            <div className="ui-card p-4 shrink-0">
-                {chatSubMode === "conversation" &&
-                (conversationState === "running" ||
-                    conversationState === "paused" ||
-                    conversationState === "completed") ? (
-                    /* ── Conversation Stats ── */
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
-                                <span className="flex items-center gap-1.5">
-                                    <Gauge size={14} />
-                                    Turn {currentTurn} / {maxTurns * 2}
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                    <Timer size={14} />
-                                    {(totalDuration / 1000).toFixed(1)}s
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                    <Bot size={14} />
-                                    {totalTokens} tokens
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {conversationState === "running" && (
-                                    <button
-                                        onClick={handleStopConversation}
-                                        className="ui-btn ui-btn-danger flex items-center gap-2"
-                                    >
-                                        <Pause size={16} />
-                                        Pause
-                                    </button>
-                                )}
-                                {(conversationState === "paused" ||
-                                    conversationState === "completed") && (
-                                    <>
-                                        <button
-                                            onClick={() =>
-                                                runConversation(true)
-                                            }
-                                            disabled={
-                                                currentTurn >= maxTurns * 2
-                                            }
-                                            className="ui-btn ui-btn-primary flex items-center gap-2"
-                                        >
-                                            <Play size={16} />
-                                            {conversationState === "completed"
-                                                ? "Continue"
-                                                : "Resume"}
-                                        </button>
-                                        <button
-                                            onClick={() =>
-                                                setPendingReset(true)
-                                            }
-                                            className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-                                        >
-                                            <RotateCcw size={16} />
-                                            Reset
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                        {conversationState === "running" && (
-                            <div className="flex items-center gap-2 text-xs text-(--text-muted)">
-                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                {isStreaming
-                                    ? "Model is generating…"
-                                    : "Waiting for next turn…"}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    /* ── Input ── */
+            {/* Input / Stats Area — chat mode input bar + conversation stats when active */}
+            {chatSubMode === "chat" && (
+                <div className="ui-card p-4 shrink-0">
                     <div className="space-y-2">
                         <div className="flex items-center gap-3">
                             <textarea
@@ -1507,90 +1455,118 @@ export function Chat() {
                                 }}
                                 onKeyDown={handleKeyDown}
                                 placeholder={
-                                    chatSubMode === "chat"
-                                        ? selectedModel
-                                            ? "Type a message…"
-                                            : "Select a model first"
-                                        : selectedModel && selectedModelB
-                                          ? "Enter initial prompt…"
-                                          : "Select both models first"
+                                    selectedModel
+                                        ? "Type a message…"
+                                        : "Select a model first"
                                 }
-                                disabled={
-                                    !selectedModel ||
-                                    (chatSubMode === "conversation" &&
-                                        !selectedModelB) ||
-                                    isStreaming
-                                }
+                                disabled={!selectedModel || isStreaming}
                                 autoFocus
                                 rows={1}
                                 maxLength={10000}
                                 className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
                                 style={{ height: "auto" }}
                             />
-                            {chatSubMode === "chat" ? (
-                                <button
-                                    onClick={
-                                        isStreaming ? handleStop : handleSend
-                                    }
-                                    disabled={!selectedModel}
-                                    className={`ui-btn flex items-center gap-2 shrink-0 ${
-                                        isStreaming
-                                            ? "ui-btn-danger"
-                                            : "ui-btn-primary"
-                                    }`}
-                                >
-                                    {isStreaming ? (
-                                        <>
-                                            <X size={16} />
-                                            Stop
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Send size={16} />
-                                            Send
-                                        </>
-                                    )}
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={
-                                        conversationState === "idle"
-                                            ? () => runConversation(false)
-                                            : conversationState === "running"
-                                              ? handleStopConversation
-                                              : () => runConversation(true)
-                                    }
-                                    disabled={!canStartConversation}
-                                    className={`ui-btn flex items-center gap-2 shrink-0 ${
-                                        conversationState === "running"
-                                            ? "ui-btn-danger"
-                                            : "ui-btn-primary"
-                                    }`}
-                                >
-                                    {conversationState === "running" ? (
-                                        <>
-                                            <Pause size={16} />
-                                            Stop
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Play size={16} />
-                                            {conversationState === "completed"
-                                                ? "Continue"
-                                                : "Start"}
-                                        </>
-                                    )}
-                                </button>
-                            )}
+                            <button
+                                onClick={isStreaming ? handleStop : handleSend}
+                                disabled={!selectedModel}
+                                className={`ui-btn flex items-center gap-2 shrink-0 ${
+                                    isStreaming
+                                        ? "ui-btn-danger"
+                                        : "ui-btn-primary"
+                                }`}
+                            >
+                                {isStreaming ? (
+                                    <>
+                                        <X size={16} />
+                                        Stop
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={16} />
+                                        Send
+                                    </>
+                                )}
+                            </button>
                         </div>
                         <p className="text-xs text-(--text-muted)">
-                            {chatSubMode === "chat"
-                                ? "Press Enter to send, Shift+Enter for newline"
-                                : "Enter a topic or question to start the conversation"}
+                            Press Enter to send, Shift+Enter for newline
                         </p>
                     </div>
+                </div>
+            )}
+            {chatSubMode === "conversation" &&
+                (conversationState === "running" ||
+                    conversationState === "paused" ||
+                    conversationState === "completed") && (
+                    <div className="ui-card p-4 shrink-0">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
+                                    <span className="flex items-center gap-1.5">
+                                        <Gauge size={14} />
+                                        Turn {currentTurn} / {maxTurns * 2}
+                                    </span>
+                                    <span className="flex items-center gap-1.5">
+                                        <Timer size={14} />
+                                        {(totalDuration / 1000).toFixed(1)}s
+                                    </span>
+                                    <span className="flex items-center gap-1.5">
+                                        <Bot size={14} />
+                                        {totalTokens} tokens
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {conversationState === "running" && (
+                                        <button
+                                            onClick={handleStopConversation}
+                                            className="ui-btn ui-btn-danger flex items-center gap-2"
+                                        >
+                                            <Pause size={16} />
+                                            Pause
+                                        </button>
+                                    )}
+                                    {(conversationState === "paused" ||
+                                        conversationState === "completed") && (
+                                        <>
+                                            <button
+                                                onClick={() =>
+                                                    runConversation(true)
+                                                }
+                                                disabled={
+                                                    currentTurn >= maxTurns * 2
+                                                }
+                                                className="ui-btn ui-btn-primary flex items-center gap-2"
+                                            >
+                                                <Play size={16} />
+                                                {conversationState ===
+                                                "completed"
+                                                    ? "Continue"
+                                                    : "Resume"}
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    setPendingReset(true)
+                                                }
+                                                className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                            >
+                                                <RotateCcw size={16} />
+                                                Reset
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            {conversationState === "running" && (
+                                <div className="flex items-center gap-2 text-xs text-(--text-muted)">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                                    {isStreaming
+                                        ? "Model is generating…"
+                                        : "Waiting for next turn…"}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
-            </div>
 
             {pendingReset && (
                 <ConfirmDialog

@@ -31,7 +31,7 @@ export function PresetBar<T extends PresetItem>({
             <button
                 type="button"
                 onClick={onCustom}
-                className={`ui-btn text-[11px] py-0.5 px-2 whitespace-nowrap ${
+                className={`ui-btn text-[11px] leading-none py-1 px-2 whitespace-nowrap ${
                     activeId === null ? "ui-btn-primary" : "ui-btn-secondary"
                 }`}
             >
@@ -42,7 +42,7 @@ export function PresetBar<T extends PresetItem>({
                     key={item.id}
                     type="button"
                     onClick={() => onSelect(item)}
-                    className={`ui-btn text-[11px] py-0.5 px-2 whitespace-nowrap ${
+                    className={`ui-btn text-[11px] leading-none py-1 px-2 whitespace-nowrap ${
                         activeId === item.id
                             ? "ui-btn-primary"
                             : "ui-btn-secondary"
