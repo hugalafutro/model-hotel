@@ -106,5 +106,8 @@ func (h *Handler) shouldFailover(statusCode int) bool {
 	if statusCode == 429 {
 		return h.settingsRepo.GetBool(context.Background(), "failover_on_rate_limit", true)
 	}
+	if statusCode == 401 || statusCode == 403 {
+		return true
+	}
 	return false
 }

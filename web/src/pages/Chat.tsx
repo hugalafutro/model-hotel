@@ -66,12 +66,10 @@ function getApiMessagesForModel(
     if (persona.trim()) {
         apiMessages.push({ role: "system", content: persona.trim() });
     }
-    const isModelA = targetModelId === modelAId;
-
     for (const msg of allMessages) {
         if (msg.role === "user") {
             apiMessages.push({
-                role: isModelA ? "assistant" : "user",
+                role: "user",
                 content: msg.content,
             });
         } else if (msg.role === "assistant") {
@@ -97,7 +95,7 @@ interface StreamResult {
     thinkingContent: string;
     error: string | null;
     durationMs: number;
-    tokensPerSecond: number | null;
+    charsPerSecond: number | null;
     promptTokens: number;
     completionTokens: number;
 }
@@ -122,6 +120,7 @@ async function streamModelResponse(
             model: modelId,
             stream: true,
             messages: apiMessages,
+            signal: abortCtrl.signal,
             ...(hasAnyParam(params) ? params : {}),
         });
 
@@ -139,10 +138,14 @@ async function streamModelResponse(
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
 
+            let streamDone = false;
             for (const line of lines) {
                 if (!line.startsWith("data: ")) continue;
                 const data = line.slice(6);
-                if (data === "[DONE]") break;
+                if (data === "[DONE]") {
+                    streamDone = true;
+                    break;
+                }
                 try {
                     const chunk = JSON.parse(data);
                     const delta = chunk.choices?.[0]?.delta?.content;
@@ -170,6 +173,7 @@ async function streamModelResponse(
                     // ignore parse errors
                 }
             }
+            if (streamDone) break;
         }
     } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
@@ -179,7 +183,7 @@ async function streamModelResponse(
             thinkingContent,
             error: errorMsg,
             durationMs: Math.round(performance.now() - startTime),
-            tokensPerSecond:
+            charsPerSecond:
                 performance.now() - startTime > 0
                     ? charCount / ((performance.now() - startTime) / 1000)
                     : null,
@@ -189,7 +193,7 @@ async function streamModelResponse(
     }
 
     const durationMs = performance.now() - startTime;
-    const tokensPerSecond =
+    const charsPerSecond =
         durationMs > 0 ? charCount / (durationMs / 1000) : null;
 
     return {
@@ -198,7 +202,7 @@ async function streamModelResponse(
         thinkingContent,
         error: null,
         durationMs: Math.round(durationMs),
-        tokensPerSecond,
+        charsPerSecond,
         promptTokens,
         completionTokens,
     };
@@ -664,7 +668,7 @@ export function Chat() {
                 thinkingContent: result.thinkingContent,
                 error: result.error,
                 metrics: {
-                    tokensPerSecond: result.tokensPerSecond,
+                    charsPerSecond: result.charsPerSecond,
                     durationMs: result.durationMs,
                     promptTokens: result.promptTokens,
                     completionTokens: result.completionTokens,
@@ -776,7 +780,7 @@ export function Chat() {
                     thinkingContent: result.thinkingContent,
                     error: result.error,
                     metrics: {
-                        tokensPerSecond: result.tokensPerSecond,
+                        charsPerSecond: result.charsPerSecond,
                         durationMs: result.durationMs,
                         promptTokens: result.promptTokens,
                         completionTokens: result.completionTokens,
@@ -902,7 +906,7 @@ export function Chat() {
                         thinkingContent: result.thinkingContent,
                         error: result.error,
                         metrics: {
-                            tokensPerSecond: result.tokensPerSecond,
+                            charsPerSecond: result.charsPerSecond,
                             durationMs: result.durationMs,
                             promptTokens: result.promptTokens,
                             completionTokens: result.completionTokens,
@@ -920,7 +924,7 @@ export function Chat() {
                               thinkingContent: result.thinkingContent,
                               error: result.error,
                               metrics: {
-                                  tokensPerSecond: result.tokensPerSecond,
+                                  charsPerSecond: result.charsPerSecond,
                                   durationMs: result.durationMs,
                                   promptTokens: result.promptTokens,
                                   completionTokens: result.completionTokens,
@@ -1001,7 +1005,10 @@ export function Chat() {
 
                     if (!isLastAssistant && !isStreamingLast) {
                         // Can't delete - not the last message
-                        toast("Can only delete the most recent response", "error");
+                        toast(
+                            "Can only delete the most recent response",
+                            "error",
+                        );
                         return prev;
                     }
 

@@ -533,11 +533,13 @@ export const api = {
             top_k?: number;
             frequency_penalty?: number;
             presence_penalty?: number;
+            signal?: AbortSignal;
         }): Promise<Response> => {
             const response = await fetch(`${API_BASE}/api/chat/chat`, {
                 method: "POST",
                 headers: getAuthHeaders(),
                 body: JSON.stringify(body),
+                ...(body.signal ? { signal: body.signal } : {}),
             });
             if (!response.ok) {
                 const text = await response.text();
@@ -557,11 +559,13 @@ export const api = {
             top_k?: number;
             frequency_penalty?: number;
             presence_penalty?: number;
+            signal?: AbortSignal;
         }): Promise<Response> => {
             const response = await fetch(`${API_BASE}/api/chat/arena`, {
                 method: "POST",
                 headers: getAuthHeaders(),
                 body: JSON.stringify(body),
+                ...(body.signal ? { signal: body.signal } : {}),
             });
             if (!response.ok) {
                 const text = await response.text();

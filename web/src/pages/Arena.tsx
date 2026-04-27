@@ -59,7 +59,7 @@ interface ArenaResponse {
     done: boolean;
     error: string | null;
     metrics: {
-        tokensPerSecond: number | null;
+        charsPerSecond: number | null;
         durationMs: number;
         promptTokens: number;
         completionTokens: number;
@@ -657,6 +657,7 @@ export function Arena() {
                         model,
                         stream: true,
                         messages: chatMessages,
+                        signal: abortCtrl.signal,
                         ...(slotParams && hasAnyParam(slotParams)
                             ? slotParams
                             : {}),
@@ -676,10 +677,14 @@ export function Arena() {
                         const lines = buffer.split("\n");
                         buffer = lines.pop() || "";
 
+                        let streamDone = false;
                         for (const line of lines) {
                             if (!line.startsWith("data: ")) continue;
                             const data = line.slice(6);
-                            if (data === "[DONE]") break;
+                            if (data === "[DONE]") {
+                                streamDone = true;
+                                break;
+                            }
                             try {
                                 const chunk = JSON.parse(data);
                                 const delta =
@@ -766,10 +771,11 @@ export function Arena() {
                                 // ignore parse errors
                             }
                         }
+                        if (streamDone) break;
                     }
 
                     const durationMs = performance.now() - startTime;
-                    const tokensPerSecond =
+                    const charsPerSecond =
                         durationMs > 0 ? charCount / (durationMs / 1000) : null;
 
                     setRounds((prev) => {
@@ -785,7 +791,7 @@ export function Arena() {
                                 ...mu[respKey]!,
                                 done: true,
                                 metrics: {
-                                    tokensPerSecond,
+                                    charsPerSecond,
                                     durationMs: Math.round(durationMs),
                                     promptTokens,
                                     completionTokens,
@@ -811,7 +817,7 @@ export function Arena() {
                                 done: true,
                                 error: msg,
                                 metrics: {
-                                    tokensPerSecond:
+                                    charsPerSecond:
                                         charCount > 0
                                             ? charCount /
                                               ((performance.now() - startTime) /
@@ -1117,19 +1123,17 @@ export function Arena() {
         }
         abortMapRef.current.clear();
 
-        // Put all active reply pills with unfinished messages into "choose replacement model" state
+        // Mark partially streamed responses as done (preserve their content)
         setRounds((prev) => {
             const next = prev.map((r) => ({
                 ...r,
                 matchups: r.matchups.map((m) => {
                     const mu = { ...m };
                     if (mu.responseA && !mu.responseA.done) {
-                        mu.slotA = null;
-                        mu.responseA = null;
+                        mu.responseA = { ...mu.responseA, done: true };
                     }
                     if (mu.responseB && !mu.responseB.done) {
-                        mu.slotB = null;
-                        mu.responseB = null;
+                        mu.responseB = { ...mu.responseB, done: true };
                     }
                     return mu;
                 }),
@@ -1138,7 +1142,7 @@ export function Arena() {
         });
 
         setRunningModels(new Set());
-        setPhase("voting");
+        setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
     }, []);
 
     const handleRetrySlot = useCallback(

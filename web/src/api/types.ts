@@ -363,7 +363,7 @@ export interface ChatMessage {
     model?: string;
     timestamp: number;
     metrics?: {
-        tokensPerSecond: number | null;
+        charsPerSecond: number | null;
         durationMs: number;
         promptTokens: number;
         completionTokens: number;

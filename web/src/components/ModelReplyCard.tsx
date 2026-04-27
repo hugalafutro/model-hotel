@@ -8,7 +8,7 @@ import { MarkdownContent, MARKDOWN_PROSE_CLASSES } from "./MarkdownContent";
 export { MARKDOWN_PROSE_CLASSES };
 
 export interface ModelReplyMetrics {
-    tokensPerSecond: number | null;
+    charsPerSecond: number | null;
     durationMs: number;
     promptTokens: number;
     completionTokens: number;
@@ -231,10 +231,10 @@ export function ModelReplyCard({
                                 <Clock size={10} />
                                 {formatDuration(metrics.durationMs)}
                             </span>
-                            {metrics.tokensPerSecond !== null && (
+                            {metrics.charsPerSecond !== null && (
                                 <span className="flex items-center gap-1">
                                     <Zap size={10} />
-                                    {metrics.tokensPerSecond.toFixed(1)} tok/s
+                                    {metrics.charsPerSecond.toFixed(1)} chars/s
                                 </span>
                             )}
                             {metrics.promptTokens + metrics.completionTokens >

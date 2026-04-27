@@ -106,7 +106,8 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}
 
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	raw := util.SanitizeBaseURL(provider.BaseURL)
+	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
 	balanceURL := baseURL + "/user/balance"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", balanceURL, nil)
