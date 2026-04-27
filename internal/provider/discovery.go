@@ -63,7 +63,10 @@ func DetectProviderType(baseURL string) string {
 
 	// Local Ollama instances (localhost with any port)
 	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
-		return "ollama"
+		if strings.Contains(host, "ollama") {
+			return "ollama"
+		}
+		return "openai"
 	}
 
 	return "openai"

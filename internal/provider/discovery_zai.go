@@ -96,7 +96,9 @@ func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, 
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}
 
-	quotaURL := "https://api.z.ai/api/monitor/usage/quota/limit"
+	raw := util.SanitizeBaseURL(provider.BaseURL)
+	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
+	quotaURL := baseURL + "/api/monitor/usage/quota/limit"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, nil)
 	if err != nil {
@@ -129,8 +131,6 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	reqBody := fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}`, modelID)
 
-	client := &http.Client{Timeout: 20 * time.Second}
-
 	for attempt := range 3 {
 		if attempt > 0 {
 			select {
@@ -147,7 +147,7 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := client.Do(req)
+		resp, err := d.httpClient.Do(req)
 		if err != nil {
 			continue
 		}

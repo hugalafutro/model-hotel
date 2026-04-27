@@ -4,24 +4,24 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/google/uuid"
 )
 
 type Provider struct {
-	ID                uuid.UUID  `json:"id"`
-	Name              string     `json:"name"`
-	BaseURL           string     `json:"base_url"`
-	EncryptedKey      []byte     `json:"-"`
-	KeyNonce          []byte     `json:"-"`
-	KeySalt           []byte     `json:"-"`
-	MaskedKey         *string    `json:"masked_key"`
-	Enabled           bool       `json:"enabled"`
-	LastDiscoveredAt  *time.Time `json:"last_discovered_at"`
-	LastUsedAt        *time.Time `json:"last_used_at"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID               uuid.UUID  `json:"id"`
+	Name             string     `json:"name"`
+	BaseURL          string     `json:"base_url"`
+	EncryptedKey     []byte     `json:"-"`
+	KeyNonce         []byte     `json:"-"`
+	KeySalt          []byte     `json:"-"`
+	MaskedKey        *string    `json:"masked_key"`
+	Enabled          bool       `json:"enabled"`
+	LastDiscoveredAt *time.Time `json:"last_discovered_at"`
+	LastUsedAt       *time.Time `json:"last_used_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 type CreateProviderRequest struct {
@@ -31,10 +31,10 @@ type CreateProviderRequest struct {
 }
 
 type UpdateProviderRequest struct {
-	Name     *string `json:"name"`
-	BaseURL  *string `json:"base_url"`
-	APIKey   *string `json:"api_key"`
-	Enabled  *bool   `json:"enabled"`
+	Name    *string `json:"name"`
+	BaseURL *string `json:"base_url"`
+	APIKey  *string `json:"api_key"`
+	Enabled *bool   `json:"enabled"`
 }
 
 type ProviderResponse struct {
@@ -127,6 +127,49 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	return &p, nil
 }
 
+func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*Provider, error) {
+	result := make(map[uuid.UUID]*Provider, len(ids))
+
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	var uncachedIDs []uuid.UUID
+	for _, id := range ids {
+		if p, ok := GetCachedByID(id); ok {
+			result[id] = p
+		} else {
+			uncachedIDs = append(uncachedIDs, id)
+		}
+	}
+
+	if len(uncachedIDs) == 0 {
+		return result, nil
+	}
+
+	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = ANY($1)`
+
+	rows, err := r.pool.Query(ctx, query, uncachedIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var p Provider
+		if err := rows.Scan(
+			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+			&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		cacheProvider(&p)
+		result[p.ID] = &p
+	}
+
+	return result, rows.Err()
+}
+
 func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, error) {
 	if p, ok := GetCachedByName(name); ok {
 		return p, nil
@@ -187,6 +230,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		return nil, err
 	}
 
+	InvalidateProviderCache()
 	cacheProvider(&p)
 	return &p, nil
 }

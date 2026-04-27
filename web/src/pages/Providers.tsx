@@ -994,7 +994,7 @@ export function Providers() {
             "z-ai": "https://api.z.ai/api/paas/v4",
             openai: "https://api.openai.com/v1",
             deepseek: "https://api.deepseek.com/v1",
-            ollama: "https://ollama.com/v1",
+            ollama: "http://localhost:11434",
         };
         setFormData((prev) => ({
             ...prev,
@@ -1375,7 +1375,7 @@ export function Providers() {
                                     <option value="nanogpt">NanoGPT</option>
                                     <option value="z-ai">Z.ai</option>
                                     <option value="deepseek">DeepSeek</option>
-                                    <option value="ollama">Ollama Cloud</option>
+                                    <option value="ollama">Ollama</option>
                                 </select>
                             </div>
 

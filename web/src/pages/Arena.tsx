@@ -20,7 +20,11 @@ import {
     Columns3,
     Settings,
 } from "lucide-react";
-import { extractThinking, sanitizeDelta } from "../utils/thinking";
+import {
+    extractThinking,
+    sanitizeDelta,
+    shouldReExtract,
+} from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { proxyModelID } from "../utils/model";
@@ -391,6 +395,7 @@ export function Arena() {
 
     const arenaModeRef = useRef<ArenaSubMode>(arenaMode);
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
+    const lastExtractLenRef = useRef<Map<string, number>>(new Map());
     const currentRoundRef = useRef(0);
     const roundsLengthRef = useRef(0);
     const roundsRef = useRef<BracketRound[]>([]);
@@ -637,6 +642,8 @@ export function Arena() {
             abortMapRef.current.set(model, abortCtrl);
 
             const run = async () => {
+                const extractKey = `${roundIdx}-${matchupIdx}-${slotKey}`;
+                lastExtractLenRef.current.delete(extractKey);
                 const startTime = performance.now();
                 let charCount = 0;
                 let promptTokens = 0;
@@ -713,15 +720,37 @@ export function Arena() {
                                             const prev = mu[respKey]!;
                                             const newRaw =
                                                 prev.rawContent + clean;
-                                            const extracted =
-                                                extractThinking(newRaw);
+                                            const lastLen =
+                                                lastExtractLenRef.current.get(
+                                                    extractKey,
+                                                ) ?? 0;
+                                            const needsExtract =
+                                                shouldReExtract(clean) ||
+                                                newRaw.length - lastLen >= 50;
+                                            let nextContent: string;
+                                            let nextThinking: string;
+                                            if (needsExtract) {
+                                                const extracted =
+                                                    extractThinking(newRaw);
+                                                lastExtractLenRef.current.set(
+                                                    extractKey,
+                                                    newRaw.length,
+                                                );
+                                                nextContent = extracted.content;
+                                                nextThinking =
+                                                    extracted.thinking ||
+                                                    prev.thinkingContent;
+                                            } else {
+                                                nextContent =
+                                                    prev.content + clean;
+                                                nextThinking =
+                                                    prev.thinkingContent;
+                                            }
                                             mu[respKey] = {
                                                 ...prev,
                                                 rawContent: newRaw,
-                                                content: extracted.content,
-                                                thinkingContent:
-                                                    extracted.thinking ||
-                                                    prev.thinkingContent,
+                                                content: nextContent,
+                                                thinkingContent: nextThinking,
                                             };
                                         }
                                         return next;
@@ -838,7 +867,7 @@ export function Arena() {
                     setRunningModels((prev) => {
                         const next = new Set(prev);
                         next.delete(model);
-                        if (next.size === 0) {
+                        if (next.size === 0 && !abortCtrl.signal.aborted) {
                             setPhase(
                                 arenaModeRef.current === "compare"
                                     ? "finished"
@@ -847,6 +876,7 @@ export function Arena() {
                         }
                         return next;
                     });
+                    lastExtractLenRef.current.delete(extractKey);
                     abortMapRef.current.delete(model);
                 }
             };

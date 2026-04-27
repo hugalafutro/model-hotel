@@ -178,6 +178,48 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	return &m, nil
 }
 
+func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*Model, error) {
+	if len(ids) == 0 {
+		return make(map[uuid.UUID]*Model), nil
+	}
+
+	// Collect IDs that need to be fetched from DB (not in cache)
+	var uncachedIDs []uuid.UUID
+	result := make(map[uuid.UUID]*Model, len(ids))
+	for _, id := range ids {
+		if m, ok := GetCachedByUUID(id); ok {
+			result[id] = m
+		} else {
+			uncachedIDs = append(uncachedIDs, id)
+		}
+	}
+
+	if len(uncachedIDs) == 0 {
+		return result, nil
+	}
+
+	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.id = ANY($1)`
+
+	rows, err := r.pool.Query(ctx, query, uncachedIDs)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+
+	models, err := scanModels(rows)
+	if err != nil {
+		return result, err
+	}
+
+	WarmModelCache(models)
+
+	for _, m := range models {
+		result[m.ID] = m
+	}
+
+	return result, nil
+}
+
 func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model, error) {
 	if models, ok := GetCachedByModelID(modelID); ok {
 		return models, nil

@@ -273,6 +273,27 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		entryEnabled = req.EntryEnabled
 	}
 
+	// Determine the effective group_enabled value
+	effectiveGroupEnabled := existing.GroupEnabled
+	if req.GroupEnabled != nil {
+		effectiveGroupEnabled = *req.GroupEnabled
+	}
+
+	// Validate that at least one entry is enabled for an active failover group
+	if effectiveGroupEnabled {
+		hasEnabled := false
+		for _, enabled := range entryEnabled {
+			if enabled {
+				hasEnabled = true
+				break
+			}
+		}
+		if !hasEnabled {
+			http.Error(w, "at least one entry must be enabled for an active failover group", http.StatusBadRequest)
+			return
+		}
+	}
+
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
 		req.GroupEnabled, req.DisplayName, req.Description)
 	if err != nil {
@@ -382,10 +403,15 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.FailoverGroup) (FailoverGroupResponse, error) {
+	models, err := h.modelRepo.GetByIDs(ctx, g.PriorityOrder)
+	if err != nil {
+		return FailoverGroupResponse{}, err
+	}
+
 	entries := make([]FailoverEntryResponse, 0, len(g.PriorityOrder))
 	for _, modelUUID := range g.PriorityOrder {
-		m, err := h.modelRepo.Get(ctx, modelUUID)
-		if err != nil {
+		m, ok := models[modelUUID]
+		if !ok {
 			continue
 		}
 

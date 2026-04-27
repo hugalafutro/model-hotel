@@ -86,3 +86,17 @@ const SPECIAL_TOKEN_RE = /<\uff5c[^\uff5c]*\uff5c>/g;
 export function sanitizeDelta(text: string): string {
     return text.replace(SPECIAL_TOKEN_RE, "");
 }
+
+// ── Incremental extraction guard ────────────────────────────────────────
+// Used by callers to decide whether extractThinking needs to run on the
+// full accumulated content, or whether the delta can simply be appended
+// to the previous content.  Returning true means "re-extract"; false means
+// "safe to append delta directly".
+const THINKING_MARKER_RE = /<\/?(?:thinking|thought|start_thought|think)/i;
+
+export function shouldReExtract(delta: string): boolean {
+    if (delta.includes("<<") || delta.includes(">>")) return true;
+    if (THINKING_MARKER_RE.test(delta)) return true;
+    if (delta.includes("<")) return true;
+    return false;
+}

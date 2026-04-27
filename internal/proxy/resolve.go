@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/user/llm-proxy/internal/auth"
 )
 
@@ -35,6 +36,41 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 
 	providerLookupStart := time.Now()
 	var keyDecryptTotal float64
+
+	// Collect enabled model UUIDs for batch lookup
+	enabledModelIDs := make([]uuid.UUID, 0, len(fg.PriorityOrder))
+	for _, modelUUID := range fg.PriorityOrder {
+		entryEnabled := true
+		if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
+			entryEnabled = val
+		}
+		if entryEnabled {
+			enabledModelIDs = append(enabledModelIDs, modelUUID)
+		}
+	}
+
+	models, err := h.modelRepo.GetByIDs(ctx, enabledModelIDs)
+	if err != nil {
+		return nil, t, err
+	}
+
+	// Collect unique provider IDs for batch lookup
+	providerIDSet := make(map[uuid.UUID]struct{})
+	for _, modelUUID := range enabledModelIDs {
+		if m, ok := models[modelUUID]; ok && m.Enabled && m.ProviderEnabled {
+			providerIDSet[m.ProviderID] = struct{}{}
+		}
+	}
+	providerIDs := make([]uuid.UUID, 0, len(providerIDSet))
+	for pid := range providerIDSet {
+		providerIDs = append(providerIDs, pid)
+	}
+
+	providers, err := h.providerRepo.GetByIDs(ctx, providerIDs)
+	if err != nil {
+		return nil, t, err
+	}
+
 	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
 	for _, modelUUID := range fg.PriorityOrder {
 		entryEnabled := true
@@ -45,12 +81,12 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			continue
 		}
 
-		m, err := h.modelRepo.Get(ctx, modelUUID)
-		if err != nil || !m.Enabled || !m.ProviderEnabled {
+		m, ok := models[modelUUID]
+		if !ok || !m.Enabled || !m.ProviderEnabled {
 			continue
 		}
-		prov, err := h.providerRepo.Get(ctx, m.ProviderID)
-		if err != nil || !prov.Enabled {
+		prov, ok := providers[m.ProviderID]
+		if !ok || !prov.Enabled {
 			continue
 		}
 		kdStart := time.Now()
