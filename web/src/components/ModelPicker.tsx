@@ -304,10 +304,10 @@ export function ModelPicker({
                                         onConfigureParams(val);
                                     }}
                                     disabled={paramsReadonly}
-                                    className={`shrink-0 transition-all ${
+                                    className={`shrink-0 flex items-center transition-all ${
                                         paramsReadonly
                                             ? "opacity-30 cursor-not-allowed"
-                                            : "cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)]"
+                                            : "cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent)"
                                     }`}
                                     title={
                                         paramsReadonly

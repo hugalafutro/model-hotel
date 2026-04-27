@@ -402,7 +402,7 @@ export function Layout({ children }: LayoutProps) {
             icon: (mode: string) => (mode === "compare" ? GitCompare : Swords),
             subModes: [
                 { label: "Arena", value: "competition" as const },
-                { label: "Comparison", value: "compare" as const },
+                { label: "Compare", value: "compare" as const },
             ],
         },
         { name: "Providers", href: "/providers", icon: PlugZap },
@@ -504,7 +504,7 @@ export function Layout({ children }: LayoutProps) {
                                                         : arenaSubMode ===
                                                             "competition"
                                                           ? "Arena"
-                                                          : "Comparison"}
+                                                          : "Compare"}
                                                 </span>
                                                 <span className="text-(--text-muted) text-[10px] opacity-60">
                                                     /
@@ -517,7 +517,7 @@ export function Layout({ children }: LayoutProps) {
                                                             : handleArenaSubModeClick
                                                     }
                                                     className="text-[10px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer"
-                                                    title={`Switch to ${item.href === "/chat" ? (chatSubMode === "chat" ? "Conversation" : "Chat") : arenaSubMode === "competition" ? "Comparison" : "Arena"} mode`}
+                                                    title={`Switch to ${item.href === "/chat" ? (chatSubMode === "chat" ? "Conversation" : "Chat") : arenaSubMode === "competition" ? "Compare" : "Arena"} mode`}
                                                 >
                                                     {item.href === "/chat"
                                                         ? chatSubMode === "chat"
@@ -525,7 +525,7 @@ export function Layout({ children }: LayoutProps) {
                                                             : "Chat"
                                                         : arenaSubMode ===
                                                             "competition"
-                                                          ? "Comparison"
+                                                          ? "Compare"
                                                           : "Arena"}
                                                 </button>
                                             </span>

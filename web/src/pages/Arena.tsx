@@ -1381,7 +1381,7 @@ export function Arena() {
                                     size={12}
                                     className="inline mr-1 -mt-0.5"
                                 />
-                                Competition
+                                Arena
                             </button>
                             <button
                                 onClick={() => {
@@ -1408,7 +1408,11 @@ export function Arena() {
                         {phase !== "setup" && (
                             <button
                                 onClick={() => setPendingReset(true)}
-                                className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)] ${
+                                    phase === "finished" || phase === "voting"
+                                        ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
+                                        : ""
+                                }`}
                                 title="Reset arena"
                             >
                                 <RotateCcw size={14} />
