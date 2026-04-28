@@ -2428,7 +2428,9 @@ function MatchupCard({
                     <AlertCircle size={12} className="text-red-400 shrink-0" />
                 )}
                 {phase === "finished" && isWinner && (
-                    <Trophy size={14} className="text-amber-400 shrink-0" />
+                    <span title="Winner">
+                        <Trophy size={14} className="text-amber-400 shrink-0" />
+                    </span>
                 )}
                 {isVotingPhase && phase !== "finished" && (
                     <button
@@ -2443,6 +2445,9 @@ function MatchupCard({
                                 ? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
                                 : "cursor-default"
                         } ${isWinner ? "text-green-400" : ""}`}
+                        title={
+                            vote === null ? "Vote for this response" : undefined
+                        }
                     >
                         <VoteThumb
                             size={14}
@@ -2637,10 +2642,12 @@ function ResponseCard({
                     <>
                         {response.done && !response.error && (
                             <>
-                                <CheckCircle2
-                                    size={14}
-                                    className="text-green-400"
-                                />
+                                <span title="Completed">
+                                    <CheckCircle2
+                                        size={14}
+                                        className="text-green-400"
+                                    />
+                                </span>
                                 <button
                                     onClick={() =>
                                         onRetry(roundIdx, matchupIdx, slotKey)
@@ -2654,10 +2661,12 @@ function ResponseCard({
                         )}
                         {response.error && (
                             <>
-                                <AlertCircle
-                                    size={14}
-                                    className="text-red-400"
-                                />
+                                <span title="Error">
+                                    <AlertCircle
+                                        size={14}
+                                        className="text-red-400"
+                                    />
+                                </span>
                                 <button
                                     onClick={() =>
                                         onRetry(roundIdx, matchupIdx, slotKey)
@@ -2686,7 +2695,9 @@ function ResponseCard({
                             </button>
                         )}
                         {isWinner && (
-                            <Trophy size={14} className="text-amber-400" />
+                            <span title="Winner">
+                                <Trophy size={14} className="text-amber-400" />
+                            </span>
                         )}
                     </>
                 }
@@ -2735,6 +2746,11 @@ function ResponseCard({
                                         ? "text-green-400 hover:text-green-300"
                                         : "text-(--text-tertiary) hover:text-(--text-secondary)"
                                 }`}
+                                title={
+                                    vote === null
+                                        ? "Vote for this response"
+                                        : undefined
+                                }
                             >
                                 <VoteThumb
                                     size={18}
@@ -2799,6 +2815,7 @@ function ParamEditorModal({
                     <button
                         onClick={onClose}
                         className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
+                        title="Close"
                     >
                         <X size={14} />
                     </button>

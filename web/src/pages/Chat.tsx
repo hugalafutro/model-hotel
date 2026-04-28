@@ -1597,8 +1597,9 @@ export function Chat() {
                             (isLastAssistant && !isStreaming) ||
                             (isStreamingThis && isLastAssistant);
 
-                        // Turn number: count assistant messages up to and including this one
+                        // Turn number: only in conversation mode — counts assistant messages up to and including this one
                         const turnNumber =
+                            chatSubMode === "conversation" &&
                             msg.role === "assistant"
                                 ? messages.filter(
                                       (m, mi) =>
@@ -1677,6 +1678,7 @@ export function Chat() {
                                                             ),
                                                         );
                                                 }}
+                                                title="Copy"
                                             >
                                                 <Copy size={10} />
                                             </button>
@@ -1745,6 +1747,7 @@ export function Chat() {
                                                                     ),
                                                                 );
                                                         }}
+                                                        title="Copy"
                                                     >
                                                         <Copy size={10} />
                                                     </button>
@@ -1756,6 +1759,7 @@ export function Chat() {
                                                                     i,
                                                                 )
                                                             }
+                                                            title="Delete message"
                                                         >
                                                             <Trash2 size={10} />
                                                         </button>
@@ -1847,6 +1851,7 @@ export function Chat() {
                                                                 ),
                                                             );
                                                     }}
+                                                    title="Copy"
                                                 >
                                                     <Copy size={10} />
                                                 </button>
@@ -1858,6 +1863,7 @@ export function Chat() {
                                                                 i,
                                                             )
                                                         }
+                                                        title="Delete message"
                                                     >
                                                         <Trash2 size={10} />
                                                     </button>
