@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { api } from "../api/client";
 import {
     LayoutDashboard,
@@ -399,8 +399,12 @@ function LastErrorPills() {
     const navigate = useNavigate();
     const { setLogsSubMode } = useSidebarMode();
     const { toast } = useToast();
-    const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(null);
-    const [dismissedReqKey, setDismissedReqKey] = useState<string | null>(null);
+    const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(() => {
+        try { return localStorage.getItem("dismissedAppErrorKey"); } catch { return null; }
+    });
+    const [dismissedReqKey, setDismissedReqKey] = useState<string | null>(() => {
+        try { return localStorage.getItem("dismissedReqErrorKey"); } catch { return null; }
+    });
 
     const { data: appLogData } = useQuery({
         queryKey: ["appLogHistory", "lastError"],
@@ -443,6 +447,15 @@ function LastErrorPills() {
     // so the pill auto-reappears — no useEffect needed.
     const showAppError = lastAppError && appErrorKey !== dismissedAppKey;
     const showReqError = lastReqError && reqErrorKey !== dismissedReqKey;
+
+    const dismissAppError = useCallback((key: string) => {
+        setDismissedAppKey(key);
+        try { localStorage.setItem("dismissedAppErrorKey", key); } catch { /* ignore */ }
+    }, []);
+    const dismissReqError = useCallback((key: string) => {
+        setDismissedReqKey(key);
+        try { localStorage.setItem("dismissedReqErrorKey", key); } catch { /* ignore */ }
+    }, []);
 
     if (!showAppError && !showReqError) return null;
 
@@ -511,8 +524,8 @@ function LastErrorPills() {
 
     return (
         <div className="flex flex-col gap-1 mb-2">
-            {showAppError && appErrorKey && pill("App", lastAppError, "app", () => { setDismissedAppKey(appErrorKey); toast("App error acknowledged", "info"); })}
-            {showReqError && reqErrorKey && pill("Request", lastReqError, "request", () => { setDismissedReqKey(reqErrorKey); toast("Request error acknowledged", "info"); })}
+            {showAppError && appErrorKey && pill("App", lastAppError, "app", () => { dismissAppError(appErrorKey); toast("App error acknowledged", "info"); })}
+            {showReqError && reqErrorKey && pill("Request", lastReqError, "request", () => { dismissReqError(reqErrorKey); toast("Request error acknowledged", "info"); })}
         </div>
     );
 }
