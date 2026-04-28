@@ -1010,7 +1010,8 @@ export function Providers() {
     const providerTypeDisplayNames: Record<string, string> = {
         nanogpt: "NanoGPT",
         "z-ai": "Z.ai",
-        openai: "OpenAI Compatible",
+        openai: "OpenAI",
+        anthropic: "Anthropic",
         deepseek: "DeepSeek",
         ollama: "Ollama",
         "opencode-zen": "OpenCode Zen",
@@ -1036,6 +1037,7 @@ export function Providers() {
             nanogpt: "https://nano-gpt.com/api/subscription/v1",
             "z-ai": "https://api.z.ai/api/paas/v4",
             openai: "https://api.openai.com/v1",
+            anthropic: "https://api.anthropic.com",
             deepseek: "https://api.deepseek.com/v1",
             ollama: "http://localhost:11434",
             "opencode-zen": "https://opencode.ai/zen/v1",
@@ -1417,8 +1419,9 @@ export function Providers() {
                                     className="ui-input"
                                 >
                                     <option value="openai">
-                                        OpenAI Compatible
+                                        OpenAI
                                     </option>
+                                    <option value="anthropic">Anthropic</option>
                                     <option value="nanogpt">NanoGPT</option>
                                     <option value="z-ai">Z.ai</option>
                                     <option value="deepseek">DeepSeek</option>

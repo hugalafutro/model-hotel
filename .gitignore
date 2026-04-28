@@ -1,26 +1,34 @@
 # Binaries
 /server
 /llm-proxy
+/discovery_test
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 
-# Go
+# Go test binaries
 *.test
+
+# Go coverage / pprof
 *.out
-vendor/
+*.prof
+*.cpuprofile
+*.memprofile
+
+# Go vendor
+/vendor/
 
 # Node
-web/node_modules/
-web/dist/
-web/.vite/
+/web/node_modules/
+/web/dist/
+/web/.vite/
 
 # Generated frontend assets (built by Docker or manually with cd web && npm run build)
-cmd/server/static/assets/
+/cmd/server/static/assets/
 
-# Data
+# Data (root-only — leading slash prevents matching data/ in subdirectories)
 /data/
 /.data/
 
@@ -45,3 +53,7 @@ Thumbs.db
 
 # Plans
 /plans/
+
+# Tool / editor metadata
+/.claude/
+/.codenomad/

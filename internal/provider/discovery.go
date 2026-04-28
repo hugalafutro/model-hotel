@@ -47,6 +47,8 @@ func DetectProviderType(baseURL string) string {
 		return "zai"
 	case "api.deepseek.com", "deepseek.com":
 		return "deepseek"
+	case "api.anthropic.com", "anthropic.com":
+		return "anthropic"
 	case "ollama.com":
 		return "ollama"
 	case "opencode.ai":
@@ -69,6 +71,9 @@ func DetectProviderType(baseURL string) string {
 	}
 	if strings.HasSuffix(host, ".deepseek.com") {
 		return "deepseek"
+	}
+	if strings.HasSuffix(host, ".anthropic.com") {
+		return "anthropic"
 	}
 	if strings.HasSuffix(host, ".ollama.com") {
 		return "ollama"
@@ -120,6 +125,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverZAI(ctx, provider, apiKey)
 		case "deepseek":
 			return d.discoverDeepSeek(ctx, provider, apiKey)
+		case "anthropic":
+			return d.discoverAnthropic(ctx, provider, apiKey)
 		case "ollama":
 			return d.discoverOllama(ctx, provider, apiKey)
 		case "opencode-zen":

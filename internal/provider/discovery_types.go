@@ -182,3 +182,33 @@ type ZAIQuotaResponse struct {
 	Data    ZAIQuotaData `json:"data"`
 	Success bool         `json:"success"`
 }
+
+type AnthropicCapSupport struct {
+	Supported bool `json:"supported"`
+}
+
+type AnthropicCapabilities struct {
+	Batch             AnthropicCapSupport `json:"batch"`
+	Citations         AnthropicCapSupport `json:"citations"`
+	CodeExecution     AnthropicCapSupport `json:"code_execution"`
+	ImageInput         AnthropicCapSupport `json:"image_input"`
+	PDFInput           AnthropicCapSupport `json:"pdf_input"`
+	StructuredOutputs  AnthropicCapSupport `json:"structured_outputs"`
+}
+
+type AnthropicModelInfo struct {
+	ID             string                 `json:"id"`
+	Type           string                 `json:"type"`
+	DisplayName    string                 `json:"display_name"`
+	CreatedAt      string                 `json:"created_at"`
+	MaxInputTokens *int                   `json:"max_input_tokens"`
+	MaxTokens      *int                   `json:"max_tokens"`
+	Capabilities   *AnthropicCapabilities `json:"capabilities"`
+}
+
+type AnthropicModelsResponse struct {
+	Data    []AnthropicModelInfo `json:"data"`
+	HasMore bool                 `json:"has_more"`
+	FirstID string               `json:"first_id"`
+	LastID  string               `json:"last_id"`
+}
