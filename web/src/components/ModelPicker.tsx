@@ -76,7 +76,7 @@ function getProviderStyle(baseUrl: string, active: boolean) {
             return "bg-[#18181b] text-white border-[#18181b] shadow-[0_0_6px_1px_rgba(255,255,255,0.2)]";
         if (isOllama)
             return "bg-[#71717a] text-white border-[#71717a] shadow-[0_0_6px_1px_rgba(113,113,122,0.35)]";
-        return "bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
+        return "bg-(--surface-elevated) text-(--text-primary) border-(--border-input) shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
     }
     if (isNanoGPT)
         return "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30";
@@ -86,7 +86,7 @@ function getProviderStyle(baseUrl: string, active: boolean) {
         return "bg-[#18181b]/25 text-[#d4d4d8] border-[#3f3f46]/60 hover:bg-[#18181b]/40";
     if (isOllama)
         return "bg-[#71717a]/20 text-[#a1a1aa] border-[#71717a]/40 hover:bg-[#71717a]/30";
-    return "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
+    return "bg-(--surface-hover) text-(--text-secondary) border-(--border-default) hover:bg-(--surface-elevated-hover)";
 }
 
 export function ModelPicker({
