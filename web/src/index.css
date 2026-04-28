@@ -421,7 +421,9 @@ html[data-ui-style="clean-saas"] .sidebar-link {
     background-color: var(--surface-input);
     color: var(--text-tertiary);
     font-size: 0.875rem;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
     border: 1px solid var(--border-subtle);
 }
 
@@ -457,7 +459,9 @@ html[data-ui-style="clean-saas"] .sidebar-link {
     cursor: pointer;
     background: transparent;
     border: none;
-    transition: color 0.15s, background-color 0.15s;
+    transition:
+        color 0.15s,
+        background-color 0.15s;
 }
 .sidebar-quota-btn:hover {
     color: var(--text-primary);
@@ -473,12 +477,14 @@ html[data-ui-style="clean-saas"] .sidebar-link {
     align-items: center;
     padding: 1px 7px;
     border-radius: 9999px;
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 500;
     font-family: var(--font-mono);
     cursor: pointer;
     border: 1px solid transparent;
-    transition: filter 0.15s, background-color 0.15s;
+    transition:
+        filter 0.15s,
+        background-color 0.15s;
     white-space: nowrap;
     line-height: 1.6;
 }
