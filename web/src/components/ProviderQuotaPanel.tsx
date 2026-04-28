@@ -62,11 +62,16 @@ export function ProviderQuotaPanel() {
     });
     const [disabled, setDisabled] = useState(() => isQuotaDisabled());
 
-    // Listen for changes from Settings page
+    // Listen for toggle changes from Settings page (same tab)
     useEffect(() => {
         const handler = () => setDisabled(isQuotaDisabled());
+        window.addEventListener("sidebarQuotaToggle", handler);
+        // Also listen for storage events (cross-tab)
         window.addEventListener("storage", handler);
-        return () => window.removeEventListener("storage", handler);
+        return () => {
+            window.removeEventListener("sidebarQuotaToggle", handler);
+            window.removeEventListener("storage", handler);
+        };
     }, []);
 
     const toggleCollapsed = useCallback(() => {

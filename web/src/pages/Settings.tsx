@@ -704,6 +704,9 @@ export function Settings() {
                                             : "Sidebar quotas enabled — pill visible and auto-refresh resumed",
                                         newVal ? "info" : "success",
                                     );
+                                    window.dispatchEvent(
+                                        new CustomEvent("sidebarQuotaToggle"),
+                                    );
                                 }}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                                     quotaDisabled
