@@ -21,8 +21,8 @@ web/.vite/
 cmd/server/static/assets/
 
 # Data
-data/
-.data/
+/data/
+/.data/
 
 # Environment
 .env
