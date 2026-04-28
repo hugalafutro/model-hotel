@@ -1,18 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 370 64" height="64">
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; font-weight: 700; }
     </style>
   </defs>
-  <!-- Icon -->
-  <rect x="0" y="0" width="64" height="64" rx="13" fill="#0b0c0f"/>
-  <path d="M32 8L9.2 22.4v5.333h45.6V22.4L32 8z" fill="#4f8cff" opacity="0.9"/>
-  <rect x="12" y="29.333" width="8.533" height="13.333" rx="1.333" fill="#4f8cff" opacity="0.7"/>
-  <rect x="27.733" y="29.333" width="8.533" height="13.333" rx="1.333" fill="#4f8cff" opacity="0.7"/>
-  <rect x="43.467" y="29.333" width="8.533" height="13.333" rx="1.333" fill="#4f8cff" opacity="0.7"/>
-  <rect x="9.2" y="45.333" width="45.6" height="5.333" rx="1.333" fill="#4f8cff" opacity="0.5"/>
-  <circle cx="32" cy="16" r="2.667" fill="#0b0c0f"/>
-  <!-- Text -->
-  <text x="116" y="46" font-size="38" fill="#c9d1d9">Model</text>
-  <text x="235" y="46" font-size="38" fill="#4f8cff">Hotel</text>
+  <!-- Icon + Text block shifted right by 27px to center in viewBox -->
+  <g transform="translate(27, 0)">
+    <!-- Icon -->
+    <rect x="0" y="0" width="64" height="64" rx="13" fill="#0b0c0f"/>
+    <path d="M32 8L9.2 22.4v5.333h45.6V22.4L32 8z" fill="#4f8cff" opacity="0.9"/>
+    <rect x="12" y="29.333" width="8.533" height="13.333" rx="1.333" fill="#4f8cff" opacity="0.7"/>
+    <rect x="27.733" y="29.333" width="8.533" height="13.333" rx="1.333" fill="#4f8cff" opacity="0.7"/>
+    <rect x="43.467" y="29.333" width="8.533" height="13.333" rx="1.333" fill="#4f8cff" opacity="0.7"/>
+    <rect x="9.2" y="45.333" width="45.6" height="5.333" rx="1.333" fill="#4f8cff" opacity="0.5"/>
+    <circle cx="32" cy="16" r="2.667" fill="#0b0c0f"/>
+    <!-- Text -->
+    <text x="86" y="46" font-size="38" fill="#c9d1d9">Model</text>
+    <text x="205" y="46" font-size="38" fill="#4f8cff">Hotel</text>
+  </g>
 </svg>
