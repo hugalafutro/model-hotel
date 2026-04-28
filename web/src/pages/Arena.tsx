@@ -424,13 +424,7 @@ export function Arena() {
         if (!validSizes.has(bracketModels.length)) return false;
         if (new Set(bracketModels).size !== bracketModels.length) return false;
         return true;
-    }, [
-        phase,
-        arenaMode,
-        compareModels,
-        bracketModels,
-        prompt,
-    ]);
+    }, [phase, arenaMode, compareModels, bracketModels, prompt]);
 
     const disabledReason = useMemo(() => {
         if (phase === "setup") {
@@ -444,10 +438,8 @@ export function Arena() {
                 if (!prompt.trim()) return "Enter a prompt";
                 return "";
             }
-            if (bracketModels.length === 0)
-                return "Select 2, 4, or 8 models";
-            if (bracketModels.length === 1)
-                return "Pick at least 1 more model";
+            if (bracketModels.length === 0) return "Select 2, 4, or 8 models";
+            if (bracketModels.length === 1) return "Pick at least 1 more model";
             if (new Set(bracketModels).size !== bracketModels.length)
                 return "No duplicate models";
             if (![2, 4, 8].includes(bracketModels.length)) {
@@ -463,13 +455,7 @@ export function Arena() {
         }
         if (phase === "voting") return "Vote on all matchups to continue";
         return "";
-    }, [
-        phase,
-        arenaMode,
-        compareModels,
-        bracketModels,
-        prompt,
-    ]);
+    }, [phase, arenaMode, compareModels, bracketModels, prompt]);
 
     const buildCompareRound = useCallback(
         (
@@ -533,9 +519,8 @@ export function Arena() {
             for (let r = 1; r < numRounds; r++) {
                 const matchupCount = models.length / Math.pow(2, r + 1);
                 bracketRounds.push({
-                    matchups: Array.from(
-                        { length: matchupCount },
-                        () => emptyMatchup(),
+                    matchups: Array.from({ length: matchupCount }, () =>
+                        emptyMatchup(),
                     ),
                 });
             }
@@ -608,7 +593,9 @@ export function Arena() {
     );
 
     const handleRandomComparePersona = useCallback(() => {
-        const available = CHAT_PERSONAS.filter((p) => p.id !== comparePersonaId);
+        const available = CHAT_PERSONAS.filter(
+            (p) => p.id !== comparePersonaId,
+        );
         if (available.length === 0) return;
         const pick = available[Math.floor(Math.random() * available.length)];
         setComparePersonaId(pick.id);
@@ -1473,7 +1460,10 @@ export function Arena() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        {phase !== "setup" && (
+                        {(phase !== "setup" ||
+                            (arenaMode === "competition"
+                                ? bracketModels.length > 0
+                                : compareModels.length > 0)) && (
                             <button
                                 onClick={() => setPendingReset(true)}
                                 className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${
@@ -1515,7 +1505,10 @@ export function Arena() {
                                     <div>
                                         <label className="text-sm text-(--text-secondary) mb-2 block">
                                             Models ({bracketModels.length}/8)
-                                            <span className="text-(--text-tertiary)"> — pick 2, 4, or 8 for a bracket</span>
+                                            <span className="text-(--text-tertiary)">
+                                                {" "}
+                                                — pick 2, 4, or 8 for a bracket
+                                            </span>
                                         </label>
                                         <ModelPicker
                                             models={enabledModels}
@@ -1530,17 +1523,15 @@ export function Arena() {
                                                 setParamEditorModel
                                             }
                                             onRandom={handleRandomBracketModel}
-                                            paramsReadonly={
-                                                phase !== "setup"
-                                            }
+                                            paramsReadonly={phase !== "setup"}
                                         />
                                         {bracketModels.length > 0 &&
                                             ![2, 4, 8].includes(
                                                 bracketModels.length,
                                             ) && (
                                                 <p className="text-xs text-amber-400 mt-2">
-                                                    Select 2, 4, or 8 models
-                                                    for a bracket tournament.
+                                                    Select 2, 4, or 8 models for
+                                                    a bracket tournament.
                                                 </p>
                                             )}
                                         {new Set(bracketModels).size !==
@@ -1598,7 +1589,9 @@ export function Arena() {
                                             onSystemPromptChange={
                                                 setComparePersonaPrompt
                                             }
-                                            onRandom={handleRandomComparePersona}
+                                            onRandom={
+                                                handleRandomComparePersona
+                                            }
                                             textareaPlaceholder="Optional system prompt applied to all models…"
                                             wrap
                                         />
@@ -1687,7 +1680,10 @@ export function Arena() {
                                         }`}
                                     >
                                         <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
-                                            {roundLabel(roundIdx, rounds.length)}
+                                            {roundLabel(
+                                                roundIdx,
+                                                rounds.length,
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             {round.matchups.map(
@@ -2394,9 +2390,14 @@ function MatchupCard({
                             }
                         }}
                         onRandom={() => {
-                            const available = CHAT_PERSONAS.filter((p) => p.id !== slot.personaId);
+                            const available = CHAT_PERSONAS.filter(
+                                (p) => p.id !== slot.personaId,
+                            );
                             if (available.length === 0) return;
-                            const pick = available[Math.floor(Math.random() * available.length)];
+                            const pick =
+                                available[
+                                    Math.floor(Math.random() * available.length)
+                                ];
                             if (
                                 slot.personaPrompt.trim() &&
                                 slot.personaId === null
