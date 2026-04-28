@@ -987,6 +987,30 @@ export function Providers() {
         });
     };
 
+    const providerTypeDisplayNames: Record<string, string> = {
+        nanogpt: "NanoGPT",
+        "z-ai": "Z.ai",
+        openai: "OpenAI Compatible",
+        deepseek: "DeepSeek",
+        ollama: "Ollama",
+        "opencode-zen": "OpenCode Zen",
+        "opencode-go": "OpenCode Go",
+    };
+
+    const providerTypeAllowsEmptyKey = (type: string): boolean => {
+        return type === "opencode-zen";
+    };
+
+    const generateProviderName = (type: string): string => {
+        const baseName = providerTypeDisplayNames[type] || "Provider";
+        if (!providers) return baseName;
+        const existingNames = new Set(providers.map((p) => p.name));
+        if (!existingNames.has(baseName)) return baseName;
+        let n = 2;
+        while (existingNames.has(`${baseName} ${n}`)) n++;
+        return `${baseName} ${n}`;
+    };
+
     const handleProviderTypeChange = (type: string) => {
         const baseUrls: Record<string, string> = {
             nanogpt: "https://nano-gpt.com/api/subscription/v1",
@@ -997,10 +1021,12 @@ export function Providers() {
             "opencode-zen": "https://opencode.ai/zen/v1",
             "opencode-go": "https://opencode.ai/zen/go/v1",
         };
+        const newName = generateProviderName(type);
         setFormData((prev) => ({
             ...prev,
             provider_type: type,
             base_url: baseUrls[type] || prev.base_url,
+            name: newName,
         }));
     };
 
@@ -1405,9 +1431,14 @@ export function Providers() {
                                             name: e.target.value,
                                         })
                                     }
+                                    onFocus={(e) => e.target.select()}
                                     className="ui-input"
                                     placeholder="e.g., OpenAI"
                                 />
+                                <p className="text-gray-500 text-xs mt-1">
+                                    Dots, spaces, and special characters are
+                                    replaced with &quot;-&quot; when routing.
+                                </p>
                             </div>
 
                             <div>
@@ -1449,7 +1480,11 @@ export function Providers() {
                                     <input
                                         id="provider-api-key"
                                         type={showApiKey ? "text" : "password"}
-                                        required
+                                        required={
+                                            !providerTypeAllowsEmptyKey(
+                                                formData.provider_type,
+                                            )
+                                        }
                                         value={formData.api_key}
                                         onChange={(e) =>
                                             setFormData({
@@ -1458,7 +1493,13 @@ export function Providers() {
                                             })
                                         }
                                         className="ui-input pr-10"
-                                        placeholder="API key"
+                                        placeholder={
+                                            providerTypeAllowsEmptyKey(
+                                                formData.provider_type,
+                                            )
+                                                ? "Optional — free models work without a key"
+                                                : "API key"
+                                        }
                                     />
                                     <button
                                         type="button"

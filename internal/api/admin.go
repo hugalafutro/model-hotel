@@ -125,8 +125,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.APIKey == "" {
-		http.Error(w, "api_key is required", http.StatusBadRequest)
+	// Some providers (e.g. OpenCode Zen) support keyless access for free models.
+	// Allow empty API key only for providers that support it.
+	if req.APIKey == "" && !providerTypeAllowsEmptyKey(req.BaseURL) {
+		http.Error(w, "api_key is required for this provider type", http.StatusBadRequest)
 		return
 	}
 
@@ -155,13 +157,24 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encryptedKey, err := auth.Encrypt(req.APIKey, h.cfg.MasterKey)
-	if err != nil {
-		http.Error(w, "failed to encrypt API key", http.StatusInternalServerError)
-		return
+	var encryptedKey *auth.KeyPair
+	if req.APIKey != "" {
+		var err error
+		encryptedKey, err = auth.Encrypt(req.APIKey, h.cfg.MasterKey)
+		if err != nil {
+			http.Error(w, "failed to encrypt API key", http.StatusInternalServerError)
+			return
+		}
 	}
 
-	p, err := h.providerRepo.Create(r.Context(), req, encryptedKey.Ciphertext, encryptedKey.Nonce, encryptedKey.Salt)
+	var encCiphertext, encNonce, encSalt []byte
+	if encryptedKey != nil {
+		encCiphertext = encryptedKey.Ciphertext
+		encNonce = encryptedKey.Nonce
+		encSalt = encryptedKey.Salt
+	}
+
+	p, err := h.providerRepo.Create(r.Context(), req, encCiphertext, encNonce, encSalt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
@@ -171,7 +184,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
+	// Skip key cache warming for keyless providers (nil encrypted key bytes)
+	if len(p.EncryptedKey) > 0 {
+		go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
+	}
 
 	response := provider.ToResponse(p)
 	writeJSONCreated(w, response)
@@ -341,6 +357,18 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// providerTypeAllowsEmptyKey returns true for provider types that support keyless
+// access (e.g. OpenCode Zen, which allows free models without an API key).
+func providerTypeAllowsEmptyKey(baseURL string) bool {
+	providerType := provider.DetectProviderType(baseURL)
+	switch providerType {
+	case "opencode-zen":
+		return true
+	default:
+		return false
+	}
 }
 
 // isUniqueViolation checks if the error is a PostgreSQL unique constraint violation (error code 23505).

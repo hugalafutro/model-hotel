@@ -93,9 +93,17 @@ func DetectProviderType(baseURL string) string {
 }
 
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
+	// key bytes. When the key is empty, skip decryption and use empty string.
+	var apiKey string
+	if len(provider.EncryptedKey) == 0 {
+		apiKey = ""
+	} else {
+		var err error
+		apiKey, err = auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+		}
 	}
 
 	switch DetectProviderType(provider.BaseURL) {

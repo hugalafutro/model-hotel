@@ -89,11 +89,18 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		if !ok || !prov.Enabled {
 			continue
 		}
-		kdStart := time.Now()
-		apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-		keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
-		if err != nil {
-			continue
+		// Keyless providers store nil encrypted key bytes — skip decryption.
+		var apiKey string
+		if len(prov.EncryptedKey) == 0 {
+			apiKey = ""
+		} else {
+			var err error
+			kdStart := time.Now()
+			apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
+			if err != nil {
+				continue
+			}
 		}
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
@@ -125,11 +132,19 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		return nil, t, fmt.Errorf("model or provider disabled")
 	}
 
-	kdStart := time.Now()
-	apiKey, err := auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-	t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
-	if err != nil {
-		return nil, t, err
+	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
+	// key bytes. When the key is empty, skip decryption and use empty string.
+	var apiKey string
+	if len(prov.EncryptedKey) == 0 {
+		apiKey = ""
+	} else {
+		var err error
+		kdStart := time.Now()
+		apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+		t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
+		if err != nil {
+			return nil, t, err
+		}
 	}
 
 	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, t, nil

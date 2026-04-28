@@ -387,7 +387,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
 			continue
 		}
-		proxyReq.Header.Set("Authorization", "Bearer "+candidate.apiKey)
+		if candidate.apiKey != "" {
+			proxyReq.Header.Set("Authorization", "Bearer "+candidate.apiKey)
+		}
 		proxyReq.Header.Set("Content-Type", "application/json")
 
 		// Reuse the shared upstream Transport instead of creating a new one
