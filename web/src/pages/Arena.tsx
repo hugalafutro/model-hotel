@@ -2697,7 +2697,7 @@ function ParamEditorModal({
             >
                 <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-(--text-primary)">
-                        {modelId.split("/").pop()}
+                        {modelId}
                     </h3>
                     <button
                         onClick={onClose}

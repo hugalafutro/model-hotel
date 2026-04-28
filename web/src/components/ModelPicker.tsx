@@ -311,7 +311,7 @@ export function ModelPicker({
                                     ? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
                                     : "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
                             }`}
-                            title={m.display_name || m.model_id}
+                            title={m.provider_name + "/" + (m.display_name || m.model_id)}
                         >
                             <button
                                 onClick={() => toggleModel(val)}

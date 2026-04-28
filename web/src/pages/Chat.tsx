@@ -404,6 +404,9 @@ export function Chat() {
     const setMessageParams =
         chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
+    const enabledModels =
+        models?.filter((m) => m.enabled && m.provider_name) || [];
+
     const handleRandomPersona = useCallback(() => {
         const currentId = chatSubMode === "chat" ? chatActivePersonaId : conversationActivePersonaIdA;
         const available = CHAT_PERSONAS.filter((p) => p.id !== currentId);
@@ -491,9 +494,6 @@ export function Chat() {
     const conversationRunningRef = useRef(false);
     const capturedModelARef = useRef<string>("");
     const capturedModelBRef = useRef<string>("");
-
-    const enabledModels =
-        models?.filter((m) => m.enabled && m.provider_name) || [];
 
     const selectedModelObj = enabledModels.find(
         (m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
