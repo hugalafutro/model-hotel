@@ -368,7 +368,9 @@ func main() {
 			if !p.Enabled {
 				continue
 			}
-			auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
+			if len(p.EncryptedKey) > 0 {
+				auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
+			}
 			enabledProviders = append(enabledProviders, p)
 		}
 		provider.WarmProviderCache(enabledProviders)

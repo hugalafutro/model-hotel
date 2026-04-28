@@ -185,10 +185,18 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	keyDecryptStart := time.Now()
-	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-	if err != nil {
-		http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
-		return
+
+	// Keyless providers store nil encrypted key bytes — skip decryption.
+	var apiKey string
+	if len(prov.EncryptedKey) == 0 {
+		apiKey = ""
+	} else {
+		var err error
+		apiKey, err = auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+		if err != nil {
+			http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
+			return
+		}
 	}
 	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
 	proxyOverheadMs := float64(time.Since(start).Microseconds()) / 1000.0
