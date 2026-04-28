@@ -421,8 +421,8 @@ export function Layout({ children }: LayoutProps) {
             href: "/logs",
             icon: (mode: string) => (mode === "app" ? FileText : ScrollText),
             subModes: [
-                { label: "Request Logs", value: "request" as const },
-                { label: "App Logs", value: "app" as const },
+                { label: "Requests", value: "request" as const },
+                { label: "Logs", value: "app" as const },
             ],
         },
         { name: "Settings", href: "/settings", icon: Settings },

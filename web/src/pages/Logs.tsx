@@ -567,7 +567,7 @@ function RequestLogs() {
                             className="text-(--accent)"
                         />
                         <h1 className="text-3xl font-bold text-white">
-                            Request Logs
+                            Requests
                         </h1>
                         <button
                             type="button"
@@ -603,174 +603,167 @@ function RequestLogs() {
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-(--text-primary)">
-                            Controls
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => setLogsSubMode("request")}
-                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                                    logsSubMode === "request"
-                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-                                }`}
-                            >
-                                <ScrollText
-                                    size={12}
-                                    className="inline mr-1 -mt-0.5"
-                                />
-                                Request Logs
-                            </button>
-                            <button
-                                onClick={() => setLogsSubMode("app")}
-                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                                    logsSubMode === "app"
-                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-                                }`}
-                            >
-                                <FileText
-                                    size={12}
-                                    className="inline mr-1 -mt-0.5"
-                                />
-                                App Logs
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setLogsSubMode("request")}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                logsSubMode === "request"
+                                    ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                            }`}
+                        >
+                            <ScrollText
+                                size={12}
+                                className="inline mr-1 -mt-0.5"
+                            />
+                            Requests
+                        </button>
+                        <button
+                            onClick={() => setLogsSubMode("app")}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                logsSubMode === "app"
+                                    ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                            }`}
+                        >
+                            <FileText
+                                size={12}
+                                className="inline mr-1 -mt-0.5"
+                            />
+                            Logs
+                        </button>
                     </div>
-                </div>
-            </div>
+                    <div className="flex items-center gap-2">
+                        <FilterInput
+                            value={filters.model_id}
+                            onChange={(v) => {
+                                setFilters({ ...filters, model_id: v });
+                                setPage(1);
+                            }}
+                            placeholder="Filter by model ID…"
+                            className="w-[320px]"
+                            autoFocus
+                        />
+                        <FilterInput
+                            value={filters.provider_id}
+                            onChange={(v) => {
+                                setFilters({ ...filters, provider_id: v });
+                                setPage(1);
+                            }}
+                            placeholder="Filter by provider…"
+                            className="w-50"
+                        />
+                        <select
+                            value={filters.status_code}
+                            onChange={(e) => {
+                                setFilters({
+                                    ...filters,
+                                    status_code: e.target.value,
+                                });
+                                setPage(1);
+                            }}
+                            className="ui-input h-9 py-0! w-30! text-xs pr-6"
+                        >
+                            <option value="">All Status</option>
+                            <option value="0">0 No Response</option>
+                            <option value="200">200 OK</option>
+                            <option value="4xx">4XX</option>
+                            <option value="5xx">5XX</option>
+                        </select>
 
-            <div className="flex items-start gap-4">
-                {/* Left half: filters — fixed width, never shifts */}
-                <div className="flex items-center gap-2 shrink-0">
-                    <FilterInput
-                        value={filters.model_id}
-                        onChange={(v) => {
-                            setFilters({ ...filters, model_id: v });
-                            setPage(1);
-                        }}
-                        placeholder="Filter by model ID…"
-                        className="w-[320px]"
-                        autoFocus
-                    />
-                    <FilterInput
-                        value={filters.provider_id}
-                        onChange={(v) => {
-                            setFilters({ ...filters, provider_id: v });
-                            setPage(1);
-                        }}
-                        placeholder="Filter by provider…"
-                        className="w-50"
-                    />
-                    <select
-                        value={filters.status_code}
-                        onChange={(e) => {
-                            setFilters({
-                                ...filters,
-                                status_code: e.target.value,
-                            });
-                            setPage(1);
-                        }}
-                        className="ui-input h-9 py-0! w-30! text-xs pr-6"
-                    >
-                        <option value="">All Status</option>
-                        <option value="0">0 No Response</option>
-                        <option value="200">200 OK</option>
-                        <option value="4xx">4XX</option>
-                        <option value="5xx">5XX</option>
-                    </select>
-
-                    {/* Calendar picker */}
-                    <div className="relative" ref={datePickerRef}>
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={toggleDatePicker}
-                                className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
-                                    hasDateFilter
-                                        ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
-                                        : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
-                                }`}
-                                title={
-                                    hasDateFilter
-                                        ? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} — click to change`
-                                        : "Filter by date range"
-                                }
-                            >
-                                <CalendarDays size={16} />
-                            </button>
-                            {hasDateFilter && (
+                        {/* Calendar picker */}
+                        <div className="relative" ref={datePickerRef}>
+                            <div className="flex items-center gap-1">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
-                                    onClick={clearDateFilter}
-                                    title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
+                                    onClick={toggleDatePicker}
+                                    className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
+                                        hasDateFilter
+                                            ? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
+                                            : "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
+                                    }`}
+                                    title={
+                                        hasDateFilter
+                                            ? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} — click to change`
+                                            : "Filter by date range"
+                                    }
                                 >
-                                    <X size={14} />
+                                    <CalendarDays size={16} />
                                 </button>
+                                {hasDateFilter && (
+                                    <button
+                                        type="button"
+                                        className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
+                                        onClick={clearDateFilter}
+                                        title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
+                            {showDatePicker && (
+                                <div className="absolute left-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-sm font-semibold text-white">
+                                            Select date range
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowDatePicker(false)
+                                            }
+                                            className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+
+                                    <AccentCalendar
+                                        initialYear={pickerYear}
+                                        initialMonth={pickerMonth}
+                                        from={pendingFrom}
+                                        to={pendingTo}
+                                        onSelect={handleCalendarSelect}
+                                    />
+
+                                    <div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
+                                        {pendingFrom && pendingTo ? (
+                                            <span>
+                                                {formatDateRangeShort(
+                                                    pendingFrom,
+                                                    pendingTo,
+                                                )}
+                                            </span>
+                                        ) : pendingFrom ? (
+                                            <span className="text-(--accent)">
+                                                Select end date…
+                                            </span>
+                                        ) : (
+                                            <span>Select start date</span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex gap-2 mt-3">
+                                        <button
+                                            type="button"
+                                            onClick={clearDateFilter}
+                                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                        >
+                                            Clear
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={applyDateFilter}
+                                            disabled={!pendingFrom}
+                                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            Apply
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
-
-                        {showDatePicker && (
-                            <div className="absolute left-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-sm font-semibold text-white">
-                                        Select date range
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowDatePicker(false)}
-                                        className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-
-                                <AccentCalendar
-                                    initialYear={pickerYear}
-                                    initialMonth={pickerMonth}
-                                    from={pendingFrom}
-                                    to={pendingTo}
-                                    onSelect={handleCalendarSelect}
-                                />
-
-                                <div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
-                                    {pendingFrom && pendingTo ? (
-                                        <span>
-                                            {formatDateRangeShort(
-                                                pendingFrom,
-                                                pendingTo,
-                                            )}
-                                        </span>
-                                    ) : pendingFrom ? (
-                                        <span className="text-(--accent)">
-                                            Select end date…
-                                        </span>
-                                    ) : (
-                                        <span>Select start date</span>
-                                    )}
-                                </div>
-
-                                <div className="flex gap-2 mt-3">
-                                    <button
-                                        type="button"
-                                        onClick={clearDateFilter}
-                                        className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
-                                    >
-                                        Clear
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={applyDateFilter}
-                                        disabled={!pendingFrom}
-                                        className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        Apply
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

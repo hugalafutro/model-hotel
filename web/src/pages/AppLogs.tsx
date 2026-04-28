@@ -17,7 +17,11 @@ export function AppLogs() {
     const [autoScroll, setAutoScroll] = useState(true);
     const { toast } = useToast();
 
-    const { data: entries = [], isLoading, error } = useQuery<AppLogEntry[]>({
+    const {
+        data: entries = [],
+        isLoading,
+        error,
+    } = useQuery<AppLogEntry[]>({
         queryKey: ["appLogs"],
         queryFn: () => api.appLogs.list({ limit: 500 }),
         refetchInterval: liveEnabled ? 2000 : false,
@@ -105,9 +109,7 @@ export function AppLogs() {
                             strokeWidth={2}
                             className="text-(--accent)"
                         />
-                        <h1 className="text-3xl font-bold text-white">
-                            App Logs
-                        </h1>
+                        <h1 className="text-3xl font-bold text-white">Logs</h1>
                         <button
                             type="button"
                             onClick={() => {
@@ -149,42 +151,37 @@ export function AppLogs() {
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-(--text-primary)">
-                            Controls
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => setLogsSubMode("request")}
-                                className={
-                                    "px-3 py-1 rounded-md text-xs font-medium transition-all " +
-                                    (logsSubMode === "request"
-                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer")
-                                }
-                            >
-                                <ScrollText
-                                    size={12}
-                                    className="inline mr-1 -mt-0.5"
-                                />
-                                Request Logs
-                            </button>
-                            <button
-                                onClick={() => setLogsSubMode("app")}
-                                className={
-                                    "px-3 py-1 rounded-md text-xs font-medium transition-all " +
-                                    (logsSubMode === "app"
-                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer")
-                                }
-                            >
-                                <FileText
-                                    size={12}
-                                    className="inline mr-1 -mt-0.5"
-                                />
-                                App Logs
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setLogsSubMode("request")}
+                            className={
+                                "px-3 py-1 rounded-md text-xs font-medium transition-all " +
+                                (logsSubMode === "request"
+                                    ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer")
+                            }
+                        >
+                            <ScrollText
+                                size={12}
+                                className="inline mr-1 -mt-0.5"
+                            />
+                            Requests
+                        </button>
+                        <button
+                            onClick={() => setLogsSubMode("app")}
+                            className={
+                                "px-3 py-1 rounded-md text-xs font-medium transition-all " +
+                                (logsSubMode === "app"
+                                    ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer")
+                            }
+                        >
+                            <FileText
+                                size={12}
+                                className="inline mr-1 -mt-0.5"
+                            />
+                            Logs
+                        </button>
                     </div>
                     <div className="flex items-center gap-2">
                         {(["all", "info", "warning", "error"] as const).map(
@@ -244,16 +241,16 @@ export function AppLogs() {
                         ref={containerRef}
                         className="flex-1 overflow-y-auto font-mono text-xs"
                     >
-                        <table className="w-full">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="bg-(--card-bg) border-b border-(--border)">
-                                    <th className="text-left px-3 py-1.5 text-[11px] font-medium text-(--text-tertiary) w-20">
+                        <table className="w-full ui-table">
+                            <thead>
+                                <tr>
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-20">
                                         Time
                                     </th>
-                                    <th className="text-left px-3 py-1.5 text-[11px] font-medium text-(--text-tertiary) w-17.5">
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-17.5">
                                         Level
                                     </th>
-                                    <th className="text-left px-3 py-1.5 text-[11px] font-medium text-(--text-tertiary)">
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary)">
                                         Message
                                     </th>
                                 </tr>
@@ -264,13 +261,13 @@ export function AppLogs() {
                                         key={i}
                                         className="border-b border-(--border) hover:bg-white/2 transition-colors"
                                     >
-                                        <td className="px-3 py-1 text-(--text-secondary) whitespace-nowrap">
+                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                                             {formatTimestamp(entry.timestamp)}
                                         </td>
-                                        <td className="px-3 py-1">
+                                        <td className="px-4 py-2">
                                             <span
                                                 className={
-                                                    "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium " +
+                                                    "inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium " +
                                                     getLevelBadge(entry.level)
                                                 }
                                             >
@@ -279,7 +276,7 @@ export function AppLogs() {
                                         </td>
                                         <td
                                             className={
-                                                "px-3 py-1 whitespace-pre-wrap break-all " +
+                                                "px-4 py-2 whitespace-pre-wrap break-all text-xs font-mono " +
                                                 getLevelColor(entry.level)
                                             }
                                         >
