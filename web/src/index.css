@@ -421,7 +421,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
     background-color: var(--surface-input);
     color: var(--text-tertiary);
     font-size: 0.875rem;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
     border: 1px solid var(--border-subtle);
 }
 
