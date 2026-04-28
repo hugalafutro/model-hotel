@@ -231,7 +231,9 @@ function SystemStatus() {
                 }
             >
                 <span>CPU</span>
-                <span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
+                <span
+                    className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}
+                >
                     {cpuPct != null && cpuPct >= 0 ? (
                         <>
                             <span>
@@ -327,7 +329,9 @@ function SystemStatus() {
                 }
             >
                 <span>Memory</span>
-                <span className={`text-(--text-secondary) ${dc(memUsagePct, 75, 90)}`}>
+                <span
+                    className={`text-(--text-secondary) ${dc(memUsagePct, 75, 90)}`}
+                >
                     {app ? appMem : dash}
                 </span>
             </div>
@@ -338,7 +342,9 @@ function SystemStatus() {
                 title="Active Go runtime goroutines (lightweight threads)"
             >
                 <span>Go routines</span>
-                <span className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}>
+                <span
+                    className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}
+                >
                     {app ? app.goroutines.toLocaleString() : dash}
                 </span>
             </div>
@@ -378,7 +384,9 @@ function SystemStatus() {
                             <span className="text-(--text-secondary) mx-1">
                                 |
                             </span>
-                            <span className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}>
+                            <span
+                                className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}
+                            >
                                 Hit {stats.db.cache_hit_ratio}
                                 <span className={u}>%</span>
                             </span>
@@ -400,12 +408,24 @@ function LastErrorPills() {
     const navigate = useNavigate();
     const { setLogsSubMode } = useSidebarMode();
     const { toast } = useToast();
-    const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(() => {
-        try { return localStorage.getItem("dismissedAppErrorKey"); } catch { return null; }
-    });
-    const [dismissedReqKey, setDismissedReqKey] = useState<string | null>(() => {
-        try { return localStorage.getItem("dismissedReqErrorKey"); } catch { return null; }
-    });
+    const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(
+        () => {
+            try {
+                return localStorage.getItem("dismissedAppErrorKey");
+            } catch {
+                return null;
+            }
+        },
+    );
+    const [dismissedReqKey, setDismissedReqKey] = useState<string | null>(
+        () => {
+            try {
+                return localStorage.getItem("dismissedReqErrorKey");
+            } catch {
+                return null;
+            }
+        },
+    );
 
     const { data: appLogData } = useQuery({
         queryKey: ["appLogHistory", "lastError"],
@@ -440,8 +460,14 @@ function LastErrorPills() {
     const lastReqError = reqLogData?.entries?.[0]?.error_message;
     const lastReqTimestamp = reqLogData?.entries?.[0]?.created_at;
 
-    const appErrorKey = lastAppError && lastAppTimestamp ? `${lastAppTimestamp}:${lastAppError.slice(0, 50)}` : null;
-    const reqErrorKey = lastReqError && lastReqTimestamp ? `${lastReqTimestamp}:${lastReqError.slice(0, 50)}` : null;
+    const appErrorKey =
+        lastAppError && lastAppTimestamp
+            ? `${lastAppTimestamp}:${lastAppError.slice(0, 50)}`
+            : null;
+    const reqErrorKey =
+        lastReqError && lastReqTimestamp
+            ? `${lastReqTimestamp}:${lastReqError.slice(0, 50)}`
+            : null;
 
     // Show the pill if there's an error and it hasn't been dismissed.
     // If the error key changes (new error), dismissedAppKey no longer matches,
@@ -451,11 +477,19 @@ function LastErrorPills() {
 
     const dismissAppError = useCallback((key: string) => {
         setDismissedAppKey(key);
-        try { localStorage.setItem("dismissedAppErrorKey", key); } catch { /* ignore */ }
+        try {
+            localStorage.setItem("dismissedAppErrorKey", key);
+        } catch {
+            /* ignore */
+        }
     }, []);
     const dismissReqError = useCallback((key: string) => {
         setDismissedReqKey(key);
-        try { localStorage.setItem("dismissedReqErrorKey", key); } catch { /* ignore */ }
+        try {
+            localStorage.setItem("dismissedReqErrorKey", key);
+        } catch {
+            /* ignore */
+        }
     }, []);
 
     if (!showAppError && !showReqError) return null;
@@ -470,7 +504,10 @@ function LastErrorPills() {
             {/* Header row with icon, label, and action buttons */}
             <div className="flex items-center justify-between px-2 py-1 bg-red-900/20 border-b border-red-500/20">
                 <div className="flex items-center gap-1.5">
-                    <AlertTriangle size={10} className="shrink-0 text-red-400" />
+                    <AlertTriangle
+                        size={10}
+                        className="shrink-0 text-red-400"
+                    />
                     <span className="text-[10px] font-semibold text-red-300 uppercase tracking-wider">
                         Last {label} Error
                     </span>
@@ -525,8 +562,18 @@ function LastErrorPills() {
 
     return (
         <div className="flex flex-col gap-1 mb-2">
-            {showAppError && appErrorKey && pill("App", lastAppError, "app", () => { dismissAppError(appErrorKey); toast("App error acknowledged", "info"); })}
-            {showReqError && reqErrorKey && pill("Request", lastReqError, "request", () => { dismissReqError(reqErrorKey); toast("Request error acknowledged", "info"); })}
+            {showAppError &&
+                appErrorKey &&
+                pill("App", lastAppError, "app", () => {
+                    dismissAppError(appErrorKey);
+                    toast("App error acknowledged", "info");
+                })}
+            {showReqError &&
+                reqErrorKey &&
+                pill("Request", lastReqError, "request", () => {
+                    dismissReqError(reqErrorKey);
+                    toast("Request error acknowledged", "info");
+                })}
         </div>
     );
 }
@@ -708,15 +755,15 @@ export function Layout({ children }: LayoutProps) {
                 </nav>
                 <div className="px-4 pb-4 shrink-0">
                     <LastErrorPills />
-                    <div className="flex justify-between mb-2">
+                    <div className="flex justify-between items-center mb-2">
                         <a
                             href="https://github.com/hugalafutro/llm-proxy"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
-                            <BookOpen size={14} strokeWidth={2} />
                             Docs
+                            <BookOpen size={14} strokeWidth={2} />
                         </a>
                         <button
                             type="button"
