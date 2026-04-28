@@ -1,9 +1,10 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Bot, Clock, Info, Zap, Settings } from "lucide-react";
+import { Bot, Clock, Info, Zap, Settings, Maximize2, X } from "lucide-react";
 import type { GenerationParams } from "../api/types";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { formatDuration } from "../utils/format";
 import { MarkdownContent, MARKDOWN_PROSE_CLASSES } from "./MarkdownContent";
+import { Modal } from "./Modal";
 
 export { MARKDOWN_PROSE_CLASSES };
 
@@ -69,6 +70,20 @@ interface ModelReplyCardProps {
     turnNumber?: number;
 }
 
+/** Larger prose classes used in the maximized modal view */
+const MAXIMIZED_PROSE_CLASSES =
+    "prose prose-invert prose-sm max-w-none text-(--text-primary) text-sm " +
+    "[&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5 " +
+    "[&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm " +
+    "[&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs " +
+    "[&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:text-xs " +
+    "[&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-4 [&_blockquote]:text-(--text-secondary) " +
+    "[&_strong]:text-white [&_em]:text-(--text-secondary) " +
+    "[&_a]:text-(--accent) [&_a]:underline " +
+    "[&_hr]:border-(--border-subtle) " +
+    "[&_table]:text-xs [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 " +
+    "[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
+
 export function ModelReplyCard({
     model,
     content,
@@ -98,6 +113,7 @@ export function ModelReplyCard({
     turnNumber,
 }: ModelReplyCardProps) {
     const [elapsed, setElapsed] = useState(0);
+    const [maximized, setMaximized] = useState(false);
 
     // Live elapsed timer while streaming
     useEffect(() => {
@@ -111,6 +127,9 @@ export function ModelReplyCard({
 
     const hasThinking = (thinkingContent || "").length > 0;
     const displayName = shortenModelName ? model.split("/").pop()! : model;
+
+    // Show maximize button only when streaming finished without error and there's content
+    const canMaximize = !isStreaming && !error && content.trim().length > 0;
 
     const hasCustomParams =
         !!params && Object.values(params).some((v) => v !== undefined);
@@ -140,138 +159,244 @@ export function ModelReplyCard({
               : "";
 
     return (
-        <div
-            className={`ui-card transition-all ${stateClass} ${tintClass} ${className || ""}`}
-        >
-            {/* ── Header ── */}
-            {model && (
-                <div
-                    className={`flex items-center justify-between ${headerClassName || ""}`}
-                >
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Bot size={14} className="text-(--accent) shrink-0" />
-                        <div
-                            className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
-                            onClick={onModelNameClick}
-                        >
-                            {onModelNameClick ? (
-                                <span
-                                    className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
-                                    title={model}
-                                >
-                                    {displayName}
-                                </span>
-                            ) : (
-                                <span
-                                    className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
-                                    title={model}
-                                >
-                                    {displayName}
-                                </span>
-                            )}
-                            {showInfoIcon && onModelNameClick && (
-                                <span
-                                    className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all"
-                                    title="Model details"
-                                >
-                                    <Info size={12} />
-                                </span>
-                            )}
-                        </div>
-                        {hasCustomParams && (
-                            <span
-                                className="shrink-0 text-(--accent) cursor-help"
-                                title={paramsTooltip}
+        <>
+            <div
+                className={`ui-card transition-all ${stateClass} ${tintClass} ${className || ""}`}
+            >
+                {/* ── Header ── */}
+                {model && (
+                    <div
+                        className={`flex items-center justify-between ${headerClassName || ""}`}
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Bot
+                                size={14}
+                                className="text-(--accent) shrink-0"
+                            />
+                            <div
+                                className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
+                                onClick={onModelNameClick}
                             >
-                                <Settings size={10} />
-                            </span>
-                        )}
-                        {afterModel}
+                                {onModelNameClick ? (
+                                    <span
+                                        className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+                                        title={model}
+                                    >
+                                        {displayName}
+                                    </span>
+                                ) : (
+                                    <span
+                                        className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+                                        title={model}
+                                    >
+                                        {displayName}
+                                    </span>
+                                )}
+                                {showInfoIcon && onModelNameClick && (
+                                    <span
+                                        className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all"
+                                        title="Model details"
+                                    >
+                                        <Info size={12} />
+                                    </span>
+                                )}
+                            </div>
+                            {hasCustomParams && (
+                                <span
+                                    className="shrink-0 text-(--accent) cursor-help"
+                                    title={paramsTooltip}
+                                >
+                                    <Settings size={10} />
+                                </span>
+                            )}
+                            {afterModel}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {turnNumber != null && (
+                                <span className="text-[11px] text-(--text-tertiary) tabular-nums">
+                                    Turn {turnNumber}
+                                </span>
+                            )}
+                            {canMaximize && (
+                                <button
+                                    onClick={() => setMaximized(true)}
+                                    className="p-1 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                                    title="Maximize reply"
+                                >
+                                    <Maximize2 size={14} />
+                                </button>
+                            )}
+                            {headerEnd}
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        {turnNumber != null && (
-                            <span className="text-[11px] text-(--text-tertiary) tabular-nums">
-                                Turn {turnNumber}
-                            </span>
-                        )}
-                        {headerEnd}
-                    </div>
-                </div>
-            )}
+                )}
 
-            {/* ── Body ── */}
-            <div className={bodyClassName || ""}>
-                {error && !content ? (
-                    <div className="text-red-400 text-xs">{error}</div>
-                ) : (
-                    <>
+                {/* ── Body ── */}
+                <div className={bodyClassName || ""}>
+                    {error && !content ? (
+                        <div className="text-red-400 text-xs">{error}</div>
+                    ) : (
+                        <>
+                            {hasThinking && (
+                                <ThinkingBlock
+                                    thinking={thinkingContent!}
+                                    isStreaming={isStreaming && !content}
+                                />
+                            )}
+                            {content ? (
+                                <MarkdownContent>{content}</MarkdownContent>
+                            ) : !hasThinking && isStreaming ? (
+                                <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
+                                    Waiting…
+                                </div>
+                            ) : null}
+                            {error && content && (
+                                <div className="mt-3 px-3 py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
+                                    ⚠ {error}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* ── Footer ── */}
+                <div
+                    className={`flex items-center justify-between text-[11px] text-(--text-tertiary) shrink-0 ${footerClassName || ""}`}
+                >
+                    <div className="flex items-center gap-3">
+                        {footerStart}
+                        {personaName && (
+                            <span
+                                className="text-[11px] text-(--accent) cursor-help truncate max-w-30"
+                                title={personaTooltip || personaName}
+                            >
+                                {personaName}
+                            </span>
+                        )}
+                        {isStreaming && startTimeMs && startTimeMs !== 0 ? (
+                            <span className="flex items-center gap-1 tabular-nums">
+                                <Clock size={10} />
+                                {elapsed}s
+                            </span>
+                        ) : metrics ? (
+                            <>
+                                <span className="flex items-center gap-1">
+                                    <Clock size={10} />
+                                    {formatDuration(metrics.durationMs)}
+                                </span>
+                                {metrics.charsPerSecond !== null && (
+                                    <span className="flex items-center gap-1">
+                                        <Zap size={10} />
+                                        {metrics.charsPerSecond.toFixed(1)}{" "}
+                                        chars/s
+                                    </span>
+                                )}
+                                {metrics.promptTokens +
+                                    metrics.completionTokens >
+                                    0 && (
+                                    <span>
+                                        {metrics.promptTokens +
+                                            metrics.completionTokens}{" "}
+                                        tok
+                                    </span>
+                                )}
+                            </>
+                        ) : null}
+                    </div>
+                    {footerEnd}
+                </div>
+            </div>
+
+            {/* ── Maximized Modal ── */}
+            {maximized && (
+                <Modal
+                    onClose={() => setMaximized(false)}
+                    maxWidth="max-w-4xl"
+                    zIndex="z-50"
+                >
+                    {/* Modal header */}
+                    <div className="flex items-center justify-between mb-4 -mt-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Bot
+                                size={18}
+                                className="text-(--accent) shrink-0"
+                            />
+                            <span
+                                className="text-base font-medium text-(--text-primary) truncate"
+                                title={model}
+                            >
+                                {displayName}
+                            </span>
+                            {hasCustomParams && (
+                                <span
+                                    className="shrink-0 text-(--accent) cursor-help"
+                                    title={paramsTooltip}
+                                >
+                                    <Settings size={12} />
+                                </span>
+                            )}
+                            {afterModel}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            {personaName && (
+                                <span
+                                    className="text-xs text-(--accent) cursor-help truncate max-w-40"
+                                    title={personaTooltip || personaName}
+                                >
+                                    {personaName}
+                                </span>
+                            )}
+                            {metrics && (
+                                <>
+                                    <span className="text-xs text-(--text-tertiary) flex items-center gap-1">
+                                        <Clock size={12} />
+                                        {formatDuration(metrics.durationMs)}
+                                    </span>
+                                    {metrics.charsPerSecond !== null && (
+                                        <span className="text-xs text-(--text-tertiary) flex items-center gap-1">
+                                            <Zap size={12} />
+                                            {metrics.charsPerSecond.toFixed(
+                                                1,
+                                            )}{" "}
+                                            chars/s
+                                        </span>
+                                    )}
+                                    {metrics.promptTokens +
+                                        metrics.completionTokens >
+                                        0 && (
+                                        <span className="text-xs text-(--text-tertiary)">
+                                            {metrics.promptTokens +
+                                                metrics.completionTokens}{" "}
+                                            tok
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                            <button
+                                onClick={() => setMaximized(false)}
+                                className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                                title="Close"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Modal body — thinking + content */}
+                    <div className="max-h-[70vh] overflow-y-auto pr-1">
                         {hasThinking && (
                             <ThinkingBlock
                                 thinking={thinkingContent!}
-                                isStreaming={isStreaming && !content}
+                                isStreaming={false}
                             />
                         )}
-                        {content ? (
+                        <div className={MAXIMIZED_PROSE_CLASSES}>
                             <MarkdownContent>{content}</MarkdownContent>
-                        ) : !hasThinking && isStreaming ? (
-                            <div className="text-(--text-tertiary) text-xs flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-                                Waiting…
-                            </div>
-                        ) : null}
-                        {error && content && (
-                            <div className="mt-3 px-3 py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
-                                ⚠ {error}
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            {/* ── Footer ── */}
-            <div
-                className={`flex items-center justify-between text-[11px] text-(--text-tertiary) shrink-0 ${footerClassName || ""}`}
-            >
-                <div className="flex items-center gap-3">
-                    {footerStart}
-                    {personaName && (
-                        <span
-                            className="text-[11px] text-(--accent) cursor-help truncate max-w-30"
-                            title={personaTooltip || personaName}
-                        >
-                            {personaName}
-                        </span>
-                    )}
-                    {isStreaming && startTimeMs && startTimeMs !== 0 ? (
-                        <span className="flex items-center gap-1 tabular-nums">
-                            <Clock size={10} />
-                            {elapsed}s
-                        </span>
-                    ) : metrics ? (
-                        <>
-                            <span className="flex items-center gap-1">
-                                <Clock size={10} />
-                                {formatDuration(metrics.durationMs)}
-                            </span>
-                            {metrics.charsPerSecond !== null && (
-                                <span className="flex items-center gap-1">
-                                    <Zap size={10} />
-                                    {metrics.charsPerSecond.toFixed(1)} chars/s
-                                </span>
-                            )}
-                            {metrics.promptTokens + metrics.completionTokens >
-                                0 && (
-                                <span>
-                                    {metrics.promptTokens +
-                                        metrics.completionTokens}{" "}
-                                    tok
-                                </span>
-                            )}
-                        </>
-                    ) : null}
-                </div>
-                {footerEnd}
-            </div>
-        </div>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+        </>
     );
 }
