@@ -225,11 +225,7 @@ export function AppLogs() {
                         Server application log output
                     </p>
                 </div>
-            </div>
-
-            {/* Pagination above Controls */}
-            {totalItems > 0 && (
-                <div className="flex justify-end pb-2">
+                {totalItems > 0 && (
                     <PaginationBar
                         page={safePage}
                         totalPages={totalPages}
@@ -242,8 +238,8 @@ export function AppLogs() {
                         }}
                         label="entries"
                     />
-                </div>
-            )}
+                )}
+            </div>
 
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">

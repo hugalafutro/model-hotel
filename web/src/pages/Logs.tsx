@@ -578,11 +578,7 @@ function RequestLogs() {
                         Monitor API requests across all providers and keys
                     </p>
                 </div>
-            </div>
-
-            {/* Pagination above Controls */}
-            {displayTotal > 0 && (
-                <div className="flex justify-end pb-2">
+                {displayTotal > 0 && (
                     <PaginationBar
                         page={page}
                         totalPages={Math.ceil(displayTotal / pageSize)}
@@ -595,8 +591,8 @@ function RequestLogs() {
                         }}
                         label="entries"
                     />
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
