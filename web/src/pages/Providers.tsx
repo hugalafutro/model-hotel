@@ -299,7 +299,7 @@ export function Providers() {
         const map = new Map<string, number>();
         if (models) {
             for (const m of models) {
-                if (m.provider_name) {
+                if (m.provider_name && m.enabled) {
                     map.set(
                         m.provider_name,
                         (map.get(m.provider_name) || 0) + 1,

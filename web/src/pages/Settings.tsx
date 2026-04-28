@@ -1365,7 +1365,9 @@ function ProviderDiscoveryList() {
 
     const modelCounts: Record<string, number> = {};
     for (const m of models || []) {
-        modelCounts[m.provider_id] = (modelCounts[m.provider_id] || 0) + 1;
+        if (m.enabled) {
+            modelCounts[m.provider_id] = (modelCounts[m.provider_id] || 0) + 1;
+        }
     }
 
     return (
