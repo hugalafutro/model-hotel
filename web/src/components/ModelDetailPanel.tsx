@@ -128,7 +128,10 @@ export function ModelDetailPanel({
             {/* Header with collapse arrow + cog */}
             <div className="flex items-start justify-between">
                 <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-(--text-primary) leading-tight truncate">
+                    <h3
+                        className="text-sm font-semibold text-(--text-primary) leading-tight truncate"
+                        title={model.display_name || model.model_id}
+                    >
                         {model.display_name || model.model_id}
                     </h3>
                     {!collapsed && model.description && (
