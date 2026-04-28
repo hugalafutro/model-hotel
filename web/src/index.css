@@ -435,6 +435,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
    ============================================= */
 
 .sidebar-quota-panel {
+    margin-top: 0.75rem;
     margin-bottom: 0.5rem;
 }
 
