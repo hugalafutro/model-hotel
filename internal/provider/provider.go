@@ -251,9 +251,12 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func ToResponse(p *Provider) ProviderResponse {
-	maskedKey := "***"
-	if p.MaskedKey != nil && *p.MaskedKey != "" {
-		maskedKey = *p.MaskedKey
+	maskedKey := "N/A"
+	if len(p.EncryptedKey) > 0 {
+		maskedKey = "***"
+		if p.MaskedKey != nil && *p.MaskedKey != "" {
+			maskedKey = *p.MaskedKey
+		}
 	}
 
 	return ProviderResponse{
