@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -231,7 +232,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			err.Error(), false, "internal", nil, 0, "failed",
 		)
 		if logErr != nil {
-			fmt.Printf("TestModel log insert failed: %v\n", logErr)
+			log.Printf("[admin] error: TestModel log insert failed: %v", logErr)
 		}
 
 		writeJSON(w, TestModelResponse{Error: err.Error()})
@@ -265,7 +266,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
 		)
 		if logErr != nil {
-			fmt.Printf("TestModel log insert failed: %v\n", logErr)
+			log.Printf("[admin] error: TestModel log insert failed: %v", logErr)
 		}
 
 		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
@@ -315,7 +316,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "internal", nil, 0, "completed",
 	)
 	if logErr != nil {
-		fmt.Printf("TestModel log insert failed: %v\n", logErr)
+		log.Printf("[admin] error: TestModel log insert failed: %v", logErr)
 	}
 
 	writeJSON(w, TestModelResponse{

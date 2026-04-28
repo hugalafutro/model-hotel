@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -42,11 +43,13 @@ func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, 
 	}
 	wg.Wait()
 
+	available := 0
 	models := make([]*model.Model, 0, len(catalog))
 	for _, r := range results {
 		if !r.available {
 			continue
 		}
+		available++
 		spec := catalog[r.index]
 
 		contextLen := spec.ContextLength
@@ -87,6 +90,8 @@ func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, 
 		})
 	}
 
+	log.Printf("[discovery] zai provider %s: discovered %d/%d models available", provider.ID, available, len(catalog))
+
 	return models, nil
 }
 
@@ -108,17 +113,20 @@ func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, 
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[discovery] error: zai provider %s quota fetch failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch quota: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[discovery] error: zai provider %s quota fetch returned status %d", provider.ID, resp.StatusCode)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
 	var quota ZAIQuotaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
+		log.Printf("[discovery] error: zai provider %s quota decode failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -133,6 +141,7 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 		if attempt > 0 {
 			select {
 			case <-ctx.Done():
+				log.Printf("[discovery] warning: zai model %s availability test failed: context cancelled after %d attempts", modelID, attempt)
 				return false
 			case <-time.After(time.Duration(attempt) * 3 * time.Second):
 			}
@@ -140,6 +149,7 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 
 		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/chat/completions", strings.NewReader(reqBody))
 		if err != nil {
+			log.Printf("[discovery] warning: zai model %s availability test failed: request creation error: %v", modelID, err)
 			return false
 		}
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -153,9 +163,11 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 		resp.Body.Close()
 
 		if resp.StatusCode == 429 {
+			log.Printf("[discovery] zai model %s rate limited (429), retrying", modelID)
 			continue
 		}
 		return resp.StatusCode < 400
 	}
+	log.Printf("[discovery] warning: zai model %s availability test failed after all retries", modelID)
 	return false
 }

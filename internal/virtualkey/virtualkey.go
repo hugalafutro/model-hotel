@@ -2,6 +2,7 @@ package virtualkey
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,6 +107,9 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE virtual_keys SET last_used_at = now() WHERE key_hash = $1`,
 		keyHash)
+	if err != nil {
+		log.Printf("[vkey] error: failed to touch last_used_at: %v", err)
+	}
 	return err
 }
 

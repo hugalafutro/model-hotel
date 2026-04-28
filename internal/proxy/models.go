@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/user/llm-proxy/internal/provider"
@@ -10,6 +11,7 @@ import (
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
+		log.Printf("[proxy] error: failed to list models: %v", err)
 		http.Error(w, "failed to list models", http.StatusInternalServerError)
 		return
 	}
@@ -59,7 +61,9 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	groups, err := h.failoverRepo.GetEnabled(r.Context())
-	if err == nil {
+	if err != nil {
+		log.Printf("[proxy] warning: failed to list failover groups: %v", err)
+	} else {
 		for _, g := range groups {
 			for _, modelUUID := range g.PriorityOrder {
 				entryEnabled := true

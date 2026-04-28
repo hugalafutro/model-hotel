@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -24,17 +25,20 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[discovery] error: openai fetch models failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[discovery] error: openai non-200 status %d for provider %s", resp.StatusCode, provider.ID)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
+		log.Printf("[discovery] error: openai json decode failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -58,5 +62,6 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		})
 	}
 
+	log.Printf("[discovery] openai: discovered %d models for provider %s", len(models), provider.ID)
 	return models, nil
 }

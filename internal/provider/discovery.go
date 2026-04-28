@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,6 +33,7 @@ func NewDiscoveryService() *DiscoveryService {
 func DetectProviderType(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {
+		log.Printf("[discovery] warning: failed to parse base URL %q, falling back to openai", baseURL)
 		return "openai"
 	}
 	host := strings.ToLower(u.Hostname())
@@ -93,6 +95,9 @@ func DetectProviderType(baseURL string) string {
 }
 
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
+	providerType := DetectProviderType(provider.BaseURL)
+	log.Printf("[discovery] starting discovery for provider %s (type=%s)", provider.ID, providerType)
+
 	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
 	// key bytes. When the key is empty, skip decryption and use empty string.
 	var apiKey string
@@ -102,24 +107,33 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		var err error
 		apiKey, err = auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 		if err != nil {
+			log.Printf("[discovery] error: failed to decrypt API key for provider %s: %v", provider.ID, err)
 			return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 		}
 	}
 
-	switch DetectProviderType(provider.BaseURL) {
-	case "nanogpt":
-		return d.discoverNanoGPT(ctx, provider, apiKey)
-	case "zai":
-		return d.discoverZAI(ctx, provider, apiKey)
-	case "deepseek":
-		return d.discoverDeepSeek(ctx, provider, apiKey)
-	case "ollama":
-		return d.discoverOllama(ctx, provider, apiKey)
-	case "opencode-zen":
-		return d.discoverOpenCodeZen(ctx, provider, apiKey)
-	case "opencode-go":
-		return d.discoverOpenCodeGo(ctx, provider, apiKey)
-	default:
-		return d.discoverOpenAI(ctx, provider, apiKey)
+	models, err := func() ([]*model.Model, error) {
+		switch providerType {
+		case "nanogpt":
+			return d.discoverNanoGPT(ctx, provider, apiKey)
+		case "zai":
+			return d.discoverZAI(ctx, provider, apiKey)
+		case "deepseek":
+			return d.discoverDeepSeek(ctx, provider, apiKey)
+		case "ollama":
+			return d.discoverOllama(ctx, provider, apiKey)
+		case "opencode-zen":
+			return d.discoverOpenCodeZen(ctx, provider, apiKey)
+		case "opencode-go":
+			return d.discoverOpenCodeGo(ctx, provider, apiKey)
+		default:
+			return d.discoverOpenAI(ctx, provider, apiKey)
+		}
+	}()
+	if err != nil {
+		return nil, err
 	}
+
+	log.Printf("[discovery] completed for provider %s: %d models found", provider.ID, len(models))
+	return models, nil
 }

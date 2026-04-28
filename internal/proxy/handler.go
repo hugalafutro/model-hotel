@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -65,6 +66,7 @@ func NewHandler(
 func (h *Handler) Close() {
 	if h.upstreamTransport != nil {
 		h.upstreamTransport.CloseIdleConnections()
+		log.Printf("[proxy] closed upstream transport")
 	}
 }
 
@@ -101,6 +103,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
+			log.Printf("[auth] error: missing authorization header from %s", r.RemoteAddr)
 			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 			return
 		}
@@ -109,12 +112,15 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
 		if err != nil {
 			if errors.Is(err, virtualkey.ErrNotFound) {
+				log.Printf("[auth] error: key not found from %s", r.RemoteAddr)
 				http.Error(w, "Invalid virtual key", http.StatusUnauthorized)
 			} else {
+				log.Printf("[auth] error: db lookup failed: %v", err)
 				http.Error(w, "Internal error", http.StatusInternalServerError)
 			}
 			return
 		}
+		log.Printf("[auth] authenticated key=%q", vk.Name)
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
 		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID.String())
 		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)

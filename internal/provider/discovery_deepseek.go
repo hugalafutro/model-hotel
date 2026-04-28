@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -27,6 +28,7 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[discovery] error: deepseek fetch models failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer resp.Body.Close()
@@ -37,11 +39,13 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("[discovery] error: deepseek returned status %d for provider %s", resp.StatusCode, provider.ID)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
+		log.Printf("[discovery] error: deepseek json decode failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -97,6 +101,7 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 		})
 	}
 
+	log.Printf("[discovery] deepseek discovered %d models for provider %s", len(models), provider.ID)
 	return models, nil
 }
 

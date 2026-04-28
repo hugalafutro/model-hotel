@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -62,6 +63,7 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
+		log.Printf("[keycache] warning: decryption failed, possible wrong master key: %v", err)
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
@@ -76,7 +78,12 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 }
 
 func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
-	DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
+	_, err := DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
+	if err != nil {
+		log.Printf("[keycache] error: failed to warm key cache: %v", err)
+		return
+	}
+	log.Printf("[keycache] warmed cache with 1 key")
 }
 
 func startKeyCacheEviction() {

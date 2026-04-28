@@ -2,32 +2,32 @@ package proxy
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 )
 
-func (h *Handler) insertRequestLog(ctx context.Context, log *requestLogData) error {
-	log.id = uuid.New().String()
-	log.requestHash = generateRequestHash()
+func (h *Handler) insertRequestLog(ctx context.Context, logEntry *requestLogData) error {
+	logEntry.id = uuid.New().String()
+	logEntry.requestHash = generateRequestHash()
 	var vkID interface{}
-	if log.virtualKeyID != "" {
-		vkID = log.virtualKeyID
+	if logEntry.virtualKeyID != "" {
+		vkID = logEntry.virtualKeyID
 	}
 	_, err := h.dbPool.Exec(ctx, `
 		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		log.id, log.modelID, log.requestHash, log.streaming, log.virtualKeyName, vkID, log.failoverAttempt, log.state,
+		logEntry.id, logEntry.modelID, logEntry.requestHash, logEntry.streaming, logEntry.virtualKeyName, vkID, logEntry.failoverAttempt, logEntry.state,
 	)
 	return err
 }
 
-func (h *Handler) updateRequestLog(ctx context.Context, log *requestLogData) {
+func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData) {
 	var providerID interface{}
-	if log.providerID != uuid.Nil {
-		providerID = log.providerID
+	if logEntry.providerID != uuid.Nil {
+		providerID = logEntry.providerID
 	}
-	log.latencyMs = log.durationMs - log.proxyOverheadMs
+	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
 
 	tag, err := h.dbPool.Exec(ctx, `
 		UPDATE request_logs SET
@@ -50,15 +50,15 @@ func (h *Handler) updateRequestLog(ctx context.Context, log *requestLogData) {
 			failover_attempt = $17,
 			state = $18
 		WHERE id = $1`,
-		log.id, providerID, log.statusCode, log.durationMs,
-		log.proxyOverheadMs, log.parseMs, log.modelLookupMs, log.providerLookupMs,
-		log.keyDecryptMs, log.ttftMs, log.tokensPerSecond, log.tokensPrompt,
-		log.tokensCompletion, log.tokensPromptCacheHit, log.tokensPromptCacheMiss,
-		log.errorMessage, log.failoverAttempt, log.state, log.latencyMs,
+		logEntry.id, providerID, logEntry.statusCode, logEntry.durationMs,
+		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
+		logEntry.keyDecryptMs, logEntry.ttftMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
+		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
+		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
 	)
 	if err != nil {
-		fmt.Printf("Failed to update request log %s: %v\n", log.id, err)
+		log.Printf("[proxy] error: failed to update request log %s: %v", logEntry.id, err)
 	} else if tag.RowsAffected() == 0 {
-		fmt.Printf("updateRequestLog: no rows affected for log %s (may have been deleted)\n", log.id)
+		log.Printf("[proxy] warning: updateRequestLog no rows affected for log %s (may have been deleted)", logEntry.id)
 	}
 }

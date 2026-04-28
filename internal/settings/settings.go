@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -92,6 +93,7 @@ func (r *Repository) Set(ctx context.Context, key string, value string) error {
 
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
 	if !AllowedSettings[key] {
+		log.Printf("[settings] warning: rejected setting %q not in allowlist", key)
 		return fmt.Errorf("setting %q is not in allowlist", key)
 	}
 	_, err := tx.Exec(ctx, `
@@ -129,6 +131,7 @@ func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool)
 	val := r.GetWithDefault(ctx, key, strconv.FormatBool(defaultValue))
 	b, err := strconv.ParseBool(val)
 	if err != nil {
+		log.Printf("[settings] warning: failed to parse %q as bool, using default %v: %v", key, defaultValue, err)
 		return defaultValue
 	}
 	return b
@@ -138,6 +141,7 @@ func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue t
 	val := r.GetWithDefault(ctx, key, defaultValue.String())
 	d, err := time.ParseDuration(val)
 	if err != nil {
+		log.Printf("[settings] warning: failed to parse %q as duration, using default %v: %v", key, defaultValue, err)
 		return defaultValue
 	}
 	return d
@@ -147,6 +151,7 @@ func (r *Repository) GetFloat(ctx context.Context, key string, defaultValue floa
 	val := r.GetWithDefault(ctx, key, strconv.FormatFloat(defaultValue, 'f', -1, 64))
 	f, err := strconv.ParseFloat(val, 64)
 	if err != nil {
+		log.Printf("[settings] warning: failed to parse %q as float, using default %v: %v", key, defaultValue, err)
 		return defaultValue
 	}
 	return f
@@ -156,6 +161,7 @@ func (r *Repository) GetInt(ctx context.Context, key string, defaultValue int) i
 	val := r.GetWithDefault(ctx, key, strconv.Itoa(defaultValue))
 	i, err := strconv.Atoi(val)
 	if err != nil {
+		log.Printf("[settings] warning: failed to parse %q as int, using default %d: %v", key, defaultValue, err)
 		return defaultValue
 	}
 	return i

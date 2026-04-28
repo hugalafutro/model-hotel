@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -77,4 +78,5 @@ func WarmProviderCache(providers []*Provider) {
 	for _, p := range providers {
 		cacheProvider(p)
 	}
+	log.Printf("[provider] warmed cache with %d providers", len(providers))
 }

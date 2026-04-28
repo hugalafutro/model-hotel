@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 )
 
 func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+	log.Printf("[discovery] starting nanogpt discovery for provider %s", provider.ID)
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models?detailed=true", nil)
 	if err != nil {
@@ -25,17 +27,20 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[discovery] error: nanogpt http request failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[discovery] error: nanogpt returned status %d for provider %s", resp.StatusCode, provider.ID)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
 	var nanoResp NanoGPTDetailedResponse
 	if err := json.NewDecoder(resp.Body).Decode(&nanoResp); err != nil {
+		log.Printf("[discovery] error: failed to decode nanogpt response for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -101,6 +106,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		})
 	}
 
+	log.Printf("[discovery] nanogpt discovered %d models for provider %s", len(models), provider.ID)
 	return models, nil
 }
 

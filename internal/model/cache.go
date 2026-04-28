@@ -1,6 +1,7 @@
 package model
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -19,9 +20,9 @@ type modelByIDCacheEntry struct {
 
 var (
 	modelByModelIDCache = make(map[string]modelCacheEntry)
-	modelByUUIDCache     = make(map[uuid.UUID]modelByIDCacheEntry)
-	modelByCompositeKey  = make(map[string]modelByIDCacheEntry)
-	modelCacheMu         sync.RWMutex
+	modelByUUIDCache    = make(map[uuid.UUID]modelByIDCacheEntry)
+	modelByCompositeKey = make(map[string]modelByIDCacheEntry)
+	modelCacheMu        sync.RWMutex
 )
 
 const modelCacheTTL = 5 * time.Minute
@@ -99,4 +100,5 @@ func WarmModelCache(models []*Model) {
 		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
 	}
 	modelCacheMu.Unlock()
+	log.Printf("[model] warmed cache with %d models", len(models))
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -28,17 +29,20 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[discovery] error: ollama %s: http request failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[discovery] error: ollama %s: unexpected status %d", provider.ID, resp.StatusCode)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
 	var tagsResp OllamaTagsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
+		log.Printf("[discovery] error: ollama %s: json decode failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -70,13 +74,22 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	wg.Wait()
 
 	models := make([]*model.Model, 0, len(tagsResp.Models))
+	skipped := 0
 	for _, r := range results {
 		if r.err != nil {
+			log.Printf("[discovery] warning: ollama %s: show model %q failed: %v", provider.ID, r.modelID, r.err)
+			skipped++
 			continue
 		}
 
 		m := d.buildOllamaModel(provider, r.modelID, r.show)
 		models = append(models, m)
+	}
+
+	if skipped > 0 {
+		log.Printf("[discovery] ollama %s: %d models discovered, %d skipped", provider.ID, len(models), skipped)
+	} else {
+		log.Printf("[discovery] ollama %s: discovered %d models", provider.ID, len(models))
 	}
 
 	return models, nil

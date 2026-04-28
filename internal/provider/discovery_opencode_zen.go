@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -24,6 +25,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[discovery] error: http request failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer resp.Body.Close()
@@ -34,11 +36,13 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("[discovery] error: non-200 status %d from provider %s", resp.StatusCode, provider.ID)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
+		log.Printf("[discovery] error: failed to decode response from provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -48,6 +52,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	for _, m := range openAIResp.Data {
 		spec := LookupOpenCodeCatalog(catalog, m.ID)
 		if spec == nil {
+			log.Printf("[discovery] model %s not in catalog, creating minimal entry", m.ID)
 			// Model exists in API but not in our catalog — create minimal entry
 			// (preserves forward compatibility when new models are added)
 			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
@@ -70,5 +75,6 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 		models = append(models, OpenCodeCatalogToModel(spec, provider.ID))
 	}
 
+	log.Printf("[discovery] opencode-zen: discovered %d models for provider %s", len(models), provider.ID)
 	return models, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -300,6 +301,7 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		var entryEnabledJSON []byte
 		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 			&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
+			log.Printf("[failover] warning: row scan failed: %v", err)
 			return nil, fmt.Errorf("scanFailoverGroups: row scan failed: %w", err)
 		}
 		if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
@@ -462,6 +464,8 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 	}
 
+	log.Printf("[failover] synced %d groups, disabled %d groups", len(syncedBases), len(result.DisabledGroups))
+
 	return result, nil
 }
 
@@ -499,6 +503,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 
 	if len(modelUUIDs) <= 1 {
+		log.Printf("[failover] auto-group disabled for %q: need 2+ providers, found %d", base, len(modelUUIDs))
 		r.disableAutoGroup(ctx, base)
 		return nil
 	}
@@ -527,6 +532,11 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 		}
 	}
 	_, err = r.UpsertWithConfig(ctx, base, modelUUIDs, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
+	if err != nil {
+		log.Printf("[failover] error: failed to sync group for %q: %v", base, err)
+		return err
+	}
+	log.Printf("[failover] synced group for %q with %d providers", base, len(modelUUIDs))
 	return err
 }
 
@@ -538,6 +548,7 @@ func (r *Repository) disableAutoGroup(ctx context.Context, displayModel string) 
 	`, displayModel)
 	if err == nil && tag.RowsAffected() > 0 {
 		InvalidateFailoverCache()
+		log.Printf("[failover] disabled auto-group for %q", displayModel)
 		return true
 	}
 	return false

@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,10 +26,12 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 
 	if !fg.GroupEnabled {
+		log.Printf("[resolve] warning: failover group disabled for model=%s", displayModel)
 		return nil, t, fmt.Errorf("failover group disabled")
 	}
 
 	if len(fg.PriorityOrder) == 0 {
+		log.Printf("[resolve] warning: empty failover group for model=%s", displayModel)
 		return nil, t, fmt.Errorf("no entries in failover group")
 	}
 
@@ -82,11 +85,25 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		}
 
 		m, ok := models[modelUUID]
-		if !ok || !m.Enabled || !m.ProviderEnabled {
+		if !ok {
+			log.Printf("[resolve] skipping candidate: model not found, id=%s", modelUUID)
+			continue
+		}
+		if !m.Enabled {
+			log.Printf("[resolve] skipping candidate: model disabled, model=%s", m.ModelID)
+			continue
+		}
+		if !m.ProviderEnabled {
+			log.Printf("[resolve] skipping candidate: provider disabled, model=%s", m.ModelID)
 			continue
 		}
 		prov, ok := providers[m.ProviderID]
-		if !ok || !prov.Enabled {
+		if !ok {
+			log.Printf("[resolve] skipping candidate: provider not found, provider_id=%s model=%s", m.ProviderID, m.ModelID)
+			continue
+		}
+		if !prov.Enabled {
+			log.Printf("[resolve] skipping candidate: provider disabled, provider=%s model=%s", prov.Name, m.ModelID)
 			continue
 		}
 		// Keyless providers store nil encrypted key bytes — skip decryption.
@@ -99,6 +116,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
 			if err != nil {
+				log.Printf("[resolve] error: key decryption failed for provider=%s: %v", prov.Name, err)
 				continue
 			}
 		}
@@ -128,6 +146,12 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	}
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
+	if !m.Enabled {
+		log.Printf("[resolve] model disabled: model=%s provider=%s", modelID, providerName)
+	}
+	if !prov.Enabled {
+		log.Printf("[resolve] provider disabled: provider=%s model=%s", providerName, modelID)
+	}
 	if !m.Enabled || !prov.Enabled {
 		return nil, t, fmt.Errorf("model or provider disabled")
 	}
@@ -143,6 +167,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 		t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
 		if err != nil {
+			log.Printf("[resolve] error: key decryption failed for provider=%s: %v", prov.Name, err)
 			return nil, t, err
 		}
 	}
@@ -152,12 +177,16 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 
 func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode >= 500 {
+		log.Printf("[resolve] failover decision: status=%d (5xx → failover)", statusCode)
 		return true
 	}
 	if statusCode == 429 {
-		return h.settingsRepo.GetBool(ctx, "failover_on_rate_limit", true)
+		enabled := h.settingsRepo.GetBool(ctx, "failover_on_rate_limit", true)
+		log.Printf("[resolve] failover decision: status=429 rate_limit_failover=%v", enabled)
+		return enabled
 	}
 	if statusCode == 401 || statusCode == 403 {
+		log.Printf("[resolve] failover decision: status=%d (auth error → failover)", statusCode)
 		return true
 	}
 	return false

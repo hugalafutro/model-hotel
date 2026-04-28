@@ -1,6 +1,7 @@
 package events
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -45,7 +46,7 @@ func (b *Bus) Publish(event Event) {
 		select {
 		case ch <- event:
 		default:
-			// drop if subscriber can't keep up
+			log.Printf("[events] warning: event %q dropped, subscriber too slow", event.Type)
 		}
 	}
 }

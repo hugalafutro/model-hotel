@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -102,6 +103,7 @@ logUpdate:
 	}
 	if clientDisconnected {
 		errMsg = "client disconnected"
+		log.Printf("[proxy] warning: client disconnected during streaming, model=%s", logData.modelID)
 	}
 
 	logData.statusCode = resp.StatusCode
@@ -125,6 +127,10 @@ logUpdate:
 		logData.state = "completed"
 	}
 	h.updateRequestLog(r.Context(), logData)
+
+	if errMsg == "" {
+		log.Printf("[proxy] streaming completed, model=%s provider=%s attempt=%d ttft=%.1fms duration=%.1fms", logData.modelID, logData.providerID, attempt, ttft, totalDuration)
+	}
 
 	if vkHash != "" && !clientDisconnected {
 		totalTokens := promptTokens + completionTokens
@@ -210,6 +216,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
+		log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s", resp.StatusCode, logData.modelID, logData.providerID)
 		http.Error(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
 }
@@ -225,6 +232,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		var err error
 		bodyBytes, err = io.ReadAll(r.Body)
 		if err != nil {
+			log.Printf("[proxy] warning: failed to read request body: %v", err)
 			http.Error(w, "failed to read request body", http.StatusBadRequest)
 			return
 		}
@@ -233,6 +241,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		log.Printf("[proxy] warning: failed to parse request body: %v", err)
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -256,6 +265,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		vkHash = v.(string)
 	}
 
+	log.Printf("[proxy] request start model=%s stream=%v key=%q", req.Model, req.Stream, vkName)
+
 	logData := &requestLogData{
 		modelID:         req.Model,
 		streaming:       req.Stream,
@@ -265,7 +276,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		state:           "pending",
 	}
 	if err := h.insertRequestLog(r.Context(), logData); err != nil {
-		fmt.Printf("Failed to insert initial request log: %v\n", err)
+		log.Printf("[proxy] error: failed to insert initial request log: %v", err)
 	}
 
 	var candidates []modelCandidate
@@ -363,6 +374,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var lastErr string
 	for attempt, candidate := range candidates {
 		logData.providerID = candidate.provider.ID
+		log.Printf("[proxy] failover attempt=%d provider=%s model=%s", attempt+1, candidate.provider.ID, candidate.model.ModelID)
 		go func(pid uuid.UUID) {
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
@@ -413,6 +425,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			io.ReadAll(resp.Body)
 			resp.Body.Close()
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
+			log.Printf("[proxy] failover triggered: attempt=%d provider=%s status=%d", attempt+1, candidate.provider.ID, resp.StatusCode)
 			logData.failoverAttempt = attempt
 			continue
 		}
@@ -424,6 +437,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			if len(errMsg) > 500 {
 				errMsg = errMsg[:500]
 			}
+			log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s", resp.StatusCode, req.Model, candidate.provider.ID)
 			logData.statusCode = resp.StatusCode
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.proxyOverheadMs = proxyOverhead
@@ -449,6 +463,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[proxy] error: all providers exhausted for model=%s: %s", req.Model, lastErr)
 	logData.providerID = uuid.Nil
 	logData.statusCode = 502
 	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
