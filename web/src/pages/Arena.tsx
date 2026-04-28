@@ -583,6 +583,19 @@ export function Arena() {
         }
     }, [activePromptId]);
 
+    const handleRandomPrompt = useCallback(() => {
+        const available = ARENA_PROMPTS.filter((p) => p.id !== activePromptId);
+        if (available.length === 0) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        if (prompt.trim() && activePromptId === null) {
+            setPendingPrompt(pick);
+            return;
+        }
+        setPrompt(pick.prompt);
+        setActivePromptId(pick.id);
+        autoExpandTextarea(promptRef);
+    }, [activePromptId, prompt, autoExpandTextarea]);
+
     const handlePromptChange = useCallback(
         (value: string) => {
             setPrompt(value);
@@ -593,6 +606,14 @@ export function Arena() {
         },
         [activePromptId],
     );
+
+    const handleRandomComparePersona = useCallback(() => {
+        const available = CHAT_PERSONAS.filter((p) => p.id !== comparePersonaId);
+        if (available.length === 0) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        setComparePersonaId(pick.id);
+        setComparePersonaPrompt(pick.systemPrompt);
+    }, [comparePersonaId, setComparePersonaId, setComparePersonaPrompt]);
 
     const streamModel = useCallback(
         (
@@ -1553,6 +1574,7 @@ export function Arena() {
                                             onSystemPromptChange={
                                                 setComparePersonaPrompt
                                             }
+                                            onRandom={handleRandomComparePersona}
                                             textareaPlaceholder="Optional system prompt applied to all models…"
                                             wrap
                                         />
@@ -1571,6 +1593,7 @@ export function Arena() {
                                         activeId={activePromptId}
                                         onSelect={handlePromptPresetSelect}
                                         onCustom={handleCustomPrompt}
+                                        onRandom={handleRandomPrompt}
                                     />
                                 )}
                                 <textarea
@@ -2345,6 +2368,25 @@ function MatchupCard({
                                 } as import("../data/presets").PersonaPreset);
                                 return;
                             }
+                        }}
+                        onRandom={() => {
+                            const available = CHAT_PERSONAS.filter((p) => p.id !== slot.personaId);
+                            if (available.length === 0) return;
+                            const pick = available[Math.floor(Math.random() * available.length)];
+                            if (
+                                slot.personaPrompt.trim() &&
+                                slot.personaId === null
+                            ) {
+                                setPendingPersona(pick);
+                                return;
+                            }
+                            onPersonaChange(
+                                roundIdx,
+                                matchupIdx,
+                                slotKey,
+                                pick.id,
+                                pick.systemPrompt,
+                            );
                         }}
                         customLabel="✏️"
                     />

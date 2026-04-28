@@ -1,3 +1,5 @@
+import { Dices } from "lucide-react";
+
 interface PresetItem {
     id: string;
     icon: string;
@@ -9,6 +11,7 @@ interface PresetBarProps<T extends PresetItem> {
     activeId: string | null;
     onSelect: (item: T) => void;
     onCustom?: () => void;
+    onRandom?: () => void;
     customLabel?: string;
     /** When true, buttons wrap to multiple rows instead of scrolling horizontally */
     wrap?: boolean;
@@ -19,6 +22,7 @@ export function PresetBar<T extends PresetItem>({
     activeId,
     onSelect,
     onCustom,
+    onRandom,
     customLabel = "✏️Custom",
     wrap = false,
 }: PresetBarProps<T>) {
@@ -28,6 +32,16 @@ export function PresetBar<T extends PresetItem>({
                 wrap ? "flex-wrap" : "overflow-x-auto pb-1 scrollbar-none"
             }`}
         >
+            {onRandom && (
+                <button
+                    type="button"
+                    onClick={onRandom}
+                    title="Random"
+                    className="ui-btn ui-btn-compact whitespace-nowrap ui-btn-secondary cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent) transition-colors"
+                >
+                    <Dices size={11} />
+                </button>
+            )}
             <button
                 type="button"
                 onClick={onCustom}

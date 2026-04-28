@@ -24,6 +24,8 @@ interface PersonaPickerProps {
     disabled?: boolean;
     /** When true, persona buttons wrap to multiple rows instead of scrolling horizontally */
     wrap?: boolean;
+    /** Called when the random button is clicked */
+    onRandom?: () => void;
 }
 
 export function PersonaPicker({
@@ -37,6 +39,7 @@ export function PersonaPicker({
     className,
     disabled = false,
     wrap = false,
+    onRandom,
 }: PersonaPickerProps) {
     const [pendingPersona, setPendingPersona] = useState<PersonaPreset | null>(
         null,
@@ -136,6 +139,7 @@ export function PersonaPicker({
                 activeId={activePersonaId}
                 onSelect={handleSelect}
                 onCustom={handleCustom}
+                onRandom={onRandom}
                 wrap={wrap}
             />
             <textarea

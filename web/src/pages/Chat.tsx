@@ -404,6 +404,23 @@ export function Chat() {
     const setMessageParams =
         chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
+    const handleRandomPersona = useCallback(() => {
+        const currentId = chatSubMode === "chat" ? chatActivePersonaId : conversationActivePersonaIdA;
+        const available = CHAT_PERSONAS.filter((p) => p.id !== currentId);
+        if (available.length === 0) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        setActivePersonaId(pick.id);
+        setSystemPrompt(pick.systemPrompt);
+    }, [chatSubMode, chatActivePersonaId, conversationActivePersonaIdA, setActivePersonaId, setSystemPrompt]);
+
+    const handleRandomPersonaB = useCallback(() => {
+        const available = CHAT_PERSONAS.filter((p) => p.id !== activePersonaIdB);
+        if (available.length === 0) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        setActivePersonaIdB(pick.id);
+        setSystemPromptB(pick.systemPrompt);
+    }, [activePersonaIdB, setActivePersonaIdB, setSystemPromptB]);
+
     // Reset conversation state when chatSubMode changes (e.g. sidebar click),
     // but skip the initial mount so we don't wipe persisted messages.
     const prevChatSubModeRef = useRef(chatSubMode);
@@ -1272,15 +1289,16 @@ export function Chat() {
                                         multi={false}
                                         providers={providerData}
                                     />
-                                    <PersonaPicker
-                                        personas={CHAT_PERSONAS}
-                                        activePersonaId={activePersonaId}
-                                        systemPrompt={systemPrompt}
-                                        onActivePersonaChange={
-                                            setActivePersonaId
-                                        }
-                                        onSystemPromptChange={setSystemPrompt}
-                                    />
+<PersonaPicker
+                                         personas={CHAT_PERSONAS}
+                                         activePersonaId={activePersonaId}
+                                         systemPrompt={systemPrompt}
+                                         onActivePersonaChange={
+                                             setActivePersonaId
+                                         }
+                                         onSystemPromptChange={setSystemPrompt}
+                                         onRandom={handleRandomPersona}
+                                     />
                                 </>
                             ) : (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1299,24 +1317,25 @@ export function Chat() {
                                             }
                                         />
                                         <div className="mt-3">
-                                            <PersonaPicker
-                                                personas={CHAT_PERSONAS}
-                                                activePersonaId={
-                                                    activePersonaId
-                                                }
-                                                systemPrompt={systemPrompt}
-                                                onActivePersonaChange={
-                                                    setActivePersonaId
-                                                }
-                                                onSystemPromptChange={
-                                                    setSystemPrompt
-                                                }
-                                                label="Persona A"
-                                                disabled={
-                                                    conversationState ===
-                                                    "running"
-                                                }
-                                            />
+<PersonaPicker
+                                                 personas={CHAT_PERSONAS}
+                                                 activePersonaId={
+                                                     activePersonaId
+                                                 }
+                                                 systemPrompt={systemPrompt}
+                                                 onActivePersonaChange={
+                                                     setActivePersonaId
+                                                 }
+                                                 onSystemPromptChange={
+                                                     setSystemPrompt
+                                                 }
+                                                 onRandom={handleRandomPersona}
+                                                 label="Persona A"
+                                                 disabled={
+                                                     conversationState ===
+                                                     "running"
+                                                 }
+                                             />
                                         </div>
                                     </div>
                                     <div>
@@ -1334,24 +1353,25 @@ export function Chat() {
                                             }
                                         />
                                         <div className="mt-3">
-                                            <PersonaPicker
-                                                personas={CHAT_PERSONAS}
-                                                activePersonaId={
-                                                    activePersonaIdB
-                                                }
-                                                systemPrompt={systemPromptB}
-                                                onActivePersonaChange={
-                                                    setActivePersonaIdB
-                                                }
-                                                onSystemPromptChange={
-                                                    setSystemPromptB
-                                                }
-                                                label="Persona B"
-                                                disabled={
-                                                    conversationState ===
-                                                    "running"
-                                                }
-                                            />
+<PersonaPicker
+                                                 personas={CHAT_PERSONAS}
+                                                 activePersonaId={
+                                                     activePersonaIdB
+                                                 }
+                                                 systemPrompt={systemPromptB}
+                                                 onActivePersonaChange={
+                                                     setActivePersonaIdB
+                                                 }
+                                                 onSystemPromptChange={
+                                                     setSystemPromptB
+                                                 }
+                                                 onRandom={handleRandomPersonaB}
+                                                 label="Persona B"
+                                                 disabled={
+                                                     conversationState ===
+                                                     "running"
+                                                 }
+                                             />
                                         </div>
                                     </div>
                                 </div>
