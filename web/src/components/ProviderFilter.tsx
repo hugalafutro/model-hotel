@@ -73,7 +73,7 @@ export function ProviderFilter({
 
     const triggerLabel =
         selected.size === 0
-            ? "All providers"
+            ? "All"
             : selected.size === 1
               ? (providers?.find((p) => p.id === Array.from(selected)[0])
                     ?.name ?? "1 provider")
@@ -132,7 +132,11 @@ export function ProviderFilter({
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search providers…"
-                                className="ui-input text-xs h-8 pl-7 pr-6 w-full"
+                                className="ui-input text-xs h-8 pl-8 pr-6 w-full"
+                                style={{
+                                    fontFamily:
+                                        "var(--font-mono), ui-monospace, monospace",
+                                }}
                                 onKeyDown={(e) => {
                                     if (e.key === "Escape") {
                                         setSearch("");
@@ -175,7 +179,13 @@ export function ProviderFilter({
                     {/* List */}
                     <div className="max-h-48 overflow-y-auto px-1">
                         {filtered.length === 0 ? (
-                            <div className="px-2.5 py-3 text-xs text-(--text-muted) text-center">
+                            <div
+                                className="px-2.5 py-3 text-xs text-(--text-muted) text-center"
+                                style={{
+                                    fontFamily:
+                                        "var(--font-mono), ui-monospace, monospace",
+                                }}
+                            >
                                 No providers found
                             </div>
                         ) : (
@@ -187,6 +197,10 @@ export function ProviderFilter({
                                         type="button"
                                         onClick={() => toggle(provider.id)}
                                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+                                        style={{
+                                            fontFamily:
+                                                "var(--font-mono), ui-monospace, monospace",
+                                        }}
                                     >
                                         <span
                                             className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${isSelected ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}

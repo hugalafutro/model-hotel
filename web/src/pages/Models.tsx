@@ -1209,12 +1209,12 @@ export function Models() {
             <div className="ui-card overflow-hidden">
                 <table className="min-w-full table-fixed ui-table">
                     <colgroup>
-                        <col className="w-[22%]" />
+                        <col className="w-[32%]" />
                         <col className="w-[26%]" />
-                        <col className="w-[12%]" />
-                        <col className="w-[11%]" />
-                        <col className="w-[9%]" />
-                        <col className="w-[9%]" />
+                        <col className="w-[17%]" />
+                        <col className="w-[6%]" />
+                        <col className="w-[4%]" />
+                        <col className="w-[4%]" />
                         <col className="w-[11%]" />
                     </colgroup>
                     <thead>
