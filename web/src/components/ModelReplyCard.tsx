@@ -4,6 +4,9 @@ import type { GenerationParams } from "../api/types";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { formatDuration } from "../utils/format";
 import { MarkdownContent, MARKDOWN_PROSE_CLASSES } from "./MarkdownContent";
+import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Modal } from "./Modal";
 
 export { MARKDOWN_PROSE_CLASSES };
@@ -83,6 +86,15 @@ const MAXIMIZED_PROSE_CLASSES =
     "[&_hr]:border-(--border-subtle) " +
     "[&_table]:text-sm [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 " +
     "[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
+
+/** Shared markdown renderer components (external links open in new tab) */
+const mdComponents: Components = {
+    a: ({ children, ...props }) => (
+        <a {...props} target="_blank" rel="noopener noreferrer">
+            {children}
+        </a>
+    ),
+};
 
 export function ModelReplyCard({
     model,
@@ -312,7 +324,7 @@ export function ModelReplyCard({
             {maximized && (
                 <Modal
                     onClose={() => setMaximized(false)}
-                    maxWidth="max-w-6xl"
+                    maxWidth="max-w-5xl"
                     zIndex="z-50"
                 >
                     {/* Modal header */}
@@ -392,7 +404,12 @@ export function ModelReplyCard({
                             />
                         )}
                         <div className={MAXIMIZED_PROSE_CLASSES}>
-                            <MarkdownContent>{content}</MarkdownContent>
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={mdComponents}
+                            >
+                                {content}
+                            </ReactMarkdown>
                         </div>
                     </div>
                 </Modal>
