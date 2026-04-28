@@ -117,10 +117,10 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 }
 
 func (w *dbLogWriter) write(entry AppLogEntry) {
+	defer func() { recover() }()
 	select {
 	case w.ch <- entry:
 	default:
-		// Channel full — drop the entry (ring buffer still has it)
 	}
 }
 
@@ -129,8 +129,6 @@ func (w *dbLogWriter) stop() {
 	<-w.done
 }
 
-// InitAppLogBuffer creates the global log buffer and redirects log output
-// so that all standard library log calls are captured.  Call once at startup.
 func InitAppLogBuffer(pool *pgxpool.Pool) {
 	appLogBuffer = &ringBuffer{
 		entries: make([]AppLogEntry, appLogBufferSize),
@@ -141,11 +139,11 @@ func InitAppLogBuffer(pool *pgxpool.Pool) {
 	log.SetOutput(io.MultiWriter(os.Stderr, appLogBuffer))
 }
 
-// StopAppLogWriter flushes pending DB log writes and stops the background
-// writer goroutine. Call before closing the database pool on shutdown.
 func StopAppLogWriter() {
 	if dbWriter != nil {
-		dbWriter.stop()
+		w := dbWriter
+		dbWriter = nil
+		w.stop()
 	}
 }
 
@@ -174,8 +172,8 @@ func (rb *ringBuffer) Write(p []byte) (n int, err error) {
 			rb.count++
 		}
 		rb.mu.Unlock()
-		if dbWriter != nil {
-			dbWriter.write(entry)
+		if w := dbWriter; w != nil {
+			w.write(entry)
 		}
 	}
 	return len(p), nil
