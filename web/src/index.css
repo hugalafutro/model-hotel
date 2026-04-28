@@ -1170,6 +1170,10 @@ html.light .text-red-400 {
     color: #dc2626;
 }
 
+html.light .text-orange-400 {
+    color: #ea580c;
+}
+
 html.light .border-green-700 {
     border-color: #059669;
 }

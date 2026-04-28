@@ -151,7 +151,19 @@ function SystemStatus() {
         ? docker.disk_write_bytes_sec
         : app?.disk_write_bytes_sec;
 
+    const dc = (v: number | undefined, w: number, c: number, inv?: boolean) => {
+        if (v == null) return "";
+        const bad = inv ? v <= c : v >= c;
+        const warn = inv ? v <= w : v >= w;
+        return bad ? "text-red-400" : warn ? "text-orange-400" : "";
+    };
+
     const dockerMem = useDocker && docker.memory_limit_bytes > 0;
+    const memUsagePct = dockerMem
+        ? (docker.memory_usage_bytes / docker.memory_limit_bytes) * 100
+        : hasLimit && app?.memory_limit_bytes
+          ? (app.memory_current_bytes / app.memory_limit_bytes) * 100
+          : undefined;
     const appMem = dockerMem ? (
         <>
             {formatMB(docker.memory_usage_bytes / 1024 / 1024)} /{" "}
@@ -212,7 +224,7 @@ function SystemStatus() {
                 }
             >
                 <span>CPU</span>
-                <span className="text-(--text-secondary)">
+                <span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
                     {cpuPct != null && cpuPct >= 0 ? (
                         <>
                             <span>
@@ -308,7 +320,7 @@ function SystemStatus() {
                 }
             >
                 <span>Memory</span>
-                <span className="text-(--text-secondary)">
+                <span className={`text-(--text-secondary) ${dc(memUsagePct, 75, 90)}`}>
                     {app ? appMem : dash}
                 </span>
             </div>
@@ -319,7 +331,7 @@ function SystemStatus() {
                 title="Active Go runtime goroutines (lightweight threads)"
             >
                 <span>Go routines</span>
-                <span className="text-(--text-secondary)">
+                <span className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}>
                     {app ? app.goroutines.toLocaleString() : dash}
                 </span>
             </div>
@@ -359,7 +371,7 @@ function SystemStatus() {
                             <span className="text-(--text-secondary) mx-1">
                                 |
                             </span>
-                            <span className="text-(--text-secondary)">
+                            <span className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}>
                                 Hit {stats.db.cache_hit_ratio}
                                 <span className={u}>%</span>
                             </span>
