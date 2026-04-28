@@ -18,6 +18,7 @@ import {
     CircleStop,
     Copy,
     Columns3,
+    GitCompare,
     Settings,
 } from "lucide-react";
 import {
@@ -1377,12 +1378,22 @@ export function Arena() {
             {/* Header */}
             <div>
                 <div className="flex items-center gap-3">
-                    <Swords
-                        size={28}
-                        strokeWidth={2}
-                        className="text-(--accent)"
-                    />
-                    <h1 className="text-3xl font-bold text-white">Arena</h1>
+                    {arenaMode === "competition" ? (
+                        <Swords
+                            size={28}
+                            strokeWidth={2}
+                            className="text-(--accent)"
+                        />
+                    ) : (
+                        <GitCompare
+                            size={28}
+                            strokeWidth={2}
+                            className="text-(--accent)"
+                        />
+                    )}
+                    <h1 className="text-3xl font-bold text-white">
+                        {arenaMode === "competition" ? "Arena" : "Compare"}
+                    </h1>
                 </div>
                 <p className="text-gray-400">
                     {arenaMode === "competition"

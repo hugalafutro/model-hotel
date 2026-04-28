@@ -60,6 +60,7 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterModels(r)
 	h.RegisterProviderDiscovery(r)
 	h.RegisterLogs(r)
+	h.RegisterAppLogs(r)
 	h.RegisterSettings(r)
 	h.RegisterVirtualKeys(r)
 

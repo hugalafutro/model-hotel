@@ -77,6 +77,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	api.InitAppLogBuffer()
 	log.Printf("Starting Model Hotel with configuration:\n%s", cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())

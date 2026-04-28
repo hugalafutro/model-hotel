@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
     MessageSquare,
+    MessagesSquare,
     Send,
     X,
     Bot,
@@ -1151,12 +1152,22 @@ export function Chat() {
             <div className="flex justify-between items-center shrink-0">
                 <div>
                     <div className="flex items-center gap-3">
-                        <MessageSquare
-                            size={28}
-                            strokeWidth={2}
-                            className="text-(--accent)"
-                        />
-                        <h1 className="text-3xl font-bold text-white">Chat</h1>
+                        {chatSubMode === "chat" ? (
+                            <MessageSquare
+                                size={28}
+                                strokeWidth={2}
+                                className="text-(--accent)"
+                            />
+                        ) : (
+                            <MessagesSquare
+                                size={28}
+                                strokeWidth={2}
+                                className="text-(--accent)"
+                            />
+                        )}
+                        <h1 className="text-3xl font-bold text-white">
+                            {chatSubMode === "chat" ? "Chat" : "Conversation"}
+                        </h1>
                     </div>
                     <p className="text-gray-400">
                         {chatSubMode === "chat"

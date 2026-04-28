@@ -20,6 +20,12 @@ import type {
     SyncResult,
 } from "./types";
 
+export interface AppLogEntry {
+    timestamp: string;
+    level: "info" | "warning" | "error";
+    message: string;
+}
+
 export const API_BASE = "";
 
 let adminToken: string | null = null;
@@ -325,6 +331,35 @@ export const api = {
                     `Failed to purge logs: ${response.status} ${text}`,
                 );
             }
+        },
+    },
+
+    appLogs: {
+        list: async (params?: {
+            limit?: number;
+            after?: string;
+        }): Promise<AppLogEntry[]> => {
+            const searchParams = new URLSearchParams();
+            if (params?.limit) {
+                searchParams.append("limit", params.limit.toString());
+            }
+            if (params?.after) {
+                searchParams.append("after", params.after);
+            }
+
+            const qs = searchParams.toString();
+            const url = `${API_BASE}/api/logs/app${qs ? `?${qs}` : ""}`;
+
+            const response = await fetch(url, {
+                headers: getAuthHeaders(),
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    `Failed to fetch app logs: ${response.status} ${text}`,
+                );
+            }
+            return response.json();
         },
     },
 

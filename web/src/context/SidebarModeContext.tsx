@@ -1,13 +1,22 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import {
+    createContext,
+    useContext,
+    useState,
+    useCallback,
+    type ReactNode,
+} from "react";
 
 export type ChatSubMode = "chat" | "conversation";
 export type ArenaSubMode = "competition" | "compare";
+export type LogsSubMode = "request" | "app";
 
 interface SidebarModeContextType {
     chatSubMode: ChatSubMode;
     setChatSubMode: (v: ChatSubMode) => void;
     arenaSubMode: ArenaSubMode;
     setArenaSubMode: (v: ArenaSubMode) => void;
+    logsSubMode: LogsSubMode;
+    setLogsSubMode: (v: LogsSubMode) => void;
 }
 
 const SidebarModeContext = createContext<SidebarModeContextType>({
@@ -15,6 +24,8 @@ const SidebarModeContext = createContext<SidebarModeContextType>({
     setChatSubMode: () => {},
     arenaSubMode: "competition",
     setArenaSubMode: () => {},
+    logsSubMode: "request",
+    setLogsSubMode: () => {},
 });
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -24,6 +35,7 @@ export function useSidebarMode() {
 
 const CHAT_SUB_MODE_KEY = "sidebarChatSubMode";
 const ARENA_SUB_MODE_KEY = "sidebarArenaSubMode";
+const LOGS_SUB_MODE_KEY = "sidebarLogsSubMode";
 
 export function SidebarModeProvider({ children }: { children: ReactNode }) {
     const [chatSubMode, setChatSubModeState] = useState<ChatSubMode>(() => {
@@ -46,6 +58,16 @@ export function SidebarModeProvider({ children }: { children: ReactNode }) {
         }
     });
 
+    const [logsSubMode, setLogsSubModeState] = useState<LogsSubMode>(() => {
+        try {
+            const v = localStorage.getItem(LOGS_SUB_MODE_KEY);
+            if (v === "app") return "app";
+            return "request";
+        } catch {
+            return "request";
+        }
+    });
+
     const setChatSubMode = useCallback((v: ChatSubMode) => {
         setChatSubModeState(v);
         try {
@@ -64,6 +86,15 @@ export function SidebarModeProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    const setLogsSubMode = useCallback((v: LogsSubMode) => {
+        setLogsSubModeState(v);
+        try {
+            localStorage.setItem(LOGS_SUB_MODE_KEY, v);
+        } catch {
+            /* ignore */
+        }
+    }, []);
+
     return (
         <SidebarModeContext.Provider
             value={{
@@ -71,6 +102,8 @@ export function SidebarModeProvider({ children }: { children: ReactNode }) {
                 setChatSubMode,
                 arenaSubMode,
                 setArenaSubMode,
+                logsSubMode,
+                setLogsSubMode,
             }}
         >
             {children}

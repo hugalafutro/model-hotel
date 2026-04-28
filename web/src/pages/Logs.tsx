@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
     ScrollText,
+    FileText,
     X,
     CalendarDays,
     ChevronLeft,
@@ -19,6 +20,8 @@ import {
 } from "../components/DataTable";
 import type { SortState } from "../components/DataTable";
 import { useToast } from "../context/ToastContext";
+import { useSidebarMode } from "../context/SidebarModeContext";
+import { AppLogs } from "./AppLogs";
 
 /* =========================================================
    Date helpers for the accent-themed calendar picker
@@ -291,7 +294,7 @@ function OverheadModal({
 /* =========================================================
    Main Logs page
    ===================================================== */
-export function Logs() {
+function RequestLogs() {
     type LogSortField =
         | "time"
         | "model"
@@ -304,6 +307,7 @@ export function Logs() {
         | "overhead"
         | "key";
 
+    const { logsSubMode, setLogsSubMode } = useSidebarMode();
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [filters, setFilters] = useState({
@@ -593,6 +597,47 @@ export function Logs() {
                     <p className="text-gray-400">
                         Monitor API requests across all providers and keys
                     </p>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="ui-card p-4 shrink-0">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-(--text-primary)">
+                            Controls
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setLogsSubMode("request")}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                    logsSubMode === "request"
+                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                                }`}
+                            >
+                                <ScrollText
+                                    size={12}
+                                    className="inline mr-1 -mt-0.5"
+                                />
+                                Request Logs
+                            </button>
+                            <button
+                                onClick={() => setLogsSubMode("app")}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                    logsSubMode === "app"
+                                        ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+                                        : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                                }`}
+                            >
+                                <FileText
+                                    size={12}
+                                    className="inline mr-1 -mt-0.5"
+                                />
+                                App Logs
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1076,4 +1121,17 @@ export function Logs() {
             )}
         </div>
     );
+}
+
+/* =========================================================
+   Logs page export — switches between Request Logs and App Logs
+   ===================================================== */
+export function Logs() {
+    const { logsSubMode } = useSidebarMode();
+
+    if (logsSubMode === "app") {
+        return <AppLogs />;
+    }
+
+    return <RequestLogs />;
 }

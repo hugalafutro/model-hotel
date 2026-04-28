@@ -8,6 +8,7 @@ import {
     Shuffle,
     KeyRound,
     ScrollText,
+    FileText,
     Settings,
     LogOut,
     BookOpen,
@@ -381,8 +382,14 @@ export function Layout({ children }: LayoutProps) {
     const navigate = useNavigate();
     const { theme, setTheme } = useTheme();
 
-    const { chatSubMode, setChatSubMode, arenaSubMode, setArenaSubMode } =
-        useSidebarMode();
+    const {
+        chatSubMode,
+        setChatSubMode,
+        arenaSubMode,
+        setArenaSubMode,
+        logsSubMode,
+        setLogsSubMode,
+    } = useSidebarMode();
 
     const navigation = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -409,27 +416,39 @@ export function Layout({ children }: LayoutProps) {
         { name: "Models", href: "/models", icon: Bot },
         { name: "Failover", href: "/failover", icon: Shuffle },
         { name: "Virtual Keys", href: "/virtual-keys", icon: KeyRound },
-        { name: "Logs", href: "/logs", icon: ScrollText },
+        {
+            name: "Logs",
+            href: "/logs",
+            icon: (mode: string) => (mode === "app" ? FileText : ScrollText),
+            subModes: [
+                { label: "Request Logs", value: "request" as const },
+                { label: "App Logs", value: "app" as const },
+            ],
+        },
         { name: "Settings", href: "/settings", icon: Settings },
     ];
 
-    const handleChatSubModeClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const nextMode: typeof chatSubMode =
-            chatSubMode === "chat" ? "conversation" : "chat";
-        setChatSubMode(nextMode);
-        navigate("/chat");
+    // Generic sub-mode state: maps each nav href to its current mode and setter.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subModeMap: Record<string, { mode: string; setMode: any }> = {
+        "/chat": { mode: chatSubMode, setMode: setChatSubMode },
+        "/arena": { mode: arenaSubMode, setMode: setArenaSubMode },
+        "/logs": { mode: logsSubMode, setMode: setLogsSubMode },
     };
 
-    const handleArenaSubModeClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const nextMode: typeof arenaSubMode =
-            arenaSubMode === "competition" ? "compare" : "competition";
-        setArenaSubMode(nextMode);
-        navigate("/arena");
-    };
+    const handleSubModeToggle =
+        (href: string, item: (typeof navigation)[number]) =>
+        (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const entry = subModeMap[href];
+            if (!entry || !("subModes" in item) || !item.subModes) return;
+            const other = item.subModes.find((s) => s.value !== entry.mode);
+            if (other) {
+                entry.setMode(other.value);
+                navigate(href);
+            }
+        };
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -454,12 +473,8 @@ export function Layout({ children }: LayoutProps) {
                 <nav className="flex-1 min-h-0 px-4 py-2 overflow-y-auto">
                     <ul className="space-y-0.5">
                         {navigation.map((item) => {
-                            const currentMode =
-                                item.href === "/chat"
-                                    ? chatSubMode
-                                    : item.href === "/arena"
-                                      ? arenaSubMode
-                                      : "";
+                            const sm = subModeMap[item.href];
+                            const currentMode = sm?.mode ?? "";
                             const Icon: typeof MessageSquare =
                                 typeof item.icon === "function"
                                     ? (
@@ -471,6 +486,18 @@ export function Layout({ children }: LayoutProps) {
                             const active = isActive(item.href);
                             const hasSubModes =
                                 "subModes" in item && item.subModes;
+                            const currentSubLabel =
+                                hasSubModes && sm
+                                    ? item.subModes!.find(
+                                          (s) => s.value === sm.mode,
+                                      )?.label
+                                    : null;
+                            const otherSub =
+                                hasSubModes && sm
+                                    ? item.subModes!.find(
+                                          (s) => s.value !== sm.mode,
+                                      )
+                                    : null;
 
                             return (
                                 <li key={item.name}>
@@ -488,7 +515,7 @@ export function Layout({ children }: LayoutProps) {
                                                 strokeWidth={active ? 2.5 : 2}
                                             />
                                         </span>
-                                        {hasSubModes ? (
+                                        {hasSubModes && currentSubLabel ? (
                                             <span className="flex items-baseline gap-1.5">
                                                 <span
                                                     className={
@@ -497,36 +524,21 @@ export function Layout({ children }: LayoutProps) {
                                                             : ""
                                                     }
                                                 >
-                                                    {item.href === "/chat"
-                                                        ? chatSubMode === "chat"
-                                                            ? "Chat"
-                                                            : "Conversation"
-                                                        : arenaSubMode ===
-                                                            "competition"
-                                                          ? "Arena"
-                                                          : "Compare"}
+                                                    {currentSubLabel}
                                                 </span>
                                                 <span className="text-(--text-muted) text-[10px] opacity-60">
                                                     /
                                                 </span>
                                                 <button
                                                     type="button"
-                                                    onClick={
-                                                        item.href === "/chat"
-                                                            ? handleChatSubModeClick
-                                                            : handleArenaSubModeClick
-                                                    }
-                                                    className="text-[10px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer"
-                                                    title={`Switch to ${item.href === "/chat" ? (chatSubMode === "chat" ? "Conversation" : "Chat") : arenaSubMode === "competition" ? "Compare" : "Arena"} mode`}
+                                                    onClick={handleSubModeToggle(
+                                                        item.href,
+                                                        item,
+                                                    )}
+                                                    className="text-[11px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer px-2 py-0.5 -my-0.5 rounded-md hover:bg-white/5"
+                                                    title={`Switch to ${otherSub?.label ?? ""} mode`}
                                                 >
-                                                    {item.href === "/chat"
-                                                        ? chatSubMode === "chat"
-                                                            ? "Conversation"
-                                                            : "Chat"
-                                                        : arenaSubMode ===
-                                                            "competition"
-                                                          ? "Compare"
-                                                          : "Arena"}
+                                                    {otherSub?.label}
                                                 </button>
                                             </span>
                                         ) : (
