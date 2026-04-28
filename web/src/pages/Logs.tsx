@@ -353,11 +353,6 @@ function RequestLogs() {
         setPage(1);
     }, []);
 
-    const [fallback, setFallback] = useState<{
-        entries: LogEntry[];
-        total: number;
-    }>({ entries: [], total: 0 });
-
     const { data: settings } = useQuery({
         queryKey: ["settings"],
         queryFn: () => api.settings.get(),
@@ -397,20 +392,10 @@ function RequestLogs() {
 
     // Distinguish between "no data has arrived yet" (loading) and
     // "data arrived but the result set is empty" (0 matching rows).
-    // The fallback pattern exists so that during a refetch the previous
-    // data is still visible; but when the server legitimately returns
-    // zero entries (e.g. filtering for 5XX with no 5XX rows) we must
-    // show an empty list, not stale data from a different filter.
-    const hasFetchedData = logsData !== undefined;
-    const freshEntries = logsData?.entries;
-    const freshTotal = logsData?.total ?? 0;
-
-    useEffect(() => {
-        if (hasFetchedData && freshEntries) {
-            // eslint-disable-next-line
-            setFallback({ entries: freshEntries, total: freshTotal });
-        }
-    }, [hasFetchedData, freshEntries, freshTotal]);
+    // placeholderData: keepPreviousData handles showing previous data
+    // during refetch, so we only need to check if data has arrived.
+    const displayEntries = logsData?.entries ?? [];
+    const displayTotal = logsData?.total ?? 0;
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -427,11 +412,6 @@ function RequestLogs() {
                 document.removeEventListener("mousedown", handleClickOutside);
         }
     }, [showDatePicker]);
-
-    const displayEntries = hasFetchedData
-        ? (freshEntries ?? [])
-        : fallback.entries;
-    const displayTotal = hasFetchedData ? freshTotal : fallback.total;
 
     const now = new Date();
     const pickerYear = showDatePicker
@@ -777,14 +757,14 @@ function RequestLogs() {
             </div>
 
             {/* Initial loading state — show spinner when first fetch hasn't arrived */}
-            {isLoading && !hasFetchedData && (
+            {isLoading && !logsData && (
                 <div className="flex items-center justify-center py-20">
                     <div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
                 </div>
             )}
 
             {/* Error state — show message when fetch fails and no fallback data */}
-            {error && !hasFetchedData && !fallback.entries.length && (
+            {error && !logsData && displayEntries.length === 0 && (
                 <div className="ui-card p-8 text-center">
                     <p className="text-red-400 text-sm">
                         Failed to load logs:{" "}
@@ -793,7 +773,7 @@ function RequestLogs() {
                 </div>
             )}
 
-            {(!isLoading || hasFetchedData) && (
+            {(!isLoading || logsData) && (
                 <>
                     <div className="ui-card overflow-x-auto">
                         <table className="w-full table-fixed ui-table min-w-250">

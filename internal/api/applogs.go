@@ -278,6 +278,8 @@ type appLogsHistoryResponse struct {
 //   - ?to=<RFC3339> — end timestamp
 //   - ?page=N — page number (default 1)
 //   - ?per_page=N — page size (default 20, max 100)
+//   - ?sort_by=time|level|source|message — sort column (default: time)
+//   - ?sort_dir=asc|desc — sort direction (default: desc)
 func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 	// History mode: query from DB with filtering/pagination
 	if r.URL.Query().Get("history") == "true" {
@@ -372,6 +374,24 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Sort
+	allowedSortCols := map[string]string{
+		"time":    "created_at",
+		"level":   "level",
+		"source":  "source",
+		"message": "message",
+	}
+	sortCol := "created_at"
+	if v := q.Get("sort_by"); v != "" {
+		if col, ok := allowedSortCols[v]; ok {
+			sortCol = col
+		}
+	}
+	sortDir := "DESC"
+	if v := q.Get("sort_dir"); v == "asc" {
+		sortDir = "ASC"
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
@@ -394,8 +414,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	// Fetch page
 	offset := (page - 1) * perPage
 	dataSQL := fmt.Sprintf(
-		"SELECT timestamp, level, source, message FROM app_logs%s ORDER BY created_at DESC LIMIT $%d OFFSET $%d",
-		whereClause, argIdx, argIdx+1,
+		"SELECT timestamp, level, source, message FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
+		whereClause, sortCol, sortDir, argIdx, argIdx+1,
 	)
 	args = append(args, perPage, offset)
 

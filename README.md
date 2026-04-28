@@ -9,8 +9,8 @@
 > **AI-Assisted Project Disclaimer**
 >
 > This project was created with assistance from multiple AI models:
-> - **GLM-5.1** (mostly design and planning / backend)
-> - **Kimi-K2.6** (mostly UX and visuals planning / frontend)
+> - **GLM-5.1** (mostly design and planning / backend / code review)
+> - **Kimi-K2.6** (mostly UX and visuals planning / frontend / docs)
 > - **Kimi-K2.5, GLM-5, Minimax-M2.7** (small code / style adjustments)
 >
 > Thanks [Ollama Cloud](https://cloud.ollama.com) for generous limits. I have nothing nice to say about [Z.AI](https://z.ai) or [OpenCode Go](https://opencode.ai) in that regard.

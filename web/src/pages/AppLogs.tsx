@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { api, type AppLogEntry } from "../api/client";
-import { useState, useMemo, useCallback } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { api } from "../api/client";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { ScrollText, FileText } from "lucide-react";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
@@ -19,6 +19,7 @@ export function AppLogs() {
     const { logsSubMode, setLogsSubMode } = useSidebarMode();
     const [liveEnabled, setLiveEnabled] = useState(true);
     const [searchFilter, setSearchFilter] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [levelFilter, setLevelFilter] = useState<
         "all" | "info" | "warning" | "error"
     >("all");
@@ -31,6 +32,11 @@ export function AppLogs() {
     const [pageSize, setPageSize] = useState(20);
     const { toast } = useToast();
 
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchFilter), 300);
+        return () => clearTimeout(timer);
+    }, [searchFilter]);
+
     const handleSort = useCallback((field: AppLogSortField) => {
         setSort((prev) => ({
             field,
@@ -40,83 +46,74 @@ export function AppLogs() {
     }, []);
 
     const {
-        data: entries = [],
+        data: historyData,
         isLoading,
         error,
-    } = useQuery<AppLogEntry[]>({
+    } = useQuery({
+        queryKey: [
+            "appLogHistory",
+            page,
+            pageSize,
+            levelFilter,
+            sourceFilter,
+            debouncedSearch,
+            sort.field,
+            sort.dir,
+        ],
+        queryFn: () =>
+            api.appLogs.history({
+                page,
+                per_page: pageSize,
+                level: levelFilter !== "all" ? levelFilter : undefined,
+                source: sourceFilter !== "all" ? sourceFilter : undefined,
+                search: debouncedSearch || undefined,
+                sort_by: sort.field,
+                sort_dir: sort.dir,
+            }),
+        refetchInterval: liveEnabled ? 2000 : false,
+        placeholderData: keepPreviousData,
+    });
+
+    const {
+        data: ringBufferData = [],
+    } = useQuery({
         queryKey: ["appLogs"],
         queryFn: () => api.appLogs.list({ limit: 500 }),
         refetchInterval: liveEnabled ? 2000 : false,
     });
 
-    const filteredEntries = useMemo(() => {
-        return entries.filter((e) => {
-            if (levelFilter !== "all" && e.level !== levelFilter) return false;
-            if (sourceFilter !== "all" && e.source !== sourceFilter)
-                return false;
-            if (
-                searchFilter &&
-                !e.message.toLowerCase().includes(searchFilter.toLowerCase()) &&
-                !e.source.toLowerCase().includes(searchFilter.toLowerCase())
-            )
-                return false;
-            return true;
-        });
-    }, [entries, levelFilter, sourceFilter, searchFilter]);
-
-    const sortedEntries = useMemo(() => {
-        const sorted = [...filteredEntries].sort((a, b) => {
-            let cmp = 0;
-            switch (sort.field) {
-                case "time":
-                    cmp =
-                        new Date(a.timestamp).getTime() -
-                        new Date(b.timestamp).getTime();
-                    break;
-                case "level":
-                    cmp = a.level.localeCompare(b.level);
-                    break;
-                case "source":
-                    cmp = (a.source || "").localeCompare(b.source || "");
-                    break;
-                case "message":
-                    cmp = a.message.localeCompare(b.message);
-                    break;
-            }
-            return sort.dir === "asc" ? cmp : -cmp;
-        });
-        return sorted;
-    }, [filteredEntries, sort]);
-
-    const totalCount = sortedEntries.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-    const safePage = Math.min(page, totalPages);
-    const pageStart = (safePage - 1) * pageSize;
-    const pageEntries = sortedEntries.slice(pageStart, pageStart + pageSize);
+    const entries = useMemo(
+        () => historyData?.entries ?? [],
+        [historyData?.entries],
+    );
+    const totalItems = historyData?.total ?? 0;
 
     const levelCounts = useMemo(() => {
         const counts = { info: 0, warning: 0, error: 0 };
-        for (const e of entries) {
+        for (const e of ringBufferData) {
             if (e.level in counts) counts[e.level as keyof typeof counts]++;
         }
         return counts;
-    }, [entries]);
+    }, [ringBufferData]);
 
     const sources = useMemo(() => {
         const set = new Set<string>();
-        for (const e of entries) {
+        for (const e of ringBufferData) {
             if (e.source) set.add(e.source);
         }
         return Array.from(set).sort();
-    }, [entries]);
+    }, [ringBufferData]);
 
     const sourceCounts = useMemo(() => {
         const counts: Record<string, number> = {};
-        for (const e of entries) {
+        for (const e of ringBufferData) {
             if (e.source) counts[e.source] = (counts[e.source] || 0) + 1;
         }
         return counts;
-    }, [entries]);
+    }, [ringBufferData]);
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
 
     const getLevelBadge = (level: string) => {
         switch (level) {
@@ -191,7 +188,6 @@ export function AppLogs() {
 
     return (
         <div className="space-y-4">
-            {/* Header */}
             <div className="flex justify-between items-center shrink-0">
                 <div>
                     <div className="flex items-center gap-3">
@@ -232,7 +228,6 @@ export function AppLogs() {
                 </div>
             </div>
 
-            {/* Controls */}
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
@@ -287,7 +282,7 @@ export function AppLogs() {
                                     }`}
                                 >
                                     {lvl === "all"
-                                        ? "All (" + entries.length + ")"
+                                        ? "All (" + totalItems + ")"
                                         : lvl.charAt(0).toUpperCase() +
                                           lvl.slice(1) +
                                           " (" +
@@ -346,14 +341,13 @@ export function AppLogs() {
                 </div>
             </div>
 
-            {/* Loading / Error / Empty states */}
-            {isLoading && entries.length === 0 && (
+            {isLoading && !historyData && (
                 <div className="flex items-center justify-center py-20">
                     <div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
                 </div>
             )}
 
-            {error && entries.length === 0 && (
+            {error && !historyData && entries.length === 0 && (
                 <div className="ui-card p-8 text-center">
                     <p className="text-red-400 text-sm">
                         Failed to load logs: {error?.message || "Unknown error"}
@@ -361,7 +355,7 @@ export function AppLogs() {
                 </div>
             )}
 
-            {!(isLoading && entries.length === 0) && (
+            {(!isLoading || historyData) && (
                 <>
                     <div className="ui-card overflow-x-auto">
                         <table className="w-full ui-table">
@@ -394,10 +388,10 @@ export function AppLogs() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {pageEntries.length > 0 ? (
-                                    pageEntries.map((entry, i) => (
+                                {entries.length > 0 ? (
+                                    entries.map((entry, i) => (
                                         <Row
-                                            key={pageStart + i}
+                                            key={i}
                                             index={i}
                                         >
                                             <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
@@ -436,7 +430,7 @@ export function AppLogs() {
                                     <EmptyRow
                                         colSpan={4}
                                         message={
-                                            entries.length === 0
+                                            totalItems === 0
                                                 ? "No log entries yet — logs will appear here as the server generates output"
                                                 : "No entries match your filter"
                                         }
@@ -446,13 +440,12 @@ export function AppLogs() {
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    {totalCount > 0 && (
+                    {totalItems > 0 && (
                         <div className="flex justify-end pt-3">
                             <PaginationBar
                                 page={safePage}
                                 totalPages={totalPages}
-                                totalItems={totalCount}
+                                totalItems={totalItems}
                                 pageSize={pageSize}
                                 onPageChange={setPage}
                                 onPageSizeChange={(s) => {

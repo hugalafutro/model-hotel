@@ -383,6 +383,8 @@ export const api = {
             to?: string;
             page?: number;
             per_page?: number;
+            sort_by?: string;
+            sort_dir?: string;
         }): Promise<{
             entries: AppLogEntry[];
             total: number;
@@ -399,6 +401,8 @@ export const api = {
             if (params?.page) searchParams.set("page", params.page.toString());
             if (params?.per_page)
                 searchParams.set("per_page", params.per_page.toString());
+            if (params?.sort_by) searchParams.set("sort_by", params.sort_by);
+            if (params?.sort_dir) searchParams.set("sort_dir", params.sort_dir);
 
             const response = await fetch(
                 `${API_BASE}/api/logs/app?${searchParams.toString()}`,
