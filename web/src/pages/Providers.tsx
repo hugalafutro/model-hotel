@@ -658,9 +658,13 @@ export function Providers() {
                         disabled={refreshQuotasMutation.isPending}
                         className="ui-btn ui-btn-secondary"
                     >
-                        {refreshQuotasMutation.isPending
-                            ? "Refreshing…"
-                            : "Refresh Quotas/Balances"}
+                        {refreshQuotasMutation.isPending ? (
+                            <>
+                                <Spinner /> Refreshing...
+                            </>
+                        ) : (
+                            "Refresh Quotas/Balances"
+                        )}
                     </button>
                     <button
                         type="button"
