@@ -47,3 +47,21 @@ export function formatDate(ts: number | string): string {
         year: "numeric",
     });
 }
+
+export function formatTimeUntil(ts: number): string {
+    const now = Date.now();
+    const diff = ts - now;
+    if (diff <= 0) return "now";
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+
+    if (days > 0) {
+        const dayLabel = days === 1 ? "day" : "days";
+        const hourLabel = remainingHours === 1 ? "hour" : "hours";
+        return `in ${days} ${dayLabel}, ${remainingHours} ${hourLabel}`;
+    }
+    const hourLabel = hours === 1 ? "hour" : "hours";
+    return `in ${hours} ${hourLabel}`;
+}

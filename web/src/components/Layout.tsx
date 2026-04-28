@@ -26,6 +26,7 @@ import {
     X,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 import { useTheme } from "../context/ThemeContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
@@ -704,6 +705,9 @@ export function Layout({ children }: LayoutProps) {
                         })}
                     </ul>
                 </nav>
+                <div className="px-4 pb-2">
+                    <ProviderQuotaPanel />
+                </div>
                 <div className="px-4 pb-4 shrink-0">
                     <LastErrorPills />
                     <div className="flex justify-between mb-2">

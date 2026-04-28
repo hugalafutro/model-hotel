@@ -16,6 +16,7 @@ import {
     Zap,
     Bell,
     Database,
+    Timer,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Spinner } from "../components/Spinner";
@@ -652,6 +653,68 @@ export function Settings() {
                             <span>1s</span>
                             <span>15s</span>
                         </div>
+                    </div>
+                </div>
+
+                {/* Sidebar Quota Refresh */}
+                <div className="ui-card p-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Timer size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Sidebar Quotas
+                        </h2>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Configure how often provider quota and balance data is
+                        refreshed in the sidebar panel.
+                    </p>
+                    <div>
+                        <label
+                            htmlFor="quota-refresh-interval"
+                            className="block text-sm font-medium text-gray-300 mb-2"
+                        >
+                            Refresh Interval
+                        </label>
+                        <select
+                            id="quota-refresh-interval"
+                            value={(() => {
+                                try {
+                                    return localStorage.getItem(
+                                        "sidebarQuotaRefreshMin",
+                                    ) || "5";
+                                } catch {
+                                    return "5";
+                                }
+                            })()}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                try {
+                                    localStorage.setItem(
+                                        "sidebarQuotaRefreshMin",
+                                        val,
+                                    );
+                                } catch { /* ignore */ }
+                                toast(
+                                    val === "0"
+                                        ? "Sidebar quota auto-refresh disabled — use manual refresh"
+                                        : `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
+                                    "success",
+                                );
+                            }}
+                            className="ui-input"
+                        >
+                            <option value="1">1 minute</option>
+                            <option value="2">2 minutes</option>
+                            <option value="5">5 minutes (default)</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="0">Disabled (manual only)</option>
+                        </select>
+                        <p className="text-gray-500 text-xs mt-1">
+                            Minimum 1 minute. Changes take effect on next
+                            scheduled refresh.
+                        </p>
                     </div>
                 </div>
 

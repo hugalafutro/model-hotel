@@ -6,6 +6,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 import { EventProvider } from "./context/EventContext";
 import { StorageProvider } from "./context/StorageContext";
+import { QuotaModalProvider } from "./context/QuotaModalContext";
 import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { setAdminToken } from "./api/client";
 
@@ -175,7 +176,9 @@ function App() {
                 <SidebarModeProvider>
                     <ToastProvider>
                         <EventProvider>
-                            <AppContent />
+                            <QuotaModalProvider>
+                                <AppContent />
+                            </QuotaModalProvider>
                         </EventProvider>
                     </ToastProvider>
                 </SidebarModeProvider>
