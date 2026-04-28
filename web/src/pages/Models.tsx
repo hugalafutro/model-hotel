@@ -18,7 +18,7 @@ import { Spinner } from "../components/Spinner";
 import type { SortState } from "../components/DataTable";
 import { CAP_META, type CapKey, hasCap } from "../components/capMeta";
 import { CapBadge } from "../components/CapBadge";
-import { formatRelativeTime, formatNumber } from "../utils/format";
+import { formatRelativeTime, formatNumber, formatTokens } from "../utils/format";
 import {
     proxyModelID,
     formatPrice,
@@ -1427,14 +1427,14 @@ export function Models() {
                                             )}
                                         </td>
                                         <td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
-                                            {model.context_length
-                                                ? model.context_length.toLocaleString()
-                                                : "-"}
+                                            {formatTokens(
+                                                model.context_length,
+                                            )}
                                         </td>
                                         <td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
-                                            {model.max_output_tokens
-                                                ? model.max_output_tokens.toLocaleString()
-                                                : "-"}
+                                            {formatTokens(
+                                                model.max_output_tokens,
+                                            )}
                                         </td>
                                         <td className="px-4 py-1.5 whitespace-nowrap">
                                             <span
