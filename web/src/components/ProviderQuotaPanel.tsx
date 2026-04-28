@@ -36,6 +36,11 @@ function getRefreshInterval(): number {
 }
 
 export function ProviderQuotaPanel() {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const lastManualRefresh = useRef(0);
+    const refreshCooldownMs = 10_000;
+
     const [collapsed, setCollapsed] = useState(() => {
         try {
             return localStorage.getItem("sidebarQuotaCollapsed") === "true";
@@ -49,14 +54,14 @@ export function ProviderQuotaPanel() {
             try {
                 localStorage.setItem("sidebarQuotaCollapsed", String(next));
             } catch { /* ignore */ }
+            if (next) {
+                toast("Quota panel collapsed — auto-refresh paused", "info");
+            } else {
+                toast("Quota panel expanded — auto-refresh resumed", "info");
+            }
             return next;
         });
-    }, []);
-
-    const queryClient = useQueryClient();
-    const { toast } = useToast();
-    const lastManualRefresh = useRef(0);
-    const refreshCooldownMs = 10_000;
+    }, [toast]);
 
     const { data: providers } = useQuery({
         queryKey: ["providers"],
@@ -111,7 +116,7 @@ export function ProviderQuotaPanel() {
         queryFn: () =>
             api.providers.getUsage(nanogptProviderId!) as Promise<NanoGPTUsage>,
         enabled: Boolean(nanogptProviderId),
-        refetchInterval: refreshMs,
+        refetchInterval: collapsed ? false : refreshMs,
         initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
     });
 
@@ -123,7 +128,7 @@ export function ProviderQuotaPanel() {
         queryFn: () =>
             api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
         enabled: Boolean(zaiProviderId),
-        refetchInterval: refreshMs,
+        refetchInterval: collapsed ? false : refreshMs,
         initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
     });
 
@@ -134,12 +139,14 @@ export function ProviderQuotaPanel() {
         queryKey: ["deepseek-balance", deepseekProviderId],
         queryFn: () => api.providers.getBalance(deepseekProviderId!),
         enabled: Boolean(deepseekProviderId),
-        refetchInterval: refreshMs,
+        refetchInterval: collapsed ? false : refreshMs,
         initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
     });
 
     const anyRefreshing =
         isNanoRefetching || isZaiRefetching || isDsRefetching;
+
+    const isAutoRefreshing = anyRefreshing && !collapsed;
 
     const handleRefresh = useCallback(() => {
         const now = Date.now();
@@ -193,27 +200,31 @@ export function ProviderQuotaPanel() {
     return (
         <div className="sidebar-quota-panel">
             <div className="flex items-center justify-between mb-1.5">
-                <span className="sidebar-quota-label">Quotas</span>
+                {!collapsed && (
+                    <span className="sidebar-quota-label">Quotas</span>
+                )}
                 <div className="flex items-center gap-0.5">
-                    <button
-                        type="button"
-                        onClick={handleRefresh}
-                        disabled={anyRefreshing}
-                        className="sidebar-quota-btn"
-                        title="Refresh all quotas"
-                    >
-                        <RefreshCw
-                            size={10}
-                            className={
-                                anyRefreshing ? "animate-spin" : ""
-                            }
-                        />
-                    </button>
+                    {!collapsed && (
+                        <button
+                            type="button"
+                            onClick={handleRefresh}
+                            disabled={anyRefreshing}
+                            className="sidebar-quota-btn"
+                            title="Refresh all quotas"
+                        >
+                            <RefreshCw
+                                size={10}
+                                className={
+                                    isAutoRefreshing ? "animate-spin" : ""
+                                }
+                            />
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={toggleCollapsed}
                         className="sidebar-quota-btn"
-                        title={collapsed ? "Expand" : "Collapse"}
+                        title={collapsed ? "Expand quotas" : "Collapse"}
                     >
                         {collapsed ? (
                             <ChevronDown size={10} />

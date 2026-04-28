@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -568,11 +569,15 @@ func silentLogger(next http.Handler) http.Handler {
 
 		path := r.URL.Path
 		query := r.URL.Query()
+		isStatic := strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
 		isNoisy := path == "/health" ||
 			(path == "/api/logs/app" && (query.Get("history") == "true" || query.Get("limit") != "")) ||
 			(path == "/api/logs" && r.Method == "GET") ||
 			(path == "/api/system" && r.Method == "GET") ||
 			(path == "/api/events" && r.Method == "GET")
+		if isStatic && ww.Status() < 400 {
+			return
+		}
 		if !isNoisy {
 			log.Printf("[%s] %s %s from %s - %d %dB in %s",
 				r.Method, r.Host, r.URL.Path, r.RemoteAddr,
