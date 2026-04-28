@@ -72,16 +72,16 @@ interface ModelReplyCardProps {
 
 /** Larger prose classes used in the maximized modal view */
 const MAXIMIZED_PROSE_CLASSES =
-    "prose prose-invert prose-sm max-w-none text-(--text-primary) text-sm " +
-    "[&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5 " +
-    "[&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm " +
-    "[&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs " +
-    "[&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:text-xs " +
+    "prose prose-invert prose-base max-w-none text-(--text-primary) text-base font-medium " +
+    "[&_p]:my-2.5 [&_ul]:my-2.5 [&_ol]:my-2.5 [&_li]:my-0.5 " +
+    "[&_h1]:text-lg [&_h2]:text-base [&_h3]:text-base " +
+    "[&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm " +
+    "[&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:text-sm " +
     "[&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-4 [&_blockquote]:text-(--text-secondary) " +
-    "[&_strong]:text-white [&_em]:text-(--text-secondary) " +
+    "[&_strong]:font-semibold [&_strong]:text-(--text-primary) [&_em]:text-(--text-secondary) " +
     "[&_a]:text-(--accent) [&_a]:underline " +
     "[&_hr]:border-(--border-subtle) " +
-    "[&_table]:text-xs [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 " +
+    "[&_table]:text-sm [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 " +
     "[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
 
 export function ModelReplyCard({
@@ -103,7 +103,7 @@ export function ModelReplyCard({
     headerClassName,
     bodyClassName,
     footerClassName,
-    modelMaxWidth = "max-w-60",
+    modelMaxWidth = "max-w-[26rem]",
     onModelNameClick,
     shortenModelName = true,
     showInfoIcon = false,
@@ -312,7 +312,7 @@ export function ModelReplyCard({
             {maximized && (
                 <Modal
                     onClose={() => setMaximized(false)}
-                    maxWidth="max-w-4xl"
+                    maxWidth="max-w-6xl"
                     zIndex="z-50"
                 >
                     {/* Modal header */}
@@ -384,7 +384,7 @@ export function ModelReplyCard({
                     </div>
 
                     {/* Modal body — thinking + content */}
-                    <div className="max-h-[70vh] overflow-y-auto pr-1">
+                    <div className="max-h-[85vh] overflow-y-auto pr-1">
                         {hasThinking && (
                             <ThinkingBlock
                                 thinking={thinkingContent!}
