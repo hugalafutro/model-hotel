@@ -762,8 +762,8 @@ export function Layout({ children }: LayoutProps) {
                             rel="noopener noreferrer"
                             className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
                         >
-                            Docs
                             <BookOpen size={14} strokeWidth={2} />
+                            Docs
                         </a>
                         <button
                             type="button"
