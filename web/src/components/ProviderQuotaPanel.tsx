@@ -302,11 +302,11 @@ export function ProviderQuotaPanel() {
                             className="sidebar-quota-pill sidebar-quota-pill-ds"
                             title="DeepSeek balance — click to refresh"
                         >
+                            ${" "}
                             {deepseekBalance.balance_infos.find(
                                 (b: DeepSeekBalanceInfo) =>
                                     b.currency === "USD",
-                            )?.total_balance ?? "-"}{" "}
-                            USD
+                            )?.total_balance ?? "-"}
                         </button>
                     )}
                 </div>
