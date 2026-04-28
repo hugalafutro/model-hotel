@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Bot, X } from "lucide-react";
 import type { Model, ModelCapabilities } from "../api/types";
 import { FilterInput } from "../components/FilterInput";
+import { ProviderFilter } from "../components/ProviderFilter";
 import { useToast } from "../context/ToastContext";
 import {
     SortableHeader,
@@ -1298,52 +1299,14 @@ export function Models() {
                                 </span>
                             </th>
                             <th className="px-4 py-2">
-                                <div className="flex items-center gap-1">
-                                    <select
-                                        multiple
-                                        value={Array.from(selectedProviders)}
-                                        onChange={(e) => {
-                                            const options = Array.from(
-                                                e.target.selectedOptions,
-                                            );
-                                            const values = options.map(
-                                                (o) => o.value,
-                                            );
-                                            setSelectedProviders(
-                                                new Set(values),
-                                            );
-                                            setCurrentPage(1);
-                                        }}
-                                        className="ui-input text-xs py-1 px-2 h-auto min-h-8 flex-1"
-                                        style={{
-                                            fontSize: "11px",
-                                            padding: "0.25rem 0.5rem",
-                                        }}
-                                    >
-                                        {providers?.map((provider) => (
-                                            <option
-                                                key={provider.id}
-                                                value={provider.id}
-                                                className="text-xs"
-                                            >
-                                                {provider.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {selectedProviders.size > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedProviders(new Set());
-                                                setCurrentPage(1);
-                                            }}
-                                            className="inline-flex items-center justify-center w-5 h-5 rounded text-gray-400 hover:text-gray-200 transition-colors shrink-0"
-                                            title="Clear provider filter"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
+                                <ProviderFilter
+                                    providers={providers}
+                                    selected={selectedProviders}
+                                    onChange={(next) => {
+                                        setSelectedProviders(next);
+                                        setCurrentPage(1);
+                                    }}
+                                />
                             </th>
                             <th className="px-4 py-2"></th>
                             <th className="px-4 py-2"></th>
