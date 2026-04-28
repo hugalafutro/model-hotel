@@ -1408,7 +1408,7 @@ export function Models() {
                                             </div>
                                         </td>
                                         <td className="px-4 py-1.5">
-                                            <div className="flex flex-wrap">
+                                            <div className="flex flex-wrap gap-px">
                                                 {CAP_META.map((m) => (
                                                     <CapBadge
                                                         key={m.key}

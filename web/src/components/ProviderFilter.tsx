@@ -132,7 +132,7 @@ export function ProviderFilter({
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search providers…"
-                                className="ui-input text-xs h-8 pl-8 pr-6 w-full"
+                                className="ui-input text-xs h-8 pl-9 pr-6 w-full"
                                 style={{
                                     fontFamily:
                                         "var(--font-mono), ui-monospace, monospace",

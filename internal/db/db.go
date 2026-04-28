@@ -42,7 +42,7 @@ func New(ctx context.Context, databaseURL string) (*DB, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	log.Println("Database connected and migrations applied successfully")
+	log.Println("[db] Database connected and migrations applied successfully")
 	return db, nil
 }
 
@@ -139,11 +139,11 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	}
 
 	if applied {
-		log.Printf("Migration %s already applied, skipping", name)
+		log.Printf("[db] Migration %s already applied, skipping", name)
 		return nil
 	}
 
-	log.Printf("Applying migration: %s", name)
+	log.Printf("[db] Applying migration: %s", name)
 
 	if _, err := tx.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("failed to execute migration SQL: %w", err)
@@ -160,7 +160,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 		return fmt.Errorf("failed to commit migration: %w", err)
 	}
 
-	log.Printf("Successfully applied migration: %s", name)
+	log.Printf("[db] Successfully applied migration: %s", name)
 	return nil
 }
 
@@ -171,7 +171,7 @@ func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 			return nil
 		}
 
-		log.Printf("Database not ready (attempt %d/%d): %v", i+1, maxAttempts, err)
+		log.Printf("[db] Database not ready (attempt %d/%d): %v", i+1, maxAttempts, err)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
