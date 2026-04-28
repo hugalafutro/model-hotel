@@ -1,11 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type AppLogEntry } from "../api/client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ScrollText, FileText } from "lucide-react";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { FilterInput } from "../components/FilterInput";
-import { EmptyRow, PaginationBar } from "../components/DataTable";
+import {
+    EmptyRow,
+    PaginationBar,
+    Row,
+    SortableHeader,
+} from "../components/DataTable";
+import type { SortState } from "../components/DataTable";
+
+type AppLogSortField = "time" | "level" | "source" | "message";
 
 export function AppLogs() {
     const { logsSubMode, setLogsSubMode } = useSidebarMode();
@@ -15,9 +23,21 @@ export function AppLogs() {
         "all" | "info" | "warning" | "error"
     >("all");
     const [sourceFilter, setSourceFilter] = useState<string>("all");
+    const [sort, setSort] = useState<SortState<AppLogSortField>>({
+        field: "time",
+        dir: "desc",
+    });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const { toast } = useToast();
+
+    const handleSort = useCallback((field: AppLogSortField) => {
+        setSort((prev) => ({
+            field,
+            dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
+        }));
+        setPage(1);
+    }, []);
 
     const {
         data: entries = [],
@@ -44,17 +64,35 @@ export function AppLogs() {
         });
     }, [entries, levelFilter, sourceFilter, searchFilter]);
 
-    // Reverse so latest entries appear first
-    const reversedEntries = useMemo(
-        () => [...filteredEntries].reverse(),
-        [filteredEntries],
-    );
+    const sortedEntries = useMemo(() => {
+        const sorted = [...filteredEntries].sort((a, b) => {
+            let cmp = 0;
+            switch (sort.field) {
+                case "time":
+                    cmp =
+                        new Date(a.timestamp).getTime() -
+                        new Date(b.timestamp).getTime();
+                    break;
+                case "level":
+                    cmp = a.level.localeCompare(b.level);
+                    break;
+                case "source":
+                    cmp = (a.source || "").localeCompare(b.source || "");
+                    break;
+                case "message":
+                    cmp = a.message.localeCompare(b.message);
+                    break;
+            }
+            return sort.dir === "asc" ? cmp : -cmp;
+        });
+        return sorted;
+    }, [filteredEntries, sort]);
 
-    const totalCount = reversedEntries.length;
+    const totalCount = sortedEntries.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const safePage = Math.min(page, totalPages);
     const pageStart = (safePage - 1) * pageSize;
-    const pageEntries = reversedEntries.slice(pageStart, pageStart + pageSize);
+    const pageEntries = sortedEntries.slice(pageStart, pageStart + pageSize);
 
     const levelCounts = useMemo(() => {
         const counts = { info: 0, warning: 0, error: 0 };
@@ -102,7 +140,7 @@ export function AppLogs() {
             case "discovery":
                 return "bg-emerald-900/30 text-emerald-400";
             case "failover":
-                return "bg-orange-900/30 text-orange-400";
+                return "bg-slate-700/50 text-slate-300";
             case "ratelimit":
                 return "bg-amber-900/30 text-amber-400";
             case "vkey":
@@ -329,26 +367,38 @@ export function AppLogs() {
                         <table className="w-full ui-table">
                             <thead>
                                 <tr>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-36">
-                                        Time/Date
-                                    </th>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-17.5">
-                                        Level
-                                    </th>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-20">
-                                        Source
-                                    </th>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary)">
-                                        Message
-                                    </th>
+                                    <SortableHeader
+                                        label="Time/Date"
+                                        field="time"
+                                        sort={sort}
+                                        onSort={handleSort}
+                                    />
+                                    <SortableHeader
+                                        label="Level"
+                                        field="level"
+                                        sort={sort}
+                                        onSort={handleSort}
+                                    />
+                                    <SortableHeader
+                                        label="Source"
+                                        field="source"
+                                        sort={sort}
+                                        onSort={handleSort}
+                                    />
+                                    <SortableHeader
+                                        label="Message"
+                                        field="message"
+                                        sort={sort}
+                                        onSort={handleSort}
+                                    />
                                 </tr>
                             </thead>
                             <tbody>
                                 {pageEntries.length > 0 ? (
                                     pageEntries.map((entry, i) => (
-                                        <tr
+                                        <Row
                                             key={pageStart + i}
-                                            className="border-b border-(--border) hover:bg-white/2 transition-colors"
+                                            index={i}
                                         >
                                             <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                                                 {formatTimestamp(
@@ -380,7 +430,7 @@ export function AppLogs() {
                                             >
                                                 {entry.message}
                                             </td>
-                                        </tr>
+                                        </Row>
                                     ))
                                 ) : (
                                     <EmptyRow

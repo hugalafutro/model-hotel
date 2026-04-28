@@ -164,10 +164,18 @@ function ToastItem({
         warning: "bg-amber-900/70 text-amber-200 border-amber-700/60",
     };
 
+    const handleClick = () => {
+        if (toast.type === "error") {
+            navigator.clipboard.writeText(toast.message).catch(() => {});
+        }
+        onDone();
+    };
+
     return (
         <button
             type="button"
-            onClick={onDone}
+            onClick={handleClick}
+            title={toast.type === "error" ? "Click to copy and dismiss" : undefined}
             className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left ${colors[toast.type]}`}
         >
             {toast.message}

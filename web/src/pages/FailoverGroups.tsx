@@ -148,7 +148,7 @@ function FailoverGroupCard({
                         className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"
                         title="Click to copy"
                     >
-                        <h3 className="text-white font-medium text-sm truncate">
+                        <h3 className="text-(--accent) font-medium text-sm truncate">
                             hotel/{group.display_model}
                         </h3>
                         <svg
