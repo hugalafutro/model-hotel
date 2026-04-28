@@ -79,7 +79,8 @@ export function AppLogs() {
     } = useQuery({
         queryKey: ["appLogs"],
         queryFn: () => api.appLogs.list({ limit: 500 }),
-        refetchInterval: liveEnabled ? 2000 : false,
+        refetchInterval: false,
+        staleTime: 30_000,
     });
 
     const entries = useMemo(

@@ -150,7 +150,7 @@ func main() {
 	// Global middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(silentLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 
@@ -555,6 +555,30 @@ func main() {
 	}
 
 	log.Println("Server stopped")
+}
+
+// silentLogger is like chi's middleware.Logger but suppresses request log
+// lines for high-frequency polling endpoints that would flood docker logs.
+func silentLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		t1 := time.Now()
+		next.ServeHTTP(ww, r)
+		duration := time.Since(t1)
+
+		path := r.URL.Path
+		query := r.URL.Query()
+		isNoisy := path == "/health" ||
+			(path == "/api/logs/app" && query.Get("history") == "true") ||
+			(path == "/api/logs/app" && query.Get("limit") != "") ||
+			(path == "/api/system" && r.Method == "GET") ||
+			(path == "/api/events" && r.Method == "GET")
+		if !isNoisy {
+			log.Printf("[%s] %s %s from %s - %d %dB in %s",
+				r.Method, r.Host, r.URL.Path, r.RemoteAddr,
+				ww.Status(), ww.BytesWritten(), duration)
+		}
+	})
 }
 
 // streamingAwareTimeout returns middleware that sets a request deadline only
