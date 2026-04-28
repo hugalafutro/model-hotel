@@ -994,6 +994,8 @@ export function Providers() {
             openai: "https://api.openai.com/v1",
             deepseek: "https://api.deepseek.com/v1",
             ollama: "http://localhost:11434",
+            "opencode-zen": "https://opencode.ai/zen/v1",
+            "opencode-go": "https://opencode.ai/zen/go/v1",
         };
         setFormData((prev) => ({
             ...prev,
@@ -1375,6 +1377,12 @@ export function Providers() {
                                     <option value="z-ai">Z.ai</option>
                                     <option value="deepseek">DeepSeek</option>
                                     <option value="ollama">Ollama</option>
+                                    <option value="opencode-zen">
+                                        OpenCode Zen
+                                    </option>
+                                    <option value="opencode-go">
+                                        OpenCode Go
+                                    </option>
                                 </select>
                             </div>
 

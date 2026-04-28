@@ -25,15 +25,17 @@ func NewDiscoveryService() *DiscoveryService {
 }
 
 // DetectProviderType parses the provider's base URL and returns a type string
-// based on the hostname. It uses exact host matching and suffix matching so
-// that "https://my-proxy.deepseek.com" correctly resolves to "deepseek" rather
-// than matching a substring like strings.Contains would.
+// based on the hostname and (for some providers) the URL path. It uses exact
+// host matching and suffix matching so that "https://my-proxy.deepseek.com"
+// correctly resolves to "deepseek" rather than matching a substring like
+// strings.Contains would.
 func DetectProviderType(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {
 		return "openai"
 	}
 	host := strings.ToLower(u.Hostname())
+	path := strings.ToLower(u.Path)
 
 	// Exact matches first
 	switch host {
@@ -45,6 +47,15 @@ func DetectProviderType(baseURL string) string {
 		return "deepseek"
 	case "ollama.com":
 		return "ollama"
+	case "opencode.ai":
+		// Path-based detection: Go URL contains /zen/go/, Zen contains /zen/
+		// Must check Go before Zen since /zen/go/ is a subpath of /zen/
+		if strings.Contains(path, "/zen/go") {
+			return "opencode-go"
+		}
+		if strings.Contains(path, "/zen") {
+			return "opencode-zen"
+		}
 	}
 
 	// Subdomain matching: api.foo.deepseek.com, custom.nano-gpt.com, etc.
@@ -59,6 +70,15 @@ func DetectProviderType(baseURL string) string {
 	}
 	if strings.HasSuffix(host, ".ollama.com") {
 		return "ollama"
+	}
+	if strings.HasSuffix(host, ".opencode.ai") {
+		// Path-based detection for custom opencode.ai subdomains
+		if strings.Contains(path, "/zen/go") {
+			return "opencode-go"
+		}
+		if strings.Contains(path, "/zen") {
+			return "opencode-zen"
+		}
 	}
 
 	// Local Ollama instances (localhost with any port)
@@ -87,6 +107,10 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		return d.discoverDeepSeek(ctx, provider, apiKey)
 	case "ollama":
 		return d.discoverOllama(ctx, provider, apiKey)
+	case "opencode-zen":
+		return d.discoverOpenCodeZen(ctx, provider, apiKey)
+	case "opencode-go":
+		return d.discoverOpenCodeGo(ctx, provider, apiKey)
 	default:
 		return d.discoverOpenAI(ctx, provider, apiKey)
 	}

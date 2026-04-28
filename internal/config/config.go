@@ -34,6 +34,7 @@ var defaultKnownProviderHosts = []string{
 	"api.z.ai",
 	"api.deepseek.com",
 	"ollama.com",
+	"opencode.ai",
 }
 
 func Load() (*Config, error) {
