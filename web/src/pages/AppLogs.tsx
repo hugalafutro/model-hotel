@@ -85,7 +85,10 @@ export function AppLogs() {
     const formatTimestamp = (ts: string) => {
         try {
             const d = new Date(ts);
-            return d.toLocaleTimeString(undefined, {
+            return d.toLocaleString(undefined, {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit",
@@ -234,8 +237,8 @@ export function AppLogs() {
                         <table className="w-full ui-table">
                             <thead>
                                 <tr>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-20">
-                                        Time
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-36">
+                                        Time/Date
                                     </th>
                                     <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-17.5">
                                         Level

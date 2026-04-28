@@ -813,7 +813,7 @@ function RequestLogs() {
                             <thead>
                                 <tr>
                                     <SortableHeader
-                                        label="Time"
+                                        label="Time/Date"
                                         field="time"
                                         sort={sort}
                                         onSort={handleSort}

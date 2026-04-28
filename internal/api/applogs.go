@@ -56,7 +56,7 @@ func (rb *ringBuffer) Write(p []byte) (n int, err error) {
 		entry := AppLogEntry{
 			Timestamp: now.Format(time.RFC3339Nano),
 			Level:     detectLevel(line),
-			Message:   line,
+			Message:   stripLogTimestamp(line),
 		}
 		rb.mu.Lock()
 		rb.entries[rb.head] = entry
@@ -67,6 +67,21 @@ func (rb *ringBuffer) Write(p []byte) (n int, err error) {
 		rb.mu.Unlock()
 	}
 	return len(p), nil
+}
+
+// stripLogTimestamp removes the Go standard log timestamp prefix (e.g. "2026/04/28 09:55:43 ")
+// from a log line so the UI doesn't display the timestamp twice. The captured
+// Timestamp field is already in RFC3339Nano and will be shown in the user's
+// local timezone by the frontend.
+func stripLogTimestamp(line string) string {
+	// Go's log package emits timestamps in the format "2006/01/02 15:04:05 "
+	// (with a trailing space). If the line starts with that pattern, strip it.
+	if len(line) >= 20 &&
+		line[4] == '/' && line[7] == '/' && line[10] == ' ' &&
+		line[13] == ':' && line[16] == ':' && line[19] == ' ' {
+		return line[20:]
+	}
+	return line
 }
 
 // detectLevel attempts to infer a log level from the content of the line.
