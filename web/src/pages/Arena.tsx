@@ -155,10 +155,27 @@ export function Arena() {
         return [];
     });
 
-    const [activePromptId, setActivePromptId] = useState<string | null>(() => {
+    const [competitionActivePromptId, setCompetitionActivePromptId] = useState<
+        string | null
+    >(() => {
         try {
             if (localStorage.getItem("persistArena") === "true") {
-                const v = localStorage.getItem("arenaActivePromptId");
+                const v = localStorage.getItem(
+                    "arenaCompetitionActivePromptId",
+                );
+                return v || null;
+            }
+        } catch {
+            /* ignore */
+        }
+        return null;
+    });
+    const [compareActivePromptId, setCompareActivePromptId] = useState<
+        string | null
+    >(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                const v = localStorage.getItem("arenaCompareActivePromptId");
                 return v || null;
             }
         } catch {
@@ -169,16 +186,48 @@ export function Arena() {
     const [pendingPrompt, setPendingPrompt] = useState<
         import("../data/presets").ArenaPromptPreset | null
     >(null);
-    const [prompt, setPrompt] = useState<string>(() => {
+    const [competitionPrompt, setCompetitionPrompt] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistArena") === "true") {
-                return localStorage.getItem("arenaPrompt") ?? "";
+                return localStorage.getItem("arenaCompetitionPrompt") ?? "";
             }
         } catch {
             /* ignore */
         }
         return "";
     });
+    const [comparePrompt, setComparePrompt] = useState<string>(() => {
+        try {
+            if (localStorage.getItem("persistArena") === "true") {
+                return localStorage.getItem("arenaComparePrompt") ?? "";
+            }
+        } catch {
+            /* ignore */
+        }
+        return "";
+    });
+
+    // Derived: pick the active mode's prompt / preset id
+    const prompt =
+        arenaMode === "competition" ? competitionPrompt : comparePrompt;
+    const activePromptId =
+        arenaMode === "competition"
+            ? competitionActivePromptId
+            : compareActivePromptId;
+
+    // Ref for mode-aware setters (declared early, synced via effect below)
+    const arenaModeRef = useRef<ArenaSubMode>(arenaMode);
+
+    // Smart setters that dispatch to the active mode
+    const setPrompt = useCallback((v: string) => {
+        if (arenaModeRef.current === "competition") setCompetitionPrompt(v);
+        else setComparePrompt(v);
+    }, []);
+    const setActivePromptId = useCallback((v: string | null) => {
+        if (arenaModeRef.current === "competition")
+            setCompetitionActivePromptId(v);
+        else setCompareActivePromptId(v);
+    }, []);
     const [savedPrompt, setSavedPrompt] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistArena") === "true") {
@@ -309,20 +358,44 @@ export function Arena() {
     useEffect(() => {
         if (!persistArena) return;
         try {
-            localStorage.setItem("arenaPrompt", prompt);
+            localStorage.setItem("arenaCompetitionPrompt", competitionPrompt);
         } catch {
             /* quota exceeded */
         }
-    }, [prompt, persistArena]);
+    }, [competitionPrompt, persistArena]);
 
     useEffect(() => {
         if (!persistArena) return;
         try {
-            localStorage.setItem("arenaActivePromptId", activePromptId ?? "");
+            localStorage.setItem("arenaComparePrompt", comparePrompt);
         } catch {
             /* quota exceeded */
         }
-    }, [activePromptId, persistArena]);
+    }, [comparePrompt, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaCompetitionActivePromptId",
+                competitionActivePromptId ?? "",
+            );
+        } catch {
+            /* quota exceeded */
+        }
+    }, [competitionActivePromptId, persistArena]);
+
+    useEffect(() => {
+        if (!persistArena) return;
+        try {
+            localStorage.setItem(
+                "arenaCompareActivePromptId",
+                compareActivePromptId ?? "",
+            );
+        } catch {
+            /* quota exceeded */
+        }
+    }, [compareActivePromptId, persistArena]);
 
     useEffect(() => {
         if (!persistArena) return;
@@ -381,7 +454,6 @@ export function Arena() {
         persistArena,
     ]);
 
-    const arenaModeRef = useRef<ArenaSubMode>(arenaMode);
     const abortMapRef = useRef<Map<string, AbortController>>(new Map());
     const lastExtractLenRef = useRef<Map<string, number>>(new Map());
     const currentRoundRef = useRef(0);
@@ -553,7 +625,13 @@ export function Arena() {
             setActivePromptId(preset.id);
             autoExpandTextarea(promptRef);
         },
-        [prompt, activePromptId, autoExpandTextarea],
+        [
+            prompt,
+            activePromptId,
+            autoExpandTextarea,
+            setPrompt,
+            setActivePromptId,
+        ],
     );
 
     const handleCustomPrompt = useCallback(() => {
@@ -579,7 +657,13 @@ export function Arena() {
         setPrompt(pick.prompt);
         setActivePromptId(pick.id);
         autoExpandTextarea(promptRef);
-    }, [activePromptId, prompt, autoExpandTextarea]);
+    }, [
+        activePromptId,
+        prompt,
+        autoExpandTextarea,
+        setPrompt,
+        setActivePromptId,
+    ]);
 
     const handlePromptChange = useCallback(
         (value: string) => {
@@ -589,7 +673,7 @@ export function Arena() {
                 setActivePromptId(null);
             }
         },
-        [activePromptId],
+        [activePromptId, setPrompt, setActivePromptId],
     );
 
     const handleRandomComparePersona = useCallback(() => {
@@ -2146,9 +2230,11 @@ export function Arena() {
                     onConfirm={() => {
                         setCompareModels([]);
                         setBracketModels([]);
-                        setPrompt("");
+                        setCompetitionPrompt("");
+                        setComparePrompt("");
                         setSavedPrompt("");
-                        setActivePromptId(null);
+                        setCompetitionActivePromptId(null);
+                        setCompareActivePromptId(null);
                         setComparePersonaId(null);
                         setComparePersonaPrompt("");
                         setRounds([]);
@@ -2160,8 +2246,14 @@ export function Arena() {
                         setModelParams({});
                         setPendingReset(false);
                         try {
-                            localStorage.removeItem("arenaPrompt");
-                            localStorage.removeItem("arenaActivePromptId");
+                            localStorage.removeItem("arenaCompetitionPrompt");
+                            localStorage.removeItem("arenaComparePrompt");
+                            localStorage.removeItem(
+                                "arenaCompetitionActivePromptId",
+                            );
+                            localStorage.removeItem(
+                                "arenaCompareActivePromptId",
+                            );
                             localStorage.removeItem("arenaComparePersonaId");
                             localStorage.removeItem(
                                 "arenaComparePersonaPrompt",

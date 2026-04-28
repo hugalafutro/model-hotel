@@ -52,8 +52,10 @@ export function StorageProvider({ children }: { children: ReactNode }) {
         setPersistArenaState(v);
         localStorage.setItem(ARENA_KEY, String(v));
         if (!v) {
-            localStorage.removeItem("arenaPrompt");
-            localStorage.removeItem("arenaActivePromptId");
+            localStorage.removeItem("arenaCompetitionPrompt");
+            localStorage.removeItem("arenaComparePrompt");
+            localStorage.removeItem("arenaCompetitionActivePromptId");
+            localStorage.removeItem("arenaCompareActivePromptId");
             localStorage.removeItem("arenaState");
         }
     };
