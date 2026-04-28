@@ -1,5 +1,14 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Bot, Clock, Info, Zap, Settings, Maximize2, X } from "lucide-react";
+import {
+    Bot,
+    Clock,
+    Info,
+    Zap,
+    Settings,
+    Maximize2,
+    X,
+    Copy,
+} from "lucide-react";
 import type { GenerationParams } from "../api/types";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { formatDuration } from "../utils/format";
@@ -385,6 +394,15 @@ export function ModelReplyCard({
                                     )}
                                 </>
                             )}
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(content);
+                                }}
+                                className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                                title="Copy"
+                            >
+                                <Copy size={16} />
+                            </button>
                             <button
                                 onClick={() => setMaximized(false)}
                                 className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
