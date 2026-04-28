@@ -569,8 +569,8 @@ func silentLogger(next http.Handler) http.Handler {
 		path := r.URL.Path
 		query := r.URL.Query()
 		isNoisy := path == "/health" ||
-			(path == "/api/logs/app" && query.Get("history") == "true") ||
-			(path == "/api/logs/app" && query.Get("limit") != "") ||
+			(path == "/api/logs/app" && (query.Get("history") == "true" || query.Get("limit") != "")) ||
+			(path == "/api/logs" && r.Method == "GET") ||
 			(path == "/api/system" && r.Method == "GET") ||
 			(path == "/api/events" && r.Method == "GET")
 		if !isNoisy {

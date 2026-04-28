@@ -19,10 +19,14 @@ import {
     GitCompare,
     Sun,
     Moon,
+    Copy,
+    ExternalLink,
+    AlertTriangle,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useTheme } from "../context/ThemeContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
+import { useToast } from "../context/ToastContext";
 
 const u = "text-(--text-muted)";
 
@@ -389,6 +393,100 @@ interface LayoutProps {
     children: React.ReactNode;
 }
 
+const TEST_APP_ERROR = "TESTING: failover group validation failed — no enabled providers available for model glm-4";
+const TEST_REQ_ERROR = "TESTING: upstream provider returned 503 Service Unavailable after exhausting all failover candidates";
+
+function LastErrorPills() {
+    const navigate = useNavigate();
+    const { setLogsSubMode } = useSidebarMode();
+    const { toast } = useToast();
+
+    const { data: appLogData } = useQuery({
+        queryKey: ["appLogHistory", "lastError"],
+        queryFn: () =>
+            api.appLogs.history({
+                page: 1,
+                per_page: 1,
+                level: "error",
+                sort_by: "time",
+                sort_dir: "desc",
+            }),
+        refetchInterval: 15000,
+        staleTime: 10000,
+    });
+
+    const { data: reqLogData } = useQuery({
+        queryKey: ["logs", "lastError"],
+        queryFn: () =>
+            api.logs.list({
+                page: 1,
+                per_page: 1,
+                status_code: "5xx",
+                sort_by: "time",
+                sort_dir: "desc",
+            }),
+        refetchInterval: 15000,
+        staleTime: 10000,
+    });
+
+    const lastAppError = TEST_APP_ERROR || appLogData?.entries?.[0]?.message;
+    const lastReqError =
+        TEST_REQ_ERROR || reqLogData?.entries?.[0]?.error_message;
+
+    if (!lastAppError && !lastReqError) return null;
+
+    const pill = (
+        label: string,
+        msg: string,
+        subMode: "request" | "app",
+    ) => (
+        <div className="group relative rounded-md border border-red-500/20 bg-red-950/30 px-2 py-1 text-[10px] leading-tight text-red-300/90 overflow-hidden max-h-[2.5em] hover:max-h-40 transition-[max-h] duration-200">
+            <div className="flex items-start gap-1">
+                <AlertTriangle size={10} className="shrink-0 mt-0.5 text-red-400/70" />
+                <span className="font-semibold text-red-400/80 shrink-0">
+                    {label}
+                </span>
+            </div>
+            <div className="line-clamp-1 group-hover:line-clamp-none mt-0.5 font-mono text-[9px] text-red-300/70 break-all">
+                {msg}
+            </div>
+            <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(msg);
+                        toast("Copied to clipboard", "info");
+                    }}
+                    className="p-0.5 rounded text-red-300/50 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+                    title="Copy error"
+                >
+                    <Copy size={10} />
+                </button>
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setLogsSubMode(subMode);
+                        navigate("/logs");
+                    }}
+                    className="p-0.5 rounded text-red-300/50 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+                    title="View in logs"
+                >
+                    <ExternalLink size={10} />
+                </button>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col gap-1 mb-2">
+            {lastAppError && pill("App", lastAppError, "app")}
+            {lastReqError && pill("Request", lastReqError, "request")}
+        </div>
+    );
+}
+
 export function Layout({ children }: LayoutProps) {
     const location = useLocation();
     const navigate = useNavigate();
@@ -564,6 +662,7 @@ export function Layout({ children }: LayoutProps) {
                     </ul>
                 </nav>
                 <div className="px-4 pb-4 shrink-0">
+                    <LastErrorPills />
                     <div className="flex justify-between mb-2">
                         <a
                             href="https://github.com/hugalafutro/llm-proxy"
