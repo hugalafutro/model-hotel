@@ -1303,12 +1303,18 @@ export function Models() {
                                         multiple
                                         value={Array.from(selectedProviders)}
                                         onChange={(e) => {
-                                            const options = Array.from(e.target.selectedOptions);
-                                            const values = options.map((o) => o.value);
-                                            setSelectedProviders(new Set(values));
+                                            const options = Array.from(
+                                                e.target.selectedOptions,
+                                            );
+                                            const values = options.map(
+                                                (o) => o.value,
+                                            );
+                                            setSelectedProviders(
+                                                new Set(values),
+                                            );
                                             setCurrentPage(1);
                                         }}
-                                        className="ui-input text-xs py-1 px-2 h-auto min-h-[2rem] flex-1"
+                                        className="ui-input text-xs py-1 px-2 h-auto min-h-8 flex-1"
                                         style={{
                                             fontSize: "11px",
                                             padding: "0.25rem 0.5rem",
