@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Dices } from "lucide-react";
 import { FilterInput } from "./FilterInput";
 import type { GenerationParams } from "../api/types";
 
@@ -32,6 +32,8 @@ interface SingleProps {
     paramsReadonly?: boolean;
     /** When true, the picker is disabled (e.g. conversation is running) */
     disabled?: boolean;
+    /** Called when random button is clicked */
+    onRandom?: () => void;
 }
 
 interface MultiProps {
@@ -52,6 +54,8 @@ interface MultiProps {
     paramsReadonly?: boolean;
     /** When true, the picker is disabled (e.g. conversation is running) */
     disabled?: boolean;
+    /** Called when random button is clicked */
+    onRandom?: () => void;
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -103,6 +107,7 @@ export function ModelPicker({
     onConfigureParams,
     paramsReadonly = false,
     disabled = false,
+    onRandom,
 }: ModelPickerProps) {
     const [search, setSearch] = useState("");
     const [providerFilter, setProviderFilter] = useState<Set<string>>(
@@ -279,6 +284,16 @@ export function ModelPicker({
             <div
                 className={`flex flex-wrap gap-1.5 h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"} ${disabled ? "opacity-50 pointer-events-none" : ""}`}
             >
+                {onRandom && (
+                    <button
+                        type="button"
+                        onClick={onRandom}
+                        title="Random"
+                        className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 -m-1 flex items-center self-center"
+                    >
+                        <Dices size={13} />
+                    </button>
+                )}
                 {filteredModels.map((m) => {
                     const val = proxyModelID(m.provider_name, m.model_id);
                     const isSelected = selectedSet.has(val);

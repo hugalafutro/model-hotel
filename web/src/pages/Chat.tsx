@@ -421,6 +421,28 @@ export function Chat() {
         setSystemPromptB(pick.systemPrompt);
     }, [activePersonaIdB, setActivePersonaIdB, setSystemPromptB]);
 
+    const handleRandomModel = useCallback(() => {
+        const available = enabledModels.filter((m) => {
+            const val = proxyModelID(m.provider_name, m.model_id);
+            return val !== selectedModel;
+        });
+        if (available.length === 0) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        const val = proxyModelID(pick.provider_name, pick.model_id);
+        setSelectedModel(val);
+    }, [enabledModels, selectedModel, setSelectedModel]);
+
+    const handleRandomModelB = useCallback(() => {
+        const available = enabledModels.filter((m) => {
+            const val = proxyModelID(m.provider_name, m.model_id);
+            return val !== selectedModelB;
+        });
+        if (available.length === 0) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        const val = proxyModelID(pick.provider_name, pick.model_id);
+        setSelectedModelB(val);
+    }, [enabledModels, selectedModelB, setSelectedModelB]);
+
     // Reset conversation state when chatSubMode changes (e.g. sidebar click),
     // but skip the initial mount so we don't wipe persisted messages.
     const prevChatSubModeRef = useRef(chatSubMode);
@@ -1288,6 +1310,7 @@ export function Chat() {
                                         onChange={setSelectedModel}
                                         multi={false}
                                         providers={providerData}
+                                        onRandom={handleRandomModel}
                                     />
 <PersonaPicker
                                          personas={CHAT_PERSONAS}
@@ -1306,16 +1329,17 @@ export function Chat() {
                                         <label className="text-sm text-(--text-secondary) mb-2 block">
                                             Model A
                                         </label>
-                                        <ModelPicker
-                                            models={enabledModels}
-                                            selected={selectedModel}
-                                            onChange={setSelectedModel}
-                                            multi={false}
-                                            providers={providerData}
-                                            disabled={
-                                                conversationState === "running"
-                                            }
-                                        />
+<ModelPicker
+                                             models={enabledModels}
+                                             selected={selectedModel}
+                                             onChange={setSelectedModel}
+                                             multi={false}
+                                             providers={providerData}
+                                             onRandom={handleRandomModel}
+                                             disabled={
+                                                 conversationState === "running"
+                                             }
+                                         />
                                         <div className="mt-3">
 <PersonaPicker
                                                  personas={CHAT_PERSONAS}
@@ -1342,16 +1366,17 @@ export function Chat() {
                                         <label className="text-sm text-(--text-secondary) mb-2 block">
                                             Model B
                                         </label>
-                                        <ModelPicker
-                                            models={enabledModels}
-                                            selected={selectedModelB}
-                                            onChange={setSelectedModelB}
-                                            multi={false}
-                                            providers={providerData}
-                                            disabled={
-                                                conversationState === "running"
-                                            }
-                                        />
+<ModelPicker
+                                             models={enabledModels}
+                                             selected={selectedModelB}
+                                             onChange={setSelectedModelB}
+                                             multi={false}
+                                             providers={providerData}
+                                             onRandom={handleRandomModelB}
+                                             disabled={
+                                                 conversationState === "running"
+                                             }
+                                         />
                                         <div className="mt-3">
 <PersonaPicker
                                                  personas={CHAT_PERSONAS}

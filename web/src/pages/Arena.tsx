@@ -615,6 +615,28 @@ export function Arena() {
         setComparePersonaPrompt(pick.systemPrompt);
     }, [comparePersonaId, setComparePersonaId, setComparePersonaPrompt]);
 
+    const handleRandomBracketModel = useCallback(() => {
+        const available = enabledModels.filter((m) => {
+            const val = proxyModelID(m.provider_name, m.model_id);
+            return !bracketModels.includes(val);
+        });
+        if (available.length === 0 || bracketModels.length >= 8) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        const val = proxyModelID(pick.provider_name, pick.model_id);
+        setBracketModels([...bracketModels, val]);
+    }, [enabledModels, bracketModels, setBracketModels]);
+
+    const handleRandomCompareModel = useCallback(() => {
+        const available = enabledModels.filter((m) => {
+            const val = proxyModelID(m.provider_name, m.model_id);
+            return !compareModels.includes(val);
+        });
+        if (available.length === 0 || compareModels.length >= 6) return;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        const val = proxyModelID(pick.provider_name, pick.model_id);
+        setCompareModels([...compareModels, val]);
+    }, [enabledModels, compareModels, setCompareModels]);
+
     const streamModel = useCallback(
         (
             model: string,
@@ -1507,6 +1529,7 @@ export function Arena() {
                                             onConfigureParams={
                                                 setParamEditorModel
                                             }
+                                            onRandom={handleRandomBracketModel}
                                             paramsReadonly={
                                                 phase !== "setup"
                                             }
@@ -1547,6 +1570,7 @@ export function Arena() {
                                             onConfigureParams={
                                                 setParamEditorModel
                                             }
+                                            onRandom={handleRandomCompareModel}
                                             paramsReadonly={phase !== "setup"}
                                         />
                                         {compareModels.length > 0 &&
