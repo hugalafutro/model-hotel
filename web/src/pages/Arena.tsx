@@ -1547,7 +1547,11 @@ export function Arena() {
                         {(phase !== "setup" ||
                             (arenaMode === "competition"
                                 ? bracketModels.length > 0
-                                : compareModels.length > 0)) && (
+                                : compareModels.length > 0) ||
+                            !!activePromptId ||
+                            !!prompt.trim() ||
+                            !!comparePersonaId ||
+                            !!comparePersonaPrompt.trim()) && (
                             <button
                                 onClick={() => setPendingReset(true)}
                                 className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${

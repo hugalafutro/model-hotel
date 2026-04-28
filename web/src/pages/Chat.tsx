@@ -410,16 +410,27 @@ export function Chat() {
     );
 
     const handleRandomPersona = useCallback(() => {
-        const currentId = chatSubMode === "chat" ? chatActivePersonaId : conversationActivePersonaIdA;
+        const currentId =
+            chatSubMode === "chat"
+                ? chatActivePersonaId
+                : conversationActivePersonaIdA;
         const available = CHAT_PERSONAS.filter((p) => p.id !== currentId);
         if (available.length === 0) return;
         const pick = available[Math.floor(Math.random() * available.length)];
         setActivePersonaId(pick.id);
         setSystemPrompt(pick.systemPrompt);
-    }, [chatSubMode, chatActivePersonaId, conversationActivePersonaIdA, setActivePersonaId, setSystemPrompt]);
+    }, [
+        chatSubMode,
+        chatActivePersonaId,
+        conversationActivePersonaIdA,
+        setActivePersonaId,
+        setSystemPrompt,
+    ]);
 
     const handleRandomPersonaB = useCallback(() => {
-        const available = CHAT_PERSONAS.filter((p) => p.id !== activePersonaIdB);
+        const available = CHAT_PERSONAS.filter(
+            (p) => p.id !== activePersonaIdB,
+        );
         if (available.length === 0) return;
         const pick = available[Math.floor(Math.random() * available.length)];
         setActivePersonaIdB(pick.id);
@@ -1260,7 +1271,12 @@ export function Chat() {
                         {(messages.length > 0 ||
                             selectedModel ||
                             (chatSubMode === "conversation" &&
-                                selectedModelB)) && (
+                                selectedModelB) ||
+                            !!activePersonaId ||
+                            !!systemPrompt.trim() ||
+                            (chatSubMode === "conversation" &&
+                                (!!activePersonaIdB ||
+                                    !!systemPromptB.trim()))) && (
                             <button
                                 onClick={() => setPendingReset(true)}
                                 className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${
@@ -1314,16 +1330,16 @@ export function Chat() {
                                         providers={providerData}
                                         onRandom={handleRandomModel}
                                     />
-<PersonaPicker
-                                         personas={CHAT_PERSONAS}
-                                         activePersonaId={activePersonaId}
-                                         systemPrompt={systemPrompt}
-                                         onActivePersonaChange={
-                                             setActivePersonaId
-                                         }
-                                         onSystemPromptChange={setSystemPrompt}
-                                         onRandom={handleRandomPersona}
-                                     />
+                                    <PersonaPicker
+                                        personas={CHAT_PERSONAS}
+                                        activePersonaId={activePersonaId}
+                                        systemPrompt={systemPrompt}
+                                        onActivePersonaChange={
+                                            setActivePersonaId
+                                        }
+                                        onSystemPromptChange={setSystemPrompt}
+                                        onRandom={handleRandomPersona}
+                                    />
                                 </>
                             ) : (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1331,74 +1347,74 @@ export function Chat() {
                                         <label className="text-sm text-(--text-secondary) mb-2 block">
                                             Model A
                                         </label>
-<ModelPicker
-                                             models={enabledModels}
-                                             selected={selectedModel}
-                                             onChange={setSelectedModel}
-                                             multi={false}
-                                             providers={providerData}
-                                             onRandom={handleRandomModel}
-                                             disabled={
-                                                 conversationState === "running"
-                                             }
-                                         />
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={selectedModel}
+                                            onChange={setSelectedModel}
+                                            multi={false}
+                                            providers={providerData}
+                                            onRandom={handleRandomModel}
+                                            disabled={
+                                                conversationState === "running"
+                                            }
+                                        />
                                         <div className="mt-3">
-<PersonaPicker
-                                                 personas={CHAT_PERSONAS}
-                                                 activePersonaId={
-                                                     activePersonaId
-                                                 }
-                                                 systemPrompt={systemPrompt}
-                                                 onActivePersonaChange={
-                                                     setActivePersonaId
-                                                 }
-                                                 onSystemPromptChange={
-                                                     setSystemPrompt
-                                                 }
-                                                 onRandom={handleRandomPersona}
-                                                 label="Persona A"
-                                                 disabled={
-                                                     conversationState ===
-                                                     "running"
-                                                 }
-                                             />
+                                            <PersonaPicker
+                                                personas={CHAT_PERSONAS}
+                                                activePersonaId={
+                                                    activePersonaId
+                                                }
+                                                systemPrompt={systemPrompt}
+                                                onActivePersonaChange={
+                                                    setActivePersonaId
+                                                }
+                                                onSystemPromptChange={
+                                                    setSystemPrompt
+                                                }
+                                                onRandom={handleRandomPersona}
+                                                label="Persona A"
+                                                disabled={
+                                                    conversationState ===
+                                                    "running"
+                                                }
+                                            />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="text-sm text-(--text-secondary) mb-2 block">
                                             Model B
                                         </label>
-<ModelPicker
-                                             models={enabledModels}
-                                             selected={selectedModelB}
-                                             onChange={setSelectedModelB}
-                                             multi={false}
-                                             providers={providerData}
-                                             onRandom={handleRandomModelB}
-                                             disabled={
-                                                 conversationState === "running"
-                                             }
-                                         />
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={selectedModelB}
+                                            onChange={setSelectedModelB}
+                                            multi={false}
+                                            providers={providerData}
+                                            onRandom={handleRandomModelB}
+                                            disabled={
+                                                conversationState === "running"
+                                            }
+                                        />
                                         <div className="mt-3">
-<PersonaPicker
-                                                 personas={CHAT_PERSONAS}
-                                                 activePersonaId={
-                                                     activePersonaIdB
-                                                 }
-                                                 systemPrompt={systemPromptB}
-                                                 onActivePersonaChange={
-                                                     setActivePersonaIdB
-                                                 }
-                                                 onSystemPromptChange={
-                                                     setSystemPromptB
-                                                 }
-                                                 onRandom={handleRandomPersonaB}
-                                                 label="Persona B"
-                                                 disabled={
-                                                     conversationState ===
-                                                     "running"
-                                                 }
-                                             />
+                                            <PersonaPicker
+                                                personas={CHAT_PERSONAS}
+                                                activePersonaId={
+                                                    activePersonaIdB
+                                                }
+                                                systemPrompt={systemPromptB}
+                                                onActivePersonaChange={
+                                                    setActivePersonaIdB
+                                                }
+                                                onSystemPromptChange={
+                                                    setSystemPromptB
+                                                }
+                                                onRandom={handleRandomPersonaB}
+                                                label="Persona B"
+                                                disabled={
+                                                    conversationState ===
+                                                    "running"
+                                                }
+                                            />
                                         </div>
                                     </div>
                                 </div>
