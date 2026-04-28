@@ -535,7 +535,7 @@ export function Layout({ children }: LayoutProps) {
                                                         item.href,
                                                         item,
                                                     )}
-                                                    className="text-[11px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer px-2 py-0.5 -my-0.5 rounded-md hover:bg-white/5"
+                                                    className="text-[11px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer p-0 m-0 bg-transparent hover:bg-transparent"
                                                     title={`Switch to ${otherSub?.label ?? ""} mode`}
                                                 >
                                                     {otherSub?.label}
