@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
     MessageSquare,
     MessagesSquare,
@@ -404,8 +404,10 @@ export function Chat() {
     const setMessageParams =
         chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
-    const enabledModels =
-        models?.filter((m) => m.enabled && m.provider_name) || [];
+    const enabledModels = useMemo(
+        () => models?.filter((m) => m.enabled && m.provider_name) || [],
+        [models],
+    );
 
     const handleRandomPersona = useCallback(() => {
         const currentId = chatSubMode === "chat" ? chatActivePersonaId : conversationActivePersonaIdA;

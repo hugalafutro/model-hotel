@@ -704,10 +704,8 @@ export function Layout({ children }: LayoutProps) {
                             );
                         })}
                     </ul>
-                </nav>
-                <div className="px-4 pt-1 pb-0">
                     <ProviderQuotaPanel />
-                </div>
+                </nav>
                 <div className="px-4 pb-4 shrink-0">
                     <LastErrorPills />
                     <div className="flex justify-between mb-2">
