@@ -14,7 +14,7 @@ import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/ThemeContext";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
-import { formatTokens, formatTimestamp, formatDate } from "../utils/format";
+import { formatTokens, formatTimestamp, formatDate, formatRelativeTime } from "../utils/format";
 
 const CACHE_PREFIX = "llm-proxy";
 
@@ -60,12 +60,14 @@ function NanoGPTQuotaModal({
     onRefresh,
     isRefreshing,
     onToast,
+    lastRefreshed,
 }: {
     usage: NanoGPTUsage;
     onClose: () => void;
     onRefresh: () => Promise<unknown>;
     isRefreshing: boolean;
     onToast: (msg: string, type: "success" | "error" | "info") => void;
+    lastRefreshed?: number;
 }) {
     const { uiStyle } = useTheme();
     const weeklyLimit = usage.limits.weeklyInputTokens ?? 0;
@@ -268,6 +270,13 @@ function NanoGPTQuotaModal({
                         </p>
                     </div>
                 )}
+
+                {lastRefreshed ? (
+                    <div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+                        <span>Last refreshed</span>
+                        <span>{formatRelativeTime(new Date(lastRefreshed).toISOString())}</span>
+                    </div>
+                ) : null}
             </div>
         </Modal>
     );
@@ -279,12 +288,14 @@ function ZAIQuotaModal({
     onRefresh,
     isRefreshing,
     onToast,
+    lastRefreshed,
 }: {
     usage: ZAIQuotaResponse;
     onClose: () => void;
     onRefresh: () => Promise<unknown>;
     isRefreshing: boolean;
     onToast: (msg: string, type: "success" | "error" | "info") => void;
+    lastRefreshed?: number;
 }) {
     const { uiStyle } = useTheme();
     const limits = usage.data?.limits || [];
@@ -457,6 +468,13 @@ function ZAIQuotaModal({
                             )}
                     </div>
                 )}
+
+                {lastRefreshed ? (
+                    <div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+                        <span>Last refreshed</span>
+                        <span>{formatRelativeTime(new Date(lastRefreshed).toISOString())}</span>
+                    </div>
+                ) : null}
             </div>
         </Modal>
     );
@@ -774,6 +792,7 @@ export function Providers() {
 
     const {
         data: nanogptUsage,
+        dataUpdatedAt: nanogptDataUpdatedAt,
         refetch,
         isRefetching,
         isError: isNanoGPTError,
@@ -791,6 +810,7 @@ export function Providers() {
 
     const {
         data: zaiUsage,
+        dataUpdatedAt: zaiDataUpdatedAt,
         refetch: refetchZai,
         isRefetching: isZaiRefetching,
         isError: isZAIError,
@@ -1563,6 +1583,7 @@ export function Providers() {
                     onRefresh={refetch}
                     isRefreshing={isRefetching}
                     onToast={toast}
+                    lastRefreshed={nanogptDataUpdatedAt}
                 />
             )}
 
@@ -1573,6 +1594,7 @@ export function Providers() {
                     onRefresh={refetchZai}
                     isRefreshing={isZaiRefetching}
                     onToast={toast}
+                    lastRefreshed={zaiDataUpdatedAt}
                 />
             )}
 
