@@ -151,6 +151,7 @@ export function ProviderQuotaPanel() {
         queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
         queryClient.invalidateQueries({ queryKey: ["zai-usage"] });
         queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
+        toast("Refreshing quotas...", "info");
     }, [queryClient, toast]);
 
     const weeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
@@ -224,7 +225,7 @@ export function ProviderQuotaPanel() {
             </div>
 
             {!collapsed && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 justify-center">
                     {showNanoBadge && (
                         <button
                             type="button"
