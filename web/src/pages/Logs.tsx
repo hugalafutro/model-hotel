@@ -580,6 +580,24 @@ function RequestLogs() {
                 </div>
             </div>
 
+            {/* Pagination above Controls */}
+            {displayTotal > 0 && (
+                <div className="flex justify-end pb-2">
+                    <PaginationBar
+                        page={page}
+                        totalPages={Math.ceil(displayTotal / pageSize)}
+                        totalItems={displayTotal}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={(s) => {
+                            setPageSize(s);
+                            setPage(1);
+                        }}
+                        label="entries"
+                    />
+                </div>
+            )}
+
             {/* Controls */}
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
@@ -1080,24 +1098,6 @@ function RequestLogs() {
                             </tbody>
                         </table>
                     </div>
-
-                    {/* Pagination below the table, right-aligned */}
-                    {displayTotal > 0 && (
-                        <div className="flex justify-end pt-3">
-                            <PaginationBar
-                                page={page}
-                                totalPages={Math.ceil(displayTotal / pageSize)}
-                                totalItems={displayTotal}
-                                pageSize={pageSize}
-                                onPageChange={setPage}
-                                onPageSizeChange={(s) => {
-                                    setPageSize(s);
-                                    setPage(1);
-                                }}
-                                label="entries"
-                            />
-                        </div>
-                    )}
                 </>
             )}
         </div>

@@ -74,9 +74,7 @@ export function AppLogs() {
         placeholderData: keepPreviousData,
     });
 
-    const {
-        data: ringBufferData = [],
-    } = useQuery({
+    const { data: ringBufferData = [] } = useQuery({
         queryKey: ["appLogs"],
         queryFn: () => api.appLogs.list({ limit: 500 }),
         refetchInterval: false,
@@ -228,6 +226,24 @@ export function AppLogs() {
                     </p>
                 </div>
             </div>
+
+            {/* Pagination above Controls */}
+            {totalItems > 0 && (
+                <div className="flex justify-end pb-2">
+                    <PaginationBar
+                        page={safePage}
+                        totalPages={totalPages}
+                        totalItems={totalItems}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={(s) => {
+                            setPageSize(s);
+                            setPage(1);
+                        }}
+                        label="entries"
+                    />
+                </div>
+            )}
 
             <div className="ui-card p-4 shrink-0">
                 <div className="flex items-center justify-between">
@@ -392,10 +408,7 @@ export function AppLogs() {
                             <tbody>
                                 {entries.length > 0 ? (
                                     entries.map((entry, i) => (
-                                        <Row
-                                            key={i}
-                                            index={i}
-                                        >
+                                        <Row key={i} index={i}>
                                             <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
                                                 {formatTimestamp(
                                                     entry.timestamp,
@@ -441,23 +454,6 @@ export function AppLogs() {
                             </tbody>
                         </table>
                     </div>
-
-                    {totalItems > 0 && (
-                        <div className="flex justify-end pt-3">
-                            <PaginationBar
-                                page={safePage}
-                                totalPages={totalPages}
-                                totalItems={totalItems}
-                                pageSize={pageSize}
-                                onPageChange={setPage}
-                                onPageSizeChange={(s) => {
-                                    setPageSize(s);
-                                    setPage(1);
-                                }}
-                                label="entries"
-                            />
-                        </div>
-                    )}
                 </>
             )}
         </div>
