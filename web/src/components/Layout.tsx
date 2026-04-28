@@ -439,14 +439,15 @@ export function Layout({ children }: LayoutProps) {
     const handleSubModeToggle =
         (href: string, item: (typeof navigation)[number]) =>
         (e: React.MouseEvent) => {
+            // Only toggle sub-mode when already on this page;
+            // otherwise let the Link navigate normally (first click opens default).
+            if (location.pathname !== href) return;
             e.preventDefault();
-            e.stopPropagation();
             const entry = subModeMap[href];
             if (!entry || !("subModes" in item) || !item.subModes) return;
             const other = item.subModes.find((s) => s.value !== entry.mode);
             if (other) {
                 entry.setMode(other.value);
-                navigate(href);
             }
         };
 
