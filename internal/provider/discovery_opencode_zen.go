@@ -47,14 +47,21 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	}
 
 	catalog := GetOpenCodeZenCatalog()
+	keyless := len(provider.EncryptedKey) == 0
 
 	models := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
 		spec := LookupOpenCodeCatalog(catalog, m.ID)
+
+		if keyless {
+			if spec == nil || spec.InputPricePerMillion > 0 || spec.OutputPricePerMillion > 0 {
+				log.Printf("[discovery] opencode-zen: skipping paid model %s (keyless provider %s)", m.ID, provider.ID)
+				continue
+			}
+		}
+
 		if spec == nil {
 			log.Printf("[discovery] model %s not in catalog, creating minimal entry", m.ID)
-			// Model exists in API but not in our catalog — create minimal entry
-			// (preserves forward compatibility when new models are added)
 			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
 			models = append(models, &model.Model{
 				ID:               uuid.New(),
