@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { api } from "../api/client";
 import {
     LayoutDashboard,
@@ -22,6 +23,7 @@ import {
     Copy,
     ExternalLink,
     AlertTriangle,
+    X,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useTheme } from "../context/ThemeContext";
@@ -397,6 +399,8 @@ function LastErrorPills() {
     const navigate = useNavigate();
     const { setLogsSubMode } = useSidebarMode();
     const { toast } = useToast();
+    const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(null);
+    const [dismissedReqKey, setDismissedReqKey] = useState<string | null>(null);
 
     const { data: appLogData } = useQuery({
         queryKey: ["appLogHistory", "lastError"],
@@ -427,14 +431,26 @@ function LastErrorPills() {
     });
 
     const lastAppError = appLogData?.entries?.[0]?.message;
+    const lastAppTimestamp = appLogData?.entries?.[0]?.timestamp;
     const lastReqError = reqLogData?.entries?.[0]?.error_message;
+    const lastReqTimestamp = reqLogData?.entries?.[0]?.created_at;
 
-    if (!lastAppError && !lastReqError) return null;
+    const appErrorKey = lastAppError && lastAppTimestamp ? `${lastAppTimestamp}:${lastAppError.slice(0, 50)}` : null;
+    const reqErrorKey = lastReqError && lastReqTimestamp ? `${lastReqTimestamp}:${lastReqError.slice(0, 50)}` : null;
+
+    // Show the pill if there's an error and it hasn't been dismissed.
+    // If the error key changes (new error), dismissedAppKey no longer matches,
+    // so the pill auto-reappears — no useEffect needed.
+    const showAppError = lastAppError && appErrorKey !== dismissedAppKey;
+    const showReqError = lastReqError && reqErrorKey !== dismissedReqKey;
+
+    if (!showAppError && !showReqError) return null;
 
     const pill = (
         label: string,
         msg: string,
         subMode: "request" | "app",
+        onAcknowledge: () => void,
     ) => (
         <div className="group relative rounded-md border border-red-500/30 bg-red-950/20 overflow-hidden">
             {/* Header row with icon, label, and action buttons */}
@@ -470,6 +486,18 @@ function LastErrorPills() {
                     >
                         <ExternalLink size={10} />
                     </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onAcknowledge();
+                            toast(`${label} error acknowledged`, "info");
+                        }}
+                        className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+                        title="Acknowledge (dismiss)"
+                    >
+                        <X size={10} />
+                    </button>
                 </div>
             </div>
             {/* Error message body */}
@@ -483,8 +511,8 @@ function LastErrorPills() {
 
     return (
         <div className="flex flex-col gap-1 mb-2">
-            {lastAppError && pill("App", lastAppError, "app")}
-            {lastReqError && pill("Request", lastReqError, "request")}
+            {showAppError && appErrorKey && pill("App", lastAppError, "app", () => { setDismissedAppKey(appErrorKey); toast("App error acknowledged", "info"); })}
+            {showReqError && reqErrorKey && pill("Request", lastReqError, "request", () => { setDismissedReqKey(reqErrorKey); toast("Request error acknowledged", "info"); })}
         </div>
     );
 }
