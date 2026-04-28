@@ -337,6 +337,7 @@ export function AppLogs() {
                             }}
                             placeholder="Filter logs…"
                             className="w-50"
+                            autoFocus
                         />
                     </div>
                 </div>
