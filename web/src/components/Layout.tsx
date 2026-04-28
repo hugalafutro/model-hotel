@@ -503,6 +503,14 @@ export function Layout({ children }: LayoutProps) {
                                 <li key={item.name}>
                                     <Link
                                         to={item.href}
+                                        onClick={
+                                            hasSubModes
+                                                ? handleSubModeToggle(
+                                                      item.href,
+                                                      item,
+                                                  )
+                                                : undefined
+                                        }
                                         className={`sidebar-link flex items-center px-4 py-2 transition-colors ${
                                             active
                                                 ? "sidebar-link-active"
@@ -529,17 +537,9 @@ export function Layout({ children }: LayoutProps) {
                                                 <span className="text-(--text-muted) text-[10px] opacity-60">
                                                     /
                                                 </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSubModeToggle(
-                                                        item.href,
-                                                        item,
-                                                    )}
-                                                    className="text-[11px] text-(--text-tertiary) hover:text-(--text-secondary) transition-colors cursor-pointer p-0 m-0 bg-transparent hover:bg-transparent"
-                                                    title={`Switch to ${otherSub?.label ?? ""} mode`}
-                                                >
+                                                <span className="text-[11px] text-(--text-tertiary)">
                                                     {otherSub?.label}
-                                                </button>
+                                                </span>
                                             </span>
                                         ) : (
                                             item.name
