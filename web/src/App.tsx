@@ -89,7 +89,7 @@ function LoginScreen() {
                                 onKeyDown={(e) =>
                                     e.key === "Enter" && handleLogin()
                                 }
-                                className="ui-input pr-10"
+                                className="ui-input pr-10 overflow-hidden"
                                 placeholder="Enter your admin token"
                                 autoFocus={true}
                             />
