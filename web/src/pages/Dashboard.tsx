@@ -487,14 +487,6 @@ function ProviderDoughnut({
 }) {
     const colors = ["#818cf8", "#059669", "#fbbf24", "#f87171", "#a78bfa"];
 
-    if (items.length === 0) {
-        return (
-            <div className="ui-card p-6 text-center text-sm text-(--text-muted) py-12">
-                No provider data
-            </div>
-        );
-    }
-
     return (
         <div className="ui-card p-6">
             <div className="flex items-center justify-between mb-4">
@@ -508,6 +500,11 @@ function ProviderDoughnut({
                     <RangeToggle value={range} onChange={onRangeChange} />
                 </div>
             </div>
+            {items.length === 0 ? (
+                <p className="text-sm text-(--text-muted) text-center py-12">
+                    No provider data
+                </p>
+            ) : (
             <div className="flex items-center gap-6">
                 <div className="w-35 h-35">
                     <ResponsiveContainer width="100%" height="100%">
@@ -566,6 +563,7 @@ function ProviderDoughnut({
                     ))}
                 </div>
             </div>
+            )}
         </div>
     );
 }

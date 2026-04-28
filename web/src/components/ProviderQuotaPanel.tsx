@@ -110,6 +110,7 @@ export function ProviderQuotaPanel() {
 
     const {
         data: nanogptUsage,
+        dataUpdatedAt: nanoDataUpdatedAt,
         isRefetching: isNanoRefetching,
     } = useQuery({
         queryKey: ["nanogpt-usage", nanogptProviderId],
@@ -122,6 +123,7 @@ export function ProviderQuotaPanel() {
 
     const {
         data: zaiUsage,
+        dataUpdatedAt: zaiDataUpdatedAt,
         isRefetching: isZaiRefetching,
     } = useQuery({
         queryKey: ["zai-usage", zaiProviderId],
@@ -285,6 +287,7 @@ export function ProviderQuotaPanel() {
                     onRefresh={refreshNano}
                     isRefreshing={isNanoRefetching}
                     onToast={toast}
+                    lastRefreshed={nanoDataUpdatedAt}
                 />
             )}
             {modalZai && (
@@ -294,6 +297,7 @@ export function ProviderQuotaPanel() {
                     onRefresh={refreshZai}
                     isRefreshing={isZaiRefetching}
                     onToast={toast}
+                    lastRefreshed={zaiDataUpdatedAt}
                 />
             )}
         </div>
