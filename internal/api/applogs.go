@@ -102,9 +102,20 @@ func (rb *ringBuffer) GetEntries() []AppLogEntry {
 	return result
 }
 
+// Clear resets the ring buffer, returning the number of entries that were cleared.
+func (rb *ringBuffer) Clear() int {
+	rb.mu.Lock()
+	defer rb.mu.Unlock()
+	n := rb.count
+	rb.head = 0
+	rb.count = 0
+	return n
+}
+
 // RegisterAppLogs registers the app logs endpoint on the given router.
 func (h *Handler) RegisterAppLogs(r chi.Router) {
 	r.Get("/logs/app", h.GetAppLogs)
+	r.Delete("/logs/app", h.ClearAppLogs)
 }
 
 // GetAppLogs returns recent application log entries as a JSON array.
@@ -137,6 +148,19 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entries)
+}
+
+// ClearAppLogs clears the application log ring buffer and returns the count
+// of entries that were removed.
+func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
+	if appLogBuffer == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]int{"deleted": 0})
+		return
+	}
+	n := appLogBuffer.Clear()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"deleted": n})
 }
 
 // filterEntriesAfter returns only entries whose timestamp is strictly after

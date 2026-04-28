@@ -361,6 +361,19 @@ export const api = {
             }
             return response.json();
         },
+        purge: async (): Promise<{ deleted: number }> => {
+            const response = await fetch(`${API_BASE}/api/logs/app`, {
+                method: "DELETE",
+                headers: getAuthHeaders(),
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    `Failed to purge app logs: ${response.status} ${text}`,
+                );
+            }
+            return response.json();
+        },
     },
 
     stats: {

@@ -1002,6 +1002,7 @@ function LoggingSettings() {
     const queryClient = useQueryClient();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteSelection, setDeleteSelection] = useState("");
+    const [confirmDeleteAppLogs, setConfirmDeleteAppLogs] = useState(false);
 
     const { data: settings } = useQuery({
         queryKey: ["settings"],
@@ -1024,13 +1025,26 @@ function LoggingSettings() {
         mutationFn: (olderThan: string) => api.logs.purge(olderThan),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["logs"] });
-            toast("Logs deleted", "success");
+            toast("Requests deleted", "success");
             setConfirmDelete(false);
             setDeleteSelection("");
         },
         onError: (err: Error) => {
-            toast(`Failed to delete logs: ${err.message}`, "error");
+            toast(`Failed to delete requests: ${err.message}`, "error");
             setConfirmDelete(false);
+        },
+    });
+
+    const purgeAppLogsMutation = useMutation({
+        mutationFn: () => api.appLogs.purge(),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["appLogs"] });
+            toast(`Deleted ${data.deleted} log entries`, "success");
+            setConfirmDeleteAppLogs(false);
+        },
+        onError: (err: Error) => {
+            toast(`Failed to delete app logs: ${err.message}`, "error");
+            setConfirmDeleteAppLogs(false);
         },
     });
 
@@ -1126,7 +1140,7 @@ function LoggingSettings() {
                             onClick={() => setConfirmDelete(true)}
                             className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
                         >
-                            Delete Logs
+                            Delete Requests
                         </button>
                     ) : (
                         <div className="space-y-3">
@@ -1172,6 +1186,41 @@ function LoggingSettings() {
                                     Cancel
                                 </button>
                             </div>
+                        </div>
+                    )}
+                </div>
+
+                <div>
+                    {!confirmDeleteAppLogs ? (
+                        <button
+                            type="button"
+                            onClick={() => setConfirmDeleteAppLogs(true)}
+                            className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
+                        >
+                            Delete Logs
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-red-400">
+                                Clear all application logs?
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => purgeAppLogsMutation.mutate()}
+                                disabled={purgeAppLogsMutation.isPending}
+                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {purgeAppLogsMutation.isPending
+                                    ? "Deleting…"
+                                    : "Confirm"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setConfirmDeleteAppLogs(false)}
+                                className="px-3 py-1.5 text-xs rounded-full border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     )}
                 </div>

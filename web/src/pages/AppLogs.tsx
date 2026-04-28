@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type AppLogEntry } from "../api/client";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ScrollText, FileText } from "lucide-react";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
+import { FilterInput } from "../components/FilterInput";
+import { EmptyRow, PaginationBar } from "../components/DataTable";
 
 export function AppLogs() {
     const { logsSubMode, setLogsSubMode } = useSidebarMode();
@@ -12,9 +14,8 @@ export function AppLogs() {
     const [levelFilter, setLevelFilter] = useState<
         "all" | "info" | "warning" | "error"
     >("all");
-    const bottomRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [autoScroll, setAutoScroll] = useState(true);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
     const { toast } = useToast();
 
     const {
@@ -27,32 +28,29 @@ export function AppLogs() {
         refetchInterval: liveEnabled ? 2000 : false,
     });
 
-    useEffect(() => {
-        if (autoScroll && bottomRef.current) {
-            bottomRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-    }, [entries, autoScroll]);
+    const filteredEntries = useMemo(() => {
+        return entries.filter((e) => {
+            if (levelFilter !== "all" && e.level !== levelFilter) return false;
+            if (
+                searchFilter &&
+                !e.message.toLowerCase().includes(searchFilter.toLowerCase())
+            )
+                return false;
+            return true;
+        });
+    }, [entries, levelFilter, searchFilter]);
 
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        const handleScroll = () => {
-            const { scrollTop, scrollHeight, clientHeight } = container;
-            setAutoScroll(scrollHeight - scrollTop - clientHeight < 60);
-        };
-        container.addEventListener("scroll", handleScroll);
-        return () => container.removeEventListener("scroll", handleScroll);
-    }, []);
+    // Reverse so latest entries appear first
+    const reversedEntries = useMemo(
+        () => [...filteredEntries].reverse(),
+        [filteredEntries],
+    );
 
-    const filteredEntries = entries.filter((e) => {
-        if (levelFilter !== "all" && e.level !== levelFilter) return false;
-        if (
-            searchFilter &&
-            !e.message.toLowerCase().includes(searchFilter.toLowerCase())
-        )
-            return false;
-        return true;
-    });
+    const totalCount = reversedEntries.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const pageStart = (safePage - 1) * pageSize;
+    const pageEntries = reversedEntries.slice(pageStart, pageStart + pageSize);
 
     const levelCounts = useMemo(() => {
         const counts = { info: 0, warning: 0, error: 0 };
@@ -99,7 +97,7 @@ export function AppLogs() {
     };
 
     return (
-        <div className="flex flex-col gap-4 min-h-[calc(100vh-64px)]">
+        <div className="space-y-4">
             {/* Header */}
             <div className="flex justify-between items-center shrink-0">
                 <div>
@@ -121,23 +119,16 @@ export function AppLogs() {
                                     "info",
                                 );
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                            style={{
-                                backgroundColor: liveEnabled
-                                    ? undefined
-                                    : "rgba(55,65,81,1)",
-                                color: liveEnabled
-                                    ? undefined
-                                    : "rgb(156,163,175)",
-                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                                liveEnabled
+                                    ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                                    : "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                            }`}
                         >
                             <span
-                                className="w-2 h-2 rounded-full transition-colors"
-                                style={{
-                                    backgroundColor: liveEnabled
-                                        ? "rgb(74,222,128)"
-                                        : "rgb(107,114,128)",
-                                }}
+                                className={`w-2 h-2 rounded-full transition-colors ${
+                                    liveEnabled ? "bg-green-400" : "bg-gray-500"
+                                }`}
                             />
                             Live
                         </button>
@@ -154,12 +145,11 @@ export function AppLogs() {
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => setLogsSubMode("request")}
-                            className={
-                                "px-3 py-1 rounded-md text-xs font-medium transition-all " +
-                                (logsSubMode === "request"
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                logsSubMode === "request"
                                     ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer")
-                            }
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                            }`}
                         >
                             <ScrollText
                                 size={12}
@@ -169,12 +159,11 @@ export function AppLogs() {
                         </button>
                         <button
                             onClick={() => setLogsSubMode("app")}
-                            className={
-                                "px-3 py-1 rounded-md text-xs font-medium transition-all " +
-                                (logsSubMode === "app"
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                logsSubMode === "app"
                                     ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer")
-                            }
+                                    : "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+                            }`}
                         >
                             <FileText
                                 size={12}
@@ -188,13 +177,15 @@ export function AppLogs() {
                             (lvl) => (
                                 <button
                                     key={lvl}
-                                    onClick={() => setLevelFilter(lvl)}
-                                    className={
-                                        "px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer " +
-                                        (levelFilter === lvl
+                                    onClick={() => {
+                                        setLevelFilter(lvl);
+                                        setPage(1);
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                                        levelFilter === lvl
                                             ? "bg-white/15 text-(--text-primary)"
-                                            : "text-(--text-tertiary) hover:text-(--text-secondary)")
-                                    }
+                                            : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                                    }`}
                                 >
                                     {lvl === "all"
                                         ? "All (" + entries.length + ")"
@@ -209,38 +200,37 @@ export function AppLogs() {
                             ),
                         )}
                         <div className="w-px h-4 bg-(--border) mx-1" />
-                        <input
-                            type="text"
+                        <FilterInput
                             value={searchFilter}
-                            onChange={(e) => setSearchFilter(e.target.value)}
+                            onChange={(v) => {
+                                setSearchFilter(v);
+                                setPage(1);
+                            }}
                             placeholder="Filter logs…"
-                            className="w-50 px-2.5 py-1 text-xs bg-(--input-bg) border border-(--input-border) rounded-md text-(--text-primary) placeholder:text-(--text-tertiary) focus:outline-none focus:ring-1 focus:ring-(--accent)"
+                            className="w-50"
                         />
                     </div>
                 </div>
             </div>
 
-            {/* Log viewer */}
-            <div className="ui-card flex-1 flex flex-col min-h-0 overflow-hidden">
-                {isLoading && entries.length === 0 ? (
-                    <div className="flex items-center justify-center py-12 text-(--text-tertiary)">
-                        Loading logs…
-                    </div>
-                ) : error ? (
-                    <div className="flex items-center justify-center py-12 text-red-400">
-                        Failed to load logs: {error?.message}
-                    </div>
-                ) : filteredEntries.length === 0 ? (
-                    <div className="flex items-center justify-center py-12 text-(--text-tertiary)">
-                        {entries.length === 0
-                            ? "No log entries yet — logs will appear here as the server generates output"
-                            : "No entries match your filter"}
-                    </div>
-                ) : (
-                    <div
-                        ref={containerRef}
-                        className="flex-1 overflow-y-auto font-mono text-xs"
-                    >
+            {/* Loading / Error / Empty states */}
+            {isLoading && entries.length === 0 && (
+                <div className="flex items-center justify-center py-20">
+                    <div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
+                </div>
+            )}
+
+            {error && entries.length === 0 && (
+                <div className="ui-card p-8 text-center">
+                    <p className="text-red-400 text-sm">
+                        Failed to load logs: {error?.message || "Unknown error"}
+                    </p>
+                </div>
+            )}
+
+            {!(isLoading && entries.length === 0) && (
+                <>
+                    <div className="ui-card overflow-x-auto">
                         <table className="w-full ui-table">
                             <thead>
                                 <tr>
@@ -256,40 +246,64 @@ export function AppLogs() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEntries.map((entry, i) => (
-                                    <tr
-                                        key={i}
-                                        className="border-b border-(--border) hover:bg-white/2 transition-colors"
-                                    >
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
-                                            {formatTimestamp(entry.timestamp)}
-                                        </td>
-                                        <td className="px-4 py-2">
-                                            <span
-                                                className={
-                                                    "inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium " +
-                                                    getLevelBadge(entry.level)
-                                                }
-                                            >
-                                                {entry.level.toUpperCase()}
-                                            </span>
-                                        </td>
-                                        <td
-                                            className={
-                                                "px-4 py-2 whitespace-pre-wrap break-all text-xs font-mono " +
-                                                getLevelColor(entry.level)
-                                            }
+                                {pageEntries.length > 0 ? (
+                                    pageEntries.map((entry, i) => (
+                                        <tr
+                                            key={pageStart + i}
+                                            className="border-b border-(--border) hover:bg-white/2 transition-colors"
                                         >
-                                            {entry.message}
-                                        </td>
-                                    </tr>
-                                ))}
+                                            <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+                                                {formatTimestamp(
+                                                    entry.timestamp,
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <span
+                                                    className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium ${getLevelBadge(entry.level)}`}
+                                                >
+                                                    {entry.level.toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td
+                                                className={`px-4 py-2 whitespace-pre-wrap break-all text-xs font-mono ${getLevelColor(entry.level)}`}
+                                            >
+                                                {entry.message}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <EmptyRow
+                                        colSpan={3}
+                                        message={
+                                            entries.length === 0
+                                                ? "No log entries yet — logs will appear here as the server generates output"
+                                                : "No entries match your filter"
+                                        }
+                                    />
+                                )}
                             </tbody>
                         </table>
-                        <div ref={bottomRef} />
                     </div>
-                )}
-            </div>
+
+                    {/* Pagination */}
+                    {totalCount > 0 && (
+                        <div className="flex justify-end pt-3">
+                            <PaginationBar
+                                page={safePage}
+                                totalPages={totalPages}
+                                totalItems={totalCount}
+                                pageSize={pageSize}
+                                onPageChange={setPage}
+                                onPageSizeChange={(s) => {
+                                    setPageSize(s);
+                                    setPage(1);
+                                }}
+                                label="entries"
+                            />
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     );
 }

@@ -653,23 +653,31 @@ function RequestLogs() {
                             placeholder="Filter by provider…"
                             className="w-50"
                         />
-                        <select
-                            value={filters.status_code}
-                            onChange={(e) => {
-                                setFilters({
-                                    ...filters,
-                                    status_code: e.target.value,
-                                });
-                                setPage(1);
-                            }}
-                            className="ui-input h-9 py-0! w-30! text-xs pr-6"
-                        >
-                            <option value="">All Status</option>
-                            <option value="0">0 No Response</option>
-                            <option value="200">200 OK</option>
-                            <option value="4xx">4XX</option>
-                            <option value="5xx">5XX</option>
-                        </select>
+                        {(["", "2xx", "4xx", "5xx", "0"] as const).map(
+                            (status) => (
+                                <button
+                                    key={status}
+                                    onClick={() => {
+                                        setFilters({
+                                            ...filters,
+                                            status_code: status,
+                                        });
+                                        setPage(1);
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                                        filters.status_code === status
+                                            ? "bg-white/15 text-(--text-primary)"
+                                            : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                                    }`}
+                                >
+                                    {status === ""
+                                        ? "All"
+                                        : status === "0"
+                                          ? "0"
+                                          : status.toUpperCase()}
+                                </button>
+                            ),
+                        )}
 
                         {/* Calendar picker */}
                         <div className="relative" ref={datePickerRef}>
