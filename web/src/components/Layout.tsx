@@ -393,9 +393,6 @@ interface LayoutProps {
     children: React.ReactNode;
 }
 
-const TEST_APP_ERROR = "TESTING: failover group validation failed — no enabled providers available for model glm-4";
-const TEST_REQ_ERROR = "TESTING: upstream provider returned 503 Service Unavailable after exhausting all failover candidates";
-
 function LastErrorPills() {
     const navigate = useNavigate();
     const { setLogsSubMode } = useSidebarMode();
@@ -429,9 +426,8 @@ function LastErrorPills() {
         staleTime: 10000,
     });
 
-    const lastAppError = TEST_APP_ERROR || appLogData?.entries?.[0]?.message;
-    const lastReqError =
-        TEST_REQ_ERROR || reqLogData?.entries?.[0]?.error_message;
+    const lastAppError = appLogData?.entries?.[0]?.message;
+    const lastReqError = reqLogData?.entries?.[0]?.error_message;
 
     if (!lastAppError && !lastReqError) return null;
 
@@ -440,41 +436,47 @@ function LastErrorPills() {
         msg: string,
         subMode: "request" | "app",
     ) => (
-        <div className="group relative rounded-md border border-red-500/20 bg-red-950/30 px-2 py-1 text-[10px] leading-tight text-red-300/90 overflow-hidden max-h-[2.5em] hover:max-h-40 transition-[max-h] duration-200">
-            <div className="flex items-start gap-1">
-                <AlertTriangle size={10} className="shrink-0 mt-0.5 text-red-400/70" />
-                <span className="font-semibold text-red-400/80 shrink-0">
-                    {label}
-                </span>
+        <div className="group relative rounded-md border border-red-500/30 bg-red-950/20 overflow-hidden">
+            {/* Header row with icon, label, and action buttons */}
+            <div className="flex items-center justify-between px-2 py-1 bg-red-900/20 border-b border-red-500/20">
+                <div className="flex items-center gap-1.5">
+                    <AlertTriangle size={10} className="shrink-0 text-red-400" />
+                    <span className="text-[10px] font-semibold text-red-300 uppercase tracking-wider">
+                        Last {label} Error
+                    </span>
+                </div>
+                <div className="flex gap-0.5">
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(msg);
+                            toast("Copied to clipboard", "info");
+                        }}
+                        className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+                        title="Copy error"
+                    >
+                        <Copy size={10} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setLogsSubMode(subMode);
+                            navigate("/logs");
+                        }}
+                        className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+                        title="View in logs"
+                    >
+                        <ExternalLink size={10} />
+                    </button>
+                </div>
             </div>
-            <div className="line-clamp-1 group-hover:line-clamp-none mt-0.5 font-mono text-[9px] text-red-300/70 break-all">
-                {msg}
-            </div>
-            <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(msg);
-                        toast("Copied to clipboard", "info");
-                    }}
-                    className="p-0.5 rounded text-red-300/50 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
-                    title="Copy error"
-                >
-                    <Copy size={10} />
-                </button>
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setLogsSubMode(subMode);
-                        navigate("/logs");
-                    }}
-                    className="p-0.5 rounded text-red-300/50 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
-                    title="View in logs"
-                >
-                    <ExternalLink size={10} />
-                </button>
+            {/* Error message body */}
+            <div className="px-2 py-1.5">
+                <div className="font-mono text-[9px] text-red-300/80 break-all leading-relaxed">
+                    {msg}
+                </div>
             </div>
         </div>
     );
