@@ -14,6 +14,7 @@ export function AppLogs() {
     const [levelFilter, setLevelFilter] = useState<
         "all" | "info" | "warning" | "error"
     >("all");
+    const [sourceFilter, setSourceFilter] = useState<string>("all");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const { toast } = useToast();
@@ -31,14 +32,17 @@ export function AppLogs() {
     const filteredEntries = useMemo(() => {
         return entries.filter((e) => {
             if (levelFilter !== "all" && e.level !== levelFilter) return false;
+            if (sourceFilter !== "all" && e.source !== sourceFilter)
+                return false;
             if (
                 searchFilter &&
-                !e.message.toLowerCase().includes(searchFilter.toLowerCase())
+                !e.message.toLowerCase().includes(searchFilter.toLowerCase()) &&
+                !e.source.toLowerCase().includes(searchFilter.toLowerCase())
             )
                 return false;
             return true;
         });
-    }, [entries, levelFilter, searchFilter]);
+    }, [entries, levelFilter, sourceFilter, searchFilter]);
 
     // Reverse so latest entries appear first
     const reversedEntries = useMemo(
@@ -60,6 +64,22 @@ export function AppLogs() {
         return counts;
     }, [entries]);
 
+    const sources = useMemo(() => {
+        const set = new Set<string>();
+        for (const e of entries) {
+            if (e.source) set.add(e.source);
+        }
+        return Array.from(set).sort();
+    }, [entries]);
+
+    const sourceCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const e of entries) {
+            if (e.source) counts[e.source] = (counts[e.source] || 0) + 1;
+        }
+        return counts;
+    }, [entries]);
+
     const getLevelBadge = (level: string) => {
         switch (level) {
             case "error":
@@ -68,6 +88,38 @@ export function AppLogs() {
                 return "bg-yellow-900/30 text-yellow-400";
             default:
                 return "bg-blue-900/30 text-blue-400";
+        }
+    };
+
+    const getSourceBadge = (source: string) => {
+        switch (source) {
+            case "auth":
+                return "bg-purple-900/30 text-purple-400";
+            case "proxy":
+                return "bg-cyan-900/30 text-cyan-400";
+            case "resolve":
+                return "bg-teal-900/30 text-teal-400";
+            case "discovery":
+                return "bg-emerald-900/30 text-emerald-400";
+            case "failover":
+                return "bg-orange-900/30 text-orange-400";
+            case "ratelimit":
+                return "bg-amber-900/30 text-amber-400";
+            case "vkey":
+            case "admin":
+                return "bg-pink-900/30 text-pink-400";
+            case "settings":
+                return "bg-indigo-900/30 text-indigo-400";
+            case "events":
+                return "bg-violet-900/30 text-violet-400";
+            case "docker":
+                return "bg-sky-900/30 text-sky-400";
+            case "keycache":
+            case "model":
+            case "provider":
+                return "bg-lime-900/30 text-lime-400";
+            default:
+                return "bg-gray-800/30 text-gray-400";
         }
     };
 
@@ -147,7 +199,10 @@ export function AppLogs() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                         <button
-                            onClick={() => setLogsSubMode("request")}
+                            onClick={() => {
+                                setLogsSubMode("request");
+                                setSourceFilter("all");
+                            }}
                             className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
                                 logsSubMode === "request"
                                     ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
@@ -161,7 +216,10 @@ export function AppLogs() {
                             Requests
                         </button>
                         <button
-                            onClick={() => setLogsSubMode("app")}
+                            onClick={() => {
+                                setLogsSubMode("app");
+                                setSourceFilter("all");
+                            }}
                             className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
                                 logsSubMode === "app"
                                     ? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
@@ -201,6 +259,40 @@ export function AppLogs() {
                                           ")"}
                                 </button>
                             ),
+                        )}
+                        {sources.length > 1 && (
+                            <>
+                                <div className="w-px h-4 bg-(--border) mx-1" />
+                                <button
+                                    onClick={() => {
+                                        setSourceFilter("all");
+                                        setPage(1);
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                                        sourceFilter === "all"
+                                            ? "bg-white/15 text-(--text-primary)"
+                                            : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                                    }`}
+                                >
+                                    All
+                                </button>
+                                {sources.map((src) => (
+                                    <button
+                                        key={src}
+                                        onClick={() => {
+                                            setSourceFilter(src);
+                                            setPage(1);
+                                        }}
+                                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                                            sourceFilter === src
+                                                ? "bg-white/15 text-(--text-primary)"
+                                                : "text-(--text-tertiary) hover:text-(--text-secondary)"
+                                        }`}
+                                    >
+                                        {src} ({sourceCounts[src] ?? 0})
+                                    </button>
+                                ))}
+                            </>
                         )}
                         <div className="w-px h-4 bg-(--border) mx-1" />
                         <FilterInput
@@ -243,6 +335,9 @@ export function AppLogs() {
                                     <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-17.5">
                                         Level
                                     </th>
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary) w-20">
+                                        Source
+                                    </th>
                                     <th className="text-left px-4 py-2 text-xs font-medium text-(--text-tertiary)">
                                         Message
                                     </th>
@@ -267,6 +362,19 @@ export function AppLogs() {
                                                     {entry.level.toUpperCase()}
                                                 </span>
                                             </td>
+                                            <td className="px-4 py-2">
+                                                {entry.source ? (
+                                                    <span
+                                                        className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium ${getSourceBadge(entry.source)}`}
+                                                    >
+                                                        {entry.source}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-600">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td
                                                 className={`px-4 py-2 whitespace-pre-wrap break-all text-xs font-mono ${getLevelColor(entry.level)}`}
                                             >
@@ -276,7 +384,7 @@ export function AppLogs() {
                                     ))
                                 ) : (
                                     <EmptyRow
-                                        colSpan={3}
+                                        colSpan={4}
                                         message={
                                             entries.length === 0
                                                 ? "No log entries yet — logs will appear here as the server generates output"

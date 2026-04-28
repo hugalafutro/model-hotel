@@ -23,6 +23,7 @@ import type {
 export interface AppLogEntry {
     timestamp: string;
     level: "info" | "warning" | "error";
+    source: string;
     message: string;
 }
 
@@ -370,6 +371,45 @@ export const api = {
                 const text = await response.text();
                 throw new Error(
                     `Failed to purge app logs: ${response.status} ${text}`,
+                );
+            }
+            return response.json();
+        },
+        history: async (params?: {
+            level?: string;
+            source?: string;
+            search?: string;
+            from?: string;
+            to?: string;
+            page?: number;
+            per_page?: number;
+        }): Promise<{
+            entries: AppLogEntry[];
+            total: number;
+            page: number;
+            per_page: number;
+        }> => {
+            const searchParams = new URLSearchParams();
+            searchParams.set("history", "true");
+            if (params?.level) searchParams.set("level", params.level);
+            if (params?.source) searchParams.set("source", params.source);
+            if (params?.search) searchParams.set("search", params.search);
+            if (params?.from) searchParams.set("from", params.from);
+            if (params?.to) searchParams.set("to", params.to);
+            if (params?.page) searchParams.set("page", params.page.toString());
+            if (params?.per_page)
+                searchParams.set("per_page", params.per_page.toString());
+
+            const response = await fetch(
+                `${API_BASE}/api/logs/app?${searchParams.toString()}`,
+                {
+                    headers: getAuthHeaders(),
+                },
+            );
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    `Failed to fetch app log history: ${response.status} ${text}`,
                 );
             }
             return response.json();

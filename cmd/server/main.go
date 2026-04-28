@@ -77,7 +77,6 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	api.InitAppLogBuffer()
 	log.Printf("Starting Model Hotel with configuration:\n%s", cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -92,6 +91,8 @@ func main() {
 	if err := database.WaitForReady(ctx, 30); err != nil {
 		log.Fatalf("Database not ready: %v", err)
 	}
+
+	api.InitAppLogBuffer(database.Pool())
 
 	// Clean up stale request logs left in "pending" or "streaming" state
 	// from a previous server crash, restart, or unhandled error.
@@ -509,6 +510,12 @@ func main() {
 			if err == nil {
 				log.Printf("Log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
 			}
+			// Clean app_logs with same retention
+			tag, err = database.Pool().Exec(context.Background(),
+				`DELETE FROM app_logs WHERE created_at < $1`, cutoff)
+			if err == nil {
+				log.Printf("App log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
+			}
 			timer.Reset(1 * time.Hour)
 		}
 	}()
@@ -534,6 +541,9 @@ func main() {
 	// Release goroutine-leaking resources before draining HTTP connections.
 	proxyHandler.Close()
 	util.CloseDockerClient()
+
+	// Flush pending app log DB writes before closing the database.
+	api.StopAppLogWriter()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer shutdownCancel()
