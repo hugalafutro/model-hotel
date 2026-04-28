@@ -155,6 +155,13 @@ export function Settings() {
     const queryClient = useQueryClient();
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerColor, setPickerColor] = useState(accentColor);
+    const [quotaDisabled, setQuotaDisabled] = useState(() => {
+        try {
+            return localStorage.getItem("sidebarQuotaDisabled") === "true";
+        } catch {
+            return false;
+        }
+    });
 
     const openPicker = useCallback(() => {
         setPickerColor(accentColor);
@@ -338,7 +345,7 @@ export function Settings() {
                 </div>
 
                 {/* Discovery Status */}
-                <div className="ui-card p-6">
+                <div className="ui-card p-6 max-h-105 flex flex-col overflow-hidden">
                     <ProviderDiscoveryList />
                 </div>
 
@@ -668,53 +675,106 @@ export function Settings() {
                         Configure how often provider quota and balance data is
                         refreshed in the sidebar panel.
                     </p>
-                    <div>
-                        <label
-                            htmlFor="quota-refresh-interval"
-                            className="block text-sm font-medium text-gray-300 mb-2"
-                        >
-                            Refresh Interval
-                        </label>
-                        <select
-                            id="quota-refresh-interval"
-                            value={(() => {
-                                try {
-                                    return localStorage.getItem(
-                                        "sidebarQuotaRefreshMin",
-                                    ) || "5";
-                                } catch {
-                                    return "5";
-                                }
-                            })()}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                try {
-                                    localStorage.setItem(
-                                        "sidebarQuotaRefreshMin",
-                                        val,
+                    <div className="space-y-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-300">
+                                    Show Quotas Pill
+                                </p>
+                                <p className="text-gray-500 text-xs mt-0.5">
+                                    Display the quota panel in the sidebar
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newVal = !quotaDisabled;
+                                    setQuotaDisabled(newVal);
+                                    try {
+                                        localStorage.setItem(
+                                            "sidebarQuotaDisabled",
+                                            String(newVal),
+                                        );
+                                    } catch {
+                                        /* ignore */
+                                    }
+                                    toast(
+                                        newVal
+                                            ? "Sidebar quotas disabled — pill hidden and auto-refresh paused"
+                                            : "Sidebar quotas enabled — pill visible and auto-refresh resumed",
+                                        newVal ? "info" : "success",
                                     );
-                                } catch { /* ignore */ }
-                                toast(
-                                    val === "0"
-                                        ? "Sidebar quota auto-refresh disabled — use manual refresh"
-                                        : `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
-                                    "success",
-                                );
-                            }}
-                            className="ui-input"
-                        >
-                            <option value="1">1 minute</option>
-                            <option value="2">2 minutes</option>
-                            <option value="5">5 minutes (default)</option>
-                            <option value="10">10 minutes</option>
-                            <option value="15">15 minutes</option>
-                            <option value="30">30 minutes</option>
-                            <option value="0">Disabled (manual only)</option>
-                        </select>
-                        <p className="text-gray-500 text-xs mt-1">
-                            Minimum 1 minute. Changes take effect on next
-                            scheduled refresh.
-                        </p>
+                                }}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    quotaDisabled
+                                        ? "bg-gray-600"
+                                        : "bg-(--accent)"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        quotaDisabled
+                                            ? "translate-x-1"
+                                            : "translate-x-6"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                        <div>
+                            <label
+                                htmlFor="quota-refresh-interval"
+                                className="block text-sm font-medium text-gray-300 mb-2"
+                            >
+                                Refresh Interval
+                            </label>
+                            <select
+                                id="quota-refresh-interval"
+                                disabled={quotaDisabled}
+                                value={(() => {
+                                    try {
+                                        return (
+                                            localStorage.getItem(
+                                                "sidebarQuotaRefreshMin",
+                                            ) || "5"
+                                        );
+                                    } catch {
+                                        return "5";
+                                    }
+                                })()}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    try {
+                                        localStorage.setItem(
+                                            "sidebarQuotaRefreshMin",
+                                            val,
+                                        );
+                                    } catch {
+                                        /* ignore */
+                                    }
+                                    toast(
+                                        val === "0"
+                                            ? "Sidebar quota auto-refresh disabled — use manual refresh"
+                                            : `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
+                                        "success",
+                                    );
+                                }}
+                                className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <option value="1">1 minute</option>
+                                <option value="2">2 minutes</option>
+                                <option value="5">5 minutes (default)</option>
+                                <option value="10">10 minutes</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="0">
+                                    Disabled (manual only)
+                                </option>
+                            </select>
+                            <p className="text-gray-500 text-xs mt-1">
+                                Minimum 1 minute. Changes take effect on next
+                                scheduled refresh.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -1197,95 +1257,110 @@ function LoggingSettings() {
                 </div>
 
                 <div>
-                    {!confirmDelete ? (
-                        <button
-                            type="button"
-                            onClick={() => setConfirmDelete(true)}
-                            className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
-                        >
-                            Delete Requests
-                        </button>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                                <select
-                                    value={deleteSelection}
-                                    onChange={(e) =>
-                                        setDeleteSelection(e.target.value)
+                    <div className="flex items-center justify-between">
+                        <div>
+                            {!confirmDelete ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmDelete(true)}
+                                    className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
+                                >
+                                    Delete Requests
+                                </button>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        value={deleteSelection}
+                                        onChange={(e) =>
+                                            setDeleteSelection(e.target.value)
+                                        }
+                                        className="ui-input px-3 py-1.5 text-xs"
+                                    >
+                                        <option value="">
+                                            Select range...
+                                        </option>
+                                        <option value="1d">
+                                            Older than 1 day
+                                        </option>
+                                        <option value="1w">
+                                            Older than 1 week
+                                        </option>
+                                        <option value="1m">
+                                            Older than 1 month
+                                        </option>
+                                        <option value="all">All logs</option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        disabled={!deleteSelection}
+                                        onClick={() => {
+                                            const olderThan =
+                                                getDeleteOlderThan(
+                                                    deleteSelection,
+                                                );
+                                            if (olderThan)
+                                                purgeMutation.mutate(olderThan);
+                                        }}
+                                        className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Confirm Delete
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setConfirmDelete(false);
+                                            setDeleteSelection("");
+                                        }}
+                                        className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <div>
+                            {!confirmDeleteAppLogs ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setConfirmDeleteAppLogs(true)
                                     }
-                                    className="ui-input px-3 py-1.5 text-xs"
+                                    className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
                                 >
-                                    <option value="">Select range...</option>
-                                    <option value="1d">Older than 1 day</option>
-                                    <option value="1w">
-                                        Older than 1 week
-                                    </option>
-                                    <option value="1m">
-                                        Older than 1 month
-                                    </option>
-                                    <option value="all">All logs</option>
-                                </select>
-                                <button
-                                    type="button"
-                                    disabled={!deleteSelection}
-                                    onClick={() => {
-                                        const olderThan =
-                                            getDeleteOlderThan(deleteSelection);
-                                        if (olderThan)
-                                            purgeMutation.mutate(olderThan);
-                                    }}
-                                    className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Confirm Delete
+                                    Delete Logs
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setConfirmDelete(false);
-                                        setDeleteSelection("");
-                                    }}
-                                    className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-red-400">
+                                        Clear all application logs?
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            purgeAppLogsMutation.mutate()
+                                        }
+                                        disabled={
+                                            purgeAppLogsMutation.isPending
+                                        }
+                                        className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {purgeAppLogsMutation.isPending
+                                            ? "Deleting…"
+                                            : "Confirm"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setConfirmDeleteAppLogs(false)
+                                        }
+                                        className="px-3 py-1.5 text-xs rounded-full border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-
-                <div>
-                    {!confirmDeleteAppLogs ? (
-                        <button
-                            type="button"
-                            onClick={() => setConfirmDeleteAppLogs(true)}
-                            className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
-                        >
-                            Delete Logs
-                        </button>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-red-400">
-                                Clear all application logs?
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => purgeAppLogsMutation.mutate()}
-                                disabled={purgeAppLogsMutation.isPending}
-                                className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {purgeAppLogsMutation.isPending
-                                    ? "Deleting…"
-                                    : "Confirm"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setConfirmDeleteAppLogs(false)}
-                                className="px-3 py-1.5 text-xs rounded-full border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -1371,8 +1446,8 @@ function ProviderDiscoveryList() {
     }
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between mb-1">
+        <div className="flex flex-col min-h-0 flex-1">
+            <div className="flex items-center justify-between mb-1 shrink-0">
                 <div className="flex items-center gap-2">
                     <Zap size={18} className="text-(--accent)" />
                     <h2 className="text-xl font-semibold text-white">
@@ -1400,66 +1475,68 @@ function ProviderDiscoveryList() {
                 )}
             </div>
             {providers?.length === 0 && (
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-sm shrink-0">
                     No providers configured yet.
                 </p>
             )}
-            {[...(providers ?? [])]
-                .sort((a, b) => {
-                    const aTime = a.last_discovered_at
-                        ? new Date(a.last_discovered_at).getTime()
-                        : 0;
-                    const bTime = b.last_discovered_at
-                        ? new Date(b.last_discovered_at).getTime()
-                        : 0;
-                    return bTime - aTime;
-                })
-                .map((p) => (
-                    <div
-                        key={p.id}
-                        className="flex items-center justify-between py-2"
-                    >
-                        <div className="flex items-center gap-3">
-                            <span
-                                className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
-                            />
-                            <div>
-                                <p className="text-sm font-medium text-white">
-                                    {p.name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                    {modelCounts[p.id] || 0} models
-                                    {p.last_discovered_at &&
-                                        ` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => discoverMutation.mutate(p.id)}
-                            disabled={
-                                discoveringId !== null ||
-                                discoverAllMutation.isPending
-                            }
-                            className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-                                discoveringId === p.id
-                                    ? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
-                                    : discoveringId !== null ||
-                                        discoverAllMutation.isPending
-                                      ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-                                      : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
-                            }`}
+            <div className="overflow-y-auto min-h-0 flex-1 mt-2 space-y-0">
+                {[...(providers ?? [])]
+                    .sort((a, b) => {
+                        const aTime = a.last_discovered_at
+                            ? new Date(a.last_discovered_at).getTime()
+                            : 0;
+                        const bTime = b.last_discovered_at
+                            ? new Date(b.last_discovered_at).getTime()
+                            : 0;
+                        return bTime - aTime;
+                    })
+                    .map((p) => (
+                        <div
+                            key={p.id}
+                            className="flex items-center justify-between py-2"
                         >
-                            {discoveringId === p.id ? (
-                                <>
-                                    <Spinner /> Discovering…
-                                </>
-                            ) : (
-                                "Discover Now"
-                            )}
-                        </button>
-                    </div>
-                ))}
+                            <div className="flex items-center gap-3">
+                                <span
+                                    className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
+                                />
+                                <div>
+                                    <p className="text-sm font-medium text-white">
+                                        {p.name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {modelCounts[p.id] || 0} models
+                                        {p.last_discovered_at &&
+                                            ` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => discoverMutation.mutate(p.id)}
+                                disabled={
+                                    discoveringId !== null ||
+                                    discoverAllMutation.isPending
+                                }
+                                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                                    discoveringId === p.id
+                                        ? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
+                                        : discoveringId !== null ||
+                                            discoverAllMutation.isPending
+                                          ? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
+                                          : "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
+                                }`}
+                            >
+                                {discoveringId === p.id ? (
+                                    <>
+                                        <Spinner /> Discovering…
+                                    </>
+                                ) : (
+                                    "Discover Now"
+                                )}
+                            </button>
+                        </div>
+                    ))}
+            </div>
         </div>
     );
 }

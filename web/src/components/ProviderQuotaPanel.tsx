@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { api } from "../api/client";
 import type {
@@ -20,7 +20,9 @@ function getCachedData<T>(key: string): T | undefined {
     try {
         const raw = localStorage.getItem(`${CACHE_PREFIX}:${key}`);
         if (raw) return JSON.parse(raw) as T;
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
     return undefined;
 }
 
@@ -31,8 +33,18 @@ function getRefreshInterval(): number {
             const v = parseInt(raw, 10);
             if (v >= 1) return v * 60_000;
         }
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
     return 5 * 60_000;
+}
+
+function isQuotaDisabled(): boolean {
+    try {
+        return localStorage.getItem("sidebarQuotaDisabled") === "true";
+    } catch {
+        return false;
+    }
 }
 
 export function ProviderQuotaPanel() {
@@ -48,12 +60,23 @@ export function ProviderQuotaPanel() {
             return false;
         }
     });
+    const [disabled, setDisabled] = useState(() => isQuotaDisabled());
+
+    // Listen for changes from Settings page
+    useEffect(() => {
+        const handler = () => setDisabled(isQuotaDisabled());
+        window.addEventListener("storage", handler);
+        return () => window.removeEventListener("storage", handler);
+    }, []);
+
     const toggleCollapsed = useCallback(() => {
         setCollapsed((prev) => {
             const next = !prev;
             try {
                 localStorage.setItem("sidebarQuotaCollapsed", String(next));
-            } catch { /* ignore */ }
+            } catch {
+                /* ignore */
+            }
             if (next) {
                 toast("Quota panel collapsed — auto-refresh paused", "info");
             } else {
@@ -73,7 +96,9 @@ export function ProviderQuotaPanel() {
         () =>
             providers?.find((p: Provider) => {
                 try {
-                    return new URL(p.base_url).hostname.endsWith("nano-gpt.com");
+                    return new URL(p.base_url).hostname.endsWith(
+                        "nano-gpt.com",
+                    );
                 } catch {
                     return false;
                 }
@@ -98,7 +123,9 @@ export function ProviderQuotaPanel() {
         () =>
             providers?.find((p: Provider) => {
                 try {
-                    return new URL(p.base_url).hostname.endsWith("deepseek.com");
+                    return new URL(p.base_url).hostname.endsWith(
+                        "deepseek.com",
+                    );
                 } catch {
                     return false;
                 }
@@ -134,10 +161,7 @@ export function ProviderQuotaPanel() {
         initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
     });
 
-    const {
-        data: deepseekBalance,
-        isRefetching: isDsRefetching,
-    } = useQuery({
+    const { data: deepseekBalance, isRefetching: isDsRefetching } = useQuery({
         queryKey: ["deepseek-balance", deepseekProviderId],
         queryFn: () => api.providers.getBalance(deepseekProviderId!),
         enabled: Boolean(deepseekProviderId),
@@ -145,8 +169,7 @@ export function ProviderQuotaPanel() {
         initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
     });
 
-    const anyRefreshing =
-        isNanoRefetching || isZaiRefetching || isDsRefetching;
+    const anyRefreshing = isNanoRefetching || isZaiRefetching || isDsRefetching;
 
     const isAutoRefreshing = anyRefreshing && !collapsed;
 
@@ -165,8 +188,7 @@ export function ProviderQuotaPanel() {
 
     const weeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
     const weeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
-    const showNanoBadge =
-        nanogptUsage && weeklyUsed != null && weeklyLimit;
+    const showNanoBadge = nanogptUsage && weeklyUsed != null && weeklyLimit;
 
     const zaiFiveHour = zaiUsage?.data?.limits?.find(
         (l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
@@ -197,12 +219,16 @@ export function ProviderQuotaPanel() {
         });
     }, [queryClient, zaiProviderId]);
 
-    if (!hasAnyProvider) return null;
+    if (!hasAnyProvider || disabled) return null;
 
     return (
         <div className="sidebar-quota-panel">
             <div className="flex items-center justify-between mb-1.5">
-                <span className={`sidebar-quota-label${collapsed ? " invisible" : ""}`}>Quotas</span>
+                <span
+                    className={`sidebar-quota-label${collapsed ? " invisible" : ""}`}
+                >
+                    Quotas
+                </span>
                 <div className="flex items-center gap-0.5">
                     {!collapsed && (
                         <button
@@ -244,7 +270,8 @@ export function ProviderQuotaPanel() {
                             className="sidebar-quota-pill sidebar-quota-pill-nano"
                             title="NanoGPT weekly token quota — click for details"
                         >
-                            {formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
+                            {formatTokens(weeklyUsed)}/
+                            {formatTokens(weeklyLimit)}
                         </button>
                     )}
                     {showZaiBadge && (
