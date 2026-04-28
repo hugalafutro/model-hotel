@@ -1444,15 +1444,13 @@ export function Dashboard() {
                     onMetricChange={setProvMetric}
                     loading={provDistLoading}
                 />
-                {totalTokens > 0 && (
-                    <TokenSplitBar
-                        prompt={stats?.total_tokens_prompt || 0}
-                        completion={stats?.total_tokens_completion || 0}
-                        total={totalTokens}
-                        range={tokenRange}
-                        onRangeChange={setTokenRange}
-                    />
-                )}
+                <TokenSplitBar
+                    prompt={stats?.total_tokens_prompt || 0}
+                    completion={stats?.total_tokens_completion || 0}
+                    total={totalTokens}
+                    range={tokenRange}
+                    onRangeChange={setTokenRange}
+                />
             </div>
 
             {/* Bottom row: three usage panels with horizontal bars */}
