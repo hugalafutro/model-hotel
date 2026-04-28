@@ -1298,75 +1298,32 @@ export function Models() {
                                 </span>
                             </th>
                             <th className="px-4 py-2">
-                                <span className="flex flex-wrap items-center gap-1">
-                                    {providers?.map((provider) => {
-                                        const isNanoGPT =
-                                            provider.base_url.includes(
-                                                "nano-gpt.com",
-                                            );
-                                        const isDeepSeek =
-                                            provider.base_url.includes(
-                                                "deepseek.com",
-                                            );
-                                        const isOllama =
-                                            provider.base_url.includes(
-                                                "ollama.com",
-                                            );
-                                        const isZAI =
-                                            provider.base_url.includes("z.ai");
-                                        const isSelected =
-                                            selectedProviders.has(provider.id);
-                                        const baseStyle = isNanoGPT
-                                            ? "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30"
-                                            : isDeepSeek
-                                              ? "bg-[#36aaff]/20 text-[#36aaff] border-[#36aaff]/50 hover:bg-[#36aaff]/30"
-                                              : isZAI
-                                                ? "bg-[#18181b]/25 text-[#d4d4d8] border-[#3f3f46]/60 hover:bg-[#18181b]/40"
-                                                : isOllama
-                                                  ? "bg-[#71717a]/20 text-[#a1a1aa] border-[#71717a]/40 hover:bg-[#71717a]/30"
-                                                  : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
-                                        const activeStyle = isNanoGPT
-                                            ? "bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]"
-                                            : isDeepSeek
-                                              ? "bg-[#36aaff] text-white border-[#36aaff] shadow-[0_0_6px_1px_rgba(54,170,255,0.35)]"
-                                              : isZAI
-                                                ? "bg-[#18181b] text-white border-[#18181b] shadow-[0_0_6px_1px_rgba(255,255,255,0.2)]"
-                                                : isOllama
-                                                  ? "bg-[#71717a] text-white border-[#71717a] shadow-[0_0_6px_1px_rgba(113,113,122,0.35)]"
-                                                  : "bg-gray-900 text-white border-gray-700 shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
-                                        return (
-                                            <button
+                                <div className="flex items-center gap-1">
+                                    <select
+                                        multiple
+                                        value={Array.from(selectedProviders)}
+                                        onChange={(e) => {
+                                            const options = Array.from(e.target.selectedOptions);
+                                            const values = options.map((o) => o.value);
+                                            setSelectedProviders(new Set(values));
+                                            setCurrentPage(1);
+                                        }}
+                                        className="ui-input text-xs py-1 px-2 h-auto min-h-[2rem] flex-1"
+                                        style={{
+                                            fontSize: "11px",
+                                            padding: "0.25rem 0.5rem",
+                                        }}
+                                    >
+                                        {providers?.map((provider) => (
+                                            <option
                                                 key={provider.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedProviders(
-                                                        (prev) => {
-                                                            const next =
-                                                                new Set(prev);
-                                                            if (
-                                                                next.has(
-                                                                    provider.id,
-                                                                )
-                                                            ) {
-                                                                next.delete(
-                                                                    provider.id,
-                                                                );
-                                                            } else {
-                                                                next.add(
-                                                                    provider.id,
-                                                                );
-                                                            }
-                                                            return next;
-                                                        },
-                                                    );
-                                                    setCurrentPage(1);
-                                                }}
-                                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${isSelected ? activeStyle : baseStyle}`}
+                                                value={provider.id}
+                                                className="text-xs"
                                             >
                                                 {provider.name}
-                                            </button>
-                                        );
-                                    })}
+                                            </option>
+                                        ))}
+                                    </select>
                                     {selectedProviders.size > 0 && (
                                         <button
                                             type="button"
@@ -1374,12 +1331,13 @@ export function Models() {
                                                 setSelectedProviders(new Set());
                                                 setCurrentPage(1);
                                             }}
-                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+                                            className="inline-flex items-center justify-center w-5 h-5 rounded text-gray-400 hover:text-gray-200 transition-colors shrink-0"
+                                            title="Clear provider filter"
                                         >
-                                            ✕
+                                            <X size={12} />
                                         </button>
                                     )}
-                                </span>
+                                </div>
                             </th>
                             <th className="px-4 py-2"></th>
                             <th className="px-4 py-2"></th>
