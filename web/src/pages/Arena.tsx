@@ -137,27 +137,16 @@ export function Arena() {
         return [];
     });
 
-    const [group1Models, setGroup1Models] = useState<string[]>(() => {
+    const [bracketModels, setBracketModels] = useState<string[]>(() => {
         try {
             if (localStorage.getItem("persistArena") === "true") {
                 const raw = localStorage.getItem("arenaState");
                 if (raw) {
                     const s = JSON.parse(raw);
-                    return s.group1Models ?? [];
-                }
-            }
-        } catch {
-            /* ignore */
-        }
-        return [];
-    });
-    const [group2Models, setGroup2Models] = useState<string[]>(() => {
-        try {
-            if (localStorage.getItem("persistArena") === "true") {
-                const raw = localStorage.getItem("arenaState");
-                if (raw) {
-                    const s = JSON.parse(raw);
-                    return s.group2Models ?? [];
+                    if (s.bracketModels) return s.bracketModels;
+                    const g1: string[] = s.group1Models ?? [];
+                    const g2: string[] = s.group2Models ?? [];
+                    if (g1.length > 0 || g2.length > 0) return [...g1, ...g2];
                 }
             }
         } catch {
@@ -367,8 +356,7 @@ export function Arena() {
                 JSON.stringify({
                     arenaMode,
                     compareModels,
-                    group1Models,
-                    group2Models,
+                    bracketModels,
                     rounds,
                     currentRound,
                     phase,
@@ -383,8 +371,7 @@ export function Arena() {
     }, [
         arenaMode,
         compareModels,
-        group1Models,
-        group2Models,
+        bracketModels,
         rounds,
         currentRound,
         phase,
@@ -424,12 +411,6 @@ export function Arena() {
         [providers],
     );
 
-    const crossDuplicates = useMemo(() => {
-        if (arenaMode !== "competition") return false;
-        if (group2Models.length === 0) return false;
-        return group1Models.some((m) => group2Models.includes(m));
-    }, [arenaMode, group1Models, group2Models]);
-
     const canRun = useMemo(() => {
         if (phase !== "setup" && phase !== "next_round_ready") return false;
         if (!prompt.trim()) return false;
@@ -439,26 +420,16 @@ export function Arena() {
                 return false;
             return true;
         }
-        // Competition mode
-        if (group1Models.length !== 2) return false;
-        if (group2Models.length !== 0 && group2Models.length !== 2)
-            return false;
-        if (crossDuplicates) return false;
-        if (new Set(group1Models).size !== group1Models.length) return false;
-        if (
-            group2Models.length > 0 &&
-            new Set(group2Models).size !== group2Models.length
-        )
-            return false;
+        const validSizes = new Set([2, 4, 8]);
+        if (!validSizes.has(bracketModels.length)) return false;
+        if (new Set(bracketModels).size !== bracketModels.length) return false;
         return true;
     }, [
         phase,
         arenaMode,
         compareModels,
-        group1Models,
-        group2Models,
+        bracketModels,
         prompt,
-        crossDuplicates,
     ]);
 
     const disabledReason = useMemo(() => {
@@ -473,20 +444,21 @@ export function Arena() {
                 if (!prompt.trim()) return "Enter a prompt";
                 return "";
             }
-            // Competition mode
-            if (group1Models.length === 0) return "Select models for Match 1";
-            if (group1Models.length === 1)
-                return "Pick 1 more model for Match 1";
-            if (new Set(group1Models).size !== group1Models.length)
-                return "No duplicate models in Match 1";
-            if (group2Models.length === 1)
-                return "Pick 1 more model for Match 2, or clear it";
-            if (crossDuplicates) return "Models can't appear in both matches";
-            if (
-                group2Models.length > 1 &&
-                new Set(group2Models).size !== group2Models.length
-            )
-                return "No duplicate models in Match 2";
+            if (bracketModels.length === 0)
+                return "Select 2, 4, or 8 models";
+            if (bracketModels.length === 1)
+                return "Pick at least 1 more model";
+            if (new Set(bracketModels).size !== bracketModels.length)
+                return "No duplicate models";
+            if (![2, 4, 8].includes(bracketModels.length)) {
+                const nextValid =
+                    bracketModels.length < 2
+                        ? 2
+                        : bracketModels.length < 4
+                          ? 4
+                          : 8;
+                return `Pick ${nextValid - bracketModels.length} more or remove to get ${nextValid}`;
+            }
             if (!prompt.trim()) return "Enter a prompt";
         }
         if (phase === "voting") return "Vote on all matchups to continue";
@@ -495,10 +467,8 @@ export function Arena() {
         phase,
         arenaMode,
         compareModels,
-        group1Models,
-        group2Models,
+        bracketModels,
         prompt,
-        crossDuplicates,
     ]);
 
     const buildCompareRound = useCallback(
@@ -528,29 +498,28 @@ export function Arena() {
     );
 
     const buildInitialRounds = useCallback(
-        (g1: string[], g2: string[]): BracketRound[] => {
-            const makeSlots = (ids: string[]): MatchupSlot[] =>
-                ids.map((m) => ({
-                    modelId: m,
-                    personaId: null,
-                    personaPrompt: "",
-                    params: modelParams[m],
-                }));
+        (models: string[]): BracketRound[] => {
+            const makeSlot = (id: string): MatchupSlot => ({
+                modelId: id,
+                personaId: null,
+                personaPrompt: "",
+                params: modelParams[id],
+            });
 
-            const firstRoundMatchups: Matchup[] = [
-                {
-                    slotA: makeSlots(g1)[0] || null,
-                    slotB: makeSlots(g1)[1] || null,
-                    responseA: null,
-                    responseB: null,
-                    vote: null,
-                },
-            ];
+            const emptyMatchup = (): Matchup => ({
+                slotA: null,
+                slotB: null,
+                responseA: null,
+                responseB: null,
+                vote: null,
+            });
 
-            if (g2.length === 2) {
+            const numRounds = Math.log2(models.length);
+            const firstRoundMatchups: Matchup[] = [];
+            for (let i = 0; i < models.length; i += 2) {
                 firstRoundMatchups.push({
-                    slotA: makeSlots(g2)[0],
-                    slotB: makeSlots(g2)[1],
+                    slotA: makeSlot(models[i]),
+                    slotB: makeSlot(models[i + 1]),
                     responseA: null,
                     responseB: null,
                     vote: null,
@@ -561,17 +530,13 @@ export function Arena() {
                 { matchups: firstRoundMatchups },
             ];
 
-            if (g2.length === 2) {
+            for (let r = 1; r < numRounds; r++) {
+                const matchupCount = models.length / Math.pow(2, r + 1);
                 bracketRounds.push({
-                    matchups: [
-                        {
-                            slotA: null,
-                            slotB: null,
-                            responseA: null,
-                            responseB: null,
-                            vote: null,
-                        },
-                    ],
+                    matchups: Array.from(
+                        { length: matchupCount },
+                        () => emptyMatchup(),
+                    ),
                 });
             }
 
@@ -986,7 +951,7 @@ export function Arena() {
                       comparePersonaId,
                       comparePersonaPrompt,
                   )
-                : buildInitialRounds(group1Models, group2Models);
+                : buildInitialRounds(bracketModels);
         setRounds(initialRounds);
         currentRoundRef.current = 0;
         roundsLengthRef.current = initialRounds.length;
@@ -1070,8 +1035,7 @@ export function Arena() {
         compareModels,
         comparePersonaId,
         comparePersonaPrompt,
-        group1Models,
-        group2Models,
+        bracketModels,
         buildInitialRounds,
         buildCompareRound,
         streamModel,
@@ -1106,14 +1070,21 @@ export function Arena() {
                             m.vote === "A" ? m.slotA : m.slotB,
                         );
                         const nextRoundIdx = roundIdx + 1;
-                        if (next[nextRoundIdx] && winners.length >= 2) {
-                            next[nextRoundIdx].matchups[0] = {
-                                slotA: winners[0] ? { ...winners[0] } : null,
-                                slotB: winners[1] ? { ...winners[1] } : null,
-                                responseA: null,
-                                responseB: null,
-                                vote: null,
-                            };
+                        if (next[nextRoundIdx]) {
+                            for (let i = 0; i < winners.length; i += 2) {
+                                const matchupIdx = i / 2;
+                                next[nextRoundIdx].matchups[matchupIdx] = {
+                                    slotA: winners[i]
+                                        ? { ...winners[i]! }
+                                        : null,
+                                    slotB: winners[i + 1]
+                                        ? { ...winners[i + 1]! }
+                                        : null,
+                                    responseA: null,
+                                    responseB: null,
+                                    vote: null,
+                                };
+                            }
                         }
                     } else {
                         shouldDeclareWinner = true;
@@ -1373,6 +1344,14 @@ export function Arena() {
 
     const showResponseGrid = phase !== "setup";
 
+    const roundLabel = (roundIdx: number, totalRounds: number): string => {
+        if (totalRounds === 1) return "Match";
+        if (roundIdx === totalRounds - 1) return "Final";
+        if (roundIdx === totalRounds - 2) return "Semifinals";
+        if (roundIdx === totalRounds - 3) return "Quarterfinals";
+        return `Round ${roundIdx + 1}`;
+    };
+
     return (
         <div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
             {/* Header */}
@@ -1490,84 +1469,43 @@ export function Arena() {
                         <div className="space-y-4 pt-4">
                             {phase === "setup" &&
                                 arenaMode === "competition" && (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-sm text-(--text-secondary) mb-2 block">
-                                                Match 1 ({group1Models.length}
-                                                /2)
-                                            </label>
-                                            <ModelPicker
-                                                models={enabledModels}
-                                                selected={group1Models}
-                                                onChange={setGroup1Models}
-                                                multi={true}
-                                                maxSelections={2}
-                                                providers={providerData}
-                                                align="left"
-                                                exclude={group2Models}
-                                                slotParams={modelParams}
-                                                onConfigureParams={
-                                                    setParamEditorModel
-                                                }
-                                                paramsReadonly={
-                                                    phase !== "setup"
-                                                }
-                                            />
-                                            {group1Models.length > 0 &&
-                                                group1Models.length < 2 && (
-                                                    <p className="text-xs text-amber-400 mt-2">
-                                                        Pick exactly 2 models.
-                                                    </p>
-                                                )}
-                                            {new Set(group1Models).size !==
-                                                group1Models.length &&
-                                                group1Models.length > 0 && (
-                                                    <p className="text-xs text-amber-400 mt-2">
-                                                        No duplicate models.
-                                                    </p>
-                                                )}
-                                        </div>
-                                        <div
-                                            className={`transition-opacity duration-300 ${
-                                                group1Models.length < 2
-                                                    ? "opacity-30 pointer-events-none select-none"
-                                                    : "opacity-100"
-                                            }`}
-                                        >
-                                            <label className="text-sm text-(--text-secondary) mb-2 block">
-                                                Match 2 ({group2Models.length}
-                                                /2){" "}
-                                                <span className="text-(--text-tertiary)">
-                                                    — optional, adds a final
-                                                    round
-                                                </span>
-                                            </label>
-                                            <ModelPicker
-                                                models={enabledModels}
-                                                selected={group2Models}
-                                                onChange={setGroup2Models}
-                                                multi={true}
-                                                maxSelections={2}
-                                                providers={providerData}
-                                                align="right"
-                                                exclude={group1Models}
-                                                slotParams={modelParams}
-                                                onConfigureParams={
-                                                    setParamEditorModel
-                                                }
-                                                paramsReadonly={
-                                                    phase !== "setup"
-                                                }
-                                            />
-                                            {group2Models.length > 0 &&
-                                                group2Models.length < 2 && (
-                                                    <p className="text-xs text-amber-400 mt-2">
-                                                        Pick exactly 2 or leave
-                                                        empty for a single
-                                                        match.
-                                                    </p>
-                                                )}
-                                        </div>
+                                    <div>
+                                        <label className="text-sm text-(--text-secondary) mb-2 block">
+                                            Models ({bracketModels.length}/8)
+                                            <span className="text-(--text-tertiary)"> — pick 2, 4, or 8 for a bracket</span>
+                                        </label>
+                                        <ModelPicker
+                                            models={enabledModels}
+                                            selected={bracketModels}
+                                            onChange={setBracketModels}
+                                            multi={true}
+                                            maxSelections={8}
+                                            providers={providerData}
+                                            align="left"
+                                            slotParams={modelParams}
+                                            onConfigureParams={
+                                                setParamEditorModel
+                                            }
+                                            paramsReadonly={
+                                                phase !== "setup"
+                                            }
+                                        />
+                                        {bracketModels.length > 0 &&
+                                            ![2, 4, 8].includes(
+                                                bracketModels.length,
+                                            ) && (
+                                                <p className="text-xs text-amber-400 mt-2">
+                                                    Select 2, 4, or 8 models
+                                                    for a bracket tournament.
+                                                </p>
+                                            )}
+                                        {new Set(bracketModels).size !==
+                                            bracketModels.length &&
+                                            bracketModels.length > 0 && (
+                                                <p className="text-xs text-amber-400 mt-2">
+                                                    No duplicate models.
+                                                </p>
+                                            )}
                                     </div>
                                 )}
                             {phase === "setup" && arenaMode === "compare" && (
@@ -1688,9 +1626,6 @@ export function Arena() {
                                     roundIdx < rounds.length - 1
                                 )
                                     return null;
-                                const isLastRound =
-                                    roundIdx === rounds.length - 1 &&
-                                    rounds.length > 1;
                                 return (
                                     <div
                                         key={roundIdx}
@@ -1705,9 +1640,7 @@ export function Arena() {
                                         }`}
                                     >
                                         <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
-                                            {isLastRound
-                                                ? "Final"
-                                                : `R${roundIdx + 1}`}
+                                            {roundLabel(roundIdx, rounds.length)}
                                         </div>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             {round.matchups.map(
@@ -1815,7 +1748,7 @@ export function Arena() {
                 {/* Mode Description */}
                 <p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3 mt-3">
                     {arenaMode === "competition"
-                        ? "Models are paired in a single-elimination bracket. Each round, every pair receives the same prompt — you vote for the better response. Winners advance until one model remains. The prompts are designed to stress-test creativity, reasoning, and instruction-following."
+                        ? "Models compete in a single-elimination bracket. Pick 2, 4, or 8 models — each round, pairs face the same prompt and you vote for the better response. Winners advance until one model remains."
                         : "Pick models and run the same prompt through them simultaneously. No voting, no bracket — just pure side-by-side output comparison to evaluate which model best fits your needs."}
                 </p>
             </div>
@@ -1836,8 +1769,6 @@ export function Arena() {
                             ),
                     );
                     if (laterRoundHasResponses) return null;
-                    const isLastRound =
-                        roundIdx === rounds.length - 1 && rounds.length > 1;
                     const isCompare =
                         arenaMode === "compare" &&
                         round.matchups.every((m) => m.slotB === null);
@@ -1846,9 +1777,7 @@ export function Arena() {
                             <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
                                 {isCompare
                                     ? "Responses"
-                                    : isLastRound
-                                      ? "Final Round"
-                                      : `Round ${roundIdx + 1}`}
+                                    : roundLabel(roundIdx, rounds.length)}
                             </div>
                             <div
                                 className={`${
@@ -2173,8 +2102,7 @@ export function Arena() {
                     confirmLabel="Reset"
                     onConfirm={() => {
                         setCompareModels([]);
-                        setGroup1Models([]);
-                        setGroup2Models([]);
+                        setBracketModels([]);
                         setPrompt("");
                         setSavedPrompt("");
                         setActivePromptId(null);
@@ -2982,7 +2910,15 @@ function WinnerSummaryModal({
                     {rounds.map((round, roundIdx) => (
                         <div key={roundIdx}>
                             <div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-1">
-                                Round {roundIdx + 1}
+                                {rounds.length === 1
+                                    ? "Match"
+                                    : roundIdx === rounds.length - 1
+                                      ? "Final"
+                                      : roundIdx === rounds.length - 2
+                                        ? "Semifinals"
+                                        : roundIdx === rounds.length - 3
+                                          ? "Quarterfinals"
+                                          : `Round ${roundIdx + 1}`}
                             </div>
                             {round.matchups.map((mu, mi) => (
                                 <div
