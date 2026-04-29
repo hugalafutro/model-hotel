@@ -58,7 +58,7 @@ func (r *Report) writeJSON(w io.Writer) error {
 func (r *Report) writeText(w io.Writer) error {
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "╔══════════════════════════════════════════════════════════════╗\n")
-	fmt.Fprintf(w, "║  LLM Proxy Synthetic Stress Test Report                     ║\n")
+	fmt.Fprintf(w, "║  Model Hotel Synthetic Stress Test Report                   ║\n")
 	fmt.Fprintf(w, "╚══════════════════════════════════════════════════════════════╝\n")
 	fmt.Fprintf(w, "Proxy: %s    Mock: %s\n\n", r.ProxyURL, r.MockURL)
 
@@ -87,7 +87,7 @@ func (r *Report) writeText(w io.Writer) error {
 }
 
 func (r *Report) writeMarkdown(w io.Writer) error {
-	fmt.Fprintf(w, "\n# LLM Proxy Synthetic Stress Test Report\n\n")
+	fmt.Fprintf(w, "\n# Model Hotel Synthetic Stress Test Report\n\n")
 	fmt.Fprintf(w, "- **Proxy:** `%s`\n", r.ProxyURL)
 	fmt.Fprintf(w, "- **Mock upstream:** `%s`\n\n", r.MockURL)
 

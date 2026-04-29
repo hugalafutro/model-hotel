@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/user/llm-proxy/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {

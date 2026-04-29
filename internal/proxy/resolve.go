@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/auth"
 )
 
 type resolveTimings struct {

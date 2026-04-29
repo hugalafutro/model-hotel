@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/llm-proxy/tools/stress-test/metrics"
+	"github.com/hugalafutro/model-hotel/tools/stress-test/metrics"
 )
 
 // ProxyClient sends chat completion requests through the proxy.

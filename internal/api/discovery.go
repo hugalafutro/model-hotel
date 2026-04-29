@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/user/llm-proxy/internal/failover"
-	"github.com/user/llm-proxy/internal/model"
-	"github.com/user/llm-proxy/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 func (h *Handler) RegisterProviderDiscovery(r chi.Router) {

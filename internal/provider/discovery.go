@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/llm-proxy/internal/auth"
-	"github.com/user/llm-proxy/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 type DiscoveryService struct {

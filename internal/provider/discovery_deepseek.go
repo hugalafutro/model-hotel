@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/auth"
-	"github.com/user/llm-proxy/internal/model"
-	"github.com/user/llm-proxy/internal/util"
+	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {

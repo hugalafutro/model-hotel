@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/llm-proxy/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
 // ---------------------------------------------------------------------------

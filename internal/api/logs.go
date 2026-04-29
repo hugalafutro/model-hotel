@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/util"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type LogEntry struct {

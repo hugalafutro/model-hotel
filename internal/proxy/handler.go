@@ -9,14 +9,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/user/llm-proxy/internal/config"
-	"github.com/user/llm-proxy/internal/failover"
-	"github.com/user/llm-proxy/internal/model"
-	"github.com/user/llm-proxy/internal/provider"
-	"github.com/user/llm-proxy/internal/ratelimit"
-	"github.com/user/llm-proxy/internal/settings"
-	"github.com/user/llm-proxy/internal/util"
-	"github.com/user/llm-proxy/internal/virtualkey"
+	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/ratelimit"
+	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
+	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
 type Handler struct {

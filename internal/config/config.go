@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
-	"github.com/user/llm-proxy/internal/util"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type Config struct {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // OpenCodeModelSpec describes a model's capabilities and pricing.

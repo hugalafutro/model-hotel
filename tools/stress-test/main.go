@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/llm-proxy/tools/stress-test/harness"
-	"github.com/user/llm-proxy/tools/stress-test/metrics"
-	"github.com/user/llm-proxy/tools/stress-test/mock"
+	"github.com/hugalafutro/model-hotel/tools/stress-test/harness"
+	"github.com/hugalafutro/model-hotel/tools/stress-test/metrics"
+	"github.com/hugalafutro/model-hotel/tools/stress-test/mock"
 )
 
 func main() {
@@ -73,7 +73,7 @@ func main() {
 	}
 
 	log.Println("╔══════════════════════════════════════════════════════════════╗")
-	log.Println("║  LLM Proxy Synthetic Stress Test                            ║")
+	log.Println("║  Model Hotel Synthetic Stress Test                          ║")
 	log.Println("╚══════════════════════════════════════════════════════════════╝")
 	log.Printf("Proxy:    %s", *proxyURL)
 	log.Printf("Mock:     :%d", *mockPort)

@@ -1,4 +1,4 @@
-# Synthetic Stress Test for LLM Proxy
+# Synthetic Stress Test for Model Hotel
 
 A black-box stress testing tool that fires concurrent streaming requests through the proxy against a mock OpenAI-compatible upstream — no real provider API keys or spending required.
 
@@ -98,7 +98,7 @@ The default flag values produce 16 scenarios:
 
 ```
 +---------------+     +---------------+     +---------------+
-|  stress-test  |---->|  LLM Proxy    |---->|  Mock Server   |
+|  stress-test  |---->|  Model Hotel  |---->|  Mock Server   |
 |    runner     |     |  (:8081)      |     |  (:9090)       |
 +---------------+     +---------------+     +---------------+
      admin API           rate limiter          /v1/models
@@ -108,7 +108,7 @@ The default flag values produce 16 scenarios:
 
 The stress test is purely external — it talks to the proxy via HTTP, creates fixtures via the admin API, and measures end-to-end behaviour. No proxy code changes are needed to run it (beyond the loopback allowlist config).
 
-## What the Proxy Does Per Request
+## What Model Hotel Does Per Request
 
 Understanding the internal path helps interpret results:
 
@@ -156,7 +156,7 @@ tools/stress-test/
 ## Sample Output (Markdown)
 
 ```markdown
-# LLM Proxy Synthetic Stress Test Report
+# Model Hotel Synthetic Stress Test Report
 
 - **Proxy:** `http://localhost:8081`
 - **Mock upstream:** `http://localhost:9090`

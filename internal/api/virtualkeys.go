@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/user/llm-proxy/internal/virtualkey"
+	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
 type CreateVirtualKeyRequest struct {

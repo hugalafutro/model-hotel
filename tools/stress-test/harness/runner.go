@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/user/llm-proxy/tools/stress-test/metrics"
+	"github.com/hugalafutro/model-hotel/tools/stress-test/metrics"
 )
 
 // ScenarioConfig defines a single test scenario.

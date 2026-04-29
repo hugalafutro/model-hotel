@@ -37,7 +37,7 @@ func NewSPAHandler() *SPAHandler {
 	if err != nil {
 		log.Printf("WARNING: Could not read frontend files: %v", err)
 		return &SPAHandler{
-			indexHTML: []byte("<!DOCTYPE html><html><body><h1>LLM-Proxy</h1><p>Frontend not available. Run <code>cd web && npm run build</code></p></body></html>"),
+			indexHTML: []byte("<!DOCTYPE html><html><body><h1>Model Hotel</h1><p>Frontend not available. Run <code>cd web && npm run build</code></p></body></html>"),
 			useEmbed:  false,
 			staticDir: staticDir,
 		}

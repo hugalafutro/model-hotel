@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/user/llm-proxy/internal/failover"
-	"github.com/user/llm-proxy/internal/model"
-	"github.com/user/llm-proxy/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 type FailoverHandler struct {

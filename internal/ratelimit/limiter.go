@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/user/llm-proxy/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
 // SettingsReader defines the subset of the settings repository that the

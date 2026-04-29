@@ -2,9 +2,9 @@ package proxy
 
 import (
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/ctxkeys"
-	"github.com/user/llm-proxy/internal/model"
-	"github.com/user/llm-proxy/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 type contextKey string

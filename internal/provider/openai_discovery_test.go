@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 func TestOpenAIDiscoveryHybrid(t *testing.T) {
@@ -58,7 +58,7 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 
 			entry := &model.Model{
 				ID:                    uuid.New(),
-				ProviderID:           uuid.UUID{},
+				ProviderID:            uuid.UUID{},
 				ModelID:               m.ID,
 				Name:                  m.ID,
 				DisplayName:           spec.DisplayName,
@@ -216,7 +216,7 @@ func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
 		t.Skip("skipping live API test in short mode")
 	}
 
-	apiKey := "REDACTED_KEY"
+	apiKey := "sk-proj-DUMMY_REPLACE_WITH_YOUR_KEY_FOR_LIVE_TESTS"
 
 	svc := NewDiscoveryService()
 	prov := &Provider{

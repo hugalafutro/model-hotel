@@ -72,7 +72,7 @@ A live SSE event bus delivers toast notifications for provider state changes, fa
 
 ```bash
 git clone <repository-url>
-cd llm-proxy
+cd model-hotel
 
 cp .env.example .env
 nano .env          # set a strong MASTER_KEY and DATABASE_URL

@@ -1,4 +1,4 @@
-module github.com/user/llm-proxy
+module github.com/hugalafutro/model-hotel
 
 go 1.25.0
 

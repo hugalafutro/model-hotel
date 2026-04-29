@@ -235,7 +235,7 @@ func (s *Server) handleNonStreaming(w http.ResponseWriter, r *http.Request, mode
 
 	// Build a complete response
 	content := ""
-	words := strings.Split("The mock server is responding with synthetic data for stress testing the LLM proxy gateway under high concurrency load.", " ")
+	words := strings.Split("The mock server is responding with synthetic data for stress testing the Model Hotel gateway under high concurrency load.", " ")
 	for i := 0; i < len(words) && i < totalCompletionTokens; i++ {
 		if i > 0 {
 			content += " "

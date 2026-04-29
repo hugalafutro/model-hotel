@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/user/llm-proxy/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 func TestAnthropicPricingLookup(t *testing.T) {
@@ -299,10 +299,10 @@ func TestAnthropicPricingLookupDated(t *testing.T) {
 	catalog := GetAnthropicPricing()
 
 	tests := []struct {
-		modelID       string
-		found         bool
-		inputPrice    float64
-		outputPrice   float64
+		modelID     string
+		found       bool
+		inputPrice  float64
+		outputPrice float64
 	}{
 		{"claude-opus-4-7", true, 5.00, 25.00},
 		{"claude-opus-4-6", true, 5.00, 25.00},
@@ -342,7 +342,7 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 		t.Skip("skipping live API test in short mode")
 	}
 
-	apiKey := "REDACTED_KEY"
+	apiKey := "sk-ant-api03-DUMMY-REPLACE-WITH-YOUR-KEY"
 
 	svc := NewDiscoveryService()
 	prov := &Provider{

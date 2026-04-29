@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/user/llm-proxy/internal/util"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Server start time — used for uptime calculation.

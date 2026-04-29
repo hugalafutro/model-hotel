@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/user/llm-proxy/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
