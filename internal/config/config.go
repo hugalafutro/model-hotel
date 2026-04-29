@@ -115,9 +115,28 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 		return fmt.Errorf("URL has no host")
 	}
 
-	// Always block loopback addresses
+	// Built-in known provider hosts are always allowed (skip loopback check)
+	for _, knownHost := range defaultKnownProviderHosts {
+		if strings.EqualFold(host, knownHost) {
+			return nil
+		}
+	}
+
+	// If AllowedProviderHosts is set, the host must be in the allowlist.
+	// Hosts explicitly listed here bypass the loopback restriction so that
+	// localhost can be used as a provider URL in test environments.
+	if len(c.AllowedProviderHosts) > 0 {
+		for _, allowedHost := range c.AllowedProviderHosts {
+			if strings.EqualFold(host, allowedHost) {
+				return nil
+			}
+		}
+		return fmt.Errorf("provider host %q is not in ALLOWED_PROVIDER_HOSTS allowlist", host)
+	}
+
+	// Block loopback addresses when not in the allowlist
 	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
-		return fmt.Errorf("loopback addresses are not allowed as provider URLs")
+		return fmt.Errorf("loopback addresses are not allowed as provider URLs (add to ALLOWED_PROVIDER_HOSTS to permit)")
 	}
 
 	// Resolve the host and check all IPs
@@ -125,29 +144,8 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	if err == nil {
 		for _, ip := range ips {
 			if ip.IsLoopback() {
-				return fmt.Errorf("loopback addresses are not allowed as provider URLs")
+				return fmt.Errorf("loopback addresses are not allowed as provider URLs (add to ALLOWED_PROVIDER_HOSTS to permit)")
 			}
-		}
-	}
-
-	// Built-in known provider hosts are always allowed
-	for _, knownHost := range defaultKnownProviderHosts {
-		if strings.EqualFold(host, knownHost) {
-			return nil
-		}
-	}
-
-	// If AllowedProviderHosts is set, the host must be in the allowlist
-	if len(c.AllowedProviderHosts) > 0 {
-		allowed := false
-		for _, allowedHost := range c.AllowedProviderHosts {
-			if strings.EqualFold(host, allowedHost) {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			return fmt.Errorf("provider host %q is not in ALLOWED_PROVIDER_HOSTS allowlist", host)
 		}
 	}
 
