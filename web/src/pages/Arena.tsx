@@ -1651,7 +1651,7 @@ export function Arena() {
                                         ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
                                         : "hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
                                 }`}
-                                title="Reset arena"
+                                title="Reset"
                             >
                                 <RotateCcw size={14} />
                             </button>
@@ -2319,8 +2319,8 @@ export function Arena() {
 
             {pendingReset && (
                 <ConfirmDialog
-                    title="Reset Arena"
-                    message="This will clear the bracket and all results. Continue?"
+                    title="Reset"
+                    message="This will clear all models, prompts, personas, and any in-progress results. Continue?"
                     fields={[]}
                     confirmLabel="Reset"
                     onConfirm={() => {
@@ -2357,7 +2357,7 @@ export function Arena() {
                         } catch {
                             /* ignore */
                         }
-                        toast("Arena reset", "info");
+                        toast("Reset", "info");
                     }}
                     onCancel={() => setPendingReset(false)}
                 />
