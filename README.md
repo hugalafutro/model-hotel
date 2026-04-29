@@ -3,11 +3,10 @@
 </p>
 
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
-
 <p align="center"><em>"Because we have LiteLLM at home"</em></p>
->
-> Built for when the popular option didn't autodiscover ~300 models across my 4 providers. Then it spiraled a bit. 
->
+
+<p align="center">Built for when the popular option didn't autodiscover ~300 models across my 4 providers. Then it spiraled a bit.</p>
+
 > **AI-Assisted Project Disclaimer**
 >
 > This project was created with assistance from multiple AI models:
