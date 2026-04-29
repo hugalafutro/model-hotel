@@ -117,7 +117,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, error) {
 	rows, err := h.dbPool.Query(ctx, `
-		SELECT model_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) as total_tokens
+		SELECT model_id, SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) as total_tokens
 		FROM request_logs
 		WHERE model_id LIKE 'hotel/%' AND created_at > now() - interval '30 days'
 		GROUP BY model_id

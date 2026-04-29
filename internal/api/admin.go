@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
@@ -20,6 +18,8 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Handler struct {
@@ -218,7 +218,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		modelCounts[providerID] = count
 	}
 
-	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, COALESCE(SUM(tokens_prompt + tokens_completion), 0) FROM request_logs WHERE provider_id IS NOT NULL GROUP BY provider_id")
+	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) FROM request_logs WHERE provider_id IS NOT NULL GROUP BY provider_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

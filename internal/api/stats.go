@@ -184,7 +184,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	// Query 2: By model
 	var modelSelect, modelOrder string
 	if metric == "tokens" {
-		modelSelect = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+		modelSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
 		modelOrder = "val"
 	} else {
 		modelSelect = "COUNT(*) as val"
@@ -228,7 +228,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	// Query 3: By provider
 	var providerSelect, providerOrder string
 	if metric == "tokens" {
-		providerSelect = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+		providerSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
 		providerOrder = "val"
 	} else {
 		providerSelect = "COUNT(*) as val"
@@ -261,7 +261,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	// Query 4: By virtual key
 	var vkSelect, vkOrder string
 	if metric == "tokens" {
-		vkSelect = "SUM(rl.tokens_prompt + rl.tokens_completion) as val"
+		vkSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
 		vkOrder = "val"
 	} else {
 		vkSelect = "COUNT(*) as val"
@@ -295,7 +295,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	if !excludeDeleted {
 		var deletedSelect string
 		if metric == "tokens" {
-			deletedSelect = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+			deletedSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
 		} else {
 			deletedSelect = "COUNT(*) as val"
 		}
@@ -318,7 +318,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		var val int64
 		if metric == "tokens" {
 			err = h.dbPool.QueryRow(ctx, `
-				SELECT COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0)
+				SELECT SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))
 				FROM request_logs rl
 				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
 				since, keyName).Scan(&val)
@@ -386,7 +386,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	// Query 9: Avg tokens per request
 	query = `
 		SELECT COALESCE(
-			SUM(rl.tokens_prompt + rl.tokens_completion)::float / NULLIF(COUNT(*), 0),
+			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))::float / NULLIF(COUNT(*), 0),
 			0
 		) as avg_tokens
 		FROM request_logs rl` + vkJoin + `
@@ -461,7 +461,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			to_char(date_trunc('` + bucketSize + `', rl.created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
-			COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as tokens,
+			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
@@ -545,8 +545,10 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	}
 
 	var selectCol string
+	var havingClause string
 	if metric == "tokens" {
-		selectCol = "COALESCE(SUM(rl.tokens_prompt + rl.tokens_completion), 0) as val"
+		selectCol = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
+		havingClause = " HAVING SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) > 0"
 	} else {
 		selectCol = "COUNT(*) as val"
 	}
@@ -556,7 +558,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		FROM request_logs rl
 		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
-		GROUP BY p.name
+		GROUP BY p.name` + havingClause + `
 		ORDER BY val DESC
 		LIMIT 5`
 
