@@ -20,6 +20,7 @@ import {
     Columns3,
     GitCompare,
     Settings,
+    History,
 } from "lucide-react";
 import {
     extractThinking,
@@ -41,6 +42,12 @@ import { PresetBar } from "../components/PresetBar";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterInput } from "../components/FilterInput";
+import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
+import {
+    saveCompetitionToHistory,
+    saveCompareToHistory,
+    getArenaHistoryEnabled,
+} from "../utils/arenaHistory";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 
 function hasAnyParam(p: GenerationParams): boolean {
@@ -333,6 +340,7 @@ export function Arena() {
         return false;
     });
     const [pendingReset, setPendingReset] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
 
     const [modelParams, setModelParams] = useState<
         Record<string, GenerationParams>
@@ -460,14 +468,81 @@ export function Arena() {
     const roundsLengthRef = useRef(0);
     const roundsRef = useRef<BracketRound[]>([]);
     const promptRef = useRef<HTMLTextAreaElement>(null);
+    const activePromptIdRef = useRef<string | null>(null);
+    const comparePersonaIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         arenaModeRef.current = arenaMode;
     }, [arenaMode]);
 
     useEffect(() => {
+        activePromptIdRef.current = activePromptId;
+    }, [activePromptId]);
+
+    useEffect(() => {
+        comparePersonaIdRef.current = comparePersonaId;
+    }, [comparePersonaId]);
+
+    useEffect(() => {
         roundsRef.current = rounds;
     }, [rounds]);
+
+    // Save compare history when phase transitions to "finished" in compare mode
+    // (covers natural stream completion, not just manual stop)
+    const compareHistorySavedRef = useRef(false);
+    useEffect(() => {
+        if (
+            phase === "finished" &&
+            arenaMode === "compare" &&
+            getArenaHistoryEnabled() &&
+            !compareHistorySavedRef.current
+        ) {
+            compareHistorySavedRef.current = true;
+            const currentRounds = roundsRef.current;
+            if (currentRounds.length > 0) {
+                const round = currentRounds[0];
+                const models: string[] = [];
+                const responses: {
+                    model: string;
+                    content: string;
+                    thinkingContent: string;
+                    error: string | null;
+                    metrics: {
+                        charsPerSecond: number | null;
+                        durationMs: number;
+                        promptTokens: number;
+                        completionTokens: number;
+                    } | null;
+                }[] = [];
+                for (const mu of round.matchups) {
+                    if (mu.slotA) {
+                        models.push(mu.slotA.modelId);
+                        if (mu.responseA && mu.responseA.done) {
+                            responses.push({
+                                model: mu.responseA.model,
+                                content: mu.responseA.content,
+                                thinkingContent: mu.responseA.thinkingContent,
+                                error: mu.responseA.error,
+                                metrics: mu.responseA.metrics,
+                            });
+                        }
+                    }
+                }
+                if (responses.length > 0) {
+                    saveCompareToHistory({
+                        models,
+                        responses,
+                        promptPresetId: activePromptIdRef.current,
+                        comparePersonaId: comparePersonaIdRef.current,
+                    });
+                }
+            }
+        }
+        // Reset the saved flag when leaving finished phase
+        if (phase !== "finished") {
+            compareHistorySavedRef.current = false;
+        }
+    }, [phase, arenaMode]);
 
     const enabledModels = useMemo(
         () => models?.filter((m) => m.enabled && m.provider_name) || [],
@@ -1227,6 +1302,15 @@ export function Arena() {
                 if (winner) {
                     setWinnerModal({ winner, rounds: roundsRef.current });
                     setPhase("finished");
+                    // Save competition to history (only preset prompts, never user text)
+                    if (getArenaHistoryEnabled()) {
+                        saveCompetitionToHistory({
+                            rounds: roundsRef.current,
+                            winner,
+                            promptPresetId: activePromptIdRef.current,
+                            comparePersonaId: null,
+                        });
+                    }
                 }
             }
         },
@@ -1259,6 +1343,7 @@ export function Arena() {
 
         setRunningModels(new Set());
         setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
+        // Compare history saving is handled by the useEffect on phase/arenaMode changes
     }, []);
 
     const handleRetrySlot = useCallback(
@@ -1544,6 +1629,13 @@ export function Arena() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setShowHistoryModal(true)}
+                            className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+                            title="Match history"
+                        >
+                            <History size={14} />
+                        </button>
                         {(phase !== "setup" ||
                             (arenaMode === "competition"
                                 ? bracketModels.length > 0
@@ -2293,6 +2385,11 @@ export function Arena() {
                     }
                     onClose={() => setParamEditorModel(null)}
                 />
+            )}
+
+            {/* Match History Modal */}
+            {showHistoryModal && (
+                <ArenaHistoryModal onClose={() => setShowHistoryModal(false)} />
             )}
         </div>
     );

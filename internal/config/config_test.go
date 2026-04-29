@@ -158,20 +158,38 @@ func TestValidateProviderURL_EmptyHost(t *testing.T) {
 	}
 }
 
-func TestValidateProviderURL_LocalhostEvenWithAllowList(t *testing.T) {
+func TestValidateProviderURL_LocalhostAllowedWhenInAllowList(t *testing.T) {
 	cfg := &Config{AllowedProviderHosts: []string{"localhost"}}
-	// Loopback should always be blocked even if in the allowlist
+	// Loopback hosts explicitly listed in ALLOWED_PROVIDER_HOSTS bypass
+	// the loopback restriction so that localhost can be used as a provider
+	// URL in test environments.
 	err := cfg.ValidateProviderURL("https://localhost:3000/v1")
-	if err == nil {
-		t.Error("localhost should be blocked even if in allowlist")
+	if err != nil {
+		t.Errorf("localhost should be allowed when in allowlist, got error: %v", err)
 	}
 }
 
-func TestValidateProviderURL_127001EvenWithAllowList(t *testing.T) {
+func TestValidateProviderURL_127001AllowedWhenInAllowList(t *testing.T) {
 	cfg := &Config{AllowedProviderHosts: []string{"127.0.0.1"}}
 	err := cfg.ValidateProviderURL("https://127.0.0.1:3000/v1")
+	if err != nil {
+		t.Errorf("127.0.0.1 should be allowed when in allowlist, got error: %v", err)
+	}
+}
+
+func TestValidateProviderURL_LocalhostBlockedWithoutAllowList(t *testing.T) {
+	cfg := &Config{AllowedProviderHosts: nil}
+	err := cfg.ValidateProviderURL("https://localhost:3000/v1")
 	if err == nil {
-		t.Error("127.0.0.1 should be blocked even if in allowlist")
+		t.Error("localhost should be blocked when not in allowlist")
+	}
+}
+
+func TestValidateProviderURL_127001BlockedWithoutAllowList(t *testing.T) {
+	cfg := &Config{AllowedProviderHosts: nil}
+	err := cfg.ValidateProviderURL("https://127.0.0.1:3000/v1")
+	if err == nil {
+		t.Error("127.0.0.1 should be blocked when not in allowlist")
 	}
 }
 

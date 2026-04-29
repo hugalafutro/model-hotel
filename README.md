@@ -143,6 +143,16 @@ Provider API keys are encrypted at rest with AES-256-GCM using your `MASTER_KEY`
 > The only information recorded is what is strictly necessary to route and meter the request:
 > timestamp, time-to-first-token (TTFT), token counts, proxy overhead breakdown, virtual key identifier, and target provider.
 
+### Arena History Privacy
+
+The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
+
+- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
+- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona") — only their built-in IDs, never the text content you didn't write yourself.
+- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
+
+History data never leaves your browser. It can be cleared at any time from the Settings page.
+
 ## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
 [MIT](LICENSE) — see [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.

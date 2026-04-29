@@ -17,10 +17,12 @@ import {
     Bell,
     Database,
     Timer,
+    History,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Spinner } from "../components/Spinner";
 import { Modal } from "../components/Modal";
+import { getArenaHistoryCount, clearArenaHistory } from "../utils/arenaHistory";
 
 const DISCOVERY_INTERVALS = [
     { value: "30m", label: "30 minutes" },
@@ -151,7 +153,12 @@ export function Settings() {
         setPersistArena,
         persistConversation,
         setPersistConversation,
+        arenaHistoryEnabled,
+        setArenaHistoryEnabled,
+        arenaHistoryLimit,
+        setArenaHistoryLimit,
     } = useStorage();
+
     const queryClient = useQueryClient();
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerColor, setPickerColor] = useState(accentColor);
@@ -945,6 +952,128 @@ export function Settings() {
                                             : "translate-x-1"
                                     }`}
                                 />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Arena History */}
+                <div className="ui-card p-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <History size={18} className="text-(--accent)" />
+                        <h2 className="text-xl font-semibold text-white">
+                            Arena History
+                        </h2>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Save completed arena and compare sessions for later
+                        review. Only model responses and preset prompts/personas
+                        are stored — custom user text is never logged.
+                    </p>
+
+                    <div className="space-y-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-300">
+                                    Save Match History
+                                </p>
+                                <p className="text-gray-500 text-xs mt-0.5">
+                                    Automatically save completed arena and
+                                    compare sessions
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const next = !arenaHistoryEnabled;
+                                    setArenaHistoryEnabled(next);
+                                    toast(
+                                        next
+                                            ? "Arena history enabled"
+                                            : "Arena history disabled — existing entries preserved",
+                                        next ? "success" : "info",
+                                    );
+                                }}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    arenaHistoryEnabled
+                                        ? "bg-(--accent)"
+                                        : "bg-gray-600"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        arenaHistoryEnabled
+                                            ? "translate-x-6"
+                                            : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+
+                        <div>
+                            <label
+                                htmlFor="history-limit"
+                                className="block text-sm font-medium text-gray-300 mb-2"
+                            >
+                                Maximum Saved Matches
+                            </label>
+                            <select
+                                id="history-limit"
+                                value={arenaHistoryLimit}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setArenaHistoryLimit(val);
+                                    toast(
+                                        `History limit set to ${val} matches`,
+                                        "success",
+                                    );
+                                }}
+                                className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!arenaHistoryEnabled}
+                            >
+                                <option value={10}>10 matches</option>
+                                <option value={25}>25 matches (default)</option>
+                                <option value={50}>50 matches</option>
+                                <option value={100}>100 matches</option>
+                            </select>
+                            <p className="text-gray-500 text-xs mt-1">
+                                Oldest matches are automatically removed when
+                                the limit is reached
+                            </p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-700">
+                            <div>
+                                <p className="text-sm font-medium text-gray-300">
+                                    Clear History
+                                </p>
+                                <p className="text-gray-500 text-xs mt-0.5">
+                                    {getArenaHistoryCount()} entr
+                                    {getArenaHistoryCount() === 1
+                                        ? "y"
+                                        : "ies"}{" "}
+                                    stored
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (
+                                        confirm(
+                                            "Delete all arena history? This cannot be undone.",
+                                        )
+                                    ) {
+                                        clearArenaHistory();
+                                        toast(
+                                            "All arena history cleared",
+                                            "info",
+                                        );
+                                    }
+                                }}
+                                className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+                                disabled={getArenaHistoryCount() === 0}
+                            >
+                                Clear All
                             </button>
                         </div>
                     </div>
