@@ -18,6 +18,7 @@ import {
     Users,
     Timer,
     Gauge,
+    Eraser,
 } from "lucide-react";
 import type { ChatMessage, GenerationParams } from "../api/types";
 
@@ -55,7 +56,7 @@ function hasAnyParam(p: GenerationParams): boolean {
     );
 }
 
-type ConversationState = "idle" | "running" | "paused" | "completed";
+type ConversationState = "idle" | "running" | "paused" | "completed" | "error";
 
 function getApiMessagesForModel(
     allMessages: ChatMessage[],
@@ -371,11 +372,13 @@ export function Chat() {
     const [turnCountdown, setTurnCountdown] = useState(0);
 
     // ── Shared state ──
-    const [pendingReset, setPendingReset] = useState(false);
+    const [pendingFullReset, setPendingFullReset] = useState(false);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
     const [controlsCollapsed, setControlsCollapsed] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
+    /** Saves the conversation prompt before it's cleared, so it can be restored on error */
+    const lastPromptRef = useRef<string>("");
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const { persistChat, persistConversation } = useStorage();
@@ -929,6 +932,7 @@ export function Chat() {
                 capturedModelBRef.current = selectedModelB;
                 setCurrentTurn(0);
                 turn = 0;
+                lastPromptRef.current = input.trim();
                 const userMessage: ChatMessage = {
                     role: "user",
                     content: input.trim(),
@@ -1040,7 +1044,18 @@ export function Chat() {
 
                 if (result.error) {
                     toast(`${modelId}: ${result.error}`, "error");
-                    break;
+                    // Transition to error state so user can retry
+                    // If this was the first turn, restore the prompt
+                    setConversationState("error");
+                    if (turn === 0 && lastPromptRef.current) {
+                        setInput(lastPromptRef.current);
+                    }
+                    setIsStreaming(false);
+                    setTurnCountdown(0);
+                    conversationAbortRef.current = null;
+                    cleanupConvAbortRef.current = null;
+                    conversationRunningRef.current = false;
+                    return;
                 }
 
                 turn++;
@@ -1069,9 +1084,7 @@ export function Chat() {
 
             setTurnCountdown(0);
             setIsStreaming(false);
-            setConversationState((prev) =>
-                prev === "running" ? "completed" : prev,
-            );
+            setConversationState("completed");
             conversationAbortRef.current = null;
             cleanupConvAbortRef.current = null;
             conversationRunningRef.current = false;
@@ -1103,9 +1116,55 @@ export function Chat() {
         conversationRunningRef.current = false;
     }, []);
 
+    /** Retry from error state: remove the failed assistant message and
+     *  re-run the conversation from the last successful turn.
+     *  If the first turn failed (currentTurn === 0), the user's prompt
+     *  has already been restored to `input` by the error handler. */
+    const handleRetryConversation = useCallback(() => {
+        if (conversationState !== "error") return;
+
+        // Remove the last assistant message (the one that errored)
+        const lastAssistantIdx = messages.findLastIndex(
+            (m) => m.role === "assistant",
+        );
+
+        if (lastAssistantIdx >= 0) {
+            setMessages((prev) => {
+                const next = [...prev];
+                next.splice(lastAssistantIdx, 1);
+                return next;
+            });
+        }
+
+        if (currentTurn === 0) {
+            // First turn failed — the prompt is already restored in `input`.
+            // Reset to idle so runConversation(false) runs as a fresh start.
+            setConversationState("idle");
+            setCurrentTurn(0);
+            // Small delay to let state settle before re-triggering
+            requestAnimationFrame(() => {
+                runConversation(false);
+            });
+        } else {
+            // Later turn failed — decrement turn counter to re-do the failed turn.
+            // The prompt was not lost (it was never in `input` for later turns).
+            const newTurn = currentTurn > 0 ? currentTurn - 1 : 0;
+            setCurrentTurn(newTurn);
+            setConversationState("paused");
+            // Resume from the last successful turn
+            requestAnimationFrame(() => {
+                runConversation(true);
+            });
+        }
+    }, [conversationState, messages, currentTurn, runConversation]);
+
     // Helper to delete a message
     const handleDeleteMessage = useCallback(
         (msgIndex: number) => {
+            // Capture conversation state before the setMessages callback
+            // so we can make decisions based on it inside the updater.
+            const prevState = conversationState;
+
             setMessages((prev) => {
                 const msg = prev[msgIndex];
                 if (!msg) return prev;
@@ -1144,16 +1203,39 @@ export function Chat() {
                         toRemove.add(msgIndex - 1);
                     }
 
-                    // If we're deleting the very last messages and left with just user, reset
+                    // After deletion, determine the correct conversation state
                     const remaining = prev.filter((_, i) => !toRemove.has(i));
+
+                    if (remaining.length === 0) {
+                        // Deleted everything — back to idle, restore the prompt
+                        setConversationState("idle");
+                        setCurrentTurn(0);
+                        if (lastPromptRef.current) {
+                            setInput(lastPromptRef.current);
+                        }
+                        return [];
+                    }
+
                     if (
                         remaining.length === 1 &&
                         remaining[0]?.role === "user"
                     ) {
+                        // Only the initial user prompt remains — back to idle
                         setConversationState("idle");
                         setCurrentTurn(0);
                         setInput(remaining[0].content);
                         return [];
+                    }
+
+                    // There are earlier successful turns remaining
+                    if (prevState === "error" || prevState === "completed") {
+                        // Transition to "paused" so the user can continue
+                        setConversationState("paused");
+                        // Adjust turn counter: count remaining assistant messages
+                        const remainingAssistantCount = remaining.filter(
+                            (m) => m.role === "assistant",
+                        ).length;
+                        setCurrentTurn(remainingAssistantCount);
                     }
                 }
 
@@ -1161,7 +1243,7 @@ export function Chat() {
             });
             toast("Message deleted", "info");
         },
-        [chatSubMode, toast, isStreaming],
+        [chatSubMode, toast, isStreaming, conversationState],
     );
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1269,6 +1351,10 @@ export function Chat() {
                     </div>
                     <div className="flex items-center gap-1">
                         {(messages.length > 0 ||
+                            (chatSubMode === "conversation" &&
+                                (conversationState === "completed" ||
+                                    conversationState === "paused" ||
+                                    conversationState === "error")) ||
                             selectedModel ||
                             (chatSubMode === "conversation" &&
                                 selectedModelB) ||
@@ -1277,22 +1363,58 @@ export function Chat() {
                             (chatSubMode === "conversation" &&
                                 (!!activePersonaIdB ||
                                     !!systemPromptB.trim()))) && (
-                            <button
-                                onClick={() => setPendingReset(true)}
-                                className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${
-                                    (chatSubMode === "conversation" &&
-                                        (conversationState === "completed" ||
-                                            conversationState === "paused")) ||
-                                    (chatSubMode === "chat" &&
-                                        messages.length > 0 &&
-                                        !isStreaming)
-                                        ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
-                                        : "hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-                                }`}
-                                title="Reset chat"
-                            >
-                                <RotateCcw size={14} />
-                            </button>
+                            <>
+                                {/* Light reset: clear messages/results only, keep model/persona/params */}
+                                {messages.length > 0 && (
+                                    <button
+                                        onClick={() => {
+                                            if (
+                                                chatSubMode === "conversation"
+                                            ) {
+                                                conversationAbortRef.current?.abort();
+                                                conversationAbortRef.current =
+                                                    null;
+                                                cleanupConvAbortRef.current =
+                                                    null;
+                                                conversationRunningRef.current = false;
+                                            }
+                                            setMessages([]);
+                                            setInput(lastPromptRef.current);
+                                            setConversationState("idle");
+                                            setCurrentTurn(0);
+                                            setTurnCountdown(0);
+                                            setIsStreaming(false);
+                                            toast(
+                                                chatSubMode === "chat"
+                                                    ? "Chat cleared"
+                                                    : "Conversation cleared",
+                                                "info",
+                                            );
+                                        }}
+                                        className={`p-1.5 rounded-md transition-all cursor-pointer text-amber-400 ${
+                                            chatSubMode === "conversation" &&
+                                            (conversationState ===
+                                                "completed" ||
+                                                conversationState ===
+                                                    "paused" ||
+                                                conversationState === "error")
+                                                ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
+                                                : "hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]"
+                                        }`}
+                                        title="Clear messages (keep model & settings)"
+                                    >
+                                        <Eraser size={14} />
+                                    </button>
+                                )}
+                                {/* Full reset: clear everything including model/persona/params */}
+                                <button
+                                    onClick={() => setPendingFullReset(true)}
+                                    className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                    title="Reset all (clear model & settings)"
+                                >
+                                    <RotateCcw size={14} />
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={() => setControlsCollapsed((c) => !c)}
@@ -1440,6 +1562,7 @@ export function Chat() {
                     onInputChange={setInput}
                     onStart={() => runConversation(false)}
                     onContinue={() => runConversation(true)}
+                    onRetry={handleRetryConversation}
                     canStart={canStartConversation}
                     selectedModel={selectedModel}
                     selectedModelB={selectedModelB}
@@ -1961,7 +2084,8 @@ export function Chat() {
             {chatSubMode === "conversation" &&
                 (conversationState === "running" ||
                     conversationState === "paused" ||
-                    conversationState === "completed") && (
+                    conversationState === "completed" ||
+                    conversationState === "error") && (
                     <div className="ui-card p-4 shrink-0">
                         <div className="space-y-3">
                             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1981,19 +2105,41 @@ export function Chat() {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {(conversationState === "running" ||
-                                        conversationState === "paused" ||
-                                        conversationState === "completed") && (
+                                    {messages.length > 0 && (
                                         <button
-                                            onClick={() =>
-                                                setPendingReset(true)
-                                            }
-                                            className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                            onClick={() => {
+                                                conversationAbortRef.current?.abort();
+                                                conversationAbortRef.current =
+                                                    null;
+                                                cleanupConvAbortRef.current =
+                                                    null;
+                                                conversationRunningRef.current = false;
+                                                setMessages([]);
+                                                setInput(lastPromptRef.current);
+                                                setConversationState("idle");
+                                                setCurrentTurn(0);
+                                                setTurnCountdown(0);
+                                                setIsStreaming(false);
+                                                toast(
+                                                    "Conversation cleared",
+                                                    "info",
+                                                );
+                                            }}
+                                            className="ui-btn flex items-center gap-2 text-amber-400 hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]"
                                         >
-                                            <RotateCcw size={16} />
-                                            Reset
+                                            <Eraser size={16} />
+                                            Clear
                                         </button>
                                     )}
+                                    <button
+                                        onClick={() =>
+                                            setPendingFullReset(true)
+                                        }
+                                        className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                    >
+                                        <RotateCcw size={16} />
+                                        Reset All
+                                    </button>
                                 </div>
                             </div>
                             {conversationState === "running" && (
@@ -2004,11 +2150,18 @@ export function Chat() {
                                         : "Waiting for next turn…"}
                                 </div>
                             )}
+                            {conversationState === "error" && (
+                                <div className="flex items-center gap-2 text-xs text-red-400">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                                    Generation failed — use Retry in config
+                                    above, or Clear/Reset below
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
 
-            {pendingReset && (
+            {pendingFullReset && (
                 <ConfirmDialog
                     title={
                         chatSubMode === "chat"
@@ -2017,16 +2170,23 @@ export function Chat() {
                     }
                     message={
                         chatSubMode === "chat"
-                            ? "This will clear all messages and reset the chat. Continue?"
-                            : "This will clear the conversation and reset both models. Continue?"
+                            ? "This will clear all messages, reset model selection, persona, and parameters. Continue?"
+                            : "This will clear the conversation and reset both models, personas, and parameters. Continue?"
                     }
                     fields={[]}
-                    confirmLabel="Reset"
+                    confirmLabel="Reset All"
                     onConfirm={() => {
+                        // Abort any running conversation
+                        conversationAbortRef.current?.abort();
+                        conversationAbortRef.current = null;
+                        cleanupConvAbortRef.current = null;
+                        conversationRunningRef.current = false;
                         setMessages([]);
                         setInput("");
                         setConversationState("idle");
                         setCurrentTurn(0);
+                        setTurnCountdown(0);
+                        setIsStreaming(false);
                         if (chatSubMode === "chat") {
                             setChatSelectedModel("");
                             setChatSystemPrompt("");
@@ -2043,7 +2203,7 @@ export function Chat() {
                             setConversationParamsA({});
                             setMessageParamsB({});
                         }
-                        setPendingReset(false);
+                        setPendingFullReset(false);
                         toast(
                             chatSubMode === "chat"
                                 ? "Chat reset"
@@ -2051,7 +2211,7 @@ export function Chat() {
                             "info",
                         );
                     }}
-                    onCancel={() => setPendingReset(false)}
+                    onCancel={() => setPendingFullReset(false)}
                 />
             )}
         </div>

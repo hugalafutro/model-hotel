@@ -6,6 +6,7 @@ import {
     Gauge,
     Play,
     FastForward,
+    RotateCcw,
 } from "lucide-react";
 
 interface ConversationConfigProps {
@@ -23,6 +24,8 @@ interface ConversationConfigProps {
     onStart: () => void;
     /** Called when resuming a paused conversation */
     onContinue?: () => void;
+    /** Called when retrying from an error state */
+    onRetry?: () => void;
     canStart: boolean;
     selectedModel: string;
     selectedModelB: string;
@@ -42,13 +45,15 @@ export function ConversationConfig({
     onInputChange,
     onStart,
     onContinue,
+    onRetry,
     canStart,
     selectedModel,
     selectedModelB,
 }: ConversationConfigProps) {
     const isPaused = conversationState === "paused";
     const isIdle = conversationState === "idle";
-    const showStartArea = isIdle || isPaused;
+    const isError = conversationState === "error";
+    const showStartArea = isIdle || isPaused || isError;
     const isContinue = isPaused || (isIdle && currentTurn > 0);
 
     return (
@@ -103,7 +108,13 @@ export function ConversationConfig({
                     <span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
                         <Timer size={12} />
                         Status:{" "}
-                        <span className="text-(--text-primary) capitalize">
+                        <span
+                            className={`capitalize ${
+                                isError
+                                    ? "text-red-400"
+                                    : "text-(--text-primary)"
+                            }`}
+                        >
                             {conversationState}
                         </span>
                     </span>
@@ -127,7 +138,16 @@ export function ConversationConfig({
                 }`}
             >
                 <div className="overflow-hidden">
-                    {/* Compact row: Rounds + Delay + (Prompt area or Continue) */}
+                    {/* Error banner */}
+                    {isError && (
+                        <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                            Generation failed. Retry or change the model to
+                            continue.
+                        </div>
+                    )}
+
+                    {/* Compact row: Rounds + Delay + (Prompt area or Continue/Retry) */}
                     <div className="flex items-end gap-3 pt-4">
                         {/* Max Turns */}
                         <div className="flex flex-col">
@@ -190,7 +210,7 @@ export function ConversationConfig({
                             />
                         </div>
 
-                        {/* Prompt + Start/Continue */}
+                        {/* Prompt + Start/Continue/Retry */}
                         {showStartArea && (
                             <div className="flex items-end gap-2 flex-1 min-w-0">
                                 {isIdle && (
@@ -239,6 +259,52 @@ export function ConversationConfig({
                                         <FastForward size={16} />
                                         Continue
                                     </button>
+                                )}
+                                {isError && (
+                                    <>
+                                        {currentTurn === 0 ? (
+                                            <>
+                                                {/* First turn failed: show prompt input so user can re-enter or edit. The parent restores the prompt via lastPromptRef. */}
+                                                <div className="flex flex-col flex-1 min-w-0">
+                                                    <label className="text-xs text-(--text-secondary) mb-1">
+                                                        Prompt
+                                                    </label>
+                                                    <textarea
+                                                        value={input}
+                                                        onChange={(e) =>
+                                                            onInputChange(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder="Re-enter or edit your prompt…"
+                                                        className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-9"
+                                                        style={{
+                                                            height: "auto",
+                                                        }}
+                                                        rows={1}
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={onRetry}
+                                                    disabled={!input.trim()}
+                                                    className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+                                                >
+                                                    <RotateCcw size={16} />
+                                                    Retry
+                                                </button>
+                                            </>
+                                        ) : (
+                                            /* Later turn failed — retry from last successful turn */
+                                            <button
+                                                onClick={onRetry}
+                                                className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+                                            >
+                                                <RotateCcw size={16} />
+                                                Retry from Turn{" "}
+                                                {Math.ceil(currentTurn / 2)}
+                                            </button>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         )}

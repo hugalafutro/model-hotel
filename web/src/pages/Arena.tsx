@@ -12,6 +12,7 @@ import {
     ThumbsDown,
     Trophy,
     RotateCcw,
+    Eraser,
     RefreshCw,
     ChevronsUpDown,
     ChevronsDownUp,
@@ -339,7 +340,7 @@ export function Arena() {
         }
         return false;
     });
-    const [pendingReset, setPendingReset] = useState(false);
+    const [pendingFullReset, setPendingFullReset] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
 
     const [modelParams, setModelParams] = useState<
@@ -1644,17 +1645,46 @@ export function Arena() {
                             !!prompt.trim() ||
                             !!comparePersonaId ||
                             !!comparePersonaPrompt.trim()) && (
-                            <button
-                                onClick={() => setPendingReset(true)}
-                                className={`p-1.5 rounded-md transition-all cursor-pointer text-red-500 ${
-                                    phase === "finished" || phase === "voting"
-                                        ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
-                                        : "hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-                                }`}
-                                title="Reset"
-                            >
-                                <RotateCcw size={14} />
-                            </button>
+                            <>
+                                {/* Light reset: clear results only, keep models/prompt/persona */}
+                                {phase !== "setup" && (
+                                    <button
+                                        onClick={() => {
+                                            for (const [
+                                                ,
+                                                ctrl,
+                                            ] of abortMapRef.current) {
+                                                ctrl.abort();
+                                            }
+                                            abortMapRef.current.clear();
+                                            setRounds([]);
+                                            setCurrentRound(0);
+                                            setPhase("setup");
+                                            setRunningModels(new Set());
+                                            setWinnerModal(null);
+                                            setDisabledModels(new Set());
+                                            toast("Arena cleared", "info");
+                                        }}
+                                        className={`p-1.5 rounded-md transition-all cursor-pointer text-amber-400 ${
+                                            phase === "finished" ||
+                                            phase === "voting"
+                                                ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
+                                                : "hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]"
+                                        }`}
+                                        title="Clear results (keep models & prompt)"
+                                    >
+                                        <Eraser size={14} />
+                                    </button>
+                                )}
+                                {/* Full reset: clear everything */}
+                                <button
+                                    onClick={() => setPendingFullReset(true)}
+                                    className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
+                                    title="Reset all (clear models & prompt)"
+                                >
+                                    <RotateCcw size={14} />
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={() => setArenaCollapsed((c) => !c)}
@@ -2317,13 +2347,17 @@ export function Arena() {
                 />
             )}
 
-            {pendingReset && (
+            {pendingFullReset && (
                 <ConfirmDialog
-                    title="Reset"
+                    title="Reset All"
                     message="This will clear all models, prompts, personas, and any in-progress results. Continue?"
                     fields={[]}
-                    confirmLabel="Reset"
+                    confirmLabel="Reset All"
                     onConfirm={() => {
+                        for (const [, ctrl] of abortMapRef.current) {
+                            ctrl.abort();
+                        }
+                        abortMapRef.current.clear();
                         setCompareModels([]);
                         setBracketModels([]);
                         setCompetitionPrompt("");
@@ -2340,7 +2374,7 @@ export function Arena() {
                         setWinnerModal(null);
                         setDisabledModels(new Set());
                         setModelParams({});
-                        setPendingReset(false);
+                        setPendingFullReset(false);
                         try {
                             localStorage.removeItem("arenaCompetitionPrompt");
                             localStorage.removeItem("arenaComparePrompt");
@@ -2359,7 +2393,7 @@ export function Arena() {
                         }
                         toast("Reset", "info");
                     }}
-                    onCancel={() => setPendingReset(false)}
+                    onCancel={() => setPendingFullReset(false)}
                 />
             )}
 
