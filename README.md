@@ -34,39 +34,55 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ## What It Does
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
-Add any OpenAI-compatible provider ([OpenAI](https://openai.com/), [Anthropic](https://claude.ai/), [Groq](https://groq.com/), [DeepSeek](https://deepseek.com/), [NanoGPT](https://docs.nano-gpt.com/), [Z.AI](https://z.ai/), [Ollama](https://github.com/ollama/ollama), [OpenCode](https://opencode.ai), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping, parameter filtering, and vision payload normalization transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models) are also supported — no API key required.
+Add any OpenAI-compatible provider ([OpenAI](https://openai.com/), [Anthropic](https://claude.ai/), [DeepSeek](https://deepseek.com/), [NanoGPT](https://docs.nano-gpt.com/), [Z.AI](https://z.ai/), [Ollama](https://github.com/ollama/ollama), [OpenCode](https://opencode.ai), or your own — including [Groq](https://groq.com/) and other OpenAI-compatible services via the generic path), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models) are also supported — no API key required.
 
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
-When a provider returns a 5xx or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a dead provider. Failed attempts are logged with full context (attempt number, error code, duration up to the failure point), making it easy to identify flaky providers in the Logs view.
+When a provider returns a 5xx, a 429 (rate limit, configurable via `failover_on_rate_limit`), an auth error (401/403), or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a provider that returned a non-2xx status. The final request record logs the attempt number that succeeded (or the last one that failed), along with the error code and total duration. Per-attempt failover events (attempt number, provider, status code) are also written to the application log for real-time debugging.
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
-Prefix any model with `hotel/` to route through a curated pool of providers for the same base model, sorted by your preference. Example: `hotel/gpt-4o` resolves to all providers that expose `gpt-4o` or similar, then tries them in the order you configured. If the first is down or slow, the next takes over instantly. The failover group is auto-generated when models are discovered, but you can manually edit priorities and disable individual entries.
+Prefix any model with `hotel/` to route through a failover group — an ordered list of providers that expose the same base model. Example: `hotel/gpt-4o` resolves to all providers whose model ID matches `gpt-4o` exactly (after stripping the org prefix, e.g. `openai/gpt-4o` → `gpt-4o`). Models with different base names like `gpt-4o-mini` are separate groups.
+
+Requests are sent to each provider in priority order. If a provider responds with a server error (5xx), an auth error (401/403), or a rate-limit error (429, configurable), the next provider in the list is tried. Failover does **not** trigger on slow responses or client errors (4xx other than 401/403/429).
+
+Failover groups are auto-generated when models are discovered, but only when **2 or more providers** expose the same base model. Groups with a single provider are automatically disabled. You can manually edit priorities, disable individual entries, or toggle entire groups on or off.
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
-Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, revoke access instantly, and never expose your real provider credentials. Keys can be created and revoked from the dashboard or the admin API.
+Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
 
 ### [<img src="docs/icons/logging.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Request Logging with Overhead Breakdown](#-request-logging-with-overhead-breakdown)
 Every request is logged with full latency decomposition:
 - **TTFT** (time to first token)
 - **Total duration** (end-to-end wall time)
-- **Proxy overhead** split into parsing, model lookup, provider lookup, and key decryption
-- **Tokens per second**, prompt / completion counts, and cache hit/miss stats
+- **Proxy overhead** split into request parsing, model/failover lookup, provider lookup, and key decryption
+- **Tokens per second**, prompt / completion counts
 
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
 
 ### [<img src="docs/icons/discovery.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Built-In Model Discovery](#-built-in-model-discovery)
-Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). DeepSeek, NanoGPT, Z.AI, and OpenCode get rich metadata (context length, pricing, reasoning flags, input/output modalities) pulled from dedicated catalogs rather than generic discovery.
+Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). Seven providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
 
-### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Provider Health at a Glance](#-provider-health-at-a-glance)
-Test any model directly from the dashboard with a single click. The test sends a minimal chat completion through the proxy and reports TTFT, total duration, and the actual model response, so you know the provider is alive and responsive. DeepSeek, NanoGPT, and Z.AI providers also show live account balance / usage data fetched from their respective APIs.
+| Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
+|---|---|---|---|---|---|
+| DeepSeek | ✅ | ✅ | ✅ | — | Catalog |
+| NanoGPT | ✅ | ✅ | ✅ | ✅ | API (`/models?detailed=true`) |
+| Z.AI | ✅ | — | ✅ | Derived | Catalog |
+| OpenCode Go | ✅ | ✅ | ✅ | ✅ | Catalog |
+| OpenCode Zen | ✅ | ✅ | ✅ | ✅ | Catalog |
+| OpenAI | ✅ | ✅ | ✅ | ✅ | Catalog |
+| Anthropic | ✅ | ✅ | — | ✅ (partial) | API + Pricing catalog |
+
+DeepSeek, Z.AI, OpenCode (Go & Zen), and OpenAI use **dedicated static catalogs** that supply context length, pricing, capability flags, and modalities not available from the provider's `/models` endpoint. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama enriches models via its `/api/show` endpoint.
+
+### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Model Health at a Glance](#-model-health-at-a-glance)
+Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT and Z.AI providers show token quota and usage data — all fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Interactive Chat & Arena](#-interactive-chat--arena)
-The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas, generation parameters (temperature, top_p, max_tokens, etc.), and streaming responses with thinking-block rendering. Switch to **Conversation** mode to watch two models talk to each other — pick a starter prompt, set the number of rounds, and observe the back-and-forth with per-message metrics and optional delay between turns.
+The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Switch to **Conversation** mode to watch two models talk to each other — enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics (duration, tokens, chars/sec).
 
-**Arena** mode lets you pit two (or more) models against each other side-by-side with bracket tournaments or head-to-head compare mode — complete with voting, auto-advance, and per-response metrics.
+**Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups — vote for winners, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with per-slot personas and voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics. Past sessions are saved to an arena history modal for review and restoration.
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Real-Time Events & System Status](#-real-time-events--system-status)
-A live SSE event bus delivers toast notifications for provider state changes, failover triggers, and errors straight to the dashboard. The sidebar shows real-time system stats including CPU, memory, network throughput, and Docker container health (when running under Docker Compose) with color-coded warnings when thresholds are exceeded.
+A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
 
 ## [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start (Docker Compose)](#-quick-start-docker-compose)
 
@@ -94,6 +110,8 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 
 ## [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Configuration](#-configuration)
 
+### Environment Variables
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `MASTER_KEY` | Yes | - | Master encryption key for provider API keys |
@@ -102,18 +120,38 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `DATA_DIR` | No | `./data` | Directory for admin token file |
 | `ADMIN_TOKEN` | No | *(auto)* | Fixed admin token (auto-generated if empty) |
 | `ALLOW_HTTP_PROVIDERS` | No | `false` | Allow HTTP provider URLs |
-| `RATE_LIMIT_ENABLED` | No | `true` | Hard kill-switch for rate limiting (env var only) |
+| `RATE_LIMIT_ENABLED` | No | `true` | Hard kill-switch for rate limiting (env var only; when `false`, rate-limit middleware is a complete no-op) |
 | `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
-| `CORS_ORIGINS` | No | `localhost` | Allowed CORS origins |
-| `ALLOWED_PROVIDER_HOSTS` | No | - | Additional allowed provider hosts |
+| `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Allowed CORS origins (comma-separated) |
+| `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Additional allowed provider hosts (comma-separated; built-in provider hosts are always allowed) |
 
-> **Rate Limiting** — When `RATE_LIMIT_ENABLED=true` (the default), rate limiting can be toggled on/off at runtime via the **Settings** UI and the following DB-backed settings: `rate_limit_enabled` (bool, default `true`), `rate_limit_rps` (float, default `10` — set to `0` for unlimited), and `rate_limit_burst` (int, default `20`). Setting `RATE_LIMIT_ENABLED=false` in the environment completely disables rate limiting regardless of DB settings. Each virtual key gets its own independent token bucket; 429 responses include `Retry-After` and `X-RateLimit-*` headers.
+### DB-Backed Settings
 
-> **Discovery Interval** — The `discovery_interval` setting (default `6h`) controls how often the background discovery job re-syncs model lists from all providers. It can be changed at runtime in **Settings**.
+| Setting | Default | Description |
+|---|---|---|
+| `rate_limit_enabled` | `true` | Runtime toggle for rate limiting (overridden by `RATE_LIMIT_ENABLED` env kill-switch) |
+| `rate_limit_rps` | `10` | Requests per second per virtual key (`0` for unlimited) |
+| `rate_limit_burst` | `20` | Burst size for rate limiter token bucket |
+| `discovery_interval` | `6h` | Interval between automatic model discovery runs |
+| `discovery_on_startup` | `true` | Run model discovery on server startup |
+| `discovery_on_provider_create` | `true` | Run discovery when a new provider is created |
+| `log_retention` | *(none)* | Log retention period |
+| `stale_request_timeout` | *(none)* | Timeout for stale/in-flight requests |
+| `failover_on_rate_limit` | `true` | Enable failover to another provider on 429 rate-limit errors |
+| `theme` | *(none)* | UI theme preference |
+| `ui_style` | *(none)* | UI style preference |
+| `accent_color` | *(none)* | UI accent color |
+
+> **Rate Limiting** — When `RATE_LIMIT_ENABLED=true` (the default), rate limiting can be toggled on/off at runtime via the **Settings** UI and the DB-backed settings above. Setting `RATE_LIMIT_ENABLED=false` in the environment completely disables rate limiting regardless of DB settings. Each virtual key gets its own independent token bucket; 429 responses include `Retry-After` and `X-RateLimit-*` headers.
 
 ## [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints](#-api-endpoints)
 
-**Proxy API** (`/v1/*`) - OpenAI-compatible, requires a virtual key:
+### Proxy API (`/v1/*`) — OpenAI-compatible, requires a virtual key
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/v1/models` | GET | List available models (OpenAI format) |
+| `/v1/chat/completions` | POST | Chat completions (supports `"stream": true` for SSE streaming) |
 
 ```bash
 export PROXY_KEY="your-proxy-key"
@@ -128,21 +166,128 @@ curl -X POST http://localhost:8081/v1/chat/completions \
     "model": "hotel/gpt-4o",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
+
+# Streaming example
+curl -X POST http://localhost:8081/v1/chat/completions \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "hotel/gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "stream": true
+  }'
 ```
 
-**Admin API** (`/api/*`) - requires the admin token for management operations.
+### Admin API (`/api/*`) — requires the admin token
+
+**Providers**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/providers` | POST | Create provider |
+| `/api/providers` | GET | List providers |
+| `/api/providers/{id}` | GET | Get provider |
+| `/api/providers/{id}` | PUT | Update provider |
+| `/api/providers/{id}` | DELETE | Delete provider |
+| `/api/providers/discover-all` | POST | Discover models for all providers |
+| `/api/providers/refresh-quotas` | POST | Refresh quotas for all providers |
+| `/api/providers/{id}/discover` | POST | Discover models for a provider |
+| `/api/providers/{id}/usage` | GET | Get provider usage (Z.AI, NanoGPT) |
+| `/api/providers/{id}/balance` | GET | Get provider balance (DeepSeek) |
+
+**Models**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/models` | GET | List models (optional `?provider_id=` filter) |
+| `/api/models/{id}` | PATCH | Update model |
+| `/api/models/{id}` | DELETE | Delete model |
+| `/api/models/{id}/test` | POST | Test model connectivity |
+
+**Virtual Keys**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/virtual-keys` | POST | Create virtual key |
+| `/api/virtual-keys` | GET | List virtual keys |
+| `/api/virtual-keys/{id}` | GET | Get virtual key |
+| `/api/virtual-keys/{id}` | DELETE | Delete virtual key |
+
+**Request Logs**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/logs` | GET | List request logs (paginated, filterable) |
+| `/api/logs/purge` | DELETE | Purge logs (`1h`, `1d`, `1w`, `1m`, `all`) |
+
+**App Logs**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/logs/app` | GET | Get app logs (ring buffer or `?history=true` DB query) |
+| `/api/logs/app` | DELETE | Clear app logs |
+
+**Settings**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/settings` | GET | Get all settings |
+| `/api/settings` | PUT | Update settings |
+
+**System & Stats**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/system` | GET | System stats (memory, DB, Docker) |
+| `/api/stats` | GET | Aggregate request stats |
+| `/api/stats/timeseries` | GET | Time series stats |
+| `/api/stats/provider-distribution` | GET | Provider distribution stats |
+
+**Failover Groups**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/failover-groups` | GET | List failover groups |
+| `/api/failover-groups` | POST | Create failover group |
+| `/api/failover-groups/sync` | POST | Sync all failover groups |
+| `/api/failover-groups/candidates` | GET | List candidate models for failover |
+| `/api/failover-groups/by-model/{model_uuid}` | GET | Get failover group by model UUID |
+| `/api/failover-groups/{id}` | GET | Get failover group |
+| `/api/failover-groups/{id}` | PUT | Update failover group |
+| `/api/failover-groups/{id}` | DELETE | Delete failover group |
+
+**Events (SSE)**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/events` | GET | Server-sent event stream |
+
+**Admin Chat Proxy**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/chat/chat` | POST | Chat completions (admin-authenticated) |
+| `/api/chat/arena` | POST | Arena completions (admin-authenticated) |
+| `/api/chat/completions` | POST | Completions (admin-authenticated) |
+
+### Health Check
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Returns `OK` (no auth required) |
 
 ## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security](#-security)
 
-Provider API keys are encrypted at rest with AES-256-GCM using your `MASTER_KEY`. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage — the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses.
+Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage — the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses. Decrypted provider keys are cached in memory for up to 5 minutes to avoid repeated key derivation overhead.
 
 ## [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Privacy & Data Handling](#-privacy--data-handling)
 
 > **Prompts and request content are never captured, logged, or inspected.**
 > The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
 >
-> The only information recorded is what is strictly necessary to route and meter the request:
-> timestamp, time-to-first-token (TTFT), token counts, proxy overhead breakdown, virtual key identifier, and target provider.
+> The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only — never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
+>
+> *Note: The database schema includes an unused `prompt` column (added in an early migration but never written to by any application code). No prompt or message content is ever stored in it.*
 
 ### Arena History Privacy
 
