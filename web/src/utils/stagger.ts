@@ -17,10 +17,10 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface StaggeredItem<T> {
-    /** The original item. */
-    item: T;
-    /** Milliseconds to wait before starting this item's request. */
-    delayMs: number;
+	/** The original item. */
+	item: T;
+	/** Milliseconds to wait before starting this item's request. */
+	delayMs: number;
 }
 
 /**
@@ -45,39 +45,39 @@ export interface StaggeredItem<T> {
  * ```
  */
 export function staggerByProvider<T>(
-    items: T[],
-    getProvider: (item: T) => string,
-    delayMs: number = 300,
+	items: T[],
+	getProvider: (item: T) => string,
+	delayMs: number = 300,
 ): StaggeredItem<T>[] {
-    if (items.length === 0) return [];
-    if (delayMs <= 0) return items.map((item) => ({ item, delayMs: 0 }));
+	if (items.length === 0) return [];
+	if (delayMs <= 0) return items.map((item) => ({ item, delayMs: 0 }));
 
-    // Group indices by provider
-    const providerGroups = new Map<string, number[]>();
-    for (let i = 0; i < items.length; i++) {
-        const provider = getProvider(items[i]);
-        const group = providerGroups.get(provider);
-        if (group) {
-            group.push(i);
-        } else {
-            providerGroups.set(provider, [i]);
-        }
-    }
+	// Group indices by provider
+	const providerGroups = new Map<string, number[]>();
+	for (let i = 0; i < items.length; i++) {
+		const provider = getProvider(items[i]);
+		const group = providerGroups.get(provider);
+		if (group) {
+			group.push(i);
+		} else {
+			providerGroups.set(provider, [i]);
+		}
+	}
 
-    // Assign delays: first item per provider = 0, second = delayMs, etc.
-    const result: StaggeredItem<T>[] = items.map((item) => ({
-        item,
-        delayMs: 0,
-    }));
+	// Assign delays: first item per provider = 0, second = delayMs, etc.
+	const result: StaggeredItem<T>[] = items.map((item) => ({
+		item,
+		delayMs: 0,
+	}));
 
-    for (const indices of providerGroups.values()) {
-        for (let slotIndex = 0; slotIndex < indices.length; slotIndex++) {
-            const originalIndex = indices[slotIndex];
-            result[originalIndex].delayMs = slotIndex * delayMs;
-        }
-    }
+	for (const indices of providerGroups.values()) {
+		for (let slotIndex = 0; slotIndex < indices.length; slotIndex++) {
+			const originalIndex = indices[slotIndex];
+			result[originalIndex].delayMs = slotIndex * delayMs;
+		}
+	}
 
-    return result;
+	return result;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -88,14 +88,14 @@ export function staggerByProvider<T>(
 const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
 
 export interface RetryOptions {
-    /** Maximum number of retry attempts (not counting the initial request). Default: 2 */
-    maxRetries?: number;
-    /** Base delay in ms for exponential backoff. Default: 1000 */
-    baseDelayMs?: number;
-    /** Maximum delay in ms for any single backoff. Default: 10000 */
-    maxDelayMs?: number;
-    /** Called before each retry with the attempt number (1-based) and delay in ms. */
-    onRetry?: (attempt: number, delayMs: number, status: number) => void;
+	/** Maximum number of retry attempts (not counting the initial request). Default: 2 */
+	maxRetries?: number;
+	/** Base delay in ms for exponential backoff. Default: 1000 */
+	baseDelayMs?: number;
+	/** Maximum delay in ms for any single backoff. Default: 10000 */
+	maxDelayMs?: number;
+	/** Called before each retry with the attempt number (1-based) and delay in ms. */
+	onRetry?: (attempt: number, delayMs: number, status: number) => void;
 }
 
 /**
@@ -108,88 +108,88 @@ export interface RetryOptions {
  * @returns The successful `Response`, or throws the last error after all retries exhausted.
  */
 export async function fetchWithRetry(
-    url: string,
-    init: RequestInit,
-    options: RetryOptions = {},
+	url: string,
+	init: RequestInit,
+	options: RetryOptions = {},
 ): Promise<Response> {
-    const {
-        maxRetries = 2,
-        baseDelayMs = 1000,
-        maxDelayMs = 10000,
-        onRetry,
-    } = options;
+	const {
+		maxRetries = 2,
+		baseDelayMs = 1000,
+		maxDelayMs = 10000,
+		onRetry,
+	} = options;
 
-    let lastError: Error | null = null;
+	let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-            const response = await fetch(url, init);
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			const response = await fetch(url, init);
 
-            if (!RETRYABLE_STATUS_CODES.has(response.status)) {
-                return response;
-            }
+			if (!RETRYABLE_STATUS_CODES.has(response.status)) {
+				return response;
+			}
 
-            // If we've exhausted retries, return the response as-is
-            // so the caller can handle the error status.
-            if (attempt >= maxRetries) {
-                return response;
-            }
+			// If we've exhausted retries, return the response as-is
+			// so the caller can handle the error status.
+			if (attempt >= maxRetries) {
+				return response;
+			}
 
-            // Compute backoff delay
-            let delayMs = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
+			// Compute backoff delay
+			let delayMs = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
 
-            // Respect Retry-After header for 429 responses
-            if (response.status === 429) {
-                const retryAfter = response.headers.get("Retry-After");
-                if (retryAfter) {
-                    const retryAfterMs = parseFloat(retryAfter) * 1000;
-                    if (!Number.isNaN(retryAfterMs) && retryAfterMs > 0) {
-                        delayMs = Math.max(delayMs, retryAfterMs);
-                    }
-                }
-            }
+			// Respect Retry-After header for 429 responses
+			if (response.status === 429) {
+				const retryAfter = response.headers.get("Retry-After");
+				if (retryAfter) {
+					const retryAfterMs = parseFloat(retryAfter) * 1000;
+					if (!Number.isNaN(retryAfterMs) && retryAfterMs > 0) {
+						delayMs = Math.max(delayMs, retryAfterMs);
+					}
+				}
+			}
 
-            // Add jitter (±25%)
-            const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
-            const totalDelay = Math.max(0, Math.round(delayMs + jitter));
+			// Add jitter (±25%)
+			const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
+			const totalDelay = Math.max(0, Math.round(delayMs + jitter));
 
-            onRetry?.(attempt + 1, totalDelay, response.status);
+			onRetry?.(attempt + 1, totalDelay, response.status);
 
-            // Drain the response body to avoid leaking the connection
-            try {
-                await response.text();
-            } catch {
-                // Ignore body drain errors
-            }
+			// Drain the response body to avoid leaking the connection
+			try {
+				await response.text();
+			} catch {
+				// Ignore body drain errors
+			}
 
-            await sleep(totalDelay);
-        } catch (err) {
-            // Network-level errors (AbortError should NOT be retried)
-            if (err instanceof DOMException && err.name === "AbortError") {
-                throw err;
-            }
+			await sleep(totalDelay);
+		} catch (err) {
+			// Network-level errors (AbortError should NOT be retried)
+			if (err instanceof DOMException && err.name === "AbortError") {
+				throw err;
+			}
 
-            lastError = err instanceof Error ? err : new Error(String(err));
+			lastError = err instanceof Error ? err : new Error(String(err));
 
-            // Network errors are retryable, but only if we have attempts left
-            if (attempt >= maxRetries) {
-                throw lastError;
-            }
+			// Network errors are retryable, but only if we have attempts left
+			if (attempt >= maxRetries) {
+				throw lastError;
+			}
 
-            const delayMs = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
-            const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
-            const totalDelay = Math.max(0, Math.round(delayMs + jitter));
+			const delayMs = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
+			const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
+			const totalDelay = Math.max(0, Math.round(delayMs + jitter));
 
-            onRetry?.(attempt + 1, totalDelay, 0);
+			onRetry?.(attempt + 1, totalDelay, 0);
 
-            await sleep(totalDelay);
-        }
-    }
+			await sleep(totalDelay);
+		}
+	}
 
-    // Should be unreachable, but just in case
-    throw lastError ?? new Error("All retries exhausted");
+	// Should be unreachable, but just in case
+	throw lastError ?? new Error("All retries exhausted");
 }
 
 function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
