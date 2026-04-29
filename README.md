@@ -7,8 +7,6 @@
 
 <p align="center">
   <img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg?job=go-test" alt="Go Test">
-  <img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg?job=docker-build" alt="Docker Build">
 </p>
 
 <p align="center">Built for when the popular option didn't autodiscover ~300 models across my 4 providers. Then it spiraled a bit.</p>
