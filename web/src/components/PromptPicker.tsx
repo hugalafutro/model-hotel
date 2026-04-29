@@ -143,33 +143,25 @@ export function PromptPicker({
 
     return (
         <div className={className}>
-            {collapsed ? (
+            <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-(--text-secondary)">
+                    {label}
+                </label>
                 <button
                     type="button"
-                    onClick={() => setCollapsed(false)}
-                    className="flex items-center gap-1.5 text-sm text-(--text-secondary) hover:text-(--accent) transition-colors cursor-pointer group"
+                    onClick={() => setCollapsed((c) => !c)}
+                    className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-0.5 -m-0.5"
+                    title={collapsed ? "Expand" : "Collapse"}
                 >
-                    <ChevronDown
-                        size={14}
-                        className="text-(--text-tertiary) group-hover:text-(--accent) group-hover:drop-shadow-[0_0_6px_var(--accent)] transition-all"
-                    />
-                    <span>{label}</span>
+                    {collapsed ? (
+                        <ChevronDown size={14} />
+                    ) : (
+                        <ChevronUp size={14} />
+                    )}
                 </button>
-            ) : (
+            </div>
+            {!collapsed && (
                 <>
-                    <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm text-(--text-secondary)">
-                            {label}
-                        </label>
-                        <button
-                            type="button"
-                            onClick={() => setCollapsed(true)}
-                            className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-0.5 -m-0.5"
-                            title="Collapse"
-                        >
-                            <ChevronUp size={14} />
-                        </button>
-                    </div>
                     {showPresetBar && (
                         <PresetBar
                             items={prompts}
