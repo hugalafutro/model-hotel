@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { api, API_BASE, getAuthHeaders } from "../api/client";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
     MessageSquare,
@@ -32,6 +32,7 @@ import { ModelDetailPanel } from "../components/ModelDetailPanel";
 import { proxyModelID } from "../utils/model";
 import { CHAT_PERSONAS } from "../data/presets";
 import { extractThinking, sanitizeDelta } from "../utils/thinking";
+import { fetchWithRetry } from "../utils/stagger";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { MarkdownContent } from "../components/MarkdownContent";
 import { ConversationConfig } from "../components/ConversationConfig";
@@ -117,13 +118,28 @@ async function streamModelResponse(
     let thinkingContent = "";
 
     try {
-        const resp = await api.chat.chat({
-            model: modelId,
-            stream: true,
-            messages: apiMessages,
-            signal: abortCtrl.signal,
-            ...(hasAnyParam(params) ? params : {}),
-        });
+        const resp = await fetchWithRetry(
+            `${API_BASE}/api/chat/chat`,
+            {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    model: modelId,
+                    stream: true,
+                    messages: apiMessages,
+                    ...(hasAnyParam(params) ? params : {}),
+                }),
+                signal: abortCtrl.signal,
+            },
+            {
+                maxRetries: 2,
+            },
+        );
+
+        if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(`Chat failed: ${resp.status} ${text}`);
+        }
 
         const reader = resp.body?.getReader();
         if (!reader) throw new Error("No readable stream");

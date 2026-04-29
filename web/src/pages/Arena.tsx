@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { api, API_BASE, getAuthHeaders } from "../api/client";
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
     Swords,
@@ -30,7 +30,7 @@ import {
 } from "../utils/thinking";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
-import { proxyModelID } from "../utils/model";
+import { proxyModelID, providerFromModelID } from "../utils/model";
 import type { Model, GenerationParams } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useStorage } from "../context/StorageContext";
@@ -51,6 +51,7 @@ import {
     getArenaHistoryEnabled,
 } from "../utils/arenaHistory";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+import { staggerByProvider, fetchWithRetry } from "../utils/stagger";
 
 function hasAnyParam(p: GenerationParams): boolean {
     return (
@@ -740,15 +741,37 @@ export function Arena() {
                 chatMessages.push({ role: "user", content: userPrompt });
 
                 try {
-                    const resp = await api.chat.arena({
-                        model,
-                        stream: true,
-                        messages: chatMessages,
-                        signal: abortCtrl.signal,
-                        ...(slotParams && hasAnyParam(slotParams)
-                            ? slotParams
-                            : {}),
-                    });
+                    // Use fetchWithRetry for automatic retry on 429/502/503/504
+                    const resp = await fetchWithRetry(
+                        `${API_BASE}/api/chat/arena`,
+                        {
+                            method: "POST",
+                            headers: getAuthHeaders(),
+                            body: JSON.stringify({
+                                model,
+                                stream: true,
+                                messages: chatMessages,
+                                ...(slotParams && hasAnyParam(slotParams)
+                                    ? slotParams
+                                    : {}),
+                            }),
+                            signal: abortCtrl.signal,
+                        },
+                        {
+                            maxRetries: 2,
+                            onRetry: (attempt, delayMs, status) => {
+                                toast(
+                                    `${model}: ${status || "network error"} — retry ${attempt} in ${(delayMs / 1000).toFixed(1)}s…`,
+                                    "info",
+                                );
+                            },
+                        },
+                    );
+
+                    if (!resp.ok) {
+                        const text = await resp.text();
+                        throw new Error(`Arena failed: ${resp.status} ${text}`);
+                    }
 
                     const reader = resp.body?.getReader();
                     if (!reader) throw new Error("No readable stream");
@@ -1023,33 +1046,73 @@ export function Arena() {
                 return next;
             });
 
+            // Collect all slots to stream, then stagger by provider
+            // so same-provider requests are spaced 300ms apart
+            const slots: Array<{
+                modelId: string;
+                personaPrompt: string;
+                slotKey: "A" | "B";
+                matchupIdx: number;
+                params?: GenerationParams;
+            }> = [];
             for (let mi = 0; mi < round.matchups.length; mi++) {
                 const mu = round.matchups[mi];
                 if (mu.slotA) {
-                    streamModel(
-                        mu.slotA.modelId,
-                        mu.slotA.personaPrompt,
-                        currentPrompt,
-                        roundIdx,
-                        "A",
-                        mi,
-                        mu.slotA.params,
-                    );
+                    slots.push({
+                        modelId: mu.slotA.modelId,
+                        personaPrompt: mu.slotA.personaPrompt,
+                        slotKey: "A",
+                        matchupIdx: mi,
+                        params: mu.slotA.params,
+                    });
                 }
                 if (mu.slotB) {
+                    slots.push({
+                        modelId: mu.slotB.modelId,
+                        personaPrompt: mu.slotB.personaPrompt,
+                        slotKey: "B",
+                        matchupIdx: mi,
+                        params: mu.slotB.params,
+                    });
+                }
+            }
+
+            const knownProviders = enabledModels.map((m) => m.provider_name);
+            const staggered = staggerByProvider(
+                slots,
+                (s) => providerFromModelID(s.modelId, knownProviders),
+                300,
+            );
+
+            for (const { item, delayMs } of staggered) {
+                if (delayMs > 0) {
+                    setTimeout(
+                        () =>
+                            streamModel(
+                                item.modelId,
+                                item.personaPrompt,
+                                currentPrompt,
+                                roundIdx,
+                                item.slotKey,
+                                item.matchupIdx,
+                                item.params,
+                            ),
+                        delayMs,
+                    );
+                } else {
                     streamModel(
-                        mu.slotB.modelId,
-                        mu.slotB.personaPrompt,
+                        item.modelId,
+                        item.personaPrompt,
                         currentPrompt,
                         roundIdx,
-                        "B",
-                        mi,
-                        mu.slotB.params,
+                        item.slotKey,
+                        item.matchupIdx,
+                        item.params,
                     );
                 }
             }
         },
-        [savedPrompt, prompt, streamModel],
+        [savedPrompt, prompt, streamModel, enabledModels],
     );
 
     const handleRunArena = useCallback(() => {
@@ -1117,28 +1180,68 @@ export function Arena() {
             return next;
         });
 
+        // Collect all slots to stream, then stagger by provider
+        // so same-provider requests are spaced 300ms apart
+        const slots: Array<{
+            modelId: string;
+            personaPrompt: string;
+            slotKey: "A" | "B";
+            matchupIdx: number;
+            params?: GenerationParams;
+        }> = [];
         for (let mi = 0; mi < initialRounds[0].matchups.length; mi++) {
             const mu = initialRounds[0].matchups[mi];
             if (mu.slotA) {
-                streamModel(
-                    mu.slotA.modelId,
-                    mu.slotA.personaPrompt,
-                    currentPrompt,
-                    0,
-                    "A",
-                    mi,
-                    mu.slotA.params,
-                );
+                slots.push({
+                    modelId: mu.slotA.modelId,
+                    personaPrompt: mu.slotA.personaPrompt,
+                    slotKey: "A",
+                    matchupIdx: mi,
+                    params: mu.slotA.params,
+                });
             }
             if (mu.slotB) {
+                slots.push({
+                    modelId: mu.slotB.modelId,
+                    personaPrompt: mu.slotB.personaPrompt,
+                    slotKey: "B",
+                    matchupIdx: mi,
+                    params: mu.slotB.params,
+                });
+            }
+        }
+
+        const knownProviders = enabledModels.map((m) => m.provider_name);
+        const staggered = staggerByProvider(
+            slots,
+            (s) => providerFromModelID(s.modelId, knownProviders),
+            300,
+        );
+
+        for (const { item, delayMs } of staggered) {
+            if (delayMs > 0) {
+                setTimeout(
+                    () =>
+                        streamModel(
+                            item.modelId,
+                            item.personaPrompt,
+                            currentPrompt,
+                            0,
+                            item.slotKey,
+                            item.matchupIdx,
+                            item.params,
+                        ),
+                    delayMs,
+                );
+            } else {
                 streamModel(
-                    mu.slotB.modelId,
-                    mu.slotB.personaPrompt,
+                    item.modelId,
+                    item.personaPrompt,
                     currentPrompt,
                     0,
-                    "B",
-                    mi,
-                    mu.slotB.params,
+                    item.slotKey,
+                    item.matchupIdx,
+                    item.params,
                 );
             }
         }
@@ -1153,6 +1256,7 @@ export function Arena() {
         buildInitialRounds,
         buildCompareRound,
         streamModel,
+        enabledModels,
     ]);
 
     const handleVote = useCallback(

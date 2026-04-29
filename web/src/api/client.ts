@@ -39,7 +39,7 @@ export function getAdminToken(): string | null {
     return adminToken;
 }
 
-function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(): Record<string, string> {
     const token = adminToken || localStorage.getItem("adminToken");
     if (!token) {
         throw new Error("Admin token not set");
