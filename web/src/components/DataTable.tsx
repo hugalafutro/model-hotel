@@ -30,12 +30,16 @@ export function SortableHeader<F extends string>({
 			className={`${HEADER_BASE} select-none hover:text-gray-200`}
 			title={tooltip}
 		>
-			<span className="cursor-pointer" onClick={() => onSort(field)}>
+			<button
+				type="button"
+				className="cursor-pointer"
+				onClick={() => onSort(field)}
+			>
 				{label}{" "}
 				<span className="inline-block w-3 text-center">
 					{active ? (sort.dir === "asc" ? "↑" : "↓") : " "}
 				</span>
-			</span>
+			</button>
 		</th>
 	);
 }
@@ -87,7 +91,19 @@ export function Row({
 	return (
 		<tr
 			className={`${index % 2 === 1 ? "bg-white/3" : ""}   hover:bg-(--surface-hover) transition-colors ${className} ${onClick ? "cursor-pointer" : ""}`}
+			role={onClick ? "button" : undefined}
+			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}
+			onKeyDown={
+				onClick
+					? (e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								onClick(e as unknown as MouseEvent<HTMLTableRowElement>);
+							}
+						}
+					: undefined
+			}
 		>
 			{children}
 		</tr>

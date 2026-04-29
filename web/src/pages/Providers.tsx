@@ -357,7 +357,9 @@ export function Providers() {
 	} = useQuery({
 		queryKey: ["nanogpt-usage", nanogptProviderId],
 		queryFn: () =>
-			api.providers.getUsage(nanogptProviderId!) as Promise<NanoGPTUsage>,
+			api.providers.getUsage(
+				nanogptProviderId as string,
+			) as Promise<NanoGPTUsage>,
 		enabled: Boolean(nanogptProviderId),
 		initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
 	});
@@ -375,7 +377,9 @@ export function Providers() {
 	} = useQuery({
 		queryKey: ["zai-usage", zaiProviderId],
 		queryFn: () =>
-			api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
+			api.providers.getUsage(
+				zaiProviderId as string,
+			) as Promise<ZAIQuotaResponse>,
 		enabled: Boolean(zaiProviderId),
 		initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
 	});
@@ -390,7 +394,7 @@ export function Providers() {
 		isError: isDeepseekError,
 	} = useQuery({
 		queryKey: ["deepseek-balance", deepseekProviderId],
-		queryFn: () => api.providers.getBalance(deepseekProviderId!),
+		queryFn: () => api.providers.getBalance(deepseekProviderId as string),
 		enabled: Boolean(deepseekProviderId),
 		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
 	});

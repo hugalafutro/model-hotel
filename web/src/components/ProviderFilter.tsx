@@ -93,7 +93,8 @@ export function ProviderFilter({
 				</span>
 				<span className="flex items-center gap-1 shrink-0">
 					{selected.size > 0 && (
-						<span
+						<button
+							type="button"
 							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent)"
 							onClick={(e) => {
 								e.stopPropagation();
@@ -102,7 +103,7 @@ export function ProviderFilter({
 							title="Clear filter"
 						>
 							{selected.size}
-						</span>
+						</button>
 					)}
 					<ChevronDown
 						size={14}

@@ -248,6 +248,7 @@ export function AppLogs() {
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-1">
 						<button
+							type="button"
 							onClick={() => {
 								setLogsSubMode("request");
 								setSourceFilter("all");
@@ -262,6 +263,7 @@ export function AppLogs() {
 							Requests
 						</button>
 						<button
+							type="button"
 							onClick={() => {
 								setLogsSubMode("app");
 								setSourceFilter("all");
@@ -279,6 +281,7 @@ export function AppLogs() {
 					<div className="flex items-center gap-2">
 						{(["all", "info", "warning", "error"] as const).map((lvl) => (
 							<button
+								type="button"
 								key={lvl}
 								onClick={() => {
 									setLevelFilter(lvl);
@@ -303,6 +306,7 @@ export function AppLogs() {
 							<>
 								<div className="w-px h-4 bg-(--border) mx-1" />
 								<button
+									type="button"
 									onClick={() => {
 										setSourceFilter("all");
 										setPage(1);
@@ -317,6 +321,7 @@ export function AppLogs() {
 								</button>
 								{sources.map((src) => (
 									<button
+										type="button"
 										key={src}
 										onClick={() => {
 											setSourceFilter(src);
@@ -396,7 +401,11 @@ export function AppLogs() {
 						<tbody>
 							{entries.length > 0 ? (
 								entries.map((entry, i) => (
-									<Row key={i} index={i} onClick={() => setSelectedLog(entry)}>
+									<Row
+										key={entry.timestamp}
+										index={i}
+										onClick={() => setSelectedLog(entry)}
+									>
 										<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
 											{formatTimestamp(entry.timestamp)}
 										</td>

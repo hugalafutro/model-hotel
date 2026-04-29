@@ -146,6 +146,7 @@ export function ModelDetailPanel({
 				<div className="flex items-start gap-0.5 shrink-0 ml-2">
 					{!collapsed && hasCustom && (
 						<button
+							type="button"
 							onClick={() => onParamsChange?.({})}
 							className="p-1.5 rounded-md transition-all cursor-pointer shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]"
 							title="Reset parameters"
@@ -155,6 +156,7 @@ export function ModelDetailPanel({
 					)}
 					{!collapsed && editable && (
 						<button
+							type="button"
 							onClick={() => setOpen((s) => !s)}
 							className={`p-1.5 rounded-md transition-all cursor-pointer shrink-0 ${
 								open || hasCustom
@@ -168,6 +170,7 @@ export function ModelDetailPanel({
 					)}
 					{onClose && (
 						<button
+							type="button"
 							onClick={onClose}
 							className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
 							title="Close"
@@ -177,6 +180,7 @@ export function ModelDetailPanel({
 					)}
 					{collapsible && (
 						<button
+							type="button"
 							onClick={() => setCollapsed((c) => !c)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
 							title={
@@ -217,7 +221,7 @@ export function ModelDetailPanel({
 										step={0.01}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												temperature: v,
 											})
 										}
@@ -230,7 +234,7 @@ export function ModelDetailPanel({
 										step={1}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												max_tokens: v === undefined ? undefined : Math.round(v),
 											})
 										}
@@ -243,7 +247,7 @@ export function ModelDetailPanel({
 										step={0.01}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												top_p: v,
 											})
 										}
@@ -256,7 +260,7 @@ export function ModelDetailPanel({
 										step={0.01}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												min_p: v,
 											})
 										}
@@ -269,7 +273,7 @@ export function ModelDetailPanel({
 										step={1}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												top_k: v === undefined ? undefined : Math.round(v),
 											})
 										}
@@ -282,7 +286,7 @@ export function ModelDetailPanel({
 										step={0.01}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												frequency_penalty: v,
 											})
 										}
@@ -295,7 +299,7 @@ export function ModelDetailPanel({
 										step={0.01}
 										onChange={(v) =>
 											onParamsChange?.({
-												...params!,
+												...(params as GenerationParams),
 												presence_penalty: v,
 											})
 										}

@@ -167,6 +167,7 @@ function CopyButton({ text }: { text: string }) {
 
 	return (
 		<button
+			type="button"
 			onClick={handleCopy}
 			className="ml-2 text-(--text-tertiary) hover:text-(--accent) transition-colors cursor-default"
 			title="Copy to clipboard"

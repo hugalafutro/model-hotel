@@ -109,6 +109,7 @@ export function ConversationConfig({
 						</span>
 					</span>
 					<button
+						type="button"
 						onClick={onToggleCollapsed}
 						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent)"
 					>
@@ -140,10 +141,14 @@ export function ConversationConfig({
 					<div className="flex items-end gap-3 pt-4">
 						{/* Max Turns */}
 						<div className="flex flex-col">
-							<label className="text-xs text-(--text-secondary) mb-1">
+							<label
+								htmlFor="cc-rounds"
+								className="text-xs text-(--text-secondary) mb-1"
+							>
 								Rounds
 							</label>
 							<input
+								id="cc-rounds"
 								type="number"
 								value={maxTurns}
 								onChange={(e) => {
@@ -167,10 +172,14 @@ export function ConversationConfig({
 
 						{/* Turn Delay */}
 						<div className="flex flex-col">
-							<label className="text-xs text-(--text-secondary) mb-1">
+							<label
+								htmlFor="cc-delay"
+								className="text-xs text-(--text-secondary) mb-1"
+							>
 								Delay (ms)
 							</label>
 							<input
+								id="cc-delay"
 								type="number"
 								value={turnDelayMs}
 								onChange={(e) => {
@@ -199,10 +208,14 @@ export function ConversationConfig({
 								{isIdle && (
 									<>
 										<div className="flex flex-col flex-1 min-w-0">
-											<label className="text-xs text-(--text-secondary) mb-1">
+											<label
+												htmlFor="cc-prompt"
+												className="text-xs text-(--text-secondary) mb-1"
+											>
 												Prompt
 											</label>
 											<textarea
+												id="cc-prompt"
 												value={input}
 												onChange={(e) => onInputChange(e.target.value)}
 												placeholder={
@@ -217,6 +230,7 @@ export function ConversationConfig({
 											/>
 										</div>
 										<button
+											type="button"
 											onClick={onStart}
 											disabled={!canStart}
 											className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
@@ -228,6 +242,7 @@ export function ConversationConfig({
 								)}
 								{isPaused && (
 									<button
+										type="button"
 										onClick={onContinue}
 										className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
 									>
@@ -240,10 +255,14 @@ export function ConversationConfig({
 										<>
 											{/* First turn failed: show prompt input so user can re-enter or edit. The parent restores the prompt via lastPromptRef. */}
 											<div className="flex flex-col flex-1 min-w-0">
-												<label className="text-xs text-(--text-secondary) mb-1">
+												<label
+													htmlFor="cc-prompt-retry"
+													className="text-xs text-(--text-secondary) mb-1"
+												>
 													Prompt
 												</label>
 												<textarea
+													id="cc-prompt-retry"
 													value={input}
 													onChange={(e) => onInputChange(e.target.value)}
 													placeholder="Re-enter or edit your prompt…"
@@ -255,6 +274,7 @@ export function ConversationConfig({
 												/>
 											</div>
 											<button
+												type="button"
 												onClick={onRetry}
 												disabled={!input.trim()}
 												className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
@@ -266,6 +286,7 @@ export function ConversationConfig({
 									) : (
 										/* Later turn failed — retry from last successful turn */
 										<button
+											type="button"
 											onClick={onRetry}
 											className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
 										>

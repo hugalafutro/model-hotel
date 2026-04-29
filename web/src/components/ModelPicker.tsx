@@ -16,6 +16,7 @@ interface ModelItem {
 
 interface SingleProps {
 	multi?: false;
+	id?: string;
 	models: ModelItem[];
 	selected: string;
 	onChange: (selected: string) => void;
@@ -38,6 +39,7 @@ interface SingleProps {
 
 interface MultiProps {
 	multi: true;
+	id?: string;
 	models: ModelItem[];
 	selected: string[];
 	onChange: (selected: string[]) => void;
@@ -94,6 +96,7 @@ function getProviderStyle(baseUrl: string, active: boolean) {
 }
 
 export function ModelPicker({
+	id,
 	models,
 	selected,
 	onChange,
@@ -203,11 +206,17 @@ export function ModelPicker({
 	return (
 		<div className="space-y-3">
 			{label && (
-				<label className="text-sm text-(--text-secondary) block">{label}</label>
+				<label
+					htmlFor={id ?? "model-picker-filter"}
+					className="text-sm text-(--text-secondary) block"
+				>
+					{label}
+				</label>
 			)}
 
 			<div className="flex items-center gap-2 flex-wrap">
 				<FilterInput
+					id={id ?? "model-picker-filter"}
 					value={search}
 					onChange={setSearch}
 					placeholder="Filter models…"
@@ -216,6 +225,7 @@ export function ModelPicker({
 				/>
 				<div className="flex items-center gap-2 text-xs">
 					<button
+						type="button"
 						onClick={() => setSortMode("model")}
 						className={`cursor-pointer transition-colors ${sortMode === "model" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
 					>
@@ -223,6 +233,7 @@ export function ModelPicker({
 					</button>
 					<div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-(--border-subtle) bg-(--surface-hover)">
 						<button
+							type="button"
 							onClick={() => setSortMode("model")}
 							className="flex items-center cursor-pointer"
 						>
@@ -232,6 +243,7 @@ export function ModelPicker({
 						</button>
 						<span className="text-(--text-secondary)">Sort by</span>
 						<button
+							type="button"
 							onClick={() => setSortMode("provider")}
 							className="flex items-center cursor-pointer"
 						>
@@ -241,6 +253,7 @@ export function ModelPicker({
 						</button>
 					</div>
 					<button
+						type="button"
 						onClick={() => setSortMode("provider")}
 						className={`cursor-pointer transition-colors ${sortMode === "provider" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
 					>
@@ -253,6 +266,7 @@ export function ModelPicker({
 						const baseUrl = providerBaseUrl.get(name) || "";
 						return (
 							<button
+								type="button"
 								key={name}
 								onClick={() => toggleProvider(name)}
 								className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${getProviderStyle(baseUrl, active)}`}
@@ -263,6 +277,7 @@ export function ModelPicker({
 					})}
 					{providerFilter.size > 0 && (
 						<button
+							type="button"
 							onClick={() => setProviderFilter(new Set())}
 							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
 						>
@@ -303,6 +318,7 @@ export function ModelPicker({
 							title={`${m.provider_name}/${m.display_name || m.model_id}`}
 						>
 							<button
+								type="button"
 								onClick={() => toggleModel(val)}
 								className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
 								disabled={disabled}
@@ -311,6 +327,7 @@ export function ModelPicker({
 							</button>
 							{isSelected && onConfigureParams && (
 								<button
+									type="button"
 									onClick={(e) => {
 										e.stopPropagation();
 										onConfigureParams(val);

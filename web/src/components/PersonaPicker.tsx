@@ -119,7 +119,12 @@ export function PersonaPicker({
 	return (
 		<div className={className}>
 			<div className="flex items-center justify-between mb-2">
-				<label className="text-sm text-(--text-secondary)">{label}</label>
+				<label
+					htmlFor="persona-picker-textarea"
+					className="text-sm text-(--text-secondary)"
+				>
+					{label}
+				</label>
 				<button
 					type="button"
 					onClick={() => setCollapsed((c) => !c)}
@@ -139,6 +144,7 @@ export function PersonaPicker({
 						onRandom={onRandom}
 					/>
 					<textarea
+						id="persona-picker-textarea"
 						ref={textareaRef}
 						value={systemPrompt}
 						onChange={(e) => {

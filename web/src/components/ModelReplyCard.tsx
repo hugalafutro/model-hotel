@@ -147,7 +147,9 @@ export function ModelReplyCard({
 	}, [isStreaming, startTimeMs]);
 
 	const hasThinking = (thinkingContent || "").length > 0;
-	const displayName = shortenModelName ? model.split("/").pop()! : model;
+	const displayName = shortenModelName
+		? (model.split("/").pop() as string)
+		: model;
 
 	// Show maximize button only when streaming finished without error and there's content
 	const canMaximize = !isStreaming && !error && content.trim().length > 0;
@@ -155,7 +157,7 @@ export function ModelReplyCard({
 	const hasCustomParams =
 		!!params && Object.values(params).some((v) => v !== undefined);
 	const paramsTooltip = hasCustomParams
-		? Object.entries(params!)
+		? Object.entries(params as GenerationParams)
 				.filter(([, v]) => v !== undefined)
 				.map(([k, v]) => {
 					const label = k
@@ -191,9 +193,22 @@ export function ModelReplyCard({
 					>
 						<div className="flex items-center gap-2 min-w-0">
 							<Bot size={14} className="text-(--accent) shrink-0" />
+							{/* biome-ignore lint/a11y/noStaticElementInteractions: conditionally interactive — role/tabIndex/keyboard handler are only set when onModelNameClick is provided */}
 							<div
+								role={onModelNameClick ? "button" : undefined}
+								tabIndex={onModelNameClick ? 0 : undefined}
 								className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
 								onClick={onModelNameClick}
+								onKeyDown={
+									onModelNameClick
+										? (e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													onModelNameClick();
+												}
+											}
+										: undefined
+								}
 							>
 								{onModelNameClick ? (
 									<span
@@ -237,6 +252,7 @@ export function ModelReplyCard({
 							)}
 							{canMaximize && (
 								<button
+									type="button"
 									onClick={() => setMaximized(true)}
 									className="p-1 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
 									title="Maximize reply"
@@ -257,7 +273,7 @@ export function ModelReplyCard({
 						<>
 							{hasThinking && (
 								<ThinkingBlock
-									thinking={thinkingContent!}
+									thinking={thinkingContent as string}
 									isStreaming={isStreaming && !content}
 								/>
 							)}
@@ -377,6 +393,7 @@ export function ModelReplyCard({
 								</>
 							)}
 							<button
+								type="button"
 								onClick={() => {
 									navigator.clipboard.writeText(content);
 								}}
@@ -386,6 +403,7 @@ export function ModelReplyCard({
 								<Copy size={16} />
 							</button>
 							<button
+								type="button"
 								onClick={() => setMaximized(false)}
 								className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
 								title="Close"
@@ -398,7 +416,10 @@ export function ModelReplyCard({
 					{/* Modal body — thinking + content */}
 					<div className="max-h-[85vh] overflow-y-auto pr-1">
 						{hasThinking && (
-							<ThinkingBlock thinking={thinkingContent!} isStreaming={false} />
+							<ThinkingBlock
+								thinking={thinkingContent as string}
+								isStreaming={false}
+							/>
 						)}
 						<div className={MAXIMIZED_PROSE_CLASSES}>
 							<ReactMarkdown

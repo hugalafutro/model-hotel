@@ -469,6 +469,7 @@ export function Settings() {
 											stroke="currentColor"
 											viewBox="0 0 24 24"
 										>
+											<title>Add</title>
 											<path
 												strokeLinecap="round"
 												strokeLinejoin="round"

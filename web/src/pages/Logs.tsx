@@ -170,9 +170,10 @@ function AccentCalendar({
 				))}
 			</div>
 			<div className="grid grid-cols-7 gap-0.5">
-				{Array.from({ length: blanks }).map((_, i) => (
-					<div key={`blank-${i}`} />
-				))}
+				{Array.from({ length: blanks }).map((_, i) => {
+					// biome-ignore lint/suspicious/noArrayIndexKey: calendar blanks are static structural placeholders with no stable identifier
+					return <div key={`blank-${i}`} />;
+				})}
 				{Array.from({ length: days }).map((_, i) => {
 					const day = i + 1;
 					const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
@@ -594,6 +595,7 @@ function RequestLogs() {
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-1">
 						<button
+							type="button"
 							onClick={() => setLogsSubMode("request")}
 							className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
 								logsSubMode === "request"
@@ -605,6 +607,7 @@ function RequestLogs() {
 							Requests
 						</button>
 						<button
+							type="button"
 							onClick={() => setLogsSubMode("app")}
 							className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
 								logsSubMode === "app"
@@ -638,6 +641,7 @@ function RequestLogs() {
 						/>
 						{(["", "2xx", "4xx", "5xx", "0"] as const).map((status) => (
 							<button
+								type="button"
 								key={status}
 								onClick={() => {
 									setFilters({

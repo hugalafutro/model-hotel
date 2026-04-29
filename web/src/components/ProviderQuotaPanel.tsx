@@ -156,7 +156,9 @@ export function ProviderQuotaPanel() {
 	} = useQuery({
 		queryKey: ["nanogpt-usage", nanogptProviderId],
 		queryFn: () =>
-			api.providers.getUsage(nanogptProviderId!) as Promise<NanoGPTUsage>,
+			api.providers.getUsage(
+				nanogptProviderId as string,
+			) as Promise<NanoGPTUsage>,
 		enabled: Boolean(nanogptProviderId),
 		refetchInterval: collapsed ? false : refreshMs,
 		initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
@@ -169,7 +171,9 @@ export function ProviderQuotaPanel() {
 	} = useQuery({
 		queryKey: ["zai-usage", zaiProviderId],
 		queryFn: () =>
-			api.providers.getUsage(zaiProviderId!) as Promise<ZAIQuotaResponse>,
+			api.providers.getUsage(
+				zaiProviderId as string,
+			) as Promise<ZAIQuotaResponse>,
 		enabled: Boolean(zaiProviderId),
 		refetchInterval: collapsed ? false : refreshMs,
 		initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
@@ -177,7 +181,7 @@ export function ProviderQuotaPanel() {
 
 	const { data: deepseekBalance, isRefetching: isDsRefetching } = useQuery({
 		queryKey: ["deepseek-balance", deepseekProviderId],
-		queryFn: () => api.providers.getBalance(deepseekProviderId!),
+		queryFn: () => api.providers.getBalance(deepseekProviderId as string),
 		enabled: Boolean(deepseekProviderId),
 		refetchInterval: collapsed ? false : refreshMs,
 		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),

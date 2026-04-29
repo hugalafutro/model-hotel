@@ -435,6 +435,7 @@ export function VirtualKeys() {
 									strokeLinecap="round"
 									strokeLinejoin="round"
 								>
+									<title>Terminal</title>
 									<polyline points="4 17 10 11 4 5" />
 									<line x1="12" y1="19" x2="20" y2="19" />
 								</svg>
@@ -454,6 +455,7 @@ export function VirtualKeys() {
 									strokeLinecap="round"
 									strokeLinejoin="round"
 								>
+									<title>Monitor</title>
 									<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
 									<line x1="8" y1="21" x2="16" y2="21" />
 									<line x1="12" y1="17" x2="12" y2="21" />
@@ -511,6 +513,7 @@ export function VirtualKeys() {
 											height="14"
 											fill="currentColor"
 										>
+											<title>Windows</title>
 											<path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
 										</svg>
 										<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
@@ -527,6 +530,7 @@ export function VirtualKeys() {
 												stroke="currentColor"
 												strokeWidth="1.2"
 											>
+												<title>Close</title>
 												<line x1="0" y1="0" x2="10" y2="10" />
 												<line x1="10" y1="0" x2="0" y2="10" />
 											</svg>

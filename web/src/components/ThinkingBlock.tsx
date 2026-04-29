@@ -13,6 +13,7 @@ export function ThinkingBlock({
 	return (
 		<>
 			<button
+				type="button"
 				onClick={() => setOpen(!open)}
 				className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
 					isStreaming

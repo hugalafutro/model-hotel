@@ -610,12 +610,11 @@ export function Layout({ children }: LayoutProps) {
 	];
 
 	// Generic sub-mode state: maps each nav href to its current mode and setter.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const subModeMap: Record<string, { mode: string; setMode: any }> = {
+	const subModeMap = {
 		"/chat": { mode: chatSubMode, setMode: setChatSubMode },
 		"/arena": { mode: arenaSubMode, setMode: setArenaSubMode },
 		"/logs": { mode: logsSubMode, setMode: setLogsSubMode },
-	};
+	} as Record<string, { mode: string; setMode: (v: string) => void }>;
 
 	const handleSubModeToggle =
 		(href: string, item: (typeof navigation)[number]) =>

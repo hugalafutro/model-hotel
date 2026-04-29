@@ -138,8 +138,17 @@ function FailoverGroupCard({
 		>
 			<div className="flex items-center justify-between mb-2">
 				<div className="flex items-center gap-2 min-w-0">
+					{/* biome-ignore lint/a11y/useSemanticElements: cannot change to <button> without altering layout */}
 					<div
 						onClick={handleCopyModel}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								handleCopyModel();
+							}
+						}}
+						role="button"
+						tabIndex={0}
 						className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"
 						title="Click to copy"
 					>
@@ -152,6 +161,7 @@ function FailoverGroupCard({
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 						>
+							<title>Copy</title>
 							<path
 								strokeLinecap="round"
 								strokeLinejoin="round"
@@ -327,10 +337,14 @@ function CreateGroupModal({
 				</div>
 
 				<div>
-					<label className="block text-sm font-medium text-gray-300 mb-1">
+					<label
+						htmlFor="create-group-search"
+						className="block text-sm font-medium text-gray-300 mb-1"
+					>
 						Model Entries
 					</label>
 					<input
+						id="create-group-search"
 						type="text"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}

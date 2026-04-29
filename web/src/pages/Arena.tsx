@@ -781,7 +781,7 @@ export function Arena() {
 											const mu = next[roundIdx].matchups[matchupIdx];
 											const respKey =
 												slotKey === "A" ? "responseA" : "responseB";
-											const prev = mu[respKey]!;
+											const prev = mu[respKey] as ArenaResponse;
 											const newRaw = prev.rawContent + clean;
 											const lastLen =
 												lastExtractLenRef.current.get(extractKey) ?? 0;
@@ -828,7 +828,7 @@ export function Arena() {
 											const respKey =
 												slotKey === "A" ? "responseA" : "responseB";
 											mu[respKey] = {
-												...mu[respKey]!,
+												...(mu[respKey] as ArenaResponse),
 												thinkingContent:
 													mu[respKey]?.thinkingContent + thinkingDelta,
 											};
@@ -860,7 +860,7 @@ export function Arena() {
 							const mu = next[roundIdx].matchups[matchupIdx];
 							const respKey = slotKey === "A" ? "responseA" : "responseB";
 							mu[respKey] = {
-								...mu[respKey]!,
+								...(mu[respKey] as ArenaResponse),
 								done: true,
 								metrics: {
 									charsPerSecond,
@@ -883,7 +883,7 @@ export function Arena() {
 							const mu = next[roundIdx].matchups[matchupIdx];
 							const respKey = slotKey === "A" ? "responseA" : "responseB";
 							mu[respKey] = {
-								...mu[respKey]!,
+								...(mu[respKey] as ArenaResponse),
 								done: true,
 								error: msg,
 								metrics: {
@@ -1222,8 +1222,10 @@ export function Arena() {
 							for (let i = 0; i < winners.length; i += 2) {
 								const matchupIdx = i / 2;
 								next[nextRoundIdx].matchups[matchupIdx] = {
-									slotA: winners[i] ? { ...winners[i]! } : null,
-									slotB: winners[i + 1] ? { ...winners[i + 1]! } : null,
+									slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
+									slotB: winners[i + 1]
+										? { ...(winners[i + 1] as MatchupSlot) }
+										: null,
 									responseA: null,
 									responseB: null,
 									vote: null,
@@ -1476,7 +1478,7 @@ export function Arena() {
 					const slotKey = slot === "A" ? "slotA" : "slotB";
 					if (mu[slotKey]) {
 						mu[slotKey] = {
-							...mu[slotKey]!,
+							...(mu[slotKey] as MatchupSlot),
 							personaId,
 							personaPrompt,
 						};
@@ -1536,6 +1538,7 @@ export function Arena() {
 						</span>
 						<div className="flex items-center gap-1">
 							<button
+								type="button"
 								onClick={() => {
 									if (phase === "setup") setArenaMode("competition");
 								}}
@@ -1551,6 +1554,7 @@ export function Arena() {
 								Arena
 							</button>
 							<button
+								type="button"
 								onClick={() => {
 									if (phase === "setup") setArenaMode("compare");
 								}}
@@ -1569,6 +1573,7 @@ export function Arena() {
 					</div>
 					<div className="flex items-center gap-1">
 						<button
+							type="button"
 							onClick={() => setShowHistoryModal(true)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
 							title="Match history"
@@ -1587,6 +1592,7 @@ export function Arena() {
 								{/* Light reset: clear results only, keep models/prompt/persona */}
 								{phase !== "setup" && (
 									<button
+										type="button"
 										onClick={() => {
 											for (const [, ctrl] of abortMapRef.current) {
 												ctrl.abort();
@@ -1612,6 +1618,7 @@ export function Arena() {
 								)}
 								{/* Full reset: clear everything */}
 								<button
+									type="button"
 									onClick={() => setPendingFullReset(true)}
 									className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
 									title="Reset all (clear models & prompt)"
@@ -1621,6 +1628,7 @@ export function Arena() {
 							</>
 						)}
 						<button
+							type="button"
 							onClick={() => setArenaCollapsed((c) => !c)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
 							title={arenaCollapsed ? "Expand controls" : "Collapse controls"}
@@ -1642,7 +1650,10 @@ export function Arena() {
 						<div className="space-y-4 pt-4">
 							{phase === "setup" && arenaMode === "competition" && (
 								<div>
-									<label className="text-sm text-(--text-secondary) mb-2 block">
+									<label
+										htmlFor="bracket-models-picker"
+										className="text-sm text-(--text-secondary) mb-2 block"
+									>
 										Models ({bracketModels.length}/8)
 										<span className="text-(--text-tertiary)">
 											{" "}
@@ -1650,6 +1661,7 @@ export function Arena() {
 										</span>
 									</label>
 									<ModelPicker
+										id="bracket-models-picker"
 										models={enabledModels}
 										selected={bracketModels}
 										onChange={setBracketModels}
@@ -1679,10 +1691,14 @@ export function Arena() {
 							{phase === "setup" && arenaMode === "compare" && (
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 									<div>
-										<label className="text-sm text-(--text-secondary) mb-2 block">
+										<label
+											htmlFor="compare-models-picker"
+											className="text-sm text-(--text-secondary) mb-2 block"
+										>
 											Models ({compareModels.length}/6)
 										</label>
 										<ModelPicker
+											id="compare-models-picker"
 											models={enabledModels}
 											selected={compareModels}
 											onChange={setCompareModels}
@@ -1753,7 +1769,8 @@ export function Arena() {
 									return null;
 								return (
 									<div
-										key={roundIdx}
+										// biome-ignore lint/suspicious/noArrayIndexKey: round index is the stable identifier for bracket rounds
+										key={`round-${roundIdx}`}
 										className={`flex items-center gap-2 transition-opacity duration-500 ${
 											roundIdx > currentRound + 1 ||
 											(roundIdx > currentRound && phase === "voting")
@@ -1769,7 +1786,8 @@ export function Arena() {
 										<div className="flex items-center gap-2 flex-wrap">
 											{round.matchups.map((mu, matchupIdx) => (
 												<div
-													key={matchupIdx}
+													// biome-ignore lint/suspicious/noArrayIndexKey: matchup position within a round is the stable identifier
+													key={`matchup-${roundIdx}-${matchupIdx}`}
 													className="flex items-center gap-2"
 												>
 													<MatchupCard
@@ -1815,6 +1833,7 @@ export function Arena() {
 					{/* Run Button */}
 					{buttonLabel && (
 						<button
+							type="button"
 							onClick={isRunning ? handleStopAll : handleRunArena}
 							disabled={phase === "setup" && !canRun}
 							title={phase === "setup" && !canRun ? disabledReason : undefined}
@@ -1863,7 +1882,8 @@ export function Arena() {
 						arenaMode === "compare" &&
 						round.matchups.every((m) => m.slotB === null);
 					return (
-						<div key={roundIdx}>
+						// biome-ignore lint/suspicious/noArrayIndexKey: round index is the stable identifier
+						<div key={`resp-round-${roundIdx}`}>
 							<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
 								{isCompare ? "Responses" : roundLabel(roundIdx, rounds.length)}
 							</div>
@@ -1881,7 +1901,8 @@ export function Arena() {
 									if (isCompare) {
 										return (
 											<div
-												key={matchupIdx}
+												// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in compare mode
+												key={`compare-${roundIdx}-${matchupIdx}`}
 												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4"
 											>
 												{mu.slotA === null && roundIdx === currentRound ? (
@@ -1928,7 +1949,8 @@ export function Arena() {
 									// Competition mode: A-vs-B pairs
 									return (
 										<div
-											key={matchupIdx}
+											// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in competition mode
+											key={`comp-${roundIdx}-${matchupIdx}`}
 											className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4"
 										>
 											{round.matchups.length > 1 && (
@@ -2246,6 +2268,7 @@ function MatchupCard({
 				)}
 				{isVotingPhase && phase !== "finished" && (
 					<button
+						type="button"
 						onClick={
 							vote === null
 								? () => onVote(roundIdx, matchupIdx, slotKey)
@@ -2417,6 +2440,7 @@ function ResponseCard({
 				afterModel={
 					response.error && response.done ? (
 						<button
+							type="button"
 							onClick={() =>
 								onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
 							}
@@ -2435,6 +2459,7 @@ function ResponseCard({
 									<CheckCircle2 size={14} className="text-green-400" />
 								</span>
 								<button
+									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
 									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
 									title="Re-roll"
@@ -2449,6 +2474,7 @@ function ResponseCard({
 									<AlertCircle size={14} className="text-red-400" />
 								</span>
 								<button
+									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
 									className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
 									title="Retry"
@@ -2459,6 +2485,7 @@ function ResponseCard({
 						)}
 						{!response.done && (
 							<button
+								type="button"
 								onClick={() =>
 									onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
 								}
@@ -2479,6 +2506,7 @@ function ResponseCard({
 					<div className="flex items-center gap-2">
 						{response.done && response.content && (
 							<button
+								type="button"
 								className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
 								onClick={() => {
 									navigator.clipboard
@@ -2493,6 +2521,7 @@ function ResponseCard({
 						)}
 						{showVote && (
 							<button
+								type="button"
 								onClick={
 									vote === null
 										? () => onVote(roundIdx, matchupIdx, slotKey)
@@ -2557,18 +2586,26 @@ function ParamEditorModal({
 }) {
 	return (
 		<div
+			role="dialog"
+			aria-modal="true"
 			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 			onClick={onClose}
+			onKeyDown={(e) => {
+				if (e.key === "Escape") onClose();
+			}}
 		>
 			<div
+				role="document"
 				className="ui-card p-4 w-full max-w-sm space-y-4"
 				onClick={(e) => e.stopPropagation()}
+				onKeyDown={(e) => e.stopPropagation()}
 			>
 				<div className="flex items-center justify-between">
 					<h3 className="text-sm font-semibold text-(--text-primary)">
 						{modelId}
 					</h3>
 					<button
+						type="button"
 						onClick={onClose}
 						className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
 						title="Close"
@@ -2649,6 +2686,7 @@ function ParamEditorModal({
 				<div className="flex items-center justify-between pt-2 border-t border-(--border-subtle)">
 					{hasAnyParam(params) && (
 						<button
+							type="button"
 							onClick={() => onChange({})}
 							className="text-[11px] text-red-400 hover:text-red-300 transition-colors cursor-pointer"
 						>
@@ -2657,6 +2695,7 @@ function ParamEditorModal({
 					)}
 					<div />
 					<button
+						type="button"
 						onClick={onClose}
 						className="ui-btn ui-btn-primary text-xs px-3 py-1"
 					>
@@ -2768,6 +2807,7 @@ function SwapPicker({
 					const id = proxyModelID(m.provider_name, m.model_id);
 					return (
 						<button
+							type="button"
 							key={id}
 							onClick={() => onSelect(id)}
 							className="px-2 py-0.5 text-[11px] rounded-md border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors cursor-pointer"
@@ -2834,7 +2874,8 @@ function WinnerSummaryModal({
 
 				<div className="space-y-3">
 					{rounds.map((round, roundIdx) => (
-						<div key={roundIdx}>
+						// biome-ignore lint/suspicious/noArrayIndexKey: round index is the stable identifier in summary
+						<div key={`winner-round-${roundIdx}`}>
 							<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-1">
 								{rounds.length === 1
 									? "Match"
@@ -2847,7 +2888,10 @@ function WinnerSummaryModal({
 												: `Round ${roundIdx + 1}`}
 							</div>
 							{round.matchups.map((mu, mi) => (
-								<div key={mi} className="flex items-center gap-2 text-sm">
+								<div // biome-ignore lint/suspicious/noArrayIndexKey: match position is the stable identifier in the summary
+									key={`winner-match-${roundIdx}-${mi}`}
+									className="flex items-center gap-2 text-sm"
+								>
 									<span
 										className={
 											mu.vote === "A"

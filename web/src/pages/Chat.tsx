@@ -1303,6 +1303,7 @@ export function Chat() {
 						</span>
 						<div className="flex items-center gap-1">
 							<button
+								type="button"
 								onClick={() => setChatSubMode("chat")}
 								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
 									chatSubMode === "chat"
@@ -1314,6 +1315,7 @@ export function Chat() {
 								Chat with AI
 							</button>
 							<button
+								type="button"
 								onClick={() => setChatSubMode("conversation")}
 								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
 									chatSubMode === "conversation"
@@ -1342,6 +1344,7 @@ export function Chat() {
 								{/* Light reset: clear messages/results only, keep model/persona/params */}
 								{messages.length > 0 && (
 									<button
+										type="button"
 										onClick={() => {
 											if (chatSubMode === "conversation") {
 												conversationAbortRef.current?.abort();
@@ -1379,6 +1382,7 @@ export function Chat() {
 								)}
 								{/* Full reset: clear everything including model/persona/params */}
 								<button
+									type="button"
 									onClick={() => setPendingFullReset(true)}
 									className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
 									title="Reset all (clear model & settings)"
@@ -1388,6 +1392,7 @@ export function Chat() {
 							</>
 						)}
 						<button
+							type="button"
 							onClick={() => setControlsCollapsed((c) => !c)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
 							title={
@@ -1431,10 +1436,14 @@ export function Chat() {
 							) : (
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 									<div>
-										<label className="text-sm text-(--text-secondary) mb-2 block">
+										<label
+											htmlFor="model-a-picker"
+											className="text-sm text-(--text-secondary) mb-2 block"
+										>
 											Model A
 										</label>
 										<ModelPicker
+											id="model-a-picker"
 											models={enabledModels}
 											selected={selectedModel}
 											onChange={setSelectedModel}
@@ -1457,10 +1466,14 @@ export function Chat() {
 										</div>
 									</div>
 									<div>
-										<label className="text-sm text-(--text-secondary) mb-2 block">
+										<label
+											htmlFor="model-b-picker"
+											className="text-sm text-(--text-secondary) mb-2 block"
+										>
 											Model B
 										</label>
 										<ModelPicker
+											id="model-b-picker"
 											models={enabledModels}
 											selected={selectedModelB}
 											onChange={setSelectedModelB}
@@ -1674,7 +1687,7 @@ export function Chat() {
 							const isConversationMode = chatSubMode === "conversation";
 							return (
 								<div
-									key={i}
+									key={`user-${msg.timestamp}`}
 									className={`flex ${isConversationMode ? "justify-center" : "justify-end"}`}
 								>
 									<div
@@ -1693,6 +1706,7 @@ export function Chat() {
 										>
 											<span>{formatTime(msg.timestamp)}</span>
 											<button
+												type="button"
 												className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[0_0_4px_white]"}`}
 												onClick={() => {
 													navigator.clipboard
@@ -1713,7 +1727,10 @@ export function Chat() {
 						/* ── Model B message (conversation mode, right side) ── */
 						if (chatSubMode === "conversation" && isModelB) {
 							return (
-								<div key={i} className="flex justify-end">
+								<div
+									key={`modelb-${msg.timestamp}`}
+									className="flex justify-end"
+								>
 									<div className="max-w-[80%]">
 										<ModelReplyCard
 											model={msg.model || ""}
@@ -1730,6 +1747,7 @@ export function Chat() {
 											headerEnd={
 												isStreamingThis ? (
 													<button
+														type="button"
 														onClick={handleStopConversation}
 														className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
 														title="Cancel"
@@ -1742,6 +1760,7 @@ export function Chat() {
 											footerEnd={
 												<div className="flex items-center gap-2">
 													<button
+														type="button"
 														className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
 														onClick={() => {
 															navigator.clipboard
@@ -1757,6 +1776,7 @@ export function Chat() {
 													</button>
 													{canDelete && (
 														<button
+															type="button"
 															className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
 															onClick={() => handleDeleteMessage(i)}
 															title="Delete message"
@@ -1777,7 +1797,10 @@ export function Chat() {
 
 						/* ── Assistant message (Model A or chat mode) ── */
 						return (
-							<div key={i} className="flex justify-start">
+							<div
+								key={`assistant-${msg.timestamp}`}
+								className="flex justify-start"
+							>
 								<div className="max-w-[80%]">
 									<ModelReplyCard
 										model={msg.model || ""}
@@ -1793,6 +1816,7 @@ export function Chat() {
 										headerEnd={
 											isStreamingThis ? (
 												<button
+													type="button"
 													onClick={
 														chatSubMode === "conversation"
 															? handleStopConversation
@@ -1810,6 +1834,7 @@ export function Chat() {
 													) &&
 												chatSubMode === "chat" && (
 													<button
+														type="button"
 														onClick={handleRegenerate}
 														className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer ml-1"
 														title="Regenerate"
@@ -1823,6 +1848,7 @@ export function Chat() {
 										footerEnd={
 											<div className="flex items-center gap-2">
 												<button
+													type="button"
 													className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
 													onClick={() => {
 														navigator.clipboard
@@ -1836,6 +1862,7 @@ export function Chat() {
 												</button>
 												{canDelete && (
 													<button
+														type="button"
 														className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
 														onClick={() => handleDeleteMessage(i)}
 														title="Delete message"
@@ -1890,6 +1917,7 @@ export function Chat() {
 								style={{ height: "auto" }}
 							/>
 							<button
+								type="button"
 								onClick={isStreaming ? handleStop : handleSend}
 								disabled={!selectedModel}
 								className={`ui-btn flex items-center gap-2 shrink-0 ${
@@ -1940,6 +1968,7 @@ export function Chat() {
 								<div className="flex items-center gap-2">
 									{messages.length > 0 && (
 										<button
+											type="button"
 											onClick={() => {
 												conversationAbortRef.current?.abort();
 												conversationAbortRef.current = null;
@@ -1960,6 +1989,7 @@ export function Chat() {
 										</button>
 									)}
 									<button
+										type="button"
 										onClick={() => setPendingFullReset(true)}
 										className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
 									>

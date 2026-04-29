@@ -656,8 +656,8 @@ html[data-ui-style="glassmorphism-lite"].light .sidebar-footer-link:hover {
 }
 
 /* Card tint styles - work with or without data-ui-style parent */
-[data-ui-style] .ui-card-tint-accent,
-.ui-card-tint-accent {
+.ui-card-tint-accent,
+[data-ui-style] .ui-card-tint-accent {
 	background-color: color-mix(
 		in srgb,
 		var(--accent) 12%,
@@ -666,8 +666,8 @@ html[data-ui-style="glassmorphism-lite"].light .sidebar-footer-link:hover {
 	border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
-[data-ui-style] .ui-card-tint-blue,
-.ui-card-tint-blue {
+.ui-card-tint-blue,
+[data-ui-style] .ui-card-tint-blue {
 	background-color: color-mix(in srgb, #3b82f6 15%, var(--surface-elevated));
 	border-color: rgba(59, 130, 246, 0.5);
 	box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
@@ -947,10 +947,12 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
 }
 
 /* Remove default browser focus outline from select dropdowns in dark theme */
+/* biome-ignore lint/style/noDescendingSpecificity: generic dark-theme rule intentionally after specific glassmorphism override */
 [data-ui-style].dark select.ui-input {
 	outline: none;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: generic dark-theme focus rule intentionally after specific glassmorphism override */
 [data-ui-style].dark select.ui-input:focus {
 	outline: none;
 	box-shadow: 0 0 0 2px var(--accent-lighter);
@@ -1110,8 +1112,8 @@ html[data-ui-style="cyber-terminal"] h1 {
    ============================================= */
 
 /* Dark terminal texture */
-html[data-ui-style="cyber-terminal"].dark body,
-html[data-ui-style="cyber-terminal"] body {
+html[data-ui-style="cyber-terminal"] body,
+html[data-ui-style="cyber-terminal"].dark body {
 	background-image: radial-gradient(
 		circle at 1px 1px,
 		rgba(255, 255, 255, 0.03) 1px,
@@ -1472,7 +1474,15 @@ html.light .terminal-tab-bar {
 	gap: 8px;
 }
 
-.terminal-titlebar-win11 .win11-icon,
+/* biome-ignore lint/style/noDescendingSpecificity: base styles intentionally after light-theme overrides */
+.terminal-titlebar-win11 .win11-icon {
+	width: 14px;
+	height: 14px;
+	opacity: 0.6;
+	flex-shrink: 0;
+}
+
+/* biome-ignore lint/style/noDescendingSpecificity: base styles intentionally after light-theme overrides */
 .terminal-win11-titlebar .win11-icon {
 	width: 14px;
 	height: 14px;
