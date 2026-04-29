@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -34,16 +35,134 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
+// ChangeEvent represents a settings change delivered to subscribers.
+type ChangeEvent struct {
+	Key   string
+	Value string
+}
+
+// subIDCounter is used to assign unique IDs to each subscription.
+var subIDCounter uint64
+
+// subscription ties a unique ID to a channel so that Unsubscribe can find it
+// without relying on channel comparison (which doesn't work across
+// directional types in Go).
+type subscription struct {
+	id uint64
+	ch chan ChangeEvent
+}
+
+// Repository manages application settings with caching and change notification.
+//
+// Callers who need to react immediately when a setting changes (instead of
+// waiting for the next polling cycle) can use Subscribe to receive change
+// events. The returned Subscription provides a channel to read from and an
+// Unsubscribe method to clean up.
 type Repository struct {
 	pool  *pgxpool.Pool
 	mu    sync.RWMutex
 	cache map[string]cacheEntry
+
+	// changeMu protects onChangeCallbacks and subscriptions.
+	changeMu          sync.RWMutex
+	onChangeCallbacks []func(key, value string)
+	subscriptions     []subscription
+}
+
+// Subscription represents an active subscription to settings changes.
+// Call Unsubscribe when done to prevent goroutine leaks.
+type Subscription struct {
+	id   uint64
+	ch   <-chan ChangeEvent
+	repo *Repository
+}
+
+// Events returns the read-only channel on which change events are delivered.
+func (s *Subscription) Events() <-chan ChangeEvent {
+	return s.ch
+}
+
+// Unsubscribe removes the subscription, draining and closing the underlying
+// channel. It is safe to call more than once.
+func (s *Subscription) Unsubscribe() {
+	s.repo.unsubscribe(s.id)
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:  pool,
 		cache: make(map[string]cacheEntry),
+	}
+}
+
+// Subscribe returns a Subscription whose channel receives a ChangeEvent for
+// every settings update written through Set or SetTx + InvalidateCache.
+//
+// Usage:
+//
+//	sub := repo.Subscribe()
+//	defer sub.Unsubscribe()
+//	for change := range sub.Events() {
+//	    if change.Key == "discovery_interval" { … }
+//	}
+func (r *Repository) Subscribe() *Subscription {
+	id := atomic.AddUint64(&subIDCounter, 1)
+	ch := make(chan ChangeEvent, 16)
+	r.changeMu.Lock()
+	r.subscriptions = append(r.subscriptions, subscription{id: id, ch: ch})
+	r.changeMu.Unlock()
+	return &Subscription{id: id, ch: ch, repo: r}
+}
+
+// unsubscribe removes and closes a subscription by its unique ID.
+func (r *Repository) unsubscribe(id uint64) {
+	r.changeMu.Lock()
+	defer r.changeMu.Unlock()
+	for i, sub := range r.subscriptions {
+		if sub.id == id {
+			r.subscriptions = append(r.subscriptions[:i], r.subscriptions[i+1:]...)
+			// Drain and close in a goroutine in case a publisher is
+			// currently blocked on this channel.
+			go func(c chan ChangeEvent) {
+				for range c {
+				}
+				close(c)
+			}(sub.ch)
+			return
+		}
+	}
+}
+
+// RegisterOnChange registers a callback that is invoked (in a goroutine)
+// whenever a setting is written through Set or the SetTx+InvalidateCache
+// path. The callback receives the key and new value.
+func (r *Repository) RegisterOnChange(fn func(key, value string)) {
+	r.changeMu.Lock()
+	r.onChangeCallbacks = append(r.onChangeCallbacks, fn)
+	r.changeMu.Unlock()
+}
+
+// notifyChange delivers a settings change to all subscribers and callbacks.
+// It is non-blocking: subscriber channels that are full are skipped, and
+// callbacks are invoked in goroutines.
+func (r *Repository) notifyChange(key, value string) {
+	r.changeMu.RLock()
+	subs := make([]subscription, len(r.subscriptions))
+	copy(subs, r.subscriptions)
+	callbacks := make([]func(key, value string), len(r.onChangeCallbacks))
+	copy(callbacks, r.onChangeCallbacks)
+	r.changeMu.RUnlock()
+
+	change := ChangeEvent{Key: key, Value: value}
+	for _, sub := range subs {
+		select {
+		case sub.ch <- change:
+		default:
+			// Subscriber is too slow; skip to avoid blocking the writer.
+		}
+	}
+	for _, fn := range callbacks {
+		go fn(key, value)
 	}
 }
 
@@ -88,7 +207,11 @@ func (r *Repository) Set(ctx context.Context, key string, value string) error {
 		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
 		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
 	`, key, value)
-	return err
+	if err != nil {
+		return err
+	}
+	r.notifyChange(key, value)
+	return nil
 }
 
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
@@ -107,6 +230,12 @@ func (r *Repository) InvalidateCache(key string) {
 	r.mu.Lock()
 	delete(r.cache, key)
 	r.mu.Unlock()
+	// InvalidateCache is called after SetTx commits. We don't know the
+	// committed value here, so we do a best-effort lookup to notify
+	// subscribers. If the lookup fails (e.g. the key was deleted), we
+	// still notify with an empty value so that listeners reset.
+	val := r.GetWithDefault(context.Background(), key, "")
+	r.notifyChange(key, val)
 }
 
 func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {

@@ -263,10 +263,19 @@ export function Settings() {
                                     </option>
                                 ))}
                             </select>
-                            <p className="text-gray-500 text-xs mt-1">
-                                How often to automatically re-discover models
-                                from all enabled providers
-                            </p>
+                            {discoveryInterval === "0" ? (
+                                <p className="text-amber-400 text-xs mt-1">
+                                    Periodic discovery is disabled. Models will
+                                    only be discovered when you click "Discover
+                                    Now" or "Discover All", or when a new
+                                    provider is created.
+                                </p>
+                            ) : (
+                                <p className="text-gray-500 text-xs mt-1">
+                                    How often to automatically re-discover
+                                    models from all enabled providers
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex items-center justify-between">

@@ -279,6 +279,14 @@ func main() {
 				log.Printf("Discovery: failed for provider %s: %v", p.Name, err)
 				result.ProvidersFailed++
 				result.Errors = append(result.Errors, fmt.Sprintf("provider %s: %v", p.Name, err))
+				// Update last_discovered_at even on failure so the UI reflects
+				// that discovery was *attempted*. Without this, a chronically
+				// failing provider shows a stale "Last discovered" timestamp
+				// that makes the scheduled timer appear broken.
+				now := time.Now()
+				if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
+					log.Printf("Discovery: failed to update last_discovered_at for %s: %v", p.Name, err)
+				}
 				continue
 			}
 			result.ModelsDiscovered += len(models)
@@ -393,32 +401,109 @@ func main() {
 		log.Println("Key, provider, model, and failover caches warmed")
 	}()
 
-	// Periodic discovery based on settings interval
+	// Periodic discovery based on settings interval.
 	// Sleep before the first run so we don't bypass the discovery_on_startup setting.
 	// When discovery_on_startup is true, the startup go runDiscovery() above already
 	// handles immediate discovery; when false, we must not discover on startup either.
+	//
+	// Bug fixes applied:
+	//   1. Timer now reacts immediately to discovery_interval changes via the
+	//      settings subscription channel, instead of waiting for the current
+	//      timer to expire.
+	//   2. An interval of 0 ("Disabled") now truly disables periodic discovery
+	//      rather than resetting to 1 minute. The goroutine blocks on the
+	//      subscription channel until a non-zero value arrives.
 	go func() {
-		// Use a reusable timer instead of time.After, which leaks a
-		// timer until it fires (the GC eventually collects it, but at
-		// high intervals the accumulation is wasteful).
-		interval := settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
-		if interval == 0 {
-			interval = 1 * time.Minute
+		const defaultInterval = 6 * time.Hour
+
+		readInterval := func() time.Duration {
+			return settingsRepo.GetDuration(context.Background(), "discovery_interval", defaultInterval)
 		}
-		timer := time.NewTimer(interval)
-		defer timer.Stop()
+
+		settingsSub := settingsRepo.Subscribe()
+		defer settingsSub.Unsubscribe()
+
+		// applyInterval sets up the timer for the given interval. If the
+		// interval is <= 0 (disabled) the timer is stopped and set to nil.
+		// A nil timer channel blocks forever in select, which is exactly what
+		// we want for the disabled state — only the settings subscription
+		// and the context cancellation can wake us.
+		var timer *time.Timer
+		var timerC <-chan time.Time
+		applyInterval := func(d time.Duration) {
+			if d <= 0 {
+				// Transitioning to disabled: stop and drain the existing timer.
+				if timer != nil {
+					timer.Stop()
+					// Drain the channel if the timer already fired, so the
+					// receive does not leak into the next cycle.
+					select {
+					case <-timer.C:
+					default:
+					}
+					timer = nil
+					timerC = nil
+				}
+			} else {
+				// Transitioning to enabled: reset (or create) the timer.
+				if timer != nil {
+					timer.Stop()
+					select {
+					case <-timer.C:
+					default:
+					}
+					timer.Reset(d)
+				} else {
+					timer = time.NewTimer(d)
+					// NewTimer already starts with duration d; no Reset needed.
+				}
+				timerC = timer.C
+			}
+		}
+
+		interval := readInterval()
+		applyInterval(interval)
+
+		defer func() {
+			if timer != nil {
+				timer.Stop()
+			}
+		}()
 
 		for {
+			if interval <= 0 {
+				// Discovery is disabled. Block until the setting changes
+				// or the server shuts down. We cannot reach the main
+				// select because timerC is nil (blocks forever).
+				select {
+				case <-settingsSub.Events():
+					interval = readInterval()
+					applyInterval(interval)
+				case <-ctx.Done():
+					return
+				}
+				continue
+			}
+
 			select {
-			case <-timer.C:
+			case <-timerC:
 				result := runDiscovery()
 				publishDiscoveryEvent("Scheduled", result)
-				// Re-read interval in case the setting changed.
-				interval = settingsRepo.GetDuration(context.Background(), "discovery_interval", 6*time.Hour)
-				if interval == 0 {
-					interval = 1 * time.Minute
+				// Re-read interval in case it changed since the last
+				// subscription event was processed.
+				interval = readInterval()
+				applyInterval(interval)
+
+			case <-settingsSub.Events():
+				// Re-read from DB (the source of truth) rather than
+				// parsing the event value, which may be empty if the
+				// setting was deleted or the lookup failed.
+				newInterval := readInterval()
+				if newInterval != interval {
+					interval = newInterval
+					applyInterval(interval)
 				}
-				timer.Reset(interval)
+
 			case <-ctx.Done():
 				return
 			}
