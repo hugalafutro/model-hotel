@@ -40,6 +40,7 @@ import {
 } from "../context/SidebarModeContext";
 import { ModelPicker } from "../components/ModelPicker";
 import { PresetBar } from "../components/PresetBar";
+import { PromptPicker } from "../components/PromptPicker";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterInput } from "../components/FilterInput";
@@ -191,9 +192,7 @@ export function Arena() {
         }
         return null;
     });
-    const [pendingPrompt, setPendingPrompt] = useState<
-        import("../data/presets").ArenaPromptPreset | null
-    >(null);
+
     const [competitionPrompt, setCompetitionPrompt] = useState<string>(() => {
         try {
             if (localStorage.getItem("persistArena") === "true") {
@@ -468,7 +467,6 @@ export function Arena() {
     const currentRoundRef = useRef(0);
     const roundsLengthRef = useRef(0);
     const roundsRef = useRef<BracketRound[]>([]);
-    const promptRef = useRef<HTMLTextAreaElement>(null);
     const activePromptIdRef = useRef<string | null>(null);
     const comparePersonaIdRef = useRef<string | null>(null);
 
@@ -676,80 +674,6 @@ export function Arena() {
             return bracketRounds;
         },
         [modelParams],
-    );
-
-    const autoExpandTextarea = useCallback(
-        (ref: React.RefObject<HTMLTextAreaElement | null>) => {
-            requestAnimationFrame(() => {
-                const el = ref.current;
-                if (el) {
-                    el.style.height = "auto";
-                    el.style.height = el.scrollHeight + "px";
-                }
-            });
-        },
-        [],
-    );
-
-    const handlePromptPresetSelect = useCallback(
-        (preset: import("../data/presets").ArenaPromptPreset) => {
-            if (prompt.trim() && activePromptId === null) {
-                setPendingPrompt(preset);
-                return;
-            }
-            setPrompt(preset.prompt);
-            setActivePromptId(preset.id);
-            autoExpandTextarea(promptRef);
-        },
-        [
-            prompt,
-            activePromptId,
-            autoExpandTextarea,
-            setPrompt,
-            setActivePromptId,
-        ],
-    );
-
-    const handleCustomPrompt = useCallback(() => {
-        if (activePromptId !== null) {
-            setPendingPrompt({
-                id: "__custom__",
-                icon: "✏️",
-                label: "Custom",
-                prompt: "",
-            } as import("../data/presets").ArenaPromptPreset);
-            return;
-        }
-    }, [activePromptId]);
-
-    const handleRandomPrompt = useCallback(() => {
-        const available = ARENA_PROMPTS.filter((p) => p.id !== activePromptId);
-        if (available.length === 0) return;
-        const pick = available[Math.floor(Math.random() * available.length)];
-        if (prompt.trim() && activePromptId === null) {
-            setPendingPrompt(pick);
-            return;
-        }
-        setPrompt(pick.prompt);
-        setActivePromptId(pick.id);
-        autoExpandTextarea(promptRef);
-    }, [
-        activePromptId,
-        prompt,
-        autoExpandTextarea,
-        setPrompt,
-        setActivePromptId,
-    ]);
-
-    const handlePromptChange = useCallback(
-        (value: string) => {
-            setPrompt(value);
-            const current = ARENA_PROMPTS.find((p) => p.id === activePromptId);
-            if (current && value !== current.prompt) {
-                setActivePromptId(null);
-            }
-        },
-        [activePromptId, setPrompt, setActivePromptId],
     );
 
     const handleRandomComparePersona = useCallback(() => {
@@ -1810,50 +1734,22 @@ export function Arena() {
                             )}
 
                             {/* Prompt */}
-                            <div>
-                                <label className="text-sm text-(--text-secondary) mb-2 block">
-                                    Prompt
-                                </label>
-                                {phase === "setup" && (
-                                    <PresetBar
-                                        items={ARENA_PROMPTS}
-                                        activeId={activePromptId}
-                                        onSelect={handlePromptPresetSelect}
-                                        onCustom={handleCustomPrompt}
-                                        onRandom={handleRandomPrompt}
-                                    />
-                                )}
-                                <textarea
-                                    ref={promptRef}
-                                    value={
-                                        phase === "setup" ||
-                                        phase === "finished"
-                                            ? prompt
-                                            : savedPrompt
-                                    }
-                                    onChange={(e) => {
-                                        handlePromptChange(e.target.value);
-                                        if (!e.target.value) {
-                                            e.target.style.height = "auto";
-                                        } else if (
-                                            e.target.scrollHeight >
-                                            e.target.clientHeight
-                                        ) {
-                                            e.target.style.height =
-                                                e.target.scrollHeight + "px";
-                                        }
-                                    }}
-                                    placeholder="Enter your prompt…"
-                                    autoFocus
-                                    rows={1}
-                                    maxLength={10000}
-                                    className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                                    disabled={
-                                        phase !== "setup" &&
-                                        phase !== "finished"
-                                    }
-                                />
-                            </div>
+                            <PromptPicker
+                                prompts={ARENA_PROMPTS}
+                                activePromptId={activePromptId}
+                                prompt={
+                                    phase === "setup" || phase === "finished"
+                                        ? prompt
+                                        : savedPrompt
+                                }
+                                onActivePromptIdChange={setActivePromptId}
+                                onPromptChange={setPrompt}
+                                showPresetBar={phase === "setup"}
+                                autoFocus
+                                disabled={
+                                    phase !== "setup" && phase !== "finished"
+                                }
+                            />
                         </div>
                     </div>
                 </div>
@@ -2322,30 +2218,6 @@ export function Arena() {
                         </div>
                     );
                 })}
-
-            {/* Prompt Preset Overwrite Confirmation */}
-            {pendingPrompt && (
-                <ConfirmDialog
-                    title={
-                        pendingPrompt.id === "__custom__"
-                            ? "Switch to Custom"
-                            : "Overwrite Prompt"
-                    }
-                    fields={["Prompt"]}
-                    onConfirm={() => {
-                        if (pendingPrompt.id === "__custom__") {
-                            setPrompt("");
-                            setActivePromptId(null);
-                        } else {
-                            setPrompt(pendingPrompt.prompt);
-                            setActivePromptId(pendingPrompt.id);
-                        }
-                        setPendingPrompt(null);
-                        autoExpandTextarea(promptRef);
-                    }}
-                    onCancel={() => setPendingPrompt(null)}
-                />
-            )}
 
             {pendingFullReset && (
                 <ConfirmDialog
