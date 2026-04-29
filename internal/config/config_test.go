@@ -193,6 +193,22 @@ func TestValidateProviderURL_127001BlockedWithoutAllowList(t *testing.T) {
 	}
 }
 
+func TestValidateProviderURL_IPv6LoopbackAllowedWhenInAllowList(t *testing.T) {
+	cfg := &Config{AllowedProviderHosts: []string{"::1"}}
+	err := cfg.ValidateProviderURL("http://[::1]:8080/v1")
+	if err != nil {
+		t.Errorf("::1 should be allowed when in allowlist, got error: %v", err)
+	}
+}
+
+func TestValidateProviderURL_IPv6LoopbackBlockedWithoutAllowList(t *testing.T) {
+	cfg := &Config{AllowedProviderHosts: nil}
+	err := cfg.ValidateProviderURL("http://[::1]:8080/v1")
+	if err == nil {
+		t.Error("::1 should be blocked when not in allowlist")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Config.Load (environment-based)
 // ---------------------------------------------------------------------------
