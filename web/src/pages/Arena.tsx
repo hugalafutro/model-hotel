@@ -1727,7 +1727,6 @@ export function Arena() {
                                                 handleRandomComparePersona
                                             }
                                             textareaPlaceholder="Optional system prompt applied to all models…"
-                                            wrap
                                         />
                                     </div>
                                 </div>

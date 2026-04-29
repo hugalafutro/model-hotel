@@ -13,8 +13,6 @@ interface PresetBarProps<T extends PresetItem> {
     onCustom?: () => void;
     onRandom?: () => void;
     customLabel?: string;
-    /** When true, buttons wrap to multiple rows instead of scrolling horizontally */
-    wrap?: boolean;
 }
 
 export function PresetBar<T extends PresetItem>({
@@ -24,14 +22,9 @@ export function PresetBar<T extends PresetItem>({
     onCustom,
     onRandom,
     customLabel = "✏️Custom",
-    wrap = false,
 }: PresetBarProps<T>) {
     return (
-        <div
-            className={`flex items-center gap-1 ${
-                wrap ? "flex-wrap" : "overflow-x-auto pb-1 scrollbar-none"
-            }`}
-        >
+        <div className="flex items-center gap-1 flex-wrap">
             {onRandom && (
                 <button
                     type="button"

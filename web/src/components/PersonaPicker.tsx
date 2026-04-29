@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, type RefObject } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import type { PersonaPreset } from "../data/presets";
 import { PresetBar } from "./PresetBar";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -22,8 +23,6 @@ interface PersonaPickerProps {
     className?: string;
     /** Whether the textarea is disabled */
     disabled?: boolean;
-    /** When true, persona buttons wrap to multiple rows instead of scrolling horizontally */
-    wrap?: boolean;
     /** Called when the random button is clicked */
     onRandom?: () => void;
 }
@@ -38,9 +37,9 @@ export function PersonaPicker({
     textareaPlaceholder = "Enter your custom prompt here…",
     className,
     disabled = false,
-    wrap = false,
     onRandom,
 }: PersonaPickerProps) {
+    const [collapsed, setCollapsed] = useState(false);
     const [pendingPersona, setPendingPersona] = useState<PersonaPreset | null>(
         null,
     );
@@ -129,37 +128,63 @@ export function PersonaPicker({
 
     return (
         <div className={className}>
-            {label && (
-                <label className="text-sm text-(--text-secondary) mb-2 block">
-                    {label}
-                </label>
+            {collapsed ? (
+                <button
+                    type="button"
+                    onClick={() => setCollapsed(false)}
+                    className="flex items-center gap-1.5 text-sm text-(--text-secondary) hover:text-(--accent) transition-colors cursor-pointer group"
+                >
+                    <ChevronDown
+                        size={14}
+                        className="text-(--text-tertiary) group-hover:text-(--accent) group-hover:drop-shadow-[0_0_6px_var(--accent)] transition-all"
+                    />
+                    <span>{label}</span>
+                </button>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm text-(--text-secondary)">
+                            {label}
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => setCollapsed(true)}
+                            className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-0.5 -m-0.5"
+                            title="Collapse"
+                        >
+                            <ChevronUp size={14} />
+                        </button>
+                    </div>
+                    <PresetBar
+                        items={personas}
+                        activeId={activePersonaId}
+                        onSelect={handleSelect}
+                        onCustom={handleCustom}
+                        onRandom={onRandom}
+                    />
+                    <textarea
+                        ref={textareaRef}
+                        value={systemPrompt}
+                        onChange={(e) => {
+                            handleTextareaChange(e.target.value);
+                            if (!e.target.value) {
+                                e.target.style.height = "auto";
+                            } else if (
+                                e.target.scrollHeight > e.target.clientHeight
+                            ) {
+                                e.target.style.height =
+                                    e.target.scrollHeight + "px";
+                            }
+                        }}
+                        placeholder={textareaPlaceholder}
+                        rows={1}
+                        maxLength={5000}
+                        className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                        style={{ height: "auto" }}
+                        disabled={disabled}
+                    />
+                </>
             )}
-            <PresetBar
-                items={personas}
-                activeId={activePersonaId}
-                onSelect={handleSelect}
-                onCustom={handleCustom}
-                onRandom={onRandom}
-                wrap={wrap}
-            />
-            <textarea
-                ref={textareaRef}
-                value={systemPrompt}
-                onChange={(e) => {
-                    handleTextareaChange(e.target.value);
-                    if (!e.target.value) {
-                        e.target.style.height = "auto";
-                    } else if (e.target.scrollHeight > e.target.clientHeight) {
-                        e.target.style.height = e.target.scrollHeight + "px";
-                    }
-                }}
-                placeholder={textareaPlaceholder}
-                rows={1}
-                maxLength={5000}
-                className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                style={{ height: "auto" }}
-                disabled={disabled}
-            />
 
             {/* Persona Overwrite Confirmation */}
             {pendingPersona && (

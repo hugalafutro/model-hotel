@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, type RefObject } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import type { ArenaPromptPreset } from "../data/presets";
 import { PresetBar } from "./PresetBar";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -22,8 +23,6 @@ interface PromptPickerProps {
     className?: string;
     /** Whether the textarea is disabled */
     disabled?: boolean;
-    /** When true, prompt buttons wrap to multiple rows instead of scrolling horizontally */
-    wrap?: boolean;
     /** Whether to show the preset bar (Arena hides it outside setup phase) */
     showPresetBar?: boolean;
     /** Whether the textarea should auto-focus */
@@ -42,14 +41,13 @@ export function PromptPicker({
     textareaPlaceholder = "Enter your prompt…",
     className,
     disabled = false,
-    wrap = false,
     showPresetBar = true,
     autoFocus = false,
     maxLength = 10000,
 }: PromptPickerProps) {
-    const [pendingPrompt, setPendingPrompt] = useState<ArenaPromptPreset | null>(
-        null,
-    );
+    const [collapsed, setCollapsed] = useState(false);
+    const [pendingPrompt, setPendingPrompt] =
+        useState<ArenaPromptPreset | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const autoExpand = useCallback(
@@ -76,7 +74,13 @@ export function PromptPicker({
             onActivePromptIdChange(preset.id);
             autoExpand(textareaRef);
         },
-        [prompt, activePromptId, onPromptChange, onActivePromptIdChange, autoExpand],
+        [
+            prompt,
+            activePromptId,
+            onPromptChange,
+            onActivePromptIdChange,
+            autoExpand,
+        ],
     );
 
     const handleCustom = useCallback(() => {
@@ -103,7 +107,14 @@ export function PromptPicker({
         onPromptChange(pick.prompt);
         onActivePromptIdChange(pick.id);
         autoExpand(textareaRef);
-    }, [prompts, activePromptId, prompt, onPromptChange, onActivePromptIdChange, autoExpand]);
+    }, [
+        prompts,
+        activePromptId,
+        prompt,
+        onPromptChange,
+        onActivePromptIdChange,
+        autoExpand,
+    ]);
 
     const handleTextareaChange = useCallback(
         (value: string) => {
@@ -132,39 +143,65 @@ export function PromptPicker({
 
     return (
         <div className={className}>
-            {label && (
-                <label className="text-sm text-(--text-secondary) mb-2 block">
-                    {label}
-                </label>
+            {collapsed ? (
+                <button
+                    type="button"
+                    onClick={() => setCollapsed(false)}
+                    className="flex items-center gap-1.5 text-sm text-(--text-secondary) hover:text-(--accent) transition-colors cursor-pointer group"
+                >
+                    <ChevronDown
+                        size={14}
+                        className="text-(--text-tertiary) group-hover:text-(--accent) group-hover:drop-shadow-[0_0_6px_var(--accent)] transition-all"
+                    />
+                    <span>{label}</span>
+                </button>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm text-(--text-secondary)">
+                            {label}
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => setCollapsed(true)}
+                            className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-0.5 -m-0.5"
+                            title="Collapse"
+                        >
+                            <ChevronUp size={14} />
+                        </button>
+                    </div>
+                    {showPresetBar && (
+                        <PresetBar
+                            items={prompts}
+                            activeId={activePromptId}
+                            onSelect={handleSelect}
+                            onCustom={handleCustom}
+                            onRandom={handleRandom}
+                        />
+                    )}
+                    <textarea
+                        ref={textareaRef}
+                        value={prompt}
+                        onChange={(e) => {
+                            handleTextareaChange(e.target.value);
+                            if (!e.target.value) {
+                                e.target.style.height = "auto";
+                            } else if (
+                                e.target.scrollHeight > e.target.clientHeight
+                            ) {
+                                e.target.style.height =
+                                    e.target.scrollHeight + "px";
+                            }
+                        }}
+                        placeholder={textareaPlaceholder}
+                        autoFocus={autoFocus}
+                        rows={1}
+                        maxLength={maxLength}
+                        className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
+                        disabled={disabled}
+                    />
+                </>
             )}
-            {showPresetBar && (
-                <PresetBar
-                    items={prompts}
-                    activeId={activePromptId}
-                    onSelect={handleSelect}
-                    onCustom={handleCustom}
-                    onRandom={handleRandom}
-                    wrap={wrap}
-                />
-            )}
-            <textarea
-                ref={textareaRef}
-                value={prompt}
-                onChange={(e) => {
-                    handleTextareaChange(e.target.value);
-                    if (!e.target.value) {
-                        e.target.style.height = "auto";
-                    } else if (e.target.scrollHeight > e.target.clientHeight) {
-                        e.target.style.height = e.target.scrollHeight + "px";
-                    }
-                }}
-                placeholder={textareaPlaceholder}
-                autoFocus={autoFocus}
-                rows={1}
-                maxLength={maxLength}
-                className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
-                disabled={disabled}
-            />
 
             {/* Prompt Overwrite Confirmation */}
             {pendingPrompt && (
