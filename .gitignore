@@ -60,3 +60,10 @@ Thumbs.db
 # Wiki (published separately as GitHub wiki)
 /model-hotel.wiki/
 /llm-proxy.wiki/
+.rules
+.clinerules
+.cursorrules
+.windsurfrules
+AGENTS.md
+CLAUDE.md
+GEMINI.md
