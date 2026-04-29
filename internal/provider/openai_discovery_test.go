@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -215,8 +216,14 @@ func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping live API test in short mode")
 	}
+	if os.Getenv("LIVE_API_TESTS") == "" {
+		t.Skip("skipping live API test (set LIVE_API_TESTS=1 to enable)")
+	}
 
-	apiKey := "sk-proj-DUMMY_REPLACE_WITH_YOUR_KEY_FOR_LIVE_TESTS"
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		t.Fatal("OPENAI_API_KEY environment variable is required for live API tests")
+	}
 
 	svc := NewDiscoveryService()
 	prov := &Provider{

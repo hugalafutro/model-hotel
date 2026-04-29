@@ -345,7 +345,6 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		argIdx++
 		setClauses = append(setClauses, fmt.Sprintf("disabled_manually = $%d", argIdx))
 		args = append(args, !*req.Enabled)
-		argIdx++
 	}
 
 	if len(setClauses) == 0 {

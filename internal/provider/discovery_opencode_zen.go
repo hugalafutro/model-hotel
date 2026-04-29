@@ -28,7 +28,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 		log.Printf("[discovery] error: http request failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

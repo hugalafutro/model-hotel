@@ -105,7 +105,7 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 			builder.WriteString(", ")
 		}
 		offset := i * 4
-		builder.WriteString(fmt.Sprintf("($%d, $%d, $%d, $%d)", offset+1, offset+2, offset+3, offset+4))
+		fmt.Fprintf(&builder, "($%d, $%d, $%d, $%d)", offset+1, offset+2, offset+3, offset+4)
 		args = append(args, e.Timestamp, e.Level, e.Source, e.Message)
 	}
 	_, err := w.pool.Exec(ctx, builder.String(), args...)
@@ -290,7 +290,9 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 	// Ring buffer mode (default, backward compatible)
 	if appLogBuffer == nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AppLogEntry{})
+		if err := json.NewEncoder(w).Encode([]AppLogEntry{}); err != nil {
+			log.Printf("[applogs] error: failed to encode empty response: %v", err)
+		}
 		return
 	}
 
@@ -312,14 +314,17 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(entries)
+	if err := json.NewEncoder(w).Encode(entries); err != nil {
+		log.Printf("[applogs] error: failed to encode entries: %v", err)
+	}
 }
 
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(appLogsHistoryResponse{})
+		if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{}); err != nil {
+			log.Printf("[applogs] error: failed to encode response: %v", err)
+		}
 		return
 	}
 
@@ -405,9 +410,9 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	var total int
 	err := h.dbPool.Pool().QueryRow(ctx, countSQL, args...).Scan(&total)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); err != nil {
+			log.Printf("[applogs] error: failed to encode error response: %v", err)
+		}
 		return
 	}
 
@@ -421,9 +426,9 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.dbPool.Pool().Query(ctx, dataSQL, args...)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "failed to query logs"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to query logs"}); err != nil {
+			log.Printf("[applogs] error: failed to encode error response: %v", err)
+		}
 		return
 	}
 	defer rows.Close()
@@ -440,12 +445,14 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(appLogsHistoryResponse{
+	if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{
 		Entries: entries,
 		Total:   total,
 		Page:    page,
 		PerPage: perPage,
-	})
+	}); err != nil {
+		log.Printf("[applogs] error: failed to encode history response: %v", err)
+	}
 }
 
 // ClearAppLogs clears the application log ring buffer and DB, returning the count
@@ -463,7 +470,9 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{"deleted": deleted})
+	if err := json.NewEncoder(w).Encode(map[string]int{"deleted": deleted}); err != nil {
+		log.Printf("[applogs] error: failed to encode delete response: %v", err)
+	}
 }
 
 // filterEntriesAfter returns only entries whose timestamp is strictly after

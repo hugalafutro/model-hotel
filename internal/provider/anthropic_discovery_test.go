@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -341,8 +342,14 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping live API test in short mode")
 	}
+	if os.Getenv("LIVE_API_TESTS") == "" {
+		t.Skip("skipping live API test (set LIVE_API_TESTS=1 to enable)")
+	}
 
-	apiKey := "sk-ant-api03-DUMMY-REPLACE-WITH-YOUR-KEY"
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		t.Fatal("ANTHROPIC_API_KEY environment variable is required for live API tests")
+	}
 
 	svc := NewDiscoveryService()
 	prov := &Provider{

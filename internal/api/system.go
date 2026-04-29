@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/hugalafutro/model-hotel/internal/util"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Server start time — used for uptime calculation.
@@ -32,27 +32,27 @@ func (h *SystemHandler) Register(r chi.Router) {
 }
 
 type SystemStats struct {
-	App     AppStats           `json:"app"`
-	DB      DBStats            `json:"db"`
-	Docker  util.AggregatedDockerStats `json:"docker"`
+	App    AppStats                   `json:"app"`
+	DB     DBStats                    `json:"db"`
+	Docker util.AggregatedDockerStats `json:"docker"`
 }
 
 type AppStats struct {
-	HeapAllocMB      float64 `json:"heap_alloc_mb"`
-	SysMemoryMB      float64 `json:"sys_memory_mb"`
-	Goroutines       int     `json:"goroutines"`
-	GCCycles         uint64  `json:"gc_cycles"`
-	MemoryCurrent    int64   `json:"memory_current_bytes"`
-	MemoryLimit      int64   `json:"memory_limit_bytes"`
-	InContainer      bool    `json:"in_container"`
-	UptimeSeconds    int64   `json:"uptime_seconds"`
-	CpuPercent       float64 `json:"cpu_percent"`
-	TotalRequests    int64   `json:"total_requests"`
-	NetRxBytesSec    float64 `json:"net_rx_bytes_sec"`
-	NetTxBytesSec    float64 `json:"net_tx_bytes_sec"`
-	DiskReadBytesSec float64 `json:"disk_read_bytes_sec"`
+	HeapAllocMB       float64 `json:"heap_alloc_mb"`
+	SysMemoryMB       float64 `json:"sys_memory_mb"`
+	Goroutines        int     `json:"goroutines"`
+	GCCycles          uint64  `json:"gc_cycles"`
+	MemoryCurrent     int64   `json:"memory_current_bytes"`
+	MemoryLimit       int64   `json:"memory_limit_bytes"`
+	InContainer       bool    `json:"in_container"`
+	UptimeSeconds     int64   `json:"uptime_seconds"`
+	CpuPercent        float64 `json:"cpu_percent"`
+	TotalRequests     int64   `json:"total_requests"`
+	NetRxBytesSec     float64 `json:"net_rx_bytes_sec"`
+	NetTxBytesSec     float64 `json:"net_tx_bytes_sec"`
+	DiskReadBytesSec  float64 `json:"disk_read_bytes_sec"`
 	DiskWriteBytesSec float64 `json:"disk_write_bytes_sec"`
-	Procs            int     `json:"procs"`
+	Procs             int     `json:"procs"`
 }
 
 type DBStats struct {
@@ -75,7 +75,9 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 		result := *cachedSystem
 		cachedSystemMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		}
 		return
 	}
 	cachedSystemMu.Unlock()
@@ -92,7 +94,9 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	cachedSystemMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
@@ -122,21 +126,21 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 	}
 
 	stats.App = AppStats{
-		HeapAllocMB:      float64(heapAlloc) / 1024 / 1024,
-		SysMemoryMB:      float64(sysMemory) / 1024 / 1024,
-		Goroutines:       runtime.NumGoroutine(),
-		GCCycles:         gcCycles,
-		MemoryCurrent:    memCurrent,
-		MemoryLimit:      memLimit,
-		InContainer:      inContainer,
-		UptimeSeconds:    int64(time.Since(startedAt).Seconds()),
-		CpuPercent:       cpuPercent,
-		TotalRequests:    totalRequests,
-		NetRxBytesSec:    netRxPerSec,
-		NetTxBytesSec:    netTxPerSec,
-		DiskReadBytesSec: diskReadPerSec,
+		HeapAllocMB:       float64(heapAlloc) / 1024 / 1024,
+		SysMemoryMB:       float64(sysMemory) / 1024 / 1024,
+		Goroutines:        runtime.NumGoroutine(),
+		GCCycles:          gcCycles,
+		MemoryCurrent:     memCurrent,
+		MemoryLimit:       memLimit,
+		InContainer:       inContainer,
+		UptimeSeconds:     int64(time.Since(startedAt).Seconds()),
+		CpuPercent:        cpuPercent,
+		TotalRequests:     totalRequests,
+		NetRxBytesSec:     netRxPerSec,
+		NetTxBytesSec:     netTxPerSec,
+		DiskReadBytesSec:  diskReadPerSec,
 		DiskWriteBytesSec: diskWritePerSec,
-		Procs:            procs,
+		Procs:             procs,
 	}
 
 	var dbSize int64

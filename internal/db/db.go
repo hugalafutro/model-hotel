@@ -99,7 +99,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var exists bool
 	err = tx.QueryRow(ctx, `

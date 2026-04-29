@@ -50,7 +50,7 @@ func ReadCgroupCPU() float64 {
 	if err != nil {
 		return -1
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var usageUsec int64
 	scanner := bufio.NewScanner(f)
@@ -114,7 +114,7 @@ func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
 	if err != nil {
 		return 0, 0
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var totalRx, totalTx int64
 	scanner := bufio.NewScanner(f)
@@ -185,7 +185,7 @@ func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
 	if err != nil {
 		return -1, -1
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var totalRead, totalWrite int64
 	scanner := bufio.NewScanner(f)
@@ -242,7 +242,7 @@ func ReadCgroupProcs() int {
 	if err != nil {
 		return 0
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	count := 0
 	scanner := bufio.NewScanner(f)

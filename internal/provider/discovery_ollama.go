@@ -32,7 +32,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 		log.Printf("[discovery] error: ollama %s: http request failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -110,7 +110,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)

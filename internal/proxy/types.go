@@ -22,7 +22,6 @@ type requestLogData struct {
 	providerID            uuid.UUID
 	modelID               string
 	requestHash           string
-	providerName          string
 	statusCode            int
 	durationMs            float64
 	latencyMs             float64

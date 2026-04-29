@@ -31,7 +31,7 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 		log.Printf("[discovery] error: deepseek fetch models failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -127,7 +127,7 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch balance: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

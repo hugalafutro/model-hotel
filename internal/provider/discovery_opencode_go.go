@@ -28,7 +28,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 		log.Printf("[discovery] error: opencode-go %s: http request failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// If /models endpoint is not available, fall back to full catalog.
 	// This handles the case where the endpoint may be removed or rate-limited.

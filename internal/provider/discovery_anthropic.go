@@ -18,7 +18,7 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 	raw := util.SanitizeBaseURL(provider.BaseURL)
 	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
 
-pricingCatalog := GetAnthropicPricing()
+	pricingCatalog := GetAnthropicPricing()
 
 	var allModels []AnthropicModelInfo
 	afterID := ""
@@ -44,7 +44,7 @@ pricingCatalog := GetAnthropicPricing()
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response: %w", err)
 		}

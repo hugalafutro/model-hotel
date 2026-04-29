@@ -284,7 +284,6 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		if err == nil {
 			countQuery += " AND rl.created_at <= $" + util.IntToStr(countArgIndex)
 			countArgs = append(countArgs, parsedTo)
-			countArgIndex++
 		}
 	}
 
@@ -344,5 +343,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }

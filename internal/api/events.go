@@ -22,7 +22,7 @@ func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	// Write initial comment to establish the stream
-	fmt.Fprint(w, ": connected\n\n")
+	_, _ = fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 
 	ch := events.DefaultBus.Subscribe()
@@ -40,10 +40,10 @@ func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		case <-heartbeat.C:
-			fmt.Fprint(w, ": heartbeat\n\n")
+			_, _ = fmt.Fprint(w, ": heartbeat\n\n")
 			flusher.Flush()
 		}
 	}

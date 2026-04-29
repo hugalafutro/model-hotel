@@ -39,7 +39,7 @@ func IsDockerAvailable() bool {
 			dockerAvailable = false
 			return
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		dockerAvailable = resp.StatusCode == 200
 
 	})
@@ -160,7 +160,7 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 		log.Printf("[docker] failed to list containers: %v", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("docker API returned %d", resp.StatusCode)
@@ -202,7 +202,7 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
@@ -406,7 +406,7 @@ func getOwnContainerID() string {
 
 func isHex(s string) bool {
 	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}
@@ -422,7 +422,7 @@ func DetectComposeProject() string {
 		resp, err := client.Do(req)
 		if err == nil && resp.StatusCode == 200 {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			var info struct {
 				Config struct {
 					Labels map[string]string `json:"Labels"`
@@ -438,7 +438,7 @@ func DetectComposeProject() string {
 			log.Printf("[docker] failed to inspect own container: %v", err)
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		cancel()
 	}

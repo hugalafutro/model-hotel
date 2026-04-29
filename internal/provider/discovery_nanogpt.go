@@ -30,7 +30,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		log.Printf("[discovery] error: nanogpt http request failed for provider %s: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -131,7 +131,7 @@ func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provid
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch usage: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

@@ -246,7 +246,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, TestModelResponse{Error: err.Error()})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	duration := time.Since(startRequest).Milliseconds()
@@ -292,7 +292,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
-	json.Unmarshal(respBody, &chatResp)
+	_ = json.Unmarshal(respBody, &chatResp)
 
 	content := ""
 	if len(chatResp.Choices) > 0 {

@@ -212,18 +212,18 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 		}
 
-		modelRepo.DisableMissingModels(provCtx, prov.ID, existingModelIDs)
+		_, _ = modelRepo.DisableMissingModels(provCtx, prov.ID, existingModelIDs)
 
 		seenModelIDs := make(map[string]bool)
 		for _, mid := range existingModelIDs {
 			seenModelIDs[mid] = true
 		}
 		for modelID := range seenModelIDs {
-			failoverRepo.SyncForModel(provCtx, modelID)
+			_ = failoverRepo.SyncForModel(provCtx, modelID)
 		}
 
 		now := time.Now()
-		h.dbPool.Pool().Exec(provCtx,
+		_, _ = h.dbPool.Pool().Exec(provCtx,
 			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID)
 
 		provCancel()

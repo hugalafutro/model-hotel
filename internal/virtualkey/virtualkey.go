@@ -41,8 +41,6 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-var columns = []string{"id", "name", "key_hash", "key_preview", "tokens_used", "last_used_at", "created_at"}
-
 func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,

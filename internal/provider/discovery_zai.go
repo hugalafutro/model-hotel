@@ -116,7 +116,7 @@ func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, 
 		log.Printf("[discovery] error: zai provider %s quota fetch failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch quota: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -159,8 +159,8 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 		if err != nil {
 			continue
 		}
-		io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_, _ = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
 
 		if resp.StatusCode == 429 {
 			log.Printf("[discovery] zai model %s rate limited (429), retrying", modelID)

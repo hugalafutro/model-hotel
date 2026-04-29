@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -17,6 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Handler struct {
@@ -129,7 +129,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		go func(hash string) {
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
-			h.virtualKeyRepo.TouchLastUsed(tctx, hash)
+			_ = h.virtualKeyRepo.TouchLastUsed(tctx, hash)
 		}(keyHash)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

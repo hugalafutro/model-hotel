@@ -19,7 +19,7 @@ import (
 )
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -59,8 +59,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		if canFlush {
 			flusher.Flush()
 		}
-		w.Write(line)
-		w.Write([]byte("\n"))
+		_, _ = w.Write(line)
+		_, _ = w.Write([]byte("\n"))
 		if canFlush {
 			flusher.Flush()
 		}
@@ -150,7 +150,7 @@ logUpdate:
 }
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	w.Header().Set("Content-Type", "application/json")
 	var chatResp ChatCompletionResponse
@@ -196,7 +196,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			}
 		}
 
-		json.NewEncoder(w).Encode(chatResp)
+		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
+			log.Printf("[proxy] error: failed to encode response: %v", err)
+		}
 	} else {
 		body, _ := io.ReadAll(resp.Body)
 		errMsg := string(body)
@@ -236,7 +238,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to read request body", http.StatusBadRequest)
 			return
 		}
-		r.Body.Close()
+		_ = r.Body.Close()
 	}
 
 	var req ChatCompletionRequest
@@ -378,7 +380,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		go func(pid uuid.UUID) {
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
-			h.providerRepo.TouchLastUsed(tctx, pid)
+			_ = h.providerRepo.TouchLastUsed(tctx, pid)
 		}(candidate.provider.ID)
 		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
 
@@ -422,8 +424,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		shouldFailoverNow := h.shouldFailover(r.Context(), resp.StatusCode) && hasMoreCandidates
 
 		if shouldFailoverNow {
-			io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_, _ = io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
 			log.Printf("[proxy] failover triggered: attempt=%d provider=%s status=%d", attempt+1, candidate.provider.ID, resp.StatusCode)
 			logData.failoverAttempt = attempt
@@ -432,7 +434,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			errMsg := string(body)
 			if len(errMsg) > 500 {
 				errMsg = errMsg[:500]

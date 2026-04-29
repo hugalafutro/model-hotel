@@ -22,7 +22,9 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(all)
+	if err := json.NewEncoder(w).Encode(all); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +39,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to begin transaction", http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() { _ = tx.Rollback(r.Context()) }()
 
 	for key, value := range req {
 		if err := h.settingsRepo.SetTx(r.Context(), tx, key, value); err != nil {
@@ -59,5 +61,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	all, _ := h.settingsRepo.GetAll(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(all)
+	if err := json.NewEncoder(w).Encode(all); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }

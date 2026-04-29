@@ -218,7 +218,7 @@ func TestGenerateRequestHash_CorrectLength(t *testing.T) {
 func TestGenerateRequestHash_IsHexString(t *testing.T) {
 	hash := generateRequestHash()
 	for _, c := range hash {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Errorf("generateRequestHash should return hex string, found non-hex char %q in %q", c, hash)
 			break
 		}

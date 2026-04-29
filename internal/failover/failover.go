@@ -83,12 +83,12 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		return nil, err
 	}
 
-	var groupEnabledVal bool = true
+	groupEnabledVal := true
 	if groupEnabled != nil {
 		groupEnabledVal = *groupEnabled
 	}
 
-	var autoCreatedVal bool = false
+	autoCreatedVal := false
 	if autoCreated != nil {
 		autoCreatedVal = *autoCreated
 	}
@@ -213,7 +213,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
-	var groupEnabledVal bool = true
+	groupEnabledVal := true
 	if groupEnabled != nil {
 		groupEnabledVal = *groupEnabled
 	}
@@ -243,7 +243,6 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	if description != nil {
 		setClauses = append(setClauses, fmt.Sprintf("description = $%d", argIdx))
 		args = append(args, *description)
-		argIdx++
 	}
 
 	setClauses = append(setClauses, "updated_at = now()")
