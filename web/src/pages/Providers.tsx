@@ -54,6 +54,7 @@ function EditProviderModal({
     });
     const [error, setError] = useState<string | null>(null);
     const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
+    const [showApiKey, setShowApiKey] = useState(false);
 
     const updateMutation = useMutation({
         mutationFn: (data: {
@@ -173,19 +174,36 @@ function EditProviderModal({
                         >
                             API Key
                         </label>
-                        <input
-                            id="edit-provider-api-key"
-                            type="password"
-                            value={formData.api_key}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    api_key: e.target.value,
-                                })
-                            }
-                            className="ui-input"
-                            placeholder="Leave blank to keep current key"
-                        />
+                        <div className="relative">
+                            <input
+                                id="edit-provider-api-key"
+                                type={showApiKey ? "text" : "password"}
+                                value={formData.api_key}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        api_key: e.target.value,
+                                    })
+                                }
+                                className="ui-input pr-10 overflow-hidden"
+                                placeholder="Leave blank to keep current key"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowApiKey(!showApiKey)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                                tabIndex={-1}
+                                aria-label={
+                                    showApiKey ? "Hide API key" : "Show API key"
+                                }
+                            >
+                                {showApiKey ? (
+                                    <EyeOff size={18} />
+                                ) : (
+                                    <Eye size={18} />
+                                )}
+                            </button>
+                        </div>
                         <p className="text-gray-500 text-xs mt-1">
                             Current: {provider.masked_key}
                         </p>
@@ -978,9 +996,7 @@ export function Providers() {
                                     }
                                     className="ui-input"
                                 >
-                                    <option value="openai">
-                                        OpenAI
-                                    </option>
+                                    <option value="openai">OpenAI</option>
                                     <option value="anthropic">Anthropic</option>
                                     <option value="nanogpt">NanoGPT</option>
                                     <option value="z-ai">Z.ai</option>
@@ -1075,7 +1091,7 @@ export function Providers() {
                                                 api_key: e.target.value,
                                             })
                                         }
-                                        className="ui-input pr-10"
+                                        className="ui-input pr-10 overflow-hidden"
                                         placeholder={
                                             providerTypeAllowsEmptyKey(
                                                 formData.provider_type,
