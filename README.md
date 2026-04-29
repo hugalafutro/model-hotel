@@ -7,6 +7,17 @@
 
 <p align="center">
   <img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/github/license/hugalafutro/model-hotel" alt="License">
+  <img src="https://img.shields.io/github/last-commit/hugalafutro/model-hotel" alt="Last Commit">
+  <img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version">
+  <br/>
+  <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <br/>
+  <img src="https://img.shields.io/badge/built%20with-GLM%205.1%20%26%20Kimi%20K2.6-blueviolet" alt="Built With">
 </p>
 
 <p align="center">Built for when the popular option didn't autodiscover ~300 models across my 4 providers. Then it spiraled a bit.</p>
