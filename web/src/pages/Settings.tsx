@@ -763,6 +763,11 @@ export function Settings() {
                                     } catch {
                                         /* ignore */
                                     }
+                                    window.dispatchEvent(
+                                        new CustomEvent(
+                                            "sidebarQuotaRefreshChange",
+                                        ),
+                                    );
                                     toast(
                                         val === "0"
                                             ? "Sidebar quota auto-refresh disabled — use manual refresh"
@@ -1232,9 +1237,16 @@ function LoggingSettings() {
                             </option>
                         ))}
                     </select>
-                    <p className="text-gray-500 text-xs mt-1">
-                        Automatically delete logs older than this period
-                    </p>
+                    {logRetention === "0" ? (
+                        <p className="text-amber-400 text-xs mt-1">
+                            Log retention is disabled. Logs will accumulate
+                            indefinitely until manually purged.
+                        </p>
+                    ) : (
+                        <p className="text-gray-500 text-xs mt-1">
+                            Automatically delete logs older than this period
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -1260,12 +1272,20 @@ function LoggingSettings() {
                             </option>
                         ))}
                     </select>
-                    <p className="text-gray-500 text-xs mt-1">
-                        Mark pending/streaming requests as
-                        &ldquo;interrupted&rdquo; if they remain in-progress
-                        longer than this. Accounts for providers with long
-                        time-to-first-token.
-                    </p>
+                    {staleRequestTimeout === "0s" ? (
+                        <p className="text-amber-400 text-xs mt-1">
+                            Stale request detection is disabled. Orphaned
+                            requests from server restarts will still be marked
+                            as failed, but age-based cleanup will not run.
+                        </p>
+                    ) : (
+                        <p className="text-gray-500 text-xs mt-1">
+                            Mark pending/streaming requests as
+                            &ldquo;interrupted&rdquo; if they remain in-progress
+                            longer than this. Accounts for providers with long
+                            time-to-first-token.
+                        </p>
+                    )}
                 </div>
 
                 <div>

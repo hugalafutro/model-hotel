@@ -583,13 +583,15 @@ func main() {
 			switch retention {
 			case "1h":
 				cutoff = time.Now().Add(-1 * time.Hour)
-			case "1d":
+			case "1d", "24h":
 				cutoff = time.Now().Add(-24 * time.Hour)
-			case "1w":
+			case "1w", "168h":
 				cutoff = time.Now().Add(-7 * 24 * time.Hour)
-			case "1m":
+			case "1m", "720h":
 				cutoff = time.Now().Add(-30 * 24 * time.Hour)
 			default:
+				// Unrecognised value (including "0" for disabled): skip
+				// cleanup this cycle and re-check next hour.
 				timer.Reset(1 * time.Hour)
 				continue
 			}

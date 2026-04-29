@@ -26,19 +26,6 @@ function getCachedData<T>(key: string): T | undefined {
     return undefined;
 }
 
-function getRefreshInterval(): number {
-    try {
-        const raw = localStorage.getItem("sidebarQuotaRefreshMin");
-        if (raw) {
-            const v = parseInt(raw, 10);
-            if (v >= 1) return v * 60_000;
-        }
-    } catch {
-        /* ignore */
-    }
-    return 5 * 60_000;
-}
-
 function isQuotaDisabled(): boolean {
     try {
         return localStorage.getItem("sidebarQuotaDisabled") === "true";
@@ -61,16 +48,37 @@ export function ProviderQuotaPanel() {
         }
     });
     const [disabled, setDisabled] = useState(() => isQuotaDisabled());
+    const [refreshIntervalMin, setRefreshIntervalMin] = useState(() => {
+        try {
+            return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
+        } catch {
+            return "5";
+        }
+    });
 
-    // Listen for toggle changes from Settings page (same tab)
+    // Listen for toggle and refresh-interval changes from Settings page (same tab)
     useEffect(() => {
-        const handler = () => setDisabled(isQuotaDisabled());
-        window.addEventListener("sidebarQuotaToggle", handler);
+        const toggleHandler = () => setDisabled(isQuotaDisabled());
+        const refreshHandler = () => {
+            try {
+                setRefreshIntervalMin(
+                    localStorage.getItem("sidebarQuotaRefreshMin") || "5",
+                );
+            } catch {
+                setRefreshIntervalMin("5");
+            }
+        };
+        window.addEventListener("sidebarQuotaToggle", toggleHandler);
+        window.addEventListener("sidebarQuotaRefreshChange", refreshHandler);
         // Also listen for storage events (cross-tab)
-        window.addEventListener("storage", handler);
+        window.addEventListener("storage", toggleHandler);
         return () => {
-            window.removeEventListener("sidebarQuotaToggle", handler);
-            window.removeEventListener("storage", handler);
+            window.removeEventListener("sidebarQuotaToggle", toggleHandler);
+            window.removeEventListener(
+                "sidebarQuotaRefreshChange",
+                refreshHandler,
+            );
+            window.removeEventListener("storage", toggleHandler);
         };
     }, []);
 
@@ -138,7 +146,15 @@ export function ProviderQuotaPanel() {
         [providers],
     );
 
-    const refreshMs = getRefreshInterval();
+    // Derive the refresh interval from the reactive state so changes
+    // (triggered by the sidebarQuotaRefreshChange event) take effect
+    // immediately without a page reload.
+    const refreshMs: number | false = (() => {
+        const v = parseInt(refreshIntervalMin, 10);
+        if (v === 0) return false;
+        if (v >= 1) return v * 60_000;
+        return 5 * 60_000;
+    })();
 
     const {
         data: nanogptUsage,
