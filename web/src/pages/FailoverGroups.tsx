@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useState } from "react";
 import { Shuffle } from "lucide-react";
+import { FilterInput } from "../components/FilterInput";
 import type { FailoverGroup, CandidateModel } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { Modal } from "../components/Modal";
@@ -425,13 +426,17 @@ export function FailoverGroups() {
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const { data: listData, isLoading } = useQuery({
         queryKey: ["failover-groups"],
         queryFn: () => api.failoverGroups.list(),
     });
 
-    const groups = listData?.groups;
+    const allGroups = listData?.groups;
+    const groups = allGroups?.filter((g) =>
+        g.display_model.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
     const lastSyncedAt = listData?.last_synced_at;
 
     const { data: candidates } = useQuery({
@@ -595,19 +600,44 @@ export function FailoverGroups() {
                 </div>
             </div>
 
+            <div className="flex items-center gap-4">
+                <FilterInput
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Filter hotel/model…"
+                    className="w-[320px]"
+                    autoFocus
+                />
+            </div>
+
             {groups && groups.length === 0 ? (
-                <div className="text-center py-12">
-                    <div className="text-gray-500 mb-4">
-                        No failover groups configured
+                searchQuery ? (
+                    <div className="text-center py-12">
+                        <div className="text-gray-500 mb-4">
+                            No groups matching &ldquo;{searchQuery}&rdquo;
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setSearchQuery("")}
+                            className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+                        >
+                            Clear filter
+                        </button>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => syncMutation.mutate()}
-                        className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
-                    >
-                        Auto-discover from models
-                    </button>
-                </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <div className="text-gray-500 mb-4">
+                            No failover groups configured
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => syncMutation.mutate()}
+                            className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+                        >
+                            Auto-discover from models
+                        </button>
+                    </div>
+                )
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                     {groups?.map((group) => (
