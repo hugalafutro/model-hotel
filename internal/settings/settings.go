@@ -70,11 +70,14 @@ type Repository struct {
 }
 
 // Subscription represents an active subscription to settings changes.
-// Call Unsubscribe when done to prevent goroutine leaks.
+// Call Unsubscribe when done to prevent goroutine leaks. It is safe to
+// call Unsubscribe more than once.
 type Subscription struct {
-	id   uint64
-	ch   <-chan ChangeEvent
-	repo *Repository
+	id    uint64
+	ch    <-chan ChangeEvent
+	repo  *Repository
+	once  sync.Once
+	clean func() // teardown callback, set by Subscribe
 }
 
 // Events returns the read-only channel on which change events are delivered.
@@ -83,9 +86,9 @@ func (s *Subscription) Events() <-chan ChangeEvent {
 }
 
 // Unsubscribe removes the subscription, draining and closing the underlying
-// channel. It is safe to call more than once.
+// channel. It is safe to call more than once — subsequent calls are no-ops.
 func (s *Subscription) Unsubscribe() {
-	s.repo.unsubscribe(s.id)
+	s.once.Do(s.clean)
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
@@ -111,7 +114,9 @@ func (r *Repository) Subscribe() *Subscription {
 	r.changeMu.Lock()
 	r.subscriptions = append(r.subscriptions, subscription{id: id, ch: ch})
 	r.changeMu.Unlock()
-	return &Subscription{id: id, ch: ch, repo: r}
+	sub := &Subscription{id: id, ch: ch, repo: r}
+	sub.clean = func() { r.unsubscribe(id) }
+	return sub
 }
 
 // unsubscribe removes and closes a subscription by its unique ID.
