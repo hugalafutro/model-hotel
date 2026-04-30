@@ -1,7 +1,7 @@
 import { Brain, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 
-export function ThinkingBlock({
+export const ThinkingBlock = memo(function ThinkingBlock({
 	thinking,
 	isStreaming,
 }: {
@@ -32,4 +32,4 @@ export function ThinkingBlock({
 			)}
 		</>
 	);
-}
+});

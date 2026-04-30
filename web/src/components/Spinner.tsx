@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 
 const BRAILLE = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-export function Spinner({ className = "" }: { className?: string }) {
+export const Spinner = memo(function Spinner({
+	className = "",
+}: {
+	className?: string;
+}) {
 	const { uiStyle } = useTheme();
 	const [frame, setFrame] = useState(0);
 
@@ -25,4 +29,4 @@ export function Spinner({ className = "" }: { className?: string }) {
 			className={`inline-block w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin ${className}`}
 		/>
 	);
-}
+});

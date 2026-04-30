@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { memo } from "react";
 
 interface FilterInputProps {
 	value: string;
@@ -10,7 +11,7 @@ interface FilterInputProps {
 	disabled?: boolean;
 }
 
-export function FilterInput({
+export const FilterInput = memo(function FilterInput({
 	value,
 	onChange,
 	placeholder = "Filter…",
@@ -43,4 +44,4 @@ export function FilterInput({
 			)}
 		</div>
 	);
-}
+});

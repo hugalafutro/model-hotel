@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useToast } from "../context/ToastContext";
 
 interface CopyablePillProps {
@@ -10,7 +11,7 @@ interface CopyablePillProps {
 	suffix?: React.ReactNode;
 }
 
-export function CopyablePill({
+export const CopyablePill = memo(function CopyablePill({
 	text,
 	displayText,
 	tooltip = "Click to copy",
@@ -61,4 +62,4 @@ export function CopyablePill({
 			{suffix}
 		</div>
 	);
-}
+});

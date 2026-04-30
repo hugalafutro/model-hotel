@@ -127,6 +127,7 @@ export function Arena() {
 
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
+	const quotaWarnedRef = useRef(false);
 	const { arenaSubMode, setArenaSubMode } = useSidebarMode();
 
 	const arenaMode = arenaSubMode;
@@ -361,8 +362,12 @@ export function Arena() {
 			localStorage.setItem("arenaCompetitionPrompt", competitionPrompt);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
-	}, [competitionPrompt, persistArena]);
+	}, [competitionPrompt, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -370,8 +375,12 @@ export function Arena() {
 			localStorage.setItem("arenaComparePrompt", comparePrompt);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
-	}, [comparePrompt, persistArena]);
+	}, [comparePrompt, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -382,8 +391,12 @@ export function Arena() {
 			);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
-	}, [competitionActivePromptId, persistArena]);
+	}, [competitionActivePromptId, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -394,8 +407,12 @@ export function Arena() {
 			);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
-	}, [compareActivePromptId, persistArena]);
+	}, [compareActivePromptId, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -403,8 +420,12 @@ export function Arena() {
 			localStorage.setItem("arenaComparePersonaId", comparePersonaId ?? "");
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
-	}, [comparePersonaId, persistArena]);
+	}, [comparePersonaId, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -412,8 +433,12 @@ export function Arena() {
 			localStorage.setItem("arenaComparePersonaPrompt", comparePersonaPrompt);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
-	}, [comparePersonaPrompt, persistArena]);
+	}, [comparePersonaPrompt, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -434,6 +459,10 @@ export function Arena() {
 			);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — arena state not saved", "warning");
+			}
 		}
 	}, [
 		arenaMode,
@@ -446,6 +475,7 @@ export function Arena() {
 		savedPrompt,
 		modelParams,
 		persistArena,
+		toast,
 	]);
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());

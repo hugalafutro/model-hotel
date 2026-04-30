@@ -8,7 +8,7 @@ import {
 	X,
 	Zap,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { memo, type ReactNode, useEffect, useState } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -105,7 +105,7 @@ const mdComponents: Components = {
 	),
 };
 
-export function ModelReplyCard({
+export const ModelReplyCard = memo(function ModelReplyCard({
 	model,
 	content,
 	thinkingContent,
@@ -434,4 +434,4 @@ export function ModelReplyCard({
 			)}
 		</>
 	);
-}
+});

@@ -1,7 +1,8 @@
+import { memo } from "react";
 import type { ModelCapabilities } from "../api/types";
 import { CAP_META, type CapKey, hasCap } from "./capMeta";
 
-export function CapBadge({
+export const CapBadge = memo(function CapBadge({
 	caps,
 	capKey,
 	variant = "active",
@@ -25,4 +26,4 @@ export function CapBadge({
 			{meta.label}
 		</span>
 	);
-}
+});

@@ -29,7 +29,10 @@ const markdownComponents: Components = {
 	),
 };
 
-export const MarkdownContent = memo(function MarkdownContent({ children, className }: MarkdownContentProps) {
+export const MarkdownContent = memo(function MarkdownContent({
+	children,
+	className,
+}: MarkdownContentProps) {
 	return (
 		<div className={`${MARKDOWN_PROSE_CLASSES} ${className || ""}`}>
 			<ReactMarkdown

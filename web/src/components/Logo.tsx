@@ -1,4 +1,9 @@
-export function Logo({ className = "" }: { className?: string }) {
+import { memo } from "react";
+export const Logo = memo(function Logo({
+	className = "",
+}: {
+	className?: string;
+}) {
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -92,4 +97,4 @@ export function Logo({ className = "" }: { className?: string }) {
 			</text>
 		</svg>
 	);
-}
+});

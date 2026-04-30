@@ -390,6 +390,7 @@ export function Chat() {
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
 	const { persistChat, persistConversation } = useStorage();
+	const quotaWarnedRef = useRef(false);
 
 	// Derived state based on current mode
 	const selectedModel =
@@ -550,8 +551,12 @@ export function Chat() {
 			localStorage.setItem("chatMessages", JSON.stringify(messages));
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — chat history not saved", "warning");
+			}
 		}
-	}, [messages, persistChat]);
+	}, [messages, persistChat, toast]);
 
 	// ── Conversation messages persistence effect ──
 	useEffect(() => {
@@ -561,8 +566,12 @@ export function Chat() {
 			localStorage.setItem("conversationMessages", JSON.stringify(messages));
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — chat history not saved", "warning");
+			}
 		}
-	}, [messages, persistConversation, chatSubMode]);
+	}, [messages, persistConversation, chatSubMode, toast]);
 
 	useEffect(() => {
 		if (!persistChat) return;
@@ -570,8 +579,12 @@ export function Chat() {
 			localStorage.setItem("chatSystemPrompt", chatSystemPrompt);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — chat history not saved", "warning");
+			}
 		}
-	}, [chatSystemPrompt, persistChat]);
+	}, [chatSystemPrompt, persistChat, toast]);
 
 	useEffect(() => {
 		if (!persistChat) return;
@@ -579,8 +592,12 @@ export function Chat() {
 			localStorage.setItem("chatActivePersonaId", chatActivePersonaId ?? "");
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — chat history not saved", "warning");
+			}
 		}
-	}, [chatActivePersonaId, persistChat]);
+	}, [chatActivePersonaId, persistChat, toast]);
 
 	useEffect(() => {
 		if (!persistChat) return;
@@ -588,8 +605,12 @@ export function Chat() {
 			localStorage.setItem("chatSelectedModel", chatSelectedModel);
 		} catch {
 			/* quota exceeded */
+			if (!quotaWarnedRef.current) {
+				quotaWarnedRef.current = true;
+				toast("Storage full — chat history not saved", "warning");
+			}
 		}
-	}, [chatSelectedModel, persistChat]);
+	}, [chatSelectedModel, persistChat, toast]);
 
 	// ── Conversation mode persistence effects ──
 	useEffect(() => {
