@@ -253,7 +253,7 @@ export function Settings() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 				{/* Model Discovery */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Search size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">
@@ -367,12 +367,12 @@ export function Settings() {
 				</div>
 
 				{/* Discovery Status */}
-				<div className="ui-card p-6 max-h-105 flex flex-col overflow-hidden">
+				<div className="ui-card p-6 h-130 flex flex-col overflow-hidden">
 					<ProviderDiscoveryList />
 				</div>
 
 				{/* Appearance */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Palette size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Appearance</h2>
@@ -514,7 +514,7 @@ export function Settings() {
 				</div>
 
 				{/* Toast Notifications */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Bell size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">
@@ -653,7 +653,7 @@ export function Settings() {
 				</div>
 
 				{/* Sidebar Quota Refresh */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Timer size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Sidebar Quotas</h2>
@@ -758,7 +758,7 @@ export function Settings() {
 				</div>
 
 				{/* Dashboard Refresh */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<LayoutDashboard size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">
@@ -826,7 +826,7 @@ export function Settings() {
 				<LoggingSettings />
 
 				{/* Data Storage */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Database size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Data Storage</h2>
@@ -1009,7 +1009,7 @@ export function Settings() {
 				</div>
 
 				{/* Arena History */}
-				<div className="ui-card p-6 max-h-130 overflow-y-auto">
+				<div className="ui-card p-6 h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<History size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Arena History</h2>
@@ -1171,7 +1171,7 @@ function RateLimitSettings() {
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
 
 	return (
-		<div className="ui-card p-6 max-h-130 overflow-y-auto">
+		<div className="ui-card p-6 h-130 overflow-y-auto">
 			<div className="flex items-center gap-2 mb-1">
 				<Gauge size={18} className="text-(--accent)" />
 				<h2 className="text-xl font-semibold text-white">Rate Limiting</h2>
@@ -1362,7 +1362,7 @@ function LoggingSettings() {
 	};
 
 	return (
-		<div className="ui-card p-6 max-h-130 overflow-y-auto">
+		<div className="ui-card p-6 h-130 overflow-y-auto">
 			<div className="flex items-center gap-2 mb-1">
 				<ScrollText size={18} className="text-(--accent)" />
 				<h2 className="text-xl font-semibold text-white">Logging</h2>

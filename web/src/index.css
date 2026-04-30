@@ -573,6 +573,7 @@ html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 
 .sidebar-stats-pill {
 	margin-top: 0.25rem;
+	position: relative;
 }
 
 .sidebar-stats-trigger {
