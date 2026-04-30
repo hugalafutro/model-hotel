@@ -232,14 +232,6 @@ function SystemStatus() {
 						{isError ? "Error" : "Online"}
 					</span>
 				</div>
-				<button
-					type="button"
-					onClick={toggleCollapsed}
-					className="sidebar-stats-trigger-btn"
-					title={collapsed ? "Expand stats" : "Collapse stats"}
-				>
-					{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
-				</button>
 			</div>
 			{!collapsed && (
 				<div className="sidebar-stats-content space-y-2 text-[11px] font-mono system-status">
@@ -420,6 +412,16 @@ function SystemStatus() {
 					</div>
 				</div>
 			)}
+			<div className="sidebar-stats-footer">
+				<button
+					type="button"
+					onClick={toggleCollapsed}
+					className="sidebar-stats-trigger-btn"
+					title={collapsed ? "Expand stats" : "Collapse stats"}
+				>
+					{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
+				</button>
+			</div>
 		</div>
 	);
 }

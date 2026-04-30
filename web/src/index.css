@@ -578,7 +578,11 @@ html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 .sidebar-stats-trigger {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+}
+
+.sidebar-stats-footer {
+	display: flex;
+	justify-content: flex-end;
 }
 
 .sidebar-stats-trigger-btn {
