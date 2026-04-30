@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -28,7 +29,7 @@ const markdownComponents: Components = {
 	),
 };
 
-export function MarkdownContent({ children, className }: MarkdownContentProps) {
+export const MarkdownContent = memo(function MarkdownContent({ children, className }: MarkdownContentProps) {
 	return (
 		<div className={`${MARKDOWN_PROSE_CLASSES} ${className || ""}`}>
 			<ReactMarkdown
@@ -39,4 +40,4 @@ export function MarkdownContent({ children, className }: MarkdownContentProps) {
 			</ReactMarkdown>
 		</div>
 	);
-}
+});

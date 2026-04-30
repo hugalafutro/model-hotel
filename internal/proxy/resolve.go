@@ -116,7 +116,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
 			if err != nil {
-				log.Printf("[resolve] error: key decryption failed for provider=%s: %v", prov.Name, err)
+				log.Printf("[resolve] error: key decryption failed for provider=%s model=%s entry=%s: %v", prov.Name, m.ModelID, modelUUID, err)
 				continue
 			}
 		}
@@ -167,7 +167,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 		t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
 		if err != nil {
-			log.Printf("[resolve] error: key decryption failed for provider=%s: %v", prov.Name, err)
+			log.Printf("[resolve] error: key decryption failed for provider=%s model=%s: %v", prov.Name, modelID, err)
 			return nil, t, err
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -375,6 +376,31 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var lastErr string
 	for attempt, candidate := range candidates {
+		// Exponential backoff between failover attempts: 0ms, 100ms, 200ms, 400ms...
+		// Capped at 2s. First attempt (attempt=0) has no delay.
+		if attempt > 0 {
+			backoff := time.Duration(math.Min(float64(100*time.Millisecond)*math.Pow(2, float64(attempt-1)), float64(2*time.Second)))
+			log.Printf("[proxy] failover backoff: waiting %v before attempt %d", backoff, attempt+1)
+			select {
+			case <-time.After(backoff):
+			case <-r.Context().Done():
+				log.Printf("[proxy] client disconnected during failover backoff")
+				logData.statusCode = 499
+				logData.errorMessage = "client disconnected during failover"
+				logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+				logData.proxyOverheadMs = proxyOverhead
+				logData.parseMs = parseMs
+				logData.modelLookupMs = timings.modelLookupMs
+				logData.providerLookupMs = timings.providerLookupMs
+				logData.keyDecryptMs = timings.keyDecryptMs
+				logData.failoverAttempt = attempt - 1
+				logData.state = "failed"
+				h.updateRequestLog(r.Context(), logData)
+				http.Error(w, "client disconnected", http.StatusRequestTimeout)
+				return
+			}
+		}
+
 		logData.providerID = candidate.provider.ID
 		log.Printf("[proxy] failover attempt=%d provider=%s model=%s", attempt+1, candidate.provider.ID, candidate.model.ModelID)
 		go func(pid uuid.UUID) {
