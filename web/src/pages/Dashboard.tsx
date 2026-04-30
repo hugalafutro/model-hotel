@@ -1307,6 +1307,11 @@ export function Dashboard() {
 						<button
 							type="button"
 							onClick={() => setExcludeDeleted(!excludeDeleted)}
+							title={
+								excludeDeleted
+									? "Showing only active (non-deleted) virtual keys. Click to include deleted keys in stats."
+									: "Showing all virtual keys including deleted ones. Click to filter to active keys only."
+							}
 							className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
 								excludeDeleted
 									? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"

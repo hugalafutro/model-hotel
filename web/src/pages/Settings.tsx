@@ -128,6 +128,34 @@ function formatRelativeTime(dateStr: string): string {
 	return `${diffDay}d ago`;
 }
 
+const PROVIDER_CACHE_KEYS = [
+	"model-hotel:nanogpt-usage",
+	"model-hotel:zai-usage",
+	"model-hotel:deepseek-balance",
+];
+
+function getProviderCacheCount(): number {
+	let count = 0;
+	for (const key of PROVIDER_CACHE_KEYS) {
+		try {
+			if (localStorage.getItem(key) !== null) count++;
+		} catch {
+			/* ignore */
+		}
+	}
+	return count;
+}
+
+function clearProviderCache() {
+	for (const key of PROVIDER_CACHE_KEYS) {
+		try {
+			localStorage.removeItem(key);
+		} catch {
+			/* ignore */
+		}
+	}
+}
+
 export function Settings() {
 	const {
 		theme,
@@ -223,9 +251,9 @@ export function Settings() {
 				<p className="text-gray-400">Configure your Model Hotel instance</p>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 				{/* Model Discovery */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Search size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">
@@ -344,7 +372,7 @@ export function Settings() {
 				</div>
 
 				{/* Appearance */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Palette size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Appearance</h2>
@@ -486,7 +514,7 @@ export function Settings() {
 				</div>
 
 				{/* Toast Notifications */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Bell size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">
@@ -625,7 +653,7 @@ export function Settings() {
 				</div>
 
 				{/* Sidebar Quota Refresh */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Timer size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Sidebar Quotas</h2>
@@ -730,7 +758,7 @@ export function Settings() {
 				</div>
 
 				{/* Dashboard Refresh */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<LayoutDashboard size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">
@@ -798,7 +826,7 @@ export function Settings() {
 				<LoggingSettings />
 
 				{/* Data Storage */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<Database size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Data Storage</h2>
@@ -923,11 +951,65 @@ export function Settings() {
 								/>
 							</button>
 						</div>
+
+						{/* Provider quota cache */}
+						<div className="flex items-center justify-between pt-4 border-t border-gray-700">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									Provider Quota Cache
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{getProviderCacheCount()} cached entr
+									{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT, Z.ai,
+									DeepSeek)
+								</p>
+							</div>
+							<button
+								type="button"
+								onClick={() => {
+									if (
+										confirm(
+											"Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
+										)
+									) {
+										clearProviderCache();
+										toast("Provider cache cleared", "info");
+									}
+								}}
+								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+								disabled={getProviderCacheCount() === 0}
+							>
+								Clear Cache
+							</button>
+						</div>
+
+						{/* Dismissed error banners */}
+						<div className="flex items-center justify-between pt-4 border-t border-gray-700">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									Dismissed Error Banners
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									Reset dismissed sidebar error pill states
+								</p>
+							</div>
+							<button
+								type="button"
+								onClick={() => {
+									localStorage.removeItem("dismissedAppErrorKey");
+									localStorage.removeItem("dismissedReqErrorKey");
+									toast("Dismissed error banners reset", "info");
+								}}
+								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+							>
+								Reset
+							</button>
+						</div>
 					</div>
 				</div>
 
 				{/* Arena History */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 max-h-130 overflow-y-auto">
 					<div className="flex items-center gap-2 mb-1">
 						<History size={18} className="text-(--accent)" />
 						<h2 className="text-xl font-semibold text-white">Arena History</h2>
@@ -1089,7 +1171,7 @@ function RateLimitSettings() {
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
 
 	return (
-		<div className="ui-card p-6">
+		<div className="ui-card p-6 max-h-130 overflow-y-auto">
 			<div className="flex items-center gap-2 mb-1">
 				<Gauge size={18} className="text-(--accent)" />
 				<h2 className="text-xl font-semibold text-white">Rate Limiting</h2>
@@ -1280,7 +1362,7 @@ function LoggingSettings() {
 	};
 
 	return (
-		<div className="ui-card p-6">
+		<div className="ui-card p-6 max-h-130 overflow-y-auto">
 			<div className="flex items-center gap-2 mb-1">
 				<ScrollText size={18} className="text-(--accent)" />
 				<h2 className="text-xl font-semibold text-white">Logging</h2>
