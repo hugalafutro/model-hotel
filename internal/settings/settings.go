@@ -61,7 +61,8 @@ type subscription struct {
 type Repository struct {
 	pool  *pgxpool.Pool
 	mu    sync.RWMutex
-	cache map[string]cacheEntry
+	cache    map[string]cacheEntry
+	cacheTTL time.Duration
 
 	// changeMu protects onChangeCallbacks and subscriptions.
 	changeMu          sync.RWMutex
@@ -93,8 +94,9 @@ func (s *Subscription) Unsubscribe() {
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
-		pool:  pool,
-		cache: make(map[string]cacheEntry),
+		pool:     pool,
+		cache:    make(map[string]cacheEntry),
+		cacheTTL: 30 * time.Second,
 	}
 }
 
@@ -171,8 +173,6 @@ func (r *Repository) notifyChange(key, value string) {
 	}
 }
 
-const cacheTTL = 30 * time.Second
-
 func (r *Repository) Get(ctx context.Context, key string) (string, error) {
 	var value string
 	err := r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&value)
@@ -197,7 +197,7 @@ func (r *Repository) GetWithDefault(ctx context.Context, key string, defaultValu
 	}
 
 	r.mu.Lock()
-	r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(cacheTTL)}
+	r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
 	r.mu.Unlock()
 
 	return value

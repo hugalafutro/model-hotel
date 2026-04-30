@@ -1,6 +1,7 @@
 package events
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -118,4 +119,42 @@ func TestPublishWithIDAndTimestamp(t *testing.T) {
 	}
 
 	b.Unsubscribe(ch)
+}
+
+func TestConcurrentSubscribePublish(t *testing.T) {
+	b := NewBus()
+	var wg sync.WaitGroup
+
+	// Pre-register some subscribers.
+	subs := make([]chan Event, 5)
+	for i := range subs {
+		subs[i] = b.Subscribe()
+	}
+
+	// Concurrent publishers.
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b.Publish(Event{Type: "concurrent"})
+		}()
+	}
+
+	// Concurrent subscribe/unsubscribe while publishing.
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ch := b.Subscribe()
+			time.Sleep(5 * time.Millisecond)
+			b.Unsubscribe(ch)
+		}()
+	}
+
+	wg.Wait()
+
+	// Clean up remaining subscribers.
+	for _, ch := range subs {
+		b.Unsubscribe(ch)
+	}
 }

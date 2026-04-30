@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -319,7 +320,7 @@ func TestCacheTTL(t *testing.T) {
 		t.Errorf("got %q, want initial (cached)", val)
 	}
 
-	time.Sleep(cacheTTL + time.Second)
+	time.Sleep(r.cacheTTL + time.Second)
 
 	val = r.GetWithDefault(ctx, key, "default")
 	if val != "updated" {
@@ -558,4 +559,49 @@ func TestSetEmptyValue(t *testing.T) {
 	if got != "" {
 		t.Errorf("Get = %q, want empty string", got)
 	}
+}
+
+func TestConcurrentSetGetSubscribe(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	sub := r.Subscribe()
+	defer sub.Unsubscribe()
+
+	var wg sync.WaitGroup
+
+	// Concurrent writers.
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			_ = r.Set(ctx, fmt.Sprintf("race_key_%d", n), fmt.Sprintf("val_%d", n))
+		}(i)
+	}
+
+	// Concurrent readers.
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			r.GetWithDefault(ctx, fmt.Sprintf("race_key_%d", n), "default")
+		}(i)
+	}
+
+	// Concurrent subscriber drain.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timeout := time.After(100 * time.Millisecond)
+		for {
+			select {
+			case <-sub.Events():
+			case <-timeout:
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
 }

@@ -81,9 +81,7 @@ func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 	_, err := DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
 	if err != nil {
 		log.Printf("[keycache] error: failed to warm key cache: %v", err)
-		return
 	}
-	log.Printf("[keycache] warmed cache with 1 key")
 }
 
 func startKeyCacheEviction() {
