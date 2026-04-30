@@ -217,24 +217,32 @@ function SystemStatus() {
 
 	return (
 		<div className="sidebar-stats-pill">
+			<div className="sidebar-stats-trigger">
+				<div
+					className="flex justify-between items-center text-[11px] font-mono text-(--text-tertiary) flex-1 min-w-0"
+					title="Proxy API health status"
+				>
+					<span>API Status</span>
+					<span
+						className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}
+					>
+						<span
+							className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`}
+						/>
+						{isError ? "Error" : "Online"}
+					</span>
+				</div>
+				<button
+					type="button"
+					onClick={toggleCollapsed}
+					className="sidebar-stats-trigger-btn"
+					title={collapsed ? "Expand stats" : "Collapse stats"}
+				>
+					{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
+				</button>
+			</div>
 			{!collapsed && (
 				<div className="sidebar-stats-content space-y-2 text-[11px] font-mono system-status">
-					{/* API Status */}
-					<div
-						className="flex justify-between items-center text-(--text-tertiary)"
-						title="Proxy API health status"
-					>
-						<span>API Status</span>
-						<span
-							className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}
-						>
-							<span
-								className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`}
-							/>
-							{isError ? "Error" : "Online"}
-						</span>
-					</div>
-
 					{/* Uptime */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
@@ -412,14 +420,6 @@ function SystemStatus() {
 					</div>
 				</div>
 			)}
-			<button
-				type="button"
-				onClick={toggleCollapsed}
-				className="sidebar-stats-trigger"
-				title={collapsed ? "Expand stats" : "Collapse stats"}
-			>
-				{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
-			</button>
 		</div>
 	);
 }
