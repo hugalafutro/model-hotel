@@ -323,7 +323,9 @@ type DisabledGroupInfo struct {
 
 type SyncResult struct {
 	DisabledGroups []DisabledGroupInfo `json:"disabled_groups"`
+	SyncErrors     []string            `json:"sync_errors,omitempty"`
 }
+
 
 var commonPrefixes = []string{
 	"zai-org/",
@@ -443,7 +445,8 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
 		if err != nil {
-			return nil, err
+			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
+			continue
 		}
 	}
 

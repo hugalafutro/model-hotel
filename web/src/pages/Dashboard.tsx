@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Activity,
 	AlertTriangle,
@@ -8,6 +8,7 @@ import {
 	Gauge as GaugeIcon,
 	LayoutDashboard,
 	PlugZap,
+	RefreshCw,
 	ShieldAlert,
 	Target,
 	Timer,
@@ -15,7 +16,7 @@ import {
 	X,
 	Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	Area,
 	AreaChart,
@@ -31,6 +32,7 @@ import {
 import { api } from "../api/client";
 import type { MetricType } from "../api/types";
 import { Spinner } from "../components/Spinner";
+import { useToast } from "../context/ToastContext";
 
 type Range = "24h" | "7d";
 
@@ -940,6 +942,64 @@ export function Dashboard() {
 	const [requestsModalOpen, setRequestsModalOpen] = useState(false);
 	const [tokensModalOpen, setTokensModalOpen] = useState(false);
 
+	// Dashboard auto-refresh
+	const queryClient = useQueryClient();
+	const { toast } = useToast();
+	const lastManualRefresh = useRef(0);
+	const refreshCooldownMs = 5000;
+	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
+		try {
+			const sec = Number(localStorage.getItem("dashboardRefreshSec"));
+			if (sec > 0) return sec * 1000;
+		} catch {
+			/* ignore */
+		}
+		return 30000; // default 30s
+	});
+
+	// React to interval changes from Settings page mid-session
+	useEffect(() => {
+		const handler = () => {
+			try {
+				const sec = Number(localStorage.getItem("dashboardRefreshSec"));
+				setDashboardRefreshMs(sec > 0 ? sec * 1000 : 30000);
+			} catch {
+				setDashboardRefreshMs(30000);
+			}
+		};
+		window.addEventListener("dashboardRefreshChange", handler);
+		return () => window.removeEventListener("dashboardRefreshChange", handler);
+	}, []);
+
+	const handleRefresh = useCallback(() => {
+		const now = Date.now();
+		if (now - lastManualRefresh.current < refreshCooldownMs) {
+			toast("Please wait before refreshing again", "info");
+			return;
+		}
+		lastManualRefresh.current = now;
+		setIsRefreshing(true);
+		queryClient.invalidateQueries({ queryKey: ["stats"] });
+		queryClient.invalidateQueries({ queryKey: ["models"] });
+		queryClient.invalidateQueries({ queryKey: ["providers"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-timeseries"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-timeseries-tokens"] });
+		queryClient.invalidateQueries({
+			queryKey: ["stats-provider-distribution"],
+		});
+		queryClient.invalidateQueries({ queryKey: ["stats-top-models"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-top-providers"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-top-virtual-keys"] });
+		toast("Refreshing dashboard…", "info");
+		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
+	}, [queryClient, toast]);
+
+	// Hide manual refresh when auto-refresh is 10s or faster
+	const hideManualRefresh =
+		dashboardRefreshMs > 0 && dashboardRefreshMs <= 10000;
+
 	const {
 		data: stats,
 		isLoading: statsLoading,
@@ -948,6 +1008,7 @@ export function Dashboard() {
 		queryKey: ["stats", tokenRange, excludeDeleted],
 		queryFn: () => api.stats.get({ period: tokenRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 		retry: 1,
 	});
 
@@ -958,6 +1019,7 @@ export function Dashboard() {
 	} = useQuery({
 		queryKey: ["stats", "1h", excludeDeleted],
 		queryFn: () => api.stats.get({ period: "1h", excludeDeleted }),
+		refetchInterval: dashboardRefreshMs,
 		retry: 1,
 	});
 
@@ -969,6 +1031,7 @@ export function Dashboard() {
 				.then((d) =>
 					excludeDeleted ? d.filter((m) => !m.disabled_manually) : d,
 				),
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: providers, isLoading: providersLoading } = useQuery({
@@ -977,12 +1040,14 @@ export function Dashboard() {
 			api.providers
 				.list()
 				.then((d) => (excludeDeleted ? d.filter((p) => p.enabled) : d)),
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tsData, isLoading: tsDataLoading } = useQuery({
 		queryKey: ["stats-timeseries", tsRange, excludeDeleted],
 		queryFn: () => api.stats.getTimeSeries({ period: tsRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
@@ -990,6 +1055,7 @@ export function Dashboard() {
 		queryFn: () =>
 			api.stats.getTimeSeries({ period: tokenTsRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: provDist, isLoading: provDistLoading } = useQuery({
@@ -1006,6 +1072,7 @@ export function Dashboard() {
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: modelStats, isLoading: modelStatsLoading } = useQuery({
@@ -1017,6 +1084,7 @@ export function Dashboard() {
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: providerStats, isLoading: providerStatsLoading } = useQuery({
@@ -1033,6 +1101,7 @@ export function Dashboard() {
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: vkStats, isLoading: vkStatsLoading } = useQuery({
@@ -1044,6 +1113,7 @@ export function Dashboard() {
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
 	});
 
 	// Auth check: on stats error, test if token is still valid.
@@ -1061,7 +1131,7 @@ export function Dashboard() {
 		}
 	}, [statsError]);
 
-	if (statsLoading) {
+	if (!stats && statsLoading) {
 		return (
 			<div className="flex items-center justify-center h-64">
 				<div
@@ -1223,6 +1293,24 @@ export function Dashboard() {
 							/>
 							{excludeDeleted ? "Active Keys Only" : "All Keys"}
 						</button>
+						{!hideManualRefresh && (
+							<button
+								type="button"
+								onClick={handleRefresh}
+								disabled={isRefreshing}
+								title={isRefreshing ? "Refreshing…" : "Refresh dashboard"}
+								className={`flex items-center justify-center w-7 h-7 rounded-full transition-all ${
+									isRefreshing
+										? "cursor-not-allowed opacity-60"
+										: "cursor-pointer hover:bg-(--accent)/20 hover:drop-shadow-[0_0_8px_var(--accent)]"
+								}`}
+							>
+								<RefreshCw
+									size={14}
+									className={`text-(--text-muted) ${isRefreshing ? "animate-spin" : ""}`}
+								/>
+							</button>
+						)}
 					</div>
 					<p className="text-gray-400">Overview of your Model Hotel usage</p>
 				</div>
