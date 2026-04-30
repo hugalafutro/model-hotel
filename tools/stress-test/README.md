@@ -101,9 +101,10 @@ The default flag values produce 16 scenarios:
 |  stress-test  |---->|  Model Hotel  |---->|  Mock Server   |
 |    runner     |     |  (:8081)      |     |  (:9090)       |
 +---------------+     +---------------+     +---------------+
-     admin API           rate limiter          /v1/models
-     virtual keys        failover              /v1/chat/completions
-                        request logging        SSE streaming
+     admin API           IP rate limiter
+     virtual keys        per-key rate limiter
+                        failover (exponential backoff)
+                        request logging          SSE streaming
 ```
 
 The stress test is purely external — it talks to the proxy via HTTP, creates fixtures via the admin API, and measures end-to-end behaviour. No proxy code changes are needed to run it (beyond the loopback allowlist config).
@@ -115,6 +116,7 @@ Understanding the internal path helps interpret results:
 ```
 Request -> chi middleware (RequestID, RealIP, Logger, Recoverer, Compress, Security, CORS, MaxBytesReader)
   -> streamingAwareTimeout (5min for streaming)
+  -> IPLimiter.Middleware (per-IP token bucket, always-on DoS safety net)
   -> ProxyKeyMiddleware (SHA-256 hash lookup against virtual_keys -- 1 DB query)
   -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate)
   -> ChatCompletions handler:
@@ -122,11 +124,13 @@ Request -> chi middleware (RequestID, RealIP, Logger, Recoverer, Compress, Secur
       2. Resolve model (failover group or provider/model) -- DB + cache
       3. Decrypt provider API key (AES-256-GCM, cached)
       4. INSERT into request_logs (DB write)
-      5. Forward to upstream provider (HTTP POST via shared Transport)
-      6. Stream back SSE chunks line-by-line
-      7. UPDATE request_logs (DB write)
-      8. UPDATE virtual_keys SET tokens_used (DB write)
-      9. Fire-and-forget TouchLastUsed (DB write)
+      5. For each candidate in failover chain:
+         a. Forward to upstream provider (HTTP POST via shared Transport)
+         b. On 5xx/429/401/403: exponential backoff (100ms base, 2s cap), try next
+         c. On 200: stream/return response
+      6. UPDATE request_logs (DB write)
+      7. UPDATE virtual_keys SET tokens_used (DB write)
+      8. Fire-and-forget TouchLastUsed (DB write)
 ```
 
 Likely bottleneck candidates at high concurrency:

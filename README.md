@@ -52,7 +52,7 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 Add any OpenAI-compatible provider ([OpenAI](https://openai.com/), [Anthropic](https://claude.ai/), [DeepSeek](https://deepseek.com/), [NanoGPT](https://docs.nano-gpt.com/), [Z.AI](https://z.ai/), [Ollama](https://github.com/ollama/ollama), [OpenCode](https://opencode.ai), or your own — including [Groq](https://groq.com/) and other OpenAI-compatible services via the generic path), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models) are also supported — no API key required.
 
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
-When a provider returns a 5xx, a 429 (rate limit, configurable via `failover_on_rate_limit`), an auth error (401/403), or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a provider that returned a non-2xx status. The final request record logs the attempt number that succeeded (or the last one that failed), along with the error code and total duration. Per-attempt failover events (attempt number, provider, status code) are also written to the application log for real-time debugging.
+When a provider returns a 5xx, a 429 (rate limit, configurable via `failover_on_rate_limit`), an auth error (401/403), or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a provider that returned a non-2xx status. An exponential backoff (100ms base, capped at 2s) is applied between attempts to avoid hammering slow providers; client disconnects during backoff are detected immediately. The final request record logs the attempt number that succeeded (or the last one that failed), along with the error code and total duration. Per-attempt failover events (attempt number, provider, status code) are also written to the application log for real-time debugging.
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
 Prefix any model with `hotel/` to route through a failover group — an ordered list of providers that expose the same base model. Example: `hotel/gpt-4o` resolves to all providers whose model ID matches `gpt-4o` exactly (after stripping the org prefix, e.g. `openai/gpt-4o` → `gpt-4o`). Models with different base names like `gpt-4o-mini` are separate groups.
@@ -135,7 +135,9 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `DATA_DIR` | No | `./data` | Directory for admin token file |
 | `ADMIN_TOKEN` | No | *(auto)* | Fixed admin token (auto-generated if empty) |
 | `ALLOW_HTTP_PROVIDERS` | No | `false` | Allow HTTP provider URLs |
-| `RATE_LIMIT_ENABLED` | No | `true` | Hard kill-switch for rate limiting (env var only; when `false`, rate-limit middleware is a complete no-op) |
+| `RATE_LIMIT_ENABLED` | No | `true` | Hard kill-switch for per-key rate limiting (env var only; when `false`, rate-limit middleware is a complete no-op) |
+| `RATE_LIMIT_IP_RPS` | No | `30` | Per-IP requests per second (DoS safety net; always-on, not DB-configurable) |
+| `RATE_LIMIT_IP_BURST` | No | `60` | Per-IP burst size for DoS protection token bucket |
 | `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
 | `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Allowed CORS origins (comma-separated) |
 | `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Additional allowed provider hosts (comma-separated; built-in provider hosts are always allowed) |
@@ -157,7 +159,12 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `ui_style` | *(none)* | UI style preference |
 | `accent_color` | *(none)* | UI accent color |
 
-> **Rate Limiting** — When `RATE_LIMIT_ENABLED=true` (the default), rate limiting can be toggled on/off at runtime via the **Settings** UI and the DB-backed settings above. Setting `RATE_LIMIT_ENABLED=false` in the environment completely disables rate limiting regardless of DB settings. Each virtual key gets its own independent token bucket; 429 responses include `Retry-After` and `X-RateLimit-*` headers.
+> **Rate Limiting** — Two layers of protection run on every request:
+>
+> 1. **Per-IP limiter** (always-on) — Env-var-only ceiling (`RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST`) that blocks floods before they reach auth. Mounts first in the middleware chain so it catches unauthenticated brute-force attempts. Not exposed in the UI — this is a safety rail, not a tuning knob.
+> 2. **Per-key limiter** (runtime-configurable) — When `RATE_LIMIT_ENABLED=true` (the default), rate limiting can be toggled on/off at runtime via the **Settings** UI and the DB-backed settings above. Each virtual key gets its own independent token bucket. Setting `RATE_LIMIT_ENABLED=false` in the environment completely disables per-key limiting regardless of DB settings.
+>
+> 429 responses from both layers include `Retry-After` and `X-RateLimit-*` headers. The `X-RateLimit-Scope` header (`ip` or absent) distinguishes which layer triggered the rejection.
 
 ## [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints](#-api-endpoints)
 
