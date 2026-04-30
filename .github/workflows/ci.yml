@@ -35,6 +35,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Create test database
         env:
           PGHOST: localhost
@@ -44,7 +47,7 @@ jobs:
           psql -c "CREATE DATABASE testdb;" 2>/dev/null || true
 
       - name: Run tests
-        run: go test ./...
+        run: go test -timeout 5m ./...
 
   go-lint:
     name: Go Lint
