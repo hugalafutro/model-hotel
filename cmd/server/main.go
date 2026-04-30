@@ -146,6 +146,9 @@ func main() {
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
 	defer rateLimiter.Stop()
 
+	ipLimiter := ratelimit.NewIPLimiter(cfg.RateLimitIPRPS, cfg.RateLimitIPBurst)
+	defer ipLimiter.Stop()
+
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -217,7 +220,7 @@ func main() {
 
 	// Handlers shared across route groups
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo)
-	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter)
+	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {

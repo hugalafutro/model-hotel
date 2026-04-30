@@ -28,6 +28,7 @@ type Handler struct {
 	failoverRepo   *failover.Repository
 	settingsRepo   *settings.Repository
 	rateLimiter    *ratelimit.Limiter
+	ipLimiter      *ratelimit.IPLimiter
 	// upstreamTransport is a shared Transport for all outbound proxy
 	// requests.  Reusing one Transport avoids creating a fresh Transport
 	// (and its persistent readLoop/writeLoop goroutines) per request.
@@ -43,6 +44,7 @@ func NewHandler(
 	failoverRepo *failover.Repository,
 	settingsRepo *settings.Repository,
 	rateLimiter *ratelimit.Limiter,
+	ipLimiter *ratelimit.IPLimiter,
 ) *Handler {
 	return &Handler{
 		cfg:            cfg,
@@ -53,6 +55,7 @@ func NewHandler(
 		failoverRepo:   failoverRepo,
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
+		ipLimiter:      ipLimiter,
 		upstreamTransport: &http.Transport{
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       90 * time.Second,
@@ -71,6 +74,7 @@ func (h *Handler) Close() {
 }
 
 func (h *Handler) Register(r chi.Router) {
+	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 

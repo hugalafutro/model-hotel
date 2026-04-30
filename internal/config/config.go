@@ -5,10 +5,11 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"github.com/hugalafutro/model-hotel/internal/util"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -20,6 +21,8 @@ type Config struct {
 	AdminToken           string
 	AllowHTTPProviders   bool
 	RateLimitEnabled     bool
+	RateLimitIPRPS       float64
+	RateLimitIPBurst     int
 	MaxRequestSize       int64
 	CORSOrigins          []string
 	AllowedProviderHosts []string
@@ -52,6 +55,8 @@ func Load() (*Config, error) {
 		AdminToken:           getEnv("ADMIN_TOKEN"),
 		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
+		RateLimitIPRPS:       getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30),
+		RateLimitIPBurst:     int(getIntEnvWithDefault("RATE_LIMIT_IP_BURST", 60)),
 		MaxRequestSize:       getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB
 		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
@@ -182,6 +187,18 @@ func getIntEnvWithDefault(key string, defaultValue int64) int64 {
 
 	var result int64
 	if _, err := fmt.Sscanf(value, "%d", &result); err != nil {
+		return defaultValue
+	}
+	return result
+}
+
+func getFloatEnvWithDefault(key string, defaultValue float64) float64 {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	result, err := strconv.ParseFloat(value, 64)
+	if err != nil {
 		return defaultValue
 	}
 	return result
