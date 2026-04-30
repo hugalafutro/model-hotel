@@ -13,6 +13,20 @@ jobs:
   go-test:
     name: Go Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: llmproxy
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: llmproxy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -20,6 +34,14 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Create test database
+        env:
+          PGHOST: localhost
+          PGUSER: llmproxy
+          PGPASSWORD: changeme
+        run: |
+          psql -c "CREATE DATABASE testdb;" 2>/dev/null || true
 
       - name: Run tests
         run: go test ./...
