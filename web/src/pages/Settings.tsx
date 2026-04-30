@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Bell,
+	ChevronDown,
+	ChevronUp,
 	Database,
 	Gauge,
 	History,
@@ -196,6 +198,135 @@ export function Settings() {
 			return false;
 		}
 	});
+	const [modelDiscoveryCollapsed, setModelDiscoveryCollapsed] = useState(() => {
+		try {
+			return (
+				localStorage.getItem("settings_modelDiscoveryCollapsed") === "true"
+			);
+		} catch {
+			return false;
+		}
+	});
+	const [appearanceCollapsed, setAppearanceCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_appearanceCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [toastCollapsed, setToastCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_toastCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [sidebarQuotaCollapsed, setSidebarQuotaCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_sidebarQuotaCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [dashboardCollapsed, setDashboardCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_dashboardCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [dataStorageCollapsed, setDataStorageCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_dataStorageCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [arenaHistoryCollapsed, setArenaHistoryCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_arenaHistoryCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+
+	const toggleModelDiscovery = useCallback(() => {
+		setModelDiscoveryCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_modelDiscoveryCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleAppearance = useCallback(() => {
+		setAppearanceCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_appearanceCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleToast = useCallback(() => {
+		setToastCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_toastCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleSidebarQuota = useCallback(() => {
+		setSidebarQuotaCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_sidebarQuotaCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleDashboard = useCallback(() => {
+		setDashboardCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_dashboardCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleDataStorage = useCallback(() => {
+		setDataStorageCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_dataStorageCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleArenaHistory = useCallback(() => {
+		setArenaHistoryCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_arenaHistoryCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
 
 	const openPicker = useCallback(() => {
 		setPickerColor(accentColor);
@@ -253,571 +384,697 @@ export function Settings() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 				{/* Model Discovery */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<Search size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">
-							Model Discovery
-						</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<Search size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">
+								Model Discovery
+							</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleModelDiscovery}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{modelDiscoveryCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
 					<p className="text-gray-400 text-sm mb-6">
 						Configure how and when models are auto-discovered from your
 						providers.
 					</p>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${modelDiscoveryCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-5">
+								<div>
+									<label
+										htmlFor="discovery-interval"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										Discovery Interval
+									</label>
+									<select
+										id="discovery-interval"
+										value={discoveryInterval}
+										onChange={(e) =>
+											updateMutation.mutate({
+												discovery_interval: e.target.value,
+											})
+										}
+										className="ui-input"
+										disabled={isUpdating}
+									>
+										{DISCOVERY_INTERVALS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+									{discoveryInterval === "0" ? (
+										<p className="text-amber-400 text-xs mt-1">
+											Periodic discovery is disabled. Models will only be
+											discovered when you click "Discover Now" or "Discover
+											All", or when a new provider is created.
+										</p>
+									) : (
+										<p className="text-gray-500 text-xs mt-1">
+											How often to automatically re-discover models from all
+											enabled providers
+										</p>
+									)}
+								</div>
 
-					<div className="space-y-5">
-						<div>
-							<label
-								htmlFor="discovery-interval"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								Discovery Interval
-							</label>
-							<select
-								id="discovery-interval"
-								value={discoveryInterval}
-								onChange={(e) =>
-									updateMutation.mutate({
-										discovery_interval: e.target.value,
-									})
-								}
-								className="ui-input"
-								disabled={isUpdating}
-							>
-								{DISCOVERY_INTERVALS.map((opt) => (
-									<option key={opt.value} value={opt.value}>
-										{opt.label}
-									</option>
-								))}
-							</select>
-							{discoveryInterval === "0" ? (
-								<p className="text-amber-400 text-xs mt-1">
-									Periodic discovery is disabled. Models will only be discovered
-									when you click "Discover Now" or "Discover All", or when a new
-									provider is created.
-								</p>
-							) : (
-								<p className="text-gray-500 text-xs mt-1">
-									How often to automatically re-discover models from all enabled
-									providers
-								</p>
-							)}
-						</div>
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Discover on Startup
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Run discovery for all providers when the server starts
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() =>
+											updateMutation.mutate({
+												discovery_on_startup: discoveryOnStartup
+													? "false"
+													: "true",
+											})
+										}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											discoveryOnStartup ? "bg-(--accent)" : "bg-gray-600"
+										}`}
+										disabled={isUpdating}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												discoveryOnStartup ? "translate-x-6" : "translate-x-1"
+											}`}
+										/>
+									</button>
+								</div>
 
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Discover on Startup
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Run discovery for all providers when the server starts
-								</p>
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Discover on Provider Creation
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Automatically discover models when a new provider is added
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() =>
+											updateMutation.mutate({
+												discovery_on_provider_create: discoveryOnCreate
+													? "false"
+													: "true",
+											})
+										}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											discoveryOnCreate ? "bg-(--accent)" : "bg-gray-600"
+										}`}
+										disabled={isUpdating}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												discoveryOnCreate ? "translate-x-6" : "translate-x-1"
+											}`}
+										/>
+									</button>
+								</div>
 							</div>
-							<button
-								type="button"
-								onClick={() =>
-									updateMutation.mutate({
-										discovery_on_startup: discoveryOnStartup ? "false" : "true",
-									})
-								}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									discoveryOnStartup ? "bg-(--accent)" : "bg-gray-600"
-								}`}
-								disabled={isUpdating}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										discoveryOnStartup ? "translate-x-6" : "translate-x-1"
-									}`}
-								/>
-							</button>
-						</div>
-
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Discover on Provider Creation
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Automatically discover models when a new provider is added
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() =>
-									updateMutation.mutate({
-										discovery_on_provider_create: discoveryOnCreate
-											? "false"
-											: "true",
-									})
-								}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									discoveryOnCreate ? "bg-(--accent)" : "bg-gray-600"
-								}`}
-								disabled={isUpdating}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										discoveryOnCreate ? "translate-x-6" : "translate-x-1"
-									}`}
-								/>
-							</button>
 						</div>
 					</div>
 				</div>
 
 				{/* Discovery Status */}
-				<div className="ui-card p-6 h-92 flex flex-col overflow-hidden">
+				<div className="ui-card p-6">
 					<ProviderDiscoveryList />
 				</div>
 
 				{/* Appearance */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<Palette size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">Appearance</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<Palette size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">Appearance</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleAppearance}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{appearanceCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
-					<div className="space-y-6">
-						{/* UI Style */}
-						<div>
-							<p className="text-sm font-medium text-gray-300 mb-3">UI Style</p>
-							<div className="grid grid-cols-3 gap-3">
-								{UI_STYLES.map((style) => {
-									const Icon = style.icon;
-									const active = uiStyle === style.id;
-									return (
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${appearanceCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-6">
+								{/* UI Style */}
+								<div>
+									<p className="text-sm font-medium text-gray-300 mb-3">
+										UI Style
+									</p>
+									<div className="grid grid-cols-3 gap-3">
+										{UI_STYLES.map((style) => {
+											const Icon = style.icon;
+											const active = uiStyle === style.id;
+											return (
+												<button
+													key={style.id}
+													type="button"
+													onClick={() => setUIStyle(style.id)}
+													className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+														active
+															? "border-(--accent) bg-(--accent-lighter)"
+															: "border-gray-700 hover:border-gray-600 bg-gray-800/50"
+													}`}
+												>
+													<Icon
+														size={20}
+														className={
+															active ? "text-(--accent)" : "text-gray-400"
+														}
+													/>
+													<div className="text-center">
+														<p
+															className={`text-xs font-medium ${active ? "text-(--accent)" : "text-gray-300"}`}
+														>
+															{style.label}
+														</p>
+														<p className="text-[10px] text-gray-500 mt-0.5">
+															{style.description}
+														</p>
+													</div>
+												</button>
+											);
+										})}
+									</div>
+								</div>
+
+								{/* Theme */}
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">Theme</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Switch between dark and light mode
+										</p>
+									</div>
+									<div className="flex rounded-lg overflow-hidden border border-gray-600">
 										<button
-											key={style.id}
 											type="button"
-											onClick={() => setUIStyle(style.id)}
-											className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-												active
-													? "border-(--accent) bg-(--accent-lighter)"
-													: "border-gray-700 hover:border-gray-600 bg-gray-800/50"
+											onClick={() => setTheme("dark")}
+											className={`px-4 py-2 text-sm font-medium transition-colors ${
+												theme === "dark"
+													? "bg-(--accent) text-white"
+													: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 											}`}
 										>
-											<Icon
-												size={20}
-												className={active ? "text-(--accent)" : "text-gray-400"}
-											/>
-											<div className="text-center">
-												<p
-													className={`text-xs font-medium ${active ? "text-(--accent)" : "text-gray-300"}`}
-												>
-													{style.label}
-												</p>
-												<p className="text-[10px] text-gray-500 mt-0.5">
-													{style.description}
-												</p>
-											</div>
+											Dark
 										</button>
-									);
-								})}
-							</div>
-						</div>
-
-						{/* Theme */}
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">Theme</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Switch between dark and light mode
-								</p>
-							</div>
-							<div className="flex rounded-lg overflow-hidden border border-gray-600">
-								<button
-									type="button"
-									onClick={() => setTheme("dark")}
-									className={`px-4 py-2 text-sm font-medium transition-colors ${
-										theme === "dark"
-											? "bg-(--accent) text-white"
-											: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-									}`}
-								>
-									Dark
-								</button>
-								<button
-									type="button"
-									onClick={() => setTheme("light")}
-									className={`px-4 py-2 text-sm font-medium transition-colors ${
-										theme === "light"
-											? "bg-(--accent) text-white"
-											: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-									}`}
-								>
-									Light
-								</button>
-							</div>
-						</div>
-
-						{/* Accent Color */}
-						<div>
-							<p className="text-sm font-medium text-gray-300 mb-2">
-								Accent Color
-							</p>
-							<div className="flex flex-wrap gap-2">
-								{accentPresets.map((preset) => (
-									<button
-										key={preset.name}
-										type="button"
-										onClick={() => setAccentColor(preset.color)}
-										className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
-											accentColor === preset.color
-												? "border-white scale-110"
-												: "border-transparent"
-										}`}
-										style={{
-											backgroundColor: preset.color,
-										}}
-										title={preset.name}
-									/>
-								))}
-								<button
-									type="button"
-									onClick={openPicker}
-									className={`w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors ${
-										accentColor &&
-										!accentPresets.some((p) => p.color === accentColor)
-											? "bg-gray-800"
-											: ""
-									}`}
-									title="Custom color"
-								>
-									{accentColor &&
-									!accentPresets.some((p) => p.color === accentColor) ? (
-										<div
-											className="w-5 h-5 rounded-full"
-											style={{
-												backgroundColor: accentColor,
-											}}
-										/>
-									) : (
-										<svg
-											className="w-4 h-4 text-gray-400"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
+										<button
+											type="button"
+											onClick={() => setTheme("light")}
+											className={`px-4 py-2 text-sm font-medium transition-colors ${
+												theme === "light"
+													? "bg-(--accent) text-white"
+													: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+											}`}
 										>
-											<title>Add</title>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth={2}
-												d="M12 4v16m8-8H4"
+											Light
+										</button>
+									</div>
+								</div>
+
+								{/* Accent Color */}
+								<div>
+									<p className="text-sm font-medium text-gray-300 mb-2">
+										Accent Color
+									</p>
+									<div className="flex flex-wrap gap-2">
+										{accentPresets.map((preset) => (
+											<button
+												key={preset.name}
+												type="button"
+												onClick={() => setAccentColor(preset.color)}
+												className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
+													accentColor === preset.color
+														? "border-white scale-110"
+														: "border-transparent"
+												}`}
+												style={{
+													backgroundColor: preset.color,
+												}}
+												title={preset.name}
 											/>
-										</svg>
-									)}
-								</button>
+										))}
+										<button
+											type="button"
+											onClick={openPicker}
+											className={`w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors ${
+												accentColor &&
+												!accentPresets.some((p) => p.color === accentColor)
+													? "bg-gray-800"
+													: ""
+											}`}
+											title="Custom color"
+										>
+											{accentColor &&
+											!accentPresets.some((p) => p.color === accentColor) ? (
+												<div
+													className="w-5 h-5 rounded-full"
+													style={{
+														backgroundColor: accentColor,
+													}}
+												/>
+											) : (
+												<svg
+													className="w-4 h-4 text-gray-400"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<title>Add</title>
+													<path
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														strokeWidth={2}
+														d="M12 4v16m8-8H4"
+													/>
+												</svg>
+											)}
+										</button>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
 
 				{/* Toast Notifications */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<Bell size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">
-							Toast Notifications
-						</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<Bell size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">
+								Toast Notifications
+							</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleToast}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{toastCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
 					<p className="text-gray-400 text-sm mb-6">
 						Choose where notification toasts appear and how long they stay
 						visible.
 					</p>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${toastCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="flex justify-center">
+								<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50">
+									{/* top-left */}
+									<button
+										type="button"
+										onClick={() => {
+											setPosition("top-left");
+											toast(
+												"Test notification — you'll see toasts here",
+												"info",
+											);
+										}}
+										className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
+											toastPosition === "top-left"
+												? "bg-(--accent) scale-125 ring-2 ring-white/40"
+												: "bg-(--accent) opacity-30 hover:opacity-70"
+										}`}
+										title="Top Left"
+									/>
+									{/* top-center */}
+									<button
+										type="button"
+										onClick={() => {
+											setPosition("top-center");
+											toast(
+												"Test notification — you'll see toasts here",
+												"info",
+											);
+										}}
+										className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
+											toastPosition === "top-center"
+												? "bg-(--accent) scale-125 ring-2 ring-white/40"
+												: "bg-(--accent) opacity-30 hover:opacity-70"
+										}`}
+										title="Top Center"
+									/>
+									{/* top-right */}
+									<button
+										type="button"
+										onClick={() => {
+											setPosition("top-right");
+											toast(
+												"Test notification — you'll see toasts here",
+												"info",
+											);
+										}}
+										className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
+											toastPosition === "top-right"
+												? "bg-(--accent) scale-125 ring-2 ring-white/40"
+												: "bg-(--accent) opacity-30 hover:opacity-70"
+										}`}
+										title="Top Right"
+									/>
+									{/* bottom-left */}
+									<button
+										type="button"
+										onClick={() => {
+											setPosition("bottom-left");
+											toast(
+												"Test notification — you'll see toasts here",
+												"info",
+											);
+										}}
+										className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
+											toastPosition === "bottom-left"
+												? "bg-(--accent) scale-125 ring-2 ring-white/40"
+												: "bg-(--accent) opacity-30 hover:opacity-70"
+										}`}
+										title="Bottom Left"
+									/>
+									{/* bottom-center */}
+									<button
+										type="button"
+										onClick={() => {
+											setPosition("bottom-center");
+											toast(
+												"Test notification — you'll see toasts here",
+												"info",
+											);
+										}}
+										className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
+											toastPosition === "bottom-center"
+												? "bg-(--accent) scale-125 ring-2 ring-white/40"
+												: "bg-(--accent) opacity-30 hover:opacity-70"
+										}`}
+										title="Bottom Center"
+									/>
+									{/* bottom-right */}
+									<button
+										type="button"
+										onClick={() => {
+											setPosition("bottom-right");
+											toast(
+												"Test notification — you'll see toasts here",
+												"info",
+											);
+										}}
+										className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
+											toastPosition === "bottom-right"
+												? "bg-(--accent) scale-125 ring-2 ring-white/40"
+												: "bg-(--accent) opacity-30 hover:opacity-70"
+										}`}
+										title="Bottom Right"
+									/>
+								</div>
+							</div>
 
-					<div className="flex justify-center">
-						<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50">
-							{/* top-left */}
-							<button
-								type="button"
-								onClick={() => {
-									setPosition("top-left");
-									toast("Test notification — you'll see toasts here", "info");
-								}}
-								className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
-									toastPosition === "top-left"
-										? "bg-(--accent) scale-125 ring-2 ring-white/40"
-										: "bg-(--accent) opacity-30 hover:opacity-70"
-								}`}
-								title="Top Left"
-							/>
-							{/* top-center */}
-							<button
-								type="button"
-								onClick={() => {
-									setPosition("top-center");
-									toast("Test notification — you'll see toasts here", "info");
-								}}
-								className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
-									toastPosition === "top-center"
-										? "bg-(--accent) scale-125 ring-2 ring-white/40"
-										: "bg-(--accent) opacity-30 hover:opacity-70"
-								}`}
-								title="Top Center"
-							/>
-							{/* top-right */}
-							<button
-								type="button"
-								onClick={() => {
-									setPosition("top-right");
-									toast("Test notification — you'll see toasts here", "info");
-								}}
-								className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
-									toastPosition === "top-right"
-										? "bg-(--accent) scale-125 ring-2 ring-white/40"
-										: "bg-(--accent) opacity-30 hover:opacity-70"
-								}`}
-								title="Top Right"
-							/>
-							{/* bottom-left */}
-							<button
-								type="button"
-								onClick={() => {
-									setPosition("bottom-left");
-									toast("Test notification — you'll see toasts here", "info");
-								}}
-								className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
-									toastPosition === "bottom-left"
-										? "bg-(--accent) scale-125 ring-2 ring-white/40"
-										: "bg-(--accent) opacity-30 hover:opacity-70"
-								}`}
-								title="Bottom Left"
-							/>
-							{/* bottom-center */}
-							<button
-								type="button"
-								onClick={() => {
-									setPosition("bottom-center");
-									toast("Test notification — you'll see toasts here", "info");
-								}}
-								className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
-									toastPosition === "bottom-center"
-										? "bg-(--accent) scale-125 ring-2 ring-white/40"
-										: "bg-(--accent) opacity-30 hover:opacity-70"
-								}`}
-								title="Bottom Center"
-							/>
-							{/* bottom-right */}
-							<button
-								type="button"
-								onClick={() => {
-									setPosition("bottom-right");
-									toast("Test notification — you'll see toasts here", "info");
-								}}
-								className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
-									toastPosition === "bottom-right"
-										? "bg-(--accent) scale-125 ring-2 ring-white/40"
-										: "bg-(--accent) opacity-30 hover:opacity-70"
-								}`}
-								title="Bottom Right"
-							/>
-						</div>
-					</div>
+							<p className="text-center text-gray-500 text-xs mt-4 capitalize">
+								{toastPosition.replace("-", " ")}
+							</p>
 
-					<p className="text-center text-gray-500 text-xs mt-4 capitalize">
-						{toastPosition.replace("-", " ")}
-					</p>
-
-					{/* Toast Timeout */}
-					<div className="mt-6">
-						<div className="flex items-center justify-between mb-3">
-							<span className="text-sm text-gray-300 font-medium">
-								Auto-dismiss
-							</span>
-							<span className="text-sm text-gray-400 tabular-nums">
-								{(timeout / 1000).toFixed(1)}s
-							</span>
-						</div>
-						<input
-							type="range"
-							min={1000}
-							max={15000}
-							step={500}
-							value={timeout}
-							onChange={(e) => {
-								setToastTimeout(Number(e.target.value));
-							}}
-							style={
-								{
-									"--slider-fill": `${((timeout - 1000) / (15000 - 1000)) * 100}%`,
-								} as React.CSSProperties
-							}
-							className="toast-timeout-slider"
-						/>
-						<div className="flex justify-between text-xs text-gray-600 mt-1.5">
-							<span>1s</span>
-							<span>15s</span>
+							{/* Toast Timeout */}
+							<div className="mt-6">
+								<div className="flex items-center justify-between mb-3">
+									<span className="text-sm text-gray-300 font-medium">
+										Auto-dismiss
+									</span>
+									<span className="text-sm text-gray-400 tabular-nums">
+										{(timeout / 1000).toFixed(1)}s
+									</span>
+								</div>
+								<input
+									type="range"
+									min={1000}
+									max={15000}
+									step={500}
+									value={timeout}
+									onChange={(e) => {
+										setToastTimeout(Number(e.target.value));
+									}}
+									style={
+										{
+											"--slider-fill": `${((timeout - 1000) / (15000 - 1000)) * 100}%`,
+										} as React.CSSProperties
+									}
+									className="toast-timeout-slider"
+								/>
+								<div className="flex justify-between text-xs text-gray-600 mt-1.5">
+									<span>1s</span>
+									<span>15s</span>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
 
 				{/* Sidebar Quota Refresh */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<Timer size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">Sidebar Quotas</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<Timer size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">
+								Sidebar Quotas
+							</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleSidebarQuota}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{sidebarQuotaCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
 					<p className="text-gray-400 text-sm mb-6">
 						Configure how often provider quota and balance data is refreshed in
 						the sidebar panel.
 					</p>
-					<div className="space-y-5">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Show Quotas Pill
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Display the quota panel in the sidebar
-								</p>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${sidebarQuotaCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-5">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Show Quotas Pill
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Display the quota panel in the sidebar
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											const newVal = !quotaDisabled;
+											setQuotaDisabled(newVal);
+											try {
+												localStorage.setItem(
+													"sidebarQuotaDisabled",
+													String(newVal),
+												);
+											} catch {
+												/* ignore */
+											}
+											toast(
+												newVal
+													? "Sidebar quotas disabled — pill hidden and auto-refresh paused"
+													: "Sidebar quotas enabled — pill visible and auto-refresh resumed",
+												newVal ? "info" : "success",
+											);
+											window.dispatchEvent(
+												new CustomEvent("sidebarQuotaToggle"),
+											);
+										}}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											quotaDisabled ? "bg-gray-600" : "bg-(--accent)"
+										}`}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												quotaDisabled ? "translate-x-1" : "translate-x-6"
+											}`}
+										/>
+									</button>
+								</div>
+								<div>
+									<label
+										htmlFor="quota-refresh-interval"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										Refresh Interval
+									</label>
+									<select
+										id="quota-refresh-interval"
+										disabled={quotaDisabled}
+										value={(() => {
+											try {
+												return (
+													localStorage.getItem("sidebarQuotaRefreshMin") || "5"
+												);
+											} catch {
+												return "5";
+											}
+										})()}
+										onChange={(e) => {
+											const val = e.target.value;
+											try {
+												localStorage.setItem("sidebarQuotaRefreshMin", val);
+											} catch {
+												/* ignore */
+											}
+											window.dispatchEvent(
+												new CustomEvent("sidebarQuotaRefreshChange"),
+											);
+											toast(
+												val === "0"
+													? "Sidebar quota auto-refresh disabled — use manual refresh"
+													: `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
+												"success",
+											);
+										}}
+										className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										<option value="1">1 minute</option>
+										<option value="2">2 minutes</option>
+										<option value="5">5 minutes (default)</option>
+										<option value="10">10 minutes</option>
+										<option value="15">15 minutes</option>
+										<option value="30">30 minutes</option>
+										<option value="0">Disabled (manual only)</option>
+									</select>
+									<p className="text-gray-500 text-xs mt-1">
+										Minimum 1 minute. Changes take effect on next scheduled
+										refresh.
+									</p>
+								</div>
 							</div>
-							<button
-								type="button"
-								onClick={() => {
-									const newVal = !quotaDisabled;
-									setQuotaDisabled(newVal);
-									try {
-										localStorage.setItem(
-											"sidebarQuotaDisabled",
-											String(newVal),
-										);
-									} catch {
-										/* ignore */
-									}
-									toast(
-										newVal
-											? "Sidebar quotas disabled — pill hidden and auto-refresh paused"
-											: "Sidebar quotas enabled — pill visible and auto-refresh resumed",
-										newVal ? "info" : "success",
-									);
-									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
-								}}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									quotaDisabled ? "bg-gray-600" : "bg-(--accent)"
-								}`}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										quotaDisabled ? "translate-x-1" : "translate-x-6"
-									}`}
-								/>
-							</button>
-						</div>
-						<div>
-							<label
-								htmlFor="quota-refresh-interval"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								Refresh Interval
-							</label>
-							<select
-								id="quota-refresh-interval"
-								disabled={quotaDisabled}
-								value={(() => {
-									try {
-										return (
-											localStorage.getItem("sidebarQuotaRefreshMin") || "5"
-										);
-									} catch {
-										return "5";
-									}
-								})()}
-								onChange={(e) => {
-									const val = e.target.value;
-									try {
-										localStorage.setItem("sidebarQuotaRefreshMin", val);
-									} catch {
-										/* ignore */
-									}
-									window.dispatchEvent(
-										new CustomEvent("sidebarQuotaRefreshChange"),
-									);
-									toast(
-										val === "0"
-											? "Sidebar quota auto-refresh disabled — use manual refresh"
-											: `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
-										"success",
-									);
-								}}
-								className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								<option value="1">1 minute</option>
-								<option value="2">2 minutes</option>
-								<option value="5">5 minutes (default)</option>
-								<option value="10">10 minutes</option>
-								<option value="15">15 minutes</option>
-								<option value="30">30 minutes</option>
-								<option value="0">Disabled (manual only)</option>
-							</select>
-							<p className="text-gray-500 text-xs mt-1">
-								Minimum 1 minute. Changes take effect on next scheduled refresh.
-							</p>
 						</div>
 					</div>
 				</div>
 
 				{/* Dashboard Refresh */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<LayoutDashboard size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">
-							Dashboard Refresh
-						</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<LayoutDashboard size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">
+								Dashboard Refresh
+							</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleDashboard}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{dashboardCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
 					<p className="text-gray-400 text-sm mb-6">
 						Configure how often the dashboard stats and charts are refreshed
 						automatically. Manual refresh button is hidden when set to 10
 						seconds or faster.
 					</p>
-					<div className="space-y-5">
-						<div>
-							<label
-								htmlFor="dashboard-refresh-interval"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								Refresh Interval
-							</label>
-							<select
-								id="dashboard-refresh-interval"
-								value={(() => {
-									try {
-										return localStorage.getItem("dashboardRefreshSec") || "30";
-									} catch {
-										return "30";
-									}
-								})()}
-								onChange={(e) => {
-									const val = e.target.value;
-									try {
-										localStorage.setItem("dashboardRefreshSec", val);
-									} catch {
-										/* ignore */
-									}
-									window.dispatchEvent(
-										new CustomEvent("dashboardRefreshChange"),
-									);
-									toast(
-										val === "0"
-											? "Dashboard auto-refresh disabled — use manual refresh"
-											: `Dashboard refresh set to every ${val} second${val === "1" ? "" : "s"}`,
-										"success",
-									);
-								}}
-								className="ui-input"
-							>
-								<option value="10">10 seconds (manual refresh hidden)</option>
-								<option value="30">30 seconds (default)</option>
-								<option value="60">1 minute</option>
-								<option value="120">2 minutes</option>
-								<option value="300">5 minutes</option>
-								<option value="600">10 minutes</option>
-								<option value="0">Disabled (manual only)</option>
-							</select>
-							<p className="text-gray-500 text-xs mt-1">
-								At 10 seconds the manual refresh button is hidden. Changes take
-								effect on next navigation to the dashboard.
-							</p>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dashboardCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-5">
+								<div>
+									<label
+										htmlFor="dashboard-refresh-interval"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										Refresh Interval
+									</label>
+									<select
+										id="dashboard-refresh-interval"
+										value={(() => {
+											try {
+												return (
+													localStorage.getItem("dashboardRefreshSec") || "30"
+												);
+											} catch {
+												return "30";
+											}
+										})()}
+										onChange={(e) => {
+											const val = e.target.value;
+											try {
+												localStorage.setItem("dashboardRefreshSec", val);
+											} catch {
+												/* ignore */
+											}
+											window.dispatchEvent(
+												new CustomEvent("dashboardRefreshChange"),
+											);
+											toast(
+												val === "0"
+													? "Dashboard auto-refresh disabled — use manual refresh"
+													: `Dashboard refresh set to every ${val} second${val === "1" ? "" : "s"}`,
+												"success",
+											);
+										}}
+										className="ui-input"
+									>
+										<option value="10">
+											10 seconds (manual refresh hidden)
+										</option>
+										<option value="30">30 seconds (default)</option>
+										<option value="60">1 minute</option>
+										<option value="120">2 minutes</option>
+										<option value="300">5 minutes</option>
+										<option value="600">10 minutes</option>
+										<option value="0">Disabled (manual only)</option>
+									</select>
+									<p className="text-gray-500 text-xs mt-1">
+										At 10 seconds the manual refresh button is hidden. Changes
+										take effect on next navigation to the dashboard.
+									</p>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -826,288 +1083,334 @@ export function Settings() {
 				<LoggingSettings />
 
 				{/* Data Storage */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<Database size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">Data Storage</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<Database size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">Data Storage</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleDataStorage}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{dataStorageCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
 					<p className="text-gray-400 text-sm mb-6">
 						Persist session data in your browser. When enabled, your
 						conversations and arena state survive page reloads. When disabled,
 						all session data is lost on navigation.
 					</p>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dataStorageCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-5">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Persist Chat
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Remember chat messages, prompt, and persona across
+											sessions
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											const next = !persistChat;
+											if (
+												!next &&
+												!confirm(
+													"This will clear all saved chat messages. Continue?",
+												)
+											)
+												return;
+											setPersistChat(next);
+											toast(
+												next ? "Chat persistence enabled" : "Chat data cleared",
+												next ? "success" : "info",
+											);
+										}}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											persistChat ? "bg-(--accent)" : "bg-gray-600"
+										}`}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												persistChat ? "translate-x-6" : "translate-x-1"
+											}`}
+										/>
+									</button>
+								</div>
 
-					<div className="space-y-5">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Persist Chat
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Remember chat messages, prompt, and persona across sessions
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => {
-									const next = !persistChat;
-									if (
-										!next &&
-										!confirm(
-											"This will clear all saved chat messages. Continue?",
-										)
-									)
-										return;
-									setPersistChat(next);
-									toast(
-										next ? "Chat persistence enabled" : "Chat data cleared",
-										next ? "success" : "info",
-									);
-								}}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									persistChat ? "bg-(--accent)" : "bg-gray-600"
-								}`}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										persistChat ? "translate-x-6" : "translate-x-1"
-									}`}
-								/>
-							</button>
-						</div>
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Persist Arena
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Remember arena bracket state and prompts across sessions
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											const next = !persistArena;
+											if (
+												!next &&
+												!confirm(
+													"This will clear all saved arena data. Continue?",
+												)
+											)
+												return;
+											setPersistArena(next);
+											toast(
+												next
+													? "Arena persistence enabled"
+													: "Arena data cleared",
+												next ? "success" : "info",
+											);
+										}}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											persistArena ? "bg-(--accent)" : "bg-gray-600"
+										}`}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												persistArena ? "translate-x-6" : "translate-x-1"
+											}`}
+										/>
+									</button>
+								</div>
 
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Persist Arena
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Remember arena bracket state and prompts across sessions
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => {
-									const next = !persistArena;
-									if (
-										!next &&
-										!confirm("This will clear all saved arena data. Continue?")
-									)
-										return;
-									setPersistArena(next);
-									toast(
-										next ? "Arena persistence enabled" : "Arena data cleared",
-										next ? "success" : "info",
-									);
-								}}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									persistArena ? "bg-(--accent)" : "bg-gray-600"
-								}`}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										persistArena ? "translate-x-6" : "translate-x-1"
-									}`}
-								/>
-							</button>
-						</div>
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Persist AI Conversation
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Remember AI conversation state and settings across
+											sessions
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											const next = !persistConversation;
+											if (
+												!next &&
+												!confirm(
+													"This will clear all saved conversation data. Continue?",
+												)
+											)
+												return;
+											setPersistConversation(next);
+											toast(
+												next
+													? "Conversation persistence enabled"
+													: "Conversation data cleared",
+												next ? "success" : "info",
+											);
+										}}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											persistConversation ? "bg-(--accent)" : "bg-gray-600"
+										}`}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												persistConversation ? "translate-x-6" : "translate-x-1"
+											}`}
+										/>
+									</button>
+								</div>
 
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Persist AI Conversation
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Remember AI conversation state and settings across sessions
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => {
-									const next = !persistConversation;
-									if (
-										!next &&
-										!confirm(
-											"This will clear all saved conversation data. Continue?",
-										)
-									)
-										return;
-									setPersistConversation(next);
-									toast(
-										next
-											? "Conversation persistence enabled"
-											: "Conversation data cleared",
-										next ? "success" : "info",
-									);
-								}}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									persistConversation ? "bg-(--accent)" : "bg-gray-600"
-								}`}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										persistConversation ? "translate-x-6" : "translate-x-1"
-									}`}
-								/>
-							</button>
-						</div>
+								{/* Provider quota cache */}
+								<div className="flex items-center justify-between pt-4 border-t border-gray-700">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Provider Quota Cache
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											{getProviderCacheCount()} cached entr
+											{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT,
+											Z.ai, DeepSeek)
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											if (
+												confirm(
+													"Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
+												)
+											) {
+												clearProviderCache();
+												toast("Provider cache cleared", "info");
+											}
+										}}
+										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+										disabled={getProviderCacheCount() === 0}
+									>
+										Clear Cache
+									</button>
+								</div>
 
-						{/* Provider quota cache */}
-						<div className="flex items-center justify-between pt-4 border-t border-gray-700">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Provider Quota Cache
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{getProviderCacheCount()} cached entr
-									{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT, Z.ai,
-									DeepSeek)
-								</p>
+								{/* Dismissed error banners */}
+								<div className="flex items-center justify-between pt-4 border-t border-gray-700">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Dismissed Error Banners
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Reset dismissed sidebar error pill states
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											localStorage.removeItem("dismissedAppErrorKey");
+											localStorage.removeItem("dismissedReqErrorKey");
+											toast("Dismissed error banners reset", "info");
+										}}
+										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									>
+										Reset
+									</button>
+								</div>
 							</div>
-							<button
-								type="button"
-								onClick={() => {
-									if (
-										confirm(
-											"Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
-										)
-									) {
-										clearProviderCache();
-										toast("Provider cache cleared", "info");
-									}
-								}}
-								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-								disabled={getProviderCacheCount() === 0}
-							>
-								Clear Cache
-							</button>
-						</div>
-
-						{/* Dismissed error banners */}
-						<div className="flex items-center justify-between pt-4 border-t border-gray-700">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Dismissed Error Banners
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Reset dismissed sidebar error pill states
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => {
-									localStorage.removeItem("dismissedAppErrorKey");
-									localStorage.removeItem("dismissedReqErrorKey");
-									toast("Dismissed error banners reset", "info");
-								}}
-								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-							>
-								Reset
-							</button>
 						</div>
 					</div>
 				</div>
 
 				{/* Arena History */}
-				<div className="ui-card p-6 h-92 overflow-y-auto">
-					<div className="flex items-center gap-2 mb-1">
-						<History size={18} className="text-(--accent)" />
-						<h2 className="text-xl font-semibold text-white">Arena History</h2>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between mb-1">
+						<div className="flex items-center gap-2">
+							<History size={18} className="text-(--accent)" />
+							<h2 className="text-xl font-semibold text-white">
+								Arena History
+							</h2>
+						</div>
+						<button
+							type="button"
+							onClick={toggleArenaHistory}
+							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+						>
+							{arenaHistoryCollapsed ? (
+								<ChevronDown size={16} />
+							) : (
+								<ChevronUp size={16} />
+							)}
+						</button>
 					</div>
 					<p className="text-gray-400 text-sm mb-6">
 						Save completed arena and compare sessions for later review. Only
 						model responses and preset prompts/personas are stored — custom user
 						text is never logged.
 					</p>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${arenaHistoryCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-5">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Save Match History
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											Automatically save completed arena and compare sessions
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											const next = !arenaHistoryEnabled;
+											setArenaHistoryEnabled(next);
+											toast(
+												next
+													? "Arena history enabled"
+													: "Arena history disabled — existing entries preserved",
+												next ? "success" : "info",
+											);
+										}}
+										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+											arenaHistoryEnabled ? "bg-(--accent)" : "bg-gray-600"
+										}`}
+									>
+										<span
+											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+												arenaHistoryEnabled ? "translate-x-6" : "translate-x-1"
+											}`}
+										/>
+									</button>
+								</div>
 
-					<div className="space-y-5">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Save Match History
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									Automatically save completed arena and compare sessions
-								</p>
+								<div>
+									<label
+										htmlFor="history-limit"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										Maximum Saved Matches
+									</label>
+									<select
+										id="history-limit"
+										value={arenaHistoryLimit}
+										onChange={(e) => {
+											const val = Number(e.target.value);
+											setArenaHistoryLimit(val);
+											toast(`History limit set to ${val} matches`, "success");
+										}}
+										className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
+										disabled={!arenaHistoryEnabled}
+									>
+										<option value={10}>10 matches</option>
+										<option value={25}>25 matches (default)</option>
+										<option value={50}>50 matches</option>
+										<option value={100}>100 matches</option>
+									</select>
+									<p className="text-gray-500 text-xs mt-1">
+										Oldest matches are automatically removed when the limit is
+										reached
+									</p>
+								</div>
+
+								<div className="flex items-center justify-between pt-4 border-t border-gray-700">
+									<div>
+										<p className="text-sm font-medium text-gray-300">
+											Clear History
+										</p>
+										<p className="text-gray-500 text-xs mt-0.5">
+											{getArenaHistoryCount()} entr
+											{getArenaHistoryCount() === 1 ? "y" : "ies"} stored
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											if (
+												confirm(
+													"Delete all arena history? This cannot be undone.",
+												)
+											) {
+												clearArenaHistory();
+												toast("All arena history cleared", "info");
+											}
+										}}
+										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+										disabled={getArenaHistoryCount() === 0}
+									>
+										Clear All
+									</button>
+								</div>
 							</div>
-							<button
-								type="button"
-								onClick={() => {
-									const next = !arenaHistoryEnabled;
-									setArenaHistoryEnabled(next);
-									toast(
-										next
-											? "Arena history enabled"
-											: "Arena history disabled — existing entries preserved",
-										next ? "success" : "info",
-									);
-								}}
-								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-									arenaHistoryEnabled ? "bg-(--accent)" : "bg-gray-600"
-								}`}
-							>
-								<span
-									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-										arenaHistoryEnabled ? "translate-x-6" : "translate-x-1"
-									}`}
-								/>
-							</button>
-						</div>
-
-						<div>
-							<label
-								htmlFor="history-limit"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								Maximum Saved Matches
-							</label>
-							<select
-								id="history-limit"
-								value={arenaHistoryLimit}
-								onChange={(e) => {
-									const val = Number(e.target.value);
-									setArenaHistoryLimit(val);
-									toast(`History limit set to ${val} matches`, "success");
-								}}
-								className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
-								disabled={!arenaHistoryEnabled}
-							>
-								<option value={10}>10 matches</option>
-								<option value={25}>25 matches (default)</option>
-								<option value={50}>50 matches</option>
-								<option value={100}>100 matches</option>
-							</select>
-							<p className="text-gray-500 text-xs mt-1">
-								Oldest matches are automatically removed when the limit is
-								reached
-							</p>
-						</div>
-
-						<div className="flex items-center justify-between pt-4 border-t border-gray-700">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									Clear History
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{getArenaHistoryCount()} entr
-									{getArenaHistoryCount() === 1 ? "y" : "ies"} stored
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => {
-									if (
-										confirm("Delete all arena history? This cannot be undone.")
-									) {
-										clearArenaHistory();
-										toast("All arena history cleared", "info");
-									}
-								}}
-								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-								disabled={getArenaHistoryCount() === 0}
-							>
-								Clear All
-							</button>
 						</div>
 					</div>
 				</div>
@@ -1171,7 +1474,7 @@ function RateLimitSettings() {
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
 
 	return (
-		<div className="ui-card p-6 h-92 overflow-y-auto">
+		<div className="ui-card p-6">
 			<div className="flex items-center gap-2 mb-1">
 				<Gauge size={18} className="text-(--accent)" />
 				<h2 className="text-xl font-semibold text-white">Rate Limiting</h2>
@@ -1362,7 +1665,7 @@ function LoggingSettings() {
 	};
 
 	return (
-		<div className="ui-card p-6 h-92 overflow-y-auto">
+		<div className="ui-card p-6">
 			<div className="flex items-center gap-2 mb-1">
 				<ScrollText size={18} className="text-(--accent)" />
 				<h2 className="text-xl font-semibold text-white">Logging</h2>
