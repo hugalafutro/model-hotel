@@ -3,6 +3,8 @@ import {
 	AlertTriangle,
 	BookOpen,
 	Bot,
+	ChevronDown,
+	ChevronUp,
 	Copy,
 	ExternalLink,
 	FileText,
@@ -140,6 +142,26 @@ function SystemStatus() {
 		retry: 1,
 	});
 
+	const [collapsed, setCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("sidebarStatsCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+
+	const toggleCollapsed = useCallback(() => {
+		setCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("sidebarStatsCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+
 	const app = stats?.app;
 	const docker = stats?.docker;
 	const inContainer = app?.in_container;
@@ -193,7 +215,17 @@ function SystemStatus() {
 	const dash = <span className="text-(--text-muted)">-</span>;
 
 	return (
-		<div className="space-y-2 text-[11px] font-mono system-status">
+		<div className="sidebar-stats-pill">
+			<button
+				type="button"
+				onClick={toggleCollapsed}
+				className="sidebar-stats-trigger"
+				title={collapsed ? "Expand stats" : "Collapse stats"}
+			>
+				{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
+			</button>
+			{!collapsed && (
+				<div className="sidebar-stats-content space-y-2 text-[11px] font-mono system-status">
 			{/* API Status */}
 			<div
 				className="flex justify-between items-center text-(--text-tertiary)"
@@ -383,6 +415,8 @@ function SystemStatus() {
 					)}
 				</span>
 			</div>
+				</div>
+			)}
 		</div>
 	);
 }
