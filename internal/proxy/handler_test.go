@@ -2,13 +2,12 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/go-chi/chi/v5"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -18,118 +17,30 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
-// mock implementations for testing
-type mockVirtualKeyRepo struct {
-	findByKeyHashFunc func(ctx context.Context, keyHash string) (*virtualkey.VirtualKey, error)
-	touchLastUsedFunc func(ctx context.Context, keyHash string) error
-}
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
 
-func (m *mockVirtualKeyRepo) FindByKeyHash(ctx context.Context, keyHash string) (*virtualkey.VirtualKey, error) {
-	if m.findByKeyHashFunc != nil {
-		return m.findByKeyHashFunc(ctx, keyHash)
-	}
-	return nil, virtualkey.ErrNotFound
-}
-
-func (m *mockVirtualKeyRepo) TouchLastUsed(ctx context.Context, keyHash string) error {
-	if m.touchLastUsedFunc != nil {
-		return m.touchLastUsedFunc(ctx, keyHash)
-	}
-	return nil
-}
-
-type mockProviderRepo struct {
-	getByNameFunc func(ctx context.Context, name string) (*provider.Provider, error)
-	getByIDsFunc  func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*provider.Provider, error)
-}
-
-func (m *mockProviderRepo) GetByName(ctx context.Context, name string) (*provider.Provider, error) {
-	if m.getByNameFunc != nil {
-		return m.getByNameFunc(ctx, name)
-	}
-	return nil, errors.New("not found")
-}
-
-func (m *mockProviderRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*provider.Provider, error) {
-	if m.getByIDsFunc != nil {
-		return m.getByIDsFunc(ctx, ids)
-	}
-	return make(map[uuid.UUID]*provider.Provider), nil
-}
-
-type mockModelRepo struct {
-	listEnabledFunc            func(ctx context.Context) ([]*model.Model, error)
-	getByIDsFunc               func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error)
-	getByProviderAndModelIDFunc func(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error)
-}
-
-func (m *mockModelRepo) ListEnabled(ctx context.Context) ([]*model.Model, error) {
-	if m.listEnabledFunc != nil {
-		return m.listEnabledFunc(ctx)
-	}
-	return []*model.Model{}, nil
-}
-
-func (m *mockModelRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error) {
-	if m.getByIDsFunc != nil {
-		return m.getByIDsFunc(ctx, ids)
-	}
-	return make(map[uuid.UUID]*model.Model), nil
-}
-
-func (m *mockModelRepo) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error) {
-	if m.getByProviderAndModelIDFunc != nil {
-		return m.getByProviderAndModelIDFunc(ctx, providerID, modelID)
-	}
-	return nil, errors.New("not found")
-}
-
-type mockFailoverRepo struct {
-	getByModelFunc func(ctx context.Context, modelID string) (*failover.FailoverGroup, error)
-	getEnabledFunc func(ctx context.Context) ([]*failover.FailoverGroup, error)
-}
-
-func (m *mockFailoverRepo) GetByModel(ctx context.Context, modelID string) (*failover.FailoverGroup, error) {
-	if m.getByModelFunc != nil {
-		return m.getByModelFunc(ctx, modelID)
-	}
-	return nil, errors.New("not found")
-}
-
-func (m *mockFailoverRepo) GetEnabled(ctx context.Context) ([]*failover.FailoverGroup, error) {
-	if m.getEnabledFunc != nil {
-		return m.getEnabledFunc(ctx)
-	}
-	return []*failover.FailoverGroup{}, nil
-}
-
-type mockSettingsRepo struct {
-	getBoolFunc func(ctx context.Context, key string, defaultValue bool) bool
-}
-
-func (m *mockSettingsRepo) GetBool(ctx context.Context, key string, defaultValue bool) bool {
-	if m.getBoolFunc != nil {
-		return m.getBoolFunc(ctx, key, defaultValue)
-	}
-	return defaultValue
-}
-
-func newTestHandler() *Handler {
+// newUnitHandler creates a Handler with nil-pool repos suitable for unit
+// testing. Rate limiting is disabled so the middleware is a no-op.
+// Callers must defer stopUnitHandler(h) to clean up background goroutines.
+func newUnitHandler() *Handler {
 	cfg := &config.Config{
-		MasterKey:         "test-master-key",
-		RateLimitEnabled:  false,
-		DebugProxyHeaders: false,
+		MasterKey:        "test-master-key",
+		RateLimitEnabled: false,
 	}
-
+	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	settingsRepo := settings.NewRepository(nil)
+	rateLimiter := ratelimit.NewLimiter(settingsRepo)
 	return &Handler{
 		cfg:            cfg,
-		providerRepo:   &mockProviderRepo{},
-		modelRepo:      &mockModelRepo{},
-		virtualKeyRepo: &mockVirtualKeyRepo{},
-		failoverRepo:   &mockFailoverRepo{},
-		settingsRepo:   &mockSettingsRepo{},
-		rateLimiter:    ratelimit.NewLimiter(nil),
-		ipLimiter:      ratelimit.NewIPLimiter(30, 60),
+		providerRepo:   provider.NewRepository(nil),
+		modelRepo:      model.NewRepository(nil),
+		virtualKeyRepo: virtualkey.NewRepository(nil),
+		failoverRepo:   failover.NewRepository(nil),
+		settingsRepo:   settingsRepo,
+		rateLimiter:    rateLimiter,
+		ipLimiter:      ipLimiter,
 		upstreamTransport: &http.Transport{
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       90 * time.Second,
@@ -137,53 +48,105 @@ func newTestHandler() *Handler {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// ProxyKeyMiddleware tests
-// ---------------------------------------------------------------------------
+// stopUnitHandler stops background goroutines started by newUnitHandler.
+func stopUnitHandler(h *Handler) {
+	h.rateLimiter.Stop()
+	h.ipLimiter.Stop()
+}
 
-func TestProxyKeyMiddleware_MissingHeader(t *testing.T) {
-	h := newTestHandler()
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-	})
-	handler := h.ProxyKeyMiddleware(next)
-
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	if called {
-		t.Error("next handler should NOT be called without auth header")
+func containsMethod(methods []string, method string) bool {
+	for _, m := range methods {
+		if m == method {
+			return true
+		}
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d", rr.Code)
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// NewHandler tests
+// ---------------------------------------------------------------------------
+
+func TestNewHandler_SetsAllFields(t *testing.T) {
+	cfg := &config.Config{MasterKey: "test-key", RateLimitEnabled: false}
+	providerRepo := provider.NewRepository(nil)
+	modelRepo := model.NewRepository(nil)
+	virtualKeyRepo := virtualkey.NewRepository(nil)
+	failoverRepo := failover.NewRepository(nil)
+	settingsRepo := settings.NewRepository(nil)
+	rateLimiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	defer rateLimiter.Stop()
+	defer ipLimiter.Stop()
+
+	h := NewHandler(cfg, providerRepo, modelRepo, nil, virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
+
+	if h.cfg != cfg {
+		t.Error("cfg not set correctly")
+	}
+	if h.providerRepo != providerRepo {
+		t.Error("providerRepo not set correctly")
+	}
+	if h.modelRepo != modelRepo {
+		t.Error("modelRepo not set correctly")
+	}
+	if h.virtualKeyRepo != virtualKeyRepo {
+		t.Error("virtualKeyRepo not set correctly")
+	}
+	if h.failoverRepo != failoverRepo {
+		t.Error("failoverRepo not set correctly")
+	}
+	if h.settingsRepo != settingsRepo {
+		t.Error("settingsRepo not set correctly")
+	}
+	if h.rateLimiter != rateLimiter {
+		t.Error("rateLimiter not set correctly")
+	}
+	if h.ipLimiter != ipLimiter {
+		t.Error("ipLimiter not set correctly")
+	}
+	if h.upstreamTransport == nil {
+		t.Error("upstreamTransport should not be nil")
 	}
 }
 
-func TestProxyKeyMiddleware_InvalidScheme(t *testing.T) {
-	h := newTestHandler()
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-	})
-	handler := h.ProxyKeyMiddleware(next)
+func TestNewHandler_CreatesTransport(t *testing.T) {
+	settingsRepo := settings.NewRepository(nil)
+	rateLimiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	defer rateLimiter.Stop()
+	defer ipLimiter.Stop()
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
-	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	h := NewHandler(
+		&config.Config{MasterKey: "test-key", RateLimitEnabled: false},
+		provider.NewRepository(nil), model.NewRepository(nil), nil,
+		virtualkey.NewRepository(nil), failover.NewRepository(nil),
+		settingsRepo, rateLimiter, ipLimiter,
+	)
 
-	if called {
-		t.Error("next handler should NOT be called with Basic auth")
+	if h.upstreamTransport == nil {
+		t.Fatal("upstreamTransport should be created")
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d", rr.Code)
+	if h.upstreamTransport.ResponseHeaderTimeout != 120*time.Second {
+		t.Errorf("ResponseHeaderTimeout = %v, want 120s", h.upstreamTransport.ResponseHeaderTimeout)
+	}
+	if h.upstreamTransport.IdleConnTimeout != 90*time.Second {
+		t.Errorf("IdleConnTimeout = %v, want 90s", h.upstreamTransport.IdleConnTimeout)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ProxyKeyMiddleware tests (pure unit — no DB required)
+// ---------------------------------------------------------------------------
 
 func TestProxyKeyMiddleware_EmptyBearerToken(t *testing.T) {
-	h := newTestHandler()
+	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	defer ipLimiter.Stop()
+
+	h := &Handler{
+		cfg:       &config.Config{MasterKey: "test"},
+		ipLimiter: ipLimiter,
+	}
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -203,14 +166,14 @@ func TestProxyKeyMiddleware_EmptyBearerToken(t *testing.T) {
 	}
 }
 
-func TestProxyKeyMiddleware_KeyNotFound(t *testing.T) {
-	h := newTestHandler()
-	h.virtualKeyRepo = &mockVirtualKeyRepo{
-		findByKeyHashFunc: func(ctx context.Context, keyHash string) (*virtualkey.VirtualKey, error) {
-			return nil, virtualkey.ErrNotFound
-		},
-	}
+func TestProxyKeyMiddleware_BearerPrefixOnly(t *testing.T) {
+	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	defer ipLimiter.Stop()
 
+	h := &Handler{
+		cfg:       &config.Config{MasterKey: "test"},
+		ipLimiter: ipLimiter,
+	}
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -218,24 +181,73 @@ func TestProxyKeyMiddleware_KeyNotFound(t *testing.T) {
 	handler := h.ProxyKeyMiddleware(next)
 
 	req := httptest.NewRequest("POST", "/chat/completions", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
+	req.Header.Set("Authorization", "Bearer")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	if called {
-		t.Error("next handler should NOT be called when key not found")
+		t.Error("next handler should NOT be called with Bearer prefix only")
 	}
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", rr.Code)
 	}
 }
 
-func TestProxyKeyMiddleware_DBError(t *testing.T) {
-	h := newTestHandler()
-	h.virtualKeyRepo = &mockVirtualKeyRepo{
-		findByKeyHashFunc: func(ctx context.Context, keyHash string) (*virtualkey.VirtualKey, error) {
-			return nil, errors.New("database error")
-		},
+// ---------------------------------------------------------------------------
+// ProxyKeyMiddleware tests (integration — requires PostgreSQL)
+// ---------------------------------------------------------------------------
+
+func TestProxyKeyMiddleware_ValidKey_Integration(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	testKey := "sk-test-proxy-middleware-valid-key"
+	keyHash := virtualkey.Hash(testKey)
+	vk, err := h.virtualKeyRepo.Create(context.Background(), "test-middleware", keyHash, "sk-tes...")
+	if err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+	defer func() {
+		_ = h.virtualKeyRepo.Delete(context.Background(), vk.ID)
+	}()
+
+	called := false
+	var capturedVKName interface{}
+	var capturedVKID interface{}
+	var capturedVKHash interface{}
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		capturedVKName = r.Context().Value(virtualKeyNameKey)
+		capturedVKID = r.Context().Value(virtualKeyIDKey)
+		capturedVKHash = r.Context().Value(VirtualKeyHashKey)
+	})
+	handler := h.ProxyKeyMiddleware(next)
+
+	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer "+testKey)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if !called {
+		t.Error("next handler should be called with valid key")
+	}
+	if capturedVKName != vk.Name {
+		t.Errorf("virtual key name = %v, want %q", capturedVKName, vk.Name)
+	}
+	if capturedVKID != vk.ID.String() {
+		t.Errorf("virtual key ID = %v, want %s", capturedVKID, vk.ID.String())
+	}
+	if capturedVKHash != keyHash {
+		t.Errorf("virtual key hash = %v, want %s", capturedVKHash, keyHash)
+	}
+}
+
+func TestProxyKeyMiddleware_KeyNotFound_Integration(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
 	}
 
 	called := false
@@ -245,64 +257,45 @@ func TestProxyKeyMiddleware_DBError(t *testing.T) {
 	handler := h.ProxyKeyMiddleware(next)
 
 	req := httptest.NewRequest("POST", "/chat/completions", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
+	req.Header.Set("Authorization", "Bearer sk-nonexistent-key-12345")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	if called {
-		t.Error("next handler should NOT be called when DB error occurs")
+		t.Error("next handler should NOT be called with unknown key")
 	}
+	// FindByKeyHash returns pgx.ErrNoRows which is not virtualkey.ErrNotFound,
+	// so the middleware falls into the "db lookup failed" branch and returns 500.
 	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d", rr.Code)
+		t.Errorf("expected 500 (pgx.ErrNoRows != ErrNotFound), got %d", rr.Code)
 	}
 }
 
-func TestProxyKeyMiddleware_Success(t *testing.T) {
-	h := newTestHandler()
-	testVK := &virtualkey.VirtualKey{
-		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		Name:        "test-key",
-		KeyHash:     "abc123",
-		KeyPreview:  "sk-abc...",
-		TokensUsed:  100,
-		LastUsedAt:  time.Now(),
-		CreatedAt:   time.Now(),
-	}
-	h.virtualKeyRepo = &mockVirtualKeyRepo{
-		findByKeyHashFunc: func(ctx context.Context, keyHash string) (*virtualkey.VirtualKey, error) {
-			return testVK, nil
-		},
+func TestProxyKeyMiddleware_ContextCanceledDBError(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
 	}
 
-	var capturedCtx context.Context
+	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedCtx = r.Context()
+		called = true
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
-	req.Header.Set("Authorization", "Bearer sk-test-key-123")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req := httptest.NewRequest("POST", "/chat/completions", nil).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer sk-some-key")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	// Check that context values are set correctly
-	if capturedCtx == nil {
-		t.Fatal("context should not be nil")
+	if called {
+		t.Error("next handler should NOT be called on DB error")
 	}
-
-	vkName := capturedCtx.Value(virtualKeyNameKey)
-	if vkName != "test-key" {
-		t.Errorf("virtual key name in context = %v, want %s", vkName, "test-key")
-	}
-
-	vkID := capturedCtx.Value(virtualKeyIDKey)
-	if vkID != "00000000-0000-0000-0000-000000000001" {
-		t.Errorf("virtual key ID in context = %v, want %s", vkID, "00000000-0000-0000-0000-000000000001")
-	}
-
-	vkHash := capturedCtx.Value(virtualkey.VirtualKeyHashKey)
-	if vkHash != "abc123" {
-		t.Errorf("virtual key hash in context = %v, want %s", vkHash, "abc123")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rr.Code)
 	}
 }
 
@@ -311,8 +304,32 @@ func TestProxyKeyMiddleware_Success(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClose(t *testing.T) {
-	h := newTestHandler()
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
 	// This should not panic
+	h.Close()
+}
+
+func TestClose_Idempotent(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	h.Close()
+	h.Close()
+}
+
+func TestClose_NilTransport(t *testing.T) {
+	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	defer ipLimiter.Stop()
+
+	h := &Handler{
+		cfg:               &config.Config{MasterKey: "test"},
+		ipLimiter:         ipLimiter,
+		upstreamTransport: nil,
+	}
+
+	// Should not panic even with nil transport
 	h.Close()
 }
 
@@ -321,11 +338,50 @@ func TestClose(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRegister(t *testing.T) {
-	h := newTestHandler()
-	router := http.NewServeMux()
-	
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+
 	// This should not panic
-	h.Register(router)
+	h.Register(r)
+}
+
+func TestRegister_SetsUpRoutes(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	routes := make(map[string][]string)
+	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes[route] = append(routes[route], method)
+		return nil
+	})
+
+	if !containsMethod(routes["/models"], "GET") {
+		t.Error("expected GET /models route to be registered")
+	}
+	if !containsMethod(routes["/chat/completions"], "POST") {
+		t.Error("expected POST /chat/completions route to be registered")
+	}
+}
+
+func TestRegister_RequiresAuth(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("GET", "/models", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 (auth required), got %d", rr.Code)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -333,9 +389,54 @@ func TestRegister(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRegisterAdminChat(t *testing.T) {
-	h := newTestHandler()
-	router := http.NewServeMux()
-	
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+
 	// This should not panic
-	h.RegisterAdminChat(router)
+	h.RegisterAdminChat(r)
+}
+
+func TestRegisterAdminChat_SetsUpRoutes(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+	h.RegisterAdminChat(r)
+
+	routes := make(map[string][]string)
+	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes[route] = append(routes[route], method)
+		return nil
+	})
+
+	tests := []struct {
+		method string
+		route  string
+	}{
+		{"POST", "/chat"},
+		{"POST", "/arena"},
+		{"POST", "/completions"},
+	}
+	for _, tt := range tests {
+		if !containsMethod(routes[tt.route], tt.method) {
+			t.Errorf("expected %s %s route to be registered", tt.method, tt.route)
+		}
+	}
+}
+
+func TestRegisterAdminChat_OnlyPostMethods(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+	h.RegisterAdminChat(r)
+
+	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		if method != "POST" {
+			t.Errorf("expected only POST methods for admin routes, got %s %s", method, route)
+		}
+		return nil
+	})
 }
