@@ -184,7 +184,7 @@ function EditProviderModal({
 										api_key: e.target.value,
 									})
 								}
-								className="ui-input pr-10 overflow-hidden"
+								className="ui-input pr-10! overflow-hidden"
 								placeholder="Leave blank to keep current key"
 							/>
 							<button
@@ -994,7 +994,7 @@ export function Providers() {
 												api_key: e.target.value,
 											})
 										}
-										className="ui-input pr-10 overflow-hidden"
+										className="ui-input pr-10! overflow-hidden"
 										placeholder={
 											providerTypeAllowsEmptyKey(formData.provider_type)
 												? "Optional — free models work without a key"

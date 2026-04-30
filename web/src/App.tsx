@@ -84,7 +84,7 @@ function LoginScreen() {
 								value={token}
 								onChange={(e) => setToken(e.target.value)}
 								onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-								className="ui-input pr-10 overflow-hidden"
+								className="ui-input pr-10! overflow-hidden"
 								placeholder="Enter your admin token"
 							/>
 							<button

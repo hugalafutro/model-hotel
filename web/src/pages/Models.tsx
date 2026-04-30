@@ -514,7 +514,7 @@ function ModelDetailModal({
 												input_price_per_million: e.target.value,
 											}))
 										}
-										className="ui-input text-sm pr-16"
+										className="ui-input text-sm pr-16!"
 										placeholder="0.00"
 									/>
 									<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
@@ -558,7 +558,7 @@ function ModelDetailModal({
 												output_price_per_million: e.target.value,
 											}))
 										}
-										className="ui-input text-sm pr-16"
+										className="ui-input text-sm pr-16!"
 										placeholder="0.00"
 									/>
 									<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
