@@ -30,9 +30,11 @@ import {
 	YAxis,
 } from "recharts";
 import { api } from "../api/client";
-import type { MetricType } from "../api/types";
+import type { MetricType, Model } from "../api/types";
+import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
+import { proxyModelID } from "../utils/model";
 
 type Range = "24h" | "7d";
 
@@ -648,6 +650,7 @@ function UsageBarPanel({
 	metric,
 	onMetricChange,
 	loading,
+	onEntryClick,
 }: {
 	title: string;
 	icon: React.ElementType;
@@ -662,6 +665,8 @@ function UsageBarPanel({
 	metric?: MetricType;
 	onMetricChange?: (m: MetricType) => void;
 	loading?: boolean;
+	/** When provided, entry labels become clickable buttons that invoke this callback */
+	onEntryClick?: (label: string) => void;
 }) {
 	const max = entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0;
 
@@ -693,12 +698,23 @@ function UsageBarPanel({
 						return (
 							<div key={entry.label} className="space-y-1.5">
 								<div className="flex justify-between items-center text-sm">
-									<span
-										className={`truncate max-w-[70%] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
-										title={entry.label}
-									>
-										{entry.label}
-									</span>
+									{onEntryClick ? (
+										<button
+											type="button"
+											onClick={() => onEntryClick(entry.label)}
+											className={`truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+											title={`View details for ${entry.label}`}
+										>
+											{entry.label}
+										</button>
+									) : (
+										<span
+											className={`truncate max-w-[70%] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+											title={entry.label}
+										>
+											{entry.label}
+										</span>
+									)}
 									<span className="font-semibold text-(--text-primary) ml-2 shrink-0">
 										{entry.value.toLocaleString()}
 										{entry.suffix
@@ -941,6 +957,7 @@ export function Dashboard() {
 	const [rateLimitModalOpen, setRateLimitModalOpen] = useState(false);
 	const [requestsModalOpen, setRequestsModalOpen] = useState(false);
 	const [tokensModalOpen, setTokensModalOpen] = useState(false);
+	const [detailModel, setDetailModel] = useState<Model | null>(null);
 
 	// Dashboard auto-refresh
 	const queryClient = useQueryClient();
@@ -1130,6 +1147,16 @@ export function Dashboard() {
 			window.location.reload();
 		}
 	}, [statsError]);
+
+	const handleModelClick = useCallback(
+		(label: string) => {
+			const found = models?.find(
+				(m) => proxyModelID(m.provider_name, m.model_id) === label,
+			);
+			if (found) setDetailModel(found);
+		},
+		[models],
+	);
 
 	if (!stats && statsLoading) {
 		return (
@@ -1504,6 +1531,7 @@ export function Dashboard() {
 					metric={modelMetric}
 					onMetricChange={setModelMetric}
 					loading={modelStatsLoading}
+					onEntryClick={handleModelClick}
 				/>
 				<UsageBarPanel
 					title="Top Providers"
@@ -1601,6 +1629,13 @@ export function Dashboard() {
 				label="tokens"
 				allowDecimals
 			/>
+
+			{detailModel && (
+				<ModelDetailModal
+					model={detailModel}
+					onClose={() => setDetailModel(null)}
+				/>
+			)}
 		</div>
 	);
 }
