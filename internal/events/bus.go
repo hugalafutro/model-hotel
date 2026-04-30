@@ -62,16 +62,17 @@ func (b *Bus) Subscribe() chan Event {
 }
 
 // Unsubscribe removes and closes a previously subscribed channel.
+// The channel is closed first, then drained in a goroutine so that
+// any Publish call currently sending to the channel completes safely
+// before the buffer is discarded.
 func (b *Bus) Unsubscribe(ch chan Event) {
 	b.mu.Lock()
 	delete(b.subscribers, ch)
 	b.mu.Unlock()
-	// Drain and close in a goroutine to avoid deadlock if Publish is
-	// blocked on this channel.
+	close(ch)
 	go func() {
 		for range ch {
 		}
-		close(ch)
 	}()
 }
 

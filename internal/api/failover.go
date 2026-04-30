@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
-	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,10 +17,10 @@ type FailoverHandler struct {
 	failoverRepo *failover.Repository
 	modelRepo    *model.Repository
 	dbPool       *pgxpool.Pool
-	settingsRepo *settings.Repository
+	settingsRepo SettingsStore
 }
 
-func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo *settings.Repository) *FailoverHandler {
+func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
 		modelRepo:    modelRepo,

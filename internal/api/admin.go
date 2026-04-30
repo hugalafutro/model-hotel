@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,30 +9,61 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/google/uuid"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
-	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type Handler struct {
-	cfg            *config.Config
-	providerRepo   *provider.Repository
-	dbPool         *db.DB
-	adminMgr       *admin.Manager
-	virtualKeyRepo *virtualkey.Repository
-	settingsRepo   *settings.Repository
+// ProviderStore defines the provider repository methods used by the API.
+type ProviderStore interface {
+	Create(ctx context.Context, req provider.CreateProviderRequest, encryptedKey, keyNonce, keySalt []byte) (*provider.Provider, error)
+	List(ctx context.Context) ([]*provider.Provider, error)
+	Get(ctx context.Context, id uuid.UUID) (*provider.Provider, error)
+	GetByName(ctx context.Context, name string) (*provider.Provider, error)
+	Update(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest, encryptedKey, keyNonce, keySalt []byte) (*provider.Provider, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-func NewHandler(cfg *config.Config, providerRepo *provider.Repository, database *db.DB, adminMgr *admin.Manager, vkRepo *virtualkey.Repository, settingsRepo *settings.Repository) *Handler {
+// VirtualKeyStore defines the virtual key repository methods used by the API.
+type VirtualKeyStore interface {
+	Create(ctx context.Context, name, keyHash, keyPreview string) (*virtualkey.VirtualKey, error)
+	List(ctx context.Context) ([]*virtualkey.VirtualKey, error)
+	Get(ctx context.Context, id uuid.UUID) (*virtualkey.VirtualKey, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// SettingsStore defines the settings repository methods used by the API.
+type SettingsStore interface {
+	GetAll(ctx context.Context) (map[string]string, error)
+	GetWithDefault(ctx context.Context, key string, defaultValue string) string
+	Set(ctx context.Context, key string, value string) error
+	SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error
+	InvalidateCache(key string)
+}
+
+// AdminAuthenticator defines admin token validation.
+type AdminAuthenticator interface {
+	Validate(token string) bool
+}
+
+type Handler struct {
+	cfg            *config.Config
+	providerRepo   ProviderStore
+	dbPool         *db.DB
+	adminMgr       AdminAuthenticator
+	virtualKeyRepo VirtualKeyStore
+	settingsRepo   SettingsStore
+}
+
+func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore) *Handler {
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,

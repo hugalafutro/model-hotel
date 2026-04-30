@@ -16,16 +16,27 @@ type Result struct {
 	Err     string `json:"error,omitempty"`
 }
 
-func main() {
+func parseArgs() (string, string, int, error) {
 	if len(os.Args) < 3 {
-		fmt.Println("usage: discovery_test <base_url> <provider_id> [concurrency]")
-		os.Exit(2)
+		return "", "", 0, fmt.Errorf("usage: discovery_test <base_url> <provider_id> [concurrency]")
 	}
 	base := os.Args[1]
 	providerID := os.Args[2]
 	concurrency := 2
 	if len(os.Args) >= 4 {
-		_, _ = fmt.Sscanf(os.Args[3], "%d", &concurrency)
+		_, err := fmt.Sscanf(os.Args[3], "%d", &concurrency)
+		if err != nil {
+			return "", "", 0, fmt.Errorf("invalid concurrency: %v", err)
+		}
+	}
+	return base, providerID, concurrency, nil
+}
+
+func main() {
+	base, providerID, concurrency, err := parseArgs()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(2)
 	}
 	// Auth placeholder; in real tests you may pass an API key header
 	client := &http.Client{Timeout: 30 * time.Second}
