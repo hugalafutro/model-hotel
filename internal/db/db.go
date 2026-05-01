@@ -18,14 +18,18 @@ type DB struct {
 	pool *pgxpool.Pool
 }
 
-func New(ctx context.Context, databaseURL string) (*DB, error) {
+func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database URL: %w", err)
 	}
 
-	config.MaxConns = 25
-	config.MinConns = 5
+	if maxConns > 0 {
+		config.MaxConns = maxConns
+	}
+	if minConns > 0 {
+		config.MinConns = minConns
+	}
 	config.MaxConnLifetime = 4 * time.Hour
 	config.MaxConnIdleTime = 30 * time.Minute
 	config.HealthCheckPeriod = 1 * time.Minute

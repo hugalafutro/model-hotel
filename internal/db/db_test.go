@@ -18,7 +18,7 @@ func TestMain(m *testing.M) {
 	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
 
 	var err error
-	testDB, err = New(ctx, testURL)
+	testDB, err = New(ctx, testURL, 25, 5)
 	if err != nil {
 		fmt.Printf("failed to initialize test DB: %v\n", err)
 		os.Exit(1)
@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 
 func TestNewInvalidURL(t *testing.T) {
 	ctx := context.Background()
-	_, err := New(ctx, "invalid://url")
+	_, err := New(ctx, "invalid://url", 25, 5)
 	if err == nil {
 		t.Error("expected error for invalid database URL")
 	}
@@ -81,7 +81,7 @@ func TestClose(t *testing.T) {
 	ctx := context.Background()
 	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
 
-	d, err := New(ctx, testURL)
+	d, err := New(ctx, testURL, 25, 5)
 	if err != nil {
 		t.Fatalf("failed to create DB for close test: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestRunMigrationsIdempotent(t *testing.T) {
 	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
 
 	// Create a new DB; this calls runMigrations internally via New.
-	d, err := New(ctx, testURL)
+	d, err := New(ctx, testURL, 25, 5)
 	if err != nil {
 		t.Fatalf("failed to create DB for migration test: %v", err)
 	}

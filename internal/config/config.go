@@ -26,11 +26,13 @@ type Config struct {
 	MaxRequestSize       int64
 	CORSOrigins          []string
 	AllowedProviderHosts []string
+	DBMaxConns           int32
+	DBMinConns           int32
 }
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
 // regardless of the ALLOWED_PROVIDER_HOSTS env var. These correspond to the
-// built-in provider types (OpenAI, Nano-GPT, Z.AI, DeepSeek, Ollama).
+// built-in provider types (OpenAI, Nano-GPT, Z.AI Coding Plan, DeepSeek, Ollama).
 var defaultKnownProviderHosts = []string{
 	"api.openai.com",
 	"api.nano-gpt.com",
@@ -60,6 +62,8 @@ func Load() (*Config, error) {
 		MaxRequestSize:       getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB
 		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
+		DBMaxConns: int32(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25)),
+		DBMinConns: int32(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5)),
 	}
 
 	if cfg.DatabaseURL == "" {

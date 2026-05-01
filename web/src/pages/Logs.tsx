@@ -342,6 +342,12 @@ function RequestLogs() {
 		useState<OverheadBreakdown | null>(null);
 	const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 	const [liveEnabled, setLiveEnabled] = useState(true);
+	const [isVisible, setIsVisible] = useState(!document.hidden);
+	useEffect(() => {
+		const handler = () => setIsVisible(!document.hidden);
+		document.addEventListener("visibilitychange", handler);
+		return () => document.removeEventListener("visibilitychange", handler);
+	}, []);
 	const { toast } = useToast();
 
 	const handleSort = useCallback((field: LogSortField) => {
@@ -385,7 +391,9 @@ function RequestLogs() {
 				sort_by: sort.field,
 				sort_dir: sort.dir,
 			}),
-		refetchInterval: liveEnabled ? 2000 : false,
+		refetchInterval: liveEnabled && isVisible ? 2000 : false,
+		refetchIntervalInBackground: false,
+		refetchOnWindowFocus: "always",
 		placeholderData: keepPreviousData,
 	});
 

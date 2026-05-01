@@ -17,7 +17,7 @@ var testPool *pgxpool.Pool
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
-	testDB, err := db.New(ctx, testURL)
+	testDB, err := db.New(ctx, testURL, 25, 5)
 	if err != nil {
 		fmt.Printf("failed to initialize test DB: %v\n", err)
 		os.Exit(1)

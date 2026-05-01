@@ -110,6 +110,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	if perPage > 200 {
 		perPage = 200
 	}
+	cacheKey := r.URL.RawQuery
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
 	statusCodeStr := r.URL.Query().Get("status_code")
@@ -145,8 +146,16 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	offset := (page - 1) * perPage
 
+	if cached, ok := globalLogsCache.get(cacheKey); ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "HIT")
+		_ = json.NewEncoder(w).Encode(cached)
+		return
+	}
+
 	query := `
-        SELECT rl.id, COALESCE(rl.provider_id::text, ''),
+        SELECT COUNT(*) OVER() AS total_count,
+               rl.id, COALESCE(rl.provider_id::text, ''),
                CASE
                    WHEN rl.provider_id IS NULL THEN ''
                    WHEN p.name IS NOT NULL THEN p.name
@@ -225,74 +234,6 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		}
 	}
 
-	var total int
-	// Build a lean COUNT query from the same WHERE conditions instead of
-	// wrapping the full SELECT as a subquery (which forces PostgreSQL to
-	// materialise all columns/rows just to count them).
-	countQuery := `
-		SELECT COUNT(*)
-		FROM request_logs rl
-		LEFT JOIN providers p ON rl.provider_id = p.id
-		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-		WHERE 1=1
-	`
-	countArgs := []interface{}{}
-	countArgIndex := 1
-
-	if modelID != "" {
-		countQuery += " AND rl.model_id ILIKE $" + util.IntToStr(countArgIndex)
-		countArgs = append(countArgs, "%"+modelID+"%")
-		countArgIndex++
-	}
-
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
-		if err == nil {
-			countQuery += " AND rl.provider_id = $" + util.IntToStr(countArgIndex)
-			countArgs = append(countArgs, providerUUID)
-			countArgIndex++
-		}
-	}
-
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
-			countQuery += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
-			countQuery += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
-			if statusCode == 0 {
-				countQuery += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
-			} else {
-				countQuery += " AND rl.status_code = $" + util.IntToStr(countArgIndex)
-				countArgs = append(countArgs, statusCode)
-				countArgIndex++
-			}
-		}
-	}
-
-	if fromDate != "" {
-		parsedFrom, err := time.Parse(time.RFC3339, fromDate)
-		if err == nil {
-			countQuery += " AND rl.created_at >= $" + util.IntToStr(countArgIndex)
-			countArgs = append(countArgs, parsedFrom)
-			countArgIndex++
-		}
-	}
-
-	if toDate != "" {
-		parsedTo, err := time.Parse(time.RFC3339, toDate)
-		if err == nil {
-			countQuery += " AND rl.created_at <= $" + util.IntToStr(countArgIndex)
-			countArgs = append(countArgs, parsedTo)
-		}
-	}
-
-	err := h.dbPool.Pool().QueryRow(r.Context(), countQuery, countArgs...).Scan(&total)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	sd := sortColumns[sortBy]
 	orderClause := " ORDER BY "
 	if sd.tierExpr != "" {
@@ -316,9 +257,12 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	defer rows.Close()
 
 	entries := make([]LogEntry, 0)
+	var total int
 	for rows.Next() {
 		var entry LogEntry
+		var totalCount int
 		err := rows.Scan(
+			&totalCount,
 			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
@@ -332,6 +276,9 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		if err != nil {
 			continue
 		}
+		if total == 0 {
+			total = totalCount
+		}
 		entries = append(entries, entry)
 	}
 
@@ -342,6 +289,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		PerPage: perPage,
 	}
 
+	globalLogsCache.set(cacheKey, &response)
+	w.Header().Set("X-Cache", "MISS")
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
