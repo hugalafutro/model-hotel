@@ -2,9 +2,11 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 func (h *Handler) insertRequestLog(ctx context.Context, logEntry *requestLogData) error {
@@ -19,7 +21,21 @@ func (h *Handler) insertRequestLog(ctx context.Context, logEntry *requestLogData
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		logEntry.id, logEntry.modelID, logEntry.requestHash, logEntry.streaming, logEntry.virtualKeyName, vkID, logEntry.failoverAttempt, logEntry.state,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	events.Publish(events.Event{
+		Type:     "request.started",
+		Severity: "info",
+		Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
+		Metadata: map[string]interface{}{
+			"request_id": logEntry.id,
+			"model_id":   logEntry.modelID,
+			"streaming":  logEntry.streaming,
+			"state":      logEntry.state,
+		},
+	})
+	return nil
 }
 
 func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData) {
@@ -60,5 +76,31 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 		log.Printf("[proxy] error: failed to update request log %s: %v", logEntry.id, err)
 	} else if tag.RowsAffected() == 0 {
 		log.Printf("[proxy] warning: updateRequestLog no rows affected for log %s (may have been deleted)", logEntry.id)
+	}
+
+	// Publish request lifecycle event for terminal states
+	if logEntry.state == "completed" || logEntry.state == "failed" {
+		severity := "success"
+		if logEntry.state == "failed" {
+			severity = "warning"
+		}
+		msg := fmt.Sprintf("Request completed: %s", logEntry.modelID)
+		if logEntry.state == "failed" && logEntry.errorMessage != "" {
+			msg = fmt.Sprintf("Request failed: %s — %s", logEntry.modelID, logEntry.errorMessage)
+			if len(msg) > 200 {
+				msg = msg[:200]
+			}
+		}
+		events.Publish(events.Event{
+			Type:     "request.completed",
+			Severity: severity,
+			Message:  msg,
+			Metadata: map[string]interface{}{
+				"request_id":  logEntry.id,
+				"model_id":    logEntry.modelID,
+				"state":       logEntry.state,
+				"status_code": logEntry.statusCode,
+			},
+		})
 	}
 }

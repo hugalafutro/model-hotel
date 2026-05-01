@@ -58,7 +58,14 @@ export function EventProvider({ children }: { children: ReactNode }) {
 									if (!jsonStr) continue;
 									try {
 										const event: ServerEvent = JSON.parse(jsonStr);
-										toast(event.message, event.severity);
+										// Dispatch custom event for programmatic consumers (e.g., logs page)
+										window.dispatchEvent(
+											new CustomEvent("server-event", { detail: event }),
+										);
+										// Only show toast for user-facing events, not request lifecycle
+										if (!event.type.startsWith("request.")) {
+											toast(event.message, event.severity);
+										}
 									} catch {
 										// ignore malformed JSON
 									}
