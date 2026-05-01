@@ -6,6 +6,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type ToastType = "success" | "error" | "info" | "warning";
 
@@ -61,42 +62,37 @@ const ALIGN_CLASSES: Record<ToastPosition, string> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
 	const [toasts, setToasts] = useState<Toast[]>([]);
-	const [position, setPositionState] = useState<ToastPosition>(() => {
-		const stored = localStorage.getItem("toastPosition");
-		if (
-			stored === "top-left" ||
-			stored === "top-center" ||
-			stored === "top-right" ||
-			stored === "bottom-left" ||
-			stored === "bottom-center" ||
-			stored === "bottom-right"
-		) {
-			return stored;
-		}
-		return "bottom-center";
-	});
+	const [position, setPosition] = useLocalStorage<ToastPosition>(
+		"toastPosition",
+		"bottom-center",
+		{
+			deserialize: (v) => {
+				const valid = [
+					"top-left",
+					"top-center",
+					"top-right",
+					"bottom-left",
+					"bottom-center",
+					"bottom-right",
+				];
+				return valid.includes(v) ? (v as ToastPosition) : "bottom-center";
+			},
+		},
+	);
 
-	const [timeout, setTimeoutState] = useState<number>(() => {
-		const stored = localStorage.getItem("toastTimeout");
-		if (stored) {
-			const parsed = parseInt(stored, 10);
-			if (!Number.isNaN(parsed) && parsed >= 1000 && parsed <= 30000) {
-				return parsed;
-			}
-		}
-		return 4000;
-	});
-
-	const setPosition = useCallback((p: ToastPosition) => {
-		setPositionState(p);
-		localStorage.setItem("toastPosition", p);
-	}, []);
-
-	const setTimeoutValue = useCallback((t: number) => {
-		const clamped = Math.min(30000, Math.max(1000, t));
-		setTimeoutState(clamped);
-		localStorage.setItem("toastTimeout", String(clamped));
-	}, []);
+	const [timeout, setTimeoutValue] = useLocalStorage<number>(
+		"toastTimeout",
+		4000,
+		{
+			serialize: (v) => String(Math.min(30000, Math.max(1000, v))),
+			deserialize: (v) => {
+				const parsed = parseInt(v, 10);
+				if (!Number.isNaN(parsed) && parsed >= 1000 && parsed <= 30000)
+					return parsed;
+				return 4000;
+			},
+		},
+	);
 
 	const addToast = useCallback(
 		(message: string, type: ToastType = "success") => {

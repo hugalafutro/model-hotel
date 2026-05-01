@@ -32,6 +32,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useStorage } from "../context/StorageContext";
 import { useToast } from "../context/ToastContext";
 import { CHAT_PERSONAS } from "../data/presets";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { proxyModelID } from "../utils/model";
 import { fetchWithRetry } from "../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../utils/thinking";
@@ -238,6 +239,7 @@ export function Chat() {
 	});
 
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
+	const { persistChat, persistConversation } = useStorage();
 
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
 		try {
@@ -255,125 +257,73 @@ export function Chat() {
 		return [];
 	});
 	// ── Chat mode state ──
-	const [chatSelectedModel, setChatSelectedModel] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistChat") === "true") {
-				return localStorage.getItem("chatSelectedModel") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
-	const [chatSystemPrompt, setChatSystemPrompt] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistChat") === "true") {
-				return localStorage.getItem("chatSystemPrompt") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
-	const [chatActivePersonaId, setChatActivePersonaId] = useState<string | null>(
-		() => {
-			try {
-				if (localStorage.getItem("persistChat") === "true") {
-					const v = localStorage.getItem("chatActivePersonaId");
-					return v || null;
-				}
-			} catch {
-				/* ignore */
-			}
-			return null;
-		},
+	const [chatSelectedModel, setChatSelectedModel] = useLocalStorage<string>(
+		"chatSelectedModel",
+		"",
+		{ enabled: persistChat },
 	);
+	const [chatSystemPrompt, setChatSystemPrompt] = useLocalStorage<string>(
+		"chatSystemPrompt",
+		"",
+		{ enabled: persistChat },
+	);
+	const [chatActivePersonaId, setChatActivePersonaId] = useLocalStorage<
+		string | null
+	>("chatActivePersonaId", null, {
+		enabled: persistChat,
+		serialize: (v) => v ?? "",
+		deserialize: (v) => v || null,
+	});
 	const [chatMessageParams, setChatMessageParams] = useState<GenerationParams>(
 		{},
 	);
 
 	// ── Conversation mode state (Model A) ──
-	const [conversationModelA, setConversationModelA] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistConversation") === "true") {
-				return localStorage.getItem("conversationModelA") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
+	const [conversationModelA, setConversationModelA] = useLocalStorage<string>(
+		"conversationModelA",
+		"",
+		{ enabled: persistConversation },
+	);
 	const [conversationSystemPromptA, setConversationSystemPromptA] =
-		useState<string>(() => {
-			try {
-				if (localStorage.getItem("persistConversation") === "true") {
-					return localStorage.getItem("conversationSystemPromptA") ?? "";
-				}
-			} catch {
-				/* ignore */
-			}
-			return "";
+		useLocalStorage<string>("conversationSystemPromptA", "", {
+			enabled: persistConversation,
 		});
 	const [conversationActivePersonaIdA, setConversationActivePersonaIdA] =
-		useState<string | null>(() => {
-			try {
-				if (localStorage.getItem("persistConversation") === "true") {
-					const v = localStorage.getItem("conversationActivePersonaIdA");
-					return v || null;
-				}
-			} catch {
-				/* ignore */
-			}
-			return null;
+		useLocalStorage<string | null>("conversationActivePersonaIdA", null, {
+			enabled: persistConversation,
+			serialize: (v) => v ?? "",
+			deserialize: (v) => v || null,
 		});
 	const [conversationParamsA, setConversationParamsA] =
 		useState<GenerationParams>({});
 
 	// ── Conversation mode state (Model B) ──
-	const [selectedModelB, setSelectedModelB] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistConversation") === "true") {
-				return localStorage.getItem("conversationModelB") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
+	const [selectedModelB, setSelectedModelB] = useLocalStorage<string>(
+		"conversationModelB",
+		"",
+		{ enabled: persistConversation },
+	);
+	const [systemPromptB, setSystemPromptB] = useLocalStorage<string>(
+		"conversationSystemPromptB",
+		"",
+		{ enabled: persistConversation },
+	);
+	const [activePersonaIdB, setActivePersonaIdB] = useLocalStorage<
+		string | null
+	>("conversationActivePersonaIdB", null, {
+		enabled: persistConversation,
+		serialize: (v) => v ?? "",
+		deserialize: (v) => v || null,
 	});
-	const [systemPromptB, setSystemPromptB] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistConversation") === "true") {
-				return localStorage.getItem("conversationSystemPromptB") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
-	const [activePersonaIdB, setActivePersonaIdB] = useState<string | null>(
-		() => {
-			try {
-				if (localStorage.getItem("persistConversation") === "true") {
-					const v = localStorage.getItem("conversationActivePersonaIdB");
-					return v || null;
-				}
-			} catch {
-				/* ignore */
-			}
-			return null;
+	const [messageParamsB, setMessageParamsB] = useLocalStorage<GenerationParams>(
+		"conversationParamsB",
+		{},
+		{
+			enabled: persistConversation,
+			serialize: JSON.stringify,
+			deserialize: (v) => JSON.parse(v),
 		},
 	);
-	const [messageParamsB, setMessageParamsB] = useState<GenerationParams>(() => {
-		try {
-			if (localStorage.getItem("persistConversation") === "true") {
-				const v = localStorage.getItem("conversationParamsB");
-				if (v) return JSON.parse(v);
-			}
-		} catch {
-			/* ignore */
-		}
-		return {};
-	});
 	const [conversationState, setConversationState] =
 		useState<ConversationState>("idle");
 	const [currentTurn, setCurrentTurn] = useState(0);
@@ -389,7 +339,6 @@ export function Chat() {
 	const lastPromptRef = useRef<string>("");
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
-	const { persistChat, persistConversation } = useStorage();
 	const quotaWarnedRef = useRef(false);
 
 	// Derived state based on current mode
@@ -441,7 +390,7 @@ export function Chat() {
 		const pick = available[Math.floor(Math.random() * available.length)];
 		setActivePersonaIdB(pick.id);
 		setSystemPromptB(pick.systemPrompt);
-	}, [activePersonaIdB]);
+	}, [activePersonaIdB, setActivePersonaIdB, setSystemPromptB]);
 
 	const handleRandomModel = useCallback(() => {
 		const available = enabledModels.filter((m) => {
@@ -463,7 +412,7 @@ export function Chat() {
 		const pick = available[Math.floor(Math.random() * available.length)];
 		const val = proxyModelID(pick.provider_name, pick.model_id);
 		setSelectedModelB(val);
-	}, [enabledModels, selectedModelB]);
+	}, [enabledModels, selectedModelB, setSelectedModelB]);
 
 	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
 	// but skip the initial mount so we don't wipe persisted messages.
@@ -492,22 +441,16 @@ export function Chat() {
 		};
 	}, []);
 
-	const [maxTurns, setMaxTurns] = useState(() => {
-		try {
-			const v = localStorage.getItem("conversationMaxTurns");
-			return v ? parseInt(v, 10) : 10;
-		} catch {
-			return 10;
-		}
-	});
-	const [turnDelayMs, setTurnDelayMs] = useState(() => {
-		try {
-			const v = localStorage.getItem("conversationTurnDelayMs");
-			return v ? parseInt(v, 10) : 500;
-		} catch {
-			return 500;
-		}
-	});
+	const [maxTurns, setMaxTurns] = useLocalStorage<number>(
+		"conversationMaxTurns",
+		10,
+		{ serialize: String, deserialize: (v) => parseInt(v, 10) || 10 },
+	);
+	const [turnDelayMs, setTurnDelayMs] = useLocalStorage<number>(
+		"conversationTurnDelayMs",
+		500,
+		{ serialize: String, deserialize: (v) => parseInt(v, 10) || 500 },
+	);
 	const [configCollapsed, setConfigCollapsed] = useState(false);
 	const conversationAbortRef = useRef<AbortController | null>(null);
 	const conversationRunningRef = useRef(false);
@@ -572,138 +515,6 @@ export function Chat() {
 			}
 		}
 	}, [messages, persistConversation, chatSubMode, toast]);
-
-	useEffect(() => {
-		if (!persistChat) return;
-		try {
-			localStorage.setItem("chatSystemPrompt", chatSystemPrompt);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — chat history not saved", "warning");
-			}
-		}
-	}, [chatSystemPrompt, persistChat, toast]);
-
-	useEffect(() => {
-		if (!persistChat) return;
-		try {
-			localStorage.setItem("chatActivePersonaId", chatActivePersonaId ?? "");
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — chat history not saved", "warning");
-			}
-		}
-	}, [chatActivePersonaId, persistChat, toast]);
-
-	useEffect(() => {
-		if (!persistChat) return;
-		try {
-			localStorage.setItem("chatSelectedModel", chatSelectedModel);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — chat history not saved", "warning");
-			}
-		}
-	}, [chatSelectedModel, persistChat, toast]);
-
-	// ── Conversation mode persistence effects ──
-	useEffect(() => {
-		if (!persistConversation) return;
-		try {
-			localStorage.setItem("conversationModelA", conversationModelA);
-		} catch {
-			/* ignore */
-		}
-	}, [conversationModelA, persistConversation]);
-
-	useEffect(() => {
-		if (!persistConversation) return;
-		try {
-			localStorage.setItem(
-				"conversationSystemPromptA",
-				conversationSystemPromptA,
-			);
-		} catch {
-			/* ignore */
-		}
-	}, [conversationSystemPromptA, persistConversation]);
-
-	useEffect(() => {
-		if (!persistConversation) return;
-		try {
-			localStorage.setItem(
-				"conversationActivePersonaIdA",
-				conversationActivePersonaIdA ?? "",
-			);
-		} catch {
-			/* ignore */
-		}
-	}, [conversationActivePersonaIdA, persistConversation]);
-
-	// ── Conversation persistence effects ──
-	useEffect(() => {
-		if (localStorage.getItem("persistConversation") !== "true") return;
-		try {
-			localStorage.setItem("conversationModelB", selectedModelB);
-		} catch {
-			/* ignore */
-		}
-	}, [selectedModelB]);
-
-	useEffect(() => {
-		if (localStorage.getItem("persistConversation") !== "true") return;
-		try {
-			localStorage.setItem("conversationSystemPromptB", systemPromptB);
-		} catch {
-			/* ignore */
-		}
-	}, [systemPromptB]);
-
-	useEffect(() => {
-		if (localStorage.getItem("persistConversation") !== "true") return;
-		try {
-			localStorage.setItem(
-				"conversationActivePersonaIdB",
-				activePersonaIdB ?? "",
-			);
-		} catch {
-			/* ignore */
-		}
-	}, [activePersonaIdB]);
-
-	useEffect(() => {
-		if (localStorage.getItem("persistConversation") !== "true") return;
-		try {
-			localStorage.setItem(
-				"conversationParamsB",
-				JSON.stringify(messageParamsB),
-			);
-		} catch {
-			/* ignore */
-		}
-	}, [messageParamsB]);
-
-	useEffect(() => {
-		try {
-			localStorage.setItem("conversationMaxTurns", String(maxTurns));
-		} catch {
-			/* ignore */
-		}
-	}, [maxTurns]);
-
-	useEffect(() => {
-		try {
-			localStorage.setItem("conversationTurnDelayMs", String(turnDelayMs));
-		} catch {
-			/* ignore */
-		}
-	}, [turnDelayMs]);
 
 	const handleSend = useCallback(async () => {
 		if (!input.trim() || !selectedModel || isStreaming) return;

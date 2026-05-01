@@ -29,6 +29,53 @@ export interface AppLogEntry {
 
 export const API_BASE = "";
 
+// ── Internal helpers ────────────────────────────────────────────────
+
+async function fetchOK(
+	url: string,
+	options?: RequestInit,
+	errorPrefix = "Request failed",
+): Promise<Response> {
+	const response = await fetch(url, options);
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(`${errorPrefix}: ${response.status} ${text}`);
+	}
+	return response;
+}
+
+async function fetchJSON<T>(
+	url: string,
+	options?: RequestInit,
+	errorPrefix = "Request failed",
+): Promise<T> {
+	const response = await fetchOK(url, options, errorPrefix);
+	return response.json();
+}
+
+function buildQueryString(
+	params: Record<string, string | number | boolean | undefined>,
+): string {
+	const sp = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (value) {
+			sp.set(key, String(value));
+		}
+	}
+	return sp.toString();
+}
+
+function buildUrl(
+	path: string,
+	params?: Record<string, string | number | boolean | undefined>,
+): string {
+	if (!params) return `${API_BASE}${path}`;
+	const qs = buildQueryString(params);
+	return qs ? `${API_BASE}${path}?${qs}` : `${API_BASE}${path}`;
+}
+
+// ── API ─────────────────────────────────────────────────────────────
+
 let adminToken: string | null = null;
 
 export function setAdminToken(token: string) {
@@ -53,30 +100,24 @@ export function getAuthHeaders(): Record<string, string> {
 export const api = {
 	providers: {
 		list: async (): Promise<Provider[]> => {
-			const response = await fetch(`${API_BASE}/api/providers`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch providers: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<Provider[]>(
+				`${API_BASE}/api/providers`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch providers",
+			);
 		},
 		create: async (data: CreateProviderRequest): Promise<Provider> => {
-			const response = await fetch(`${API_BASE}/api/providers`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(data),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to create provider: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<Provider>(
+				`${API_BASE}/api/providers`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(data),
+				},
+				"Failed to create provider",
+			);
 		},
 		delete: async (id: string): Promise<void> => {
 			const response = await fetch(`${API_BASE}/api/providers/${id}`, {
@@ -91,31 +132,25 @@ export const api = {
 			id: string,
 			data: UpdateProviderRequest,
 		): Promise<Provider> => {
-			const response = await fetch(`${API_BASE}/api/providers/${id}`, {
-				method: "PUT",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(data),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to update provider: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<Provider>(
+				`${API_BASE}/api/providers/${id}`,
+				{
+					method: "PUT",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(data),
+				},
+				"Failed to update provider",
+			);
 		},
 		discover: async (id: string): Promise<{ discovered: number }> => {
-			const response = await fetch(`${API_BASE}/api/providers/${id}/discover`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to discover models: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<{ discovered: number }>(
+				`${API_BASE}/api/providers/${id}/discover`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to discover models",
+			);
 		},
 		discoverAll: async (): Promise<{
 			succeeded: number;
@@ -127,15 +162,23 @@ export const api = {
 				error?: string;
 			}[];
 		}> => {
-			const response = await fetch(`${API_BASE}/api/providers/discover-all`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to discover all: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<{
+				succeeded: number;
+				failed: number;
+				discovered: number;
+				results: {
+					provider_name: string;
+					discovered: number;
+					error?: string;
+				}[];
+			}>(
+				`${API_BASE}/api/providers/discover-all`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to discover all",
+			);
 		},
 		refreshQuotas: async (): Promise<{
 			refreshed: number;
@@ -148,37 +191,44 @@ export const api = {
 				error?: string;
 			}[];
 		}> => {
-			const response = await fetch(`${API_BASE}/api/providers/refresh-quotas`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to refresh quotas: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<{
+				refreshed: number;
+				failed: number;
+				skipped: number;
+				results: {
+					provider_name: string;
+					provider_type: string;
+					refreshed: boolean;
+					error?: string;
+				}[];
+			}>(
+				`${API_BASE}/api/providers/refresh-quotas`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to refresh quotas",
+			);
 		},
 		getUsage: async (
 			id: string,
 		): Promise<NanoGPTUsage | ZAICodingQuotaResponse> => {
-			const response = await fetch(`${API_BASE}/api/providers/${id}/usage`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch usage: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<NanoGPTUsage | ZAICodingQuotaResponse>(
+				`${API_BASE}/api/providers/${id}/usage`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch usage",
+			);
 		},
 		getBalance: async (id: string): Promise<DeepSeekBalance> => {
-			const response = await fetch(`${API_BASE}/api/providers/${id}/balance`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch balance: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<DeepSeekBalance>(
+				`${API_BASE}/api/providers/${id}/balance`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch balance",
+			);
 		},
 	},
 
@@ -187,14 +237,13 @@ export const api = {
 			const url = providerId
 				? `${API_BASE}/api/models?provider_id=${providerId}`
 				: `${API_BASE}/api/models`;
-			const response = await fetch(url, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch models: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<Model[]>(
+				url,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch models",
+			);
 		},
 		update: async (
 			id: string,
@@ -207,16 +256,15 @@ export const api = {
 				enabled?: boolean;
 			},
 		): Promise<Model> => {
-			const response = await fetch(`${API_BASE}/api/models/${id}`, {
-				method: "PATCH",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(data),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to update model: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<Model>(
+				`${API_BASE}/api/models/${id}`,
+				{
+					method: "PATCH",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(data),
+				},
+				"Failed to update model",
+			);
 		},
 		test: async (
 			id: string,
@@ -227,15 +275,20 @@ export const api = {
 			response: string;
 			error?: string;
 		}> => {
-			const response = await fetch(`${API_BASE}/api/models/${id}/test`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Test failed: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<{
+				success: boolean;
+				ttft_ms: number;
+				duration_ms: number;
+				response: string;
+				error?: string;
+			}>(
+				`${API_BASE}/api/models/${id}/test`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Test failed",
+			);
 		},
 		delete: async (id: string): Promise<void> => {
 			const response = await fetch(`${API_BASE}/api/models/${id}`, {
@@ -262,28 +315,21 @@ export const api = {
 				sort_dir?: string;
 			} = {},
 		): Promise<LogsResponse> => {
-			const searchParams = new URLSearchParams();
-			if (params.page) searchParams.append("page", params.page.toString());
-			if (params.per_page)
-				searchParams.append("per_page", params.per_page.toString());
-			if (params.model_id) searchParams.append("model_id", params.model_id);
-			if (params.provider_id)
-				searchParams.append("provider_id", params.provider_id);
-			if (params.status_code)
-				searchParams.append("status_code", params.status_code);
-			if (params.from) searchParams.append("from", params.from);
-			if (params.to) searchParams.append("to", params.to);
-			if (params.sort_by) searchParams.append("sort_by", params.sort_by);
-			if (params.sort_dir) searchParams.append("sort_dir", params.sort_dir);
-
-			const response = await fetch(`${API_BASE}/api/logs?${searchParams}`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch logs: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<LogsResponse>(
+				buildUrl("/api/logs", {
+					page: params.page,
+					per_page: params.per_page,
+					model_id: params.model_id,
+					provider_id: params.provider_id,
+					status_code: params.status_code,
+					from: params.from,
+					to: params.to,
+					sort_by: params.sort_by,
+					sort_dir: params.sort_dir,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch logs",
+			);
 		},
 		purge: async (olderThan: string): Promise<void> => {
 			const response = await fetch(`${API_BASE}/api/logs/purge`, {
@@ -303,36 +349,24 @@ export const api = {
 			limit?: number;
 			after?: string;
 		}): Promise<AppLogEntry[]> => {
-			const searchParams = new URLSearchParams();
-			if (params?.limit) {
-				searchParams.append("limit", params.limit.toString());
-			}
-			if (params?.after) {
-				searchParams.append("after", params.after);
-			}
-
-			const qs = searchParams.toString();
-			const url = `${API_BASE}/api/logs/app${qs ? `?${qs}` : ""}`;
-
-			const response = await fetch(url, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch app logs: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<AppLogEntry[]>(
+				buildUrl("/api/logs/app", {
+					limit: params?.limit,
+					after: params?.after,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch app logs",
+			);
 		},
 		purge: async (): Promise<{ deleted: number }> => {
-			const response = await fetch(`${API_BASE}/api/logs/app`, {
-				method: "DELETE",
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to purge app logs: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<{ deleted: number }>(
+				`${API_BASE}/api/logs/app`,
+				{
+					method: "DELETE",
+					headers: getAuthHeaders(),
+				},
+				"Failed to purge app logs",
+			);
 		},
 		history: async (params?: {
 			level?: string;
@@ -350,32 +384,27 @@ export const api = {
 			page: number;
 			per_page: number;
 		}> => {
-			const searchParams = new URLSearchParams();
-			searchParams.set("history", "true");
-			if (params?.level) searchParams.set("level", params.level);
-			if (params?.source) searchParams.set("source", params.source);
-			if (params?.search) searchParams.set("search", params.search);
-			if (params?.from) searchParams.set("from", params.from);
-			if (params?.to) searchParams.set("to", params.to);
-			if (params?.page) searchParams.set("page", params.page.toString());
-			if (params?.per_page)
-				searchParams.set("per_page", params.per_page.toString());
-			if (params?.sort_by) searchParams.set("sort_by", params.sort_by);
-			if (params?.sort_dir) searchParams.set("sort_dir", params.sort_dir);
-
-			const response = await fetch(
-				`${API_BASE}/api/logs/app?${searchParams.toString()}`,
-				{
-					headers: getAuthHeaders(),
-				},
+			return fetchJSON<{
+				entries: AppLogEntry[];
+				total: number;
+				page: number;
+				per_page: number;
+			}>(
+				buildUrl("/api/logs/app", {
+					history: "true",
+					level: params?.level,
+					source: params?.source,
+					search: params?.search,
+					from: params?.from,
+					to: params?.to,
+					page: params?.page,
+					per_page: params?.per_page,
+					sort_by: params?.sort_by,
+					sort_dir: params?.sort_dir,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch app log history",
 			);
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch app log history: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
 		},
 	},
 
@@ -385,136 +414,100 @@ export const api = {
 			excludeDeleted?: boolean;
 			metric?: "requests" | "tokens";
 		}): Promise<Stats> => {
-			const params = new URLSearchParams();
-			if (opts?.period) params.set("period", opts.period);
-			if (opts?.excludeDeleted) params.set("exclude_deleted", "true");
-			if (opts?.metric) params.set("metric", opts.metric);
-			const qs = params.toString();
-			const url = qs ? `${API_BASE}/api/stats?${qs}` : `${API_BASE}/api/stats`;
-			const response = await fetch(url, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch stats: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<Stats>(
+				buildUrl("/api/stats", {
+					period: opts?.period,
+					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
+					metric: opts?.metric,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch stats",
+			);
 		},
 		getTimeSeries: async (opts?: {
 			period?: string;
 			excludeDeleted?: boolean;
 		}): Promise<TimeSeriesStats> => {
-			const params = new URLSearchParams();
-			if (opts?.period) params.set("period", opts.period);
-			if (opts?.excludeDeleted) params.set("exclude_deleted", "true");
-			const qs = params.toString();
-			const url = qs
-				? `${API_BASE}/api/stats/timeseries?${qs}`
-				: `${API_BASE}/api/stats/timeseries`;
-			const response = await fetch(url, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch time-series stats: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<TimeSeriesStats>(
+				buildUrl("/api/stats/timeseries", {
+					period: opts?.period,
+					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch time-series stats",
+			);
 		},
 		getProviderDistribution: async (opts?: {
 			period?: string;
 			metric?: string;
 			excludeDeleted?: boolean;
 		}): Promise<ProviderDistributionStats> => {
-			const params = new URLSearchParams();
-			if (opts?.period) params.set("period", opts.period);
-			if (opts?.metric) params.set("metric", opts.metric);
-			if (opts?.excludeDeleted) params.set("exclude_deleted", "true");
-			const qs = params.toString();
-			const url = qs
-				? `${API_BASE}/api/stats/provider-distribution?${qs}`
-				: `${API_BASE}/api/stats/provider-distribution`;
-			const response = await fetch(url, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch provider distribution: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<ProviderDistributionStats>(
+				buildUrl("/api/stats/provider-distribution", {
+					period: opts?.period,
+					metric: opts?.metric,
+					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch provider distribution",
+			);
 		},
 	},
 
 	settings: {
 		get: async (): Promise<Record<string, string>> => {
-			const response = await fetch(`${API_BASE}/api/settings`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Failed to fetch settings: ${response.status} ${text}`);
-			}
-			return response.json();
+			return fetchJSON<Record<string, string>>(
+				`${API_BASE}/api/settings`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch settings",
+			);
 		},
 		update: async (
 			settings: Record<string, string>,
 		): Promise<Record<string, string>> => {
-			const response = await fetch(`${API_BASE}/api/settings`, {
-				method: "PUT",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(settings),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to update settings: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<Record<string, string>>(
+				`${API_BASE}/api/settings`,
+				{
+					method: "PUT",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(settings),
+				},
+				"Failed to update settings",
+			);
 		},
 	},
 
 	virtualKeys: {
 		list: async (): Promise<VirtualKey[]> => {
-			const response = await fetch(`${API_BASE}/api/virtual-keys`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch virtual keys: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<VirtualKey[]>(
+				`${API_BASE}/api/virtual-keys`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch virtual keys",
+			);
 		},
 		create: async (name: string): Promise<VirtualKey> => {
-			const response = await fetch(`${API_BASE}/api/virtual-keys`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify({ name }),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to create virtual key: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<VirtualKey>(
+				`${API_BASE}/api/virtual-keys`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ name }),
+				},
+				"Failed to create virtual key",
+			);
 		},
 		get: async (id: string): Promise<VirtualKey> => {
-			const response = await fetch(`${API_BASE}/api/virtual-keys/${id}`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch virtual key: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<VirtualKey>(
+				`${API_BASE}/api/virtual-keys/${id}`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch virtual key",
+			);
 		},
 		delete: async (id: string): Promise<void> => {
 			const response = await fetch(`${API_BASE}/api/virtual-keys/${id}`, {
@@ -529,16 +522,13 @@ export const api = {
 
 	system: {
 		get: async (): Promise<SystemStats> => {
-			const response = await fetch(`${API_BASE}/api/system`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch system stats: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<SystemStats>(
+				`${API_BASE}/api/system`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch system stats",
+			);
 		},
 	},
 
@@ -555,16 +545,15 @@ export const api = {
 			frequency_penalty?: number;
 			presence_penalty?: number;
 		}): Promise<Response> => {
-			const response = await fetch(`${API_BASE}/api/chat/completions`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(body),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Chat failed: ${response.status} ${text}`);
-			}
-			return response;
+			return fetchOK(
+				`${API_BASE}/api/chat/completions`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(body),
+				},
+				"Chat failed",
+			);
 		},
 
 		chat: async (body: {
@@ -580,17 +569,16 @@ export const api = {
 			presence_penalty?: number;
 			signal?: AbortSignal;
 		}): Promise<Response> => {
-			const response = await fetch(`${API_BASE}/api/chat/chat`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(body),
-				...(body.signal ? { signal: body.signal } : {}),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Chat failed: ${response.status} ${text}`);
-			}
-			return response;
+			return fetchOK(
+				`${API_BASE}/api/chat/chat`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(body),
+					...(body.signal ? { signal: body.signal } : {}),
+				},
+				"Chat failed",
+			);
 		},
 
 		arena: async (body: {
@@ -606,77 +594,64 @@ export const api = {
 			presence_penalty?: number;
 			signal?: AbortSignal;
 		}): Promise<Response> => {
-			const response = await fetch(`${API_BASE}/api/chat/arena`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(body),
-				...(body.signal ? { signal: body.signal } : {}),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Arena failed: ${response.status} ${text}`);
-			}
-			return response;
+			return fetchOK(
+				`${API_BASE}/api/chat/arena`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(body),
+					...(body.signal ? { signal: body.signal } : {}),
+				},
+				"Arena failed",
+			);
 		},
 	},
 
 	failoverGroups: {
 		list: async (): Promise<FailoverListResponse> => {
-			const response = await fetch(`${API_BASE}/api/failover-groups`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch failover groups: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<FailoverListResponse>(
+				`${API_BASE}/api/failover-groups`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch failover groups",
+			);
 		},
 		get: async (id: string): Promise<FailoverGroup> => {
-			const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch failover group: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<FailoverGroup>(
+				`${API_BASE}/api/failover-groups/${id}`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch failover group",
+			);
 		},
 		create: async (
 			data: CreateFailoverGroupRequest,
 		): Promise<FailoverGroup> => {
-			const response = await fetch(`${API_BASE}/api/failover-groups`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(data),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to create failover group: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<FailoverGroup>(
+				`${API_BASE}/api/failover-groups`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(data),
+				},
+				"Failed to create failover group",
+			);
 		},
 		update: async (
 			id: string,
 			data: UpdateFailoverGroupRequest,
 		): Promise<FailoverGroup> => {
-			const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
-				method: "PUT",
-				headers: getAuthHeaders(),
-				body: JSON.stringify(data),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to update failover group: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<FailoverGroup>(
+				`${API_BASE}/api/failover-groups/${id}`,
+				{
+					method: "PUT",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(data),
+				},
+				"Failed to update failover group",
+			);
 		},
 		delete: async (id: string): Promise<void> => {
 			const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
@@ -688,32 +663,23 @@ export const api = {
 			}
 		},
 		sync: async (): Promise<SyncResult> => {
-			const response = await fetch(`${API_BASE}/api/failover-groups/sync`, {
-				method: "POST",
-				headers: getAuthHeaders(),
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to sync failover groups: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
+			return fetchJSON<SyncResult>(
+				`${API_BASE}/api/failover-groups/sync`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to sync failover groups",
+			);
 		},
 		candidates: async (): Promise<CandidateModel[]> => {
-			const response = await fetch(
+			return fetchJSON<CandidateModel[]>(
 				`${API_BASE}/api/failover-groups/candidates`,
 				{
 					headers: getAuthHeaders(),
 				},
+				"Failed to fetch candidates",
 			);
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(
-					`Failed to fetch candidates: ${response.status} ${text}`,
-				);
-			}
-			return response.json();
 		},
 	},
 };

@@ -1,10 +1,5 @@
-import {
-	createContext,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useState,
-} from "react";
+import { createContext, type ReactNode, useContext, useEffect } from "react";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type Theme = "dark" | "light";
 type UIStyle = "clean-saas" | "cyber-terminal" | "glassmorphism-lite";
@@ -110,48 +105,34 @@ function applyAccentColor(color: string, theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-	const [theme, setThemeState] = useState<Theme>(() => {
-		const stored = localStorage.getItem("theme");
-		if (stored === "light" || stored === "dark") return stored;
-		return "dark";
+	const [theme, setTheme] = useLocalStorage<Theme>("theme", "dark", {
+		deserialize: (v) => (v === "light" ? "light" : "dark"),
 	});
 
-	const [uiStyle, setUIStyleState] = useState<UIStyle>(() => {
-		const stored = localStorage.getItem("uiStyle");
-		if (
-			stored === "clean-saas" ||
-			stored === "cyber-terminal" ||
-			stored === "glassmorphism-lite"
-		)
-			return stored;
-		return "clean-saas";
-	});
+	const [uiStyle, setUIStyle] = useLocalStorage<UIStyle>(
+		"uiStyle",
+		"clean-saas",
+		{
+			deserialize: (v) =>
+				v === "clean-saas" ||
+				v === "cyber-terminal" ||
+				v === "glassmorphism-lite"
+					? v
+					: "clean-saas",
+		},
+	);
 
-	const [accentColor, setAccentColorState] = useState<string>(() => {
-		return localStorage.getItem("accentColor") || "#1dd1a1";
-	});
+	const [accentColor, setAccentColor] = useLocalStorage<string>(
+		"accentColor",
+		"#1dd1a1",
+	);
 
 	useEffect(() => {
 		document.documentElement.classList.remove("light", "dark");
 		document.documentElement.classList.add(theme);
 		document.documentElement.setAttribute("data-ui-style", uiStyle);
-		localStorage.setItem("theme", theme);
-		localStorage.setItem("uiStyle", uiStyle);
 		applyAccentColor(accentColor, theme);
 	}, [theme, uiStyle, accentColor]);
-
-	const setTheme = (t: Theme) => {
-		setThemeState(t);
-	};
-
-	const setUIStyle = (s: UIStyle) => {
-		setUIStyleState(s);
-	};
-
-	const setAccentColor = (color: string) => {
-		setAccentColorState(color);
-		localStorage.setItem("accentColor", color);
-	};
 
 	return (
 		<ThemeContext.Provider

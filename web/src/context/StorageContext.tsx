@@ -1,4 +1,5 @@
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext } from "react";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 interface StorageContextType {
 	persistChat: boolean;
@@ -31,41 +32,39 @@ export function useStorage() {
 	return useContext(StorageContext);
 }
 
-const CHAT_KEY = "persistChat";
-const ARENA_KEY = "persistArena";
-const CONVERSATION_KEY = "persistConversation";
-const ARENA_HISTORY_ENABLED_KEY = "arenaHistoryEnabled";
-const ARENA_HISTORY_LIMIT_KEY = "arenaHistoryLimit";
-
 export function StorageProvider({ children }: { children: ReactNode }) {
-	const [persistChat, setPersistChatState] = useState(() => {
-		return localStorage.getItem(CHAT_KEY) === "true";
-	});
-	const [persistArena, setPersistArenaState] = useState(() => {
-		return localStorage.getItem(ARENA_KEY) === "true";
-	});
-	const [persistConversation, setPersistConversationState] = useState(() => {
-		return localStorage.getItem(CONVERSATION_KEY) === "true";
-	});
-	const [arenaHistoryEnabled, setArenaHistoryEnabledState] = useState(() => {
-		return localStorage.getItem(ARENA_HISTORY_ENABLED_KEY) === "true";
-	});
-	const [arenaHistoryLimit, setArenaHistoryLimitState] = useState(() => {
-		try {
-			const raw = localStorage.getItem(ARENA_HISTORY_LIMIT_KEY);
-			if (raw !== null) {
-				const parsed = parseInt(raw, 10);
-				if (!Number.isNaN(parsed) && parsed > 0) return parsed;
-			}
-		} catch {
-			/* ignore */
-		}
-		return 25;
-	});
+	const [persistChat, setPersistChatRaw] = useLocalStorage<boolean>(
+		"persistChat",
+		false,
+		{ deserialize: (v) => v === "true" },
+	);
+	const [persistArena, setPersistArenaRaw] = useLocalStorage<boolean>(
+		"persistArena",
+		false,
+		{ deserialize: (v) => v === "true" },
+	);
+	const [persistConversation, setPersistConversationRaw] =
+		useLocalStorage<boolean>("persistConversation", false, {
+			deserialize: (v) => v === "true",
+		});
+	const [arenaHistoryEnabled, setArenaHistoryEnabledRaw] =
+		useLocalStorage<boolean>("arenaHistoryEnabled", false, {
+			deserialize: (v) => v === "true",
+		});
+	const [arenaHistoryLimit, setArenaHistoryLimitRaw] = useLocalStorage<number>(
+		"arenaHistoryLimit",
+		25,
+		{
+			serialize: String,
+			deserialize: (v) => {
+				const parsed = parseInt(v, 10);
+				return !Number.isNaN(parsed) && parsed > 0 ? parsed : 25;
+			},
+		},
+	);
 
 	const setPersistChat = (v: boolean) => {
-		setPersistChatState(v);
-		localStorage.setItem(CHAT_KEY, String(v));
+		setPersistChatRaw(v);
 		if (!v) {
 			localStorage.removeItem("chatMessages");
 			localStorage.removeItem("chatSystemPrompt");
@@ -74,8 +73,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	};
 
 	const setPersistArena = (v: boolean) => {
-		setPersistArenaState(v);
-		localStorage.setItem(ARENA_KEY, String(v));
+		setPersistArenaRaw(v);
 		if (!v) {
 			localStorage.removeItem("arenaCompetitionPrompt");
 			localStorage.removeItem("arenaComparePrompt");
@@ -86,8 +84,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	};
 
 	const setPersistConversation = (v: boolean) => {
-		setPersistConversationState(v);
-		localStorage.setItem(CONVERSATION_KEY, String(v));
+		setPersistConversationRaw(v);
 		if (!v) {
 			localStorage.removeItem("chatConversationMessages");
 			localStorage.removeItem("chatConversationState");
@@ -95,16 +92,14 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	};
 
 	const setArenaHistoryEnabled = (v: boolean) => {
-		setArenaHistoryEnabledState(v);
-		localStorage.setItem(ARENA_HISTORY_ENABLED_KEY, String(v));
+		setArenaHistoryEnabledRaw(v);
 		if (!v) {
 			localStorage.removeItem("arenaMatchHistory");
 		}
 	};
 
 	const setArenaHistoryLimit = (n: number) => {
-		setArenaHistoryLimitState(n);
-		localStorage.setItem(ARENA_HISTORY_LIMIT_KEY, String(n));
+		setArenaHistoryLimitRaw(n);
 	};
 
 	return (

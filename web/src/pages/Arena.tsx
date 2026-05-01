@@ -40,6 +40,7 @@ import {
 import { useStorage } from "../context/StorageContext";
 import { useToast } from "../context/ToastContext";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import {
 	getArenaHistoryEnabled,
 	saveCompareToHistory,
@@ -166,53 +167,30 @@ export function Arena() {
 		return [];
 	});
 
-	const [competitionActivePromptId, setCompetitionActivePromptId] = useState<
+	const [competitionActivePromptId, setCompetitionActivePromptId] =
+		useLocalStorage<string | null>("arenaCompetitionActivePromptId", null, {
+			enabled: persistArena,
+			serialize: (v) => v ?? "",
+			deserialize: (v) => v || null,
+		});
+	const [compareActivePromptId, setCompareActivePromptId] = useLocalStorage<
 		string | null
-	>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const v = localStorage.getItem("arenaCompetitionActivePromptId");
-				return v || null;
-			}
-		} catch {
-			/* ignore */
-		}
-		return null;
-	});
-	const [compareActivePromptId, setCompareActivePromptId] = useState<
-		string | null
-	>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const v = localStorage.getItem("arenaCompareActivePromptId");
-				return v || null;
-			}
-		} catch {
-			/* ignore */
-		}
-		return null;
+	>("arenaCompareActivePromptId", null, {
+		enabled: persistArena,
+		serialize: (v) => v ?? "",
+		deserialize: (v) => v || null,
 	});
 
-	const [competitionPrompt, setCompetitionPrompt] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				return localStorage.getItem("arenaCompetitionPrompt") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
-	const [comparePrompt, setComparePrompt] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				return localStorage.getItem("arenaComparePrompt") ?? "";
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
+	const [competitionPrompt, setCompetitionPrompt] = useLocalStorage<string>(
+		"arenaCompetitionPrompt",
+		"",
+		{ enabled: persistArena },
+	);
+	const [comparePrompt, setComparePrompt] = useLocalStorage<string>(
+		"arenaComparePrompt",
+		"",
+		{ enabled: persistArena },
+	);
 
 	// Derived: pick the active mode's prompt / preset id
 	const prompt =
@@ -226,14 +204,21 @@ export function Arena() {
 	const arenaModeRef = useRef<ArenaSubMode>(arenaMode);
 
 	// Smart setters that dispatch to the active mode
-	const setPrompt = useCallback((v: string) => {
-		if (arenaModeRef.current === "competition") setCompetitionPrompt(v);
-		else setComparePrompt(v);
-	}, []);
-	const setActivePromptId = useCallback((v: string | null) => {
-		if (arenaModeRef.current === "competition") setCompetitionActivePromptId(v);
-		else setCompareActivePromptId(v);
-	}, []);
+	const setPrompt = useCallback(
+		(v: string) => {
+			if (arenaModeRef.current === "competition") setCompetitionPrompt(v);
+			else setComparePrompt(v);
+		},
+		[setCompetitionPrompt, setComparePrompt],
+	);
+	const setActivePromptId = useCallback(
+		(v: string | null) => {
+			if (arenaModeRef.current === "competition")
+				setCompetitionActivePromptId(v);
+			else setCompareActivePromptId(v);
+		},
+		[setCompetitionActivePromptId, setCompareActivePromptId],
+	);
 	const [savedPrompt, setSavedPrompt] = useState<string>(() => {
 		try {
 			if (localStorage.getItem("persistArena") === "true") {
@@ -249,31 +234,17 @@ export function Arena() {
 		return "";
 	});
 
-	const [comparePersonaId, setComparePersonaId] = useState<string | null>(
-		() => {
-			try {
-				if (localStorage.getItem("persistArena") === "true") {
-					const v = localStorage.getItem("arenaComparePersonaId");
-					return v || null;
-				}
-			} catch {
-				/* ignore */
-			}
-			return null;
-		},
-	);
-	const [comparePersonaPrompt, setComparePersonaPrompt] = useState<string>(
-		() => {
-			try {
-				if (localStorage.getItem("persistArena") === "true") {
-					return localStorage.getItem("arenaComparePersonaPrompt") ?? "";
-				}
-			} catch {
-				/* ignore */
-			}
-			return "";
-		},
-	);
+	const [comparePersonaId, setComparePersonaId] = useLocalStorage<
+		string | null
+	>("arenaComparePersonaId", null, {
+		enabled: persistArena,
+		serialize: (v) => v ?? "",
+		deserialize: (v) => v || null,
+	});
+	const [comparePersonaPrompt, setComparePersonaPrompt] =
+		useLocalStorage<string>("arenaComparePersonaPrompt", "", {
+			enabled: persistArena,
+		});
 
 	const [rounds, setRounds] = useState<BracketRound[]>(() => {
 		try {
@@ -355,90 +326,6 @@ export function Arena() {
 	});
 
 	const [paramEditorModel, setParamEditorModel] = useState<string | null>(null);
-
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem("arenaCompetitionPrompt", competitionPrompt);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
-			}
-		}
-	}, [competitionPrompt, persistArena, toast]);
-
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem("arenaComparePrompt", comparePrompt);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
-			}
-		}
-	}, [comparePrompt, persistArena, toast]);
-
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem(
-				"arenaCompetitionActivePromptId",
-				competitionActivePromptId ?? "",
-			);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
-			}
-		}
-	}, [competitionActivePromptId, persistArena, toast]);
-
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem(
-				"arenaCompareActivePromptId",
-				compareActivePromptId ?? "",
-			);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
-			}
-		}
-	}, [compareActivePromptId, persistArena, toast]);
-
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem("arenaComparePersonaId", comparePersonaId ?? "");
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
-			}
-		}
-	}, [comparePersonaId, persistArena, toast]);
-
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem("arenaComparePersonaPrompt", comparePersonaPrompt);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
-			}
-		}
-	}, [comparePersonaPrompt, persistArena, toast]);
 
 	useEffect(() => {
 		if (!persistArena) return;
@@ -687,7 +574,7 @@ export function Arena() {
 		const pick = available[Math.floor(Math.random() * available.length)];
 		setComparePersonaId(pick.id);
 		setComparePersonaPrompt(pick.systemPrompt);
-	}, [comparePersonaId]);
+	}, [comparePersonaId, setComparePersonaId, setComparePersonaPrompt]);
 
 	const handleRandomBracketModel = useCallback(() => {
 		const available = enabledModels.filter((m) => {
