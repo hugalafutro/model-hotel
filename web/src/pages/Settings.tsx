@@ -5,7 +5,6 @@ import {
 	ChevronUp,
 	Database,
 	Gauge,
-	History,
 	LayoutDashboard,
 	Monitor,
 	Palette,
@@ -242,13 +241,17 @@ export function Settings() {
 			return false;
 		}
 	});
-	const [arenaHistoryCollapsed, setArenaHistoryCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_arenaHistoryCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
+	const [discoveryStatusCollapsed, setDiscoveryStatusCollapsed] = useState(
+		() => {
+			try {
+				return (
+					localStorage.getItem("settings_discoveryStatusCollapsed") === "true"
+				);
+			} catch {
+				return false;
+			}
+		},
+	);
 
 	const toggleModelDiscovery = useCallback(() => {
 		setModelDiscoveryCollapsed((prev) => {
@@ -316,11 +319,11 @@ export function Settings() {
 			return next;
 		});
 	}, []);
-	const toggleArenaHistory = useCallback(() => {
-		setArenaHistoryCollapsed((prev) => {
+	const toggleDiscoveryStatus = useCallback(() => {
+		setDiscoveryStatusCollapsed((prev) => {
 			const next = !prev;
 			try {
-				localStorage.setItem("settings_arenaHistoryCollapsed", String(next));
+				localStorage.setItem("settings_discoveryStatusCollapsed", String(next));
 			} catch {
 				/* ignore */
 			}
@@ -404,15 +407,15 @@ export function Settings() {
 							)}
 						</button>
 					</div>
-					<p className="text-gray-400 text-sm mb-6">
-						Configure how and when models are auto-discovered from your
-						providers.
-					</p>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${modelDiscoveryCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
 							<div className="space-y-5">
+								<p className="text-gray-400 text-sm">
+									Configure how and when models are auto-discovered from your
+									providers.
+								</p>
 								<div>
 									<label
 										htmlFor="discovery-interval"
@@ -519,7 +522,10 @@ export function Settings() {
 
 				{/* Discovery Status */}
 				<div className="ui-card p-6">
-					<ProviderDiscoveryList />
+					<ProviderDiscoveryList
+						collapsed={discoveryStatusCollapsed}
+						onToggle={toggleDiscoveryStatus}
+					/>
 				</div>
 
 				{/* Appearance */}
@@ -708,14 +714,14 @@ export function Settings() {
 							)}
 						</button>
 					</div>
-					<p className="text-gray-400 text-sm mb-6">
-						Choose where notification toasts appear and how long they stay
-						visible.
-					</p>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${toastCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
+							<p className="text-gray-400 text-sm mb-4">
+								Choose where notification toasts appear and how long they stay
+								visible.
+							</p>
 							<div className="flex justify-center">
 								<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50">
 									{/* top-left */}
@@ -883,15 +889,15 @@ export function Settings() {
 							)}
 						</button>
 					</div>
-					<p className="text-gray-400 text-sm mb-6">
-						Configure how often provider quota and balance data is refreshed in
-						the sidebar panel.
-					</p>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${sidebarQuotaCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
 							<div className="space-y-5">
+								<p className="text-gray-400 text-sm">
+									Configure how often provider quota and balance data is
+									refreshed in the sidebar panel.
+								</p>
 								<div className="flex items-center justify-between">
 									<div>
 										<p className="text-sm font-medium text-gray-300">
@@ -1012,16 +1018,16 @@ export function Settings() {
 							)}
 						</button>
 					</div>
-					<p className="text-gray-400 text-sm mb-6">
-						Configure how often the dashboard stats and charts are refreshed
-						automatically. Manual refresh button is hidden when set to 10
-						seconds or faster.
-					</p>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dashboardCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
 							<div className="space-y-5">
+								<p className="text-gray-400 text-sm">
+									Configure how often the dashboard stats and charts are
+									refreshed automatically. Manual refresh button is hidden when
+									set to 10 seconds or faster.
+								</p>
 								<div>
 									<label
 										htmlFor="dashboard-refresh-interval"
@@ -1101,16 +1107,16 @@ export function Settings() {
 							)}
 						</button>
 					</div>
-					<p className="text-gray-400 text-sm mb-6">
-						Persist session data in your browser. When enabled, your
-						conversations and arena state survive page reloads. When disabled,
-						all session data is lost on navigation.
-					</p>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dataStorageCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
 							<div className="space-y-5">
+								<p className="text-gray-400 text-sm">
+									Persist session data in your browser. When enabled, your
+									conversations and arena state survive page reloads. When
+									disabled, all session data is lost on navigation.
+								</p>
 								<div className="flex items-center justify-between">
 									<div>
 										<p className="text-sm font-medium text-gray-300">
@@ -1277,6 +1283,9 @@ export function Settings() {
 										onClick={() => {
 											localStorage.removeItem("dismissedAppErrorKey");
 											localStorage.removeItem("dismissedReqErrorKey");
+											window.dispatchEvent(
+												new CustomEvent("dismissedErrorsReset"),
+											);
 											toast("Dismissed error banners reset", "info");
 										}}
 										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
@@ -1285,130 +1294,105 @@ export function Settings() {
 									</button>
 								</div>
 							</div>
-						</div>
-					</div>
-				</div>
 
-				{/* Arena History */}
-				<div className="ui-card p-6">
-					<div className="flex items-center justify-between mb-1">
-						<div className="flex items-center gap-2">
-							<History size={18} className="text-(--accent)" />
-							<h2 className="text-xl font-semibold text-white">
-								Arena History
-							</h2>
-						</div>
-						<button
-							type="button"
-							onClick={toggleArenaHistory}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{arenaHistoryCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
-					</div>
-					<p className="text-gray-400 text-sm mb-6">
-						Save completed arena and compare sessions for later review. Only
-						model responses and preset prompts/personas are stored — custom user
-						text is never logged.
-					</p>
-					<div
-						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${arenaHistoryCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
-					>
-						<div className="overflow-hidden">
-							<div className="space-y-5">
-								<div className="flex items-center justify-between">
-									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Save Match History
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											Automatically save completed arena and compare sessions
-										</p>
-									</div>
-									<button
-										type="button"
-										onClick={() => {
-											const next = !arenaHistoryEnabled;
-											setArenaHistoryEnabled(next);
-											toast(
-												next
-													? "Arena history enabled"
-													: "Arena history disabled — existing entries preserved",
-												next ? "success" : "info",
-											);
-										}}
-										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-											arenaHistoryEnabled ? "bg-(--accent)" : "bg-gray-600"
-										}`}
-									>
-										<span
-											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-												arenaHistoryEnabled ? "translate-x-6" : "translate-x-1"
+							{/* Arena History */}
+							<div className="pt-4 border-t border-gray-700">
+								<h3 className="text-sm font-semibold text-white mb-3">
+									Arena History
+								</h3>
+								<div className="space-y-5">
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Save Match History
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												Automatically save completed arena and compare sessions
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												const next = !arenaHistoryEnabled;
+												setArenaHistoryEnabled(next);
+												toast(
+													next
+														? "Arena history enabled"
+														: "Arena history disabled — existing entries preserved",
+													next ? "success" : "info",
+												);
+											}}
+											className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+												arenaHistoryEnabled ? "bg-(--accent)" : "bg-gray-600"
 											}`}
-										/>
-									</button>
-								</div>
+										>
+											<span
+												className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+													arenaHistoryEnabled
+														? "translate-x-6"
+														: "translate-x-1"
+												}`}
+											/>
+										</button>
+									</div>
 
-								<div>
-									<label
-										htmlFor="history-limit"
-										className="block text-sm font-medium text-gray-300 mb-2"
-									>
-										Maximum Saved Matches
-									</label>
-									<select
-										id="history-limit"
-										value={arenaHistoryLimit}
-										onChange={(e) => {
-											const val = Number(e.target.value);
-											setArenaHistoryLimit(val);
-											toast(`History limit set to ${val} matches`, "success");
-										}}
-										className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
-										disabled={!arenaHistoryEnabled}
-									>
-										<option value={10}>10 matches</option>
-										<option value={25}>25 matches (default)</option>
-										<option value={50}>50 matches</option>
-										<option value={100}>100 matches</option>
-									</select>
-									<p className="text-gray-500 text-xs mt-1">
-										Oldest matches are automatically removed when the limit is
-										reached
-									</p>
-								</div>
-
-								<div className="flex items-center justify-between pt-4 border-t border-gray-700">
 									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Clear History
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											{getArenaHistoryCount()} entr
-											{getArenaHistoryCount() === 1 ? "y" : "ies"} stored
+										<label
+											htmlFor="history-limit"
+											className="block text-sm font-medium text-gray-300 mb-2"
+										>
+											Maximum Saved Matches
+										</label>
+										<select
+											id="history-limit"
+											value={arenaHistoryLimit}
+											onChange={(e) => {
+												const val = Number(e.target.value);
+												setArenaHistoryLimit(val);
+												toast(`History limit set to ${val} matches`, "success");
+											}}
+											className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
+											disabled={!arenaHistoryEnabled}
+										>
+											<option value={10}>10 matches</option>
+											<option value={25}>25 matches (default)</option>
+											<option value={50}>50 matches</option>
+											<option value={100}>100 matches</option>
+										</select>
+										<p className="text-gray-500 text-xs mt-1">
+											Oldest matches are automatically removed when the limit is
+											reached
 										</p>
 									</div>
-									<button
-										type="button"
-										onClick={() => {
-											if (
-												confirm(
-													"Delete all arena history? This cannot be undone.",
-												)
-											) {
-												clearArenaHistory();
-												toast("All arena history cleared", "info");
-											}
-										}}
-										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-										disabled={getArenaHistoryCount() === 0}
-									>
-										Clear All
-									</button>
+
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Clear History
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												{getArenaHistoryCount()} entr
+												{getArenaHistoryCount() === 1 ? "y" : "ies"} stored
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												if (
+													confirm(
+														"Delete all arena history? This cannot be undone.",
+													)
+												) {
+													clearArenaHistory();
+													toast("All arena history cleared", "info");
+												}
+											}}
+											className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+											disabled={getArenaHistoryCount() === 0}
+										>
+											Clear All
+										</button>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -1832,7 +1816,13 @@ function LoggingSettings() {
 	);
 }
 
-function ProviderDiscoveryList() {
+function ProviderDiscoveryList({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean;
+	onToggle: () => void;
+}) {
 	const { toast } = useToast();
 	const { data: providers, isLoading } = useQuery({
 		queryKey: ["providers"],
@@ -1911,78 +1901,97 @@ function ProviderDiscoveryList() {
 					<Zap size={18} className="text-(--accent)" />
 					<h2 className="text-xl font-semibold text-white">Discovery Status</h2>
 				</div>
-				{providers && providers.length > 0 && (
+				<div className="flex items-center gap-2">
+					{providers && providers.length > 0 && (
+						<button
+							type="button"
+							onClick={() => discoverAllMutation.mutate()}
+							disabled={discoverAllMutation.isPending || discoveringId !== null}
+							className="ui-btn ui-btn-secondary"
+						>
+							{discoverAllMutation.isPending ? (
+								<>
+									<Spinner /> Discovering…
+								</>
+							) : (
+								"Discover All"
+							)}
+						</button>
+					)}
 					<button
 						type="button"
-						onClick={() => discoverAllMutation.mutate()}
-						disabled={discoverAllMutation.isPending || discoveringId !== null}
-						className="ui-btn ui-btn-secondary"
+						onClick={onToggle}
+						className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
 					>
-						{discoverAllMutation.isPending ? (
-							<>
-								<Spinner /> Discovering…
-							</>
-						) : (
-							"Discover All"
-						)}
+						{collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
 					</button>
-				)}
+				</div>
 			</div>
-			{providers?.length === 0 && (
-				<p className="text-gray-500 text-sm shrink-0">
-					No providers configured yet.
-				</p>
-			)}
-			<div className="overflow-y-auto min-h-0 flex-1 mt-2 space-y-0 pr-2">
-				{[...(providers ?? [])]
-					.sort((a, b) => {
-						const aTime = a.last_discovered_at
-							? new Date(a.last_discovered_at).getTime()
-							: 0;
-						const bTime = b.last_discovered_at
-							? new Date(b.last_discovered_at).getTime()
-							: 0;
-						return bTime - aTime;
-					})
-					.map((p) => (
-						<div key={p.id} className="flex items-center justify-between py-2">
-							<div className="flex items-center gap-3">
-								<span
-									className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
-								/>
-								<div>
-									<p className="text-sm font-medium text-white">{p.name}</p>
-									<p className="text-xs text-gray-500">
-										{modelCounts[p.id] || 0} models
-										{p.last_discovered_at &&
-											` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
-									</p>
+			<div
+				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+			>
+				<div className="overflow-hidden">
+					{providers?.length === 0 && (
+						<p className="text-gray-500 text-sm shrink-0">
+							No providers configured yet.
+						</p>
+					)}
+					<div className="overflow-y-auto min-h-0 flex-1 mt-2 space-y-0 pr-2">
+						{[...(providers ?? [])]
+							.sort((a, b) => {
+								const aTime = a.last_discovered_at
+									? new Date(a.last_discovered_at).getTime()
+									: 0;
+								const bTime = b.last_discovered_at
+									? new Date(b.last_discovered_at).getTime()
+									: 0;
+								return bTime - aTime;
+							})
+							.map((p) => (
+								<div
+									key={p.id}
+									className="flex items-center justify-between py-2"
+								>
+									<div className="flex items-center gap-3">
+										<span
+											className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
+										/>
+										<div>
+											<p className="text-sm font-medium text-white">{p.name}</p>
+											<p className="text-xs text-gray-500">
+												{modelCounts[p.id] || 0} models
+												{p.last_discovered_at &&
+													` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
+											</p>
+										</div>
+									</div>
+									<button
+										type="button"
+										onClick={() => discoverMutation.mutate(p.id)}
+										disabled={
+											discoveringId !== null || discoverAllMutation.isPending
+										}
+										className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+											discoveringId === p.id
+												? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
+												: discoveringId !== null ||
+														discoverAllMutation.isPending
+													? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
+													: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
+										}`}
+									>
+										{discoveringId === p.id ? (
+											<>
+												<Spinner /> Discovering…
+											</>
+										) : (
+											"Discover Now"
+										)}
+									</button>
 								</div>
-							</div>
-							<button
-								type="button"
-								onClick={() => discoverMutation.mutate(p.id)}
-								disabled={
-									discoveringId !== null || discoverAllMutation.isPending
-								}
-								className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-									discoveringId === p.id
-										? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
-										: discoveringId !== null || discoverAllMutation.isPending
-											? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-											: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
-								}`}
-							>
-								{discoveringId === p.id ? (
-									<>
-										<Spinner /> Discovering…
-									</>
-								) : (
-									"Discover Now"
-								)}
-							</button>
-						</div>
-					))}
+							))}
+					</div>
+				</div>
 			</div>
 		</div>
 	);

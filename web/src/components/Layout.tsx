@@ -24,7 +24,7 @@ import {
 	Swords,
 	X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useSidebarMode } from "../context/SidebarModeContext";
@@ -448,6 +448,15 @@ function LastErrorPills() {
 			return null;
 		}
 	});
+
+	useEffect(() => {
+		const handler = () => {
+			setDismissedAppKey(null);
+			setDismissedReqKey(null);
+		};
+		window.addEventListener("dismissedErrorsReset", handler);
+		return () => window.removeEventListener("dismissedErrorsReset", handler);
+	}, []);
 
 	const { data: appLogData } = useQuery({
 		queryKey: ["appLogHistory", "lastError"],
