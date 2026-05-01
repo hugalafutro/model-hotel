@@ -53,12 +53,11 @@ export function PromptPicker({
 
 	const autoExpand = useCallback(
 		(ref: RefObject<HTMLTextAreaElement | null>) => {
+			const el = ref.current;
+			if (!el) return;
+			el.style.height = "auto";
 			requestAnimationFrame(() => {
-				const el = ref.current;
-				if (el) {
-					el.style.height = "auto";
-					el.style.height = `${el.scrollHeight}px`;
-				}
+				el.style.height = `${el.scrollHeight}px`;
 			});
 		},
 		[],
@@ -178,8 +177,14 @@ export function PromptPicker({
 							handleTextareaChange(e.target.value);
 							if (!e.target.value) {
 								e.target.style.height = "auto";
-							} else if (e.target.scrollHeight > e.target.clientHeight) {
-								e.target.style.height = `${e.target.scrollHeight}px`;
+							} else {
+								e.target.style.height = "auto";
+								const el = e.target;
+								requestAnimationFrame(() => {
+									if (el.scrollHeight > el.clientHeight) {
+										el.style.height = `${el.scrollHeight}px`;
+									}
+								});
 							}
 						}}
 						placeholder={textareaPlaceholder}

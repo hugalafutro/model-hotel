@@ -1925,7 +1925,10 @@ export function Chat() {
 								onChange={(e) => {
 									setInput(e.target.value);
 									e.target.style.height = "auto";
-									e.target.style.height = `${e.target.scrollHeight}px`;
+									const el = e.target;
+									requestAnimationFrame(() => {
+										el.style.height = `${el.scrollHeight}px`;
+									});
 								}}
 								onKeyDown={handleKeyDown}
 								placeholder={

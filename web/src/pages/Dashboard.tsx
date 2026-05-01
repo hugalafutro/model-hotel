@@ -16,7 +16,7 @@ import {
 	X,
 	Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	Area,
 	AreaChart,
@@ -327,18 +327,15 @@ function TimeSeriesChart({
 	scale?: number;
 	loading?: boolean;
 }) {
-	const chartStyles = {
-		grid:
-			getComputedStyle(document.documentElement)
-				.getPropertyValue("--border-subtle")
-				.trim() || "rgba(255,255,255,0.04)",
-		text:
-			getComputedStyle(document.documentElement)
-				.getPropertyValue("--text-muted")
-				.trim() || "#7a7e8c",
-	};
-
-	const { grid, text } = chartStyles;
+	const { grid, text } = useMemo(() => {
+		const style = getComputedStyle(document.documentElement);
+		return {
+			grid:
+				style.getPropertyValue("--border-subtle").trim() ||
+				"rgba(255,255,255,0.04)",
+			text: style.getPropertyValue("--text-muted").trim() || "#7a7e8c",
+		};
+	}, []);
 
 	if (data.length === 0) {
 		return (

@@ -314,6 +314,8 @@ html[data-ui-style="glassmorphism-lite"].light .ui-sidebar-subtitle {
 
 [data-ui-style] .ui-main {
 	background-color: var(--surface-bg);
+	content-visibility: auto;
+	contain-intrinsic-size: auto 500px;
 }
 
 [data-ui-style] .system-status {
