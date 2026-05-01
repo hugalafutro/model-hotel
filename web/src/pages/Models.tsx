@@ -1271,18 +1271,17 @@ export function Models() {
 							paginatedModels.map((model, idx) => {
 								const caps = parseCapabilities(model.capabilities);
 								return (
-									<Row key={model.id} index={idx}>
+									<Row
+										key={model.id}
+										index={idx}
+										onClick={() => setDetailModel(model)}
+									>
 										<td className="px-4 py-1.5">
 											<div className="flex flex-col">
-												<button
-													type="button"
-													onClick={() => setDetailModel(model)}
-													title="View model details"
-													className="text-left text-sm font-medium text-white hover:text-gray-200 cursor-pointer transition-colors"
-												>
+												<span className="text-left text-sm font-medium text-white">
 													{model.name ||
 														proxyModelID(model.provider_name, model.model_id)}
-												</button>
+												</span>
 												<CopyablePill
 													text={proxyModelID(
 														model.provider_name,

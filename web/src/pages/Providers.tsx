@@ -10,6 +10,7 @@ import type {
 	ZAIQuotaResponse,
 } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { CopyablePill } from "../components/CopyablePill";
 import { Modal } from "../components/Modal";
 import { NanoGPTQuotaModal, ZAIQuotaModal } from "../components/ProviderModals";
 import { Spinner } from "../components/Spinner";
@@ -694,9 +695,12 @@ export function Providers() {
 						>
 							<div className="mb-4">
 								<div className="flex items-center justify-between">
-									<h3 className="text-lg font-semibold text-white">
-										{provider.name}
-									</h3>
+									<CopyablePill
+										text={provider.name}
+										displayText={provider.name}
+										textClassName="text-lg font-semibold text-white"
+										tooltip="Click to copy provider name"
+									/>
 									<div className="flex items-center gap-2">
 										{!provider.enabled && (
 											<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
@@ -720,9 +724,11 @@ export function Providers() {
 										})()}
 									</div>
 								</div>
-								<p className="text-sm text-gray-400 mt-1 truncate">
-									{provider.base_url}
-								</p>
+								<CopyablePill
+									text={provider.base_url}
+									textClassName="text-sm text-gray-400 font-mono"
+									tooltip="Click to copy API base URL"
+								/>
 							</div>
 
 							<div className="space-y-2 text-sm">

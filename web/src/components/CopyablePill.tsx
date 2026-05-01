@@ -22,7 +22,8 @@ export const CopyablePill = memo(function CopyablePill({
 }: CopyablePillProps) {
 	const { toast } = useToast();
 
-	const handleCopy = () => {
+	const handleCopy = (e: React.MouseEvent) => {
+		e.stopPropagation();
 		navigator.clipboard
 			.writeText(text)
 			.then(() => {
