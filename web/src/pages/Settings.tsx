@@ -421,9 +421,9 @@ export function Settings() {
 				<p className="text-gray-400">Configure your Model Hotel instance</p>
 			</div>
 
-			<div className="columns-1 md:columns-2 gap-6">
+			<div className="space-y-6">
 				{/* Model Discovery */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Search size={18} className="text-(--accent)" />
@@ -557,7 +557,7 @@ export function Settings() {
 				</div>
 
 				{/* Discovery Status */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<ProviderDiscoveryList
 						collapsed={discoveryStatusCollapsed}
 						onToggle={toggleDiscoveryStatus}
@@ -565,7 +565,7 @@ export function Settings() {
 				</div>
 
 				{/* Appearance */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Palette size={18} className="text-(--accent)" />
@@ -730,7 +730,7 @@ export function Settings() {
 				</div>
 
 				{/* Toast Notifications */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Bell size={18} className="text-(--accent)" />
@@ -905,7 +905,7 @@ export function Settings() {
 				</div>
 
 				{/* Sidebar Quota Refresh */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Timer size={18} className="text-(--accent)" />
@@ -1034,7 +1034,7 @@ export function Settings() {
 				</div>
 
 				{/* Dashboard Refresh */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<LayoutDashboard size={18} className="text-(--accent)" />
@@ -1128,7 +1128,7 @@ export function Settings() {
 				/>
 
 				{/* Data Storage */}
-				<div className="ui-card p-6 break-inside-avoid mb-6">
+				<div className="ui-card p-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Database size={18} className="text-(--accent)" />
@@ -1506,7 +1506,7 @@ function RateLimitSettings({
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
 
 	return (
-		<div className="ui-card p-6 break-inside-avoid mb-6">
+		<div className="ui-card p-6">
 			<div className="flex items-center justify-between mb-1">
 				<div className="flex items-center gap-2">
 					<Gauge size={18} className="text-(--accent)" />
@@ -1718,7 +1718,7 @@ function LoggingSettings({
 	};
 
 	return (
-		<div className="ui-card p-6 break-inside-avoid mb-6">
+		<div className="ui-card p-6">
 			<div className="flex items-center justify-between mb-1">
 				<div className="flex items-center gap-2">
 					<ScrollText size={18} className="text-(--accent)" />
