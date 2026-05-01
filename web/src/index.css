@@ -326,6 +326,12 @@ html[data-ui-style="glassmorphism-lite"].light .ui-sidebar-subtitle {
 
 .sidebar-link {
 	border-radius: var(--radius-button);
+	padding-block: clamp(0.3rem, 0.25vw + 0.2rem, 0.5rem);
+}
+
+/* Tighter inter-item gap on smaller viewports */
+nav ul:has(> li > .sidebar-link) {
+	gap: clamp(0.05rem, 0.15vw + 0.02rem, 0.15rem);
 }
 
 .sidebar-link-active {
