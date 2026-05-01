@@ -541,7 +541,9 @@ function LastErrorPills() {
 						className="text-[10px] font-semibold text-red-300 uppercase tracking-wider"
 						title={timestamp ? formatTimestamp(timestamp) : undefined}
 					>
-						{timestamp ? formatRelativeTime(timestamp) : `${label} Error`}
+						{timestamp
+							? `${label === "App" ? "App Err" : "Req Err"} ${formatRelativeTime(timestamp)}`
+							: `${label} Error`}
 					</span>
 				</div>
 				<div className="flex gap-0.5">
