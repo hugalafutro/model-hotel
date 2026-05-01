@@ -1,4 +1,10 @@
-import { ChevronDown, Dices, Settings } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronsDownUp,
+	ChevronsUpDown,
+	Dices,
+	Settings,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GenerationParams } from "../api/types";
 import { FilterInput } from "./FilterInput";
@@ -202,6 +208,14 @@ export function ModelPicker({
 		});
 	};
 
+	const collapseAll = () => {
+		setCollapsedProviders(new Set([...groupedModels.keys()]));
+	};
+
+	const expandAll = () => {
+		setCollapsedProviders(new Set());
+	};
+
 	const toggleModel = (val: string) => {
 		if (disabled) return;
 		if (multi) {
@@ -264,110 +278,139 @@ export function ModelPicker({
 				</div>
 			</div>
 
-			<div
-				className={`h-40 overflow-y-auto pr-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}
-			>
-				{onRandom && (
-					<button
-						type="button"
-						onClick={onRandom}
-						title="Random"
-						className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 -m-1 flex items-center mb-1"
-					>
-						<Dices size={13} />
-					</button>
-				)}
-				{[...groupedModels].map(([providerName, providerModels]) => {
-					const isCollapsed = collapsedProviders.has(providerName);
-					return (
-						<div key={providerName} className="mb-2">
+			<div className="flex gap-1">
+				{(onRandom || groupedModels.size > 0) && (
+					<div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
+						{onRandom && (
 							<button
 								type="button"
-								onClick={() => toggleCollapse(providerName)}
-								className={`flex items-center gap-1.5 w-full py-0.5 text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
+								onClick={onRandom}
+								title="Random"
+								className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 							>
-								<ChevronDown
-									size={10}
-									className={`transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
-								/>
-								<span>{providerName}</span>
-								<span className="text-(--text-muted) font-normal">
-									({providerModels.length})
-								</span>
+								<Dices size={13} />
 							</button>
-							<div
-								className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
-							>
-								<div
-									className={`flex flex-wrap gap-1.5 pl-5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
+						)}
+						<button
+							type="button"
+							onClick={collapseAll}
+							disabled={
+								collapsedProviders.size === groupedModels.size ||
+								groupedModels.size === 0
+							}
+							title="Collapse all providers"
+							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center disabled:opacity-30 disabled:cursor-not-allowed"
+						>
+							<ChevronsDownUp size={13} />
+						</button>
+						<button
+							type="button"
+							onClick={expandAll}
+							disabled={
+								collapsedProviders.size === 0 || groupedModels.size === 0
+							}
+							title="Expand all providers"
+							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center disabled:opacity-30 disabled:cursor-not-allowed"
+						>
+							<ChevronsUpDown size={13} />
+						</button>
+					</div>
+				)}
+				<div
+					className={`h-40 overflow-y-auto pr-1 flex-1 min-w-0 ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+				>
+					{[...groupedModels].map(([providerName, providerModels]) => {
+						const isCollapsed = collapsedProviders.has(providerName);
+						return (
+							<div key={providerName} className="mb-2">
+								<button
+									type="button"
+									onClick={() => toggleCollapse(providerName)}
+									className={`flex items-center gap-1.5 w-full py-0.5 text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
 								>
-									{providerModels.map((m) => {
-										const val = proxyModelID(m.provider_name, m.model_id);
-										const isSelected = selectedSet.has(val);
-										const hasParams = !!(
-											slotParams?.[val] &&
-											Object.values(slotParams[val]).some(
-												(v) => v !== undefined,
-											)
-										);
-										return (
-											<div
-												key={val}
-												className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
-													isSelected
-														? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
-														: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
-												}`}
-												title={`${m.provider_name}/${m.display_name || m.model_id}`}
-											>
-												<button
-													type="button"
-													onClick={() => toggleModel(val)}
-													className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
-													disabled={disabled}
+									<ChevronDown
+										size={10}
+										className={`transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+									/>
+									<span>{providerName}</span>
+									<span className="text-(--text-muted) font-normal">
+										({providerModels.length})
+									</span>
+								</button>
+								<div
+									className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+								>
+									<div
+										className={`flex flex-wrap gap-1.5 pl-5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
+									>
+										{providerModels.map((m) => {
+											const val = proxyModelID(m.provider_name, m.model_id);
+											const isSelected = selectedSet.has(val);
+											const hasParams = !!(
+												slotParams?.[val] &&
+												Object.values(slotParams[val]).some(
+													(v) => v !== undefined,
+												)
+											);
+											return (
+												<div
+													key={val}
+													className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
+														isSelected
+															? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
+															: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
+													}`}
+													title={`${m.provider_name}/${m.display_name || m.model_id}`}
 												>
-													{m.display_name || m.model_id}
-												</button>
-												{isSelected && onConfigureParams && (
 													<button
 														type="button"
-														onClick={(e) => {
-															e.stopPropagation();
-															onConfigureParams(val);
-														}}
-														disabled={paramsReadonly}
-														className={`shrink-0 flex items-center transition-all ${
-															paramsReadonly
-																? "opacity-30 cursor-not-allowed"
-																: "cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent)"
-														}`}
-														title={
-															paramsReadonly
-																? "Parameters locked while running"
-																: hasParams
-																	? "Edit generation parameters"
-																	: "Add generation parameters"
-														}
+														onClick={() => toggleModel(val)}
+														className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+														disabled={disabled}
 													>
-														<Settings
-															size={10}
-															className={
-																hasParams ? "text-(--accent)" : "text-white"
-															}
-														/>
+														{m.display_name || m.model_id}
 													</button>
-												)}
-											</div>
-										);
-									})}
+													{isSelected && onConfigureParams && (
+														<button
+															type="button"
+															onClick={(e) => {
+																e.stopPropagation();
+																onConfigureParams(val);
+															}}
+															disabled={paramsReadonly}
+															className={`shrink-0 flex items-center transition-all ${
+																paramsReadonly
+																	? "opacity-30 cursor-not-allowed"
+																	: "cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent)"
+															}`}
+															title={
+																paramsReadonly
+																	? "Parameters locked while running"
+																	: hasParams
+																		? "Edit generation parameters"
+																		: "Add generation parameters"
+															}
+														>
+															<Settings
+																size={10}
+																className={
+																	hasParams ? "text-(--accent)" : "text-white"
+																}
+															/>
+														</button>
+													)}
+												</div>
+											);
+										})}
+									</div>
 								</div>
 							</div>
-						</div>
-					);
-				})}
-				{filteredModels.length === 0 && (
-					<span className="text-xs text-(--text-muted)">No models match</span>
-				)}
+						);
+					})}
+					{filteredModels.length === 0 && (
+						<span className="text-xs text-(--text-muted)">No models match</span>
+					)}
+				</div>
 			</div>
 		</div>
 	);
