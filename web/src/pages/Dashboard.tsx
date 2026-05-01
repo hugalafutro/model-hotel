@@ -1172,7 +1172,7 @@ export function Dashboard() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-3xl font-bold text-white">Dashboard</h1>
+					<h1 className="text-2xl font-bold text-white">Dashboard</h1>
 					<p className="text-gray-400">Overview of your Model Hotel usage</p>
 				</div>
 				<div className="bg-red-900/50 border border-red-700 rounded-lg p-6 text-red-300">
@@ -1309,7 +1309,7 @@ export function Dashboard() {
 							strokeWidth={2}
 							className="text-(--accent)"
 						/>
-						<h1 className="text-3xl font-bold text-(--text-primary)">
+						<h1 className="text-2xl font-bold text-(--text-primary)">
 							Dashboard
 						</h1>
 						<button

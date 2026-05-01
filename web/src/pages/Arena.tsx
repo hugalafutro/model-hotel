@@ -1548,7 +1548,7 @@ export function Arena() {
 					) : (
 						<GitCompare size={28} strokeWidth={2} className="text-(--accent)" />
 					)}
-					<h1 className="text-3xl font-bold text-white">
+					<h1 className="text-2xl font-bold text-white">
 						{arenaMode === "competition" ? "Arena" : "Compare"}
 					</h1>
 				</div>

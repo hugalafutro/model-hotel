@@ -619,7 +619,7 @@ export function Providers() {
 				<div>
 					<div className="flex items-center gap-3">
 						<PlugZap size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-3xl font-bold text-white">Providers</h1>
+						<h1 className="text-2xl font-bold text-white">Providers</h1>
 					</div>
 					<p className="text-gray-400">Manage your provider configurations</p>
 				</div>

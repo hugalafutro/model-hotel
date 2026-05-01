@@ -261,7 +261,7 @@ export function VirtualKeys() {
 				<div>
 					<div className="flex items-center gap-3">
 						<KeyRound size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-3xl font-bold text-white">Virtual Keys</h1>
+						<h1 className="text-2xl font-bold text-white">Virtual Keys</h1>
 					</div>
 					<p className="text-gray-400">
 						Issue keys for clients to access the proxy at /v1
