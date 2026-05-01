@@ -39,14 +39,14 @@ export const CopyablePill = memo(function CopyablePill({
 			<button
 				type="button"
 				onClick={handleCopy}
-				className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"
+				className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors cursor-pointer"
 				title={tooltip}
 			>
 				<span className={`truncate ${textClassName}`}>
 					{displayText || text}
 				</span>
 				<svg
-					className={`w-3.5 h-3.5 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ${iconClassName}`}
+					className={`w-3.5 h-3.5 text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all shrink-0 ${iconClassName}`}
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
