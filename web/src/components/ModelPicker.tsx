@@ -278,7 +278,6 @@ export function ModelPicker({
 					</button>
 				)}
 				{[...groupedModels].map(([providerName, providerModels]) => {
-					const baseUrl = providerBaseUrl.get(providerName) || "";
 					const isCollapsed = collapsedProviders.has(providerName);
 					return (
 						<div key={providerName} className="mb-2">
