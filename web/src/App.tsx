@@ -114,6 +114,23 @@ function LoginScreen() {
 	);
 }
 
+function PageSuspense({ children }: { children: React.ReactNode }) {
+	return (
+		<Suspense
+			fallback={
+				<div className="flex items-center justify-center h-64">
+					<div
+						className="animate-spin rounded-full h-10 w-10 border-b-2"
+						style={{ borderColor: "var(--accent)" }}
+					></div>
+				</div>
+			}
+		>
+			{children}
+		</Suspense>
+	);
+}
+
 function AppContent() {
 	const token = localStorage.getItem("adminToken");
 	if (token) {
@@ -126,29 +143,81 @@ function AppContent() {
 
 	return (
 		<Layout>
-			<Suspense
-				fallback={
-					<div className="flex items-center justify-center h-64">
-						<div
-							className="animate-spin rounded-full h-10 w-10 border-b-2"
-							style={{ borderColor: "var(--accent)" }}
-						></div>
-					</div>
-				}
-			>
-				<Routes>
-					<Route path="/" element={<Navigate to="/dashboard" replace />} />
-					<Route path="/dashboard" element={<Dashboard />} />
-					<Route path="/chat" element={<Chat />} />
-					<Route path="/arena" element={<Arena />} />
-					<Route path="/providers" element={<Providers />} />
-					<Route path="/models" element={<Models />} />
-					<Route path="/failover" element={<FailoverGroups />} />
-					<Route path="/virtual-keys" element={<VirtualKeys />} />
-					<Route path="/logs" element={<Logs />} />
-					<Route path="/settings" element={<Settings />} />
-				</Routes>
-			</Suspense>
+			<Routes>
+				<Route path="/" element={<Navigate to="/dashboard" replace />} />
+				<Route
+					path="/dashboard"
+					element={
+						<PageSuspense>
+							<Dashboard />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/chat"
+					element={
+						<PageSuspense>
+							<Chat />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/arena"
+					element={
+						<PageSuspense>
+							<Arena />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/providers"
+					element={
+						<PageSuspense>
+							<Providers />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/models"
+					element={
+						<PageSuspense>
+							<Models />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/failover"
+					element={
+						<PageSuspense>
+							<FailoverGroups />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/virtual-keys"
+					element={
+						<PageSuspense>
+							<VirtualKeys />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/logs"
+					element={
+						<PageSuspense>
+							<Logs />
+						</PageSuspense>
+					}
+				/>
+				<Route
+					path="/settings"
+					element={
+						<PageSuspense>
+							<Settings />
+						</PageSuspense>
+					}
+				/>
+			</Routes>
 		</Layout>
 	);
 }
