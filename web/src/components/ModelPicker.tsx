@@ -1,4 +1,4 @@
-import { Dices, Settings } from "lucide-react";
+import { ChevronDown, ChevronRight, Dices, Settings } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GenerationParams } from "../api/types";
 import { FilterInput } from "./FilterInput";
@@ -66,8 +66,6 @@ function proxyModelID(providerName: string, modelId: string): string {
 	return `${providerName.replace(/ /g, "-")}/${modelId}`;
 }
 
-type SortMode = "provider" | "model";
-
 function getProviderStyle(baseUrl: string, active: boolean) {
 	const isNanoGPT = baseUrl.includes("nano-gpt.com");
 	const isDeepSeek = baseUrl.includes("deepseek.com");
@@ -114,7 +112,9 @@ export function ModelPicker({
 }: ModelPickerProps) {
 	const [search, setSearch] = useState("");
 	const [providerFilter, setProviderFilter] = useState<Set<string>>(new Set());
-	const [sortMode, setSortMode] = useState<SortMode>("model");
+	const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
+		new Set(),
+	);
 
 	const selectedSet = useMemo(() => {
 		if (multi) return new Set(selected as string[]);
@@ -157,30 +157,44 @@ export function ModelPicker({
 				return name.includes(q) || pid.includes(q) || prov.includes(q);
 			});
 		}
-		result = [...result].sort((a, b) => {
+		return [...result].sort((a, b) => {
 			const aVal = proxyModelID(a.provider_name, a.model_id);
 			const bVal = proxyModelID(b.provider_name, b.model_id);
 			const aSel = selectedSet.has(aVal) ? 0 : 1;
 			const bSel = selectedSet.has(bVal) ? 0 : 1;
 			if (aSel !== bSel) return aSel - bSel;
-			if (sortMode === "model") {
-				const aName = (a.display_name || a.model_id).toLowerCase();
-				const bName = (b.display_name || b.model_id).toLowerCase();
-				const cmp = aName.localeCompare(bName);
-				if (cmp !== 0) return cmp;
-				return a.provider_name.localeCompare(b.provider_name);
-			}
 			const cmp = a.provider_name.localeCompare(b.provider_name);
 			if (cmp !== 0) return cmp;
 			return (a.display_name || a.model_id).localeCompare(
 				b.display_name || b.model_id,
 			);
 		});
-		return result;
-	}, [enabledModels, providerFilter, search, selectedSet, sortMode]);
+	}, [enabledModels, providerFilter, search, selectedSet]);
+
+	const groupedModels = useMemo(() => {
+		const groups = new Map<string, ModelItem[]>();
+		for (const m of filteredModels) {
+			const existing = groups.get(m.provider_name);
+			if (existing) {
+				existing.push(m);
+			} else {
+				groups.set(m.provider_name, [m]);
+			}
+		}
+		return groups;
+	}, [filteredModels]);
 
 	const toggleProvider = (provider: string) => {
 		setProviderFilter((prev) => {
+			const next = new Set(prev);
+			if (next.has(provider)) next.delete(provider);
+			else next.add(provider);
+			return next;
+		});
+	};
+
+	const toggleCollapse = (provider: string) => {
+		setCollapsedProviders((prev) => {
 			const next = new Set(prev);
 			if (next.has(provider)) next.delete(provider);
 			else next.add(provider);
@@ -223,43 +237,6 @@ export function ModelPicker({
 					className="w-[320px]"
 					disabled={disabled}
 				/>
-				<div className="flex items-center gap-2 text-xs">
-					<button
-						type="button"
-						onClick={() => setSortMode("model")}
-						className={`cursor-pointer transition-colors ${sortMode === "model" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
-					>
-						Name
-					</button>
-					<div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-(--border-subtle) bg-(--surface-hover)">
-						<button
-							type="button"
-							onClick={() => setSortMode("model")}
-							className="flex items-center cursor-pointer"
-						>
-							<span
-								className={`w-2 h-2 rounded-full transition-colors ${sortMode === "model" ? "bg-(--accent)" : "border border-(--border-subtle)"}`}
-							/>
-						</button>
-						<span className="text-(--text-secondary)">Sort by</span>
-						<button
-							type="button"
-							onClick={() => setSortMode("provider")}
-							className="flex items-center cursor-pointer"
-						>
-							<span
-								className={`w-2 h-2 rounded-full transition-colors ${sortMode === "provider" ? "bg-(--accent)" : "border border-(--border-subtle)"}`}
-							/>
-						</button>
-					</div>
-					<button
-						type="button"
-						onClick={() => setSortMode("provider")}
-						className={`cursor-pointer transition-colors ${sortMode === "provider" ? "text-(--text-primary)" : "text-(--text-secondary) hover:text-(--text-primary)"}`}
-					>
-						Provider
-					</button>
-				</div>
 				<div className="flex flex-wrap gap-1">
 					{providerNames.map((name) => {
 						const active = providerFilter.has(name);
@@ -288,69 +265,102 @@ export function ModelPicker({
 			</div>
 
 			<div
-				className={`flex flex-wrap gap-1.5 h-40 overflow-y-auto pr-1 ${align === "right" ? "justify-end" : "justify-start"} ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+				className={`h-40 overflow-y-auto pr-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}
 			>
 				{onRandom && (
 					<button
 						type="button"
 						onClick={onRandom}
 						title="Random"
-						className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 -m-1 flex items-center self-center"
+						className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 -m-1 flex items-center mb-1"
 					>
 						<Dices size={13} />
 					</button>
 				)}
-				{filteredModels.map((m) => {
-					const val = proxyModelID(m.provider_name, m.model_id);
-					const isSelected = selectedSet.has(val);
-					const hasParams = !!(
-						slotParams?.[val] &&
-						Object.values(slotParams[val]).some((v) => v !== undefined)
-					);
+				{[...groupedModels].map(([providerName, providerModels]) => {
+					const baseUrl = providerBaseUrl.get(providerName) || "";
+					const isCollapsed = collapsedProviders.has(providerName);
 					return (
-						<div
-							key={val}
-							className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
-								isSelected
-									? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
-									: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
-							}`}
-							title={`${m.provider_name}/${m.display_name || m.model_id}`}
-						>
+						<div key={providerName} className="mb-2">
 							<button
 								type="button"
-								onClick={() => toggleModel(val)}
-								className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
-								disabled={disabled}
+								onClick={() => toggleCollapse(providerName)}
+								className={`flex items-center gap-1.5 w-full py-1 text-xs font-medium cursor-pointer transition-colors hover:text-(--text-primary) ${getProviderStyle(baseUrl, providerFilter.has(providerName) || providerFilter.size === 0)}`}
 							>
-								{m.display_name || m.model_id}
+								{isCollapsed ? (
+									<ChevronRight size={10} />
+								) : (
+									<ChevronDown size={10} />
+								)}
+								<span>{providerName}</span>
+								<span className="text-(--text-muted) font-normal">
+									({providerModels.length})
+								</span>
 							</button>
-							{isSelected && onConfigureParams && (
-								<button
-									type="button"
-									onClick={(e) => {
-										e.stopPropagation();
-										onConfigureParams(val);
-									}}
-									disabled={paramsReadonly}
-									className={`shrink-0 flex items-center transition-all ${
-										paramsReadonly
-											? "opacity-30 cursor-not-allowed"
-											: "cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent)"
-									}`}
-									title={
-										paramsReadonly
-											? "Parameters locked while running"
-											: hasParams
-												? "Edit generation parameters"
-												: "Add generation parameters"
-									}
+							{!isCollapsed && (
+								<div
+									className={`flex flex-wrap gap-1.5 pl-5 ${align === "right" ? "justify-end" : "justify-start"}`}
 								>
-									<Settings
-										size={10}
-										className={hasParams ? "text-(--accent)" : "text-white"}
-									/>
-								</button>
+									{providerModels.map((m) => {
+										const val = proxyModelID(m.provider_name, m.model_id);
+										const isSelected = selectedSet.has(val);
+										const hasParams = !!(
+											slotParams?.[val] &&
+											Object.values(slotParams[val]).some(
+												(v) => v !== undefined,
+											)
+										);
+										return (
+											<div
+												key={val}
+												className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
+													isSelected
+														? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
+														: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
+												}`}
+												title={`${m.provider_name}/${m.display_name || m.model_id}`}
+											>
+												<button
+													type="button"
+													onClick={() => toggleModel(val)}
+													className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+													disabled={disabled}
+												>
+													{m.display_name || m.model_id}
+												</button>
+												{isSelected && onConfigureParams && (
+													<button
+														type="button"
+														onClick={(e) => {
+															e.stopPropagation();
+															onConfigureParams(val);
+														}}
+														disabled={paramsReadonly}
+														className={`shrink-0 flex items-center transition-all ${
+															paramsReadonly
+																? "opacity-30 cursor-not-allowed"
+																: "cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent)"
+														}`}
+														title={
+															paramsReadonly
+																? "Parameters locked while running"
+																: hasParams
+																	? "Edit generation parameters"
+																	: "Add generation parameters"
+														}
+													>
+														<Settings
+															size={10}
+															className={
+																hasParams ? "text-(--accent)" : "text-white"
+															}
+														/>
+													</button>
+												)}
+											</div>
+										);
+									})}
+								</div>
 							)}
 						</div>
 					);
