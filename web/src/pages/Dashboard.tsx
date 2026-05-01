@@ -197,8 +197,6 @@ function StatCard({
 	suffix,
 	icon: Icon,
 	accent,
-	sparkline,
-	sparklineTooltip,
 	formatter,
 	onClick,
 	tooltip,
@@ -210,8 +208,6 @@ function StatCard({
 	suffix?: string;
 	icon: React.ElementType;
 	accent: string;
-	sparkline?: number; // 0-1 ratio for tiny horizontal fill
-	sparklineTooltip?: string;
 	formatter?: (val: number) => string;
 	onClick?: () => void;
 	tooltip?: string;
@@ -259,20 +255,6 @@ function StatCard({
 				/>
 				{loading && <Spinner className="ml-1" />}
 			</p>
-			{sparkline != null && (
-				<div
-					className="mt-3 h-[4px] rounded-full overflow-hidden bg-(--border-subtle)"
-					title={sparklineTooltip}
-				>
-					<div
-						className="h-full rounded-full transition-all duration-1000 [transform:translateZ(0)]"
-						style={{
-							width: `${Math.max(0, Math.min(1, sparkline)) * 100}%`,
-							backgroundColor: accent,
-						}}
-					/>
-				</div>
-			)}
 		</div>
 	);
 }
@@ -1183,10 +1165,6 @@ export function Dashboard() {
 	}
 
 	// Derived values
-	const totalRequests7d = stats?.total_requests_last_7d || 1;
-	const req24h = stats?.total_requests_last_24h || 0;
-	const sparkReq = totalRequests7d > 0 ? req24h / totalRequests7d : 0;
-
 	const totalTokens =
 		(stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0);
 
@@ -1460,12 +1438,6 @@ export function Dashboard() {
 					}
 					icon={Activity}
 					accent={accents.requests}
-					sparkline={globalRange === "24h" ? sparkReq : undefined}
-					sparklineTooltip={
-						globalRange === "24h"
-							? "Share of last 7 days traffic that was today"
-							: undefined
-					}
 					onClick={() => setRequestsModalOpen(true)}
 					tooltip="Click to view request history"
 				/>
