@@ -252,6 +252,20 @@ export function Settings() {
 			}
 		},
 	);
+	const [loggingCollapsed, setLoggingCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_loggingCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [rateLimitCollapsed, setRateLimitCollapsed] = useState(() => {
+		try {
+			return localStorage.getItem("settings_rateLimitCollapsed") === "true";
+		} catch {
+			return false;
+		}
+	});
 
 	const toggleModelDiscovery = useCallback(() => {
 		setModelDiscoveryCollapsed((prev) => {
@@ -330,6 +344,28 @@ export function Settings() {
 			return next;
 		});
 	}, []);
+	const toggleLogging = useCallback(() => {
+		setLoggingCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_loggingCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
+	const toggleRateLimit = useCallback(() => {
+		setRateLimitCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem("settings_rateLimitCollapsed", String(next));
+			} catch {
+				/* ignore */
+			}
+			return next;
+		});
+	}, []);
 
 	const openPicker = useCallback(() => {
 		setPickerColor(accentColor);
@@ -385,9 +421,9 @@ export function Settings() {
 				<p className="text-gray-400">Configure your Model Hotel instance</p>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+			<div className="columns-1 md:columns-2 gap-6">
 				{/* Model Discovery */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Search size={18} className="text-(--accent)" />
@@ -521,7 +557,7 @@ export function Settings() {
 				</div>
 
 				{/* Discovery Status */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<ProviderDiscoveryList
 						collapsed={discoveryStatusCollapsed}
 						onToggle={toggleDiscoveryStatus}
@@ -529,7 +565,7 @@ export function Settings() {
 				</div>
 
 				{/* Appearance */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Palette size={18} className="text-(--accent)" />
@@ -694,7 +730,7 @@ export function Settings() {
 				</div>
 
 				{/* Toast Notifications */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Bell size={18} className="text-(--accent)" />
@@ -869,7 +905,7 @@ export function Settings() {
 				</div>
 
 				{/* Sidebar Quota Refresh */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Timer size={18} className="text-(--accent)" />
@@ -998,7 +1034,7 @@ export function Settings() {
 				</div>
 
 				{/* Dashboard Refresh */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<LayoutDashboard size={18} className="text-(--accent)" />
@@ -1086,10 +1122,13 @@ export function Settings() {
 				</div>
 
 				{/* Logging */}
-				<LoggingSettings />
+				<LoggingSettings
+					collapsed={loggingCollapsed}
+					onToggle={toggleLogging}
+				/>
 
 				{/* Data Storage */}
-				<div className="ui-card p-6">
+				<div className="ui-card p-6 break-inside-avoid mb-6">
 					<div className="flex items-center justify-between mb-1">
 						<div className="flex items-center gap-2">
 							<Database size={18} className="text-(--accent)" />
@@ -1400,7 +1439,10 @@ export function Settings() {
 				</div>
 
 				{/* Rate Limiting */}
-				<RateLimitSettings />
+				<RateLimitSettings
+					collapsed={rateLimitCollapsed}
+					onToggle={toggleRateLimit}
+				/>
 			</div>
 
 			{pickerOpen && (
@@ -1432,7 +1474,13 @@ const RATE_LIMIT_BURST_OPTIONS = [
 	{ value: "200", label: "200" },
 ];
 
-function RateLimitSettings() {
+function RateLimitSettings({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean;
+	onToggle: () => void;
+}) {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
@@ -1458,105 +1506,120 @@ function RateLimitSettings() {
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
 
 	return (
-		<div className="ui-card p-6">
-			<div className="flex items-center gap-2 mb-1">
-				<Gauge size={18} className="text-(--accent)" />
-				<h2 className="text-xl font-semibold text-white">Rate Limiting</h2>
-			</div>
-			<p className="text-gray-400 text-sm mb-6">
-				Control request throughput per virtual key to prevent abuse and ensure
-				fair usage.
-			</p>
-
-			<div className="space-y-5">
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							Enable Rate Limiting
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							Throttle proxy requests per virtual key
-						</p>
-					</div>
-					<button
-						type="button"
-						onClick={() =>
-							updateMutation.mutate({
-								rate_limit_enabled: rateLimitEnabled ? "false" : "true",
-							})
-						}
-						className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-							rateLimitEnabled ? "bg-(--accent)" : "bg-gray-600"
-						}`}
-					>
-						<span
-							className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-								rateLimitEnabled ? "translate-x-6" : "translate-x-1"
-							}`}
-						/>
-					</button>
+		<div className="ui-card p-6 break-inside-avoid mb-6">
+			<div className="flex items-center justify-between mb-1">
+				<div className="flex items-center gap-2">
+					<Gauge size={18} className="text-(--accent)" />
+					<h2 className="text-xl font-semibold text-white">Rate Limiting</h2>
 				</div>
-
-				{rateLimitEnabled && (
-					<>
-						<div>
-							<label
-								htmlFor="rate-limit-rps"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								Requests per Second
-							</label>
-							<select
-								id="rate-limit-rps"
-								value={rateLimitRPS}
-								onChange={(e) =>
+				<button
+					type="button"
+					onClick={onToggle}
+					className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+				>
+					{collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+				</button>
+			</div>
+			<div
+				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+			>
+				<div className="overflow-hidden">
+					<div className="space-y-5">
+						<p className="text-gray-400 text-sm">
+							Control request throughput per virtual key to prevent abuse and
+							ensure fair usage.
+						</p>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									Enable Rate Limiting
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									Throttle proxy requests per virtual key
+								</p>
+							</div>
+							<button
+								type="button"
+								onClick={() =>
 									updateMutation.mutate({
-										rate_limit_rps: e.target.value,
+										rate_limit_enabled: rateLimitEnabled ? "false" : "true",
 									})
 								}
-								className="ui-input"
+								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+									rateLimitEnabled ? "bg-(--accent)" : "bg-gray-600"
+								}`}
 							>
-								{RATE_LIMIT_RPS_OPTIONS.map((opt) => (
-									<option key={opt.value} value={opt.value}>
-										{opt.label}
-									</option>
-								))}
-							</select>
-							<p className="text-gray-500 text-xs mt-1">
-								Sustained request rate allowed per virtual key (0 = unlimited)
-							</p>
+								<span
+									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+										rateLimitEnabled ? "translate-x-6" : "translate-x-1"
+									}`}
+								/>
+							</button>
 						</div>
 
-						<div>
-							<label
-								htmlFor="rate-limit-burst"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								Burst Size
-							</label>
-							<select
-								id="rate-limit-burst"
-								value={rateLimitBurst}
-								onChange={(e) =>
-									updateMutation.mutate({
-										rate_limit_burst: e.target.value,
-									})
-								}
-								className="ui-input"
-							>
-								{RATE_LIMIT_BURST_OPTIONS.map((opt) => (
-									<option key={opt.value} value={opt.value}>
-										{opt.label}
-									</option>
-								))}
-							</select>
-							<p className="text-gray-500 text-xs mt-1">
-								Maximum number of simultaneous requests before throttling kicks
-								in
-							</p>
-						</div>
-					</>
-				)}
+						{rateLimitEnabled && (
+							<>
+								<div>
+									<label
+										htmlFor="rate-limit-rps"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										Requests per Second
+									</label>
+									<select
+										id="rate-limit-rps"
+										value={rateLimitRPS}
+										onChange={(e) =>
+											updateMutation.mutate({
+												rate_limit_rps: e.target.value,
+											})
+										}
+										className="ui-input"
+									>
+										{RATE_LIMIT_RPS_OPTIONS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+									<p className="text-gray-500 text-xs mt-1">
+										Sustained request rate allowed per virtual key (0 =
+										unlimited)
+									</p>
+								</div>
+
+								<div>
+									<label
+										htmlFor="rate-limit-burst"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										Burst Size
+									</label>
+									<select
+										id="rate-limit-burst"
+										value={rateLimitBurst}
+										onChange={(e) =>
+											updateMutation.mutate({
+												rate_limit_burst: e.target.value,
+											})
+										}
+										className="ui-input"
+									>
+										{RATE_LIMIT_BURST_OPTIONS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+									<p className="text-gray-500 text-xs mt-1">
+										Maximum number of simultaneous requests before throttling
+										kicks in
+									</p>
+								</div>
+							</>
+						)}
+					</div>
+				</div>
 			</div>
 		</div>
 	);
@@ -1579,7 +1642,13 @@ const STALE_REQUEST_TIMEOUT_OPTIONS = [
 	{ value: "0s", label: "Disabled (never mark as stale)" },
 ];
 
-function LoggingSettings() {
+function LoggingSettings({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean;
+	onToggle: () => void;
+}) {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1649,165 +1718,181 @@ function LoggingSettings() {
 	};
 
 	return (
-		<div className="ui-card p-6">
-			<div className="flex items-center gap-2 mb-1">
-				<ScrollText size={18} className="text-(--accent)" />
-				<h2 className="text-xl font-semibold text-white">Logging</h2>
+		<div className="ui-card p-6 break-inside-avoid mb-6">
+			<div className="flex items-center justify-between mb-1">
+				<div className="flex items-center gap-2">
+					<ScrollText size={18} className="text-(--accent)" />
+					<h2 className="text-xl font-semibold text-white">Logging</h2>
+				</div>
+				<button
+					type="button"
+					onClick={onToggle}
+					className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
+				>
+					{collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+				</button>
 			</div>
-
-			<div className="space-y-5">
-				<div>
-					<label
-						htmlFor="log-retention"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Log Retention
-					</label>
-					<select
-						id="log-retention"
-						value={logRetention}
-						onChange={(e) =>
-							updateMutation.mutate({
-								log_retention: e.target.value,
-							})
-						}
-						className="ui-input"
-					>
-						{LOG_RETENTION_OPTIONS.map((opt) => (
-							<option key={opt.value} value={opt.value}>
-								{opt.label}
-							</option>
-						))}
-					</select>
-					{logRetention === "0" ? (
-						<p className="text-amber-400 text-xs mt-1">
-							Log retention is disabled. Logs will accumulate indefinitely until
-							manually purged.
-						</p>
-					) : (
-						<p className="text-gray-500 text-xs mt-1">
-							Automatically delete logs older than this period
-						</p>
-					)}
-				</div>
-
-				<div>
-					<label
-						htmlFor="stale-request-timeout"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Stale Request Timeout
-					</label>
-					<select
-						id="stale-request-timeout"
-						value={staleRequestTimeout}
-						onChange={(e) =>
-							updateMutation.mutate({
-								stale_request_timeout: e.target.value,
-							})
-						}
-						className="ui-input"
-					>
-						{STALE_REQUEST_TIMEOUT_OPTIONS.map((opt) => (
-							<option key={opt.value} value={opt.value}>
-								{opt.label}
-							</option>
-						))}
-					</select>
-					{staleRequestTimeout === "0s" ? (
-						<p className="text-amber-400 text-xs mt-1">
-							Stale request detection is disabled. Orphaned requests from server
-							restarts will still be marked as failed, but age-based cleanup
-							will not run.
-						</p>
-					) : (
-						<p className="text-gray-500 text-xs mt-1">
-							Mark pending/streaming requests as &ldquo;interrupted&rdquo; if
-							they remain in-progress longer than this. Accounts for providers
-							with long time-to-first-token.
-						</p>
-					)}
-				</div>
-
-				<div>
-					<div className="flex items-center justify-between">
+			<div
+				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+			>
+				<div className="overflow-hidden">
+					<div className="space-y-5">
 						<div>
-							{!confirmDelete ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDelete(true)}
-									className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
-								>
-									Delete Requests
-								</button>
+							<label
+								htmlFor="log-retention"
+								className="block text-sm font-medium text-gray-300 mb-2"
+							>
+								Log Retention
+							</label>
+							<select
+								id="log-retention"
+								value={logRetention}
+								onChange={(e) =>
+									updateMutation.mutate({
+										log_retention: e.target.value,
+									})
+								}
+								className="ui-input"
+							>
+								{LOG_RETENTION_OPTIONS.map((opt) => (
+									<option key={opt.value} value={opt.value}>
+										{opt.label}
+									</option>
+								))}
+							</select>
+							{logRetention === "0" ? (
+								<p className="text-amber-400 text-xs mt-1">
+									Log retention is disabled. Logs will accumulate indefinitely
+									until manually purged.
+								</p>
 							) : (
-								<div className="flex items-center gap-2">
-									<select
-										value={deleteSelection}
-										onChange={(e) => setDeleteSelection(e.target.value)}
-										className="ui-input px-3 py-1.5 text-xs"
-									>
-										<option value="">Select range...</option>
-										<option value="1d">Older than 1 day</option>
-										<option value="1w">Older than 1 week</option>
-										<option value="1m">Older than 1 month</option>
-										<option value="all">All logs</option>
-									</select>
-									<button
-										type="button"
-										disabled={!deleteSelection}
-										onClick={() => {
-											const olderThan = getDeleteOlderThan(deleteSelection);
-											if (olderThan) purgeMutation.mutate(olderThan);
-										}}
-										className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										Confirm Delete
-									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setConfirmDelete(false);
-											setDeleteSelection("");
-										}}
-										className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-									>
-										Cancel
-									</button>
-								</div>
+								<p className="text-gray-500 text-xs mt-1">
+									Automatically delete logs older than this period
+								</p>
 							)}
 						</div>
+
 						<div>
-							{!confirmDeleteAppLogs ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDeleteAppLogs(true)}
-									className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
-								>
-									Delete Logs
-								</button>
+							<label
+								htmlFor="stale-request-timeout"
+								className="block text-sm font-medium text-gray-300 mb-2"
+							>
+								Stale Request Timeout
+							</label>
+							<select
+								id="stale-request-timeout"
+								value={staleRequestTimeout}
+								onChange={(e) =>
+									updateMutation.mutate({
+										stale_request_timeout: e.target.value,
+									})
+								}
+								className="ui-input"
+							>
+								{STALE_REQUEST_TIMEOUT_OPTIONS.map((opt) => (
+									<option key={opt.value} value={opt.value}>
+										{opt.label}
+									</option>
+								))}
+							</select>
+							{staleRequestTimeout === "0s" ? (
+								<p className="text-amber-400 text-xs mt-1">
+									Stale request detection is disabled. Orphaned requests from
+									server restarts will still be marked as failed, but age-based
+									cleanup will not run.
+								</p>
 							) : (
-								<div className="flex items-center gap-2">
-									<span className="text-xs text-red-400">
-										Clear all application logs?
-									</span>
-									<button
-										type="button"
-										onClick={() => purgeAppLogsMutation.mutate()}
-										disabled={purgeAppLogsMutation.isPending}
-										className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{purgeAppLogsMutation.isPending ? "Deleting…" : "Confirm"}
-									</button>
-									<button
-										type="button"
-										onClick={() => setConfirmDeleteAppLogs(false)}
-										className="px-3 py-1.5 text-xs rounded-full border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
-									>
-										Cancel
-									</button>
-								</div>
+								<p className="text-gray-500 text-xs mt-1">
+									Mark pending/streaming requests as &ldquo;interrupted&rdquo;
+									if they remain in-progress longer than this. Accounts for
+									providers with long time-to-first-token.
+								</p>
 							)}
+						</div>
+
+						<div>
+							<div className="flex items-center justify-between">
+								<div>
+									{!confirmDelete ? (
+										<button
+											type="button"
+											onClick={() => setConfirmDelete(true)}
+											className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
+										>
+											Delete Requests
+										</button>
+									) : (
+										<div className="flex items-center gap-2">
+											<select
+												value={deleteSelection}
+												onChange={(e) => setDeleteSelection(e.target.value)}
+												className="ui-input px-3 py-1.5 text-xs"
+											>
+												<option value="">Select range...</option>
+												<option value="1d">Older than 1 day</option>
+												<option value="1w">Older than 1 week</option>
+												<option value="1m">Older than 1 month</option>
+												<option value="all">All logs</option>
+											</select>
+											<button
+												type="button"
+												disabled={!deleteSelection}
+												onClick={() => {
+													const olderThan = getDeleteOlderThan(deleteSelection);
+													if (olderThan) purgeMutation.mutate(olderThan);
+												}}
+												className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+											>
+												Confirm Delete
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													setConfirmDelete(false);
+													setDeleteSelection("");
+												}}
+												className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+											>
+												Cancel
+											</button>
+										</div>
+									)}
+								</div>
+								<div>
+									{!confirmDeleteAppLogs ? (
+										<button
+											type="button"
+											onClick={() => setConfirmDeleteAppLogs(true)}
+											className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
+										>
+											Delete Logs
+										</button>
+									) : (
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-red-400">
+												Clear all application logs?
+											</span>
+											<button
+												type="button"
+												onClick={() => purgeAppLogsMutation.mutate()}
+												disabled={purgeAppLogsMutation.isPending}
+												className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+											>
+												{purgeAppLogsMutation.isPending
+													? "Deleting…"
+													: "Confirm"}
+											</button>
+											<button
+												type="button"
+												onClick={() => setConfirmDeleteAppLogs(false)}
+												className="px-3 py-1.5 text-xs rounded-full border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
+											>
+												Cancel
+											</button>
+										</div>
+									)}
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
