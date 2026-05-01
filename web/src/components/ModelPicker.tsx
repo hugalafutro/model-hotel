@@ -285,7 +285,7 @@ export function ModelPicker({
 							<button
 								type="button"
 								onClick={() => toggleCollapse(providerName)}
-								className={`flex items-center gap-1.5 w-full py-1 text-xs font-medium cursor-pointer transition-colors hover:text-(--text-primary) ${getProviderStyle(baseUrl, providerFilter.has(providerName) || providerFilter.size === 0)}`}
+								className={`flex items-center gap-1.5 w-full py-0.5 text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
 							>
 								{isCollapsed ? (
 									<ChevronRight size={10} />
