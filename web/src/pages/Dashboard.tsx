@@ -36,7 +36,7 @@ import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { proxyModelID } from "../utils/model";
 
-type Range = "24h" | "7d";
+type Range = "1h" | "24h" | "7d";
 
 function RangeToggle({
 	value,
@@ -45,11 +45,11 @@ function RangeToggle({
 	value: Range;
 	onChange: (v: Range) => void;
 }) {
+	const labels: Record<Range, string> = { "1h": "1H", "24h": "1D", "7d": "7D" };
 	return (
 		<div className="flex items-center gap-0.5">
-			{(["24h", "7d"] as Range[]).map((r) => {
+			{(["1h", "24h", "7d"] as Range[]).map((r) => {
 				const active = value === r;
-				const label = r === "24h" ? "1D" : "7D";
 				return (
 					<button
 						type="button"
@@ -62,7 +62,7 @@ function RangeToggle({
 						}`}
 						style={active ? { backgroundColor: "var(--accent)" } : {}}
 					>
-						{label}
+						{labels[r]}
 					</button>
 				);
 			})}
@@ -261,11 +261,11 @@ function StatCard({
 			</p>
 			{sparkline != null && (
 				<div
-					className="mt-3 h-1 rounded-full overflow-hidden bg-(--border-subtle)"
+					className="mt-3 h-[4px] rounded-full overflow-hidden bg-(--border-subtle)"
 					title={sparklineTooltip}
 				>
 					<div
-						className="h-full rounded-full transition-all duration-1000"
+						className="h-full rounded-full transition-all duration-1000 [transform:translateZ(0)]"
 						style={{
 							width: `${Math.max(0, Math.min(1, sparkline)) * 100}%`,
 							backgroundColor: accent,
@@ -359,7 +359,7 @@ function TimeSeriesChart({
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Icon size={18} style={{ color }} />
-					{metric} / {range === "24h" ? "Hour" : "Day"}
+					{metric} / {range === "7d" ? "Day" : "Hour"}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -721,9 +721,9 @@ function UsageBarPanel({
 											: ""}
 									</span>
 								</div>
-								<div className="h-1 rounded-full overflow-hidden bg-(--border-subtle)">
+								<div className="h-[4px] rounded-full overflow-hidden bg-(--border-subtle)">
 									<div
-										className="h-full rounded-full transition-all duration-700"
+										className="h-full rounded-full transition-all duration-700 [transform:translateZ(0)]"
 										style={{
 											width: `${pct}%`,
 											backgroundColor: "var(--accent)",
@@ -935,17 +935,8 @@ function Gauge({
    DASHBOARD
    ===================================================== */
 export function Dashboard() {
-	const [tsRange, setTsRange] = useState<Range>("24h");
-	const [tokenTsRange, setTokenTsRange] = useState<Range>("24h");
-	const [provRange, setProvRange] = useState<Range>("24h");
-	const [tokenRange, setTokenRange] = useState<Range>("24h");
-	const [modelRange, setModelRange] = useState<Range>("24h");
-	const [providerRange, setProviderRange] = useState<Range>("24h");
-	const [vkRange, setVkRange] = useState<Range>("24h");
-	const [modelMetric, setModelMetric] = useState<MetricType>("tokens");
-	const [provMetric, setProvMetric] = useState<MetricType>("tokens");
-	const [providerMetric, setProviderMetric] = useState<MetricType>("tokens");
-	const [vkMetric, setVkMetric] = useState<MetricType>("tokens");
+	const [globalRange, setGlobalRange] = useState<Range>("24h");
+	const [globalMetric, setGlobalMetric] = useState<MetricType>("tokens");
 	const [excludeDeleted, setExcludeDeleted] = useState(false);
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);
 	const [errorModalOpen, setErrorModalOpen] = useState(false);
@@ -1019,8 +1010,8 @@ export function Dashboard() {
 		isLoading: statsLoading,
 		error: statsError,
 	} = useQuery({
-		queryKey: ["stats", tokenRange, excludeDeleted],
-		queryFn: () => api.stats.get({ period: tokenRange, excludeDeleted }),
+		queryKey: ["stats", globalRange, excludeDeleted],
+		queryFn: () => api.stats.get({ period: globalRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 		retry: 1,
@@ -1031,8 +1022,13 @@ export function Dashboard() {
 		isLoading: gaugeStatsLoading,
 		error: gaugeStatsError,
 	} = useQuery({
-		queryKey: ["stats", "1h", excludeDeleted],
-		queryFn: () => api.stats.get({ period: "1h", excludeDeleted }),
+		queryKey: [
+			"stats",
+			globalRange === "1h" ? "1h" : globalRange,
+			excludeDeleted,
+		],
+		queryFn: () => api.stats.get({ period: globalRange, excludeDeleted }),
+		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 		retry: 1,
 	});
@@ -1058,16 +1054,17 @@ export function Dashboard() {
 	});
 
 	const { data: tsData, isLoading: tsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries", tsRange, excludeDeleted],
-		queryFn: () => api.stats.getTimeSeries({ period: tsRange, excludeDeleted }),
+		queryKey: ["stats-timeseries", globalRange, excludeDeleted],
+		queryFn: () =>
+			api.stats.getTimeSeries({ period: globalRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries-tokens", tokenTsRange, excludeDeleted],
+		queryKey: ["stats-timeseries-tokens", globalRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: tokenTsRange, excludeDeleted }),
+			api.stats.getTimeSeries({ period: globalRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -1075,14 +1072,14 @@ export function Dashboard() {
 	const { data: provDist, isLoading: provDistLoading } = useQuery({
 		queryKey: [
 			"stats-provider-distribution",
-			provRange,
-			provMetric,
+			globalRange,
+			globalMetric,
 			excludeDeleted,
 		],
 		queryFn: () =>
 			api.stats.getProviderDistribution({
-				period: provRange,
-				metric: provMetric,
+				period: globalRange,
+				metric: globalMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1090,11 +1087,11 @@ export function Dashboard() {
 	});
 
 	const { data: modelStats, isLoading: modelStatsLoading } = useQuery({
-		queryKey: ["stats-top-models", modelRange, modelMetric, excludeDeleted],
+		queryKey: ["stats-top-models", globalRange, globalMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
-				period: modelRange,
-				metric: modelMetric,
+				period: globalRange,
+				metric: globalMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1104,14 +1101,14 @@ export function Dashboard() {
 	const { data: providerStats, isLoading: providerStatsLoading } = useQuery({
 		queryKey: [
 			"stats-top-providers",
-			providerRange,
-			providerMetric,
+			globalRange,
+			globalMetric,
 			excludeDeleted,
 		],
 		queryFn: () =>
 			api.stats.get({
-				period: providerRange,
-				metric: providerMetric,
+				period: globalRange,
+				metric: globalMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1119,11 +1116,16 @@ export function Dashboard() {
 	});
 
 	const { data: vkStats, isLoading: vkStatsLoading } = useQuery({
-		queryKey: ["stats-top-virtual-keys", vkRange, vkMetric, excludeDeleted],
+		queryKey: [
+			"stats-top-virtual-keys",
+			globalRange,
+			globalMetric,
+			excludeDeleted,
+		],
 		queryFn: () =>
 			api.stats.get({
-				period: vkRange,
-				metric: vkMetric,
+				period: globalRange,
+				metric: globalMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1188,12 +1190,21 @@ export function Dashboard() {
 	const totalTokens =
 		(stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0);
 
+	const rangeLabel =
+		globalRange === "1h" ? "1h" : globalRange === "24h" ? "1d" : "7d";
+	const gaugeRequestCount =
+		globalRange === "1h"
+			? gaugeStats?.requests_last_1h || 0
+			: globalRange === "24h"
+				? gaugeStats?.total_requests_last_24h || 0
+				: gaugeStats?.total_requests_last_7d || 0;
+
 	const acData = (() => {
 		if (!tsData?.points) return [];
 		return tsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				tsRange === "7d"
+				globalRange === "7d"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -1218,7 +1229,7 @@ export function Dashboard() {
 		return tokenTsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				tokenTsRange === "7d"
+				globalRange === "7d"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -1248,7 +1259,7 @@ export function Dashboard() {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: modelMetric === "tokens" ? " tokens" : " requests",
+					suffix: globalMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
 	const byProvider = providerStats
@@ -1259,7 +1270,7 @@ export function Dashboard() {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: providerMetric === "tokens" ? " tokens" : " requests",
+					suffix: globalMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
 	const byVK = vkStats
@@ -1270,7 +1281,7 @@ export function Dashboard() {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: vkMetric === "tokens" ? " tokens" : " requests",
+					suffix: globalMetric === "tokens" ? " tokens" : " requests",
 					deleted: k === "Deleted",
 				}))
 		: [];
@@ -1322,6 +1333,11 @@ export function Dashboard() {
 							/>
 							{excludeDeleted ? "Active Keys Only" : "All Keys"}
 						</button>
+						<div className="flex items-center gap-1.5 ml-2 px-2 py-1 rounded-lg bg-(--surface-elevated) border border-(--border-default)">
+							<RangeToggle value={globalRange} onChange={setGlobalRange} />
+							<div className="w-px h-4 bg-(--border-subtle)" />
+							<MetricToggle value={globalMetric} onChange={setGlobalMetric} />
+						</div>
 						{!hideManualRefresh && (
 							<button
 								type="button"
@@ -1355,20 +1371,17 @@ export function Dashboard() {
 					) : (
 						<>
 							<Gauge
-								label="Requests/1h"
-								value={gaugeStats?.requests_last_1h || 0}
+								label={`Requests/${rangeLabel}`}
+								value={gaugeRequestCount}
 								decimals={0}
 								suffix=""
 								color={accents.requests}
 								onClick={() => setRequestsModalOpen(true)}
 								tooltip="Click to view request history"
-								maxScale={Math.max(
-									100,
-									(gaugeStats?.requests_last_1h || 0) * 1.2,
-								)}
+								maxScale={Math.max(100, gaugeRequestCount * 1.2)}
 							/>
 							<Gauge
-								label="Avg TTFT/1h"
+								label={`Avg TTFT/${rangeLabel}`}
 								value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
 								decimals={1}
 								suffix="s"
@@ -1381,7 +1394,7 @@ export function Dashboard() {
 								)}
 							/>
 							<Gauge
-								label="Avg Overhead/1h"
+								label={`Avg Overhead/${rangeLabel}`}
 								value={gaugeStats?.avg_overhead_ms || 0}
 								decimals={1}
 								suffix="ms"
@@ -1394,7 +1407,7 @@ export function Dashboard() {
 								)}
 							/>
 							<Gauge
-								label="Rate Limit Hits/1h"
+								label={`Rate Limit Hits/${rangeLabel}`}
 								value={gaugeStats?.rate_limit_hits || 0}
 								decimals={0}
 								suffix=""
@@ -1407,7 +1420,7 @@ export function Dashboard() {
 								)}
 							/>
 							<Gauge
-								label="Error Rate/1h"
+								label={`Error Rate/${rangeLabel}`}
 								value={(gaugeStats?.error_rate || 0) * 100}
 								decimals={1}
 								suffix="%"
@@ -1437,25 +1450,37 @@ export function Dashboard() {
 					loading={modelsLoading}
 				/>
 				<StatCard
-					label="Requests/1d"
-					value={req24h}
+					label={`Requests/${rangeLabel}`}
+					value={
+						globalRange === "1h"
+							? gaugeStats?.requests_last_1h || 0
+							: globalRange === "24h"
+								? stats?.total_requests_last_24h || 0
+								: stats?.total_requests_last_7d || 0
+					}
 					icon={Activity}
 					accent={accents.requests}
-					sparkline={sparkReq}
-					sparklineTooltip="Share of last 7 days traffic that was today"
+					sparkline={globalRange === "24h" ? sparkReq : undefined}
+					sparklineTooltip={
+						globalRange === "24h"
+							? "Share of last 7 days traffic that was today"
+							: undefined
+					}
 					onClick={() => setRequestsModalOpen(true)}
 					tooltip="Click to view request history"
 				/>
 				<StatCard
-					label="Requests/7d"
-					value={stats?.total_requests_last_7d || 0}
-					icon={TrendingUp}
-					accent={accents.requests}
-					onClick={() => setRequestsModalOpen(true)}
-					tooltip="Click to view request history"
+					label={`Error Rate/${rangeLabel}`}
+					value={(stats?.error_rate || 0) * 100}
+					decimals={1}
+					suffix="%"
+					icon={AlertTriangle}
+					accent={accents.errors}
+					onClick={() => setErrorModalOpen(true)}
+					tooltip="Click to view error rate history"
 				/>
 				<StatCard
-					label="Avg Duration/1d"
+					label={`Avg Duration/${rangeLabel}`}
 					value={(stats?.avg_latency_ms || 0) / 1000}
 					decimals={1}
 					suffix="s"
@@ -1465,12 +1490,21 @@ export function Dashboard() {
 					tooltip="Click to view duration history"
 				/>
 				<StatCard
-					label="Avg Tokens/1d"
-					value={stats?.avg_tokens_per_request || 0}
-					suffix="T/Rq"
-					icon={Target}
+					label={
+						globalMetric === "tokens"
+							? `Total Tokens/${rangeLabel}`
+							: "Avg Tokens/Req"
+					}
+					value={
+						globalMetric === "tokens"
+							? totalTokens
+							: stats?.avg_tokens_per_request || 0
+					}
+					decimals={0}
+					suffix={globalMetric === "tokens" ? "" : "T/Rq"}
+					icon={globalMetric === "tokens" ? Zap : Target}
 					accent={accents.tokens}
-					formatter={formatCompact}
+					formatter={globalMetric === "tokens" ? formatCompact : undefined}
 					onClick={() => setTokensModalOpen(true)}
 					tooltip="Click to view token history"
 				/>
@@ -1480,8 +1514,8 @@ export function Dashboard() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<TimeSeriesChart
 					data={acData}
-					range={tsRange}
-					onRangeChange={setTsRange}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
 					metric="Requests"
 					icon={Activity}
 					color={accents.requests}
@@ -1491,8 +1525,8 @@ export function Dashboard() {
 				/>
 				<TimeSeriesChart
 					data={tokenAcData}
-					range={tokenTsRange}
-					onRangeChange={setTokenTsRange}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
 					metric="Tokens"
 					icon={Zap}
 					color={accents.tokens}
@@ -1507,18 +1541,18 @@ export function Dashboard() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<ProviderDoughnut
 					items={provDist?.items || []}
-					range={provRange}
-					onRangeChange={setProvRange}
-					metric={provMetric}
-					onMetricChange={setProvMetric}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
+					metric={globalMetric}
+					onMetricChange={setGlobalMetric}
 					loading={provDistLoading}
 				/>
 				<TokenSplitBar
 					prompt={stats?.total_tokens_prompt || 0}
 					completion={stats?.total_tokens_completion || 0}
 					total={totalTokens}
-					range={tokenRange}
-					onRangeChange={setTokenRange}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
 				/>
 			</div>
 
@@ -1528,10 +1562,10 @@ export function Dashboard() {
 					title="Top Models"
 					icon={ArrowUpRight}
 					entries={byModel}
-					range={modelRange}
-					onRangeChange={setModelRange}
-					metric={modelMetric}
-					onMetricChange={setModelMetric}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
+					metric={globalMetric}
+					onMetricChange={setGlobalMetric}
 					loading={modelStatsLoading}
 					onEntryClick={handleModelClick}
 				/>
@@ -1539,20 +1573,20 @@ export function Dashboard() {
 					title="Top Providers"
 					icon={ArrowUpRight}
 					entries={byProvider}
-					range={providerRange}
-					onRangeChange={setProviderRange}
-					metric={providerMetric}
-					onMetricChange={setProviderMetric}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
+					metric={globalMetric}
+					onMetricChange={setGlobalMetric}
 					loading={providerStatsLoading}
 				/>
 				<UsageBarPanel
 					title="Top Virtual Keys"
 					icon={ArrowUpRight}
 					entries={byVK}
-					range={vkRange}
-					onRangeChange={setVkRange}
-					metric={vkMetric}
-					onMetricChange={setVkMetric}
+					range={globalRange}
+					onRangeChange={setGlobalRange}
+					metric={globalMetric}
+					onMetricChange={setGlobalMetric}
 					loading={vkStatsLoading}
 				/>
 			</div>
