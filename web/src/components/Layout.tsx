@@ -234,7 +234,7 @@ function SystemStatus() {
 				</div>
 			</div>
 			{!collapsed && (
-				<div className="sidebar-stats-content space-y-2 text-[11px] font-mono system-status">
+				<div className="sidebar-stats-content space-y-0.5 text-[11px] font-mono system-status">
 					{/* Uptime */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
