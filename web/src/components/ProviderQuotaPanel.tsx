@@ -7,12 +7,12 @@ import type {
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
 	Provider,
-	ZAIQuotaResponse,
+	ZAICodingQuotaResponse,
 } from "../api/types";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { formatTokens } from "../utils/format";
-import { NanoGPTQuotaModal, ZAIQuotaModal } from "./ProviderModals";
+import { NanoGPTQuotaModal, ZAICodingQuotaModal } from "./ProviderModals";
 
 const CACHE_PREFIX = "model-hotel";
 
@@ -114,7 +114,7 @@ export function ProviderQuotaPanel() {
 		[providers],
 	);
 
-	const zaiProviderId = useMemo(
+	const zaiCodingProviderId = useMemo(
 		() =>
 			providers?.find((p: Provider) => {
 				try {
@@ -165,18 +165,19 @@ export function ProviderQuotaPanel() {
 	});
 
 	const {
-		data: zaiUsage,
-		dataUpdatedAt: zaiDataUpdatedAt,
-		isRefetching: isZaiRefetching,
+		data: zaiCodingUsage,
+		dataUpdatedAt: zaiCodingDataUpdatedAt,
+		isRefetching: isZaiCodingRefetching,
 	} = useQuery({
-		queryKey: ["zai-usage", zaiProviderId],
+		queryKey: ["zai-coding-usage", zaiCodingProviderId],
 		queryFn: () =>
 			api.providers.getUsage(
-				zaiProviderId as string,
-			) as Promise<ZAIQuotaResponse>,
-		enabled: Boolean(zaiProviderId),
+				zaiCodingProviderId as string,
+			) as Promise<ZAICodingQuotaResponse>,
+		enabled: Boolean(zaiCodingProviderId),
 		refetchInterval: collapsed ? false : refreshMs,
-		initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
+		initialData: () =>
+			getCachedData<ZAICodingQuotaResponse>("zai-coding-usage"),
 	});
 
 	const { data: deepseekBalance, isRefetching: isDsRefetching } = useQuery({
@@ -187,7 +188,8 @@ export function ProviderQuotaPanel() {
 		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
 	});
 
-	const anyRefreshing = isNanoRefetching || isZaiRefetching || isDsRefetching;
+	const anyRefreshing =
+		isNanoRefetching || isZaiCodingRefetching || isDsRefetching;
 
 	const isAutoRefreshing = anyRefreshing && !collapsed;
 
@@ -199,7 +201,7 @@ export function ProviderQuotaPanel() {
 		}
 		lastManualRefresh.current = now;
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
-		queryClient.invalidateQueries({ queryKey: ["zai-usage"] });
+		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 		toast("Refreshing quotas...", "info");
 	}, [queryClient, toast]);
@@ -208,22 +210,26 @@ export function ProviderQuotaPanel() {
 	const weeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
 	const showNanoBadge = nanogptUsage && weeklyUsed != null && weeklyLimit;
 
-	const zaiFiveHour = zaiUsage?.data?.limits?.find(
+	const zaiCodingFiveHour = zaiCodingUsage?.data?.limits?.find(
 		(l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
 	);
-	const zaiWeekly = zaiUsage?.data?.limits?.find(
+	const zaiCodingWeekly = zaiCodingUsage?.data?.limits?.find(
 		(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
 	);
-	const showZaiBadge = zaiUsage?.success && (zaiFiveHour || zaiWeekly);
+	const showZaiCodingBadge =
+		zaiCodingUsage?.success && (zaiCodingFiveHour || zaiCodingWeekly);
 
 	const showDsBadge = deepseekBalance && deepseekProviderId;
 
 	const hasAnyProvider =
-		nanogptProviderId || zaiProviderId || deepseekProviderId;
+		nanogptProviderId || zaiCodingProviderId || deepseekProviderId;
 
 	const { nanogptUsage: modalNano, setNanogptUsage: setModalNano } =
 		useQuotaModal();
-	const { zaiUsage: modalZai, setZaiUsage: setModalZai } = useQuotaModal();
+	const {
+		zaiCodingUsage: modalZaiCoding,
+		setZaiCodingUsage: setModalZaiCoding,
+	} = useQuotaModal();
 
 	const refreshNano = useCallback(async () => {
 		await queryClient.invalidateQueries({
@@ -231,11 +237,11 @@ export function ProviderQuotaPanel() {
 		});
 	}, [queryClient, nanogptProviderId]);
 
-	const refreshZai = useCallback(async () => {
+	const refreshZaiCoding = useCallback(async () => {
 		await queryClient.invalidateQueries({
-			queryKey: ["zai-usage", zaiProviderId],
+			queryKey: ["zai-coding-usage", zaiCodingProviderId],
 		});
-	}, [queryClient, zaiProviderId]);
+	}, [queryClient, zaiCodingProviderId]);
 
 	if (!hasAnyProvider || disabled) return null;
 
@@ -283,17 +289,20 @@ export function ProviderQuotaPanel() {
 							{formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
 						</button>
 					)}
-					{showZaiBadge && (
+					{showZaiCodingBadge && (
 						<button
 							type="button"
-							onClick={() => setModalZai(zaiUsage)}
-							className="sidebar-quota-pill sidebar-quota-pill-zai"
-							title="Z.ai token quota — click for details"
+							onClick={() => setModalZaiCoding(zaiCodingUsage)}
+							className="sidebar-quota-pill sidebar-quota-pill-zai-coding"
+							title="Z.ai Coding Plan token quota — click for details"
 						>
-							{zaiFiveHour
-								? `${(100 - zaiFiveHour.percentage).toFixed(0)}%`
+							{zaiCodingFiveHour
+								? `${(100 - zaiCodingFiveHour.percentage).toFixed(0)}%`
 								: "-"}
-							/{zaiWeekly ? `${(100 - zaiWeekly.percentage).toFixed(0)}%` : "-"}
+							/
+							{zaiCodingWeekly
+								? `${(100 - zaiCodingWeekly.percentage).toFixed(0)}%`
+								: "-"}
 						</button>
 					)}
 					{showDsBadge && (
@@ -322,14 +331,14 @@ export function ProviderQuotaPanel() {
 					lastRefreshed={nanoDataUpdatedAt}
 				/>
 			)}
-			{modalZai && (
-				<ZAIQuotaModal
-					usage={modalZai}
-					onClose={() => setModalZai(null)}
-					onRefresh={refreshZai}
-					isRefreshing={isZaiRefetching}
+			{modalZaiCoding && (
+				<ZAICodingQuotaModal
+					usage={modalZaiCoding}
+					onClose={() => setModalZaiCoding(null)}
+					onRefresh={refreshZaiCoding}
+					isRefreshing={isZaiCodingRefetching}
 					onToast={toast}
-					lastRefreshed={zaiDataUpdatedAt}
+					lastRefreshed={zaiCodingDataUpdatedAt}
 				/>
 			)}
 		</div>

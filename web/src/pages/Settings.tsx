@@ -131,7 +131,7 @@ function formatRelativeTime(dateStr: string): string {
 
 const PROVIDER_CACHE_KEYS = [
 	"model-hotel:nanogpt-usage",
-	"model-hotel:zai-usage",
+	"model-hotel:zai-coding-usage",
 	"model-hotel:deepseek-balance",
 ];
 
@@ -1285,7 +1285,7 @@ export function Settings() {
 										<p className="text-gray-500 text-xs mt-0.5">
 											{getProviderCacheCount()} cached entr
 											{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT,
-											Z.ai, DeepSeek)
+											Z.ai Coding Plan, DeepSeek)
 										</p>
 									</div>
 									<button

@@ -53,7 +53,7 @@ func TestDetectProviderType_NanoGPT(t *testing.T) {
 	}
 }
 
-func TestDetectProviderType_ZAI(t *testing.T) {
+func TestDetectProviderType_ZAICoding(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -65,8 +65,8 @@ func TestDetectProviderType_ZAI(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := DetectProviderType(tc.url)
-			if result != "zai" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "zai")
+			if result != "zai-coding" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "zai-coding")
 			}
 		})
 	}

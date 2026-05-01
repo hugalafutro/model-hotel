@@ -323,12 +323,12 @@ export interface SyncResult {
 	disabled_groups: DisabledGroupInfo[];
 }
 
-export interface ZAIQuotaUsageDetail {
+export interface ZAICodingQuotaUsageDetail {
 	modelCode: string;
 	usage: number;
 }
 
-export interface ZAIQuotaLimit {
+export interface ZAICodingQuotaLimit {
 	type: string;
 	unit: number;
 	number: number;
@@ -337,18 +337,18 @@ export interface ZAIQuotaLimit {
 	remaining: number;
 	percentage: number;
 	nextResetTime: number;
-	usageDetails?: ZAIQuotaUsageDetail[];
+	usageDetails?: ZAICodingQuotaUsageDetail[];
 }
 
-export interface ZAIQuotaData {
-	limits: ZAIQuotaLimit[];
+export interface ZAICodingQuotaData {
+	limits: ZAICodingQuotaLimit[];
 	level: string;
 }
 
-export interface ZAIQuotaResponse {
+export interface ZAICodingQuotaResponse {
 	code: number;
 	msg: string;
-	data: ZAIQuotaData;
+	data: ZAICodingQuotaData;
 	success: boolean;
 }
 

@@ -17,8 +17,8 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	catalog := GetZAIModels()
+func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+	catalog := GetZAICodingModels()
 
 	type testResult struct {
 		index     int
@@ -38,7 +38,7 @@ func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, 
 		go func(idx int, modelID string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results[idx] = testResult{index: idx, available: d.testZAIModel(testCtx, provider, apiKey, modelID)}
+			results[idx] = testResult{index: idx, available: d.testZAICodingModel(testCtx, provider, apiKey, modelID)}
 		}(i, spec.ModelID)
 	}
 	wg.Wait()
@@ -90,12 +90,12 @@ func (d *DiscoveryService) discoverZAI(ctx context.Context, provider *Provider, 
 		})
 	}
 
-	log.Printf("[discovery] zai provider %s: discovered %d/%d models available", provider.ID, available, len(catalog))
+	log.Printf("[discovery] zai-coding provider %s: discovered %d/%d models available", provider.ID, available, len(catalog))
 
 	return models, nil
 }
 
-func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, masterKey string) (*ZAIQuotaResponse, error) {
+func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Provider, masterKey string) (*ZAICodingQuotaResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
@@ -113,27 +113,27 @@ func (d *DiscoveryService) GetZAIQuota(ctx context.Context, provider *Provider, 
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] error: zai provider %s quota fetch failed: %v", provider.ID, err)
+		log.Printf("[discovery] error: zai-coding provider %s quota fetch failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch quota: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: zai provider %s quota fetch returned status %d", provider.ID, resp.StatusCode)
+		log.Printf("[discovery] error: zai-coding provider %s quota fetch returned status %d", provider.ID, resp.StatusCode)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
-	var quota ZAIQuotaResponse
+	var quota ZAICodingQuotaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
-		log.Printf("[discovery] error: zai provider %s quota decode failed: %v", provider.ID, err)
+		log.Printf("[discovery] error: zai-coding provider %s quota decode failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return &quota, nil
 }
 
-func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider, apiKey, modelID string) bool {
+func (d *DiscoveryService) testZAICodingModel(ctx context.Context, provider *Provider, apiKey, modelID string) bool {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	reqBody := fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}`, modelID)
 
@@ -141,7 +141,7 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 		if attempt > 0 {
 			select {
 			case <-ctx.Done():
-				log.Printf("[discovery] warning: zai model %s availability test failed: context cancelled after %d attempts", modelID, attempt)
+				log.Printf("[discovery] warning: zai-coding model %s availability test failed: context cancelled after %d attempts", modelID, attempt)
 				return false
 			case <-time.After(time.Duration(attempt) * 3 * time.Second):
 			}
@@ -149,7 +149,7 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 
 		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/chat/completions", strings.NewReader(reqBody))
 		if err != nil {
-			log.Printf("[discovery] warning: zai model %s availability test failed: request creation error: %v", modelID, err)
+			log.Printf("[discovery] warning: zai-coding model %s availability test failed: request creation error: %v", modelID, err)
 			return false
 		}
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -163,11 +163,11 @@ func (d *DiscoveryService) testZAIModel(ctx context.Context, provider *Provider,
 		_ = resp.Body.Close()
 
 		if resp.StatusCode == 429 {
-			log.Printf("[discovery] zai model %s rate limited (429), retrying", modelID)
+			log.Printf("[discovery] zai-coding model %s rate limited (429), retrying", modelID)
 			continue
 		}
 		return resp.StatusCode < 400
 	}
-	log.Printf("[discovery] warning: zai model %s availability test failed after all retries", modelID)
+	log.Printf("[discovery] warning: zai-coding model %s availability test failed after all retries", modelID)
 	return false
 }

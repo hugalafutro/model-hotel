@@ -1,6 +1,6 @@
 package provider
 
-type ZAIModelSpec struct {
+type ZAICodingModelSpec struct {
 	ModelID         string
 	ContextLength   int
 	MaxOutputTokens int
@@ -10,7 +10,7 @@ type ZAIModelSpec struct {
 	StructuredOutput bool
 }
 
-var zaiCatalog = []ZAIModelSpec{
+var zaiCodingCatalog = []ZAICodingModelSpec{
 	{"glm-5.1", 200000, 131072, "text", true, true, true},
 	{"glm-5", 200000, 131072, "text", true, true, true},
 	{"glm-5-turbo", 200000, 131072, "text", true, true, true},
@@ -31,6 +31,6 @@ var zaiCatalog = []ZAIModelSpec{
 	{"glm-4.5v", 128000, 16384, "vision", true, false, false},
 }
 
-func GetZAIModels() []ZAIModelSpec {
-	return zaiCatalog
+func GetZAICodingModels() []ZAICodingModelSpec {
+	return zaiCodingCatalog
 }

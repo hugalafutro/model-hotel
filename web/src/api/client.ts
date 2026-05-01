@@ -17,7 +17,7 @@ import type {
 	UpdateFailoverGroupRequest,
 	UpdateProviderRequest,
 	VirtualKey,
-	ZAIQuotaResponse,
+	ZAICodingQuotaResponse,
 } from "./types";
 
 export interface AppLogEntry {
@@ -158,7 +158,9 @@ export const api = {
 			}
 			return response.json();
 		},
-		getUsage: async (id: string): Promise<NanoGPTUsage | ZAIQuotaResponse> => {
+		getUsage: async (
+			id: string,
+		): Promise<NanoGPTUsage | ZAICodingQuotaResponse> => {
 			const response = await fetch(`${API_BASE}/api/providers/${id}/usage`, {
 				headers: getAuthHeaders(),
 			});

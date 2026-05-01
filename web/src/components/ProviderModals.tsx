@@ -1,5 +1,5 @@
 import { RefreshCw, X } from "lucide-react";
-import type { NanoGPTUsage, ZAIQuotaResponse } from "../api/types";
+import type { NanoGPTUsage, ZAICodingQuotaResponse } from "../api/types";
 import { useTheme } from "../context/ThemeContext";
 import {
 	formatDate,
@@ -228,7 +228,7 @@ export function NanoGPTQuotaModal({
 	);
 }
 
-export function ZAIQuotaModal({
+export function ZAICodingQuotaModal({
 	usage,
 	onClose,
 	onRefresh,
@@ -236,7 +236,7 @@ export function ZAIQuotaModal({
 	onToast,
 	lastRefreshed,
 }: {
-	usage: ZAIQuotaResponse;
+	usage: ZAICodingQuotaResponse;
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
@@ -268,7 +268,9 @@ export function ZAIQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-white">Z.ai Quota</h2>
+						<h2 className="text-xl font-bold text-white">
+							Z.ai Coding Plan Quota
+						</h2>
 						<p className="text-sm text-gray-400 mt-1">
 							Plan:{" "}
 							<span className="text-gray-200 capitalize">

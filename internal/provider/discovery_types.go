@@ -154,12 +154,12 @@ type OllamaShowResponse struct {
 	ModifiedAt   string               `json:"modified_at"`
 }
 
-type ZAIQuotaUsageDetail struct {
+type ZAICodingQuotaUsageDetail struct {
 	ModelCode string `json:"modelCode"`
 	Usage     int64  `json:"usage"`
 }
 
-type ZAIQuotaLimit struct {
+type ZAICodingQuotaLimit struct {
 	Type           string                 `json:"type"`
 	Unit           int                    `json:"unit"`
 	Number         int                    `json:"number"`
@@ -168,18 +168,18 @@ type ZAIQuotaLimit struct {
 	Remaining      int64                  `json:"remaining"`
 	Percentage     float64                `json:"percentage"`
 	NextResetTime  int64                  `json:"nextResetTime"`
-	UsageDetails   []ZAIQuotaUsageDetail  `json:"usageDetails,omitempty"`
+	UsageDetails   []ZAICodingQuotaUsageDetail  `json:"usageDetails,omitempty"`
 }
 
-type ZAIQuotaData struct {
-	Limits []ZAIQuotaLimit `json:"limits"`
+type ZAICodingQuotaData struct {
+	Limits []ZAICodingQuotaLimit `json:"limits"`
 	Level  string          `json:"level"`
 }
 
-type ZAIQuotaResponse struct {
-	Code    int          `json:"code"`
-	Msg     string       `json:"msg"`
-	Data    ZAIQuotaData `json:"data"`
+type ZAICodingQuotaResponse struct {
+	Code    int                `json:"code"`
+	Msg     string             `json:"msg"`
+	Data    ZAICodingQuotaData `json:"data"`
 	Success bool         `json:"success"`
 }
 

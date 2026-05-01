@@ -7,12 +7,15 @@ import type {
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
 	Provider,
-	ZAIQuotaResponse,
+	ZAICodingQuotaResponse,
 } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
 import { Modal } from "../components/Modal";
-import { NanoGPTQuotaModal, ZAIQuotaModal } from "../components/ProviderModals";
+import {
+	NanoGPTQuotaModal,
+	ZAICodingQuotaModal,
+} from "../components/ProviderModals";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { formatTimestamp, formatTokens } from "../utils/format";
@@ -274,9 +277,8 @@ export function Providers() {
 	const [error, setError] = useState<string | null>(null);
 	const [discoveringId, setDiscoveringId] = useState<string | null>(null);
 	const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null);
-	const [zaiQuotaUsage, setZaiQuotaUsage] = useState<ZAIQuotaResponse | null>(
-		null,
-	);
+	const [zaiCodingQuotaUsage, setZaiCodingQuotaUsage] =
+		useState<ZAICodingQuotaResponse | null>(null);
 	const [formData, setFormData] = useState<{
 		name: string;
 		base_url: string;
@@ -328,7 +330,7 @@ export function Providers() {
 		})?.id;
 	}, [providers]);
 
-	const zaiProviderId = useMemo(() => {
+	const zaiCodingProviderId = useMemo(() => {
 		return providers?.find((p) => {
 			try {
 				const h = new URL(p.base_url).hostname;
@@ -370,24 +372,25 @@ export function Providers() {
 	}, [nanogptUsage]);
 
 	const {
-		data: zaiUsage,
-		dataUpdatedAt: zaiDataUpdatedAt,
+		data: zaiCodingUsage,
+		dataUpdatedAt: zaiCodingDataUpdatedAt,
 		refetch: refetchZai,
-		isRefetching: isZaiRefetching,
-		isError: isZAIError,
+		isRefetching: isZaiCodingRefetching,
+		isError: isZAICodingError,
 	} = useQuery({
-		queryKey: ["zai-usage", zaiProviderId],
+		queryKey: ["zai-coding-usage", zaiCodingProviderId],
 		queryFn: () =>
 			api.providers.getUsage(
-				zaiProviderId as string,
-			) as Promise<ZAIQuotaResponse>,
-		enabled: Boolean(zaiProviderId),
-		initialData: () => getCachedData<ZAIQuotaResponse>("zai-usage"),
+				zaiCodingProviderId as string,
+			) as Promise<ZAICodingQuotaResponse>,
+		enabled: Boolean(zaiCodingProviderId),
+		initialData: () =>
+			getCachedData<ZAICodingQuotaResponse>("zai-coding-usage"),
 	});
 
 	useEffect(() => {
-		if (zaiUsage) setCachedData("zai-usage", zaiUsage);
-	}, [zaiUsage]);
+		if (zaiCodingUsage) setCachedData("zai-coding-usage", zaiCodingUsage);
+	}, [zaiCodingUsage]);
 
 	const {
 		data: deepseekBalanceData,
@@ -414,14 +417,14 @@ export function Providers() {
 		if (!isNanoGPTError) nanoGPTErrorToasted.current = false;
 	}, [isNanoGPTError, toast]);
 
-	const zaiErrorToasted = useRef(false);
+	const zaiCodingErrorToasted = useRef(false);
 	useEffect(() => {
-		if (isZAIError && !zaiErrorToasted.current) {
+		if (isZAICodingError && !zaiCodingErrorToasted.current) {
 			toast("Failed to fetch ZAI usage quota", "warning");
-			zaiErrorToasted.current = true;
+			zaiCodingErrorToasted.current = true;
 		}
-		if (!isZAIError) zaiErrorToasted.current = false;
-	}, [isZAIError, toast]);
+		if (!isZAICodingError) zaiCodingErrorToasted.current = false;
+	}, [isZAICodingError, toast]);
 
 	const deepseekErrorToasted = useRef(false);
 	useEffect(() => {
@@ -559,7 +562,7 @@ export function Providers() {
 
 	const providerTypeDisplayNames: Record<string, string> = {
 		nanogpt: "NanoGPT",
-		"z-ai": "Z.ai",
+		"z-ai-coding": "Z.ai Coding Plan",
 		openai: "OpenAI",
 		anthropic: "Anthropic",
 		deepseek: "DeepSeek",
@@ -585,7 +588,7 @@ export function Providers() {
 	const handleProviderTypeChange = (type: string) => {
 		const baseUrls: Record<string, string> = {
 			nanogpt: "https://nano-gpt.com/api/subscription/v1",
-			"z-ai": "https://api.z.ai/api/paas/v4",
+			"z-ai-coding": "https://api.z.ai/api/paas/v4",
 			openai: "https://api.openai.com/v1",
 			anthropic: "https://api.anthropic.com",
 			deepseek: "https://api.deepseek.com/v1",
@@ -675,18 +678,20 @@ export function Providers() {
 					const showQuotaBadge =
 						isNanoGPT && weeklyUsed != null && weeklyLimit && nanogptUsage;
 
-					const zaiFiveHour = isZAI
-						? zaiUsage?.data?.limits?.find(
+					const zaiCodingFiveHour = isZAI
+						? zaiCodingUsage?.data?.limits?.find(
 								(l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
 							)
 						: null;
-					const zaiWeekly = isZAI
-						? zaiUsage?.data?.limits?.find(
+					const zaiCodingWeekly = isZAI
+						? zaiCodingUsage?.data?.limits?.find(
 								(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
 							)
 						: null;
-					const showZaiBadge =
-						isZAI && zaiUsage?.success && (zaiFiveHour || zaiWeekly);
+					const showZaiCodingBadge =
+						isZAI &&
+						zaiCodingUsage?.success &&
+						(zaiCodingFiveHour || zaiCodingWeekly);
 
 					return (
 						<div
@@ -776,19 +781,21 @@ export function Providers() {
 											{formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
 										</button>
 									)}
-									{showZaiBadge && (
+									{showZaiCodingBadge && (
 										<button
 											type="button"
-											onClick={() => zaiUsage && setZaiQuotaUsage(zaiUsage)}
+											onClick={() =>
+												zaiCodingUsage && setZaiCodingQuotaUsage(zaiCodingUsage)
+											}
 											className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
 											title="View quota details"
 										>
-											{zaiFiveHour
-												? `${(100 - zaiFiveHour.percentage).toFixed(0)}%`
+											{zaiCodingFiveHour
+												? `${(100 - zaiCodingFiveHour.percentage).toFixed(0)}%`
 												: "-"}
 											/
-											{zaiWeekly
-												? `${(100 - zaiWeekly.percentage).toFixed(0)}%`
+											{zaiCodingWeekly
+												? `${(100 - zaiCodingWeekly.percentage).toFixed(0)}%`
 												: "-"}
 										</button>
 									)}
@@ -919,7 +926,7 @@ export function Providers() {
 									<option value="openai">OpenAI</option>
 									<option value="anthropic">Anthropic</option>
 									<option value="nanogpt">NanoGPT</option>
-									<option value="z-ai">Z.ai</option>
+									<option value="z-ai-coding">Z.ai Coding Plan</option>
 									<option value="deepseek">DeepSeek</option>
 									<option value="ollama">Ollama</option>
 									<option value="opencode-zen">OpenCode Zen</option>
@@ -1064,14 +1071,14 @@ export function Providers() {
 				/>
 			)}
 
-			{zaiQuotaUsage && (
-				<ZAIQuotaModal
-					usage={zaiQuotaUsage}
-					onClose={() => setZaiQuotaUsage(null)}
+			{zaiCodingQuotaUsage && (
+				<ZAICodingQuotaModal
+					usage={zaiCodingQuotaUsage}
+					onClose={() => setZaiCodingQuotaUsage(null)}
 					onRefresh={refetchZai}
-					isRefreshing={isZaiRefetching}
+					isRefreshing={isZaiCodingRefetching}
 					onToast={toast}
-					lastRefreshed={zaiDataUpdatedAt}
+					lastRefreshed={zaiCodingDataUpdatedAt}
 				/>
 			)}
 

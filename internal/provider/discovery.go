@@ -44,7 +44,7 @@ func DetectProviderType(baseURL string) string {
 	case "api.nano-gpt.com", "nano-gpt.com":
 		return "nanogpt"
 	case "api.z.ai", "z.ai":
-		return "zai"
+		return "zai-coding"
 	case "api.deepseek.com", "deepseek.com":
 		return "deepseek"
 	case "api.anthropic.com", "anthropic.com":
@@ -67,7 +67,7 @@ func DetectProviderType(baseURL string) string {
 		return "nanogpt"
 	}
 	if strings.HasSuffix(host, ".z.ai") {
-		return "zai"
+		return "zai-coding"
 	}
 	if strings.HasSuffix(host, ".deepseek.com") {
 		return "deepseek"
@@ -121,8 +121,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		switch providerType {
 		case "nanogpt":
 			return d.discoverNanoGPT(ctx, provider, apiKey)
-		case "zai":
-			return d.discoverZAI(ctx, provider, apiKey)
+		case "zai-coding":
+			return d.discoverZAICoding(ctx, provider, apiKey)
 		case "deepseek":
 			return d.discoverDeepSeek(ctx, provider, apiKey)
 		case "anthropic":

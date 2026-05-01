@@ -107,8 +107,8 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	discovery := provider.NewDiscoveryService()
 
 	switch provider.DetectProviderType(prov.BaseURL) {
-	case "zai":
-		quota, err := discovery.GetZAIQuota(r.Context(), prov, h.cfg.MasterKey)
+	case "zai-coding":
+		quota, err := discovery.GetZAICodingQuota(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
 			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -282,8 +282,8 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 				result.Refreshed = true
 				refreshed++
 			}
-		case "zai":
-			_, err := discovery.GetZAIQuota(provCtx, prov, h.cfg.MasterKey)
+		case "zai-coding":
+			_, err := discovery.GetZAICodingQuota(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++

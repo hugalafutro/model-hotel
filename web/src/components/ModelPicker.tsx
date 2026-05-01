@@ -70,13 +70,13 @@ function getProviderStyle(baseUrl: string, active: boolean) {
 	const isNanoGPT = baseUrl.includes("nano-gpt.com");
 	const isDeepSeek = baseUrl.includes("deepseek.com");
 	const isOllama = baseUrl.includes("ollama.com");
-	const isZAI = baseUrl.includes("z.ai");
+	const isZAICoding = baseUrl.includes("z.ai");
 	if (active) {
 		if (isNanoGPT)
 			return "bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]";
 		if (isDeepSeek)
 			return "bg-[#36aaff] text-white border-[#36aaff] shadow-[0_0_6px_1px_rgba(54,170,255,0.35)]";
-		if (isZAI)
+		if (isZAICoding)
 			return "bg-[#18181b] text-white border-[#18181b] shadow-[0_0_6px_1px_rgba(255,255,255,0.2)]";
 		if (isOllama)
 			return "bg-[#71717a] text-white border-[#71717a] shadow-[0_0_6px_1px_rgba(113,113,122,0.35)]";
@@ -86,7 +86,7 @@ function getProviderStyle(baseUrl: string, active: boolean) {
 		return "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30";
 	if (isDeepSeek)
 		return "bg-[#36aaff]/20 text-[#36aaff] border-[#36aaff]/50 hover:bg-[#36aaff]/30";
-	if (isZAI)
+	if (isZAICoding)
 		return "bg-[#18181b]/25 text-[#d4d4d8] border-[#3f3f46]/60 hover:bg-[#18181b]/40";
 	if (isOllama)
 		return "bg-[#71717a]/20 text-[#a1a1aa] border-[#71717a]/40 hover:bg-[#71717a]/30";
