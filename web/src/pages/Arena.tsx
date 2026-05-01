@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
 import {
 	AlertCircle,
 	Bot,
@@ -687,71 +688,62 @@ export function Arena() {
 								if (delta) {
 									const clean = sanitizeDelta(delta);
 									charCount += clean.length;
-									setRounds((prev) => {
-										const next = prev.map((r) => ({
-											...r,
-											matchups: r.matchups.map((m) => ({
-												...m,
-											})),
-										}));
-										if (next[roundIdx]?.matchups[matchupIdx]) {
-											const mu = next[roundIdx].matchups[matchupIdx];
-											const respKey =
-												slotKey === "A" ? "responseA" : "responseB";
-											const prev = mu[respKey] as ArenaResponse;
-											const newRaw = prev.rawContent + clean;
-											const lastLen =
-												lastExtractLenRef.current.get(extractKey) ?? 0;
-											const needsExtract =
-												shouldReExtract(clean) || newRaw.length - lastLen >= 50;
-											let nextContent: string;
-											let nextThinking: string;
-											if (needsExtract) {
-												const extracted = extractThinking(newRaw);
-												lastExtractLenRef.current.set(
-													extractKey,
-													newRaw.length,
-												);
-												nextContent = extracted.content;
-												nextThinking =
-													extracted.thinking || prev.thinkingContent;
-											} else {
-												nextContent = prev.content + clean;
-												nextThinking = prev.thinkingContent;
+									setRounds(
+										produce((draft) => {
+											const mu = draft[roundIdx]?.matchups[matchupIdx];
+											if (mu) {
+												const respKey =
+													slotKey === "A" ? "responseA" : "responseB";
+												const resp = mu[respKey] as ArenaResponse;
+												const newRaw = resp.rawContent + clean;
+												const lastLen =
+													lastExtractLenRef.current.get(extractKey) ?? 0;
+												const needsExtract =
+													shouldReExtract(clean) ||
+													newRaw.length - lastLen >= 50;
+												let nextContent: string;
+												let nextThinking: string;
+												if (needsExtract) {
+													const extracted = extractThinking(newRaw);
+													lastExtractLenRef.current.set(
+														extractKey,
+														newRaw.length,
+													);
+													nextContent = extracted.content;
+													nextThinking =
+														extracted.thinking || resp.thinkingContent;
+												} else {
+													nextContent = resp.content + clean;
+													nextThinking = resp.thinkingContent;
+												}
+												mu[respKey] = {
+													...resp,
+													rawContent: newRaw,
+													content: nextContent,
+													thinkingContent: nextThinking,
+												};
 											}
-											mu[respKey] = {
-												...prev,
-												rawContent: newRaw,
-												content: nextContent,
-												thinkingContent: nextThinking,
-											};
-										}
-										return next;
-									});
+										}),
+									);
 								}
 								const thinkingDelta =
 									chunk.choices?.[0]?.delta?.reasoning_content ??
 									chunk.choices?.[0]?.delta?.reasoning;
 								if (thinkingDelta) {
-									setRounds((prev) => {
-										const next = prev.map((r) => ({
-											...r,
-											matchups: r.matchups.map((m) => ({
-												...m,
-											})),
-										}));
-										if (next[roundIdx]?.matchups[matchupIdx]) {
-											const mu = next[roundIdx].matchups[matchupIdx];
-											const respKey =
-												slotKey === "A" ? "responseA" : "responseB";
-											mu[respKey] = {
-												...(mu[respKey] as ArenaResponse),
-												thinkingContent:
-													mu[respKey]?.thinkingContent + thinkingDelta,
-											};
-										}
-										return next;
-									});
+									setRounds(
+										produce((draft) => {
+											if (draft[roundIdx]?.matchups[matchupIdx]) {
+												const mu = draft[roundIdx].matchups[matchupIdx];
+												const respKey =
+													slotKey === "A" ? "responseA" : "responseB";
+												mu[respKey] = {
+													...(mu[respKey] as ArenaResponse),
+													thinkingContent:
+														mu[respKey]?.thinkingContent + thinkingDelta,
+												};
+											}
+										}),
+									);
 								}
 								if (chunk.usage) {
 									promptTokens = chunk.usage.prompt_tokens ?? 0;
@@ -768,54 +760,48 @@ export function Arena() {
 					const charsPerSecond =
 						durationMs > 0 ? charCount / (durationMs / 1000) : null;
 
-					setRounds((prev) => {
-						const next = prev.map((r) => ({
-							...r,
-							matchups: r.matchups.map((m) => ({ ...m })),
-						}));
-						if (next[roundIdx]?.matchups[matchupIdx]) {
-							const mu = next[roundIdx].matchups[matchupIdx];
-							const respKey = slotKey === "A" ? "responseA" : "responseB";
-							mu[respKey] = {
-								...(mu[respKey] as ArenaResponse),
-								done: true,
-								metrics: {
-									charsPerSecond,
-									durationMs: Math.round(durationMs),
-									promptTokens,
-									completionTokens,
-								},
-							};
-						}
-						return next;
-					});
+					setRounds(
+						produce((draft) => {
+							if (draft[roundIdx]?.matchups[matchupIdx]) {
+								const mu = draft[roundIdx].matchups[matchupIdx];
+								const respKey = slotKey === "A" ? "responseA" : "responseB";
+								mu[respKey] = {
+									...(mu[respKey] as ArenaResponse),
+									done: true,
+									metrics: {
+										charsPerSecond,
+										durationMs: Math.round(durationMs),
+										promptTokens,
+										completionTokens,
+									},
+								};
+							}
+						}),
+					);
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : "Unknown error";
-					setRounds((prev) => {
-						const next = prev.map((r) => ({
-							...r,
-							matchups: r.matchups.map((m) => ({ ...m })),
-						}));
-						if (next[roundIdx]?.matchups[matchupIdx]) {
-							const mu = next[roundIdx].matchups[matchupIdx];
-							const respKey = slotKey === "A" ? "responseA" : "responseB";
-							mu[respKey] = {
-								...(mu[respKey] as ArenaResponse),
-								done: true,
-								error: msg,
-								metrics: {
-									charsPerSecond:
-										charCount > 0
-											? charCount / ((performance.now() - startTime) / 1000)
-											: null,
-									durationMs: Math.round(performance.now() - startTime),
-									promptTokens,
-									completionTokens,
-								},
-							};
-						}
-						return next;
-					});
+					setRounds(
+						produce((draft) => {
+							if (draft[roundIdx]?.matchups[matchupIdx]) {
+								const mu = draft[roundIdx].matchups[matchupIdx];
+								const respKey = slotKey === "A" ? "responseA" : "responseB";
+								mu[respKey] = {
+									...(mu[respKey] as ArenaResponse),
+									done: true,
+									error: msg,
+									metrics: {
+										charsPerSecond:
+											charCount > 0
+												? charCount / ((performance.now() - startTime) / 1000)
+												: null,
+										durationMs: Math.round(performance.now() - startTime),
+										promptTokens,
+										completionTokens,
+									},
+								};
+							}
+						}),
+					);
 					toast(`${model}: ${msg}`, "error");
 				} finally {
 					setRunningModels((prev) => {
@@ -853,45 +839,42 @@ export function Arena() {
 			setRunningModels(modelSet);
 			setPhase("running");
 
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				if (next[roundIdx]) {
-					next[roundIdx].matchups = next[roundIdx].matchups.map((mu) => {
-						const now = Date.now();
-						return {
-							...mu,
-							responseA: mu.slotA
-								? {
-										model: mu.slotA.modelId,
-										rawContent: "",
-										content: "",
-										thinkingContent: "",
-										startTimeMs: now,
-										done: false,
-										error: null,
-										metrics: null,
-									}
-								: null,
-							responseB: mu.slotB
-								? {
-										model: mu.slotB.modelId,
-										rawContent: "",
-										content: "",
-										thinkingContent: "",
-										startTimeMs: now,
-										done: false,
-										error: null,
-										metrics: null,
-									}
-								: null,
-						};
-					});
-				}
-				return next;
-			});
+			setRounds(
+				produce((draft) => {
+					if (draft[roundIdx]) {
+						draft[roundIdx].matchups = draft[roundIdx].matchups.map((mu) => {
+							const now = Date.now();
+							return {
+								...mu,
+								responseA: mu.slotA
+									? {
+											model: mu.slotA.modelId,
+											rawContent: "",
+											content: "",
+											thinkingContent: "",
+											startTimeMs: now,
+											done: false,
+											error: null,
+											metrics: null,
+										}
+									: null,
+								responseB: mu.slotB
+									? {
+											model: mu.slotB.modelId,
+											rawContent: "",
+											content: "",
+											thinkingContent: "",
+											startTimeMs: now,
+											done: false,
+											error: null,
+											metrics: null,
+										}
+									: null,
+							};
+						});
+					}
+				}),
+			);
 
 			// Collect all slots to stream, then stagger by provider
 			// so same-provider requests are spaced 300ms apart
@@ -989,43 +972,40 @@ export function Arena() {
 		}
 		setRunningModels(modelSet);
 
-		setRounds((prev) => {
-			const next = prev.map((r) => ({
-				...r,
-				matchups: r.matchups.map((m) => ({ ...m })),
-			}));
-			if (next[0]) {
-				const now = Date.now();
-				next[0].matchups = next[0].matchups.map((mu) => ({
-					...mu,
-					responseA: mu.slotA
-						? {
-								model: mu.slotA.modelId,
-								rawContent: "",
-								content: "",
-								thinkingContent: "",
-								startTimeMs: now,
-								done: false,
-								error: null,
-								metrics: null,
-							}
-						: null,
-					responseB: mu.slotB
-						? {
-								model: mu.slotB.modelId,
-								rawContent: "",
-								content: "",
-								thinkingContent: "",
-								startTimeMs: now,
-								done: false,
-								error: null,
-								metrics: null,
-							}
-						: null,
-				}));
-			}
-			return next;
-		});
+		setRounds(
+			produce((draft) => {
+				if (draft[0]) {
+					const now = Date.now();
+					draft[0].matchups = draft[0].matchups.map((mu) => ({
+						...mu,
+						responseA: mu.slotA
+							? {
+									model: mu.slotA.modelId,
+									rawContent: "",
+									content: "",
+									thinkingContent: "",
+									startTimeMs: now,
+									done: false,
+									error: null,
+									metrics: null,
+								}
+							: null,
+						responseB: mu.slotB
+							? {
+									model: mu.slotB.modelId,
+									rawContent: "",
+									content: "",
+									thinkingContent: "",
+									startTimeMs: now,
+									done: false,
+									error: null,
+									metrics: null,
+								}
+							: null,
+					}));
+				}
+			}),
+		);
 
 		// Collect all slots to stream, then stagger by provider
 		// so same-provider requests are spaced 300ms apart
@@ -1112,51 +1092,50 @@ export function Arena() {
 			let advanceRoundIdx = -1;
 			let shouldDeclareWinner = false;
 
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				const mu = next[roundIdx]?.matchups[matchupIdx];
-				if (mu) {
-					mu.vote = mu.vote === vote ? null : vote;
-				}
-
-				if (
-					roundIdx === currentRoundRef.current &&
-					mu?.vote !== null &&
-					next[roundIdx].matchups.every((m) => m.vote !== null)
-				) {
-					if (roundIdx < next.length - 1) {
-						shouldAdvance = true;
-						advanceRoundIdx = roundIdx;
-
-						const winners = next[roundIdx].matchups.map((m) =>
-							m.vote === "A" ? m.slotA : m.slotB,
-						);
-						const nextRoundIdx = roundIdx + 1;
-						if (next[nextRoundIdx]) {
-							for (let i = 0; i < winners.length; i += 2) {
-								const matchupIdx = i / 2;
-								next[nextRoundIdx].matchups[matchupIdx] = {
-									slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
-									slotB: winners[i + 1]
-										? { ...(winners[i + 1] as MatchupSlot) }
-										: null,
-									responseA: null,
-									responseB: null,
-									vote: null,
-								};
-							}
-						}
-					} else {
-						shouldDeclareWinner = true;
+			setRounds(
+				produce((draft) => {
+					const mu = draft[roundIdx]?.matchups[matchupIdx];
+					if (mu) {
+						mu.vote = mu.vote === vote ? null : vote;
 					}
-				}
 
-				roundsRef.current = next;
-				return next;
-			});
+					if (
+						roundIdx === currentRoundRef.current &&
+						mu?.vote !== null &&
+						draft[roundIdx].matchups.every((m) => m.vote !== null)
+					) {
+						if (roundIdx < draft.length - 1) {
+							shouldAdvance = true;
+							advanceRoundIdx = roundIdx;
+
+							const winners = draft[roundIdx].matchups.map((m) =>
+								m.vote === "A" ? m.slotA : m.slotB,
+							);
+							const nextRoundIdx = roundIdx + 1;
+							if (draft[nextRoundIdx]) {
+								for (let i = 0; i < winners.length; i += 2) {
+									const matchupIdx = i / 2;
+									draft[nextRoundIdx].matchups[matchupIdx] = {
+										slotA: winners[i]
+											? { ...(winners[i] as MatchupSlot) }
+											: null,
+										slotB: winners[i + 1]
+											? { ...(winners[i + 1] as MatchupSlot) }
+											: null,
+										responseA: null,
+										responseB: null,
+										vote: null,
+									};
+								}
+							}
+						} else {
+							shouldDeclareWinner = true;
+						}
+					}
+
+					roundsRef.current = draft as BracketRound[];
+				}),
+			);
 
 			if (shouldAdvance) {
 				const nextRI = advanceRoundIdx + 1;
@@ -1198,22 +1177,20 @@ export function Arena() {
 		abortMapRef.current.clear();
 
 		// Mark partially streamed responses as done (preserve their content)
-		setRounds((prev) => {
-			const next = prev.map((r) => ({
-				...r,
-				matchups: r.matchups.map((m) => {
-					const mu = { ...m };
-					if (mu.responseA && !mu.responseA.done) {
-						mu.responseA = { ...mu.responseA, done: true };
+		setRounds(
+			produce((draft) => {
+				for (const round of draft) {
+					for (const mu of round.matchups) {
+						if (mu.responseA && !mu.responseA.done) {
+							mu.responseA.done = true;
+						}
+						if (mu.responseB && !mu.responseB.done) {
+							mu.responseB.done = true;
+						}
 					}
-					if (mu.responseB && !mu.responseB.done) {
-						mu.responseB = { ...mu.responseB, done: true };
-					}
-					return mu;
-				}),
-			}));
-			return next;
-		});
+				}
+			}),
+		);
 
 		setRunningModels(new Set());
 		setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
@@ -1228,26 +1205,23 @@ export function Arena() {
 			const slot = slotKey === "A" ? mu.slotA : mu.slotB;
 			if (!slot) return;
 
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				const respKey = slotKey === "A" ? "responseA" : "responseB";
-				if (next[roundIdx]?.matchups[matchupIdx]) {
-					next[roundIdx].matchups[matchupIdx][respKey] = {
-						model: slot.modelId,
-						rawContent: "",
-						content: "",
-						thinkingContent: "",
-						startTimeMs: Date.now(),
-						done: false,
-						error: null,
-						metrics: null,
-					};
-				}
-				return next;
-			});
+			setRounds(
+				produce((draft) => {
+					const respKey = slotKey === "A" ? "responseA" : "responseB";
+					if (draft[roundIdx]?.matchups[matchupIdx]) {
+						draft[roundIdx].matchups[matchupIdx][respKey] = {
+							model: slot.modelId,
+							rawContent: "",
+							content: "",
+							thinkingContent: "",
+							startTimeMs: Date.now(),
+							done: false,
+							error: null,
+							metrics: null,
+						};
+					}
+				}),
+			);
 			setRunningModels((prev) => new Set(prev).add(slot.modelId));
 			setPhase("running");
 
@@ -1273,19 +1247,16 @@ export function Arena() {
 		) => {
 			setDisabledModels((prev) => new Set(prev).add(failedModelId));
 
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
-				const respKey = slotKey === "A" ? "responseA" : "responseB";
-				if (next[roundIdx]?.matchups[matchupIdx]) {
-					next[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
-					next[roundIdx].matchups[matchupIdx][respKey] = null;
-				}
-				return next;
-			});
+			setRounds(
+				produce((draft) => {
+					const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
+					const respKey = slotKey === "A" ? "responseA" : "responseB";
+					if (draft[roundIdx]?.matchups[matchupIdx]) {
+						draft[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
+						draft[roundIdx].matchups[matchupIdx][respKey] = null;
+					}
+				}),
+			);
 		},
 		[],
 	);
@@ -1312,17 +1283,14 @@ export function Arena() {
 			// Put the pill into "choose replacement model" state
 			const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
 			const respKey = slotKey === "A" ? "responseA" : "responseB";
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				if (next[roundIdx]?.matchups[matchupIdx]) {
-					next[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
-					next[roundIdx].matchups[matchupIdx][respKey] = null;
-				}
-				return next;
-			});
+			setRounds(
+				produce((draft) => {
+					if (draft[roundIdx]?.matchups[matchupIdx]) {
+						draft[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
+						draft[roundIdx].matchups[matchupIdx][respKey] = null;
+					}
+				}),
+			);
 		},
 		[],
 	);
@@ -1334,33 +1302,30 @@ export function Arena() {
 			slotKey: "A" | "B",
 			newModelId: string,
 		) => {
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
-				const respKey = slotKey === "A" ? "responseA" : "responseB";
-				if (next[roundIdx]?.matchups[matchupIdx]) {
-					next[roundIdx].matchups[matchupIdx][slotKeyStr] = {
-						modelId: newModelId,
-						personaId: null,
-						personaPrompt: "",
-						params: modelParams[newModelId],
-					};
-					next[roundIdx].matchups[matchupIdx][respKey] = {
-						model: newModelId,
-						rawContent: "",
-						content: "",
-						thinkingContent: "",
-						startTimeMs: Date.now(),
-						done: false,
-						error: null,
-						metrics: null,
-					};
-				}
-				return next;
-			});
+			setRounds(
+				produce((draft) => {
+					const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
+					const respKey = slotKey === "A" ? "responseA" : "responseB";
+					if (draft[roundIdx]?.matchups[matchupIdx]) {
+						draft[roundIdx].matchups[matchupIdx][slotKeyStr] = {
+							modelId: newModelId,
+							personaId: null,
+							personaPrompt: "",
+							params: modelParams[newModelId],
+						};
+						draft[roundIdx].matchups[matchupIdx][respKey] = {
+							model: newModelId,
+							rawContent: "",
+							content: "",
+							thinkingContent: "",
+							startTimeMs: Date.now(),
+							done: false,
+							error: null,
+							metrics: null,
+						};
+					}
+				}),
+			);
 			setRunningModels((prev) => new Set(prev).add(newModelId));
 			setPhase("running");
 
@@ -1385,24 +1350,21 @@ export function Arena() {
 			personaId: string | null,
 			personaPrompt: string,
 		) => {
-			setRounds((prev) => {
-				const next = prev.map((r) => ({
-					...r,
-					matchups: r.matchups.map((m) => ({ ...m })),
-				}));
-				const mu = next[roundIdx]?.matchups[matchupIdx];
-				if (mu) {
-					const slotKey = slot === "A" ? "slotA" : "slotB";
-					if (mu[slotKey]) {
-						mu[slotKey] = {
-							...(mu[slotKey] as MatchupSlot),
-							personaId,
-							personaPrompt,
-						};
+			setRounds(
+				produce((draft) => {
+					const mu = draft[roundIdx]?.matchups[matchupIdx];
+					if (mu) {
+						const slotKey = slot === "A" ? "slotA" : "slotB";
+						if (mu[slotKey]) {
+							mu[slotKey] = {
+								...(mu[slotKey] as MatchupSlot),
+								personaId,
+								personaPrompt,
+							};
+						}
 					}
-				}
-				return next;
-			});
+				}),
+			);
 		},
 		[],
 	);
