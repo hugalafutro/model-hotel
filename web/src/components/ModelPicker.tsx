@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Dices, Settings } from "lucide-react";
+import { ChevronDown, Dices, Settings } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GenerationParams } from "../api/types";
 import { FilterInput } from "./FilterInput";
@@ -286,19 +286,20 @@ export function ModelPicker({
 								onClick={() => toggleCollapse(providerName)}
 								className={`flex items-center gap-1.5 w-full py-0.5 text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
 							>
-								{isCollapsed ? (
-									<ChevronRight size={10} />
-								) : (
-									<ChevronDown size={10} />
-								)}
+								<ChevronDown
+									size={10}
+									className={`transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+								/>
 								<span>{providerName}</span>
 								<span className="text-(--text-muted) font-normal">
 									({providerModels.length})
 								</span>
 							</button>
-							{!isCollapsed && (
+							<div
+								className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+							>
 								<div
-									className={`flex flex-wrap gap-1.5 pl-5 ${align === "right" ? "justify-end" : "justify-start"}`}
+									className={`flex flex-wrap gap-1.5 pl-5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
 								>
 									{providerModels.map((m) => {
 										const val = proxyModelID(m.provider_name, m.model_id);
@@ -360,7 +361,7 @@ export function ModelPicker({
 										);
 									})}
 								</div>
-							)}
+							</div>
 						</div>
 					);
 				})}
