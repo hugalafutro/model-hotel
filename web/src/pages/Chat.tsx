@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEnabledModels, useProviderData } from "../hooks/useModels";
 import {
 	Bot,
 	ChevronsDownUp,
@@ -18,8 +18,8 @@ import {
 	Users,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE, api, getAuthHeaders } from "../api/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { API_BASE, getAuthHeaders } from "../api/client";
 import type { ChatMessage, GenerationParams } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ConversationConfig } from "../components/ConversationConfig";
@@ -36,6 +36,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { proxyModelID } from "../utils/model";
 import { fetchWithRetry } from "../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../utils/thinking";
+import { type StreamChunk, readSSEStream } from "../utils/sse";
 
 function formatTime(ts: number): string {
 	const d = new Date(ts);
@@ -144,54 +145,33 @@ async function streamModelResponse(
 		const reader = resp.body?.getReader();
 		if (!reader) throw new Error("No readable stream");
 
-		const decoder = new TextDecoder();
-		let buffer = "";
-
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done || abortCtrl.signal.aborted) break;
-
-			buffer += decoder.decode(value, { stream: true });
-			const lines = buffer.split("\n");
-			buffer = lines.pop() || "";
-
-			let streamDone = false;
-			for (const line of lines) {
-				if (!line.startsWith("data: ")) continue;
-				const data = line.slice(6);
-				if (data === "[DONE]") {
-					streamDone = true;
-					break;
+		await readSSEStream<StreamChunk>({
+			reader,
+			signal: abortCtrl.signal,
+			onChunk: (chunk) => {
+				const delta = chunk.choices?.[0]?.delta?.content;
+				if (delta) {
+					const clean = sanitizeDelta(delta);
+					charCount += clean.length;
+					rawContent += clean;
+					const extracted = extractThinking(rawContent);
+					content = extracted.content;
+					thinkingContent = extracted.thinking || thinkingContent;
+					onDelta(rawContent, content, thinkingContent);
 				}
-				try {
-					const chunk = JSON.parse(data);
-					const delta = chunk.choices?.[0]?.delta?.content;
-					if (delta) {
-						const clean = sanitizeDelta(delta);
-						charCount += clean.length;
-						rawContent += clean;
-						const extracted = extractThinking(rawContent);
-						content = extracted.content;
-						thinkingContent = extracted.thinking || thinkingContent;
-						onDelta(rawContent, content, thinkingContent);
-					}
-					const thinkingDelta =
-						chunk.choices?.[0]?.delta?.reasoning_content ??
-						chunk.choices?.[0]?.delta?.reasoning;
-					if (thinkingDelta) {
-						thinkingContent += thinkingDelta;
-						onDelta(rawContent, content, thinkingContent);
-					}
-					if (chunk.usage) {
-						promptTokens = chunk.usage.prompt_tokens ?? 0;
-						completionTokens = chunk.usage.completion_tokens ?? 0;
-					}
-				} catch {
-					// ignore parse errors
+				const thinkingDelta =
+					chunk.choices?.[0]?.delta?.reasoning_content ??
+					chunk.choices?.[0]?.delta?.reasoning;
+				if (thinkingDelta) {
+					thinkingContent += thinkingDelta;
+					onDelta(rawContent, content, thinkingContent);
 				}
-			}
-			if (streamDone) break;
-		}
+				if (chunk.usage) {
+					promptTokens = chunk.usage.prompt_tokens ?? 0;
+					completionTokens = chunk.usage.completion_tokens ?? 0;
+				}
+			},
+		});
 	} catch (err) {
 		const errorMsg = err instanceof Error ? err.message : "Unknown error";
 		return {
@@ -226,17 +206,8 @@ async function streamModelResponse(
 }
 
 export function Chat() {
-	const { data: models } = useQuery({
-		queryKey: ["models"],
-		queryFn: () => api.models.list(),
-		staleTime: 60_000,
-	});
-
-	const { data: providers } = useQuery({
-		queryKey: ["providers"],
-		queryFn: () => api.providers.list(),
-		staleTime: 60_000,
-	});
+	const { data: enabledModels } = useEnabledModels();
+	const { data: providerData } = useProviderData();
 
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
 	const { persistChat, persistConversation } = useStorage();
@@ -361,11 +332,6 @@ export function Chat() {
 	const setMessageParams =
 		chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
-	const enabledModels = useMemo(
-		() => models?.filter((m) => m.enabled && m.provider_name) || [],
-		[models],
-	);
-
 	const handleRandomPersona = useCallback(() => {
 		const currentId =
 			chatSubMode === "chat"
@@ -463,12 +429,6 @@ export function Chat() {
 	const selectedModelObjB = enabledModels.find(
 		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModelB,
 	);
-
-	const providerData =
-		providers?.map((p) => ({
-			name: p.name,
-			base_url: p.base_url,
-		})) ?? [];
 
 	const scrollToBottom = useCallback(() => {
 		requestAnimationFrame(() => {

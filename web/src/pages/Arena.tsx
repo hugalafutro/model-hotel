@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import {
 	AlertCircle,
@@ -23,7 +22,7 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE, api, getAuthHeaders } from "../api/client";
+import { API_BASE, getAuthHeaders } from "../api/client";
 import type { GenerationParams, Model } from "../api/types";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -42,12 +41,14 @@ import { useStorage } from "../context/StorageContext";
 import { useToast } from "../context/ToastContext";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useEnabledModels, useProviderData } from "../hooks/useModels";
 import {
 	getArenaHistoryEnabled,
 	saveCompareToHistory,
 	saveCompetitionToHistory,
 } from "../utils/arenaHistory";
 import { providerFromModelID, proxyModelID } from "../utils/model";
+import { readSSEStream, type StreamChunk } from "../utils/sse";
 import { fetchWithRetry, staggerByProvider } from "../utils/stagger";
 import {
 	extractThinking,
@@ -115,17 +116,8 @@ interface WinnerModal {
 }
 
 export function Arena() {
-	const { data: models } = useQuery({
-		queryKey: ["models"],
-		queryFn: () => api.models.list(),
-		staleTime: 60_000,
-	});
-
-	const { data: providers } = useQuery({
-		queryKey: ["providers"],
-		queryFn: () => api.providers.list(),
-		staleTime: 60_000,
-	});
+	const { data: enabledModels } = useEnabledModels();
+	const { data: providerData } = useProviderData();
 
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
@@ -447,20 +439,6 @@ export function Arena() {
 		}
 	}, [phase, arenaMode]);
 
-	const enabledModels = useMemo(
-		() => models?.filter((m) => m.enabled && m.provider_name) || [],
-		[models],
-	);
-
-	const providerData = useMemo(
-		() =>
-			providers?.map((p) => ({
-				name: p.name,
-				base_url: p.base_url,
-			})) ?? [],
-		[providers],
-	);
-
 	const canRun = useMemo(() => {
 		if (phase !== "setup" && phase !== "next_round_ready") return false;
 		if (!prompt.trim()) return false;
@@ -663,98 +641,76 @@ export function Arena() {
 					const reader = resp.body?.getReader();
 					if (!reader) throw new Error("No readable stream");
 
-					const decoder = new TextDecoder();
-					let buffer = "";
-
-					while (true) {
-						const { done, value } = await reader.read();
-						if (done || abortCtrl.signal.aborted) break;
-
-						buffer += decoder.decode(value, { stream: true });
-						const lines = buffer.split("\n");
-						buffer = lines.pop() || "";
-
-						let streamDone = false;
-						for (const line of lines) {
-							if (!line.startsWith("data: ")) continue;
-							const data = line.slice(6);
-							if (data === "[DONE]") {
-								streamDone = true;
-								break;
-							}
-							try {
-								const chunk = JSON.parse(data);
-								const delta = chunk.choices?.[0]?.delta?.content;
-								if (delta) {
-									const clean = sanitizeDelta(delta);
-									charCount += clean.length;
-									setRounds(
-										produce((draft) => {
-											const mu = draft[roundIdx]?.matchups[matchupIdx];
-											if (mu) {
-												const respKey =
-													slotKey === "A" ? "responseA" : "responseB";
-												const resp = mu[respKey] as ArenaResponse;
-												const newRaw = resp.rawContent + clean;
-												const lastLen =
-													lastExtractLenRef.current.get(extractKey) ?? 0;
-												const needsExtract =
-													shouldReExtract(clean) ||
-													newRaw.length - lastLen >= 50;
-												let nextContent: string;
-												let nextThinking: string;
-												if (needsExtract) {
-													const extracted = extractThinking(newRaw);
-													lastExtractLenRef.current.set(
-														extractKey,
-														newRaw.length,
-													);
-													nextContent = extracted.content;
-													nextThinking =
-														extracted.thinking || resp.thinkingContent;
-												} else {
-													nextContent = resp.content + clean;
-													nextThinking = resp.thinkingContent;
-												}
-												mu[respKey] = {
-													...resp,
-													rawContent: newRaw,
-													content: nextContent,
-													thinkingContent: nextThinking,
-												};
+					await readSSEStream<StreamChunk>({
+						reader,
+						signal: abortCtrl.signal,
+						onChunk(chunk) {
+							const delta = chunk.choices?.[0]?.delta?.content;
+							if (delta) {
+								const clean = sanitizeDelta(delta);
+								charCount += clean.length;
+								setRounds(
+									produce((draft) => {
+										const mu = draft[roundIdx]?.matchups[matchupIdx];
+										if (mu) {
+											const respKey =
+												slotKey === "A" ? "responseA" : "responseB";
+											const resp = mu[respKey] as ArenaResponse;
+											const newRaw = resp.rawContent + clean;
+											const lastLen =
+												lastExtractLenRef.current.get(extractKey) ?? 0;
+											const needsExtract =
+												shouldReExtract(clean) || newRaw.length - lastLen >= 50;
+											let nextContent: string;
+											let nextThinking: string;
+											if (needsExtract) {
+												const extracted = extractThinking(newRaw);
+												lastExtractLenRef.current.set(
+													extractKey,
+													newRaw.length,
+												);
+												nextContent = extracted.content;
+												nextThinking =
+													extracted.thinking || resp.thinkingContent;
+											} else {
+												nextContent = resp.content + clean;
+												nextThinking = resp.thinkingContent;
 											}
-										}),
-									);
-								}
-								const thinkingDelta =
-									chunk.choices?.[0]?.delta?.reasoning_content ??
-									chunk.choices?.[0]?.delta?.reasoning;
-								if (thinkingDelta) {
-									setRounds(
-										produce((draft) => {
-											if (draft[roundIdx]?.matchups[matchupIdx]) {
-												const mu = draft[roundIdx].matchups[matchupIdx];
-												const respKey =
-													slotKey === "A" ? "responseA" : "responseB";
-												mu[respKey] = {
-													...(mu[respKey] as ArenaResponse),
-													thinkingContent:
-														mu[respKey]?.thinkingContent + thinkingDelta,
-												};
-											}
-										}),
-									);
-								}
-								if (chunk.usage) {
-									promptTokens = chunk.usage.prompt_tokens ?? 0;
-									completionTokens = chunk.usage.completion_tokens ?? 0;
-								}
-							} catch {
-								// ignore parse errors
+											mu[respKey] = {
+												...resp,
+												rawContent: newRaw,
+												content: nextContent,
+												thinkingContent: nextThinking,
+											};
+										}
+									}),
+								);
 							}
-						}
-						if (streamDone) break;
-					}
+							const thinkingDelta =
+								chunk.choices?.[0]?.delta?.reasoning_content ??
+								chunk.choices?.[0]?.delta?.reasoning;
+							if (thinkingDelta) {
+								setRounds(
+									produce((draft) => {
+										if (draft[roundIdx]?.matchups[matchupIdx]) {
+											const mu = draft[roundIdx].matchups[matchupIdx];
+											const respKey =
+												slotKey === "A" ? "responseA" : "responseB";
+											mu[respKey] = {
+												...(mu[respKey] as ArenaResponse),
+												thinkingContent:
+													mu[respKey]?.thinkingContent + thinkingDelta,
+											};
+										}
+									}),
+								);
+							}
+							if (chunk.usage) {
+								promptTokens = chunk.usage.prompt_tokens ?? 0;
+								completionTokens = chunk.usage.completion_tokens ?? 0;
+							}
+						},
+					});
 
 					const durationMs = performance.now() - startTime;
 					const charsPerSecond =

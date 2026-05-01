@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { API_BASE, getAdminToken } from "../api/client";
+import { readSSEStream } from "../utils/sse";
 import { useToast } from "./ToastContext";
 
 interface ServerEvent {
@@ -20,11 +21,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 		const token = getAdminToken();
 		if (!token) return;
 
-		let disposed = false;
-
 		const connect = () => {
-			if (disposed) return;
-
 			const ac = new AbortController();
 			abortRef.current = ac;
 
@@ -40,47 +37,24 @@ export function EventProvider({ children }: { children: ReactNode }) {
 					const reader = response.body?.getReader();
 					if (!reader) throw new Error("No readable stream");
 
-					const decoder = new TextDecoder();
-					let buffer = "";
-
-					const processChunk = (): Promise<void> => {
-						return reader.read().then(({ done, value }) => {
-							if (done || disposed) return;
-
-							buffer += decoder.decode(value, { stream: true });
-							const lines = buffer.split("\n");
-							// Keep the last incomplete line in the buffer
-							buffer = lines.pop() || "";
-
-							for (const line of lines) {
-								if (line.startsWith("data: ")) {
-									const jsonStr = line.slice(6).trim();
-									if (!jsonStr) continue;
-									try {
-										const event: ServerEvent = JSON.parse(jsonStr);
-										// Dispatch custom event for programmatic consumers (e.g., logs page)
-										window.dispatchEvent(
-											new CustomEvent("server-event", { detail: event }),
-										);
-										// Only show toast for user-facing events, not request lifecycle
-										if (!event.type.startsWith("request.")) {
-											toast(event.message, event.severity);
-										}
-									} catch {
-										// ignore malformed JSON
-									}
-								}
-								// SSE comments (lines starting with ":") are ignored
-							}
-
-							return processChunk();
-						});
-					};
-
 					// Connection succeeded — reset backoff
 					reconnectDelay.current = 1000;
 
-					return processChunk().catch(() => {
+					return readSSEStream<ServerEvent>({
+						reader,
+						signal: ac.signal,
+						doneSentinel: null,
+						onChunk(event) {
+							// Dispatch custom event for programmatic consumers (e.g., logs page)
+							window.dispatchEvent(
+								new CustomEvent("server-event", { detail: event }),
+							);
+							// Only show toast for user-facing events, not request lifecycle
+							if (!event.type.startsWith("request.")) {
+								toast(event.message, event.severity);
+							}
+						},
+					}).catch(() => {
 						// Stream ended or errored
 					});
 				})
@@ -88,7 +62,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 					// Connection failed or aborted
 				})
 				.finally(() => {
-					if (!disposed) {
+					if (!ac.signal.aborted) {
 						// Reconnect with exponential backoff (1s → 2s → 4s → ... → 30s max)
 						const delay = reconnectDelay.current;
 						reconnectDelay.current = Math.min(delay * 2, 30000);
@@ -100,7 +74,6 @@ export function EventProvider({ children }: { children: ReactNode }) {
 		connect();
 
 		return () => {
-			disposed = true;
 			abortRef.current?.abort();
 		};
 	}, [toast]);
