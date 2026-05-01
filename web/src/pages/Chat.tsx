@@ -1,10 +1,6 @@
-import { useEnabledModels, useProviderData } from "../hooks/useModels";
 import {
 	Bot,
-	ChevronsDownUp,
-	ChevronsUpDown,
 	CircleStop,
-	Copy,
 	Eraser,
 	Gauge,
 	MessageSquare,
@@ -21,22 +17,28 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE, getAuthHeaders } from "../api/client";
 import type { ChatMessage, GenerationParams } from "../api/types";
+import { ActionIconButton } from "../components/ActionIconButton";
+import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ConversationConfig } from "../components/ConversationConfig";
+import { CopyButton } from "../components/CopyButton";
 import { MarkdownContent } from "../components/MarkdownContent";
 import { ModelDetailPanel } from "../components/ModelDetailPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ModelReplyCard } from "../components/ModelReplyCard";
 import { PersonaPicker } from "../components/PersonaPicker";
+import { SubModeToggle } from "../components/SubModeToggle";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useStorage } from "../context/StorageContext";
 import { useToast } from "../context/ToastContext";
 import { CHAT_PERSONAS } from "../data/presets";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useEnabledModels, useProviderData } from "../hooks/useModels";
 import { proxyModelID } from "../utils/model";
+import { hasAnyParam } from "../utils/params";
+import { readSSEStream, type StreamChunk } from "../utils/sse";
 import { fetchWithRetry } from "../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../utils/thinking";
-import { type StreamChunk, readSSEStream } from "../utils/sse";
 
 function formatTime(ts: number): string {
 	const d = new Date(ts);
@@ -44,18 +46,6 @@ function formatTime(ts: number): string {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
-}
-
-function hasAnyParam(p: GenerationParams): boolean {
-	return (
-		p.temperature !== undefined ||
-		p.max_tokens !== undefined ||
-		p.top_p !== undefined ||
-		p.min_p !== undefined ||
-		p.top_k !== undefined ||
-		p.frequency_penalty !== undefined ||
-		p.presence_penalty !== undefined
-	);
 }
 
 type ConversationState = "idle" | "running" | "paused" | "completed" | "error";
@@ -1093,32 +1083,22 @@ export function Chat() {
 						<span className="text-sm font-semibold text-(--text-primary)">
 							Controls
 						</span>
-						<div className="flex items-center gap-1">
-							<button
-								type="button"
-								onClick={() => setChatSubMode("chat")}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-									chatSubMode === "chat"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-								}`}
-							>
-								<MessageSquare size={12} className="inline mr-1 -mt-0.5" />
-								Chat with AI
-							</button>
-							<button
-								type="button"
-								onClick={() => setChatSubMode("conversation")}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-									chatSubMode === "conversation"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-								}`}
-							>
-								<Users size={12} className="inline mr-1 -mt-0.5" />
-								AI Conversation
-							</button>
-						</div>
+						<SubModeToggle
+							options={[
+								{
+									value: "chat" as const,
+									label: "Chat with AI",
+									icon: MessageSquare,
+								},
+								{
+									value: "conversation" as const,
+									label: "AI Conversation",
+									icon: Users,
+								},
+							]}
+							value={chatSubMode}
+							onChange={setChatSubMode}
+						/>
 					</div>
 					<div className="flex items-center gap-1">
 						{(messages.length > 0 ||
@@ -1135,8 +1115,8 @@ export function Chat() {
 							<>
 								{/* Light reset: clear messages/results only, keep model/persona/params */}
 								{messages.length > 0 && (
-									<button
-										type="button"
+									<ActionIconButton
+										icon={Eraser}
 										onClick={() => {
 											if (chatSubMode === "conversation") {
 												conversationAbortRef.current?.abort();
@@ -1157,46 +1137,28 @@ export function Chat() {
 												"info",
 											);
 										}}
-										className={`p-1.5 rounded-md transition-all cursor-pointer text-amber-400 ${
-											chatSubMode === "conversation" &&
-											(
-												conversationState === "completed" ||
-													conversationState === "paused" ||
-													conversationState === "error"
-											)
-												? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
-												: "hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]"
-										}`}
 										title="Clear messages (keep model & settings)"
-									>
-										<Eraser size={14} />
-									</button>
+										color="amber"
+										pulse={
+											chatSubMode === "conversation" &&
+											(conversationState === "completed" ||
+												conversationState === "paused" ||
+												conversationState === "error")
+										}
+									/>
 								)}
-								{/* Full reset: clear everything including model/persona/params */}
-								<button
-									type="button"
+								<ActionIconButton
+									icon={RotateCcw}
 									onClick={() => setPendingFullReset(true)}
-									className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
 									title="Reset all (clear model & settings)"
-								>
-									<RotateCcw size={14} />
-								</button>
+									color="red"
+								/>
 							</>
 						)}
-						<button
-							type="button"
-							onClick={() => setControlsCollapsed((c) => !c)}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-							title={
-								controlsCollapsed ? "Expand controls" : "Collapse controls"
-							}
-						>
-							{controlsCollapsed ? (
-								<ChevronsUpDown size={14} />
-							) : (
-								<ChevronsDownUp size={14} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={controlsCollapsed}
+							onToggle={() => setControlsCollapsed((c) => !c)}
+						/>
 					</div>
 				</div>
 				<div
@@ -1497,19 +1459,11 @@ export function Chat() {
 											className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
 										>
 											<span>{formatTime(msg.timestamp)}</span>
-											<button
-												type="button"
+											<CopyButton
+												text={msg.content}
+												size={10}
 												className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[0_0_4px_white]"}`}
-												onClick={() => {
-													navigator.clipboard
-														.writeText(msg.content)
-														.then(() => toast("Copied to clipboard", "info"))
-														.catch(() => toast("Failed to copy", "error"));
-												}}
-												title="Copy"
-											>
-												<Copy size={10} />
-											</button>
+											/>
 										</div>
 									</div>
 								</div>
@@ -1551,21 +1505,7 @@ export function Chat() {
 											footerStart={<span>{formatTime(msg.timestamp)}</span>}
 											footerEnd={
 												<div className="flex items-center gap-2">
-													<button
-														type="button"
-														className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
-														onClick={() => {
-															navigator.clipboard
-																.writeText(msg.content)
-																.then(() =>
-																	toast("Copied to clipboard", "info"),
-																)
-																.catch(() => toast("Failed to copy", "error"));
-														}}
-														title="Copy"
-													>
-														<Copy size={10} />
-													</button>
+													<CopyButton text={msg.content} size={10} />
 													{canDelete && (
 														<button
 															type="button"
@@ -1639,19 +1579,7 @@ export function Chat() {
 										footerStart={<span>{formatTime(msg.timestamp)}</span>}
 										footerEnd={
 											<div className="flex items-center gap-2">
-												<button
-													type="button"
-													className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
-													onClick={() => {
-														navigator.clipboard
-															.writeText(msg.content)
-															.then(() => toast("Copied to clipboard", "info"))
-															.catch(() => toast("Failed to copy", "error"));
-													}}
-													title="Copy"
-												>
-													<Copy size={10} />
-												</button>
+												<CopyButton text={msg.content} size={10} />
 												{canDelete && (
 													<button
 														type="button"
@@ -1762,8 +1690,8 @@ export function Chat() {
 								</div>
 								<div className="flex items-center gap-2">
 									{messages.length > 0 && (
-										<button
-											type="button"
+										<ActionIconButton
+											icon={Eraser}
 											onClick={() => {
 												conversationAbortRef.current?.abort();
 												conversationAbortRef.current = null;
@@ -1777,20 +1705,22 @@ export function Chat() {
 												setIsStreaming(false);
 												toast("Conversation cleared", "info");
 											}}
-											className="ui-btn flex items-center gap-2 text-amber-400 hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]"
-										>
-											<Eraser size={16} />
-											Clear
-										</button>
+											title="Clear"
+											color="amber"
+											size={16}
+											label="Clear"
+											withLabel
+										/>
 									)}
-									<button
-										type="button"
+									<ActionIconButton
+										icon={RotateCcw}
 										onClick={() => setPendingFullReset(true)}
-										className="ui-btn flex items-center gap-2 text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
-									>
-										<RotateCcw size={16} />
-										Reset All
-									</button>
+										title="Reset All"
+										color="red"
+										size={16}
+										label="Reset All"
+										withLabel
+									/>
 								</div>
 							</div>
 							{conversationState === "running" && (

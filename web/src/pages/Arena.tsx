@@ -3,11 +3,8 @@ import {
 	AlertCircle,
 	Bot,
 	CheckCircle2,
-	ChevronsDownUp,
-	ChevronsUpDown,
 	CircleStop,
 	Columns3,
-	Copy,
 	Eraser,
 	GitCompare,
 	History,
@@ -24,8 +21,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE, getAuthHeaders } from "../api/client";
 import type { GenerationParams, Model } from "../api/types";
+import { ActionIconButton } from "../components/ActionIconButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
+import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { CopyButton } from "../components/CopyButton";
 import { FilterInput } from "../components/FilterInput";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { ModelPicker } from "../components/ModelPicker";
@@ -33,6 +33,7 @@ import { ModelReplyCard } from "../components/ModelReplyCard";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { PresetBar } from "../components/PresetBar";
 import { PromptPicker } from "../components/PromptPicker";
+import { SubModeToggle } from "../components/SubModeToggle";
 import {
 	type ArenaSubMode,
 	useSidebarMode,
@@ -48,6 +49,7 @@ import {
 	saveCompetitionToHistory,
 } from "../utils/arenaHistory";
 import { providerFromModelID, proxyModelID } from "../utils/model";
+import { hasAnyParam } from "../utils/params";
 import { readSSEStream, type StreamChunk } from "../utils/sse";
 import { fetchWithRetry, staggerByProvider } from "../utils/stagger";
 import {
@@ -55,18 +57,6 @@ import {
 	sanitizeDelta,
 	shouldReExtract,
 } from "../utils/thinking";
-
-function hasAnyParam(p: GenerationParams): boolean {
-	return (
-		p.temperature !== undefined ||
-		p.max_tokens !== undefined ||
-		p.top_p !== undefined ||
-		p.min_p !== undefined ||
-		p.top_k !== undefined ||
-		p.frequency_penalty !== undefined ||
-		p.presence_penalty !== undefined
-	);
-}
 
 interface ArenaResponse {
 	model: string;
@@ -1371,40 +1361,17 @@ export function Arena() {
 						<span className="text-sm font-semibold text-(--text-primary)">
 							Controls
 						</span>
-						<div className="flex items-center gap-1">
-							<button
-								type="button"
-								onClick={() => {
-									if (phase === "setup") setArenaMode("competition");
-								}}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-									arenaMode === "competition"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-										: phase === "setup"
-											? "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-											: "text-(--text-tertiary) border border-transparent cursor-default"
-								}`}
-							>
-								<Swords size={12} className="inline mr-1 -mt-0.5" />
-								Arena
-							</button>
-							<button
-								type="button"
-								onClick={() => {
-									if (phase === "setup") setArenaMode("compare");
-								}}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-									arenaMode === "compare"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-										: phase === "setup"
-											? "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-											: "text-(--text-tertiary) border border-transparent cursor-default"
-								}`}
-							>
-								<Columns3 size={12} className="inline mr-1 -mt-0.5" />
-								Compare
-							</button>
-						</div>
+						<SubModeToggle
+							options={[
+								{ value: "competition" as const, label: "Arena", icon: Swords },
+								{ value: "compare" as const, label: "Compare", icon: Columns3 },
+							]}
+							value={arenaMode}
+							onChange={(v) => {
+								if (phase === "setup") setArenaMode(v);
+							}}
+							disabled={phase !== "setup"}
+						/>
 					</div>
 					<div className="flex items-center gap-1">
 						<button
@@ -1426,8 +1393,8 @@ export function Arena() {
 							<>
 								{/* Light reset: clear results only, keep models/prompt/persona */}
 								{phase !== "setup" && (
-									<button
-										type="button"
+									<ActionIconButton
+										icon={Eraser}
 										onClick={() => {
 											for (const [, ctrl] of abortMapRef.current) {
 												ctrl.abort();
@@ -1441,39 +1408,24 @@ export function Arena() {
 											setDisabledModels(new Set());
 											toast("Arena cleared", "info");
 										}}
-										className={`p-1.5 rounded-md transition-all cursor-pointer text-amber-400 ${
-											phase === "finished" || phase === "voting"
-												? "animate-[pulse-ring_1.5s_ease-in-out_infinite]"
-												: "hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]"
-										}`}
 										title="Clear results (keep models & prompt)"
-									>
-										<Eraser size={14} />
-									</button>
+										color="amber"
+										pulse={phase === "finished" || phase === "voting"}
+									/>
 								)}
 								{/* Full reset: clear everything */}
-								<button
-									type="button"
+								<ActionIconButton
+									icon={RotateCcw}
 									onClick={() => setPendingFullReset(true)}
-									className="p-1.5 rounded-md transition-all cursor-pointer text-red-500 hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]"
 									title="Reset all (clear models & prompt)"
-								>
-									<RotateCcw size={14} />
-								</button>
+									color="red"
+								/>
 							</>
 						)}
-						<button
-							type="button"
-							onClick={() => setArenaCollapsed((c) => !c)}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-							title={arenaCollapsed ? "Expand controls" : "Collapse controls"}
-						>
-							{arenaCollapsed ? (
-								<ChevronsUpDown size={14} />
-							) : (
-								<ChevronsDownUp size={14} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={arenaCollapsed}
+							onToggle={() => setArenaCollapsed((c) => !c)}
+						/>
 					</div>
 				</div>
 				<div
@@ -2247,7 +2199,6 @@ function ResponseCard({
 	enabledModels,
 	params,
 }: ResponseCardProps) {
-	const { toast } = useToast();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	const isWinner = vote === slotKey;
 	const isLoser = vote !== null && vote !== slotKey;
@@ -2340,19 +2291,7 @@ function ResponseCard({
 				footerEnd={
 					<div className="flex items-center gap-2">
 						{response.done && response.content && (
-							<button
-								type="button"
-								className="inline-flex items-center cursor-pointer transition-all text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)]"
-								onClick={() => {
-									navigator.clipboard
-										.writeText(response.content)
-										.then(() => toast("Copied to clipboard", "info"))
-										.catch(() => toast("Failed to copy", "error"));
-								}}
-								title="Copy"
-							>
-								<Copy size={12} />
-							</button>
+							<CopyButton text={response.content} size={12} />
 						)}
 						{showVote && (
 							<button
