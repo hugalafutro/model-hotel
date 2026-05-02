@@ -23,17 +23,19 @@
 <p align="center">Built for when the popular option didn't autodiscover ~300 models across my 4 providers. Then it spiraled a bit.</p>
 
 > **AI-Assisted Project Disclaimer**
->
-> This project was created with assistance from multiple AI models:
-> - **GLM-5.1** (mostly design and planning / backend / code review)
-> - **Kimi-K2.6** (mostly UX and visuals planning / frontend / docs)
-> - **Kimi-K2.5, GLM-5, Minimax-M2.7** (small code / style adjustments)
->
-> Thanks [Ollama Cloud](https://cloud.ollama.com) for generous limits. I have nothing nice to say about [Z.AI](https://z.ai) or [OpenCode Go](https://opencode.ai) in that regard.
->
-> Development was done in [Zed](https://zed.dev) editor and/or [Opencode](https://opencode.ai), with extensive human testing and iterative refinement.
->
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
+> Made in <a href="https://github.com/NeuralNomadsAI/CodeNomad">Codenomad</a> with <a href="https://opencode.ai">Opencode</a>, using <a href="https://github.com/alvinunreal/oh-my-opencode-slim">oh-my-opencode-slim</a>
+
+<p align="center">
+**oh-my-opencode-slim** agents:
+  <img src="https://img.shields.io/badge/GLM_5.1-orchestrator+and+council-8B5CF6?style=flat" alt="GLM 5.1">
+  <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6">
+  <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle+and+council-E53E3E?style=flat" alt="DeepSeek V4 Pro">
+  <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-fixer-F97316?style=flat" alt="DeepSeek V4 Flash">
+  <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian+and+explorer-10B981?style=flat" alt="MiniMax M2.7">
+</p>
+
+> Thanks [Ollama Cloud](https://cloud.ollama.com) for generous limits. I have nothing nice to say about [Z.AI](https://z.ai) or [OpenCode Go](https://opencode.ai) in that regard.
 
 ---
 
