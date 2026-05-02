@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -64,6 +65,13 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	if len(req.Name) > 100 {
 		http.Error(w, "name must be at most 100 characters", http.StatusBadRequest)
 		return
+	}
+
+	for _, reserved := range []string{"chat", "arena", "completions", "admin"} {
+		if strings.EqualFold(req.Name, reserved) {
+			http.Error(w, fmt.Sprintf("name %q is reserved", reserved), http.StatusBadRequest)
+			return
+		}
 	}
 
 	rawKey, err := virtualkey.Generate()

@@ -56,6 +56,24 @@ func TestCreateVirtualKey_DBError(t *testing.T) {
 	}
 }
 
+func TestCreateVirtualKey_ReservedName(t *testing.T) {
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, nil)
+
+	for _, name := range []string{"chat", "arena", "completions", "admin", "Chat", "ARENA"} {
+		t.Run(name, func(t *testing.T) {
+			body := bytes.NewReader([]byte(`{"name":"` + name + `"}`))
+			req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+			h.CreateVirtualKey(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("reserved name %q: expected status %d, got %d", name, http.StatusBadRequest, w.Code)
+			}
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // ListVirtualKeys additional tests
 // ---------------------------------------------------------------------------
