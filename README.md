@@ -100,8 +100,7 @@ Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is st
 > The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
 >
 > The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only — never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
->
-> *Note: The database schema includes an unused `prompt` column (added in an early migration but never written to by any application code). No prompt or message content is ever stored in it.*
+
 
 The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
 
