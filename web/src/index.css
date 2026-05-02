@@ -612,6 +612,12 @@ html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 	margin-top: 0.25rem;
 }
 
+@media (min-width: 1536px) {
+	.sidebar-stats-content > * + * {
+		margin-top: 0.2rem;
+	}
+}
+
 html[data-ui-style="cyber-terminal"] .sidebar-stats-trigger {
 	font-family: var(--font-mono);
 	text-transform: uppercase;

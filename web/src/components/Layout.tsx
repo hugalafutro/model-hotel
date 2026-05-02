@@ -31,6 +31,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Logo } from "./Logo";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 
@@ -699,6 +700,8 @@ export function Layout({ children }: LayoutProps) {
 
 	const isActive = (path: string) => location.pathname === path;
 
+	const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
 	const handleLogout = () => {
 		localStorage.removeItem("adminToken");
 		navigate("/dashboard");
@@ -817,13 +820,23 @@ export function Layout({ children }: LayoutProps) {
 					</div>
 					<button
 						type="button"
-						onClick={handleLogout}
+						onClick={() => setShowLogoutConfirm(true)}
 						className="w-full sidebar-logout"
 					>
 						<LogOut size={14} strokeWidth={2} />
 						Logout
 					</button>
 					<SystemStatus />
+					{showLogoutConfirm && (
+						<ConfirmDialog
+							title="Log out?"
+							message="You'll need to re-enter your admin token."
+							fields={[]}
+							confirmLabel="Log out"
+							onConfirm={handleLogout}
+							onCancel={() => setShowLogoutConfirm(false)}
+						/>
+					)}
 				</div>
 			</aside>
 
