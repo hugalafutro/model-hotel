@@ -6,6 +6,7 @@ import {
 	Play,
 	RotateCcw,
 	SlidersHorizontal,
+	Square,
 	Timer,
 } from "lucide-react";
 
@@ -26,6 +27,8 @@ interface ConversationConfigProps {
 	onContinue?: () => void;
 	/** Called when retrying from an error state */
 	onRetry?: () => void;
+	/** Called to abort a running conversation */
+	onStop?: () => void;
 	canStart: boolean;
 	selectedModel: string;
 	selectedModelB: string;
@@ -46,6 +49,7 @@ export function ConversationConfig({
 	onStart,
 	onContinue,
 	onRetry,
+	onStop,
 	canStart,
 	selectedModel,
 	selectedModelB,
@@ -296,6 +300,17 @@ export function ConversationConfig({
 										</button>
 									))}
 							</div>
+						)}
+						{/* Stop button — visible while conversation is running */}
+						{conversationState === "running" && onStop && (
+							<button
+								type="button"
+								onClick={onStop}
+								className="ui-btn ui-btn-danger flex items-center gap-2 shrink-0"
+							>
+								<Square size={16} />
+								Stop
+							</button>
 						)}
 					</div>
 				</div>

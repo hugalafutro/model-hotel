@@ -213,8 +213,8 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							</span>
 						)}
 					</div>
-					<div className="text-xs text-(--text-tertiary) font-mono">
-						ID: {requestLog.id.slice(0, 12)}…
+					<div className="text-xs text-(--text-tertiary) font-mono flex items-center gap-1.5">
+						ID: {requestLog.id}
 						<CopyButton text={requestLog.id} />
 					</div>
 				</div>

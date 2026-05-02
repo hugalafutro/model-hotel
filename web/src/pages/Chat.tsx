@@ -852,6 +852,16 @@ export function Chat() {
 								setTurnCountdown(remaining);
 							}
 						}, 1000);
+						// Resolve immediately on abort so the loop can exit cleanly
+						abortCtrl.signal.addEventListener(
+							"abort",
+							() => {
+								clearInterval(interval);
+								setTurnCountdown(0);
+								resolve();
+							},
+							{ once: true },
+						);
 					});
 				}
 			}
@@ -1273,6 +1283,7 @@ export function Chat() {
 					onStart={() => runConversation(false)}
 					onContinue={() => runConversation(true)}
 					onRetry={handleRetryConversation}
+					onStop={handleStopConversation}
 					canStart={canStartConversation}
 					selectedModel={selectedModel}
 					selectedModelB={selectedModelB}
