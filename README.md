@@ -90,6 +90,27 @@ The dashboard includes a built-in **Chat** interface for testing models interact
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Real-Time Events & System Status](#-real-time-events--system-status)
 A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
 
+## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
+
+Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage — the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses. Decrypted provider keys are cached in memory for up to 5 minutes to avoid repeated key derivation overhead.
+
+### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Data Handling](#-data-handling)
+
+> **Prompts and request content are never captured, logged, or inspected.**
+> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
+>
+> The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only — never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
+>
+> *Note: The database schema includes an unused `prompt` column (added in an early migration but never written to by any application code). No prompt or message content is ever stored in it.*
+
+The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
+
+- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
+- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona") — only their built-in IDs, never the text content you didn't write yourself.
+- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
+
+History data never leaves your browser. It can be cleared at any time from the Settings page.
+
 ## [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start (Docker Compose)](#-quick-start-docker-compose)
 
 ```bash
@@ -294,29 +315,6 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 | Endpoint | Method | Description |
 |---|---|---|
 | `/health` | GET | Returns `OK` (no auth required) |
-
-## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security](#-security)
-
-Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage — the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses. Decrypted provider keys are cached in memory for up to 5 minutes to avoid repeated key derivation overhead.
-
-## [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Privacy & Data Handling](#-privacy--data-handling)
-
-> **Prompts and request content are never captured, logged, or inspected.**
-> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
->
-> The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only — never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
->
-> *Note: The database schema includes an unused `prompt` column (added in an early migration but never written to by any application code). No prompt or message content is ever stored in it.*
-
-### Arena History Privacy
-
-The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
-
-- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
-- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona") — only their built-in IDs, never the text content you didn't write yourself.
-- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
-
-History data never leaves your browser. It can be cleared at any time from the Settings page.
 
 ## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
