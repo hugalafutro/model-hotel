@@ -84,6 +84,8 @@ interface ModelDetailPanelProps {
 	tint?: "accent" | "blue" | "default";
 	/** When true, the panel border pulses with an accent glow (e.g. while the model is generating) */
 	pulseBorder?: boolean;
+	/** When true, skip the outer card wrapper — used when panel is inside a Modal that already provides a card */
+	embedded?: boolean;
 }
 
 export function ModelDetailPanel({
@@ -94,6 +96,7 @@ export function ModelDetailPanel({
 	collapsible = true,
 	tint = "default",
 	pulseBorder = false,
+	embedded = false,
 }: ModelDetailPanelProps) {
 	const caps = parseCapabilities(model.capabilities);
 	const [open, setOpen] = useState(false);
@@ -124,7 +127,7 @@ export function ModelDetailPanel({
 
 	return (
 		<div
-			className={`ui-card p-3 text-xs relative overflow-y-auto max-h-full ${tintClass} ${pulseClass}`}
+			className={`${embedded ? "" : "ui-card p-3 "}text-xs relative overflow-y-auto max-h-full ${tintClass} ${pulseClass}`}
 		>
 			{/* Header with collapse arrow + cog */}
 			<div className="flex items-start justify-between">
@@ -169,7 +172,7 @@ export function ModelDetailPanel({
 							<Settings size={14} />
 						</button>
 					)}
-					{onClose && (
+					{onClose && !embedded && (
 						<button
 							type="button"
 							onClick={onClose}
@@ -418,6 +421,7 @@ export function ModelDetailModal({
 				model={model}
 				onClose={onClose}
 				collapsible={collapsible}
+				embedded
 			/>
 		</Modal>
 	);

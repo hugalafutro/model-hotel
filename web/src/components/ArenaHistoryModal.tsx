@@ -374,7 +374,7 @@ export function ArenaHistoryModal({
 			<button
 				type="button"
 				onClick={onClose}
-				className="text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+				className="text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
 				aria-label="Close"
 			>
 				<X size={20} />

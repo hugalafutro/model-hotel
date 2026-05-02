@@ -555,7 +555,7 @@ function LastErrorPills() {
 							navigator.clipboard.writeText(msg);
 							toast("Copied to clipboard", "info");
 						}}
-						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
 						title="Copy error"
 					>
 						<Copy size={10} />
@@ -567,7 +567,7 @@ function LastErrorPills() {
 							setLogsSubMode(subMode);
 							navigate("/logs");
 						}}
-						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
 						title="View in logs"
 					>
 						<ExternalLink size={10} />
@@ -579,7 +579,7 @@ function LastErrorPills() {
 							onAcknowledge();
 							toast(`${label} error acknowledged`, "info");
 						}}
-						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
 						title="Acknowledge (dismiss)"
 					>
 						<X size={10} />

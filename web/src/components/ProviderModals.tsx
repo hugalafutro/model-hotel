@@ -1,4 +1,4 @@
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { NanoGPTUsage, ZAICodingQuotaResponse } from "../api/types";
 import { useTheme } from "../context/ThemeContext";
 import {
@@ -67,7 +67,7 @@ export function NanoGPTQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
 							aria-label="Refresh"
 							title="Refresh quota info"
 						>
@@ -79,15 +79,6 @@ export function NanoGPTQuotaModal({
 									className={isRefreshing ? "animate-spin" : ""}
 								/>
 							)}
-						</button>
-						<button
-							type="button"
-							onClick={onClose}
-							className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-							aria-label="Close"
-							title="Close"
-						>
-							<X size={20} />
 						</button>
 					</div>
 				</div>
@@ -283,7 +274,7 @@ export function ZAICodingQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
 							aria-label="Refresh"
 							title="Refresh quota info"
 						>
@@ -295,15 +286,6 @@ export function ZAICodingQuotaModal({
 									className={isRefreshing ? "animate-spin" : ""}
 								/>
 							)}
-						</button>
-						<button
-							type="button"
-							onClick={onClose}
-							className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-							aria-label="Close"
-							title="Close"
-						>
-							<X size={20} />
 						</button>
 					</div>
 				</div>

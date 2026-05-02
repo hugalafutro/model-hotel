@@ -127,7 +127,7 @@ export function PersonaPicker({
 				<button
 					type="button"
 					onClick={() => setCollapsed((c) => !c)}
-					className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-0.5 -m-0.5"
+					className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-1.5"
 					title={collapsed ? "Expand" : "Collapse"}
 				>
 					{collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}

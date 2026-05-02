@@ -898,7 +898,7 @@ export function Providers() {
 								});
 								setError(null);
 							}}
-							className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+							className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
 							aria-label="Close"
 						>
 							<X size={20} />
