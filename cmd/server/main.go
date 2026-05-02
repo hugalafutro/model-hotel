@@ -683,9 +683,18 @@ func silentLogger(next http.Handler) http.Handler {
 			return
 		}
 		if !isNoisy {
-			log.Printf("[%s] %s %s from %s - %d %dB in %s",
+			status := ww.Status()
+			msg := fmt.Sprintf("[%s] %s %s from %s - %d %dB in %s",
 				r.Method, r.Host, r.URL.Path, r.RemoteAddr,
-				ww.Status(), ww.BytesWritten(), duration)
+				status, ww.BytesWritten(), duration)
+			switch {
+			case status >= 500:
+				log.Printf("ERROR "+msg)
+			case status >= 400:
+				log.Printf("WARN  "+msg)
+			default:
+				log.Printf("INFO  "+msg)
+			}
 		}
 	})
 }
