@@ -23,12 +23,7 @@ export function ConfirmDialog({
 			aria-modal="true"
 			className="fixed inset-0 flex items-center justify-center z-60"
 		>
-			<button
-				type="button"
-				className="absolute inset-0 bg-black/60 cursor-default"
-				onClick={onCancel}
-				aria-label="Close dialog"
-			/>
+			<div className="absolute inset-0 bg-black/60" />
 			<div className="relative ui-card p-6 w-full max-w-sm">
 				<button
 					type="button"

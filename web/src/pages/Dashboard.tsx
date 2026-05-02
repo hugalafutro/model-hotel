@@ -13,7 +13,6 @@ import {
 	Target,
 	Timer,
 	TrendingUp,
-	X,
 	Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +30,7 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import type { MetricType, Model } from "../api/types";
+import { Modal } from "../components/Modal";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
@@ -796,21 +796,8 @@ function GaugeModal({
 	if (!open) return null;
 
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			className="fixed inset-0 flex items-center justify-center z-50"
-			onKeyDown={(e) => {
-				if (e.key === "Escape") onClose();
-			}}
-		>
-			<button
-				type="button"
-				className="absolute inset-0 bg-black/60 cursor-default"
-				onClick={onClose}
-				aria-label="Close dialog"
-			/>
-			<div className="relative ui-card p-6 w-full max-w-2xl mx-4">
+		<Modal
+			header={
 				<div className="flex justify-between items-center mb-4">
 					<h3
 						className="text-lg font-semibold flex items-center gap-2"
@@ -818,30 +805,26 @@ function GaugeModal({
 					>
 						{title}
 					</h3>
-					<button
-						type="button"
-						onClick={onClose}
-						className="text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
-						aria-label="Close"
-					>
-						<X size={18} />
-					</button>
 				</div>
-				<TimeSeriesChart
-					data={chartData}
-					range={range}
-					onRangeChange={setRange}
-					metric={metric}
-					icon={icon}
-					color={color}
-					label={label}
-					dataKey={dataKey}
-					allowDecimals={allowDecimals}
-					height={280}
-					scale={scale ?? (dataKey === "latency" ? 0.001 : 1)}
-				/>
-			</div>
-		</div>
+			}
+			onClose={onClose}
+			maxWidth="max-w-2xl"
+			scrollable
+		>
+			<TimeSeriesChart
+				data={chartData}
+				range={range}
+				onRangeChange={setRange}
+				metric={metric}
+				icon={icon}
+				color={color}
+				label={label}
+				dataKey={dataKey}
+				allowDecimals={allowDecimals}
+				height={280}
+				scale={scale ?? (dataKey === "latency" ? 0.001 : 1)}
+			/>
+		</Modal>
 	);
 }
 

@@ -78,7 +78,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	log.Printf("Starting Model Hotel with configuration:\n%s", cfg)
+	log.Printf("[startup] Starting Model Hotel with configuration:\n%s", cfg)
 
 	log.Print(`
 ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗         ██╗  ██╗ ██████╗ ████████╗███████╗██╗
@@ -116,7 +116,7 @@ func main() {
 		WHERE state IN ('pending', 'streaming')
 		  AND created_at < $1`, serverStartTime)
 	if err == nil && tag.RowsAffected() > 0 {
-		log.Printf("Startup cleanup: marked %d stale pending/streaming logs as failed", tag.RowsAffected())
+		log.Printf("[startup] cleanup: marked %d stale pending/streaming logs as failed", tag.RowsAffected())
 		events.Publish(events.Event{
 			Type:     "logs.stale_startup",
 			Severity: "warning",
@@ -124,7 +124,7 @@ func main() {
 			Metadata: map[string]interface{}{"count": tag.RowsAffected()},
 		})
 	} else if err != nil {
-		log.Printf("Startup cleanup: failed to clean stale logs: %v", err)
+		log.Printf("[startup] cleanup: failed to clean stale logs: %v", err)
 	}
 
 	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
@@ -142,9 +142,9 @@ func main() {
 ║                                                              ║
 ║  To regenerate: delete the admin-token file and restart.     ║
 ╚══════════════════════════════════════════════════════════════╝`, token)
-		log.Printf("ADMIN_TOKEN=%s", token)
+		log.Printf("[startup] ADMIN_TOKEN=%s", token)
 	} else {
-		log.Println("Admin token loaded from file (already initialized)")
+		log.Println("[startup] Admin token loaded from file (already initialized)")
 	}
 
 	providerRepo := provider.NewRepository(database.Pool())
@@ -276,7 +276,7 @@ func main() {
 		ctx := context.Background()
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
-			log.Printf("Discovery: failed to list providers: %v", err)
+			log.Printf("[discovery] failed to list providers: %v", err)
 			result.Errors = append(result.Errors, fmt.Sprintf("failed to list providers: %v", err))
 			return result
 		}
@@ -288,7 +288,7 @@ func main() {
 			result.ProvidersScanned++
 			models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
 			if err != nil {
-				log.Printf("Discovery: failed for provider %s: %v", p.Name, err)
+				log.Printf("[discovery] failed for provider %s: %v", p.Name, err)
 				result.ProvidersFailed++
 				result.Errors = append(result.Errors, fmt.Sprintf("provider %s: %v", p.Name, err))
 				// Update last_discovered_at even on failure so the UI reflects
@@ -297,7 +297,7 @@ func main() {
 				// that makes the scheduled timer appear broken.
 				now := time.Now()
 				if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
-					log.Printf("Discovery: failed to update last_discovered_at for %s: %v", p.Name, err)
+					log.Printf("[discovery] failed to update last_discovered_at for %s: %v", p.Name, err)
 				}
 				continue
 			}
@@ -305,14 +305,14 @@ func main() {
 			existingModelIDs := make([]string, 0, len(models))
 			for _, m := range models {
 				if err := modelRepo.Upsert(ctx, m); err != nil {
-					log.Printf("Discovery: failed to upsert model %s: %v", m.ModelID, err)
+					log.Printf("[discovery] failed to upsert model %s: %v", m.ModelID, err)
 				} else {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
 				}
 			}
 			disabledCount, err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs)
 			if err != nil {
-				log.Printf("Discovery: failed to disable missing models for %s: %v", p.Name, err)
+				log.Printf("[discovery] failed to disable missing models for %s: %v", p.Name, err)
 			} else if disabledCount > 0 {
 				result.ModelsDisabled += int(disabledCount)
 				events.Publish(events.Event{
@@ -324,9 +324,9 @@ func main() {
 			}
 			now := time.Now()
 			if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
-				log.Printf("Discovery: failed to update last_discovered_at for %s: %v", p.Name, err)
+				log.Printf("[discovery] failed to update last_discovered_at for %s: %v", p.Name, err)
 			}
-			log.Printf("Discovery: discovered %d models for provider %s", len(models), p.Name)
+			log.Printf("[discovery] discovered %d models for provider %s", len(models), p.Name)
 		}
 
 		seenModelIDs := make(map[string]bool)
@@ -341,7 +341,7 @@ func main() {
 		}
 		for modelID := range seenModelIDs {
 			if err := failoverRepo.SyncForModel(ctx, modelID); err != nil {
-				log.Printf("Discovery: failed to sync failover for model %s: %v", modelID, err)
+				log.Printf("[discovery] failed to sync failover for model %s: %v", modelID, err)
 				result.FailoverSyncErrs++
 				events.Publish(events.Event{
 					Type:     "failover.sync_error",
@@ -366,7 +366,7 @@ func main() {
 			}
 		}
 		if recentlyDiscovered {
-			log.Println("Skipping startup discovery: last discovery was within 5 minutes")
+			log.Println("[discovery] Skipping startup discovery: last discovery was within 5 minutes")
 		} else {
 			go func() {
 				result := runDiscovery()
@@ -381,7 +381,7 @@ func main() {
 
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
-			log.Printf("Cache warm: failed to list providers: %v", err)
+			log.Printf("[cache] warm: failed to list providers: %v", err)
 			return
 		}
 		enabledProviders := make([]*provider.Provider, 0, len(providers))
@@ -398,19 +398,19 @@ func main() {
 
 		enabledModels, err := modelRepo.ListEnabled(ctx)
 		if err != nil {
-			log.Printf("Cache warm: failed to list models: %v", err)
+			log.Printf("[cache] warm: failed to list models: %v", err)
 		} else {
 			model.WarmModelCache(enabledModels)
 		}
 
 		failoverGroups, err := failoverRepo.List(ctx)
 		if err != nil {
-			log.Printf("Cache warm: failed to list failover groups: %v", err)
+			log.Printf("[cache] warm: failed to list failover groups: %v", err)
 		} else {
 			failover.WarmFailoverCache(failoverGroups)
 		}
 
-		log.Println("Key, provider, model, and failover caches warmed")
+		log.Println("[cache] Key, provider, model, and failover caches warmed")
 	}()
 
 	// Periodic discovery based on settings interval.
@@ -562,7 +562,7 @@ func main() {
 				  AND (created_at < $1 OR created_at < NOW() - $2::interval)`,
 				serverStartTime, intervalStr)
 			if err == nil && tag.RowsAffected() > 0 {
-				log.Printf("Stale log cleanup: marked %d stuck logs as failed", tag.RowsAffected())
+				log.Printf("[retention] stale log cleanup: marked %d stuck logs as failed", tag.RowsAffected())
 				events.Publish(events.Event{
 					Type:     "logs.stale_cleanup",
 					Severity: "warning",
@@ -570,7 +570,7 @@ func main() {
 					Metadata: map[string]interface{}{"count": tag.RowsAffected()},
 				})
 			} else if err != nil {
-				log.Printf("Stale log cleanup: failed: %v", err)
+				log.Printf("[retention] stale log cleanup: failed: %v", err)
 			}
 			timer.Reset(5 * time.Minute)
 		}
@@ -610,13 +610,13 @@ func main() {
 			tag, err := database.Pool().Exec(context.Background(),
 				`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
 			if err == nil {
-				log.Printf("Log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
+				log.Printf("[retention] Log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
 			}
 			// Clean app_logs with same retention
 			tag, err = database.Pool().Exec(context.Background(),
 				`DELETE FROM app_logs WHERE created_at < $1`, cutoff)
 			if err == nil {
-				log.Printf("App log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
+				log.Printf("[retention] App log retention (%s): deleted %d old entries", retention, tag.RowsAffected())
 			}
 			timer.Reset(1 * time.Hour)
 		}
@@ -628,7 +628,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("Server listening on %s", cfg.Port)
+		log.Printf("[server] listening on %s", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}
@@ -638,7 +638,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("Shutting down server gracefully...")
+	log.Println("[server] Shutting down gracefully...")
 
 	// Release goroutine-leaking resources before draining HTTP connections.
 	proxyHandler.Close()
@@ -651,10 +651,10 @@ func main() {
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Error during server shutdown: %v", err)
+		log.Printf("[server] error during shutdown: %v", err)
 	}
 
-	log.Println("Server stopped")
+	log.Println("[server] stopped")
 }
 
 // silentLogger is like chi's middleware.Logger but suppresses request log
@@ -691,7 +691,7 @@ func silentLogger(next http.Handler) http.Handler {
 			case status >= 400:
 				level = "WARN "
 			}
-			log.Printf("%s [%s] %s %s from %s - %d %dB in %s",
+			log.Printf("[access] %s [%s] %s %s from %s - %d %dB in %s",
 				level, r.Method, r.Host, r.URL.Path, r.RemoteAddr,
 				status, ww.BytesWritten(), duration)
 		}

@@ -15,6 +15,7 @@ import {
 	SortableHeader,
 } from "../components/DataTable";
 import { FilterInput } from "../components/FilterInput";
+import { Modal } from "../components/Modal";
 import { ProviderFilter } from "../components/ProviderFilter";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
@@ -348,428 +349,413 @@ function ModelDetailModal({
 	const snippetContent = snippetTab === "curl" ? curlCmd : zedJson;
 
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			className="fixed inset-0 flex items-center justify-center z-50"
-			onKeyDown={(e) => {
-				if (e.key === "Escape") handleClose();
-			}}
+		<Modal
+			header={
+				<div>
+					<div className="flex justify-between items-start mb-0">
+						<div>
+							<h2 className="text-xl font-bold text-white">
+								{model.display_name || model.name || pMid}
+							</h2>
+							<CopyablePill
+								text={pMid}
+								textClassName="text-sm text-gray-500 font-mono leading-tight mt-1"
+								tooltip="Click to copy model ID"
+							/>
+						</div>
+					</div>
+				</div>
+			}
+			onClose={handleClose}
+			maxWidth="max-w-lg"
+			scrollable
 		>
-			<button
-				type="button"
-				className="absolute inset-0 bg-black/60 cursor-default"
-				onClick={handleClose}
-				aria-label="Close dialog"
-			/>
-			<div className="relative ui-card p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
-				<div className="flex justify-between items-start mb-4">
-					<div>
-						<h2 className="text-xl font-bold text-white">
-							{model.display_name || model.name || pMid}
-						</h2>
-						<CopyablePill
-							text={pMid}
-							textClassName="text-sm text-gray-500 font-mono leading-tight mt-1"
-							tooltip="Click to copy model ID"
-						/>
+			{model.description && (
+				<p className="text-sm text-gray-300 mb-4">{model.description}</p>
+			)}
+
+			<div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
+				<div>
+					<span className="text-gray-500">Provider</span>
+					<p className="text-gray-200">{model.provider_name}</p>
+				</div>
+				<div>
+					<span className="text-gray-500">Last Discovered</span>
+					<p className="text-gray-200">
+						{formatRelativeTime(model.last_seen_at)}
+					</p>
+				</div>
+				<div>
+					<span className="text-gray-500">Display Name</span>
+					{editing ? (
+						<div className="flex items-center gap-1">
+							<input
+								type="text"
+								value={editData.display_name}
+								onChange={(e) =>
+									setEditData((prev) => ({
+										...prev,
+										display_name: e.target.value,
+									}))
+								}
+								className="ui-input text-sm"
+							/>
+							{editData.display_name !== discoveredDefaults.display_name && (
+								<button
+									type="button"
+									onClick={() => revertField("display_name")}
+									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
+									title="Revert to discovered value"
+								>
+									↩
+								</button>
+							)}
+						</div>
+					) : (
+						<p className="text-gray-200">
+							{model.display_name || model.name || "-"}
+						</p>
+					)}
+				</div>
+				<div>
+					<span className="text-gray-500">Context Length</span>
+					{editing ? (
+						<div className="flex items-center gap-1">
+							<input
+								type="number"
+								value={editData.context_length}
+								onChange={(e) =>
+									setEditData((prev) => ({
+										...prev,
+										context_length: e.target.value,
+									}))
+								}
+								className="ui-input text-sm"
+								placeholder="tokens"
+							/>
+							{editData.context_length !==
+								(discoveredDefaults.context_length?.toString() ?? "") && (
+								<button
+									type="button"
+									onClick={() => revertField("context_length")}
+									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
+									title="Revert to discovered value"
+								>
+									↩
+								</button>
+							)}
+						</div>
+					) : (
+						<p className="text-gray-200">
+							{formatNumber(model.context_length)} tokens
+						</p>
+					)}
+				</div>
+				<div>
+					<span className="text-gray-500">Max Output</span>
+					{editing ? (
+						<div className="flex items-center gap-1">
+							<input
+								type="number"
+								value={editData.max_output_tokens}
+								onChange={(e) =>
+									setEditData((prev) => ({
+										...prev,
+										max_output_tokens: e.target.value,
+									}))
+								}
+								className="ui-input text-sm"
+								placeholder="tokens"
+							/>
+							{editData.max_output_tokens !==
+								(discoveredDefaults.max_output_tokens?.toString() ?? "") && (
+								<button
+									type="button"
+									onClick={() => revertField("max_output_tokens")}
+									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
+									title="Revert to discovered value"
+								>
+									↩
+								</button>
+							)}
+						</div>
+					) : (
+						<p className="text-gray-200">
+							{formatNumber(model.max_output_tokens)} tokens
+						</p>
+					)}
+				</div>
+				<div>
+					<span className="text-gray-500">Input Price</span>
+					{editing ? (
+						<div className="flex items-center gap-1">
+							<div className="relative w-full">
+								<input
+									type="number"
+									step="0.01"
+									value={editData.input_price_per_million}
+									onChange={(e) =>
+										setEditData((prev) => ({
+											...prev,
+											input_price_per_million: e.target.value,
+										}))
+									}
+									className="ui-input text-sm pr-16!"
+									placeholder="0.00"
+								/>
+								<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+									/1M tok
+								</span>
+							</div>
+							{editData.input_price_per_million !==
+								formatPriceInput(
+									discoveredDefaults.input_price_per_million,
+								) && (
+								<button
+									type="button"
+									onClick={() => revertField("input_price_per_million")}
+									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
+									title="Revert to discovered value"
+								>
+									↩
+								</button>
+							)}
+						</div>
+					) : (
+						<p className="text-gray-200">
+							{model.input_price_per_million != null
+								? `$${formatPrice(model.input_price_per_million)}/1M`
+								: "-"}
+						</p>
+					)}
+				</div>
+				<div>
+					<span className="text-gray-500">Output Price</span>
+					{editing ? (
+						<div className="flex items-center gap-1">
+							<div className="relative w-full">
+								<input
+									type="number"
+									step="0.01"
+									value={editData.output_price_per_million}
+									onChange={(e) =>
+										setEditData((prev) => ({
+											...prev,
+											output_price_per_million: e.target.value,
+										}))
+									}
+									className="ui-input text-sm pr-16!"
+									placeholder="0.00"
+								/>
+								<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+									/1M tok
+								</span>
+							</div>
+							{editData.output_price_per_million !==
+								formatPriceInput(
+									discoveredDefaults.output_price_per_million,
+								) && (
+								<button
+									type="button"
+									onClick={() => revertField("output_price_per_million")}
+									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
+									title="Revert to discovered value"
+								>
+									↩
+								</button>
+							)}
+						</div>
+					) : (
+						<p className="text-gray-200">
+							{model.output_price_per_million != null
+								? `$${formatPrice(model.output_price_per_million)}/1M`
+								: "-"}
+						</p>
+					)}
+				</div>
+				<div>
+					<span className="text-gray-500">Input</span>
+					<p className="text-gray-200">{inputMods.join(", ") || "text"}</p>
+				</div>
+				<div>
+					<span className="text-gray-500">Output</span>
+					<p className="text-gray-200">{outputMods.join(", ") || "text"}</p>
+				</div>
+			</div>
+
+			{caps && (
+				<div className="mb-4">
+					<h3 className="text-sm font-medium text-gray-400 mb-2">
+						Capabilities
+					</h3>
+					<div className="flex flex-wrap gap-1">
+						{CAP_META.map((m) => (
+							<CapBadge key={m.key} caps={caps} capKey={m.key} />
+						))}
+					</div>
+					{!CAP_META.some((m) => hasCap(caps, m.key)) && (
+						<p className="text-sm text-gray-500">
+							No special capabilities detected
+						</p>
+					)}
+				</div>
+			)}
+
+			{params && params.subscription_included !== undefined && (
+				<div className="mb-4">
+					<h3 className="text-sm font-medium text-gray-400 mb-2">
+						Subscription
+					</h3>
+					<div className="flex items-center gap-2">
+						<span
+							className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+								params.subscription_included
+									? "bg-green-900/40 text-green-300 border border-green-700/50"
+									: "bg-yellow-900/40 text-yellow-300 border border-yellow-700/50"
+							}`}
+						>
+							{params.subscription_included ? "Included" : "Not included"}
+						</span>
+						{params.subscription_note ? (
+							<span className="text-sm text-gray-500">
+								{String(params.subscription_note)}
+							</span>
+						) : null}
+					</div>
+				</div>
+			)}
+
+			{editing && (
+				<div className="flex gap-3 justify-end mb-4 pt-2">
+					<button
+						type="button"
+						onClick={handleCancelEdit}
+						className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onClick={handleSave}
+						className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+					>
+						Save Changes
+					</button>
+				</div>
+			)}
+
+			<div className="mt-4 pt-4">
+				<div className="flex items-center justify-between mb-3">
+					<div className="flex items-center gap-1">
+						{(["curl", "zed"] as const).map((tab) => (
+							<button
+								key={tab}
+								type="button"
+								onClick={() => setSnippetTab(tab)}
+								className={`px-2.5 py-1 rounded text-[11px] font-medium uppercase tracking-wider cursor-pointer transition-all ${
+									snippetTab === tab
+										? "bg-slate-700/60 text-slate-200 border border-slate-600/50"
+										: "text-slate-500 hover:text-slate-400 border border-transparent"
+								}`}
+							>
+								{tab === "curl" ? "cURL" : "ZED"}
+							</button>
+						))}
 					</div>
 					<button
 						type="button"
-						onClick={handleClose}
-						className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-						aria-label="Close"
+						onClick={() => {
+							navigator.clipboard.writeText(snippetContent);
+							onToast("Copied to clipboard", "info");
+						}}
+						className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer"
 					>
-						<X size={20} />
+						Copy
 					</button>
 				</div>
+				<pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-30 leading-relaxed whitespace-pre-wrap break-all">
+					{snippetContent}
+				</pre>
+			</div>
 
-				{model.description && (
-					<p className="text-sm text-gray-300 mb-4">{model.description}</p>
-				)}
-
-				<div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
-					<div>
-						<span className="text-gray-500">Provider</span>
-						<p className="text-gray-200">{model.provider_name}</p>
-					</div>
-					<div>
-						<span className="text-gray-500">Last Discovered</span>
-						<p className="text-gray-200">
-							{formatRelativeTime(model.last_seen_at)}
-						</p>
-					</div>
-					<div>
-						<span className="text-gray-500">Display Name</span>
-						{editing ? (
-							<div className="flex items-center gap-1">
-								<input
-									type="text"
-									value={editData.display_name}
-									onChange={(e) =>
-										setEditData((prev) => ({
-											...prev,
-											display_name: e.target.value,
-										}))
-									}
-									className="ui-input text-sm"
-								/>
-								{editData.display_name !== discoveredDefaults.display_name && (
-									<button
-										type="button"
-										onClick={() => revertField("display_name")}
-										className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
-										title="Revert to discovered value"
-									>
-										↩
-									</button>
-								)}
-							</div>
-						) : (
-							<p className="text-gray-200">
-								{model.display_name || model.name || "-"}
-							</p>
-						)}
-					</div>
-					<div>
-						<span className="text-gray-500">Context Length</span>
-						{editing ? (
-							<div className="flex items-center gap-1">
-								<input
-									type="number"
-									value={editData.context_length}
-									onChange={(e) =>
-										setEditData((prev) => ({
-											...prev,
-											context_length: e.target.value,
-										}))
-									}
-									className="ui-input text-sm"
-									placeholder="tokens"
-								/>
-								{editData.context_length !==
-									(discoveredDefaults.context_length?.toString() ?? "") && (
-									<button
-										type="button"
-										onClick={() => revertField("context_length")}
-										className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
-										title="Revert to discovered value"
-									>
-										↩
-									</button>
-								)}
-							</div>
-						) : (
-							<p className="text-gray-200">
-								{formatNumber(model.context_length)} tokens
-							</p>
-						)}
-					</div>
-					<div>
-						<span className="text-gray-500">Max Output</span>
-						{editing ? (
-							<div className="flex items-center gap-1">
-								<input
-									type="number"
-									value={editData.max_output_tokens}
-									onChange={(e) =>
-										setEditData((prev) => ({
-											...prev,
-											max_output_tokens: e.target.value,
-										}))
-									}
-									className="ui-input text-sm"
-									placeholder="tokens"
-								/>
-								{editData.max_output_tokens !==
-									(discoveredDefaults.max_output_tokens?.toString() ?? "") && (
-									<button
-										type="button"
-										onClick={() => revertField("max_output_tokens")}
-										className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
-										title="Revert to discovered value"
-									>
-										↩
-									</button>
-								)}
-							</div>
-						) : (
-							<p className="text-gray-200">
-								{formatNumber(model.max_output_tokens)} tokens
-							</p>
-						)}
-					</div>
-					<div>
-						<span className="text-gray-500">Input Price</span>
-						{editing ? (
-							<div className="flex items-center gap-1">
-								<div className="relative w-full">
-									<input
-										type="number"
-										step="0.01"
-										value={editData.input_price_per_million}
-										onChange={(e) =>
-											setEditData((prev) => ({
-												...prev,
-												input_price_per_million: e.target.value,
-											}))
-										}
-										className="ui-input text-sm pr-16!"
-										placeholder="0.00"
-									/>
-									<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-										/1M tok
-									</span>
-								</div>
-								{editData.input_price_per_million !==
-									formatPriceInput(
-										discoveredDefaults.input_price_per_million,
-									) && (
-									<button
-										type="button"
-										onClick={() => revertField("input_price_per_million")}
-										className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
-										title="Revert to discovered value"
-									>
-										↩
-									</button>
-								)}
-							</div>
-						) : (
-							<p className="text-gray-200">
-								{model.input_price_per_million != null
-									? `$${formatPrice(model.input_price_per_million)}/1M`
-									: "-"}
-							</p>
-						)}
-					</div>
-					<div>
-						<span className="text-gray-500">Output Price</span>
-						{editing ? (
-							<div className="flex items-center gap-1">
-								<div className="relative w-full">
-									<input
-										type="number"
-										step="0.01"
-										value={editData.output_price_per_million}
-										onChange={(e) =>
-											setEditData((prev) => ({
-												...prev,
-												output_price_per_million: e.target.value,
-											}))
-										}
-										className="ui-input text-sm pr-16!"
-										placeholder="0.00"
-									/>
-									<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-										/1M tok
-									</span>
-								</div>
-								{editData.output_price_per_million !==
-									formatPriceInput(
-										discoveredDefaults.output_price_per_million,
-									) && (
-									<button
-										type="button"
-										onClick={() => revertField("output_price_per_million")}
-										className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
-										title="Revert to discovered value"
-									>
-										↩
-									</button>
-								)}
-							</div>
-						) : (
-							<p className="text-gray-200">
-								{model.output_price_per_million != null
-									? `$${formatPrice(model.output_price_per_million)}/1M`
-									: "-"}
-							</p>
-						)}
-					</div>
-					<div>
-						<span className="text-gray-500">Input</span>
-						<p className="text-gray-200">{inputMods.join(", ") || "text"}</p>
-					</div>
-					<div>
-						<span className="text-gray-500">Output</span>
-						<p className="text-gray-200">{outputMods.join(", ") || "text"}</p>
-					</div>
-				</div>
-
-				{caps && (
-					<div className="mb-4">
-						<h3 className="text-sm font-medium text-gray-400 mb-2">
-							Capabilities
-						</h3>
-						<div className="flex flex-wrap gap-1">
-							{CAP_META.map((m) => (
-								<CapBadge key={m.key} caps={caps} capKey={m.key} />
-							))}
-						</div>
-						{!CAP_META.some((m) => hasCap(caps, m.key)) && (
-							<p className="text-sm text-gray-500">
-								No special capabilities detected
-							</p>
-						)}
-					</div>
-				)}
-
-				{params && params.subscription_included !== undefined && (
-					<div className="mb-4">
-						<h3 className="text-sm font-medium text-gray-400 mb-2">
-							Subscription
-						</h3>
-						<div className="flex items-center gap-2">
-							<span
-								className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-									params.subscription_included
-										? "bg-green-900/40 text-green-300 border border-green-700/50"
-										: "bg-yellow-900/40 text-yellow-300 border border-yellow-700/50"
-								}`}
-							>
-								{params.subscription_included ? "Included" : "Not included"}
-							</span>
-							{params.subscription_note ? (
-								<span className="text-sm text-gray-500">
-									{String(params.subscription_note)}
-								</span>
-							) : null}
-						</div>
-					</div>
-				)}
-
-				{editing && (
-					<div className="flex gap-3 justify-end mb-4 pt-2">
+			<div className="flex items-center justify-between mt-4 pt-4">
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => onToggle(model.id, !model.enabled)}
+						className={`px-3 py-1.5 text-xs rounded-full border cursor-pointer transition-all ${
+							model.enabled
+								? "bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(34,197,94,0.2)]"
+								: "bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)]"
+						}`}
+					>
+						{model.enabled ? "Enabled" : "Disabled"}
+					</button>
+					<button
+						type="button"
+						disabled={testing}
+						onClick={handleTest}
+						className={`px-3 py-1.5 text-xs rounded-full border transition-all flex items-center gap-1.5 ${
+							testError
+								? "bg-red-900/50 text-red-300 border-red-700/50"
+								: testing
+									? "bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
+									: "bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(245,158,11,0.2)]"
+						}`}
+					>
+						{testing && <Spinner />}
+						{testing ? "Testing…" : "Test"}
+					</button>
+					{!confirmDelete ? (
 						<button
 							type="button"
-							onClick={handleCancelEdit}
-							className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+							onClick={() => setConfirmDelete(true)}
+							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400 transition-all"
 						>
-							Cancel
+							Delete
 						</button>
-						<button
-							type="button"
-							onClick={handleSave}
-							className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
-						>
-							Save Changes
-						</button>
-					</div>
-				)}
-
-				<div className="mt-4 pt-4">
-					<div className="flex items-center justify-between mb-3">
-						<div className="flex items-center gap-1">
-							{(["curl", "zed"] as const).map((tab) => (
-								<button
-									key={tab}
-									type="button"
-									onClick={() => setSnippetTab(tab)}
-									className={`px-2.5 py-1 rounded text-[11px] font-medium uppercase tracking-wider cursor-pointer transition-all ${
-										snippetTab === tab
-											? "bg-slate-700/60 text-slate-200 border border-slate-600/50"
-											: "text-slate-500 hover:text-slate-400 border border-transparent"
-									}`}
-								>
-									{tab === "curl" ? "cURL" : "ZED"}
-								</button>
-							))}
-						</div>
+					) : (
 						<button
 							type="button"
 							onClick={() => {
-								navigator.clipboard.writeText(snippetContent);
-								onToast("Copied to clipboard", "info");
+								onDelete(model.id);
+								onClose();
 							}}
-							className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer"
+							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all"
 						>
-							Copy
+							Confirm delete
 						</button>
-					</div>
-					<pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-30 leading-relaxed whitespace-pre-wrap break-all">
-						{snippetContent}
-					</pre>
+					)}
 				</div>
-
-				<div className="flex items-center justify-between mt-4 pt-4">
-					<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2">
+					{!editing && (
 						<button
 							type="button"
-							onClick={() => onToggle(model.id, !model.enabled)}
-							className={`px-3 py-1.5 text-xs rounded-full border cursor-pointer transition-all ${
-								model.enabled
-									? "bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(34,197,94,0.2)]"
-									: "bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)]"
-							}`}
+							onClick={() => setEditing(true)}
+							className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
 						>
-							{model.enabled ? "Enabled" : "Disabled"}
+							Edit
 						</button>
-						<button
-							type="button"
-							disabled={testing}
-							onClick={handleTest}
-							className={`px-3 py-1.5 text-xs rounded-full border transition-all flex items-center gap-1.5 ${
-								testError
-									? "bg-red-900/50 text-red-300 border-red-700/50"
-									: testing
-										? "bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-										: "bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(245,158,11,0.2)]"
-							}`}
-						>
-							{testing && <Spinner />}
-							{testing ? "Testing…" : "Test"}
-						</button>
-						{!confirmDelete ? (
-							<button
-								type="button"
-								onClick={() => setConfirmDelete(true)}
-								className="px-3 py-1.5 text-xs rounded-full border bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400 transition-all"
-							>
-								Delete
-							</button>
-						) : (
-							<button
-								type="button"
-								onClick={() => {
-									onDelete(model.id);
-									onClose();
-								}}
-								className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all"
-							>
-								Confirm delete
-							</button>
-						)}
-					</div>
-					<div className="flex items-center gap-2">
-						{!editing && (
-							<button
-								type="button"
-								onClick={() => setEditing(true)}
-								className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
-							>
-								Edit
-							</button>
-						)}
-						<button
-							type="button"
-							disabled={cooldown > 0 || discovering}
-							onClick={handleDiscover}
-							className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-								cooldown > 0 || discovering
-									? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-									: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
-							}`}
-						>
-							{discovering
-								? "Updating…"
-								: cooldown > 0
-									? `Update (${cooldown}s)`
-									: "Update info"}
-						</button>
-					</div>
+					)}
+					<button
+						type="button"
+						disabled={cooldown > 0 || discovering}
+						onClick={handleDiscover}
+						className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+							cooldown > 0 || discovering
+								? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+								: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+						}`}
+					>
+						{discovering
+							? "Updating…"
+							: cooldown > 0
+								? `Update (${cooldown}s)`
+								: "Update info"}
+					</button>
 				</div>
 			</div>
+
 			{confirmFields && (
 				<ConfirmDialog
 					title="Unsaved Changes"
@@ -792,7 +778,7 @@ function ModelDetailModal({
 					onCancel={() => setConfirmFields(null)}
 				/>
 			)}
-		</div>
+		</Modal>
 	);
 }
 

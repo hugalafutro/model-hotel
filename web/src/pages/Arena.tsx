@@ -27,6 +27,7 @@ import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyButton } from "../components/CopyButton";
 import { FilterInput } from "../components/FilterInput";
+import { Modal } from "../components/Modal";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ModelReplyCard } from "../components/ModelReplyCard";
@@ -2359,35 +2360,8 @@ function ParamEditorModal({
 	onClose: () => void;
 }) {
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-			onClick={onClose}
-			onKeyDown={(e) => {
-				if (e.key === "Escape") onClose();
-			}}
-		>
-			<div
-				role="document"
-				className="ui-card p-4 w-full max-w-sm space-y-4"
-				onClick={(e) => e.stopPropagation()}
-				onKeyDown={(e) => e.stopPropagation()}
-			>
-				<div className="flex items-center justify-between">
-					<h3 className="text-sm font-semibold text-(--text-primary)">
-						{modelId}
-					</h3>
-					<button
-						type="button"
-						onClick={onClose}
-						className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
-						title="Close"
-					>
-						<X size={14} />
-					</button>
-				</div>
-
+		<Modal title={modelId} onClose={onClose} maxWidth="max-w-sm">
+			<div className="space-y-4">
 				<div className="space-y-3">
 					<ParamSlider
 						label="Temperature"
@@ -2477,7 +2451,7 @@ function ParamEditorModal({
 					</button>
 				</div>
 			</div>
-		</div>
+		</Modal>
 	);
 }
 
@@ -2612,104 +2586,88 @@ function WinnerSummaryModal({
 	onClose,
 }: WinnerSummaryModalProps) {
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			className="fixed inset-0 flex items-center justify-center z-60"
-		>
-			<button
-				type="button"
-				className="absolute inset-0 bg-black/60 cursor-default"
-				onClick={onClose}
-				aria-label="Close dialog"
-			/>
-			<div className="relative ui-card p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
-				<button
-					type="button"
-					onClick={onClose}
-					className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
-					aria-label="Close"
-				>
-					<X size={20} />
-				</button>
-
-				<div className="flex items-center gap-3 mb-4">
+		<Modal
+			header={
+				<div className="flex items-center gap-3 mb-0">
 					<Trophy size={28} className="text-amber-400" />
 					<h2 className="text-xl font-bold text-white">Match Complete</h2>
 				</div>
-
-				<div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
-					<Trophy size={18} className="text-amber-400" />
-					<span className="text-sm font-bold text-amber-300">
-						{winner.split("/").pop()}
-					</span>
-					<span className="text-sm text-amber-400/70">wins!</span>
-				</div>
-
-				<div className="space-y-3">
-					{rounds.map((round, roundIdx) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: round index is the stable identifier in summary
-						<div key={`winner-round-${roundIdx}`}>
-							<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-1">
-								{rounds.length === 1
-									? "Match"
-									: roundIdx === rounds.length - 1
-										? "Final"
-										: roundIdx === rounds.length - 2
-											? "Semifinals"
-											: roundIdx === rounds.length - 3
-												? "Quarterfinals"
-												: `Round ${roundIdx + 1}`}
-							</div>
-							{round.matchups.map((mu, mi) => (
-								<div // biome-ignore lint/suspicious/noArrayIndexKey: match position is the stable identifier in the summary
-									key={`winner-match-${roundIdx}-${mi}`}
-									className="flex items-center gap-2 text-sm"
-								>
-									<span
-										className={
-											mu.vote === "A"
-												? "text-green-400 font-medium"
-												: "text-(--text-secondary)"
-										}
-									>
-										{mu.slotA?.modelId.split("/").pop() ?? "TBD"}
-									</span>
-									<span className="text-(--text-tertiary)">vs</span>
-									<span
-										className={
-											mu.vote === "B"
-												? "text-green-400 font-medium"
-												: "text-(--text-secondary)"
-										}
-									>
-										{mu.slotB?.modelId.split("/").pop() ?? "TBD"}
-									</span>
-									{mu.vote && (
-										<span className="text-xs text-(--accent)">
-											←{" "}
-											{(mu.vote === "A" ? mu.slotA : mu.slotB)?.modelId
-												.split("/")
-												.pop()}{" "}
-											wins
-										</span>
-									)}
-								</div>
-							))}
-						</div>
-					))}
-				</div>
-
-				<div className="flex justify-end mt-4">
-					<button
-						type="button"
-						onClick={onClose}
-						className="ui-btn ui-btn-primary"
-					>
-						Close
-					</button>
-				</div>
+			}
+			onClose={onClose}
+			maxWidth="max-w-lg"
+			scrollable
+		>
+			<div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+				<Trophy size={18} className="text-amber-400" />
+				<span className="text-sm font-bold text-amber-300">
+					{winner.split("/").pop()}
+				</span>
+				<span className="text-sm text-amber-400/70">wins!</span>
 			</div>
-		</div>
+
+			<div className="space-y-3">
+				{rounds.map((round, roundIdx) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: round index is the stable identifier in summary
+					<div key={`winner-round-${roundIdx}`}>
+						<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-1">
+							{rounds.length === 1
+								? "Match"
+								: roundIdx === rounds.length - 1
+									? "Final"
+									: roundIdx === rounds.length - 2
+										? "Semifinals"
+										: roundIdx === rounds.length - 3
+											? "Quarterfinals"
+											: `Round ${roundIdx + 1}`}
+						</div>
+						{round.matchups.map((mu, mi) => (
+							<div // biome-ignore lint/suspicious/noArrayIndexKey: match position is the stable identifier in the summary
+								key={`winner-match-${roundIdx}-${mi}`}
+								className="flex items-center gap-2 text-sm"
+							>
+								<span
+									className={
+										mu.vote === "A"
+											? "text-green-400 font-medium"
+											: "text-(--text-secondary)"
+									}
+								>
+									{mu.slotA?.modelId.split("/").pop() ?? "TBD"}
+								</span>
+								<span className="text-(--text-tertiary)">vs</span>
+								<span
+									className={
+										mu.vote === "B"
+											? "text-green-400 font-medium"
+											: "text-(--text-secondary)"
+									}
+								>
+									{mu.slotB?.modelId.split("/").pop() ?? "TBD"}
+								</span>
+								{mu.vote && (
+									<span className="text-xs text-(--accent)">
+										←{" "}
+										{(mu.vote === "A" ? mu.slotA : mu.slotB)?.modelId
+											.split("/")
+											.pop()}{" "}
+										wins
+									</span>
+								)}
+							</div>
+						))}
+					</div>
+				))}
+			</div>
+
+			<div className="flex justify-end mt-4">
+				<button
+					type="button"
+					onClick={onClose}
+					className="ui-btn ui-btn-primary"
+				>
+					Close
+				</button>
+			</div>
+		</Modal>
 	);
 }

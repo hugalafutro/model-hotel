@@ -24,6 +24,7 @@ import {
 } from "../components/DataTable";
 import { FilterInput } from "../components/FilterInput";
 import { LogDetailModal } from "../components/LogDetailModal";
+import { Modal } from "../components/Modal";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { AppLogs } from "./AppLogs";
@@ -236,60 +237,43 @@ function OverheadModal({
 		breakdown.provider_lookup_ms +
 		breakdown.key_decrypt_ms;
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-			role="dialog"
-			aria-modal="true"
+		<Modal
+			title="Proxy Overhead Breakdown"
+			onClose={onClose}
+			maxWidth="max-w-sm"
 		>
-			<div
-				className="ui-card relative p-5 min-w-[320px] shadow-2xl"
-				role="document"
-			>
-				<div className="flex justify-between items-center mb-4">
-					<h3 className="text-lg font-semibold text-white">
-						Proxy Overhead Breakdown
-					</h3>
-					<button
-						type="button"
-						onClick={onClose}
-						className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all cursor-default leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
-					>
-						<X size={20} />
-					</button>
+			<div className="space-y-2">
+				<div className="flex justify-between text-sm">
+					<span className="text-gray-400">Request parsing</span>
+					<span className="text-gray-200 font-mono">
+						{formatMs(breakdown.parse_ms)}
+					</span>
 				</div>
-				<div className="space-y-2">
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Request parsing</span>
-						<span className="text-gray-200 font-mono">
-							{formatMs(breakdown.parse_ms)}
-						</span>
-					</div>
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Model/failover lookup</span>
-						<span className="text-gray-200 font-mono">
-							{formatMs(breakdown.model_lookup_ms)}
-						</span>
-					</div>
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Provider lookup</span>
-						<span className="text-gray-200 font-mono">
-							{formatMs(breakdown.provider_lookup_ms)}
-						</span>
-					</div>
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Key decryption</span>
-						<span className="text-gray-200 font-mono">
-							{formatMs(breakdown.key_decrypt_ms)}
-						</span>
-					</div>
-					<div className="border-t border-gray-700 my-2" />
-					<div className="flex justify-between text-sm font-semibold">
-						<span className="text-gray-300">Total overhead</span>
-						<span className="text-(--accent) font-mono">{formatMs(total)}</span>
-					</div>
+				<div className="flex justify-between text-sm">
+					<span className="text-gray-400">Model/failover lookup</span>
+					<span className="text-gray-200 font-mono">
+						{formatMs(breakdown.model_lookup_ms)}
+					</span>
+				</div>
+				<div className="flex justify-between text-sm">
+					<span className="text-gray-400">Provider lookup</span>
+					<span className="text-gray-200 font-mono">
+						{formatMs(breakdown.provider_lookup_ms)}
+					</span>
+				</div>
+				<div className="flex justify-between text-sm">
+					<span className="text-gray-400">Key decryption</span>
+					<span className="text-gray-200 font-mono">
+						{formatMs(breakdown.key_decrypt_ms)}
+					</span>
+				</div>
+				<div className="border-t border-gray-700 my-2" />
+				<div className="flex justify-between text-sm font-semibold">
+					<span className="text-gray-300">Total overhead</span>
+					<span className="text-(--accent) font-mono">{formatMs(total)}</span>
 				</div>
 			</div>
-		</div>
+		</Modal>
 	);
 }
 

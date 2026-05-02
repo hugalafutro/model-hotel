@@ -9,6 +9,7 @@ import { useState } from "react";
 import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
 import { CAP_META } from "./capMeta";
+import { Modal } from "./Modal";
 
 function ParamSlider({
 	label,
@@ -412,25 +413,12 @@ export function ModelDetailModal({
 	collapsible = false,
 }: ModelDetailModalProps) {
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			className="fixed inset-0 flex items-center justify-center z-60"
-			onClick={(e) => {
-				if (e.target === e.currentTarget) onClose();
-			}}
-			onKeyDown={(e) => {
-				if (e.key === "Escape") onClose();
-			}}
-		>
-			<div className="absolute inset-0 bg-black/50" />
-			<div className="relative w-full max-w-sm max-h-[80vh] mx-4">
-				<ModelDetailPanel
-					model={model}
-					onClose={onClose}
-					collapsible={collapsible}
-				/>
-			</div>
-		</div>
+		<Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-60" scrollable>
+			<ModelDetailPanel
+				model={model}
+				onClose={onClose}
+				collapsible={collapsible}
+			/>
+		</Modal>
 	);
 }
