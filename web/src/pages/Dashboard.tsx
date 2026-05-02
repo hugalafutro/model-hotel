@@ -322,11 +322,14 @@ function TimeSeriesChart({
 	if (data.length === 0) {
 		return (
 			<div className="ui-card p-6">
-				<h3 className="text-lg font-semibold text-(--text-primary) mb-4 flex items-center gap-2">
-					<Icon size={18} style={{ color }} />
-					{metric} / Hour
-					{loading && <Spinner className="ml-1" />}
-				</h3>
+				<div className="flex items-center justify-between mb-4">
+					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+						<Icon size={18} style={{ color }} />
+						{metric} / {range === "7d" ? "Day" : "Hour"}
+						{loading && <Spinner className="ml-1" />}
+					</h3>
+					{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
+				</div>
 				<p className="text-sm text-(--text-muted) text-center py-12">
 					No time-series data yet. {metric} will appear here once traffic flows.
 				</p>
@@ -457,7 +460,8 @@ function ProviderDoughnut({
 			</div>
 			{items.length === 0 ? (
 				<p className="text-sm text-(--text-muted) text-center py-12">
-					No provider data
+					No provider data yet. Provider breakdown will appear here once traffic
+					flows.
 				</p>
 			) : (
 				<div className="flex items-center gap-6">
@@ -668,7 +672,8 @@ function UsageBarPanel({
 			</div>
 			{entries.length === 0 ? (
 				<p className="text-sm text-(--text-muted) text-center py-8">
-					No usage data available
+					No usage data yet. Usage breakdown will appear here once traffic
+					flows.
 				</p>
 			) : (
 				<div className="space-y-3.5">
@@ -917,9 +922,32 @@ function Gauge({
    DASHBOARD
    ===================================================== */
 export function Dashboard() {
-	const [globalRange, setGlobalRange] = useState<Range>("24h");
-	const [globalMetric, setGlobalMetric] = useState<MetricType>("tokens");
+	const [globalRange, setGlobalRange] = useState<Range>(() => {
+		try {
+			const v = localStorage.getItem("dashboardRange");
+			if (v === "1h" || v === "24h" || v === "7d") return v;
+		} catch {
+			/* ignore */
+		}
+		return "24h";
+	});
+	const [globalMetric, setGlobalMetric] = useState<MetricType>(() => {
+		try {
+			const v = localStorage.getItem("dashboardMetric");
+			if (v === "tokens" || v === "requests") return v;
+		} catch {
+			/* ignore */
+		}
+		return "tokens";
+	});
 	const [excludeDeleted, setExcludeDeleted] = useState(false);
+
+	useEffect(() => {
+		localStorage.setItem("dashboardRange", globalRange);
+	}, [globalRange]);
+	useEffect(() => {
+		localStorage.setItem("dashboardMetric", globalMetric);
+	}, [globalMetric]);
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);
 	const [errorModalOpen, setErrorModalOpen] = useState(false);
 	const [latencyModalOpen, setLatencyModalOpen] = useState(false);
@@ -1482,31 +1510,61 @@ export function Dashboard() {
 				/>
 			</div>
 
-			{/* Time-series charts row */}
+			{/* Time-series charts row — selected metric renders first */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<TimeSeriesChart
-					data={acData}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
-					metric="Requests"
-					icon={Activity}
-					color={accents.requests}
-					label="Requests"
-					dataKey="total"
-					loading={tsDataLoading}
-				/>
-				<TimeSeriesChart
-					data={tokenAcData}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
-					metric="Tokens"
-					icon={Zap}
-					color={accents.tokens}
-					label="Tokens"
-					dataKey="tokens"
-					allowDecimals
-					loading={tokenTsDataLoading}
-				/>
+				{globalMetric === "requests" ? (
+					<>
+						<TimeSeriesChart
+							data={acData}
+							range={globalRange}
+							onRangeChange={setGlobalRange}
+							metric="Requests"
+							icon={Activity}
+							color={accents.requests}
+							label="Requests"
+							dataKey="total"
+							loading={tsDataLoading}
+						/>
+						<TimeSeriesChart
+							data={tokenAcData}
+							range={globalRange}
+							onRangeChange={setGlobalRange}
+							metric="Tokens"
+							icon={Zap}
+							color={accents.tokens}
+							label="Tokens"
+							dataKey="tokens"
+							allowDecimals
+							loading={tokenTsDataLoading}
+						/>
+					</>
+				) : (
+					<>
+						<TimeSeriesChart
+							data={tokenAcData}
+							range={globalRange}
+							onRangeChange={setGlobalRange}
+							metric="Tokens"
+							icon={Zap}
+							color={accents.tokens}
+							label="Tokens"
+							dataKey="tokens"
+							allowDecimals
+							loading={tokenTsDataLoading}
+						/>
+						<TimeSeriesChart
+							data={acData}
+							range={globalRange}
+							onRangeChange={setGlobalRange}
+							metric="Requests"
+							icon={Activity}
+							color={accents.requests}
+							label="Requests"
+							dataKey="total"
+							loading={tsDataLoading}
+						/>
+					</>
+				)}
 			</div>
 
 			{/* Charts row: doughnut + token split */}
