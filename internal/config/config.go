@@ -98,9 +98,11 @@ func (c *Config) String() string {
 		maskedURL = "***"
 	} else {
 		if u.User != nil {
-			u.User = url.UserPassword(u.User.Username(), "***")
+			u.User = nil
+			maskedURL = fmt.Sprintf("%s://***@%s%s", u.Scheme, u.Host, u.Path)
+		} else {
+			maskedURL = u.String()
 		}
-		maskedURL = u.String()
 	}
 
 	// Build label-value rows
@@ -133,22 +135,30 @@ func (c *Config) String() string {
 	// Add CORS origins with truncation for long lists
 	rows = append(rows, row{"CORS Origins", formatCORSOrigins(c.CORSOrigins, maxValW)})
 
-	// Build content lines
+	// Build content lines, truncating values that exceed maxValW
 	contentLines := []string{
 		indent + "Starting Model Hotel",
 		"",
 	}
 	for _, r := range rows {
-		contentLines = append(contentLines, indent+padRight(r.label, labelW)+gap+r.value)
+		val := r.value
+		if len(val) > maxValW {
+			val = val[:maxValW-3] + "..."
+		}
+		contentLines = append(contentLines, indent+padRight(r.label, labelW)+gap+val)
 	}
 	contentLines = append(contentLines, "")
 
-	// Calculate content width
+	// Calculate content width, capped at maxFrameW
 	contentW := 0
 	for _, l := range contentLines {
 		if len(l) > contentW {
 			contentW = len(l)
 		}
+	}
+	contentW++ // ensure at least 1 space of right margin
+	if contentW > maxFrameW {
+		contentW = maxFrameW
 	}
 
 	// Build double-line frame
