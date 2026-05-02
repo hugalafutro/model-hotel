@@ -293,26 +293,23 @@ export function ModelPicker({
 						)}
 						<button
 							type="button"
-							onClick={collapseAll}
-							disabled={
-								collapsedProviders.size === groupedModels.size ||
-								groupedModels.size === 0
+							onClick={
+								collapsedProviders.size === groupedModels.size
+									? expandAll
+									: collapseAll
 							}
-							title="Collapse all providers"
-							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center disabled:opacity-30 disabled:cursor-not-allowed"
-						>
-							<ChevronsDownUp size={13} />
-						</button>
-						<button
-							type="button"
-							onClick={expandAll}
-							disabled={
-								collapsedProviders.size === 0 || groupedModels.size === 0
+							title={
+								collapsedProviders.size === groupedModels.size
+									? "Expand all providers"
+									: "Collapse all providers"
 							}
-							title="Expand all providers"
-							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center disabled:opacity-30 disabled:cursor-not-allowed"
+							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 						>
-							<ChevronsUpDown size={13} />
+							{collapsedProviders.size === groupedModels.size ? (
+								<ChevronsUpDown size={13} />
+							) : (
+								<ChevronsDownUp size={13} />
+							)}
 						</button>
 					</div>
 				)}
