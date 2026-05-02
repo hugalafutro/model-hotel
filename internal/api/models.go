@@ -126,6 +126,32 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate field bounds
+	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateIntPtrRange("context_length", req.ContextLength, 256, 2000000); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateIntPtrRange("max_output_tokens", req.MaxOutputTokens, 1, 128000); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateFloatPtrRange("input_price_per_million", req.InputPricePerMillion, 0, 1000); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateFloatPtrRange("output_price_per_million", req.OutputPricePerMillion, 0, 1000); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	m, err := modelRepo.Update(r.Context(), id, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

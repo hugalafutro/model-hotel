@@ -316,6 +316,32 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate field lengths
+	if req.Name != nil {
+		trimmed := trimString(*req.Name)
+		req.Name = &trimmed
+		if err := validateStringPtrLength("name", req.Name, 1, 100); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if req.BaseURL != nil {
+		trimmed := trimString(*req.BaseURL)
+		req.BaseURL = &trimmed
+		if err := validateStringPtrLength("base_url", req.BaseURL, 1, 500); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if req.APIKey != nil {
+		if len(*req.APIKey) > 500 {
+			http.Error(w, "api_key must be at most 500 characters", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Application-level duplicate name check when renaming
 	if req.Name != nil {
 		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)

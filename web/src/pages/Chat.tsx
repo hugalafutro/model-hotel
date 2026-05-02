@@ -1635,7 +1635,7 @@ export function Chat() {
 								}
 								disabled={!selectedModel || isStreaming}
 								rows={1}
-								maxLength={10000}
+								maxLength={32000}
 								className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
 								style={{ height: "auto" }}
 							/>

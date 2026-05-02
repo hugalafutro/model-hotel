@@ -309,6 +309,7 @@ function CreateGroupModal({
 						id="display-model"
 						type="text"
 						required
+						maxLength={128}
 						value={displayModel}
 						onChange={(e) => setDisplayModel(e.target.value)}
 						className="ui-input"
@@ -329,6 +330,7 @@ function CreateGroupModal({
 					<input
 						id="display-name"
 						type="text"
+						maxLength={128}
 						value={displayName}
 						onChange={(e) => setDisplayName(e.target.value)}
 						className="ui-input"

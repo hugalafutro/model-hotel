@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -27,11 +29,78 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// allowedSettings defines which keys can be set and their validation rules.
+var allowedSettings = map[string]struct {
+	typeName string // "string", "int", "float"
+	min      float64
+	max      float64
+}{
+	"rate_limit_enabled":    {typeName: "string"}, // bool as string
+	"rate_limit_rps":        {typeName: "float", min: 0, max: 10000},
+	"rate_limit_burst":      {typeName: "int", min: 1, max: 10000},
+	"discovery_interval":    {typeName: "string"}, // predefined option
+	"dashboard_refresh":     {typeName: "string"}, // predefined option
+	"quota_refresh":         {typeName: "string"}, // predefined option
+	"history_limit":         {typeName: "string"}, // predefined option
+	"log_retention":         {typeName: "string"}, // predefined option
+	"stale_request_timeout": {typeName: "string"}, // predefined option
+	"toast_duration":        {typeName: "int", min: 1000, max: 15000},
+}
+
+const maxSettingValueLen = 500
+
 func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var req map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
+	}
+
+	if len(req) == 0 {
+		http.Error(w, "no settings provided", http.StatusBadRequest)
+		return
+	}
+
+	if len(req) > 50 {
+		http.Error(w, "too many settings in one request", http.StatusBadRequest)
+		return
+	}
+
+	// Validate all keys and values before writing
+	for key, value := range req {
+		rule, ok := allowedSettings[key]
+		if !ok {
+			http.Error(w, fmt.Sprintf("unknown setting: %s", key), http.StatusBadRequest)
+			return
+		}
+
+		if len(value) > maxSettingValueLen {
+			http.Error(w, fmt.Sprintf("value for %s too long (max %d characters)", key, maxSettingValueLen), http.StatusBadRequest)
+			return
+		}
+
+		switch rule.typeName {
+		case "int":
+			v, err := strconv.Atoi(value)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("%s must be a number", key), http.StatusBadRequest)
+				return
+			}
+			if float64(v) < rule.min || float64(v) > rule.max {
+				http.Error(w, fmt.Sprintf("%s must be between %d and %d", key, int(rule.min), int(rule.max)), http.StatusBadRequest)
+				return
+			}
+		case "float":
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("%s must be a number", key), http.StatusBadRequest)
+				return
+			}
+			if v < rule.min || v > rule.max {
+				http.Error(w, fmt.Sprintf("%s must be between %g and %g", key, rule.min, rule.max), http.StatusBadRequest)
+				return
+			}
+		}
 	}
 
 	tx, err := h.dbPool.Begin(r.Context())

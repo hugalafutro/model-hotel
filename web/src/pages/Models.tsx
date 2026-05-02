@@ -391,6 +391,7 @@ function ModelDetailModal({
 						<div className="flex items-center gap-1">
 							<input
 								type="text"
+								maxLength={128}
 								value={editData.display_name}
 								onChange={(e) =>
 									setEditData((prev) => ({
@@ -423,6 +424,8 @@ function ModelDetailModal({
 						<div className="flex items-center gap-1">
 							<input
 								type="number"
+								min={256}
+								max={2000000}
 								value={editData.context_length}
 								onChange={(e) =>
 									setEditData((prev) => ({
@@ -457,6 +460,8 @@ function ModelDetailModal({
 						<div className="flex items-center gap-1">
 							<input
 								type="number"
+								min={1}
+								max={128000}
 								value={editData.max_output_tokens}
 								onChange={(e) =>
 									setEditData((prev) => ({
@@ -493,6 +498,8 @@ function ModelDetailModal({
 								<input
 									type="number"
 									step="0.01"
+									min={0}
+									max={1000}
 									value={editData.input_price_per_million}
 									onChange={(e) =>
 										setEditData((prev) => ({
@@ -537,6 +544,8 @@ function ModelDetailModal({
 								<input
 									type="number"
 									step="0.01"
+									min={0}
+									max={1000}
 									value={editData.output_price_per_million}
 									onChange={(e) =>
 										setEditData((prev) => ({

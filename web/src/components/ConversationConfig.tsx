@@ -227,6 +227,7 @@ export function ConversationConfig({
 												style={{ height: "auto" }}
 												disabled={!selectedModel || !selectedModelB}
 												rows={1}
+												maxLength={8000}
 											/>
 										</div>
 										<button

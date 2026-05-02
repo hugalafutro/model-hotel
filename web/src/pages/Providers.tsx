@@ -134,6 +134,7 @@ function EditProviderModal({
 						<input
 							id="edit-provider-name"
 							type="text"
+							maxLength={100}
 							required
 							value={formData.name}
 							onChange={(e) =>
@@ -181,6 +182,7 @@ function EditProviderModal({
 							<input
 								id="edit-provider-api-key"
 								type={showApiKey ? "text" : "password"}
+								maxLength={500}
 								value={formData.api_key}
 								onChange={(e) =>
 									setFormData({
@@ -944,6 +946,7 @@ export function Providers() {
 								<input
 									id="provider-name"
 									type="text"
+									maxLength={100}
 									required
 									value={formData.name}
 									onChange={(e) =>
@@ -1000,6 +1003,7 @@ export function Providers() {
 									<input
 										id="provider-api-key"
 										type={showApiKey ? "text" : "password"}
+										maxLength={500}
 										required={
 											!providerTypeAllowsEmptyKey(formData.provider_type)
 										}

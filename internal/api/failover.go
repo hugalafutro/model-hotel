@@ -184,6 +184,21 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.DisplayModel) > 128 {
+		http.Error(w, "display_model must be at most 128 characters", http.StatusBadRequest)
+		return
+	}
+
+	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if len(req.EntryIDs) < 2 {
 		http.Error(w, "at least 2 entries required for failover group", http.StatusBadRequest)
 		return
@@ -251,6 +266,24 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "failover group not found", http.StatusNotFound)
 		return
+	}
+
+	// Validate field lengths
+	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.EntryEnabled != nil {
+		if err := validateMapSize("entry_enabled", req.EntryEnabled, 100); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	priorityOrder := existing.PriorityOrder

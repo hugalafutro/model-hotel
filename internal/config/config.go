@@ -57,13 +57,13 @@ func Load() (*Config, error) {
 		AdminToken:           getEnv("ADMIN_TOKEN"),
 		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
-		RateLimitIPRPS:       getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30),
-		RateLimitIPBurst:     int(getIntEnvWithDefault("RATE_LIMIT_IP_BURST", 60)),
-		MaxRequestSize:       getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB
+		RateLimitIPRPS:       clampFloat(getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30), 0, 10000),
+		RateLimitIPBurst:     int(clampInt64(getIntEnvWithDefault("RATE_LIMIT_IP_BURST", 60), 1, 10000)),
+		MaxRequestSize:       clampInt64(getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), 1024, 100*1024*1024), // 1KB–100MB
 		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
-		DBMaxConns: int32(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25)),
-		DBMinConns: int32(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5)),
+		DBMaxConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25), 1, 1000)),
+		DBMinConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -103,10 +103,111 @@ func (c *Config) String() string {
 		maskedURL = u.String()
 	}
 
-	return fmt.Sprintf(
-		"Port: %s\nDatabaseURL: %s\nMasterKey: %s\nDataDir: %s\nAdminToken: %s\nAllowHTTPProviders: %t\nRateLimitEnabled: %t\nMaxRequestSize: %d\nCORSOrigins: %v",
-		c.Port, maskedURL, maskedKey, c.DataDir, adminTokenDisplay, c.AllowHTTPProviders, c.RateLimitEnabled, c.MaxRequestSize, c.CORSOrigins,
+	// Build label-value rows
+	type row struct{ label, value string }
+	rows := []row{
+		{"Port", c.Port},
+		{"Database URL", maskedURL},
+		{"Master Key", maskedKey},
+		{"Data Dir", c.DataDir},
+		{"Admin Token", adminTokenDisplay},
+		{"HTTP Providers", fmt.Sprintf("%t", c.AllowHTTPProviders)},
+		{"Rate Limiting", fmt.Sprintf("%t", c.RateLimitEnabled)},
+		{"Max Request Size", formatBytes(c.MaxRequestSize)},
+	}
+
+	// Calculate label column width
+	labelW := 0
+	for _, r := range rows {
+		if len(r.label) > labelW {
+			labelW = len(r.label)
+		}
+	}
+
+	// Max value width that fits within a reasonable frame
+	const maxFrameW = 80
+	const indent = "   "
+	const gap = "  "
+	maxValW := maxFrameW - len(indent) - labelW - len(gap)
+
+	// Add CORS origins with truncation for long lists
+	rows = append(rows, row{"CORS Origins", formatCORSOrigins(c.CORSOrigins, maxValW)})
+
+	// Build content lines
+	contentLines := []string{
+		indent + "Starting Model Hotel",
+		"",
+	}
+	for _, r := range rows {
+		contentLines = append(contentLines, indent+padRight(r.label, labelW)+gap+r.value)
+	}
+	contentLines = append(contentLines, "")
+
+	// Calculate content width
+	contentW := 0
+	for _, l := range contentLines {
+		if len(l) > contentW {
+			contentW = len(l)
+		}
+	}
+
+	// Build double-line frame
+	var sb strings.Builder
+	border := strings.Repeat("═", contentW)
+	sb.WriteString("╔" + border + "╗\n")
+	for _, l := range contentLines {
+		sb.WriteString("║" + padRight(l, contentW) + "║\n")
+	}
+	sb.WriteString("╚" + border + "╝")
+
+	return sb.String()
+}
+
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
+}
+
+func formatBytes(b int64) string {
+	const (
+		KB int64 = 1024
+		MB int64 = KB * 1024
+		GB int64 = MB * 1024
 	)
+	switch {
+	case b >= GB:
+		return fmt.Sprintf("%d GB", b/GB)
+	case b >= MB:
+		return fmt.Sprintf("%d MB", b/MB)
+	case b >= KB:
+		return fmt.Sprintf("%d KB", b/KB)
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
+}
+
+func formatCORSOrigins(origins []string, maxLen int) string {
+	if len(origins) == 0 {
+		return "(none)"
+	}
+
+	all := strings.Join(origins, ", ")
+	if len(all) <= maxLen {
+		return all
+	}
+
+	// Show as many as fit with "... and N more" suffix
+	for keep := len(origins) - 1; keep >= 1; keep-- {
+		partial := strings.Join(origins[:keep], ", ")
+		suffix := fmt.Sprintf(", ... and %d more", len(origins)-keep)
+		if len(partial)+len(suffix) <= maxLen {
+			return partial + suffix
+		}
+	}
+
+	return fmt.Sprintf("%d origins configured", len(origins))
 }
 
 // ValidateProviderURL checks that a provider base_url is not a loopback address
@@ -218,4 +319,24 @@ func parseCORSOrigins(value string) []string {
 
 func parseProviderHosts(value string) []string {
 	return util.SplitAndTrim(value)
+}
+
+func clampInt64(value, min, max int64) int64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}
+
+func clampFloat(value, min, max float64) float64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }

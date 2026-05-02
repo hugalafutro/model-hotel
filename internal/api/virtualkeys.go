@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -54,8 +55,14 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Name) > 100 {
+		http.Error(w, "name must be at most 100 characters", http.StatusBadRequest)
 		return
 	}
 

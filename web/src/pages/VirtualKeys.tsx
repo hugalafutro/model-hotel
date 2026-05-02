@@ -98,6 +98,7 @@ function CreateKeyModal({
 							id="vk-name"
 							type="text"
 							required
+							maxLength={100}
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							className="ui-input"
