@@ -1150,196 +1150,145 @@ export function Settings() {
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dataStorageCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
-							<div className="space-y-5">
+							<div className="space-y-4">
 								<p className="text-gray-400 text-sm">
-									Persist session data in your browser. When enabled, your
-									conversations and arena state survive page reloads. When
-									disabled, all session data is lost on navigation.
+									Manage browser-local session data. Persisted data survives
+									page reloads and browser restarts.
 								</p>
-								<div className="flex items-center justify-between">
-									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Persist Chat
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											Remember chat messages, prompt, and persona across
-											sessions
-										</p>
-									</div>
-									<button
-										type="button"
-										onClick={() => {
-											const next = !persistChat;
-											if (
-												!next &&
-												!confirm(
-													"This will clear all saved chat messages. Continue?",
+
+								{/* Session Persistence */}
+								<div className="space-y-3">
+									<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+										Session Persistence
+									</h3>
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Persist Chat
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												Remember messages, prompt, and persona across sessions
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												const next = !persistChat;
+												if (
+													!next &&
+													!confirm(
+														"This will clear all saved chat messages. Continue?",
+													)
 												)
-											)
-												return;
-											setPersistChat(next);
-											toast(
-												next ? "Chat persistence enabled" : "Chat data cleared",
-												next ? "success" : "info",
-											);
-										}}
-										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-											persistChat ? "bg-(--accent)" : "bg-gray-600"
-										}`}
-									>
-										<span
-											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-												persistChat ? "translate-x-6" : "translate-x-1"
+													return;
+												setPersistChat(next);
+												toast(
+													next
+														? "Chat persistence enabled"
+														: "Chat data cleared",
+													next ? "success" : "info",
+												);
+											}}
+											className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+												persistChat ? "bg-(--accent)" : "bg-gray-600"
 											}`}
-										/>
-									</button>
-								</div>
-
-								<div className="flex items-center justify-between">
-									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Persist Arena
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											Remember arena bracket state and prompts across sessions
-										</p>
+										>
+											<span
+												className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+													persistChat ? "translate-x-6" : "translate-x-1"
+												}`}
+											/>
+										</button>
 									</div>
-									<button
-										type="button"
-										onClick={() => {
-											const next = !persistArena;
-											if (
-												!next &&
-												!confirm(
-													"This will clear all saved arena data. Continue?",
+
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Persist Arena
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												Remember bracket state and prompts across sessions
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												const next = !persistArena;
+												if (
+													!next &&
+													!confirm(
+														"This will clear all saved arena data. Continue?",
+													)
 												)
-											)
-												return;
-											setPersistArena(next);
-											toast(
-												next
-													? "Arena persistence enabled"
-													: "Arena data cleared",
-												next ? "success" : "info",
-											);
-										}}
-										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-											persistArena ? "bg-(--accent)" : "bg-gray-600"
-										}`}
-									>
-										<span
-											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-												persistArena ? "translate-x-6" : "translate-x-1"
+													return;
+												setPersistArena(next);
+												toast(
+													next
+														? "Arena persistence enabled"
+														: "Arena data cleared",
+													next ? "success" : "info",
+												);
+											}}
+											className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+												persistArena ? "bg-(--accent)" : "bg-gray-600"
 											}`}
-										/>
-									</button>
-								</div>
-
-								<div className="flex items-center justify-between">
-									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Persist AI Conversation
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											Remember AI conversation state and settings across
-											sessions
-										</p>
+										>
+											<span
+												className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+													persistArena ? "translate-x-6" : "translate-x-1"
+												}`}
+											/>
+										</button>
 									</div>
-									<button
-										type="button"
-										onClick={() => {
-											const next = !persistConversation;
-											if (
-												!next &&
-												!confirm(
-													"This will clear all saved conversation data. Continue?",
+
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Persist AI Conversation
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												Remember conversation state and settings across sessions
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												const next = !persistConversation;
+												if (
+													!next &&
+													!confirm(
+														"This will clear all saved conversation data. Continue?",
+													)
 												)
-											)
-												return;
-											setPersistConversation(next);
-											toast(
-												next
-													? "Conversation persistence enabled"
-													: "Conversation data cleared",
-												next ? "success" : "info",
-											);
-										}}
-										className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-											persistConversation ? "bg-(--accent)" : "bg-gray-600"
-										}`}
-									>
-										<span
-											className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-												persistConversation ? "translate-x-6" : "translate-x-1"
+													return;
+												setPersistConversation(next);
+												toast(
+													next
+														? "Conversation persistence enabled"
+														: "Conversation data cleared",
+													next ? "success" : "info",
+												);
+											}}
+											className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+												persistConversation ? "bg-(--accent)" : "bg-gray-600"
 											}`}
-										/>
-									</button>
-								</div>
-
-								{/* Provider quota cache */}
-								<div className="flex items-center justify-between pt-4 border-t border-gray-700">
-									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Provider Quota Cache
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											{getProviderCacheCount()} cached entr
-											{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT,
-											Z.ai Coding Plan, DeepSeek)
-										</p>
+										>
+											<span
+												className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+													persistConversation
+														? "translate-x-6"
+														: "translate-x-1"
+												}`}
+											/>
+										</button>
 									</div>
-									<button
-										type="button"
-										onClick={() => {
-											if (
-												confirm(
-													"Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
-												)
-											) {
-												clearProviderCache();
-												toast("Provider cache cleared", "info");
-											}
-										}}
-										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-										disabled={getProviderCacheCount() === 0}
-									>
-										Clear Cache
-									</button>
 								</div>
 
-								{/* Dismissed error banners */}
-								<div className="flex items-center justify-between pt-4 border-t border-gray-700">
-									<div>
-										<p className="text-sm font-medium text-gray-300">
-											Dismissed Error Banners
-										</p>
-										<p className="text-gray-500 text-xs mt-0.5">
-											Reset dismissed sidebar error pill states
-										</p>
-									</div>
-									<button
-										type="button"
-										onClick={() => {
-											localStorage.removeItem("dismissedAppErrorKey");
-											localStorage.removeItem("dismissedReqErrorKey");
-											window.dispatchEvent(
-												new CustomEvent("dismissedErrorsReset"),
-											);
-											toast("Dismissed error banners reset", "info");
-										}}
-										className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-									>
-										Reset
-									</button>
-								</div>
-							</div>
-
-							{/* Arena History */}
-							<div className="pt-4 border-t border-gray-700">
-								<h3 className="text-sm font-semibold text-white mb-3">
-									Arena History
-								</h3>
-								<div className="space-y-5">
+								{/* Arena History */}
+								<div className="space-y-3">
+									<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+										Arena History
+									</h3>
 									<div className="flex items-center justify-between">
 										<div>
 											<p className="text-sm font-medium text-gray-300">
@@ -1430,6 +1379,67 @@ export function Settings() {
 											disabled={getArenaHistoryCount() === 0}
 										>
 											Clear All
+										</button>
+									</div>
+								</div>
+
+								{/* Cache & Resets */}
+								<div className="space-y-3">
+									<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+										Cache &amp; Resets
+									</h3>
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Provider Quota Cache
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												{getProviderCacheCount()} cached entr
+												{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT,
+												Z.ai Coding Plan, DeepSeek)
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												if (
+													confirm(
+														"Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
+													)
+												) {
+													clearProviderCache();
+													toast("Provider cache cleared", "info");
+												}
+											}}
+											className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+											disabled={getProviderCacheCount() === 0}
+										>
+											Clear Cache
+										</button>
+									</div>
+
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="text-sm font-medium text-gray-300">
+												Dismissed Error Banners
+											</p>
+											<p className="text-gray-500 text-xs mt-0.5">
+												Reset dismissed sidebar error pill states
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												localStorage.removeItem("dismissedAppErrorKey");
+												localStorage.removeItem("dismissedReqErrorKey");
+												window.dispatchEvent(
+													new CustomEvent("dismissedErrorsReset"),
+												);
+												toast("Dismissed error banners reset", "info");
+											}}
+											className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+										>
+											Reset
 										</button>
 									</div>
 								</div>
