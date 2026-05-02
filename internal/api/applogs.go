@@ -159,9 +159,11 @@ func (rb *ringBuffer) Write(p []byte) (n int, err error) {
 		}
 		stripped := stripLogTimestamp(line)
 		source, msg := extractSource(stripped)
+		level := detectLevel(msg)
+		msg = stripLevelPrefix(msg)
 		entry := AppLogEntry{
 			Timestamp: now.Format(time.RFC3339Nano),
-			Level:     detectLevel(msg),
+			Level:     level,
 			Source:    source,
 			Message:   msg,
 		}
@@ -218,6 +220,25 @@ func detectLevel(line string) string {
 		return "warning"
 	}
 	return "info"
+}
+
+// stripLevelPrefix removes a leading level indicator (e.g. "INFO ", "WARN ",
+// "ERROR") from a log message so the UI table doesn't show a redundant level
+// string — the level is stored separately in the AppLogEntry.Level field.
+func stripLevelPrefix(msg string) string {
+	after, ok := strings.CutPrefix(msg, "INFO  ")
+	if ok {
+		return after
+	}
+	after, ok = strings.CutPrefix(msg, "WARN  ")
+	if ok {
+		return after
+	}
+	after, ok = strings.CutPrefix(msg, "ERROR ")
+	if ok {
+		return after
+	}
+	return msg
 }
 
 // GetEntries returns all buffered entries in chronological order (oldest first).
