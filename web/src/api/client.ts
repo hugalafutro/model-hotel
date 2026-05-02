@@ -383,12 +383,16 @@ export const api = {
 			total: number;
 			page: number;
 			per_page: number;
+			level_counts?: Record<string, number>;
+			source_counts?: Record<string, number>;
 		}> => {
 			return fetchJSON<{
 				entries: AppLogEntry[];
 				total: number;
 				page: number;
 				per_page: number;
+				level_counts?: Record<string, number>;
+				source_counts?: Record<string, number>;
 			}>(
 				buildUrl("/api/logs/app", {
 					history: "true",

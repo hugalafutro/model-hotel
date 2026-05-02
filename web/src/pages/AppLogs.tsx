@@ -77,13 +77,6 @@ export function AppLogs() {
 		placeholderData: keepPreviousData,
 	});
 
-	const { data: ringBufferData = [] } = useQuery({
-		queryKey: ["appLogs"],
-		queryFn: () => api.appLogs.list({ limit: 500 }),
-		refetchInterval: false,
-		staleTime: 30_000,
-	});
-
 	const entries = useMemo(
 		() => historyData?.entries ?? [],
 		[historyData?.entries],
@@ -91,28 +84,28 @@ export function AppLogs() {
 	const totalItems = historyData?.total ?? 0;
 
 	const levelCounts = useMemo(() => {
-		const counts = { info: 0, warning: 0, error: 0 };
-		for (const e of ringBufferData) {
-			if (e.level in counts) counts[e.level as keyof typeof counts]++;
+		const serverCounts = historyData?.level_counts;
+		if (serverCounts) {
+			return {
+				info: serverCounts.info ?? 0,
+				warning: serverCounts.warning ?? 0,
+				error: serverCounts.error ?? 0,
+			};
 		}
-		return counts;
-	}, [ringBufferData]);
+		return { info: 0, warning: 0, error: 0 };
+	}, [historyData?.level_counts]);
 
 	const sources = useMemo(() => {
-		const set = new Set<string>();
-		for (const e of ringBufferData) {
-			if (e.source) set.add(e.source);
+		const serverCounts = historyData?.source_counts;
+		if (serverCounts) {
+			return Object.keys(serverCounts).sort();
 		}
-		return Array.from(set).sort();
-	}, [ringBufferData]);
+		return [] as string[];
+	}, [historyData?.source_counts]);
 
 	const sourceCounts = useMemo(() => {
-		const counts: Record<string, number> = {};
-		for (const e of ringBufferData) {
-			if (e.source) counts[e.source] = (counts[e.source] || 0) + 1;
-		}
-		return counts;
-	}, [ringBufferData]);
+		return historyData?.source_counts ?? {};
+	}, [historyData?.source_counts]);
 
 	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 	const safePage = Math.min(page, totalPages);

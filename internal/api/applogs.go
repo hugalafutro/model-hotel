@@ -27,6 +27,18 @@ type AppLogEntry struct {
 
 const appLogBufferSize = 500
 
+// appLogCountCache caches unfiltered level/source counts with a short TTL.
+// Pill badge counts don't need to be real-time — a few seconds of staleness is fine.
+var (
+	appLogCountCache struct {
+		sync.RWMutex
+		levelCounts  map[string]int
+		sourceCounts map[string]int
+		fetchedAt    time.Time
+	}
+	appLogCountCacheTTL = 5 * time.Second
+)
+
 // appLogBuffer is the global ring buffer that captures log output.
 var appLogBuffer *ringBuffer
 
@@ -279,10 +291,12 @@ func (h *Handler) RegisterAppLogs(r chi.Router) {
 
 // appLogsHistoryResponse is the JSON structure returned when history mode is active.
 type appLogsHistoryResponse struct {
-	Entries []AppLogEntry `json:"entries"`
-	Total   int           `json:"total"`
-	Page    int           `json:"page"`
-	PerPage int           `json:"per_page"`
+	Entries      []AppLogEntry        `json:"entries"`
+	Total        int                  `json:"total"`
+	Page         int                  `json:"page"`
+	PerPage      int                  `json:"per_page"`
+	LevelCounts  map[string]int       `json:"level_counts"`
+	SourceCounts map[string]int       `json:"source_counts"`
 }
 
 // GetAppLogs returns recent application log entries as a JSON array.
@@ -338,6 +352,57 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(entries); err != nil {
 		log.Printf("[applogs] error: failed to encode entries: %v", err)
 	}
+}
+
+// getAppLogCounts returns cached unfiltered level and source counts.
+// The cache refreshes every appLogCountCacheTTL to avoid running GROUP BY
+// queries on every paginated history request (which polls every 2s in live mode).
+func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[string]int) {
+	appLogCountCache.RLock()
+	if time.Since(appLogCountCache.fetchedAt) < appLogCountCacheTTL && appLogCountCache.levelCounts != nil {
+		lc := appLogCountCache.levelCounts
+		sc := appLogCountCache.sourceCounts
+		appLogCountCache.RUnlock()
+		return lc, sc
+	}
+	appLogCountCache.RUnlock()
+
+	if h.dbPool == nil {
+		return map[string]int{"info": 0, "warning": 0, "error": 0}, map[string]int{}
+	}
+
+	levelCounts := map[string]int{"info": 0, "warning": 0, "error": 0}
+	sourceCounts := map[string]int{}
+
+	// Single query combining both aggregations via UNION ALL.
+	const countsSQL = `
+		SELECT 'level' AS kind, level AS key, COUNT(*) FROM app_logs GROUP BY level
+		UNION ALL
+		SELECT 'source' AS kind, source AS key, COUNT(*) FROM app_logs GROUP BY source
+	`
+	rows, err := h.dbPool.Pool().Query(ctx, countsSQL)
+	if err == nil {
+		for rows.Next() {
+			var kind, key string
+			var cnt int
+			if rows.Scan(&kind, &key, &cnt) == nil {
+				if kind == "level" {
+					levelCounts[key] = cnt
+				} else {
+					sourceCounts[key] = cnt
+				}
+			}
+		}
+		rows.Close()
+	}
+
+	appLogCountCache.Lock()
+	appLogCountCache.levelCounts = levelCounts
+	appLogCountCache.sourceCounts = sourceCounts
+	appLogCountCache.fetchedAt = time.Now()
+	appLogCountCache.Unlock()
+
+	return levelCounts, sourceCounts
 }
 
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
@@ -426,13 +491,15 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	// Count total
+	// Retrieve cached level/source counts (refreshed every appLogCountCacheTTL).
+	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
+
+	// Count total (with filters applied)
 	countSQL := "SELECT COUNT(*) FROM app_logs" + whereClause
 	var total int
-	err := h.dbPool.Pool().QueryRow(ctx, countSQL, args...).Scan(&total)
-	if err != nil {
-		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); err != nil {
-			log.Printf("[applogs] error: failed to encode error response: %v", err)
+	if err := h.dbPool.Pool().QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); encErr != nil {
+			log.Printf("[applogs] error: failed to encode error response: %v", encErr)
 		}
 		return
 	}
@@ -467,10 +534,12 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{
-		Entries: entries,
-		Total:   total,
-		Page:    page,
-		PerPage: perPage,
+		Entries:      entries,
+		Total:        total,
+		Page:         page,
+		PerPage:      perPage,
+		LevelCounts:  levelCounts,
+		SourceCounts: sourceCounts,
 	}); err != nil {
 		log.Printf("[applogs] error: failed to encode history response: %v", err)
 	}
