@@ -106,6 +106,13 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			log.Printf("[resolve] skipping candidate: provider disabled, provider=%s model=%s", prov.Name, m.ModelID)
 			continue
 		}
+
+		// Circuit breaker: skip providers that are in the open state.
+		cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
+		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID) {
+			log.Printf("[resolve] skipping candidate: circuit breaker open, provider=%s model=%s", prov.Name, m.ModelID)
+			continue
+		}
 		// Keyless providers store nil encrypted key bytes — skip decryption.
 		var apiKey string
 		if len(prov.EncryptedKey) == 0 {

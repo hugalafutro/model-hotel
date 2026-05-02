@@ -51,6 +51,8 @@ Prefix any model with `hotel/` to route through a failover group — an ordered 
 
 Requests are sent to each provider in priority order. If a provider responds with a server error (5xx), an auth error (401/403), or a rate-limit error (429, configurable), the next provider in the list is tried. Failover does **not** trigger on slow responses or client errors (4xx other than 401/403/429).
 
+A per-provider **circuit breaker** prevents wasted requests to consistently failing providers. After 5 consecutive failures (connection errors, 5xx, 429, 401/403), the provider's circuit opens and it is skipped during candidate resolution. After a 60-second cooldown, the circuit transitions to half-open and allows a single probe request; if the probe succeeds, the circuit closes and normal traffic resumes. State transitions (open/closed) are published as SSE events for real-time dashboard visibility. The circuit breaker can be disabled entirely via the `circuit_breaker_enabled` setting.
+
 Failover groups are auto-generated when models are discovered, but only when **2 or more providers** expose the same base model. Groups with a single provider are automatically disabled. You can manually edit priorities, disable individual entries, or toggle entire groups on or off.
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
@@ -89,7 +91,7 @@ The dashboard includes a built-in **Chat** interface for testing models interact
 **Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups — vote for winners, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with per-slot personas and voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics. Past sessions are saved to an arena history modal for review and restoration.
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Real-Time Events & System Status](#-real-time-events--system-status)
-A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
+A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, circuit breaker state transitions, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
 
 ## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
 
@@ -169,6 +171,9 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `log_retention` | *(none)* | Log retention period |
 | `stale_request_timeout` | *(none)* | Timeout for stale/in-flight requests |
 | `failover_on_rate_limit` | `true` | Enable failover to another provider on 429 rate-limit errors |
+| `circuit_breaker_enabled` | `true` | Enable per-provider circuit breaker for hotel/ failover routes |
+| `circuit_breaker_threshold` | `5` | Consecutive failures before a provider's circuit opens |
+| `circuit_breaker_cooldown` | `60s` | Duration before an open circuit transitions to half-open |
 | `theme` | *(none)* | UI theme preference |
 | `ui_style` | *(none)* | UI style preference |
 | `accent_color` | *(none)* | UI accent color |

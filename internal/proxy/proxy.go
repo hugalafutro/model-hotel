@@ -442,12 +442,30 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		resp, err := upstreamClient.Do(proxyReq)
 		if err != nil {
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
+			if h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true) {
+				h.circuitBreaker.RecordFailure(candidate.provider.ID)
+			}
 			continue
 		}
 		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		hasMoreCandidates := attempt < len(candidates)-1
-		shouldFailoverNow := h.shouldFailover(r.Context(), resp.StatusCode) && hasMoreCandidates
+		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
+
+		if isFailoverEligible {
+			// Upstream is unhealthy — record failure for circuit breaker.
+			if h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true) {
+				h.circuitBreaker.RecordFailure(candidate.provider.ID)
+			}
+		} else {
+			// Provider responded (even with a non-failover error like 400) —
+			// it's alive from a health perspective.
+			if h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true) {
+				h.circuitBreaker.RecordSuccess(candidate.provider.ID)
+			}
+		}
+
+		shouldFailoverNow := isFailoverEligible && hasMoreCandidates
 
 		if shouldFailoverNow {
 			_, _ = io.ReadAll(resp.Body)
