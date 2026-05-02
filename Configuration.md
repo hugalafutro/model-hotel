@@ -18,6 +18,10 @@ These are read once at startup and cannot be changed at runtime.
 | `MAX_REQUEST_SIZE` | No | `10485760` | Maximum request body size in bytes (default 10 MB) |
 | `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Comma-separated list of allowed CORS origins. Must include the scheme (e.g. `http://`). |
 | `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Comma-separated list of additional allowed provider hosts. Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`) are **always** allowed regardless of this setting. Hosts listed here also bypass loopback-address blocking, so `localhost` can be added for local Ollama or testing. |
+| `RATE_LIMIT_IP_RPS` | No | `30` | Per-IP requests per second (DoS safety net; always-on, not DB-configurable). |
+| `RATE_LIMIT_IP_BURST` | No | `60` | Per-IP burst size for DoS protection token bucket. |
+| `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size. |
+| `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size. |
 
 ### Notes
 
@@ -44,6 +48,10 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `theme` | `dark` | UI theme: `dark` or `light`. |
 | `ui_style` | *(empty)* | UI style preset: `cyber-terminal`, `glassmorphism-lite`, or empty for default. |
 | `accent_color` | `#1dd1a1` | Primary accent color for the UI (hex color string). |
+| `dashboard_refresh` | *(empty)* | Dashboard auto-refresh interval. Accepts predefined duration options. |
+| `quota_refresh` | *(empty)* | Provider quota refresh interval. Accepts predefined duration options. |
+| `history_limit` | *(empty)* | History display limit for log viewers. |
+| `toast_duration` | *(empty)* | Toast notification duration in milliseconds (min: 1000, max: 15000). |
 
 ### Rate Limiting Details
 

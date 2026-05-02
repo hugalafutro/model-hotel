@@ -132,6 +132,8 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
 | `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Allowed CORS origins (comma-separated) |
 | `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Additional allowed provider hosts (comma-separated; built-in provider hosts are always allowed) |
+| `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size |
+| `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size |
 
 ### DB-Backed Settings
 
@@ -149,6 +151,10 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `theme` | *(none)* | UI theme preference |
 | `ui_style` | *(none)* | UI style preference |
 | `accent_color` | *(none)* | UI accent color |
+| `dashboard_refresh` | *(none)* | Dashboard auto-refresh interval |
+| `quota_refresh` | *(none)* | Provider quota refresh interval |
+| `history_limit` | *(none)* | History display limit |
+| `toast_duration` | *(none)* | Toast notification duration (ms, 1000–15000) |
 
 > **Rate Limiting** — Two layers of protection run on every request:
 >

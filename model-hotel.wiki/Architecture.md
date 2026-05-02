@@ -24,26 +24,40 @@ internal/
   │   ├── virtualkeys.go
   │   ├── logs.go     # Request logs
   │   ├── applogs.go  # Application logs
+  │   ├── logscache.go # Logs cache
   │   ├── settings.go
   │   ├── discovery.go # Model discovery triggers
   │   ├── events.go   # SSE events
   │   ├── failover.go # Failover group management
   │   ├── stats.go    # Statistics
-  │   └── system.go   # System stats
+  │   ├── system.go   # System stats
+  │   ├── helpers.go  # Test helpers
+  │   └── validate.go # Validation helpers
   ├── proxy/          # OpenAI-compatible proxy endpoints
   │   ├── handler.go  # /v1 routes, rate limiting, auth
-  │   ├── chat.go     # Chat completions with failover
+  │   ├── proxy.go    # Chat completions with failover
   │   ├── models.go   # Model listing with hotel/ prefix
   │   ├── resolve.go  # Hotel routing resolution
-  │   └── logging.go  # Request logging
+  │   ├── logging.go  # Request logging
+  │   ├── helpers.go  # Proxy helpers
+  │   └── types.go    # Chat completion types
   ├── provider/       # Provider management
-  │   ├── repository.go
-  │   ├── discovery.go # Auto-discovery logic
-  │   └── quotas.go   # Quota/balance fetching
+  │   ├── provider.go # Provider repository (CRUD)
+  │   ├── discovery.go # Auto-discovery logic + type detection
+  │   ├── cache.go    # Provider caching
+  │   └── discovery_*.go # Per-provider discovery (openai, anthropic, deepseek, nanogpt, ollama, zai, opencode_*)
   ├── model/          # Model repository
+  │   ├── model.go    # Model CRUD + metadata
+  │   └── cache.go    # Model caching
   ├── virtualkey/     # Virtual key repository
+  │   ├── virtualkey.go # Key CRUD + generation
+  │   └── auth.go     # Key authentication middleware
   ├── failover/       # Failover group repository
+  │   ├── failover.go # Failover group management
+  │   └── cache.go    # Failover caching
   ├── ratelimit/      # Rate limiting implementation
+  │   ├── limiter.go  # Per-key token bucket limiter
+  │   └── ip_limiter.go # Per-IP DoS protection
   ├── auth/           # Encryption/decryption (AES-256-GCM)
   ├── db/             # Database migrations
   ├── settings/       # Runtime settings
@@ -54,8 +68,7 @@ web/                  # Frontend React app
   ├── src/
   │   ├── pages/      # Page components
   │   ├── components/ # Reusable UI components
-  │   ├── api/        # API client
-  │   ├── types/      # TypeScript types
+  │   ├── api/        # API client and TypeScript types
   │   ├── context/    # React contexts (Theme, Events, etc.)
   │   └── utils/      # Frontend utilities
   └── dist/           # Built static files (served by Go)
@@ -173,14 +186,14 @@ web/                  # Frontend React app
 ### SSE Events
 
 Real-time events pushed via Server-Sent Events:
-- `discovery.started/finished`
-- `discovery.provider_error`
-- `discovery.models_disabled`
-- `failover.sync_error`
-- `logs.stale_startup`
-- `logs.stale_cleanup`
-- `model.disabled_manually`
-- `virtual_key.deleted`
+- `discovery.complete` — Model discovery finished for a provider
+- `discovery.models_disabled` — Models were disabled after discovery
+- `failover.sync_error` — Error during failover group sync
+- `logs.stale_startup` — Stale request detected at startup
+- `logs.stale_cleanup` — Stale request cleaned up
+- `request.started` — Proxy request began
+- `request.completed` — Proxy request finished
+- `tokens.error` — Error counting tokens
 
 Event bus decouples backend operations from frontend UI updates.
 
