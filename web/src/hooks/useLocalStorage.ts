@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type SetValue<T> = (value: T | ((prev: T) => T)) => void;
 
@@ -26,9 +26,13 @@ export function useLocalStorage<T>(
 
 	// Refs so the setter callback never goes stale
 	const enabledRef = useRef(enabled);
-	enabledRef.current = enabled;
 	const serializeRef = useRef(serialize);
-	serializeRef.current = serialize;
+	useEffect(() => {
+		enabledRef.current = enabled;
+	}, [enabled]);
+	useEffect(() => {
+		serializeRef.current = serialize;
+	}, [serialize]);
 
 	const [storedValue, setStoredValue] = useState<T>(() => {
 		if (!enabled) return initialValue;
