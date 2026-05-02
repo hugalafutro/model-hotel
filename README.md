@@ -16,8 +16,6 @@
   <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
-  <br/>
-  <img src="https://img.shields.io/badge/built%20with-GLM%205.1%20%26%20Kimi%20K2.6-blueviolet" alt="Built With">
 </p>
 
 > **AI-Assisted Project Disclaimer**
