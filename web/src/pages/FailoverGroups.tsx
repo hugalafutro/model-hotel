@@ -89,12 +89,16 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
 
 function FailoverGroupCard({
 	group,
+	selected,
+	onToggleSelect,
 	onToggleGroup,
 	onToggleEntry,
 	onReorder,
 	onDelete,
 }: {
 	group: FailoverGroup;
+	selected: boolean;
+	onToggleSelect: (selected: boolean) => void;
 	onToggleGroup: (enabled: boolean) => void;
 	onToggleEntry: (uuid: string, enabled: boolean) => void;
 	onReorder: (newOrder: string[]) => void;
@@ -139,6 +143,12 @@ function FailoverGroupCard({
 		>
 			<div className="flex items-center justify-between mb-2">
 				<div className="flex items-center gap-2 min-w-0">
+					<input
+						type="checkbox"
+						checked={selected}
+						onChange={(e) => onToggleSelect(e.target.checked)}
+						className="rounded border-gray-600 text-(--accent) focus:ring-(--accent) shrink-0"
+					/>
 					{/* biome-ignore lint/a11y/useSemanticElements: cannot change to <button> without altering layout */}
 					<div
 						onClick={handleCopyModel}
@@ -425,6 +435,9 @@ export function FailoverGroups() {
 	const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [providerFilter, setProviderFilter] = useState("");
+	const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
+		new Set(),
+	);
 
 	const { data: listData, isLoading } = useQuery({
 		queryKey: ["failover-groups"],
@@ -432,6 +445,16 @@ export function FailoverGroups() {
 	});
 
 	const allGroups = listData?.groups;
+
+	// Unique provider names for dropdown
+	const providerNames = allGroups
+		? [
+				...new Set(
+					allGroups.flatMap((g) => g.entries.map((e) => e.provider_name)),
+				),
+			].sort()
+		: [];
+
 	const groups = allGroups?.filter((g) => {
 		const matchesModel = g.display_model
 			.toLowerCase()
@@ -444,6 +467,88 @@ export function FailoverGroups() {
 		return matchesModel && matchesProvider;
 	});
 	const lastSyncedAt = listData?.last_synced_at;
+
+	// Bulk model enable/disable
+	const toggleGroupSelect = (groupId: string, checked: boolean) => {
+		setSelectedGroupIds((prev) => {
+			const next = new Set(prev);
+			if (checked) next.add(groupId);
+			else next.delete(groupId);
+			return next;
+		});
+	};
+
+	const handleBulkModelToggle = async (enabled: boolean) => {
+		if (!allGroups) return;
+		const targets = allGroups.filter((g) => selectedGroupIds.has(g.id));
+		if (targets.length === 0) return;
+
+		const promises = targets.map((group) => {
+			const entryEnabledMap: Record<string, boolean> = {};
+			group.entries.forEach((e) => {
+				entryEnabledMap[e.model_uuid] = enabled;
+			});
+			return api.failoverGroups.update(group.id, {
+				entry_enabled: entryEnabledMap,
+			});
+		});
+
+		try {
+			await Promise.all(promises);
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			setSelectedGroupIds(new Set());
+			toast(
+				`${enabled ? "Enabled" : "Disabled"} all entries in ${targets.length} group${targets.length > 1 ? "s" : ""}`,
+				"success",
+			);
+		} catch {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast("Bulk toggle failed for some groups", "error");
+		}
+	};
+
+	// Bulk provider enable/disable
+	const handleBulkProviderToggle = async (enabled: boolean) => {
+		if (!allGroups || !providerFilter) return;
+		const providerLower = providerFilter.toLowerCase();
+		const affectedGroups = allGroups.filter((g) =>
+			g.entries.some((e) =>
+				e.provider_name.toLowerCase().includes(providerLower),
+			),
+		);
+		if (affectedGroups.length === 0) return;
+
+		const promises = affectedGroups.map((group) => {
+			const entryEnabledMap: Record<string, boolean> = {};
+			group.entries.forEach((e) => {
+				entryEnabledMap[e.model_uuid] = e.provider_name
+					.toLowerCase()
+					.includes(providerLower)
+					? enabled
+					: e.enabled;
+			});
+			// Guard: don't send if it would disable all entries in an active group
+			const remainingEnabled =
+				Object.values(entryEnabledMap).filter(Boolean).length;
+			if (!enabled && remainingEnabled === 0 && group.group_enabled)
+				return Promise.resolve();
+			return api.failoverGroups.update(group.id, {
+				entry_enabled: entryEnabledMap,
+			});
+		});
+
+		try {
+			await Promise.all(promises.filter(Boolean));
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast(
+				`${enabled ? "Enabled" : "Disabled"} ${providerFilter} across ${affectedGroups.length} group${affectedGroups.length > 1 ? "s" : ""}`,
+				"success",
+			);
+		} catch {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast("Bulk provider toggle failed for some groups", "error");
+		}
+	};
 
 	const { data: candidates } = useQuery({
 		queryKey: ["failover-candidates"],
@@ -614,13 +719,84 @@ export function FailoverGroups() {
 					className="w-[320px]"
 					autoFocus
 				/>
-				<FilterInput
+				<select
 					value={providerFilter}
-					onChange={setProviderFilter}
-					placeholder="Filter provider…"
-					className="w-[220px]"
-				/>
+					onChange={(e) => setProviderFilter(e.target.value)}
+					className="ui-input w-[220px]"
+				>
+					<option value="">All providers</option>
+					{providerNames.map((name) => (
+						<option key={name} value={name}>
+							{name}
+						</option>
+					))}
+				</select>
 			</div>
+
+			{providerFilter && allGroups && (
+				<div className="flex items-center justify-between bg-gray-800/50 rounded-lg px-4 py-2 border border-gray-700">
+					<span className="text-sm text-gray-300">
+						{(() => {
+							const count = allGroups.filter((g) =>
+								g.entries.some((e) =>
+									e.provider_name
+										.toLowerCase()
+										.includes(providerFilter.toLowerCase()),
+								),
+							).length;
+							return `${count} group${count !== 1 ? "s" : ""} with ${providerFilter} entries`;
+						})()}
+					</span>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => handleBulkProviderToggle(true)}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Enable all {providerFilter}
+						</button>
+						<button
+							type="button"
+							onClick={() => handleBulkProviderToggle(false)}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Disable all {providerFilter}
+						</button>
+					</div>
+				</div>
+			)}
+
+			{selectedGroupIds.size > 0 && (
+				<div className="sticky bottom-4 z-10 flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 border border-(--accent)/30 shadow-lg">
+					<span className="text-sm text-gray-300">
+						{selectedGroupIds.size} group{selectedGroupIds.size > 1 ? "s" : ""}{" "}
+						selected
+					</span>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => handleBulkModelToggle(true)}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Enable all entries
+						</button>
+						<button
+							type="button"
+							onClick={() => handleBulkModelToggle(false)}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Disable all entries
+						</button>
+						<button
+							type="button"
+							onClick={() => setSelectedGroupIds(new Set())}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Deselect
+						</button>
+					</div>
+				</div>
+			)}
 
 			{groups && groups.length === 0 ? (
 				searchQuery || providerFilter ? (
@@ -657,6 +833,8 @@ export function FailoverGroups() {
 						<FailoverGroupCard
 							key={group.id}
 							group={group}
+							selected={selectedGroupIds.has(group.id)}
+							onToggleSelect={(checked) => toggleGroupSelect(group.id, checked)}
 							onToggleGroup={(enabled) => handleToggleGroup(group, enabled)}
 							onToggleEntry={(uuid, enabled) =>
 								handleToggleEntry(group, uuid, enabled)
