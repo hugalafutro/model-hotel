@@ -25,7 +25,7 @@
 >
 > Made in [Codenomad](https://github.com/NeuralNomadsAI/CodeNomad) with [Opencode](https://opencode.ai), using [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</br>
 >
-> <img src="https://img.shields.io/badge/GLM_5.1-orchestrator%20and%20council-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle%20and%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-fixer-F97316?style=flat" alt="DeepSeek V4 Flash"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian%20and%20explorer-10B981?style=flat" alt="MiniMax M2.7"></br>
+> <img src="https://img.shields.io/badge/GLM_5.1-orchestrator%20and%20council-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer%20and%20observer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle%20and%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-fixer-F97316?style=flat" alt="DeepSeek V4 Flash"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian%20and%20explorer-10B981?style=flat" alt="MiniMax M2.7"></br>
 >
 > <i>Thanks <a href="https://cloud.ollama.com">Ollama Cloud</a> for generous limits. I have nothing nice to say about <a href="https://z.ai">Z.AI</a> or <a href="https://opencode.ai">OpenCode Go</a> in that regard.</i>
 
