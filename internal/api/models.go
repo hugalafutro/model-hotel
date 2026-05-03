@@ -114,7 +114,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	var req model.UpdateModelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
@@ -128,27 +128,27 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	// Validate field bounds
 	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid display name", err)
 		return
 	}
 
 	if err := validateIntPtrRange("context_length", req.ContextLength, 256, 2000000); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid context length", err)
 		return
 	}
 
 	if err := validateIntPtrRange("max_output_tokens", req.MaxOutputTokens, 1, 128000); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid max output tokens", err)
 		return
 	}
 
 	if err := validateFloatPtrRange("input_price_per_million", req.InputPricePerMillion, 0, 1000); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid input price", err)
 		return
 	}
 
 	if err := validateFloatPtrRange("output_price_per_million", req.OutputPricePerMillion, 0, 1000); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid output price", err)
 		return
 	}
 

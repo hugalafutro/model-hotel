@@ -175,7 +175,7 @@ type CreateFailoverGroupRequest struct {
 func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateFailoverGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
@@ -190,12 +190,12 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid display name", err)
 		return
 	}
 
 	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid description", err)
 		return
 	}
 
@@ -258,7 +258,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var req UpdateFailoverGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
@@ -270,18 +270,18 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Validate field lengths
 	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid display name", err)
 		return
 	}
 
 	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid description", err)
 		return
 	}
 
 	if req.EntryEnabled != nil {
 		if err := validateMapSize("entry_enabled", req.EntryEnabled, 100); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			respondBadRequest(w, "invalid entry_enabled", err)
 			return
 		}
 	}

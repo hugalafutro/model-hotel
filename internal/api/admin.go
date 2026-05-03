@@ -133,7 +133,7 @@ func (h *Handler) RegisterEvents(r chi.Router) {
 func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var req provider.CreateProviderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
@@ -178,7 +178,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.cfg.ValidateProviderURL(req.BaseURL); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid provider URL", err)
 		return
 	}
 
@@ -312,7 +312,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 
 	var req provider.UpdateProviderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
@@ -321,7 +321,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		trimmed := trimString(*req.Name)
 		req.Name = &trimmed
 		if err := validateStringPtrLength("name", req.Name, 1, 100); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			respondBadRequest(w, "invalid name", err)
 			return
 		}
 	}
@@ -330,7 +330,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		trimmed := trimString(*req.BaseURL)
 		req.BaseURL = &trimmed
 		if err := validateStringPtrLength("base_url", req.BaseURL, 1, 500); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			respondBadRequest(w, "invalid base URL", err)
 			return
 		}
 	}
@@ -361,7 +361,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err := h.cfg.ValidateProviderURL(*req.BaseURL); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			respondBadRequest(w, "invalid provider URL", err)
 			return
 		}
 	}

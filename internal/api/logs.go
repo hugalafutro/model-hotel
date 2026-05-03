@@ -61,7 +61,7 @@ type PurgeLogsRequest struct {
 func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	var req PurgeLogsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 

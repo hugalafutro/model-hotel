@@ -99,7 +99,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 			modality = "text"
 		}
 		if isGoogleEmbeddingModel(modelID) {
-			modality = "text"
+			modality = "embedding"
 			inputMods = `["text","image","video","audio"]`
 			outputMods = `["embedding"]`
 		}

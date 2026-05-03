@@ -52,7 +52,7 @@ func cond(val string, condition bool) string {
 func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	var req CreateVirtualKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 

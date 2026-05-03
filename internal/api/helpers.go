@@ -11,11 +11,23 @@ import (
 
 // respondError logs the error details server-side and sends an HTTP error response.
 // Internal error details are logged but never sent to the client.
+// For 5xx errors without an error value, the message is still logged for debugging.
 func respondError(w http.ResponseWriter, message string, err error, code int) {
 	if err != nil {
 		log.Printf("[api] error: %s: %v", message, err)
+	} else if code >= 500 {
+		log.Printf("[api] error: %s", message)
 	}
 	http.Error(w, message, code)
+}
+
+// respondBadRequest sends a 400 response with a sanitized message.
+// If err is non-nil, the error details are logged server-side only.
+func respondBadRequest(w http.ResponseWriter, message string, err error) {
+	if err != nil {
+		log.Printf("[api] bad request: %s: %v", message, err)
+	}
+	http.Error(w, message, http.StatusBadRequest)
 }
 
 // parseUUIDParam extracts and validates a UUID from the chi URL params.
