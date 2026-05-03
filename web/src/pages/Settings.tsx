@@ -252,7 +252,7 @@ export function Settings() {
 			<div>
 				<div className="flex items-center gap-3">
 					<SettingsIcon size={28} strokeWidth={2} className="text-(--accent)" />
-					<h1 className="text-2xl font-bold text-white">Settings</h1>
+					<h1 className="text-2xl font-bold text-(--text-primary)">Settings</h1>
 				</div>
 				<p className="text-gray-400">Configure your Model Hotel instance</p>
 			</div>

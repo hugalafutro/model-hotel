@@ -196,7 +196,7 @@ export function AppLogs() {
 				<div>
 					<div className="flex items-center gap-3">
 						<FileText size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-white">Logs</h1>
+						<h1 className="text-2xl font-bold text-(--text-primary)">Logs</h1>
 						<button
 							type="button"
 							onClick={() => {

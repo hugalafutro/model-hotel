@@ -239,12 +239,16 @@ function StatCard({
 				>
 					<Icon size={18} style={{ color: accent }} />
 				</div>
-				<span className="font-semibold uppercase tracking-wider text-(--text-muted) text-right" style={{ fontSize: 'clamp(8px, 0.55vw, 10px)' }}>
+				<span
+					className="font-semibold uppercase tracking-wider text-(--text-muted) text-right"
+					style={{ fontSize: "clamp(8px, 0.55vw, 10px)" }}
+				>
 					{label}
 				</span>
 			</div>
 			<p
-				className="font-bold text-(--text-primary)" style={{ fontSize: 'clamp(14px, 1.2vw, 20px)', textTransform: "none" }}
+				className="font-bold text-(--text-primary)"
+				style={{ fontSize: "clamp(14px, 1.2vw, 20px)", textTransform: "none" }}
 			>
 				<AnimatedValue
 					value={value}
@@ -1164,7 +1168,9 @@ export function Dashboard() {
 		return (
 			<div className="space-y-6">
 				<div>
-					<h1 className="text-2xl font-bold text-white">Dashboard</h1>
+					<h1 className="text-2xl font-bold text-(--text-primary)">
+						Dashboard
+					</h1>
 					<p className="text-gray-400">Overview of your Model Hotel usage</p>
 				</div>
 				<div className="bg-red-900/50 border border-red-700 rounded-lg p-6 text-red-300">

@@ -1074,7 +1074,7 @@ export function Chat() {
 								className="text-(--accent)"
 							/>
 						)}
-						<h1 className="text-2xl font-bold text-white">
+						<h1 className="text-2xl font-bold text-(--text-primary)">
 							{chatSubMode === "chat" ? "Chat" : "Conversation"}
 						</h1>
 					</div>

@@ -262,7 +262,9 @@ export function VirtualKeys() {
 				<div>
 					<div className="flex items-center gap-3">
 						<KeyRound size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-white">Virtual Keys</h1>
+						<h1 className="text-2xl font-bold text-(--text-primary)">
+							Virtual Keys
+						</h1>
 					</div>
 					<p className="text-gray-400">
 						Issue keys for clients to access the proxy at /v1
@@ -379,7 +381,7 @@ export function VirtualKeys() {
 			{sortedKeys.length > 0 && (
 				<div className="ui-card p-6 space-y-5">
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-						<div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
+						<div className="flex items-start gap-3 p-4 ui-card">
 							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
 								1
 							</div>
@@ -392,7 +394,7 @@ export function VirtualKeys() {
 								</p>
 							</div>
 						</div>
-						<div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
+						<div className="flex items-start gap-3 p-4 ui-card">
 							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
 								2
 							</div>
@@ -405,7 +407,7 @@ export function VirtualKeys() {
 								</p>
 							</div>
 						</div>
-						<div className="flex items-start gap-3 p-4 rounded-xl bg-gray-800/60 border border-gray-700/50">
+						<div className="flex items-start gap-3 p-4 ui-card">
 							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
 								3
 							</div>

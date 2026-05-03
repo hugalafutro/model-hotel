@@ -552,7 +552,9 @@ export function FailoverGroups() {
 				<div>
 					<div className="flex items-center gap-3">
 						<Shuffle size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-white">Failover Groups</h1>
+						<h1 className="text-2xl font-bold text-(--text-primary)">
+							Failover Groups
+						</h1>
 					</div>
 					<p className="text-gray-400">
 						Route requests through multiple providers in priority order via{" "}

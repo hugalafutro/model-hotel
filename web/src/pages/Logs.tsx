@@ -560,7 +560,9 @@ function RequestLogs() {
 				<div>
 					<div className="flex items-center gap-3">
 						<ScrollText size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-white">Requests</h1>
+						<h1 className="text-2xl font-bold text-(--text-primary)">
+							Requests
+						</h1>
 						<button
 							type="button"
 							onClick={() => {
