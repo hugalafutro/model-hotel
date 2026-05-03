@@ -505,7 +505,6 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 
 	if len(modelUUIDs) <= 1 {
-		log.Printf("[failover] auto-group disabled for %q: need 2+ providers, found %d", base, len(modelUUIDs))
 		r.disableAutoGroup(ctx, base)
 		return nil
 	}

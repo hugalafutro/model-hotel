@@ -51,7 +51,7 @@ type ModelsDevModelSpec struct {
 	OpenWeights      bool                 `json:"open_weights"`
 	Cost             ModelsDevCost        `json:"cost"`
 	Limit            ModelsDevLimit       `json:"limit"`
-	Interleaved      *ModelsDevInterleaved `json:"interleaved,omitempty"`
+	Interleaved ModelsDevInterleaved `json:"interleaved,omitempty"`
 }
 
 type ModelsDevModalities struct {
@@ -75,8 +75,31 @@ type ModelsDevLimit struct {
 	Input   *int `json:"input,omitempty"`
 }
 
+// ModelsDevInterleaved handles the "interleaved" field which can be either
+// a bool or an object {"field": "..."} in the models.dev API.
 type ModelsDevInterleaved struct {
-	Field string `json:"field"`
+	Field string
+	Bool  bool
+}
+
+func (i *ModelsDevInterleaved) UnmarshalJSON(data []byte) error {
+	// Try bool first
+	var b bool
+	if json.Unmarshal(data, &b) == nil {
+		i.Bool = b
+		i.Field = ""
+		return nil
+	}
+	// Try object
+	var obj struct {
+		Field string `json:"field"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	i.Field = obj.Field
+	i.Bool = true
+	return nil
 }
 
 // Global models.dev cache instance.
