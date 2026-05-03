@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, PlugZap, X } from "lucide-react";
+import { Eye, EyeOff, PlugZap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
@@ -910,187 +910,177 @@ export function Providers() {
 			</div>
 
 			{showModal && (
-				<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-					<div className="ui-card relative p-6 w-full max-w-md">
-						<button
-							type="button"
-							onClick={() => {
-								setShowModal(false);
-								setFormData({
-									name: "",
-									base_url: "",
-									api_key: "",
-									provider_type: "custom",
-								});
-								setError(null);
-							}}
-							className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
-							aria-label="Close"
-						>
-							<X size={20} />
-						</button>
-						<h2 className="text-xl font-bold text-white mb-4">Add Provider</h2>
+				<Modal
+					title="Add Provider"
+					onClose={() => {
+						setShowModal(false);
+						setFormData({
+							name: "",
+							base_url: "",
+							api_key: "",
+							provider_type: "custom",
+						});
+						setShowApiKey(false);
+						setError(null);
+					}}
+				>
+					{error && (
+						<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+							{error}
+						</div>
+					)}
 
-						{error && (
-							<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-								{error}
-							</div>
-						)}
+					<form onSubmit={handleSubmit} className="space-y-4">
+						<div>
+							<label
+								htmlFor="provider-type"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Type
+							</label>
+							<select
+								id="provider-type"
+								value={formData.provider_type}
+								onChange={(e) => handleProviderTypeChange(e.target.value)}
+								className="ui-input"
+							>
+								<option value="custom">Custom</option>
+								<option value="openai">OpenAI</option>
+								<option value="anthropic">Anthropic</option>
+								<option value="nanogpt">NanoGPT</option>
+								<option value="z-ai-coding">Z.ai Coding Plan</option>
+								<option value="deepseek">DeepSeek</option>
+								<option value="ollama">Ollama</option>
+								<option value="opencode-zen">OpenCode Zen</option>
+								<option value="opencode-go">OpenCode Go</option>
+								<option value="xai">xAI (Grok)</option>
+								<option value="google">Google AI Studio (Gemini)</option>
+							</select>
+						</div>
 
-						<form onSubmit={handleSubmit} className="space-y-4">
-							<div>
-								<label
-									htmlFor="provider-type"
-									className="block text-sm font-medium text-gray-300 mb-1"
-								>
-									Type
-								</label>
-								<select
-									id="provider-type"
-									value={formData.provider_type}
-									onChange={(e) => handleProviderTypeChange(e.target.value)}
-									className="ui-input"
-								>
-									<option value="custom">Custom</option>
-									<option value="openai">OpenAI</option>
-									<option value="anthropic">Anthropic</option>
-									<option value="nanogpt">NanoGPT</option>
-									<option value="z-ai-coding">Z.ai Coding Plan</option>
-									<option value="deepseek">DeepSeek</option>
-									<option value="ollama">Ollama</option>
-									<option value="opencode-zen">OpenCode Zen</option>
-									<option value="opencode-go">OpenCode Go</option>
-									<option value="xai">xAI (Grok)</option>
-									<option value="google">Google AI Studio (Gemini)</option>
-								</select>
-							</div>
+						<div>
+							<label
+								htmlFor="provider-name"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Name
+							</label>
+							<input
+								id="provider-name"
+								type="text"
+								maxLength={100}
+								required
+								value={formData.name}
+								onChange={(e) =>
+									setFormData({
+										...formData,
+										name: e.target.value,
+									})
+								}
+								onFocus={(e) => e.target.select()}
+								className="ui-input"
+								placeholder="e.g., OpenAI"
+							/>
+							<p className="text-gray-500 text-xs mt-1">
+								Dots, spaces, and special characters are replaced with
+								&quot;-&quot; when routing.
+							</p>
+						</div>
 
-							<div>
-								<label
-									htmlFor="provider-name"
-									className="block text-sm font-medium text-gray-300 mb-1"
-								>
-									Name
-								</label>
+						<div>
+							<label
+								htmlFor="provider-base-url"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Base URL
+							</label>
+							<input
+								id="provider-base-url"
+								type="url"
+								required
+								value={formData.base_url}
+								onChange={(e) =>
+									setFormData({
+										...formData,
+										base_url: e.target.value,
+									})
+								}
+								className="ui-input"
+								placeholder="https://api.openai.com/v1"
+							/>
+							<p className="text-gray-500 text-xs mt-1">
+								Full API base URL including any path prefix. Models will be
+								discovered from {"<base_url>"}/models
+							</p>
+						</div>
+
+						<div>
+							<label
+								htmlFor="provider-api-key"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								API Key
+							</label>
+							<div className="relative">
 								<input
-									id="provider-name"
-									type="text"
-									maxLength={100}
-									required
-									value={formData.name}
+									id="provider-api-key"
+									type={showApiKey ? "text" : "password"}
+									maxLength={500}
+									required={!providerTypeAllowsEmptyKey(formData.provider_type)}
+									value={formData.api_key}
 									onChange={(e) =>
 										setFormData({
 											...formData,
-											name: e.target.value,
+											api_key: e.target.value,
 										})
 									}
-									onFocus={(e) => e.target.select()}
-									className="ui-input"
-									placeholder="e.g., OpenAI"
-								/>
-								<p className="text-gray-500 text-xs mt-1">
-									Dots, spaces, and special characters are replaced with
-									&quot;-&quot; when routing.
-								</p>
-							</div>
-
-							<div>
-								<label
-									htmlFor="provider-base-url"
-									className="block text-sm font-medium text-gray-300 mb-1"
-								>
-									Base URL
-								</label>
-								<input
-									id="provider-base-url"
-									type="url"
-									required
-									value={formData.base_url}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											base_url: e.target.value,
-										})
+									className="ui-input pr-10! overflow-hidden"
+									placeholder={
+										providerTypeAllowsEmptyKey(formData.provider_type)
+											? "Optional — free models work without a key"
+											: "API key"
 									}
-									className="ui-input"
-									placeholder="https://api.openai.com/v1"
 								/>
-								<p className="text-gray-500 text-xs mt-1">
-									Full API base URL including any path prefix. Models will be
-									discovered from {"<base_url>"}/models
-								</p>
-							</div>
-
-							<div>
-								<label
-									htmlFor="provider-api-key"
-									className="block text-sm font-medium text-gray-300 mb-1"
-								>
-									API Key
-								</label>
-								<div className="relative">
-									<input
-										id="provider-api-key"
-										type={showApiKey ? "text" : "password"}
-										maxLength={500}
-										required={
-											!providerTypeAllowsEmptyKey(formData.provider_type)
-										}
-										value={formData.api_key}
-										onChange={(e) =>
-											setFormData({
-												...formData,
-												api_key: e.target.value,
-											})
-										}
-										className="ui-input pr-10! overflow-hidden"
-										placeholder={
-											providerTypeAllowsEmptyKey(formData.provider_type)
-												? "Optional — free models work without a key"
-												: "API key"
-										}
-									/>
-									<button
-										type="button"
-										onClick={() => setShowApiKey(!showApiKey)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
-										tabIndex={-1}
-										aria-label={showApiKey ? "Hide API key" : "Show API key"}
-									>
-										{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-									</button>
-								</div>
-							</div>
-
-							<div className="flex space-x-3 justify-end pt-4">
 								<button
 									type="button"
-									onClick={() => {
-										setShowModal(false);
-										setFormData({
-											name: "",
-											base_url: "",
-											api_key: "",
-											provider_type: "custom",
-										});
-										setShowApiKey(false);
-										setError(null);
-									}}
-									className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+									onClick={() => setShowApiKey(!showApiKey)}
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+									tabIndex={-1}
+									aria-label={showApiKey ? "Hide API key" : "Show API key"}
 								>
-									Cancel
-								</button>
-								<button
-									type="submit"
-									disabled={createMutation.isPending}
-									className="ui-btn ui-btn-primary disabled:opacity-50"
-								>
-									{createMutation.isPending ? "Adding…" : "Add Provider"}
+									{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
 								</button>
 							</div>
-						</form>
-					</div>
-				</div>
+						</div>
+
+						<div className="flex space-x-3 justify-end pt-4">
+							<button
+								type="button"
+								onClick={() => {
+									setShowModal(false);
+									setFormData({
+										name: "",
+										base_url: "",
+										api_key: "",
+										provider_type: "custom",
+									});
+									setShowApiKey(false);
+									setError(null);
+								}}
+								className="ui-btn ui-btn-secondary"
+							>
+								Cancel
+							</button>
+							<button
+								type="submit"
+								disabled={createMutation.isPending}
+								className="ui-btn ui-btn-primary disabled:opacity-50"
+							>
+								{createMutation.isPending ? "Adding…" : "Add Provider"}
+							</button>
+						</div>
+					</form>
+				</Modal>
 			)}
 
 			{quotaUsage && (

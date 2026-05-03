@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface ConfirmDialogProps {
 	title: string;
@@ -17,18 +18,34 @@ export function ConfirmDialog({
 	onConfirm,
 	onCancel,
 }: ConfirmDialogProps) {
+	const ref = useRef<HTMLDivElement>(null);
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if (e.key === "Escape") onCancel();
+		},
+		[onCancel],
+	);
+
+	useEffect(() => {
+		ref.current?.focus();
+	}, []);
+
 	return (
 		<div
+			ref={ref}
 			role="dialog"
 			aria-modal="true"
-			className="fixed inset-0 flex items-center justify-center z-60"
+			tabIndex={-1}
+			onKeyDown={handleKeyDown}
+			className="fixed inset-0 flex items-center justify-center z-60 outline-none"
 		>
 			<div className="absolute inset-0 bg-black/60" />
 			<div className="relative ui-card p-6 w-full max-w-sm">
 				<button
 					type="button"
 					onClick={onCancel}
-					className="absolute top-4 right-4 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-default text-xl leading-none hover:drop-shadow-[0_0_8px_var(--accent)]"
+					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[0_0_8px_var(--accent)]"
 					aria-label="Close"
 				>
 					<X size={20} />
