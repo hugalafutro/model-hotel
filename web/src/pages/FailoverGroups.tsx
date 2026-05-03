@@ -889,28 +889,39 @@ export function FailoverGroups() {
 										{letterGroups[letter].length > 1 ? "s" : ""}
 									</span>
 								</button>
-								{!collapsedLetters.has(letter) && (
-									<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-										{letterGroups[letter].map((group) => (
-											<FailoverGroupCard
-												key={group.id}
-												group={group}
-												selected={selectedGroupIds.has(group.id)}
-												onToggleSelect={(checked) =>
-													toggleGroupSelect(group.id, checked)
-												}
-												onToggleGroup={(enabled) =>
-													handleToggleGroup(group, enabled)
-												}
-												onToggleEntry={(uuid, enabled) =>
-													handleToggleEntry(group, uuid, enabled)
-												}
-												onReorder={(newOrder) => handleReorder(group, newOrder)}
-												onDelete={() => handleDelete(group)}
-											/>
-										))}
+								<div
+									className="grid transition-[grid-template-rows] duration-200 ease-in-out"
+									style={{
+										gridTemplateRows: collapsedLetters.has(letter)
+											? "0fr"
+											: "1fr",
+									}}
+								>
+									<div className="overflow-hidden">
+										<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+											{letterGroups[letter].map((group) => (
+												<FailoverGroupCard
+													key={group.id}
+													group={group}
+													selected={selectedGroupIds.has(group.id)}
+													onToggleSelect={(checked) =>
+														toggleGroupSelect(group.id, checked)
+													}
+													onToggleGroup={(enabled) =>
+														handleToggleGroup(group, enabled)
+													}
+													onToggleEntry={(uuid, enabled) =>
+														handleToggleEntry(group, uuid, enabled)
+													}
+													onReorder={(newOrder) =>
+														handleReorder(group, newOrder)
+													}
+													onDelete={() => handleDelete(group)}
+												/>
+											))}
+										</div>
 									</div>
-								)}
+								</div>
 							</section>
 						))}
 					</div>
