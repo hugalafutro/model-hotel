@@ -278,6 +278,9 @@ export function Providers() {
 	const [editProvider, setEditProvider] = useState<Provider | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [discoveringId, setDiscoveringId] = useState<string | null>(null);
+	const [discoverAllCurrentId, setDiscoverAllCurrentId] = useState<
+		string | null
+	>(null);
 	const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null);
 	const [zaiCodingQuotaUsage, setZaiCodingQuotaUsage] =
 		useState<ZAICodingQuotaResponse | null>(null);
@@ -437,6 +440,21 @@ export function Providers() {
 		if (!isDeepseekError) deepseekErrorToasted.current = false;
 	}, [isDeepseekError, toast]);
 
+	// Track which provider is currently being scanned during Discover All
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const event = (e as CustomEvent).detail;
+			if (
+				event?.type === "request.discovery.provider_starting" &&
+				event?.metadata?.provider_id
+			) {
+				setDiscoverAllCurrentId(event.metadata.provider_id as string);
+			}
+		};
+		window.addEventListener("server-event", handler);
+		return () => window.removeEventListener("server-event", handler);
+	}, []);
+
 	const discoverAllMutation = useMutation({
 		mutationFn: async () => {
 			return api.providers.discoverAll();
@@ -444,12 +462,14 @@ export function Providers() {
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			setDiscoverAllCurrentId(null);
 			if (data.failed > 0 && data.succeeded === 0) {
 				toast(`Discovery failed for all ${data.failed} providers`, "error");
 			}
 		},
 		onError: (err: Error) => {
 			toast(`Discover all failed: ${err.message}`, "error");
+			setDiscoverAllCurrentId(null);
 		},
 	});
 
@@ -826,7 +846,8 @@ export function Providers() {
 											discoveringId !== null || discoverAllMutation.isPending
 										}
 										className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-											discoveringId === provider.id
+											discoveringId === provider.id ||
+											discoverAllCurrentId === provider.id
 												? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
 												: discoveringId !== null ||
 														discoverAllMutation.isPending
@@ -834,7 +855,8 @@ export function Providers() {
 													: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
 										}`}
 									>
-										{discoveringId === provider.id ? (
+										{discoveringId === provider.id ||
+										discoverAllCurrentId === provider.id ? (
 											<>
 												<Spinner /> Discovering...
 											</>

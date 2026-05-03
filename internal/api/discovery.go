@@ -208,6 +208,13 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		events.Publish(events.Event{
+			Type:     "request.discovery.provider_starting",
+			Severity: "info",
+			Message:  fmt.Sprintf("Discovering models from %s…", prov.Name),
+			Metadata: map[string]interface{}{"provider_id": prov.ID, "provider": prov.Name},
+		})
+
 		provCtx, provCancel := context.WithTimeout(context.Background(), 180*time.Second)
 		result := DiscoverAllResult{
 			ProviderName: prov.Name,
