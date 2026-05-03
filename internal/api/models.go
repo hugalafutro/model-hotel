@@ -94,7 +94,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	models, err := modelRepo.List(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to list models", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -154,7 +154,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	m, err := modelRepo.Update(r.Context(), id, req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to update model", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -170,7 +170,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 	if err := modelRepo.DeleteByID(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to delete model", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -205,7 +205,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), m.ProviderID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusInternalServerError)
+		respondError(w, "provider not found", nil, http.StatusInternalServerError)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		var err error
 		apiKey, err = auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 		if err != nil {
-			http.Error(w, "failed to decrypt API key", http.StatusInternalServerError)
+			respondError(w, "failed to decrypt API key", nil, http.StatusInternalServerError)
 			return
 		}
 	}

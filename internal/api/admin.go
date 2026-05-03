@@ -191,10 +191,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 
 	var encryptedKey *auth.KeyPair
 	if req.APIKey != "" {
-		var err error
-		encryptedKey, err = auth.Encrypt(req.APIKey, h.cfg.MasterKey)
-		if err != nil {
-			http.Error(w, "failed to encrypt API key", http.StatusInternalServerError)
+		var encErr error
+		encryptedKey, encErr = auth.Encrypt(req.APIKey, h.cfg.MasterKey)
+		if encErr != nil {
+			respondError(w, "failed to encrypt API key", encErr, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -212,7 +212,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to create provider", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -228,13 +228,13 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
 		return
 	}
 
 	rows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, COUNT(*) FROM models GROUP BY provider_id")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to query model counts", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -244,7 +244,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		var providerID string
 		var count int
 		if err := rows.Scan(&providerID, &count); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to scan model count row", err, http.StatusInternalServerError)
 			return
 		}
 		modelCounts[providerID] = count
@@ -252,7 +252,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 
 	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) FROM request_logs WHERE provider_id IS NOT NULL GROUP BY provider_id")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to query token counts", err, http.StatusInternalServerError)
 		return
 	}
 	defer tokenRows.Close()
@@ -262,7 +262,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		var providerID string
 		var total int
 		if err := tokenRows.Scan(&providerID, &total); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to scan token count row", err, http.StatusInternalServerError)
 			return
 		}
 		tokenCounts[providerID] = total
@@ -290,7 +290,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to get provider", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -371,9 +371,9 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	var keySalt []byte
 
 	if req.APIKey != nil {
-		enc, err := auth.Encrypt(*req.APIKey, h.cfg.MasterKey)
-		if err != nil {
-			http.Error(w, "failed to encrypt API key", http.StatusInternalServerError)
+		enc, encErr := auth.Encrypt(*req.APIKey, h.cfg.MasterKey)
+		if encErr != nil {
+			respondError(w, "failed to encrypt API key", encErr, http.StatusInternalServerError)
 			return
 		}
 		encryptedKey = enc.Ciphertext
@@ -391,7 +391,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to update provider", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -410,7 +410,7 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to delete provider", err, http.StatusInternalServerError)
 		return
 	}
 

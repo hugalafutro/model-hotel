@@ -34,8 +34,8 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: nanogpt returned status %d for provider %s", resp.StatusCode, provider.ID)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		log.Printf("[discovery] error: nanogpt returned status %d for provider %s: %s", resp.StatusCode, provider.ID, string(body))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var nanoResp NanoGPTDetailedResponse
@@ -135,7 +135,8 @@ func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provid
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		log.Printf("[discovery] error: nanogpt usage: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, string(body))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var usage NanoGPTUsageResponse

@@ -50,8 +50,8 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			log.Printf("[discovery] error: anthropic returned status %d for provider %s", resp.StatusCode, provider.ID)
-			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+			log.Printf("[discovery] error: anthropic returned status %d for provider %s: %s", resp.StatusCode, provider.ID, string(bodyBytes))
+			return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 		}
 
 		var pageResp AnthropicModelsResponse

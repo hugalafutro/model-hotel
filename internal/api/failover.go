@@ -81,7 +81,7 @@ func (h *FailoverHandler) Register(r chi.Router) {
 func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 	groups, err := h.failoverRepo.List(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to list failover groups", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 	for i, g := range groups {
 		resp, err := h.buildGroupResponse(r.Context(), g)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to build failover group response", err, http.StatusInternalServerError)
 			return
 		}
 		resp.TotalTokens = tokenCounts["hotel/"+g.DisplayModel]
@@ -152,7 +152,7 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.buildGroupResponse(r.Context(), g)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to build failover group response", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -229,13 +229,13 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	group, err := h.failoverRepo.UpsertWithConfig(r.Context(), req.DisplayModel, priorityOrder,
 		entryEnabled, nil, req.DisplayName, req.Description, &autoCreated)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to create failover group", err, http.StatusInternalServerError)
 		return
 	}
 
 	resp, err := h.buildGroupResponse(r.Context(), group)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to build failover group response", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -329,13 +329,13 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
 		req.GroupEnabled, req.DisplayName, req.Description)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to update failover group", err, http.StatusInternalServerError)
 		return
 	}
 
 	resp, err := h.buildGroupResponse(r.Context(), group)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to build failover group response", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -349,7 +349,7 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.failoverRepo.DeleteByID(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to delete failover group", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -359,7 +359,7 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	result, err := h.failoverRepo.SyncAllModels(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to sync failover groups", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -381,7 +381,7 @@ type CandidateModelResponse struct {
 func (h *FailoverHandler) Candidates(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.List(r.Context(), nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to list model candidates", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -412,7 +412,7 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 
 	groups, err := h.failoverRepo.List(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to list failover groups", err, http.StatusInternalServerError)
 		return
 	}
 

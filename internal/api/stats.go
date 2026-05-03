@@ -113,13 +113,13 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	metric := parseMetric(r)
 	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to calculate stats", err, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }
 
@@ -475,7 +475,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to query time series", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -500,7 +500,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(result); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }
 
@@ -564,7 +564,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to query provider distribution", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -615,6 +615,6 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(result); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }

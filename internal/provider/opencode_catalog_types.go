@@ -41,7 +41,8 @@ func LookupOpenCodeCatalog(catalog []OpenCodeModelSpec, modelID string) *OpenCod
 
 // OpenCodeCatalogToModel converts an OpenCodeModelSpec into a model.Model
 // suitable for upsert into the database.
-func OpenCodeCatalogToModel(spec *OpenCodeModelSpec, providerID uuid.UUID) *model.Model {
+// ownedBy sets the OwnedBy field — pass the provider name (e.g. "opencode", "xai").
+func OpenCodeCatalogToModel(spec *OpenCodeModelSpec, providerID uuid.UUID, ownedBy string) *model.Model {
 	caps := model.Capability{
 		Streaming:        spec.Streaming,
 		Reasoning:        spec.Reasoning,
@@ -72,7 +73,7 @@ func OpenCodeCatalogToModel(spec *OpenCodeModelSpec, providerID uuid.UUID) *mode
 		MaxOutputTokens:       &maxOutput,
 		InputPricePerMillion:  &inPrice,
 		OutputPricePerMillion: &outPrice,
-		OwnedBy:               "opencode",
+		OwnedBy:               ownedBy,
 		Enabled:               true,
 	}
 

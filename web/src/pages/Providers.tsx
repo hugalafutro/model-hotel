@@ -555,6 +555,8 @@ export function Providers() {
 		ollama: "Ollama",
 		"opencode-zen": "OpenCode Zen",
 		"opencode-go": "OpenCode Go",
+		xai: "xAI (Grok)",
+		google: "Google AI Studio (Gemini)",
 	};
 
 	const providerTypeAllowsEmptyKey = (type: string): boolean => {
@@ -581,6 +583,8 @@ export function Providers() {
 			ollama: "http://localhost:11434",
 			"opencode-zen": "https://opencode.ai/zen/v1",
 			"opencode-go": "https://opencode.ai/zen/go/v1",
+			xai: "https://api.x.ai/v1",
+			google: "https://generativelanguage.googleapis.com/v1beta/openai",
 		};
 		const newName = generateProviderName(type);
 		setFormData((prev) => ({
@@ -682,7 +686,7 @@ export function Providers() {
 					return (
 						<div
 							key={provider.id}
-							className={`ui-card p-6 ${!provider.enabled ? "opacity-50" : ""}`}
+							className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""}`}
 						>
 							<div className="mb-4">
 								<div className="flex items-center justify-between">
@@ -753,7 +757,7 @@ export function Providers() {
 								)}
 							</div>
 
-							<div className="mt-4 flex items-center justify-between gap-2">
+							<div className="mt-auto pt-4 flex items-center justify-between gap-2">
 								<div className="flex items-center gap-2 min-h-7">
 									{showQuotaBadge && (
 										<button
@@ -917,6 +921,8 @@ export function Providers() {
 									<option value="ollama">Ollama</option>
 									<option value="opencode-zen">OpenCode Zen</option>
 									<option value="opencode-go">OpenCode Go</option>
+									<option value="xai">xAI (Grok)</option>
+									<option value="google">Google AI Studio (Gemini)</option>
 								</select>
 							</div>
 

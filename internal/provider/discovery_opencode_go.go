@@ -37,7 +37,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 		catalog := GetOpenCodeGoCatalog()
 		models := make([]*model.Model, 0, len(catalog))
 		for i := range catalog {
-			models = append(models, OpenCodeCatalogToModel(&catalog[i], provider.ID))
+			models = append(models, OpenCodeCatalogToModel(&catalog[i], provider.ID, "opencode"))
 		}
 		return models, nil
 	}
@@ -48,8 +48,8 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] error: opencode-go %s: unexpected status %d", provider.ID, resp.StatusCode)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+		log.Printf("[discovery] error: opencode-go %s: unexpected status %d: %s", provider.ID, resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse
@@ -84,7 +84,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 			})
 			continue
 		}
-		models = append(models, OpenCodeCatalogToModel(spec, provider.ID))
+		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
 	}
 
 	log.Printf("[discovery] opencode-go %s: discovered %d models", provider.ID, len(models))

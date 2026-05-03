@@ -22,6 +22,7 @@ import {
 	SortableHeader,
 	StaticHeader,
 } from "../components/DataTable";
+import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { Modal } from "../components/Modal";
@@ -652,30 +653,21 @@ function RequestLogs() {
 							placeholder="Filter by provider…"
 							className="w-50"
 						/>
-						{(["", "2xx", "4xx", "5xx", "0"] as const).map((status) => (
-							<button
-								type="button"
-								key={status}
-								onClick={() => {
-									setFilters({
-										...filters,
-										status_code: status,
-									});
-									setPage(1);
-								}}
-								className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-									filters.status_code === status
-										? "bg-white/15 text-(--text-primary)"
-										: "text-(--text-tertiary) hover:text-(--text-secondary)"
-								}`}
-							>
-								{status === ""
-									? "All"
-									: status === "0"
-										? "0"
-										: status.toUpperCase()}
-							</button>
-						))}
+						<FilterDropdown
+							value={filters.status_code}
+							onChange={(v) => {
+								setFilters({ ...filters, status_code: v });
+								setPage(1);
+							}}
+							placeholder="Status"
+							options={[
+								{ value: "2xx", label: "2XX" },
+								{ value: "4xx", label: "4XX" },
+								{ value: "5xx", label: "5XX" },
+								{ value: "0", label: "0" },
+							]}
+							className="w-28"
+						/>
 
 						{/* Calendar picker */}
 						<div className="relative" ref={datePickerRef}>

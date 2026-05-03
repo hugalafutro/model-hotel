@@ -10,6 +10,7 @@ import {
 	Row,
 	SortableHeader,
 } from "../components/DataTable";
+import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { useSidebarMode } from "../context/SidebarModeContext";
@@ -272,66 +273,37 @@ export function AppLogs() {
 						</button>
 					</div>
 					<div className="flex items-center gap-2">
-						{(["all", "info", "warning", "error"] as const).map((lvl) => (
-							<button
-								type="button"
-								key={lvl}
-								onClick={() => {
-									setLevelFilter(lvl);
+						<FilterDropdown
+							value={levelFilter === "all" ? "" : levelFilter}
+							onChange={(v) => {
+								setLevelFilter((v || "all") as typeof levelFilter);
+								setPage(1);
+							}}
+							placeholder="Level"
+							allLabel={`All (${totalItems})`}
+							options={(["info", "warning", "error"] as const).map((lvl) => ({
+								value: lvl,
+								label: lvl.charAt(0).toUpperCase() + lvl.slice(1),
+								count: levelCounts[lvl] ?? 0,
+							}))}
+							className="w-32"
+						/>
+						{sources.length > 1 && (
+							<FilterDropdown
+								value={sourceFilter === "all" ? "" : sourceFilter}
+								onChange={(v) => {
+									setSourceFilter(v || "all");
 									setPage(1);
 								}}
-								className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-									levelFilter === lvl
-										? "bg-white/15 text-(--text-primary)"
-										: "text-(--text-tertiary) hover:text-(--text-secondary)"
-								}`}
-							>
-								{lvl === "all"
-									? `All (${totalItems})`
-									: lvl.charAt(0).toUpperCase() +
-										lvl.slice(1) +
-										" (" +
-										(levelCounts[lvl as keyof typeof levelCounts] ?? 0) +
-										")"}
-							</button>
-						))}
-						{sources.length > 1 && (
-							<>
-								<div className="w-px h-4 bg-(--border) mx-1" />
-								<button
-									type="button"
-									onClick={() => {
-										setSourceFilter("all");
-										setPage(1);
-									}}
-									className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-										sourceFilter === "all"
-											? "bg-white/15 text-(--text-primary)"
-											: "text-(--text-tertiary) hover:text-(--text-secondary)"
-									}`}
-								>
-									All
-								</button>
-								{sources.map((src) => (
-									<button
-										type="button"
-										key={src}
-										onClick={() => {
-											setSourceFilter(src);
-											setPage(1);
-										}}
-										className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-											sourceFilter === src
-												? "bg-white/15 text-(--text-primary)"
-												: "text-(--text-tertiary) hover:text-(--text-secondary)"
-										}`}
-									>
-										{src} ({sourceCounts[src] ?? 0})
-									</button>
-								))}
-							</>
+								placeholder="Source"
+								options={sources.map((src) => ({
+									value: src,
+									label: src,
+									count: sourceCounts[src] ?? 0,
+								}))}
+								className="w-36"
+							/>
 						)}
-						<div className="w-px h-4 bg-(--border) mx-1" />
 						<FilterInput
 							value={searchFilter}
 							onChange={(v) => {

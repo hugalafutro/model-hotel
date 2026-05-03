@@ -76,7 +76,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	rawKey, err := virtualkey.Generate()
 	if err != nil {
-		http.Error(w, "failed to generate key", http.StatusInternalServerError)
+		respondError(w, "failed to generate key", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview)
 	if err != nil {
-		http.Error(w, "failed to create virtual key", http.StatusInternalServerError)
+		respondError(w, "failed to create virtual key", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -96,7 +96,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
 	keys, err := h.virtualKeyRepo.List(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to list virtual keys", err, http.StatusInternalServerError)
 		return
 	}
 

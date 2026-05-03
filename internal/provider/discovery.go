@@ -51,6 +51,10 @@ func DetectProviderType(baseURL string) string {
 		return "deepseek"
 	case "api.anthropic.com", "anthropic.com":
 		return "anthropic"
+	case "api.x.ai", "x.ai":
+		return "xai"
+	case "generativelanguage.googleapis.com":
+		return "google"
 	case "ollama.com":
 		return "ollama"
 	case "opencode.ai":
@@ -76,6 +80,14 @@ func DetectProviderType(baseURL string) string {
 	}
 	if strings.HasSuffix(host, ".anthropic.com") {
 		return "anthropic"
+	}
+	if strings.HasSuffix(host, ".x.ai") {
+		return "xai"
+	}
+	if strings.HasSuffix(host, ".googleapis.com") {
+		if strings.Contains(host, "generativelanguage") || strings.Contains(host, "aiplatform") {
+			return "google"
+		}
 	}
 	if strings.HasSuffix(host, ".ollama.com") {
 		return "ollama"
@@ -135,11 +147,16 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverOpenCodeZen(ctx, provider, apiKey)
 		case "opencode-go":
 			return d.discoverOpenCodeGo(ctx, provider, apiKey)
+		case "xai":
+			return d.discoverXAI(ctx, provider, apiKey)
+		case "google":
+			return d.discoverGoogleAIStudio(ctx, provider, apiKey)
 		default:
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}
 	}()
 	if err != nil {
+		log.Printf("[discovery] error: discovery failed for provider %s (type=%s): %v", provider.ID, providerType, err)
 		return nil, err
 	}
 

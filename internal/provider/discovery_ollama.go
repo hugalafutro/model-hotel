@@ -36,8 +36,8 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: ollama %s: unexpected status %d", provider.ID, resp.StatusCode)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		log.Printf("[discovery] error: ollama %s: unexpected status %d: %s", provider.ID, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var tagsResp OllamaTagsResponse
@@ -114,7 +114,8 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("show failed for %s: status %d: %s", modelName, resp.StatusCode, string(respBody))
+		log.Printf("[discovery] error: ollama: show model %q failed with status %d: %s", modelName, resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("show failed for %s: status %d", modelName, resp.StatusCode)
 	}
 
 	var showResp OllamaShowResponse

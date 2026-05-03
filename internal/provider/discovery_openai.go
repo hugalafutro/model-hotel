@@ -38,8 +38,8 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] error: openai non-200 status %d for provider %s", resp.StatusCode, provider.ID)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+		log.Printf("[discovery] error: openai non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, string(bodyBytes))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse

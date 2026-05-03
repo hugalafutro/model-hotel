@@ -39,8 +39,8 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] error: deepseek returned status %d for provider %s", resp.StatusCode, provider.ID)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+		log.Printf("[discovery] error: deepseek returned status %d for provider %s: %s", resp.StatusCode, provider.ID, string(bodyBytes))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse
@@ -131,7 +131,8 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		log.Printf("[discovery] error: deepseek balance: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, string(body))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var balance DeepSeekBalanceResponse

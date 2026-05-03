@@ -120,8 +120,8 @@ func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Prov
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: zai-coding provider %s quota fetch returned status %d", provider.ID, resp.StatusCode)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		log.Printf("[discovery] error: zai-coding provider %s quota fetch returned status %d: %s", provider.ID, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var quota ZAICodingQuotaResponse

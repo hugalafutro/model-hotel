@@ -76,7 +76,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 		cachedSystemMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(result); err != nil {
-			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+			respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 		}
 		return
 	}
@@ -84,7 +84,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := h.collect(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to collect system stats", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }
 

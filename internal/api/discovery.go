@@ -47,7 +47,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	discovery := provider.NewDiscoveryService()
 	models, err := discovery.DiscoverModels(r.Context(), prov, h.cfg.MasterKey)
 	if err != nil {
-		http.Error(w, "failed to discover models: "+err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to discover models", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -77,14 +77,14 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	existingModelIDs := make([]string, 0, len(models))
 	for _, m := range models {
 		if err := modelRepo.Upsert(r.Context(), m); err != nil {
-			http.Error(w, "failed to upsert model: "+err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to upsert model", err, http.StatusInternalServerError)
 			return
 		}
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
 	if _, err := modelRepo.DisableMissingModels(r.Context(), providerID, existingModelIDs); err != nil {
-		http.Error(w, "failed to disable missing models: "+err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to disable missing models", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	}
 	for modelID := range seenModelIDs {
 		if err := failoverRepo.SyncForModel(r.Context(), modelID); err != nil {
-			http.Error(w, "failed to sync failover group: "+err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to sync failover group", err, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -103,7 +103,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	now := time.Now()
 	updateQuery := `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`
 	if _, err := h.dbPool.Pool().Exec(r.Context(), updateQuery, now, providerID); err != nil {
-		http.Error(w, "failed to update provider", http.StatusInternalServerError)
+		respondError(w, "failed to update provider", nil, http.StatusInternalServerError)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "zai-coding":
 		quota, err := discovery.GetZAICodingQuota(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to fetch usage", err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, quota)
@@ -141,7 +141,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "nanogpt":
 		usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			http.Error(w, "failed to fetch usage: "+err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to fetch usage", err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, usage)
@@ -170,7 +170,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 	case "deepseek":
 		balance, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			http.Error(w, "failed to fetch balance: "+err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to fetch balance", err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, balance)
@@ -190,7 +190,7 @@ type DiscoverAllResult struct {
 func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
-		http.Error(w, "failed to list providers", http.StatusInternalServerError)
+		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
 		return
 	}
 
@@ -297,7 +297,7 @@ type QuotaRefreshResult struct {
 func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
-		http.Error(w, "failed to list providers", http.StatusInternalServerError)
+		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
 		return
 	}
 

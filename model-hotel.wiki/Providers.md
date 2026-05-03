@@ -16,6 +16,8 @@ Model Hotel auto-detects provider types from base URLs:
 | Ollama | `ollama.com` or `localhost` | `ollama` |
 | OpenCode Zen | `opencode.ai/zen` | `opencode-zen` |
 | OpenCode Go | `opencode.ai/zen/go` | `opencode-go` |
+| xAI (Grok) | `api.x.ai` | `xai` |
+| Google AI Studio (Gemini) | `generativelanguage.googleapis.com` | `google` |
 | Generic | Any other URL | `openai` |
 
 Subdomains are also supported (e.g., `custom.nano-gpt.com` → `nanogpt`).
@@ -161,6 +163,8 @@ Built-in provider hosts are always allowed and don't need to be listed:
 - `api.anthropic.com`
 - `ollama.com`
 - `opencode.ai`
+- `api.x.ai`
+- `generativelanguage.googleapis.com`
 
 ## Provider Health Monitoring
 

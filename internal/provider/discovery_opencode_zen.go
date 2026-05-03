@@ -36,8 +36,8 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] error: non-200 status %d from provider %s", resp.StatusCode, provider.ID)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+		log.Printf("[discovery] error: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, string(bodyBytes))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse
@@ -79,7 +79,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 			})
 			continue
 		}
-		models = append(models, OpenCodeCatalogToModel(spec, provider.ID))
+		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
 	}
 
 	log.Printf("[discovery] opencode-zen: discovered %d models for provider %s", len(models), provider.ID)

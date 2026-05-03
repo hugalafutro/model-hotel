@@ -42,6 +42,8 @@ var defaultKnownProviderHosts = []string{
 	"api.anthropic.com",
 	"ollama.com",
 	"opencode.ai",
+	"api.x.ai",
+	"generativelanguage.googleapis.com",
 }
 
 func Load() (*Config, error) {

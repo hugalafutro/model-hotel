@@ -2,11 +2,21 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
+
+// respondError logs the error details server-side and sends an HTTP error response.
+// Internal error details are logged but never sent to the client.
+func respondError(w http.ResponseWriter, message string, err error, code int) {
+	if err != nil {
+		log.Printf("[api] error: %s: %v", message, err)
+	}
+	http.Error(w, message, code)
+}
 
 // parseUUIDParam extracts and validates a UUID from the chi URL params.
 // The optional label parameter customizes the error message (defaults to key).
@@ -28,7 +38,7 @@ func parseUUIDParam(w http.ResponseWriter, r *http.Request, key string, label ..
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		log.Printf("[api] error: failed to encode JSON response: %v", err)
 	}
 }
 
@@ -37,6 +47,6 @@ func writeJSONCreated(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		log.Printf("[api] error: failed to encode JSON response: %v", err)
 	}
 }

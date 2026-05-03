@@ -78,7 +78,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	case "all":
 		_, err := h.dbPool.Pool().Exec(r.Context(), `DELETE FROM request_logs`)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			respondError(w, "failed to purge logs", err, http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -91,7 +91,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	_, err := h.dbPool.Pool().Exec(r.Context(),
 		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to purge old logs", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -251,7 +251,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 
 	rows, err := h.dbPool.Pool().Query(r.Context(), query, args...)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -293,6 +293,6 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	w.Header().Set("X-Cache", "MISS")
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }

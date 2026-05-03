@@ -19,13 +19,13 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	all, err := h.settingsRepo.GetAll(r.Context())
 	if err != nil {
-		http.Error(w, "failed to load settings", http.StatusInternalServerError)
+		respondError(w, "failed to load settings", err, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }
 
@@ -105,20 +105,20 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := h.dbPool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, "failed to begin transaction", http.StatusInternalServerError)
+		respondError(w, "failed to begin transaction", err, http.StatusInternalServerError)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
 
 	for key, value := range req {
 		if err := h.settingsRepo.SetTx(r.Context(), tx, key, value); err != nil {
-			http.Error(w, "failed to save setting", http.StatusInternalServerError)
+			respondError(w, "failed to save setting", err, http.StatusInternalServerError)
 			return
 		}
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, "failed to commit transaction", http.StatusInternalServerError)
+		respondError(w, "failed to commit transaction", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -131,6 +131,6 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
 }
