@@ -479,10 +479,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
-			errMsg := string(body)
-			if len(errMsg) > 500 {
-				errMsg = errMsg[:500]
-			}
+			errMsg := util.SanitizeLogBody(string(body), 500)
 			log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s", resp.StatusCode, req.Model, candidate.provider.ID)
 			logData.statusCode = resp.StatusCode
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0

@@ -131,7 +131,7 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: deepseek balance: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, string(body))
+		log.Printf("[discovery] error: deepseek balance: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 

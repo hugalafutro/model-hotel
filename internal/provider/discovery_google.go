@@ -43,7 +43,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] google: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, string(bodyBytes))
+		log.Printf("[discovery] google: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 200))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
