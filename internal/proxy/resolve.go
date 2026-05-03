@@ -75,6 +75,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 
 	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
+	var decryptFailures int
 	for _, modelUUID := range fg.PriorityOrder {
 		entryEnabled := true
 		if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
@@ -124,6 +125,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
 			if err != nil {
 				log.Printf("[resolve] error: key decryption failed for provider=%s model=%s entry=%s: %v", prov.Name, m.ModelID, modelUUID, err)
+				decryptFailures++
 				continue
 			}
 		}
@@ -132,6 +134,9 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 
 	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds())/1000.0 - keyDecryptTotal
 	t.keyDecryptMs = keyDecryptTotal
+	if len(candidates) == 0 && decryptFailures > 0 {
+		return nil, t, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
+	}
 	return candidates, t, nil
 }
 

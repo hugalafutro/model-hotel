@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -215,7 +216,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			Metadata: map[string]interface{}{"provider_id": prov.ID, "provider": prov.Name},
 		})
 
-		provCtx, provCancel := context.WithTimeout(context.Background(), 180*time.Second)
+		provCtx, provCancel := context.WithTimeout(r.Context(), 180*time.Second)
 		result := DiscoverAllResult{
 			ProviderName: prov.Name,
 		}
@@ -263,6 +264,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		existingModelIDs := make([]string, 0, len(models))
 		for _, m := range models {
 			if err := modelRepo.Upsert(provCtx, m); err != nil {
+				log.Printf("[discovery] warning: failed to upsert model %s for provider %s: %v", m.ModelID, prov.Name, err)
 				continue
 			}
 			existingModelIDs = append(existingModelIDs, m.ModelID)

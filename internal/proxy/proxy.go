@@ -426,8 +426,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		failoverCtx := r.Context()
+		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), 30*time.Second)
 		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
+		failoverCancel()
 		if err != nil {
 			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
 			continue

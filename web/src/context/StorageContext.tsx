@@ -86,8 +86,8 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	const setPersistConversation = (v: boolean) => {
 		setPersistConversationRaw(v);
 		if (!v) {
-			localStorage.removeItem("chatConversationMessages");
-			localStorage.removeItem("chatConversationState");
+			localStorage.removeItem("conversationMessages");
+			localStorage.removeItem("conversationState");
 		}
 	};
 
