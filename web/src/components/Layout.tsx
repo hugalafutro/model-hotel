@@ -27,11 +27,13 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import type { AppLogEntry, LogEntry } from "../api/types";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { LogDetailModal } from "./LogDetailModal";
 import { Logo } from "./Logo";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 
@@ -435,6 +437,10 @@ function LastErrorPills() {
 	const navigate = useNavigate();
 	const { setLogsSubMode } = useSidebarMode();
 	const { toast } = useToast();
+	const [detailEntry, setDetailEntry] = useState<{
+		log: LogEntry | AppLogEntry;
+		type: "request" | "app";
+	} | null>(null);
 	const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(() => {
 		try {
 			return localStorage.getItem("dismissedAppErrorKey");
@@ -487,10 +493,12 @@ function LastErrorPills() {
 		staleTime: 10000,
 	});
 
-	const lastAppError = appLogData?.entries?.[0]?.message;
-	const lastAppTimestamp = appLogData?.entries?.[0]?.timestamp;
-	const lastReqError = reqLogData?.entries?.[0]?.error_message;
-	const lastReqTimestamp = reqLogData?.entries?.[0]?.created_at;
+	const lastAppEntry = appLogData?.entries?.[0];
+	const lastAppError = lastAppEntry?.message;
+	const lastAppTimestamp = lastAppEntry?.timestamp;
+	const lastReqEntry = reqLogData?.entries?.[0];
+	const lastReqError = lastReqEntry?.error_message;
+	const lastReqTimestamp = lastReqEntry?.created_at;
 
 	const appErrorKey =
 		lastAppError && lastAppTimestamp
@@ -532,6 +540,7 @@ function LastErrorPills() {
 		subMode: "request" | "app",
 		onAcknowledge: () => void,
 		timestamp: string | null,
+		entry?: LogEntry | AppLogEntry,
 	) => (
 		<div className="group relative rounded-md border border-red-500/30 bg-red-950/20 overflow-hidden">
 			{/* Header row with icon, label, and action buttons */}
@@ -564,11 +573,15 @@ function LastErrorPills() {
 						type="button"
 						onClick={(e) => {
 							e.stopPropagation();
-							setLogsSubMode(subMode);
-							navigate("/logs");
+							if (entry) {
+								setDetailEntry({ log: entry, type: subMode });
+							} else {
+								setLogsSubMode(subMode);
+								navigate("/logs");
+							}
 						}}
 						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
-						title="View in logs"
+						title="View details"
 					>
 						<ExternalLink size={10} />
 					</button>
@@ -596,32 +609,43 @@ function LastErrorPills() {
 	);
 
 	return (
-		<div className="flex flex-col gap-1 mb-2">
-			{showAppError &&
-				appErrorKey &&
-				pill(
-					"App",
-					lastAppError,
-					"app",
-					() => {
-						dismissAppError(appErrorKey);
-						toast("App error acknowledged", "info");
-					},
-					lastAppTimestamp ?? null,
-				)}
-			{showReqError &&
-				reqErrorKey &&
-				pill(
-					"Request",
-					lastReqError,
-					"request",
-					() => {
-						dismissReqError(reqErrorKey);
-						toast("Request error acknowledged", "info");
-					},
-					lastReqTimestamp ?? null,
-				)}
-		</div>
+		<>
+			{detailEntry && (
+				<LogDetailModal
+					log={detailEntry.log}
+					type={detailEntry.type}
+					onClose={() => setDetailEntry(null)}
+				/>
+			)}
+			<div className="flex flex-col gap-1 mb-2">
+				{showAppError &&
+					appErrorKey &&
+					pill(
+						"App",
+						lastAppError,
+						"app",
+						() => {
+							dismissAppError(appErrorKey);
+							toast("App error acknowledged", "info");
+						},
+						lastAppTimestamp ?? null,
+						lastAppEntry,
+					)}
+				{showReqError &&
+					reqErrorKey &&
+					pill(
+						"Request",
+						lastReqError,
+						"request",
+						() => {
+							dismissReqError(reqErrorKey);
+							toast("Request error acknowledged", "info");
+						},
+						lastReqTimestamp ?? null,
+						lastReqEntry,
+					)}
+			</div>
+		</>
 	);
 }
 
