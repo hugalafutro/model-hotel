@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Shuffle } from "lucide-react";
+import { ChevronRight, Shuffle } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { CandidateModel, FailoverGroup } from "../api/types";
@@ -438,6 +438,18 @@ export function FailoverGroups() {
 	const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
 		new Set(),
 	);
+	const [collapsedLetters, setCollapsedLetters] = useState<Set<string>>(
+		new Set(),
+	);
+
+	const toggleLetterCollapse = (letter: string) => {
+		setCollapsedLetters((prev) => {
+			const next = new Set(prev);
+			if (next.has(letter)) next.delete(letter);
+			else next.add(letter);
+			return next;
+		});
+	};
 
 	const { data: listData, isLoading } = useQuery({
 		queryKey: ["failover-groups"],
@@ -859,7 +871,15 @@ export function FailoverGroups() {
 					<div className="flex-1 space-y-6">
 						{sortedLetters.map((letter) => (
 							<section key={letter} id={`failover-section-${letter}`}>
-								<div className="flex items-center gap-3 mb-3">
+								<button
+									type="button"
+									onClick={() => toggleLetterCollapse(letter)}
+									className="flex items-center gap-3 mb-3 w-full text-left group"
+								>
+									<ChevronRight
+										size={16}
+										className={`text-gray-500 transition-transform ${collapsedLetters.has(letter) ? "" : "rotate-90"}`}
+									/>
 									<span className="text-lg font-bold text-(--accent)">
 										{letter}
 									</span>
@@ -868,27 +888,29 @@ export function FailoverGroups() {
 										{letterGroups[letter].length} group
 										{letterGroups[letter].length > 1 ? "s" : ""}
 									</span>
-								</div>
-								<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-									{letterGroups[letter].map((group) => (
-										<FailoverGroupCard
-											key={group.id}
-											group={group}
-											selected={selectedGroupIds.has(group.id)}
-											onToggleSelect={(checked) =>
-												toggleGroupSelect(group.id, checked)
-											}
-											onToggleGroup={(enabled) =>
-												handleToggleGroup(group, enabled)
-											}
-											onToggleEntry={(uuid, enabled) =>
-												handleToggleEntry(group, uuid, enabled)
-											}
-											onReorder={(newOrder) => handleReorder(group, newOrder)}
-											onDelete={() => handleDelete(group)}
-										/>
-									))}
-								</div>
+								</button>
+								{!collapsedLetters.has(letter) && (
+									<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+										{letterGroups[letter].map((group) => (
+											<FailoverGroupCard
+												key={group.id}
+												group={group}
+												selected={selectedGroupIds.has(group.id)}
+												onToggleSelect={(checked) =>
+													toggleGroupSelect(group.id, checked)
+												}
+												onToggleGroup={(enabled) =>
+													handleToggleGroup(group, enabled)
+												}
+												onToggleEntry={(uuid, enabled) =>
+													handleToggleEntry(group, uuid, enabled)
+												}
+												onReorder={(newOrder) => handleReorder(group, newOrder)}
+												onDelete={() => handleDelete(group)}
+											/>
+										))}
+									</div>
+								)}
 							</section>
 						))}
 					</div>
