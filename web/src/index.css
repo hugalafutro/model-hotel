@@ -1155,6 +1155,43 @@ html[data-ui-style="cyber-terminal"] .ui-badge {
 	text-transform: uppercase;
 }
 
+/* Badge color variants */
+[data-ui-style] .ui-badge-neutral {
+	background-color: rgba(17, 24, 39, 0.4);
+	color: #d1d5db;
+	border: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+[data-ui-style] .ui-badge-success {
+	background-color: rgba(34, 197, 94, 0.15);
+	color: #4ade80;
+	border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+[data-ui-style] .ui-badge-error {
+	background-color: rgba(239, 68, 68, 0.15);
+	color: #f87171;
+	border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+[data-ui-style] .ui-badge-warning {
+	background-color: rgba(234, 179, 8, 0.15);
+	color: #facc15;
+	border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+[data-ui-style] .ui-badge-info {
+	background-color: rgba(59, 130, 246, 0.15);
+	color: #60a5fa;
+	border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+[data-ui-style] .ui-badge-accent {
+	background-color: var(--accent-light);
+	color: var(--accent);
+	border: 1px solid var(--accent-lighter);
+}
+
 /* =============================================
    PAGE HEADERS
    ============================================= */
