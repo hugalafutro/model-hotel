@@ -239,13 +239,12 @@ function StatCard({
 				>
 					<Icon size={18} style={{ color: accent }} />
 				</div>
-				<span className="text-[10px] font-semibold uppercase tracking-wider text-(--text-muted) text-right">
+				<span className="font-semibold uppercase tracking-wider text-(--text-muted) text-right" style={{ fontSize: 'clamp(8px, 0.55vw, 10px)' }}>
 					{label}
 				</span>
 			</div>
 			<p
-				className="text-xl font-bold text-(--text-primary)"
-				style={{ textTransform: "none" }}
+				className="font-bold text-(--text-primary)" style={{ fontSize: 'clamp(14px, 1.2vw, 20px)', textTransform: "none" }}
 			>
 				<AnimatedValue
 					value={value}

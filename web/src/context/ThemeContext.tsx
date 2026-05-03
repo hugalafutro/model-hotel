@@ -11,15 +11,15 @@ interface AccentPreset {
 }
 
 const ACCENT_PRESETS: AccentPreset[] = [
-	{ name: "Emerald", color: "#1dd1a1", lightColor: "#10ac84" },
-	{ name: "Gold", color: "#feca57", lightColor: "#ff9f43" },
-	{ name: "Forest", color: "#2ed573", lightColor: "#218c74" },
-	{ name: "Sky", color: "#48dbfb", lightColor: "#0abde3" },
 	{ name: "Steel Blue", color: "#546de5", lightColor: "#3b3b98" },
+	{ name: "Emerald", color: "#1dd1a1", lightColor: "#10ac84" },
+	{ name: "Gold", color: "#b8860b", lightColor: "#996515" },
+	{ name: "Forest", color: "#2ed573", lightColor: "#218c74" },
+	{ name: "Sky", color: "#2196f3", lightColor: "#1976d2" },
 	{ name: "Violet", color: "#a55eea", lightColor: "#8854d0" },
-	{ name: "Hot Pink", color: "#ff9ff3", lightColor: "#f368e0" },
-	{ name: "Lime", color: "#c8e638", lightColor: "#a3cb38" },
-	{ name: "Mint", color: "#7bed9f", lightColor: "#2ed573" },
+	{ name: "Hot Pink", color: "#e84393", lightColor: "#c2185b" },
+	{ name: "Lime", color: "#6b8e23", lightColor: "#556b2f" },
+	{ name: "Teal", color: "#00897b", lightColor: "#00695c" },
 	{ name: "Fuchsia", color: "#ff6b81", lightColor: "#e84393" },
 ];
 
@@ -38,7 +38,7 @@ const ThemeContext = createContext<ThemeContextType>({
 	setTheme: () => {},
 	uiStyle: "clean-saas",
 	setUIStyle: () => {},
-	accentColor: "#1dd1a1",
+	accentColor: "#546de5",
 	setAccentColor: () => {},
 	accentPresets: ACCENT_PRESETS,
 });
