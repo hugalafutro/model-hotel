@@ -57,9 +57,9 @@ Thumbs.db
 # Tool / editor metadata
 /.claude/
 /.codenomad/
+/.opencode/
 # Wiki (published separately as GitHub wiki)
 /model-hotel.wiki/
-/llm-proxy.wiki/
 .rules
 .clinerules
 .cursorrules
