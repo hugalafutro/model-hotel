@@ -25,6 +25,39 @@ type AppLogEntry struct {
 	Message   string `json:"message"`
 }
 
+// parseLogLine extracts the structured fields from a raw log line.
+// It strips the Go log timestamp, extracts the [source] tag, detects the
+// level, and strips any level prefix from the message. This is the shared
+// parsing logic used by both the ring buffer (UI) and stderr filter.
+func parseLogLine(line string) (source, level, msg string) {
+	stripped := stripLogTimestamp(line)
+	source, msg = extractSource(stripped)
+	level = detectLevel(msg)
+	msg = stripLevelPrefix(msg)
+	return source, level, msg
+}
+
+// stderrLogFilter is an io.Writer that forwards log lines to an underlying
+// writer (os.Stderr) only when they look like errors — this keeps docker logs
+// clean while the ring buffer still captures everything for the UI.
+type stderrLogFilter struct {
+	dst io.Writer
+}
+
+func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
+	text := string(p)
+	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		_, lvl, _ := parseLogLine(line)
+		if lvl == "error" || lvl == "warning" {
+			f.dst.Write([]byte(line + "\n"))
+		}
+	}
+	return len(p), nil
+}
+
 const appLogBufferSize = 500
 
 // appLogCountCache caches unfiltered level/source counts with a short TTL.
@@ -148,7 +181,7 @@ func InitAppLogBuffer(pool *pgxpool.Pool) {
 	if pool != nil {
 		dbWriter = newDBLogWriter(pool)
 	}
-	log.SetOutput(io.MultiWriter(os.Stderr, appLogBuffer))
+	log.SetOutput(io.MultiWriter(&stderrLogFilter{dst: os.Stderr}, appLogBuffer))
 }
 
 func StopAppLogWriter() {
@@ -169,10 +202,7 @@ func (rb *ringBuffer) Write(p []byte) (n int, err error) {
 		if line == "" {
 			continue
 		}
-		stripped := stripLogTimestamp(line)
-		source, msg := extractSource(stripped)
-		level := detectLevel(msg)
-		msg = stripLevelPrefix(msg)
+		source, level, msg := parseLogLine(line)
 		entry := AppLogEntry{
 			Timestamp: now.Format(time.RFC3339Nano),
 			Level:     level,

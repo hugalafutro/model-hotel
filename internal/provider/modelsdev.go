@@ -377,7 +377,6 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 	if enriched {
 		capJSON, _ := json.Marshal(caps)
 		m.Capabilities = string(capJSON)
-		log.Printf("[models.dev] enriched model %q with data from models.dev", m.ModelID)
 	}
 	return enriched
 }
