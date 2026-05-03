@@ -773,8 +773,7 @@ export function Providers() {
 			</div>
 
 			<div
-				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[calc(100vh-220px)] overflow-y-auto"
-				style={{ minHeight: 400 }}
+				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
 			>
 				{filteredProviders?.map((provider) => {
 					const isNanoGPT = provider.base_url.includes("nano-gpt.com");
