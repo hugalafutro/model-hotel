@@ -18,6 +18,7 @@ Model Hotel auto-detects provider types from base URLs:
 | OpenCode Go | `opencode.ai/zen/go` | `opencode-go` |
 | xAI (Grok) | `api.x.ai` | `xai` |
 | Google AI Studio (Gemini) | `generativelanguage.googleapis.com` | `google` |
+| Cohere | `api.cohere.ai` / `api.cohere.com` | `cohere` |
 | Generic | Any other URL | `openai` |
 
 Subdomains are also supported (e.g., `custom.nano-gpt.com` → `nanogpt`).
@@ -30,7 +31,7 @@ Subdomains are also supported (e.g., `custom.nano-gpt.com` → `nanogpt`).
 2. Click **Add Provider** button
 3. Fill in the form:
    - **Name**: Descriptive name (e.g., "OpenAI Production")
-   - **Base URL**: Provider API endpoint (must be HTTPS unless `ALLOW_HTTP_PROVIDERS=true`)
+   - **Base URL**: Provider API endpoint (must be HTTPS unless `ALLOW_HTTP_PROVIDERS=true`). Pre-defined provider types have a preset base URL that cannot be edited; only the "Custom" type allows a free-form URL.
    - **API Key**: Provider API key (encrypted at rest)
 4. Click **Create Provider**
 5. Model discovery runs automatically (if `discovery_on_provider_create` is enabled)
@@ -165,6 +166,8 @@ Built-in provider hosts are always allowed and don't need to be listed:
 - `opencode.ai`
 - `api.x.ai`
 - `generativelanguage.googleapis.com`
+- `api.cohere.com`
+- `api.cohere.ai`
 
 ## Provider Health Monitoring
 
