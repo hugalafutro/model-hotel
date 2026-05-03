@@ -46,6 +46,7 @@ var defaultKnownProviderHosts = []string{
 	"generativelanguage.googleapis.com",
 	"api.cohere.com",
 	"api.cohere.ai",
+	"openrouter.ai",
 }
 
 func Load() (*Config, error) {

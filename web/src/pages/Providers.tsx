@@ -53,6 +53,7 @@ const baseUrls: Record<string, string> = {
 	xai: "https://api.x.ai/v1",
 	google: "https://generativelanguage.googleapis.com/v1beta/openai",
 	cohere: "https://api.cohere.ai/compatibility/v1",
+	openrouter: "https://openrouter.ai/api/v1",
 };
 
 function isKnownProviderUrl(url: string): boolean {
@@ -609,6 +610,7 @@ export function Providers() {
 		xai: "xAI (Grok)",
 		google: "Google AI Studio (Gemini)",
 		cohere: "Cohere",
+		openrouter: "OpenRouter",
 	};
 
 	const providerTypeAllowsEmptyKey = (type: string): boolean => {
@@ -975,6 +977,7 @@ export function Providers() {
 								<option value="xai">xAI (Grok)</option>
 								<option value="google">Google AI Studio (Gemini)</option>
 								<option value="cohere">Cohere</option>
+								<option value="openrouter">OpenRouter</option>
 							</select>
 						</div>
 
