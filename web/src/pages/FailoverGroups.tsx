@@ -468,6 +468,25 @@ export function FailoverGroups() {
 	});
 	const lastSyncedAt = listData?.last_synced_at;
 
+	const totalEnabled = allGroups?.filter((g) => g.group_enabled).length ?? 0;
+	const totalDisabled = (allGroups?.length ?? 0) - totalEnabled;
+	const allSameState = totalEnabled === 0 || totalDisabled === 0;
+
+	// Sort groups alphabetically by display_model and group by first letter
+	const sortedGroups = [...(groups ?? [])].sort((a, b) =>
+		a.display_model.localeCompare(b.display_model),
+	);
+	const letterGroups = sortedGroups.reduce<Record<string, typeof sortedGroups>>(
+		(acc, group) => {
+			const letter = group.display_model.charAt(0).toUpperCase();
+			if (!acc[letter]) acc[letter] = [];
+			acc[letter].push(group);
+			return acc;
+		},
+		{},
+	);
+	const sortedLetters = Object.keys(letterGroups).sort();
+
 	// Bulk model enable/disable
 	const toggleGroupSelect = (groupId: string, checked: boolean) => {
 		setSelectedGroupIds((prev) => {
@@ -483,38 +502,25 @@ export function FailoverGroups() {
 		const targets = allGroups.filter((g) => selectedGroupIds.has(g.id));
 		if (targets.length === 0) return;
 
-		const promises = targets
-			.map((group) => {
-				const entryEnabledMap: Record<string, boolean> = {};
-				group.entries.forEach((e) => {
-					entryEnabledMap[e.model_uuid] = enabled;
-				});
-				// Guard: disabling all entries in an active group would be rejected
-				if (!enabled && group.group_enabled) return null;
-				return api.failoverGroups.update(group.id, {
-					entry_enabled: entryEnabledMap,
-				});
-			})
-			.filter((p): p is Promise<FailoverGroup> => p !== null);
-
-		if (promises.length === 0) {
-			toast(
-				"Cannot disable all entries in active groups — disable the groups first",
-				"warning",
-			);
-			return;
-		}
+		const promises = targets.map((group) => {
+			const entryEnabledMap: Record<string, boolean> = {};
+			group.entries.forEach((e) => {
+				entryEnabledMap[e.model_uuid] = enabled;
+			});
+			// If disabling all entries in an active group, also disable the group
+			const alsoDisableGroup = !enabled && group.group_enabled;
+			return api.failoverGroups.update(group.id, {
+				entry_enabled: entryEnabledMap,
+				...(alsoDisableGroup ? { group_enabled: false } : {}),
+			});
+		});
 
 		try {
 			await Promise.all(promises);
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			setSelectedGroupIds(new Set());
-			const skipped = targets.length - promises.length;
-			const msg = `${enabled ? "Enabled" : "Disabled"} all entries in ${promises.length} group${promises.length > 1 ? "s" : ""}`;
 			toast(
-				skipped > 0
-					? `${msg} (${skipped} active group${skipped > 1 ? "s" : ""} skipped)`
-					: msg,
+				`${enabled ? "Enabled" : "Disabled"} all entries in ${targets.length} group${targets.length > 1 ? "s" : ""}`,
 				"success",
 			);
 		} catch {
@@ -534,44 +540,31 @@ export function FailoverGroups() {
 		);
 		if (affectedGroups.length === 0) return;
 
-		const promises = affectedGroups
-			.map((group) => {
-				const entryEnabledMap: Record<string, boolean> = {};
-				group.entries.forEach((e) => {
-					entryEnabledMap[e.model_uuid] = e.provider_name
-						.toLowerCase()
-						.includes(providerLower)
-						? enabled
-						: e.enabled;
-				});
-				// Guard: don't send if it would disable all entries in an active group
-				const remainingEnabled =
-					Object.values(entryEnabledMap).filter(Boolean).length;
-				if (!enabled && remainingEnabled === 0 && group.group_enabled)
-					return null;
-				return api.failoverGroups.update(group.id, {
-					entry_enabled: entryEnabledMap,
-				});
-			})
-			.filter((p): p is Promise<FailoverGroup> => p !== null);
-
-		if (promises.length === 0) {
-			toast(
-				`Cannot disable ${providerFilter} in active groups where it's the only provider — disable the groups first`,
-				"warning",
-			);
-			return;
-		}
+		const promises = affectedGroups.map((group) => {
+			const entryEnabledMap: Record<string, boolean> = {};
+			group.entries.forEach((e) => {
+				entryEnabledMap[e.model_uuid] = e.provider_name
+					.toLowerCase()
+					.includes(providerLower)
+					? enabled
+					: e.enabled;
+			});
+			// If disabling all entries in an active group, also disable the group
+			const remainingEnabled =
+				Object.values(entryEnabledMap).filter(Boolean).length;
+			const alsoDisableGroup =
+				!enabled && remainingEnabled === 0 && group.group_enabled;
+			return api.failoverGroups.update(group.id, {
+				entry_enabled: entryEnabledMap,
+				...(alsoDisableGroup ? { group_enabled: false } : {}),
+			});
+		});
 
 		try {
 			await Promise.all(promises);
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			const skipped = affectedGroups.length - promises.length;
-			const msg = `${enabled ? "Enabled" : "Disabled"} ${providerFilter} across ${promises.length} group${promises.length > 1 ? "s" : ""}`;
 			toast(
-				skipped > 0
-					? `${msg} (${skipped} skipped — sole provider in active group)`
-					: msg,
+				`${enabled ? "Enabled" : "Disabled"} ${providerFilter} across ${affectedGroups.length} group${affectedGroups.length > 1 ? "s" : ""}`,
 				"success",
 			);
 		} catch {
@@ -691,7 +684,7 @@ export function FailoverGroups() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
 			<div className="flex justify-between items-center">
 				<div>
 					<div className="flex items-center gap-3">
@@ -699,6 +692,13 @@ export function FailoverGroups() {
 						<h1 className="text-2xl font-bold text-(--text-primary)">
 							Failover Groups
 						</h1>
+						{!allSameState && groups && groups.length > 0 && (
+							<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+								<span className="text-green-400">{totalEnabled} enabled</span>
+								<span className="text-gray-600">/</span>
+								<span className="text-red-400">{totalDisabled} disabled</span>
+							</span>
+						)}
 					</div>
 					<p className="text-gray-400">
 						Route requests through multiple providers in priority order via{" "}
@@ -741,12 +741,12 @@ export function FailoverGroups() {
 				</div>
 			</div>
 
-			<div className="flex items-center gap-4">
+			<div className="flex items-center gap-3 flex-wrap">
 				<FilterInput
 					value={searchQuery}
 					onChange={setSearchQuery}
 					placeholder="Filter hotel/model…"
-					className="w-[320px]"
+					className="w-[260px]"
 					autoFocus
 				/>
 				<select
@@ -761,6 +761,35 @@ export function FailoverGroups() {
 						</option>
 					))}
 				</select>
+				{selectedGroupIds.size > 0 && (
+					<>
+						<span className="text-sm text-gray-400 ml-auto">
+							{selectedGroupIds.size} group
+							{selectedGroupIds.size > 1 ? "s" : ""} selected
+						</span>
+						<button
+							type="button"
+							onClick={() => handleBulkModelToggle(true)}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Enable all entries
+						</button>
+						<button
+							type="button"
+							onClick={() => handleBulkModelToggle(false)}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Disable all entries
+						</button>
+						<button
+							type="button"
+							onClick={() => setSelectedGroupIds(new Set())}
+							className="ui-btn ui-btn-secondary text-xs"
+						>
+							Deselect
+						</button>
+					</>
+				)}
 			</div>
 
 			{providerFilter && allGroups && (
@@ -796,38 +825,6 @@ export function FailoverGroups() {
 				</div>
 			)}
 
-			{selectedGroupIds.size > 0 && (
-				<div className="sticky bottom-4 z-10 flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 border border-(--accent)/30 shadow-lg">
-					<span className="text-sm text-gray-300">
-						{selectedGroupIds.size} group{selectedGroupIds.size > 1 ? "s" : ""}{" "}
-						selected
-					</span>
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() => handleBulkModelToggle(true)}
-							className="ui-btn ui-btn-secondary text-xs"
-						>
-							Enable all entries
-						</button>
-						<button
-							type="button"
-							onClick={() => handleBulkModelToggle(false)}
-							className="ui-btn ui-btn-secondary text-xs"
-						>
-							Disable all entries
-						</button>
-						<button
-							type="button"
-							onClick={() => setSelectedGroupIds(new Set())}
-							className="ui-btn ui-btn-secondary text-xs"
-						>
-							Deselect
-						</button>
-					</div>
-				</div>
-			)}
-
 			{groups && groups.length === 0 ? (
 				searchQuery || providerFilter ? (
 					<div className="text-center py-12">
@@ -858,21 +855,63 @@ export function FailoverGroups() {
 					</div>
 				)
 			) : (
-				<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-					{groups?.map((group) => (
-						<FailoverGroupCard
-							key={group.id}
-							group={group}
-							selected={selectedGroupIds.has(group.id)}
-							onToggleSelect={(checked) => toggleGroupSelect(group.id, checked)}
-							onToggleGroup={(enabled) => handleToggleGroup(group, enabled)}
-							onToggleEntry={(uuid, enabled) =>
-								handleToggleEntry(group, uuid, enabled)
-							}
-							onReorder={(newOrder) => handleReorder(group, newOrder)}
-							onDelete={() => handleDelete(group)}
-						/>
-					))}
+				<div className="relative flex gap-4">
+					<div className="flex-1 space-y-6">
+						{sortedLetters.map((letter) => (
+							<section key={letter} id={`failover-section-${letter}`}>
+								<div className="flex items-center gap-3 mb-3">
+									<span className="text-lg font-bold text-(--accent)">
+										{letter}
+									</span>
+									<div className="flex-1 h-px bg-gray-700/50" />
+									<span className="text-xs text-gray-500">
+										{letterGroups[letter].length} group
+										{letterGroups[letter].length > 1 ? "s" : ""}
+									</span>
+								</div>
+								<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+									{letterGroups[letter].map((group) => (
+										<FailoverGroupCard
+											key={group.id}
+											group={group}
+											selected={selectedGroupIds.has(group.id)}
+											onToggleSelect={(checked) =>
+												toggleGroupSelect(group.id, checked)
+											}
+											onToggleGroup={(enabled) =>
+												handleToggleGroup(group, enabled)
+											}
+											onToggleEntry={(uuid, enabled) =>
+												handleToggleEntry(group, uuid, enabled)
+											}
+											onReorder={(newOrder) => handleReorder(group, newOrder)}
+											onDelete={() => handleDelete(group)}
+										/>
+									))}
+								</div>
+							</section>
+						))}
+					</div>
+
+					{/* Alphabet sidebar */}
+					{sortedLetters.length > 3 && (
+						<nav className="hidden xl:flex flex-col items-center gap-1 pt-2 sticky top-4 self-start">
+							{sortedLetters.map((letter) => (
+								<button
+									key={letter}
+									type="button"
+									onClick={() =>
+										document
+											.getElementById(`failover-section-${letter}`)
+											?.scrollIntoView({ behavior: "smooth", block: "start" })
+									}
+									className="text-xs font-medium text-gray-500 hover:text-(--accent) transition-colors px-1.5 py-0.5 rounded hover:bg-gray-700/40"
+								>
+									{letter}
+								</button>
+							))}
+						</nav>
+					)}
 				</div>
 			)}
 
