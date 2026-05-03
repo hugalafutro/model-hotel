@@ -14,14 +14,12 @@ import {
 	Sparkles,
 	Terminal,
 	Timer,
-	Zap,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { api } from "../api/client";
 import { Modal } from "../components/Modal";
-import { Spinner } from "../components/Spinner";
 import { useStorage } from "../context/StorageContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
@@ -114,19 +112,6 @@ function ColorPickerModal({
 			</div>
 		</Modal>
 	);
-}
-
-function formatRelativeTime(dateStr: string): string {
-	const date = new Date(dateStr);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffMin = Math.floor(diffMs / 60000);
-	if (diffMin < 1) return "just now";
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffHr = Math.floor(diffMin / 60);
-	if (diffHr < 24) return `${diffHr}h ago`;
-	const diffDay = Math.floor(diffHr / 24);
-	return `${diffDay}d ago`;
 }
 
 const PROVIDER_CACHE_KEYS = [
@@ -241,17 +226,6 @@ export function Settings() {
 			return false;
 		}
 	});
-	const [discoveryStatusCollapsed, setDiscoveryStatusCollapsed] = useState(
-		() => {
-			try {
-				return (
-					localStorage.getItem("settings_discoveryStatusCollapsed") === "true"
-				);
-			} catch {
-				return false;
-			}
-		},
-	);
 	const [loggingCollapsed, setLoggingCollapsed] = useState(() => {
 		try {
 			return localStorage.getItem("settings_loggingCollapsed") === "true";
@@ -327,17 +301,6 @@ export function Settings() {
 			const next = !prev;
 			try {
 				localStorage.setItem("settings_dataStorageCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleDiscoveryStatus = useCallback(() => {
-		setDiscoveryStatusCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_discoveryStatusCollapsed", String(next));
 			} catch {
 				/* ignore */
 			}
@@ -554,14 +517,6 @@ export function Settings() {
 							</div>
 						</div>
 					</div>
-				</div>
-
-				{/* Discovery Status */}
-				<div className="ui-card p-6">
-					<ProviderDiscoveryList
-						collapsed={discoveryStatusCollapsed}
-						onToggle={toggleDiscoveryStatus}
-					/>
 				</div>
 
 				{/* Appearance */}
@@ -1904,172 +1859,6 @@ function LoggingSettings({
 								</div>
 							</div>
 						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
-
-function ProviderDiscoveryList({
-	collapsed,
-	onToggle,
-}: {
-	collapsed: boolean;
-	onToggle: () => void;
-}) {
-	const { toast } = useToast();
-	const { data: providers, isLoading } = useQuery({
-		queryKey: ["providers"],
-		queryFn: () => api.providers.list(),
-	});
-
-	const { data: models } = useQuery({
-		queryKey: ["models"],
-		queryFn: () => api.models.list(),
-	});
-
-	const queryClient = useQueryClient();
-	const [discoveringId, setDiscoveringId] = useState<string | null>(null);
-
-	const discoverAllMutation = useMutation({
-		mutationFn: async () => {
-			return api.providers.discoverAll();
-		},
-		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			if (data.failed > 0 && data.succeeded === 0) {
-				toast(`Discovery failed for all ${data.failed} providers`, "error");
-			}
-		},
-		onError: (err: Error) => {
-			toast(`Discover all failed: ${err.message}`, "error");
-		},
-	});
-
-	const discoverMutation = useMutation({
-		mutationFn: async (id: string) => {
-			setDiscoveringId(id);
-			return api.providers.discover(id);
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-		},
-		onError: (err: Error) => {
-			toast(`Discovery failed: ${err.message}`, "error");
-		},
-		onSettled: () => {
-			setDiscoveringId(null);
-		},
-	});
-
-	if (isLoading) return <p className="text-gray-500">Loading providers...</p>;
-
-	const modelCounts: Record<string, number> = {};
-	for (const m of models || []) {
-		if (m.enabled) {
-			modelCounts[m.provider_id] = (modelCounts[m.provider_id] || 0) + 1;
-		}
-	}
-
-	return (
-		<div className="flex flex-col min-h-0 flex-1">
-			<div className="flex items-center justify-between mb-1 shrink-0">
-				<div className="flex items-center gap-2">
-					<Zap size={18} className="text-(--accent)" />
-					<h2 className="text-xl font-semibold text-white">Discovery Status</h2>
-				</div>
-				<div className="flex items-center gap-2">
-					{providers && providers.length > 0 && (
-						<button
-							type="button"
-							onClick={() => discoverAllMutation.mutate()}
-							disabled={discoverAllMutation.isPending || discoveringId !== null}
-							className="ui-btn ui-btn-secondary"
-						>
-							{discoverAllMutation.isPending ? (
-								<>
-									<Spinner /> Discovering…
-								</>
-							) : (
-								"Discover All"
-							)}
-						</button>
-					)}
-					<button
-						type="button"
-						onClick={onToggle}
-						className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-					>
-						{collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-					</button>
-				</div>
-			</div>
-			<div
-				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
-			>
-				<div className="overflow-hidden">
-					{providers?.length === 0 && (
-						<p className="text-gray-500 text-sm shrink-0">
-							No providers configured yet.
-						</p>
-					)}
-					<div className="overflow-y-auto min-h-0 flex-1 mt-2 space-y-0 pr-2">
-						{[...(providers ?? [])]
-							.sort((a, b) => {
-								const aTime = a.last_discovered_at
-									? new Date(a.last_discovered_at).getTime()
-									: 0;
-								const bTime = b.last_discovered_at
-									? new Date(b.last_discovered_at).getTime()
-									: 0;
-								return bTime - aTime;
-							})
-							.map((p) => (
-								<div
-									key={p.id}
-									className="flex items-center justify-between py-2"
-								>
-									<div className="flex items-center gap-3">
-										<span
-											className={`w-2 h-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-gray-500"}`}
-										/>
-										<div>
-											<p className="text-sm font-medium text-white">{p.name}</p>
-											<p className="text-xs text-gray-500">
-												{modelCounts[p.id] || 0} models
-												{p.last_discovered_at &&
-													` · Last discovered ${formatRelativeTime(p.last_discovered_at)}`}
-											</p>
-										</div>
-									</div>
-									<button
-										type="button"
-										onClick={() => discoverMutation.mutate(p.id)}
-										disabled={
-											discoveringId !== null || discoverAllMutation.isPending
-										}
-										className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-											discoveringId === p.id
-												? "bg-(--accent-lighter) text-(--accent) border-(--accent-light) cursor-not-allowed"
-												: discoveringId !== null ||
-														discoverAllMutation.isPending
-													? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-													: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(129,140,248,0.2)]"
-										}`}
-									>
-										{discoveringId === p.id ? (
-											<>
-												<Spinner /> Discovering…
-											</>
-										) : (
-											"Discover Now"
-										)}
-									</button>
-								</div>
-							))}
 					</div>
 				</div>
 			</div>

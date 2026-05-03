@@ -443,11 +443,11 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 				</DetailItem>
 				<DetailItem icon={Tag} label="Source" value={appLog.source || "—"} />
 				<DetailItem icon={FileText} label="Message" value={appLog.message}>
-					<div className="relative">
-						<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-all bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
+					<div className="flex gap-2">
+						<CopyButton text={appLog.message} />
+						<pre className="flex-1 text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-all bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
 							{appLog.message}
 						</pre>
-						<CopyButton text={appLog.message} />
 					</div>
 				</DetailItem>
 			</div>
