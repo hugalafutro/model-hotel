@@ -483,22 +483,38 @@ export function FailoverGroups() {
 		const targets = allGroups.filter((g) => selectedGroupIds.has(g.id));
 		if (targets.length === 0) return;
 
-		const promises = targets.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] = enabled;
-			});
-			return api.failoverGroups.update(group.id, {
-				entry_enabled: entryEnabledMap,
-			});
-		});
+		const promises = targets
+			.map((group) => {
+				const entryEnabledMap: Record<string, boolean> = {};
+				group.entries.forEach((e) => {
+					entryEnabledMap[e.model_uuid] = enabled;
+				});
+				// Guard: disabling all entries in an active group would be rejected
+				if (!enabled && group.group_enabled) return null;
+				return api.failoverGroups.update(group.id, {
+					entry_enabled: entryEnabledMap,
+				});
+			})
+			.filter((p): p is Promise<FailoverGroup> => p !== null);
+
+		if (promises.length === 0) {
+			toast(
+				"Cannot disable all entries in active groups — disable the groups first",
+				"warning",
+			);
+			return;
+		}
 
 		try {
 			await Promise.all(promises);
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			setSelectedGroupIds(new Set());
+			const skipped = targets.length - promises.length;
+			const msg = `${enabled ? "Enabled" : "Disabled"} all entries in ${promises.length} group${promises.length > 1 ? "s" : ""}`;
 			toast(
-				`${enabled ? "Enabled" : "Disabled"} all entries in ${targets.length} group${targets.length > 1 ? "s" : ""}`,
+				skipped > 0
+					? `${msg} (${skipped} active group${skipped > 1 ? "s" : ""} skipped)`
+					: msg,
 				"success",
 			);
 		} catch {
@@ -518,30 +534,44 @@ export function FailoverGroups() {
 		);
 		if (affectedGroups.length === 0) return;
 
-		const promises = affectedGroups.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] = e.provider_name
-					.toLowerCase()
-					.includes(providerLower)
-					? enabled
-					: e.enabled;
-			});
-			// Guard: don't send if it would disable all entries in an active group
-			const remainingEnabled =
-				Object.values(entryEnabledMap).filter(Boolean).length;
-			if (!enabled && remainingEnabled === 0 && group.group_enabled)
-				return Promise.resolve();
-			return api.failoverGroups.update(group.id, {
-				entry_enabled: entryEnabledMap,
-			});
-		});
+		const promises = affectedGroups
+			.map((group) => {
+				const entryEnabledMap: Record<string, boolean> = {};
+				group.entries.forEach((e) => {
+					entryEnabledMap[e.model_uuid] = e.provider_name
+						.toLowerCase()
+						.includes(providerLower)
+						? enabled
+						: e.enabled;
+				});
+				// Guard: don't send if it would disable all entries in an active group
+				const remainingEnabled =
+					Object.values(entryEnabledMap).filter(Boolean).length;
+				if (!enabled && remainingEnabled === 0 && group.group_enabled)
+					return null;
+				return api.failoverGroups.update(group.id, {
+					entry_enabled: entryEnabledMap,
+				});
+			})
+			.filter((p): p is Promise<FailoverGroup> => p !== null);
+
+		if (promises.length === 0) {
+			toast(
+				`Cannot disable ${providerFilter} in active groups where it's the only provider — disable the groups first`,
+				"warning",
+			);
+			return;
+		}
 
 		try {
-			await Promise.all(promises.filter(Boolean));
+			await Promise.all(promises);
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			const skipped = affectedGroups.length - promises.length;
+			const msg = `${enabled ? "Enabled" : "Disabled"} ${providerFilter} across ${promises.length} group${promises.length > 1 ? "s" : ""}`;
 			toast(
-				`${enabled ? "Enabled" : "Disabled"} ${providerFilter} across ${affectedGroups.length} group${affectedGroups.length > 1 ? "s" : ""}`,
+				skipped > 0
+					? `${msg} (${skipped} skipped — sole provider in active group)`
+					: msg,
 				"success",
 			);
 		} catch {
@@ -722,7 +752,7 @@ export function FailoverGroups() {
 				<select
 					value={providerFilter}
 					onChange={(e) => setProviderFilter(e.target.value)}
-					className="ui-input w-[220px]"
+					className="max-w-[220px] shrink-0 rounded-md border border-gray-600 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-(--accent)"
 				>
 					<option value="">All providers</option>
 					{providerNames.map((name) => (
