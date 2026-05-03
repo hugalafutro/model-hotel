@@ -52,7 +52,9 @@ func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
 		}
 		_, lvl, _ := parseLogLine(line)
 		if lvl == "error" || lvl == "warning" {
-			f.dst.Write([]byte(line + "\n"))
+			if _, err := f.dst.Write([]byte(line + "\n")); err != nil {
+			return 0, err
+		}
 		}
 	}
 	return len(p), nil

@@ -3,9 +3,7 @@ import {
 	AlertTriangle,
 	Box,
 	Calendar,
-	Check,
 	Clock,
-	Copy,
 	FileText,
 	Gauge,
 	Hash,
@@ -16,8 +14,8 @@ import {
 	Timer,
 	Zap,
 } from "lucide-react";
-import { useCallback, useState } from "react";
 import type { AppLogEntry, LogEntry } from "../api/types";
+import { CopyButton } from "./CopyButton";
 import { Modal } from "./Modal";
 
 interface LogDetailModalProps {
@@ -154,31 +152,6 @@ function StatusBadge({
 	}
 
 	return <span className="text-xs text-(--text-secondary)">{code}</span>;
-}
-
-function CopyButton({ text }: { text: string }) {
-	const [copied, setCopied] = useState(false);
-
-	const handleCopy = useCallback(() => {
-		navigator.clipboard.writeText(text);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
-	}, [text]);
-
-	return (
-		<button
-			type="button"
-			onClick={handleCopy}
-			className="ml-2 text-(--text-tertiary) hover:text-(--accent) transition-colors cursor-default"
-			title="Copy to clipboard"
-		>
-			{copied ? (
-				<Check size={14} className="text-green-400" />
-			) : (
-				<Copy size={14} />
-			)}
-		</button>
-	);
 }
 
 export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
