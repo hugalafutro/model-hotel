@@ -111,7 +111,7 @@ func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Prov
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "zai-coding")
 	if err != nil {
 		log.Printf("[discovery] error: zai-coding provider %s quota fetch failed: %v", provider.ID, err)
 		return nil, fmt.Errorf("failed to fetch quota: %w", err)

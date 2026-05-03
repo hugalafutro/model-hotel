@@ -123,7 +123,7 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "deepseek")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch balance: %w", err)
 	}

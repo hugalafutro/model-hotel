@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -143,4 +145,60 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 
 	log.Printf("[discovery] completed for provider %s: %d models found", provider.ID, len(models))
 	return models, nil
+}
+
+const maxQuotaRetries = 3
+
+// isTransientNetworkError returns true for DNS failures, timeouts, and
+// connection errors that are likely to succeed on retry.
+func isTransientNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return true
+	}
+	// url.Error wraps underlying network errors
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return isTransientNetworkError(urlErr.Err)
+	}
+	return false
+}
+
+// doQuotaRequestWithRetry executes an HTTP request with retries for transient
+// network errors (DNS failures, timeouts, connection issues). Non-transient
+// errors and successful responses are returned immediately.
+func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *http.Request, providerID, providerType string) (*http.Response, error) {
+	var lastErr error
+	for attempt := range maxQuotaRetries {
+		if attempt > 0 {
+			backoff := time.Duration(attempt) * 3 * time.Second
+			log.Printf("[discovery] %s provider %s: retrying quota fetch in %v (attempt %d/%d)", providerType, providerID, backoff, attempt+1, maxQuotaRetries)
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during retry: %w", lastErr)
+			case <-time.After(backoff):
+			}
+		}
+		resp, err := d.httpClient.Do(req)
+		if err != nil {
+			if isTransientNetworkError(err) {
+				lastErr = err
+				continue
+			}
+			return nil, err
+		}
+		return resp, nil
+	}
+	return nil, fmt.Errorf("quota fetch failed after %d attempts: %w", maxQuotaRetries, lastErr)
 }

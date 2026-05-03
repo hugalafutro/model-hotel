@@ -127,7 +127,7 @@ func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provid
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "nanogpt")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch usage: %w", err)
 	}
