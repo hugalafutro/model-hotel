@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Bell,
-	ChevronDown,
-	ChevronUp,
 	Database,
 	Gauge,
 	LayoutDashboard,
@@ -19,6 +17,10 @@ import type React from "react";
 import { useCallback, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { api } from "../api/client";
+import {
+	CollapsibleToggle,
+	useCollapsible,
+} from "../components/CollapsibleToggle";
 import { Modal } from "../components/Modal";
 import { useStorage } from "../context/StorageContext";
 import { useTheme } from "../context/ThemeContext";
@@ -182,153 +184,24 @@ export function Settings() {
 			return false;
 		}
 	});
-	const [modelDiscoveryCollapsed, setModelDiscoveryCollapsed] = useState(() => {
-		try {
-			return (
-				localStorage.getItem("settings_modelDiscoveryCollapsed") === "true"
-			);
-		} catch {
-			return false;
-		}
-	});
-	const [appearanceCollapsed, setAppearanceCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_appearanceCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [toastCollapsed, setToastCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_toastCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [sidebarQuotaCollapsed, setSidebarQuotaCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_sidebarQuotaCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [dashboardCollapsed, setDashboardCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_dashboardCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [dataStorageCollapsed, setDataStorageCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_dataStorageCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [loggingCollapsed, setLoggingCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_loggingCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [rateLimitCollapsed, setRateLimitCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("settings_rateLimitCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-
-	const toggleModelDiscovery = useCallback(() => {
-		setModelDiscoveryCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_modelDiscoveryCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleAppearance = useCallback(() => {
-		setAppearanceCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_appearanceCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleToast = useCallback(() => {
-		setToastCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_toastCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleSidebarQuota = useCallback(() => {
-		setSidebarQuotaCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_sidebarQuotaCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleDashboard = useCallback(() => {
-		setDashboardCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_dashboardCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleDataStorage = useCallback(() => {
-		setDataStorageCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_dataStorageCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleLogging = useCallback(() => {
-		setLoggingCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_loggingCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
-	const toggleRateLimit = useCallback(() => {
-		setRateLimitCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("settings_rateLimitCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
+	const { collapsed: modelDiscoveryCollapsed, toggle: toggleModelDiscovery } =
+		useCollapsible("settings_modelDiscoveryCollapsed");
+	const { collapsed: appearanceCollapsed, toggle: toggleAppearance } =
+		useCollapsible("settings_appearanceCollapsed");
+	const { collapsed: toastCollapsed, toggle: toggleToast } = useCollapsible(
+		"settings_toastCollapsed",
+	);
+	const { collapsed: sidebarQuotaCollapsed, toggle: toggleSidebarQuota } =
+		useCollapsible("settings_sidebarQuotaCollapsed");
+	const { collapsed: dashboardCollapsed, toggle: toggleDashboard } =
+		useCollapsible("settings_dashboardCollapsed");
+	const { collapsed: dataStorageCollapsed, toggle: toggleDataStorage } =
+		useCollapsible("settings_dataStorageCollapsed");
+	const { collapsed: loggingCollapsed, toggle: toggleLogging } = useCollapsible(
+		"settings_loggingCollapsed",
+	);
+	const { collapsed: rateLimitCollapsed, toggle: toggleRateLimit } =
+		useCollapsible("settings_rateLimitCollapsed");
 
 	const openPicker = useCallback(() => {
 		setPickerColor(accentColor);
@@ -394,17 +267,12 @@ export function Settings() {
 								Model Discovery
 							</h2>
 						</div>
-						<button
-							type="button"
-							onClick={toggleModelDiscovery}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{modelDiscoveryCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={modelDiscoveryCollapsed}
+							onToggle={toggleModelDiscovery}
+							size={16}
+							variant="muted"
+						/>
 					</div>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${modelDiscoveryCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -526,17 +394,12 @@ export function Settings() {
 							<Palette size={18} className="text-(--accent)" />
 							<h2 className="text-xl font-semibold text-white">Appearance</h2>
 						</div>
-						<button
-							type="button"
-							onClick={toggleAppearance}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{appearanceCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={appearanceCollapsed}
+							onToggle={toggleAppearance}
+							size={16}
+							variant="muted"
+						/>
 					</div>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${appearanceCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -693,17 +556,12 @@ export function Settings() {
 								Toast Notifications
 							</h2>
 						</div>
-						<button
-							type="button"
-							onClick={toggleToast}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{toastCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={toastCollapsed}
+							onToggle={toggleToast}
+							size={16}
+							variant="muted"
+						/>
 					</div>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${toastCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -868,17 +726,12 @@ export function Settings() {
 								Sidebar Quotas
 							</h2>
 						</div>
-						<button
-							type="button"
-							onClick={toggleSidebarQuota}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{sidebarQuotaCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={sidebarQuotaCollapsed}
+							onToggle={toggleSidebarQuota}
+							size={16}
+							variant="muted"
+						/>
 					</div>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${sidebarQuotaCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -997,17 +850,12 @@ export function Settings() {
 								Dashboard Refresh
 							</h2>
 						</div>
-						<button
-							type="button"
-							onClick={toggleDashboard}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{dashboardCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={dashboardCollapsed}
+							onToggle={toggleDashboard}
+							size={16}
+							variant="muted"
+						/>
 					</div>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dashboardCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -1089,17 +937,12 @@ export function Settings() {
 							<Database size={18} className="text-(--accent)" />
 							<h2 className="text-xl font-semibold text-white">Data Storage</h2>
 						</div>
-						<button
-							type="button"
-							onClick={toggleDataStorage}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-						>
-							{dataStorageCollapsed ? (
-								<ChevronDown size={16} />
-							) : (
-								<ChevronUp size={16} />
-							)}
-						</button>
+						<CollapsibleToggle
+							collapsed={dataStorageCollapsed}
+							onToggle={toggleDataStorage}
+							size={16}
+							variant="muted"
+						/>
 					</div>
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${dataStorageCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -1477,13 +1320,12 @@ function RateLimitSettings({
 					<Gauge size={18} className="text-(--accent)" />
 					<h2 className="text-xl font-semibold text-white">Rate Limiting</h2>
 				</div>
-				<button
-					type="button"
-					onClick={onToggle}
-					className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-				>
-					{collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-				</button>
+				<CollapsibleToggle
+					collapsed={collapsed}
+					onToggle={onToggle}
+					size={16}
+					variant="muted"
+				/>
 			</div>
 			<div
 				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
@@ -1689,13 +1531,12 @@ function LoggingSettings({
 					<ScrollText size={18} className="text-(--accent)" />
 					<h2 className="text-xl font-semibold text-white">Logging</h2>
 				</div>
-				<button
-					type="button"
-					onClick={onToggle}
-					className="p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-				>
-					{collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-				</button>
+				<CollapsibleToggle
+					collapsed={collapsed}
+					onToggle={onToggle}
+					size={16}
+					variant="muted"
+				/>
 			</div>
 			<div
 				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}

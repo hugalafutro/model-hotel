@@ -179,19 +179,18 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.DisplayModel == "" {
-		http.Error(w, "display_model is required", http.StatusBadRequest)
+	trimmedModel, err := validateNameString("display_model", req.DisplayModel, 1, 128)
+	if err != nil {
+		respondBadRequest(w, "invalid display model", err)
 		return
 	}
+	req.DisplayModel = trimmedModel
 
-	if len(req.DisplayModel) > 128 {
-		http.Error(w, "display_model must be at most 128 characters", http.StatusBadRequest)
+	if dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128); dnErr != nil {
+		respondBadRequest(w, "invalid display name", dnErr)
 		return
-	}
-
-	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
-		respondBadRequest(w, "invalid display name", err)
-		return
+	} else {
+		req.DisplayName = dn
 	}
 
 	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
@@ -269,9 +268,11 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate field lengths
-	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
-		respondBadRequest(w, "invalid display name", err)
+	if dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128); dnErr != nil {
+		respondBadRequest(w, "invalid display name", dnErr)
 		return
+	} else {
+		req.DisplayName = dn
 	}
 
 	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {

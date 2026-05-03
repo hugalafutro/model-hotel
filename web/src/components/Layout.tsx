@@ -3,8 +3,6 @@ import {
 	AlertTriangle,
 	BookOpen,
 	Bot,
-	ChevronDown,
-	ChevronUp,
 	Copy,
 	ExternalLink,
 	FileText,
@@ -32,6 +30,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
+import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LogDetailModal } from "./LogDetailModal";
 import { Logo } from "./Logo";
@@ -146,25 +145,9 @@ function SystemStatus() {
 		retry: 1,
 	});
 
-	const [collapsed, setCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarStatsCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
-
-	const toggleCollapsed = useCallback(() => {
-		setCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem("sidebarStatsCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
-			return next;
-		});
-	}, []);
+	const { collapsed, toggle: toggleCollapsed } = useCollapsible(
+		"sidebarStatsCollapsed",
+	);
 
 	const app = stats?.app;
 	const docker = stats?.docker;
@@ -416,14 +399,14 @@ function SystemStatus() {
 				</div>
 			)}
 			<div className="sidebar-stats-footer">
-				<button
-					type="button"
-					onClick={toggleCollapsed}
+				<CollapsibleToggle
+					collapsed={collapsed}
+					onToggle={toggleCollapsed}
+					size={10}
+					expandTitle="Expand stats"
+					collapseTitle="Collapse stats"
 					className="sidebar-stats-trigger-btn"
-					title={collapsed ? "Expand stats" : "Collapse stats"}
-				>
-					{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
-				</button>
+				/>
 			</div>
 		</div>
 	);
@@ -738,7 +721,7 @@ export function Layout({ children }: LayoutProps) {
 	return (
 		<div className="flex h-screen ui-surface-bg">
 			<aside className="w-64 ui-sidebar shrink-0 flex flex-col min-h-0">
-				<div className="px-6 pt-5 pb-3 text-center shrink-0">
+				<div className="px-6 pt-3 pb-3 text-center shrink-0">
 					<Logo className="h-10 w-auto text-white mx-auto" />
 					<p className="text-sm text-gray-200 mt-1">
 						Multi-Provider AI Gateway

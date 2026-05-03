@@ -16,6 +16,7 @@ import {
 	NanoGPTQuotaModal,
 	ZAICodingQuotaModal,
 } from "../components/ProviderModals";
+import { ProviderModelsModal } from "../components/ProviderModelsModal";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { formatTimestamp, formatTokens } from "../utils/format";
@@ -105,7 +106,7 @@ function EditProviderModal({
 			api_key?: string;
 			enabled?: boolean;
 		} = {};
-		if (formData.name !== provider.name) payload.name = formData.name;
+		if (formData.name !== provider.name) payload.name = formData.name.trim();
 		if (formData.base_url !== provider.base_url)
 			payload.base_url = formData.base_url;
 		if (formData.api_key !== "") payload.api_key = formData.api_key;
@@ -296,6 +297,7 @@ export function Providers() {
 		provider_type: "custom",
 	});
 	const [showApiKey, setShowApiKey] = useState(false);
+	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
 
 	const { data: providers, isLoading } = useQuery({
 		queryKey: ["providers"],
@@ -560,7 +562,7 @@ export function Providers() {
 		e.preventDefault();
 		setError(null);
 		createMutation.mutate({
-			name: formData.name,
+			name: formData.name.trim(),
 			base_url: formData.base_url,
 			api_key: formData.api_key,
 		});
@@ -741,9 +743,13 @@ export function Providers() {
 											const count = modelCounts.get(provider.name) ?? 0;
 											return (
 												count > 0 && (
-													<span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30">
+													<button
+														type="button"
+														onClick={() => setModelsProvider(provider)}
+														className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors"
+													>
 														{count} {count === 1 ? "model" : "models"}
-													</span>
+													</button>
 												)
 											);
 										})()}
@@ -1114,6 +1120,14 @@ export function Providers() {
 					provider={editProvider}
 					onClose={() => setEditProvider(null)}
 					onToast={toast}
+				/>
+			)}
+
+			{modelsProvider && models && (
+				<ProviderModelsModal
+					provider={modelsProvider}
+					models={models}
+					onClose={() => setModelsProvider(null)}
 				/>
 			)}
 		</div>

@@ -22,6 +22,7 @@ import { api } from "../api/client";
 import type { CandidateModel, FailoverGroup } from "../api/types";
 import { FilterInput } from "../components/FilterInput";
 import { Modal } from "../components/Modal";
+import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { formatTimestamp, formatTokens } from "../utils/format";
 
@@ -284,8 +285,8 @@ function CreateGroupModal({
 			return;
 		}
 		createMutation.mutate({
-			display_model: displayModel,
-			display_name: displayName || undefined,
+			display_model: displayModel.trim(),
+			display_name: displayName.trim() || undefined,
 			entry_ids: selectedEntries,
 		});
 	};
@@ -576,7 +577,13 @@ export function FailoverGroups() {
 						disabled={syncMutation.isPending}
 						className="ui-btn ui-btn-secondary"
 					>
-						{syncMutation.isPending ? "Syncing…" : "Sync"}
+						{syncMutation.isPending ? (
+							<>
+								<Spinner /> Syncing…
+							</>
+						) : (
+							"Sync"
+						)}
 					</button>
 					<button
 						type="button"

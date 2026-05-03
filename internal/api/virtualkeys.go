@@ -56,16 +56,12 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+	trimmed, err := validateNameString("name", req.Name, 1, 100)
+	if err != nil {
+		respondBadRequest(w, "invalid name", err)
 		return
 	}
-
-	if len(req.Name) > 100 {
-		http.Error(w, "name must be at most 100 characters", http.StatusBadRequest)
-		return
-	}
+	req.Name = trimmed
 
 	for _, reserved := range []string{"chat", "arena", "completions", "admin"} {
 		if strings.EqualFold(req.Name, reserved) {

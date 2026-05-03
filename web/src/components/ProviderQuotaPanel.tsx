@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
@@ -12,6 +12,7 @@ import type {
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { formatTokens } from "../utils/format";
+import { CollapsibleToggle } from "./CollapsibleToggle";
 import { NanoGPTQuotaModal, ZAICodingQuotaModal } from "./ProviderModals";
 
 const CACHE_PREFIX = "model-hotel";
@@ -266,14 +267,14 @@ export function ProviderQuotaPanel() {
 							/>
 						</button>
 					)}
-					<button
-						type="button"
-						onClick={toggleCollapsed}
+					<CollapsibleToggle
+						collapsed={collapsed}
+						onToggle={toggleCollapsed}
+						size={10}
+						expandTitle="Expand quotas"
+						collapseTitle="Collapse"
 						className="sidebar-quota-btn"
-						title={collapsed ? "Expand quotas" : "Collapse"}
-					>
-						{collapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
-					</button>
+					/>
 				</div>
 			</div>
 

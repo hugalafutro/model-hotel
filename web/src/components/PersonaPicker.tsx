@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import type { PersonaPreset } from "../data/presets";
+import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PresetBar } from "./PresetBar";
 
@@ -39,7 +39,7 @@ export function PersonaPicker({
 	disabled = false,
 	onRandom,
 }: PersonaPickerProps) {
-	const [collapsed, setCollapsed] = useState(false);
+	const { collapsed, toggle: toggleCollapsed } = useCollapsible();
 	const [pendingPersona, setPendingPersona] = useState<PersonaPreset | null>(
 		null,
 	);
@@ -124,14 +124,7 @@ export function PersonaPicker({
 				>
 					{label}
 				</label>
-				<button
-					type="button"
-					onClick={() => setCollapsed((c) => !c)}
-					className="cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all p-1.5"
-					title={collapsed ? "Expand" : "Collapse"}
-				>
-					{collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-				</button>
+				<CollapsibleToggle collapsed={collapsed} onToggle={toggleCollapsed} />
 			</div>
 			{!collapsed && (
 				<>

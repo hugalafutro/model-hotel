@@ -144,7 +144,7 @@ func TestFailoverHandler_Create_MissingDisplayModel(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "display_model is required") {
+	if !strings.Contains(w.Body.String(), "invalid display model") {
 		t.Errorf("expected error about display_model, got: %s", w.Body.String())
 	}
 }

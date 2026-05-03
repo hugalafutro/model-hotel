@@ -127,9 +127,11 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate field bounds
-	if err := validateStringPtrLength("display_name", req.DisplayName, 1, 128); err != nil {
-		respondBadRequest(w, "invalid display name", err)
+	if dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128); dnErr != nil {
+		respondBadRequest(w, "invalid display name", dnErr)
 		return
+	} else {
+		req.DisplayName = dn
 	}
 
 	if err := validateIntPtrRange("context_length", req.ContextLength, 256, 2000000); err != nil {

@@ -137,15 +137,12 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+	trimmed, err := validateNameString("name", req.Name, 1, 100)
+	if err != nil {
+		respondBadRequest(w, "invalid name", err)
 		return
 	}
-
-	if len(req.Name) > 100 {
-		http.Error(w, "name must be less than 100 characters", http.StatusBadRequest)
-		return
-	}
+	req.Name = trimmed
 
 	if req.BaseURL == "" {
 		http.Error(w, "base_url is required", http.StatusBadRequest)
@@ -318,12 +315,12 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 
 	// Validate field lengths
 	if req.Name != nil {
-		trimmed := trimString(*req.Name)
-		req.Name = &trimmed
-		if err := validateStringPtrLength("name", req.Name, 1, 100); err != nil {
+		trimmed, err := validateNamePtr("name", req.Name, 1, 100)
+		if err != nil {
 			respondBadRequest(w, "invalid name", err)
 			return
 		}
+		req.Name = trimmed
 	}
 
 	if req.BaseURL != nil {
