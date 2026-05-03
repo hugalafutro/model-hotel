@@ -424,6 +424,7 @@ export function FailoverGroups() {
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [providerFilter, setProviderFilter] = useState("");
 
 	const { data: listData, isLoading } = useQuery({
 		queryKey: ["failover-groups"],
@@ -431,9 +432,17 @@ export function FailoverGroups() {
 	});
 
 	const allGroups = listData?.groups;
-	const groups = allGroups?.filter((g) =>
-		g.display_model.toLowerCase().includes(searchQuery.toLowerCase()),
-	);
+	const groups = allGroups?.filter((g) => {
+		const matchesModel = g.display_model
+			.toLowerCase()
+			.includes(searchQuery.toLowerCase());
+		const matchesProvider =
+			!providerFilter ||
+			g.entries.some((e) =>
+				e.provider_name.toLowerCase().includes(providerFilter.toLowerCase()),
+			);
+		return matchesModel && matchesProvider;
+	});
 	const lastSyncedAt = listData?.last_synced_at;
 
 	const { data: candidates } = useQuery({
@@ -605,20 +614,27 @@ export function FailoverGroups() {
 					className="w-[320px]"
 					autoFocus
 				/>
+				<FilterInput
+					value={providerFilter}
+					onChange={setProviderFilter}
+					placeholder="Filter provider…"
+					className="w-[220px]"
+				/>
 			</div>
 
 			{groups && groups.length === 0 ? (
-				searchQuery ? (
+				searchQuery || providerFilter ? (
 					<div className="text-center py-12">
-						<div className="text-gray-500 mb-4">
-							No groups matching &ldquo;{searchQuery}&rdquo;
-						</div>
+						<div className="text-gray-500 mb-4">No groups matching filters</div>
 						<button
 							type="button"
-							onClick={() => setSearchQuery("")}
+							onClick={() => {
+								setSearchQuery("");
+								setProviderFilter("");
+							}}
 							className="ui-btn ui-btn-primary"
 						>
-							Clear filter
+							Clear filters
 						</button>
 					</div>
 				) : (
