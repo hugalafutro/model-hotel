@@ -618,14 +618,14 @@ function ModelDetailModal({
 					<button
 						type="button"
 						onClick={handleCancelEdit}
-						className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+						className="ui-btn ui-btn-secondary"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onClick={handleSave}
-						className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+						className="ui-btn ui-btn-primary"
 					>
 						Save Changes
 					</button>
@@ -720,7 +720,7 @@ function ModelDetailModal({
 						<button
 							type="button"
 							onClick={() => setEditing(true)}
-							className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+							className="ui-btn ui-btn-secondary"
 						>
 							Edit
 						</button>

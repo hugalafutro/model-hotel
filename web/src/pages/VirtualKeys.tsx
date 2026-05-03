@@ -79,7 +79,7 @@ function CreateKeyModal({
 						<button
 							type="button"
 							onClick={onClose}
-							className="ui-btn-secondary cursor-pointer"
+							className="ui-btn ui-btn-secondary"
 						>
 							Done
 						</button>
@@ -109,7 +109,7 @@ function CreateKeyModal({
 						<button
 							type="button"
 							onClick={onClose}
-							className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+							className="ui-btn ui-btn-secondary"
 						>
 							Cancel
 						</button>
