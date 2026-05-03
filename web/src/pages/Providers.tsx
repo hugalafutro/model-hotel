@@ -744,19 +744,15 @@ export function Providers() {
 				</div>
 			</div>
 
-			<div className="ui-card p-4 shrink-0">
-				<div className="flex items-center justify-end">
-					<div className="flex items-center gap-2">
-						<FilterDropdown
-							value={typeFilter}
-							onChange={setTypeFilter}
-							placeholder="Provider type"
-							allLabel={`All (${allProvidersCount})`}
-							options={typeOptions}
-							className="w-44"
-						/>
-					</div>
-				</div>
+			<div className="flex items-center justify-end">
+				<FilterDropdown
+					value={typeFilter}
+					onChange={setTypeFilter}
+					placeholder="Provider type"
+					allLabel={`All (${allProvidersCount})`}
+					options={typeOptions}
+					className="w-44"
+				/>
 			</div>
 
 			<div
