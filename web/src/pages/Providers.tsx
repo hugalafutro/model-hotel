@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, PlugZap } from "lucide-react";
+import { ArrowDownAZ, ArrowUpZA, Eye, EyeOff, PlugZap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
@@ -356,6 +356,7 @@ export function Providers() {
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
 	const [typeFilter, setTypeFilter] = useState("");
+	const [sortAsc, setSortAsc] = useState(true);
 
 	const { data: providers, isLoading } = useQuery({
 		queryKey: ["providers"],
@@ -679,9 +680,13 @@ export function Providers() {
 
 	const filteredProviders = useMemo(() => {
 		if (!providers) return providers;
-		if (!typeFilter) return providers;
-		return providers.filter((p) => getProviderType(p.base_url) === typeFilter);
-	}, [providers, typeFilter]);
+		const list = typeFilter
+			? providers.filter((p) => getProviderType(p.base_url) === typeFilter)
+			: providers;
+		return [...list].sort((a, b) =>
+			sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name),
+		);
+	}, [providers, typeFilter, sortAsc]);
 
 	const allProvidersCount = providers?.length ?? 0;
 
@@ -744,7 +749,19 @@ export function Providers() {
 				</div>
 			</div>
 
-			<div className="flex items-center justify-end">
+			<div className="flex items-center justify-end gap-2">
+				<button
+					type="button"
+					onClick={() => setSortAsc((prev) => !prev)}
+					title={
+						sortAsc
+							? "Sorted A-Z (click to reverse)"
+							: "Sorted Z-A (click to reverse)"
+					}
+					className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+				>
+					{sortAsc ? <ArrowDownAZ size={16} /> : <ArrowUpZA size={16} />}
+				</button>
 				<FilterDropdown
 					value={typeFilter}
 					onChange={setTypeFilter}
