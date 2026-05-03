@@ -33,7 +33,7 @@ import { useStorage } from "../context/StorageContext";
 import { useToast } from "../context/ToastContext";
 import { CHAT_PERSONAS } from "../data/presets";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import { useEnabledModels, useProviderData } from "../hooks/useModels";
+import { useEnabledModels } from "../hooks/useModels";
 import { proxyModelID } from "../utils/model";
 import { hasAnyParam } from "../utils/params";
 import { readSSEStream, type StreamChunk } from "../utils/sse";
@@ -197,8 +197,6 @@ async function streamModelResponse(
 
 export function Chat() {
 	const { data: enabledModels } = useEnabledModels();
-	const { data: providerData } = useProviderData();
-
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
 	const { persistChat, persistConversation } = useStorage();
 
@@ -1185,7 +1183,6 @@ export function Chat() {
 										selected={selectedModel}
 										onChange={setSelectedModel}
 										multi={false}
-										providers={providerData}
 										onRandom={handleRandomModel}
 									/>
 									<PersonaPicker
@@ -1212,7 +1209,6 @@ export function Chat() {
 											selected={selectedModel}
 											onChange={setSelectedModel}
 											multi={false}
-											providers={providerData}
 											onRandom={handleRandomModel}
 											disabled={conversationState === "running"}
 										/>
@@ -1242,7 +1238,6 @@ export function Chat() {
 											selected={selectedModelB}
 											onChange={setSelectedModelB}
 											multi={false}
-											providers={providerData}
 											onRandom={handleRandomModelB}
 											disabled={conversationState === "running"}
 										/>

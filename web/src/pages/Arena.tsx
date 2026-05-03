@@ -43,7 +43,7 @@ import { useStorage } from "../context/StorageContext";
 import { useToast } from "../context/ToastContext";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import { useEnabledModels, useProviderData } from "../hooks/useModels";
+import { useEnabledModels } from "../hooks/useModels";
 import {
 	getArenaHistoryEnabled,
 	saveCompareToHistory,
@@ -108,8 +108,6 @@ interface WinnerModal {
 
 export function Arena() {
 	const { data: enabledModels } = useEnabledModels();
-	const { data: providerData } = useProviderData();
-
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
 	const quotaWarnedRef = useRef(false);
@@ -1455,7 +1453,6 @@ export function Arena() {
 										onChange={setBracketModels}
 										multi={true}
 										maxSelections={8}
-										providers={providerData}
 										align="left"
 										slotParams={modelParams}
 										onConfigureParams={setParamEditorModel}
@@ -1492,7 +1489,6 @@ export function Arena() {
 											onChange={setCompareModels}
 											multi={true}
 											maxSelections={6}
-											providers={providerData}
 											align="left"
 											slotParams={modelParams}
 											onConfigureParams={setParamEditorModel}

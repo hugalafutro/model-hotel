@@ -41,6 +41,24 @@ function setCachedData<T>(key: string, data: T) {
 	}
 }
 
+const baseUrls: Record<string, string> = {
+	nanogpt: "https://nano-gpt.com/api/subscription/v1",
+	"z-ai-coding": "https://api.z.ai/api/paas/v4",
+	openai: "https://api.openai.com/v1",
+	anthropic: "https://api.anthropic.com",
+	deepseek: "https://api.deepseek.com/v1",
+	ollama: "http://localhost:11434",
+	"opencode-zen": "https://opencode.ai/zen/v1",
+	"opencode-go": "https://opencode.ai/zen/go/v1",
+	xai: "https://api.x.ai/v1",
+	google: "https://generativelanguage.googleapis.com/v1beta/openai",
+	cohere: "https://api.cohere.ai/compatibility/v1",
+};
+
+function isKnownProviderUrl(url: string): boolean {
+	return Object.values(baseUrls).includes(url);
+}
+
 function EditProviderModal({
 	provider,
 	onClose,
@@ -160,6 +178,7 @@ function EditProviderModal({
 							id="edit-provider-base-url"
 							type="url"
 							required
+							readOnly={isKnownProviderUrl(provider.base_url)}
 							value={formData.base_url}
 							onChange={(e) =>
 								setFormData({
@@ -167,9 +186,18 @@ function EditProviderModal({
 									base_url: e.target.value,
 								})
 							}
-							className="ui-input"
+							className={
+								isKnownProviderUrl(provider.base_url)
+									? "ui-input opacity-60 cursor-not-allowed"
+									: "ui-input"
+							}
 							placeholder="https://api.openai.com/v1"
 						/>
+						{isKnownProviderUrl(provider.base_url) && (
+							<p className="text-gray-500 text-xs mt-1">
+								Base URL is preset for this provider type
+							</p>
+						)}
 					</div>
 
 					<div>
@@ -580,6 +608,7 @@ export function Providers() {
 		"opencode-go": "OpenCode Go",
 		xai: "xAI (Grok)",
 		google: "Google AI Studio (Gemini)",
+		cohere: "Cohere",
 	};
 
 	const providerTypeAllowsEmptyKey = (type: string): boolean => {
@@ -597,18 +626,6 @@ export function Providers() {
 	};
 
 	const handleProviderTypeChange = (type: string) => {
-		const baseUrls: Record<string, string> = {
-			nanogpt: "https://nano-gpt.com/api/subscription/v1",
-			"z-ai-coding": "https://api.z.ai/api/paas/v4",
-			openai: "https://api.openai.com/v1",
-			anthropic: "https://api.anthropic.com",
-			deepseek: "https://api.deepseek.com/v1",
-			ollama: "http://localhost:11434",
-			"opencode-zen": "https://opencode.ai/zen/v1",
-			"opencode-go": "https://opencode.ai/zen/go/v1",
-			xai: "https://api.x.ai/v1",
-			google: "https://generativelanguage.googleapis.com/v1beta/openai",
-		};
 		if (type === "custom") {
 			setFormData((prev) => ({
 				...prev,
@@ -957,6 +974,7 @@ export function Providers() {
 								<option value="opencode-go">OpenCode Go</option>
 								<option value="xai">xAI (Grok)</option>
 								<option value="google">Google AI Studio (Gemini)</option>
+								<option value="cohere">Cohere</option>
 							</select>
 						</div>
 
@@ -1007,13 +1025,25 @@ export function Providers() {
 										base_url: e.target.value,
 									})
 								}
-								className="ui-input"
+								readOnly={formData.provider_type !== "custom"}
+								className={
+									formData.provider_type !== "custom"
+										? "ui-input opacity-60 cursor-not-allowed"
+										: "ui-input"
+								}
 								placeholder="https://api.openai.com/v1"
 							/>
-							<p className="text-gray-500 text-xs mt-1">
-								Full API base URL including any path prefix. Models will be
-								discovered from {"<base_url>"}/models
-							</p>
+							{formData.provider_type !== "custom" && (
+								<p className="text-gray-500 text-xs mt-1">
+									Base URL is preset for this provider type
+								</p>
+							)}
+							{formData.provider_type === "custom" && (
+								<p className="text-gray-500 text-xs mt-1">
+									Full API base URL including any path prefix. Models will be
+									discovered from {"<base_url>"}/models
+								</p>
+							)}
 						</div>
 
 						<div>

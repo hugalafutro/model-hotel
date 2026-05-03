@@ -53,6 +53,8 @@ func DetectProviderType(baseURL string) string {
 		return "anthropic"
 	case "api.x.ai", "x.ai":
 		return "xai"
+	case "api.cohere.com", "api.cohere.ai":
+		return "cohere"
 	case "generativelanguage.googleapis.com":
 		return "google"
 	case "ollama.com":
@@ -83,6 +85,9 @@ func DetectProviderType(baseURL string) string {
 	}
 	if strings.HasSuffix(host, ".x.ai") {
 		return "xai"
+	}
+	if strings.HasSuffix(host, ".cohere.com") || strings.HasSuffix(host, ".cohere.ai") {
+		return "cohere"
 	}
 	if strings.HasSuffix(host, ".googleapis.com") {
 		if strings.Contains(host, "generativelanguage") || strings.Contains(host, "aiplatform") {
@@ -151,6 +156,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverXAI(ctx, provider, apiKey)
 		case "google":
 			return d.discoverGoogleAIStudio(ctx, provider, apiKey)
+		case "cohere":
+			return d.discoverCohere(ctx, provider, apiKey)
 		default:
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}

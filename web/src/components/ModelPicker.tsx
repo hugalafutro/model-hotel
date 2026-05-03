@@ -8,11 +8,7 @@ import {
 import { useMemo, useState } from "react";
 import type { GenerationParams } from "../api/types";
 import { FilterInput } from "./FilterInput";
-
-interface ProviderInfo {
-	name: string;
-	base_url: string;
-}
+import { ProviderFilter } from "./ProviderFilter";
 
 interface ModelItem {
 	provider_name: string;
@@ -28,7 +24,6 @@ interface SingleProps {
 	onChange: (selected: string) => void;
 	maxSelections?: number;
 	label?: string;
-	providers?: ProviderInfo[];
 	align?: "left" | "right";
 	exclude?: string[];
 	/** Per-model generation params shown on selected pills */
@@ -51,7 +46,6 @@ interface MultiProps {
 	onChange: (selected: string[]) => void;
 	maxSelections?: number;
 	label?: string;
-	providers?: ProviderInfo[];
 	align?: "left" | "right";
 	exclude?: string[];
 	/** Per-model generation params shown on selected pills */
@@ -72,33 +66,6 @@ function proxyModelID(providerName: string, modelId: string): string {
 	return `${providerName.replace(/ /g, "-")}/${modelId}`;
 }
 
-function getProviderStyle(baseUrl: string, active: boolean) {
-	const isNanoGPT = baseUrl.includes("nano-gpt.com");
-	const isDeepSeek = baseUrl.includes("deepseek.com");
-	const isOllama = baseUrl.includes("ollama.com");
-	const isZAICoding = baseUrl.includes("z.ai");
-	if (active) {
-		if (isNanoGPT)
-			return "bg-[#0690a8] text-white border-[#0690a8] shadow-[0_0_6px_1px_rgba(6,144,168,0.35)]";
-		if (isDeepSeek)
-			return "bg-[#36aaff] text-white border-[#36aaff] shadow-[0_0_6px_1px_rgba(54,170,255,0.35)]";
-		if (isZAICoding)
-			return "bg-[#18181b] text-white border-[#18181b] shadow-[0_0_6px_1px_rgba(255,255,255,0.2)]";
-		if (isOllama)
-			return "bg-[#71717a] text-white border-[#71717a] shadow-[0_0_6px_1px_rgba(113,113,122,0.35)]";
-		return "bg-(--surface-elevated) text-(--text-primary) border-(--border-input) shadow-[0_0_6px_1px_rgba(255,255,255,0.15)]";
-	}
-	if (isNanoGPT)
-		return "bg-[#0690a8]/20 text-[#0690a8] border-[#0690a8]/50 hover:bg-[#0690a8]/30";
-	if (isDeepSeek)
-		return "bg-[#36aaff]/20 text-[#36aaff] border-[#36aaff]/50 hover:bg-[#36aaff]/30";
-	if (isZAICoding)
-		return "bg-[#18181b]/25 text-[#d4d4d8] border-[#3f3f46]/60 hover:bg-[#18181b]/40";
-	if (isOllama)
-		return "bg-[#71717a]/20 text-[#a1a1aa] border-[#71717a]/40 hover:bg-[#71717a]/30";
-	return "bg-(--surface-hover) text-(--text-secondary) border-(--border-default) hover:bg-(--surface-elevated-hover)";
-}
-
 export function ModelPicker({
 	id,
 	models,
@@ -107,7 +74,6 @@ export function ModelPicker({
 	multi = false,
 	maxSelections = Infinity,
 	label,
-	providers = [],
 	align,
 	exclude = [],
 	slotParams,
@@ -140,14 +106,6 @@ export function ModelPicker({
 		() => Array.from(new Set(enabledModels.map((m) => m.provider_name))).sort(),
 		[enabledModels],
 	);
-
-	const providerBaseUrl = useMemo(() => {
-		const map = new Map<string, string>();
-		for (const p of providers) {
-			map.set(p.name, p.base_url);
-		}
-		return map;
-	}, [providers]);
 
 	const filteredModels = useMemo(() => {
 		let result = enabledModels;
@@ -189,15 +147,6 @@ export function ModelPicker({
 		}
 		return groups;
 	}, [filteredModels]);
-
-	const toggleProvider = (provider: string) => {
-		setProviderFilter((prev) => {
-			const next = new Set(prev);
-			if (next.has(provider)) next.delete(provider);
-			else next.add(provider);
-			return next;
-		});
-	};
 
 	const toggleCollapse = (provider: string) => {
 		setCollapsedProviders((prev) => {
@@ -242,7 +191,7 @@ export function ModelPicker({
 				</label>
 			)}
 
-			<div className="flex items-center gap-2 flex-wrap">
+			<div className="flex items-center gap-2">
 				<FilterInput
 					id={id ?? "model-picker-filter"}
 					value={search}
@@ -251,30 +200,12 @@ export function ModelPicker({
 					className="w-[320px]"
 					disabled={disabled}
 				/>
-				<div className="flex flex-wrap gap-1">
-					{providerNames.map((name) => {
-						const active = providerFilter.has(name);
-						const baseUrl = providerBaseUrl.get(name) || "";
-						return (
-							<button
-								type="button"
-								key={name}
-								onClick={() => toggleProvider(name)}
-								className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${getProviderStyle(baseUrl, active)}`}
-							>
-								{name}
-							</button>
-						);
-					})}
-					{providerFilter.size > 0 && (
-						<button
-							type="button"
-							onClick={() => setProviderFilter(new Set())}
-							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
-						>
-							✕
-						</button>
-					)}
+				<div className="w-48 shrink-0">
+					<ProviderFilter
+						providers={providerNames.map((name) => ({ id: name, name }))}
+						selected={providerFilter}
+						onChange={setProviderFilter}
+					/>
 				</div>
 			</div>
 

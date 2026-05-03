@@ -44,6 +44,8 @@ var defaultKnownProviderHosts = []string{
 	"opencode.ai",
 	"api.x.ai",
 	"generativelanguage.googleapis.com",
+	"api.cohere.com",
+	"api.cohere.ai",
 }
 
 func Load() (*Config, error) {
