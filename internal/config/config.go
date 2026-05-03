@@ -28,6 +28,7 @@ type Config struct {
 	AllowedProviderHosts []string
 	DBMaxConns           int32
 	DBMinConns           int32
+	ModelsDevEnabled     bool
 }
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
@@ -64,6 +65,7 @@ func Load() (*Config, error) {
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
 		DBMaxConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25), 1, 1000)),
 		DBMinConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
+		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
 	}
 
 	if cfg.DatabaseURL == "" {

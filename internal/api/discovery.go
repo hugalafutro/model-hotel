@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -47,6 +49,27 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		http.Error(w, "failed to discover models: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	events.Publish(events.Event{
+		Type:     "discovery.provider_fetched",
+		Severity: "success",
+		Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
+		Metadata: map[string]interface{}{"provider": prov.Name, "count": len(models)},
+	})
+
+	// Enrich models with data from models.dev (fills gaps for models not
+	// covered by hardcoded catalogs).
+	if cache := provider.GetModelsDevCache(); cache != nil {
+		enriched := cache.EnrichModels(models)
+		if enriched > 0 {
+			events.Publish(events.Event{
+				Type:     "discovery.enriched",
+				Severity: "info",
+				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
+				Metadata: map[string]interface{}{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+			})
+		}
 	}
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
@@ -196,6 +219,12 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			result.Error = discoverErr.Error()
 			failed++
 			provCancel()
+			events.Publish(events.Event{
+				Type:     "discovery.provider_failed",
+				Severity: "error",
+				Message:  fmt.Sprintf("Failed to discover models from %s: %s", prov.Name, discoverErr.Error()),
+				Metadata: map[string]interface{}{"provider": prov.Name, "error": discoverErr.Error()},
+			})
 			results = append(results, result)
 			continue
 		}
@@ -203,6 +232,26 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		result.Discovered = len(models)
 		totalDiscovered += len(models)
 		succeeded++
+
+		events.Publish(events.Event{
+			Type:     "discovery.provider_fetched",
+			Severity: "success",
+			Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
+			Metadata: map[string]interface{}{"provider": prov.Name, "count": len(models)},
+		})
+
+		// Enrich models with data from models.dev.
+		if cache := provider.GetModelsDevCache(); cache != nil {
+			enriched := cache.EnrichModels(models)
+			if enriched > 0 {
+				events.Publish(events.Event{
+					Type:     "discovery.enriched",
+					Severity: "info",
+					Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
+					Metadata: map[string]interface{}{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+				})
+			}
+		}
 
 		existingModelIDs := make([]string, 0, len(models))
 		for _, m := range models {

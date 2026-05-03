@@ -889,14 +889,12 @@ export function Models() {
 
 	const handleDiscover = useCallback(
 		async (providerId: string) => {
-			toast("Discovering models…", "info");
 			const result = await api.providers.discover(providerId);
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			toast(`Discovered ${result?.discovered ?? "new"} models`, "success");
 			return result;
 		},
-		[queryClient, toast],
+		[queryClient],
 	);
 
 	const handleTest = useCallback(async (id: string) => {

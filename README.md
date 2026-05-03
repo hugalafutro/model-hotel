@@ -82,6 +82,8 @@ Add a provider and the service pulls the model list automatically via the provid
 
 DeepSeek, Z.AI, OpenCode (Go & Zen), and OpenAI use **dedicated static catalogs** that supply context length, pricing, capability flags, and modalities not available from the provider's `/models` endpoint. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama enriches models via its `/api/show` endpoint.
 
+Models that aren't covered by any built-in catalog are automatically enriched from [models.dev](https://models.dev/), an open-source model catalogue that provides pricing, context limits, capabilities, and modality data for 40+ providers. The enrichment is non-destructive: it only fills fields that are empty or missing from the provider's own API response, never overwriting data that was already populated. If models.dev is unreachable, discovery proceeds normally using whatever data the provider returned — your existing catalogue is never at risk.
+
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Model Health at a Glance](#-model-health-at-a-glance)
 Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT and Z.AI providers show token quota and usage data — all fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
@@ -157,6 +159,7 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Additional allowed provider hosts (comma-separated; built-in provider hosts are always allowed) |
 | `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size |
 | `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size |
+| `MODELSDEV_ENABLED` | No | `true` | Enable enrichment from [models.dev](https://models.dev/) catalogue (pricing, capabilities, context limits) |
 
 ### DB-Backed Settings
 

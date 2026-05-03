@@ -299,6 +299,13 @@ func main() {
 				}
 				continue
 			}
+
+			// Enrich models with data from models.dev.
+			if cache := provider.GetModelsDevCache(); cache != nil {
+				if enriched := cache.EnrichModels(models); enriched > 0 {
+					log.Printf("[discovery] enriched %d/%d models from models.dev for provider %s", enriched, len(models), p.Name)
+				}
+			}
 			result.ModelsDiscovered += len(models)
 			existingModelIDs := make([]string, 0, len(models))
 			for _, m := range models {
@@ -350,6 +357,17 @@ func main() {
 			}
 		}
 		return result
+	}
+
+	// Load models.dev catalogue synchronously before startup discovery so
+	// enrichment data is available for the first discovery run. Uses a short
+	// timeout so a slow/unreachable API doesn't block startup for long.
+	if cfg.ModelsDevEnabled {
+		loadCtx, loadCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer loadCancel()
+		if err := provider.LoadModelsDev(loadCtx); err != nil {
+			log.Printf("[models.dev] failed to load catalogue (enrichment disabled): %v", err)
+		}
 	}
 
 	if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {

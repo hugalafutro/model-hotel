@@ -44,6 +44,7 @@ internal/
   ├── provider/       # Provider management
   │   ├── provider.go # Provider repository (CRUD)
   │   ├── discovery.go # Auto-discovery logic + type detection
+  │   ├── modelsdev.go # Models.dev enrichment (pricing, capabilities from open-source catalogue)
   │   ├── cache.go    # Provider caching
   │   └── discovery_*.go # Per-provider discovery (openai, anthropic, deepseek, nanogpt, ollama, zai, opencode_*)
   ├── model/          # Model repository
@@ -328,6 +329,8 @@ go run cmd/server/main.go
 3. Add quota/balance fetching if provider supports it
 4. Add to `defaultKnownProviderHosts` in `internal/config/config.go`
 5. Update frontend model enrichment if needed
+
+For providers that don't have a dedicated catalog, the [models.dev](https://models.dev/) enrichment layer (see [Model Discovery](Model-Discovery#modelsdev-enrichment)) will automatically fill in pricing, capabilities, and context limits for known models. You only need a hardcoded catalog if the provider's models are not in models.dev or if you need provider-specific overrides.
 
 ### Database Migrations
 

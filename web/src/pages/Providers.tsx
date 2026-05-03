@@ -439,25 +439,12 @@ export function Providers() {
 
 	const discoverAllMutation = useMutation({
 		mutationFn: async () => {
-			toast("Discovering models for all providers…", "info");
 			return api.providers.discoverAll();
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
-			for (const r of data.results) {
-				if (r.error) {
-					toast(`${r.provider_name}: ${r.error}`, "error");
-				} else {
-					toast(`${r.provider_name}: ${r.discovered} models`, "success");
-				}
-			}
-			if (data.discovered > 0) {
-				toast(
-					`Discovered ${data.discovered} models across ${data.succeeded} providers`,
-					"success",
-				);
-			} else if (data.failed > 0) {
+			if (data.failed > 0 && data.succeeded === 0) {
 				toast(`Discovery failed for all ${data.failed} providers`, "error");
 			}
 		},
@@ -491,13 +478,11 @@ export function Providers() {
 	const discoverMutation = useMutation({
 		mutationFn: async (id: string) => {
 			setDiscoveringId(id);
-			toast("Discovering models…", "info");
 			return api.providers.discover(id);
 		},
-		onSuccess: (data) => {
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
-			toast(`Discovered ${data?.discovered ?? "new"} models`, "success");
 		},
 		onError: (err: Error) => {
 			toast(`Discovery failed: ${err.message}`, "error");
@@ -524,13 +509,12 @@ export function Providers() {
 			const shouldDiscover = settings?.discovery_on_provider_create !== "false";
 			if (shouldDiscover) {
 				try {
-					toast("Discovering models…", "info");
-					const result = await api.providers.discover(newProvider.id);
+					await api.providers.discover(newProvider.id);
 					queryClient.invalidateQueries({ queryKey: ["models"] });
 					queryClient.invalidateQueries({ queryKey: ["providers"] });
-					toast(`Discovered ${result?.discovered ?? "new"} models`, "success");
-				} catch {
-					toast("Auto-discovery failed", "error");
+				} catch (e) {
+					// SSE events show the error to the user; log for diagnostics.
+					console.warn("Auto-discovery failed after provider creation:", e);
 				}
 			}
 		},
