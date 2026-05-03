@@ -541,8 +541,8 @@ export function Settings() {
 					<div
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${appearanceCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
-						<div className="overflow-hidden">
-							<div className="space-y-6 p-3 -m-3">
+						<div className="overflow-hidden p-3">
+							<div className="space-y-6">
 								{/* UI Style */}
 								<div>
 									<p className="text-sm font-medium text-gray-300 mb-3">
