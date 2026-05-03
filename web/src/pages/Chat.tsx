@@ -471,7 +471,6 @@ export function Chat() {
 		async (
 			model: string,
 			chatMessages: Array<{ role: string; content: string }>,
-			_updatedMessages: ChatMessage[],
 			messageIndex: number,
 		) => {
 			const abortCtrl = new AbortController();
@@ -559,18 +558,23 @@ export function Chat() {
 			chatMessages.push({ role: m.role, content: m.content });
 		}
 
-		const result = await streamAssistantReply(
-			selectedModel,
-			chatMessages,
-			updatedMessages,
-			updatedMessages.length,
-		);
+		try {
+			const result = await streamAssistantReply(
+				selectedModel,
+				chatMessages,
+				updatedMessages.length,
+			);
 
-		if (result.error) toast(result.error, "error");
-
-		setIsStreaming(false);
-		abortRef.current = null;
-		sendingRef.current = false;
+			if (result.error) toast(result.error, "error");
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Unknown error";
+			toast(msg, "error");
+		} finally {
+			setIsStreaming(false);
+			abortRef.current = null;
+			cleanupAbortRef.current = null;
+			sendingRef.current = false;
+		}
 	}, [
 		input,
 		selectedModel,
@@ -629,7 +633,6 @@ export function Chat() {
 			const result = await streamAssistantReply(
 				selectedModel || "",
 				chatMessages,
-				updatedMessages,
 				updatedMessages.length,
 			);
 
