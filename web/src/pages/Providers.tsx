@@ -11,6 +11,7 @@ import type {
 } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
+import { FilterDropdown } from "../components/FilterDropdown";
 import { Modal } from "../components/Modal";
 import {
 	NanoGPTQuotaModal,
@@ -58,6 +59,33 @@ const baseUrls: Record<string, string> = {
 
 function isKnownProviderUrl(url: string): boolean {
 	return Object.values(baseUrls).includes(url);
+}
+
+function getProviderType(baseUrl: string): string {
+	for (const [type, url] of Object.entries(baseUrls)) {
+		if (baseUrl === url) return type;
+	}
+	return "custom";
+}
+
+const providerTypeDisplayNames: Record<string, string> = {
+	custom: "Custom",
+	nanogpt: "NanoGPT",
+	"z-ai-coding": "Z.ai Coding Plan",
+	openai: "OpenAI",
+	anthropic: "Anthropic",
+	deepseek: "DeepSeek",
+	ollama: "Ollama",
+	"opencode-zen": "OpenCode Zen",
+	"opencode-go": "OpenCode Go",
+	xai: "xAI (Grok)",
+	google: "Google AI Studio (Gemini)",
+	cohere: "Cohere",
+	openrouter: "OpenRouter",
+};
+
+function providerTypeAllowsEmptyKey(type: string): boolean {
+	return type === "opencode-zen" || type === "ollama" || type === "custom";
 }
 
 function EditProviderModal({
@@ -327,6 +355,7 @@ export function Providers() {
 	});
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
+	const [typeFilter, setTypeFilter] = useState("");
 
 	const { data: providers, isLoading } = useQuery({
 		queryKey: ["providers"],
@@ -597,26 +626,6 @@ export function Providers() {
 		});
 	};
 
-	const providerTypeDisplayNames: Record<string, string> = {
-		custom: "Custom",
-		nanogpt: "NanoGPT",
-		"z-ai-coding": "Z.ai Coding Plan",
-		openai: "OpenAI",
-		anthropic: "Anthropic",
-		deepseek: "DeepSeek",
-		ollama: "Ollama",
-		"opencode-zen": "OpenCode Zen",
-		"opencode-go": "OpenCode Go",
-		xai: "xAI (Grok)",
-		google: "Google AI Studio (Gemini)",
-		cohere: "Cohere",
-		openrouter: "OpenRouter",
-	};
-
-	const providerTypeAllowsEmptyKey = (type: string): boolean => {
-		return type === "opencode-zen" || type === "ollama" || type === "custom";
-	};
-
 	const generateProviderName = (type: string): string => {
 		const baseName = providerTypeDisplayNames[type] || "Provider";
 		if (!providers) return baseName;
@@ -645,6 +654,36 @@ export function Providers() {
 			name: newName,
 		}));
 	};
+
+	const typeOptions = useMemo(() => {
+		if (!providers) return [];
+		const typeCounts = new Map<string, number>();
+		for (const p of providers) {
+			const type = getProviderType(p.base_url);
+			typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+		}
+		const entries = Array.from(typeCounts.entries());
+		entries.sort((a, b) => {
+			if (a[0] === "custom") return -1;
+			if (b[0] === "custom") return 1;
+			const labelA = providerTypeDisplayNames[a[0]] || a[0];
+			const labelB = providerTypeDisplayNames[b[0]] || b[0];
+			return labelA.localeCompare(labelB);
+		});
+		return entries.map(([type, count]) => ({
+			value: type,
+			label: providerTypeDisplayNames[type] || type,
+			count,
+		}));
+	}, [providers]);
+
+	const filteredProviders = useMemo(() => {
+		if (!providers) return providers;
+		if (!typeFilter) return providers;
+		return providers.filter((p) => getProviderType(p.base_url) === typeFilter);
+	}, [providers, typeFilter]);
+
+	const allProvidersCount = providers?.length ?? 0;
 
 	if (isLoading) {
 		return (
@@ -705,11 +744,26 @@ export function Providers() {
 				</div>
 			</div>
 
+			<div className="ui-card p-4 shrink-0">
+				<div className="flex items-center justify-end">
+					<div className="flex items-center gap-2">
+						<FilterDropdown
+							value={typeFilter}
+							onChange={setTypeFilter}
+							placeholder="Provider type"
+							allLabel={`All (${allProvidersCount})`}
+							options={typeOptions}
+							className="w-44"
+						/>
+					</div>
+				</div>
+			</div>
+
 			<div
 				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[calc(100vh-220px)] overflow-y-auto"
 				style={{ minHeight: 400 }}
 			>
-				{providers?.map((provider) => {
+				{filteredProviders?.map((provider) => {
 					const isNanoGPT = provider.base_url.includes("nano-gpt.com");
 					const isZAI = provider.base_url.includes("z.ai");
 					const weeklyUsed = isNanoGPT
@@ -921,6 +975,15 @@ export function Providers() {
 					);
 				})}
 
+				{filteredProviders?.length === 0 &&
+					providers &&
+					providers.length > 0 && (
+						<div className="col-span-full text-center py-12 ui-card">
+							<p className="text-gray-500">
+								No providers match the selected filter.
+							</p>
+						</div>
+					)}
 				{providers?.length === 0 && (
 					<div className="col-span-full text-center py-12 ui-card">
 						<p className="text-gray-500">
@@ -966,18 +1029,18 @@ export function Providers() {
 								className="ui-input"
 							>
 								<option value="custom">Custom</option>
-								<option value="openai">OpenAI</option>
 								<option value="anthropic">Anthropic</option>
-								<option value="nanogpt">NanoGPT</option>
-								<option value="z-ai-coding">Z.ai Coding Plan</option>
-								<option value="deepseek">DeepSeek</option>
-								<option value="ollama">Ollama</option>
-								<option value="opencode-zen">OpenCode Zen</option>
-								<option value="opencode-go">OpenCode Go</option>
-								<option value="xai">xAI (Grok)</option>
-								<option value="google">Google AI Studio (Gemini)</option>
 								<option value="cohere">Cohere</option>
+								<option value="deepseek">DeepSeek</option>
+								<option value="google">Google AI Studio (Gemini)</option>
+								<option value="nanogpt">NanoGPT</option>
+								<option value="ollama">Ollama</option>
+								<option value="openai">OpenAI</option>
+								<option value="opencode-go">OpenCode Go</option>
+								<option value="opencode-zen">OpenCode Zen</option>
 								<option value="openrouter">OpenRouter</option>
+								<option value="xai">xAI (Grok)</option>
+								<option value="z-ai-coding">Z.ai Coding Plan</option>
 							</select>
 						</div>
 
