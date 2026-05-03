@@ -375,7 +375,7 @@ export function ModelDetailPanel({
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 									Capabilities
 								</span>
-								<div className="flex flex-wrap gap-1 mt-1">
+								<div className="flex flex-wrap gap-1 mt-1 px-2 -mx-2 py-1.5 -my-1.5">
 									{CAP_META.filter((m) => caps[m.key]).map((m) => (
 										<span
 											key={m.key}

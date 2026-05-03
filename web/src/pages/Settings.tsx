@@ -624,7 +624,7 @@ export function Settings() {
 									<p className="text-sm font-medium text-gray-300 mb-2">
 										Accent Color
 									</p>
-									<div className="flex flex-wrap gap-2">
+									<div className="flex flex-wrap gap-2 p-2 -m-2">
 										{accentPresets.map((preset) => (
 											<button
 												key={preset.name}
@@ -714,7 +714,7 @@ export function Settings() {
 								visible.
 							</p>
 							<div className="flex justify-center">
-								<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50">
+								<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50 overflow-visible">
 									{/* top-left */}
 									<button
 										type="button"

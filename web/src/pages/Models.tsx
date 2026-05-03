@@ -1099,7 +1099,7 @@ export function Models() {
 				</div>
 			</div>
 
-			<div className="ui-card overflow-hidden">
+			<div className="ui-card">
 				<table className="min-w-full table-fixed ui-table">
 					<colgroup>
 						<col className="w-[32%]" />
