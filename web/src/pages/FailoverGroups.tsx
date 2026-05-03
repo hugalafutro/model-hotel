@@ -400,14 +400,14 @@ function CreateGroupModal({
 					<button
 						type="button"
 						onClick={onClose}
-						className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+						className="ui-btn ui-btn-secondary"
 					>
 						Cancel
 					</button>
 					<button
 						type="submit"
 						disabled={createMutation.isPending}
-						className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all disabled:opacity-50"
+						className="ui-btn ui-btn-primary"
 					>
 						{createMutation.isPending ? "Creating…" : "Create Group"}
 					</button>
@@ -614,7 +614,7 @@ export function FailoverGroups() {
 						<button
 							type="button"
 							onClick={() => setSearchQuery("")}
-							className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+							className="ui-btn ui-btn-primary"
 						>
 							Clear filter
 						</button>
@@ -627,7 +627,7 @@ export function FailoverGroups() {
 						<button
 							type="button"
 							onClick={() => syncMutation.mutate()}
-							className="px-3 py-1.5 text-xs rounded-full border bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125 transition-all"
+							className="ui-btn ui-btn-primary"
 						>
 							Auto-discover from models
 						</button>
@@ -675,7 +675,7 @@ export function FailoverGroups() {
 						<button
 							type="button"
 							onClick={() => setDeleteGroup(null)}
-							className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+							className="ui-btn ui-btn-secondary"
 						>
 							Cancel
 						</button>
@@ -683,7 +683,7 @@ export function FailoverGroups() {
 							type="button"
 							onClick={confirmDelete}
 							disabled={deleteMutation.isPending}
-							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50"
+							className="ui-btn ui-btn-danger"
 						>
 							{deleteMutation.isPending ? "Deleting…" : "Delete"}
 						</button>
