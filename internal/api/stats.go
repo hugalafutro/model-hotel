@@ -602,15 +602,17 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	var sum float64
-	for _, s := range rawShares {
-		sum += s
-	}
+	// Round each share to 1 decimal place, then adjust the largest item
+	// to compensate for accumulated rounding error so total == 100.0.
 	for i := range result.Items {
 		result.Items[i].Share = math.Round(rawShares[i]*10) / 10
 	}
-	if len(rawShares) > 0 && sum > 0 {
-		result.Items[0].Share = math.Round((100-(sum-result.Items[0].Share))*10) / 10
+	if len(result.Items) > 0 {
+		var roundedSum float64
+		for _, item := range result.Items {
+			roundedSum += item.Share
+		}
+		result.Items[0].Share = math.Round((100-roundedSum+result.Items[0].Share)*10) / 10
 	}
 
 	w.Header().Set("Content-Type", "application/json")

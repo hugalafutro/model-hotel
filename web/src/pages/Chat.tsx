@@ -294,6 +294,7 @@ export function Chat() {
 	const [isStreaming, setIsStreaming] = useState(false);
 	const [controlsCollapsed, setControlsCollapsed] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
+	const sendingRef = useRef(false);
 	/** Saves the conversation prompt before it's cleared, so it can be restored on error */
 	const lastPromptRef = useRef<string>("");
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -464,8 +465,77 @@ export function Chat() {
 		}
 	}, [messages, persistConversation, chatSubMode, toast]);
 
+	// Shared streaming helper: creates abort controller, assistant placeholder,
+	// streams the response, applies progressive + final updates.
+	const streamAssistantReply = useCallback(
+		async (
+			model: string,
+			chatMessages: Array<{ role: string; content: string }>,
+			_updatedMessages: ChatMessage[],
+			messageIndex: number,
+		) => {
+			const abortCtrl = new AbortController();
+			abortRef.current = abortCtrl;
+			cleanupAbortRef.current = abortCtrl;
+
+			const assistantMessage: ChatMessage = {
+				role: "assistant",
+				content: "",
+				rawContent: "",
+				thinkingContent: "",
+				model,
+				timestamp: Date.now(),
+				params: hasAnyParam(messageParams) ? messageParams : undefined,
+			};
+			setMessages((prev) => [...prev, assistantMessage]);
+
+			const result = await streamModelResponse(
+				model,
+				chatMessages,
+				messageParams,
+				abortCtrl,
+				(raw, content, thinking) => {
+					setMessages((prev) => {
+						if (prev.length <= messageIndex) return prev;
+						const next = [...prev];
+						next[messageIndex] = {
+							...next[messageIndex],
+							rawContent: raw,
+							content,
+							thinkingContent: thinking,
+						};
+						return next;
+					});
+				},
+			);
+
+			setMessages((prev) => {
+				if (prev.length <= messageIndex) return prev;
+				const next = [...prev];
+				next[messageIndex] = {
+					...next[messageIndex],
+					rawContent: result.rawContent,
+					content: result.content,
+					thinkingContent: result.thinkingContent,
+					error: result.error,
+					metrics: {
+						charsPerSecond: result.charsPerSecond,
+						durationMs: result.durationMs,
+						promptTokens: result.promptTokens,
+						completionTokens: result.completionTokens,
+					},
+				};
+				return next;
+			});
+
+			return result;
+		},
+		[messageParams],
+	);
+
 	const handleSend = useCallback(async () => {
 		if (!input.trim() || !selectedModel || isStreaming) return;
+		if (sendingRef.current) return;
 
 		const userMessage: ChatMessage = {
 			role: "user",
@@ -476,10 +546,7 @@ export function Chat() {
 		setMessages(updatedMessages);
 		setInput("");
 		setIsStreaming(true);
-
-		const abortCtrl = new AbortController();
-		abortRef.current = abortCtrl;
-		cleanupAbortRef.current = abortCtrl;
+		sendingRef.current = true;
 
 		const chatMessages: Array<{ role: string; content: string }> = [];
 		if (systemPrompt.trim()) {
@@ -492,69 +559,26 @@ export function Chat() {
 			chatMessages.push({ role: m.role, content: m.content });
 		}
 
-		const assistantMessage: ChatMessage = {
-			role: "assistant",
-			content: "",
-			rawContent: "",
-			thinkingContent: "",
-			model: selectedModel,
-			timestamp: Date.now(),
-			params: hasAnyParam(messageParams) ? messageParams : undefined,
-		};
-		setMessages((prev) => [...prev, assistantMessage]);
-		const messageIndex = updatedMessages.length;
-
-		const result = await streamModelResponse(
+		const result = await streamAssistantReply(
 			selectedModel,
 			chatMessages,
-			messageParams,
-			abortCtrl,
-			(raw, content, thinking) => {
-				setMessages((prev) => {
-					if (prev.length <= messageIndex) return prev;
-					const next = [...prev];
-					next[messageIndex] = {
-						...next[messageIndex],
-						rawContent: raw,
-						content,
-						thinkingContent: thinking,
-					};
-					return next;
-				});
-			},
+			updatedMessages,
+			updatedMessages.length,
 		);
-
-		setMessages((prev) => {
-			if (prev.length <= messageIndex) return prev;
-			const next = [...prev];
-			next[messageIndex] = {
-				...next[messageIndex],
-				rawContent: result.rawContent,
-				content: result.content,
-				thinkingContent: result.thinkingContent,
-				error: result.error,
-				metrics: {
-					charsPerSecond: result.charsPerSecond,
-					durationMs: result.durationMs,
-					promptTokens: result.promptTokens,
-					completionTokens: result.completionTokens,
-				},
-			};
-			return next;
-		});
 
 		if (result.error) toast(result.error, "error");
 
 		setIsStreaming(false);
 		abortRef.current = null;
+		sendingRef.current = false;
 	}, [
 		input,
 		selectedModel,
 		isStreaming,
 		messages,
 		systemPrompt,
-		messageParams,
 		toast,
+		streamAssistantReply,
 	]);
 
 	const handleStop = useCallback(() => {
@@ -601,61 +625,13 @@ export function Chat() {
 		setInput("");
 		setIsStreaming(true);
 
-		const abortCtrl = new AbortController();
-		abortRef.current = abortCtrl;
-		cleanupAbortRef.current = abortCtrl;
-
-		const assistantMessage: ChatMessage = {
-			role: "assistant",
-			content: "",
-			rawContent: "",
-			thinkingContent: "",
-			model: selectedModel || "",
-			timestamp: Date.now(),
-			params: hasAnyParam(messageParams) ? messageParams : undefined,
-		};
-		setMessages((prev) => [...prev, assistantMessage]);
-		const messageIndex = updatedMessages.length;
-
 		try {
-			const result = await streamModelResponse(
+			const result = await streamAssistantReply(
 				selectedModel || "",
 				chatMessages,
-				messageParams,
-				abortCtrl,
-				(raw, content, thinking) => {
-					setMessages((prev) => {
-						if (prev.length <= messageIndex) return prev;
-						const next = [...prev];
-						next[messageIndex] = {
-							...next[messageIndex],
-							rawContent: raw,
-							content,
-							thinkingContent: thinking,
-						};
-						return next;
-					});
-				},
+				updatedMessages,
+				updatedMessages.length,
 			);
-
-			setMessages((prev) => {
-				if (prev.length <= messageIndex) return prev;
-				const next = [...prev];
-				next[messageIndex] = {
-					...next[messageIndex],
-					rawContent: result.rawContent,
-					content: result.content,
-					thinkingContent: result.thinkingContent,
-					error: result.error,
-					metrics: {
-						charsPerSecond: result.charsPerSecond,
-						durationMs: result.durationMs,
-						promptTokens: result.promptTokens,
-						completionTokens: result.completionTokens,
-					},
-				};
-				return next;
-			});
 
 			if (result.error) toast(result.error, "error");
 		} catch (err) {
@@ -671,8 +647,8 @@ export function Chat() {
 		messages,
 		selectedModel,
 		systemPrompt,
-		messageParams,
 		toast,
+		streamAssistantReply,
 	]);
 
 	// ── Unified conversation orchestration ──
@@ -1398,90 +1374,148 @@ export function Chat() {
 						</div>
 					)}
 
-					{messages.map((msg, i) => {
-						if (msg.role === "system") return null;
-						const isUser = msg.role === "user";
-						const isStreamingThis = isStreaming && i === messages.length - 1;
-						const isModelB =
-							msg.role === "assistant" && msg.model === selectedModelB;
+					{(() => {
 						const lastAssistantIdx = messages.findLastIndex(
 							(m) => m.role === "assistant",
 						);
-						const isLastAssistant = i === lastAssistantIdx;
-						// In conversation mode, only show delete on last assistant (or currently streaming)
-						const canDelete =
-							chatSubMode === "chat" ||
-							(isLastAssistant && !isStreaming) ||
-							(isStreamingThis && isLastAssistant);
+						return messages.map((msg, i) => {
+							if (msg.role === "system") return null;
+							const isUser = msg.role === "user";
+							const isStreamingThis = isStreaming && i === messages.length - 1;
+							const isModelB =
+								msg.role === "assistant" && msg.model === selectedModelB;
+							const isLastAssistant = i === lastAssistantIdx;
+							// In conversation mode, only show delete on last assistant (or currently streaming)
+							const canDelete =
+								chatSubMode === "chat" ||
+								(isLastAssistant && !isStreaming) ||
+								(isStreamingThis && isLastAssistant);
 
-						// Turn number: only in conversation mode — counts assistant messages up to and including this one
-						const turnNumber =
-							chatSubMode === "conversation" && msg.role === "assistant"
-								? messages.filter((m, mi) => m.role === "assistant" && mi <= i)
-										.length
-								: undefined;
-
-						// Persona lookup for conversation mode
-						const personaForModel = isModelB
-							? CHAT_PERSONAS.find((p) => p.id === activePersonaIdB)
-							: chatSubMode === "conversation"
-								? CHAT_PERSONAS.find(
-										(p) => p.id === conversationActivePersonaIdA,
-									)
-								: CHAT_PERSONAS.find((p) => p.id === chatActivePersonaId);
-						const personaName =
-							chatSubMode === "conversation" &&
-							msg.role === "assistant" &&
-							personaForModel
-								? `${personaForModel.icon} ${personaForModel.label}`
-								: chatSubMode === "chat" &&
-										msg.role === "assistant" &&
-										personaForModel
-									? `${personaForModel.icon} ${personaForModel.label}`
+							// Turn number: only in conversation mode — counts assistant messages up to and including this one
+							const turnNumber =
+								chatSubMode === "conversation" && msg.role === "assistant"
+									? messages.filter(
+											(m, mi) => m.role === "assistant" && mi <= i,
+										).length
 									: undefined;
-						const personaTooltip = personaForModel?.systemPrompt || undefined;
 
-						/* ── User message ── */
-						if (isUser) {
-							// In conversation mode, user message is centered and gray
-							const isConversationMode = chatSubMode === "conversation";
-							return (
-								<div
-									key={`user-${msg.timestamp}`}
-									className={`flex ${isConversationMode ? "justify-center" : "justify-end"}`}
-								>
+							// Persona lookup for conversation mode
+							const personaForModel = isModelB
+								? CHAT_PERSONAS.find((p) => p.id === activePersonaIdB)
+								: chatSubMode === "conversation"
+									? CHAT_PERSONAS.find(
+											(p) => p.id === conversationActivePersonaIdA,
+										)
+									: CHAT_PERSONAS.find((p) => p.id === chatActivePersonaId);
+							const personaName =
+								chatSubMode === "conversation" &&
+								msg.role === "assistant" &&
+								personaForModel
+									? `${personaForModel.icon} ${personaForModel.label}`
+									: chatSubMode === "chat" &&
+											msg.role === "assistant" &&
+											personaForModel
+										? `${personaForModel.icon} ${personaForModel.label}`
+										: undefined;
+							const personaTooltip = personaForModel?.systemPrompt || undefined;
+
+							/* ── User message ── */
+							if (isUser) {
+								// In conversation mode, user message is centered and gray
+								const isConversationMode = chatSubMode === "conversation";
+								return (
 									<div
-										className={`max-w-[80%] p-2.5 ${isConversationMode ? "bg-gray-500/20 text-(--text-primary) border border-gray-500/30" : "bg-(--accent) text-white"}`}
-										style={{
-											borderRadius: "var(--radius-card)",
-										}}
+										key={`user-${msg.timestamp}`}
+										className={`flex ${isConversationMode ? "justify-center" : "justify-end"}`}
 									>
-										<MarkdownContent
-											className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
-										>
-											{msg.content}
-										</MarkdownContent>
 										<div
-											className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
+											className={`max-w-[80%] p-2.5 ${isConversationMode ? "bg-gray-500/20 text-(--text-primary) border border-gray-500/30" : "bg-(--accent) text-white"}`}
+											style={{
+												borderRadius: "var(--radius-card)",
+											}}
 										>
-											<span>{formatTime(msg.timestamp)}</span>
-											<CopyButton
-												text={msg.content}
-												size={10}
-												className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[0_0_4px_white]"}`}
+											<MarkdownContent
+												className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
+											>
+												{msg.content}
+											</MarkdownContent>
+											<div
+												className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
+											>
+												<span>{formatTime(msg.timestamp)}</span>
+												<CopyButton
+													text={msg.content}
+													size={10}
+													className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[0_0_4px_white]"}`}
+												/>
+											</div>
+										</div>
+									</div>
+								);
+							}
+
+							/* ── Model B message (conversation mode, right side) ── */
+							if (chatSubMode === "conversation" && isModelB) {
+								return (
+									<div
+										key={`modelb-${msg.timestamp}`}
+										className="flex justify-end"
+									>
+										<div className="max-w-[80%]">
+											<ModelReplyCard
+												model={msg.model || ""}
+												content={msg.content}
+												thinkingContent={msg.thinkingContent}
+												error={msg.error}
+												metrics={msg.metrics}
+												isStreaming={isStreamingThis}
+												shortenModelName={false}
+												tint="blue"
+												personaName={personaName}
+												personaTooltip={personaTooltip}
+												turnNumber={turnNumber}
+												headerEnd={
+													isStreamingThis ? (
+														<button
+															type="button"
+															onClick={handleStopConversation}
+															className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
+															title="Cancel"
+														>
+															<CircleStop size={14} />
+														</button>
+													) : null
+												}
+												footerStart={<span>{formatTime(msg.timestamp)}</span>}
+												footerEnd={
+													<div className="flex items-center gap-2">
+														<CopyButton text={msg.content} size={10} />
+														{canDelete && (
+															<button
+																type="button"
+																className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+																onClick={() => handleDeleteMessage(i)}
+																title="Delete message"
+															>
+																<Trash2 size={10} />
+															</button>
+														)}
+													</div>
+												}
+												className="rounded-xl rounded-br-sm p-4"
+												headerClassName="mb-2"
+												footerClassName="mt-2"
 											/>
 										</div>
 									</div>
-								</div>
-							);
-						}
+								);
+							}
 
-						/* ── Model B message (conversation mode, right side) ── */
-						if (chatSubMode === "conversation" && isModelB) {
+							/* ── Assistant message (Model A or chat mode) ── */
 							return (
 								<div
-									key={`modelb-${msg.timestamp}`}
-									className="flex justify-end"
+									key={`assistant-${msg.timestamp}`}
+									className="flex justify-start"
 								>
 									<div className="max-w-[80%]">
 										<ModelReplyCard
@@ -1492,7 +1526,6 @@ export function Chat() {
 											metrics={msg.metrics}
 											isStreaming={isStreamingThis}
 											shortenModelName={false}
-											tint="blue"
 											personaName={personaName}
 											personaTooltip={personaTooltip}
 											turnNumber={turnNumber}
@@ -1500,13 +1533,29 @@ export function Chat() {
 												isStreamingThis ? (
 													<button
 														type="button"
-														onClick={handleStopConversation}
+														onClick={
+															chatSubMode === "conversation"
+																? handleStopConversation
+																: handleStop
+														}
 														className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
 														title="Cancel"
 													>
 														<CircleStop size={14} />
 													</button>
-												) : null
+												) : (
+													i === lastAssistantIdx &&
+													chatSubMode === "chat" && (
+														<button
+															type="button"
+															onClick={handleRegenerate}
+															className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer ml-1"
+															title="Regenerate"
+														>
+															<RefreshCw size={14} />
+														</button>
+													)
+												)
 											}
 											footerStart={<span>{formatTime(msg.timestamp)}</span>}
 											footerEnd={
@@ -1522,101 +1571,28 @@ export function Chat() {
 															<Trash2 size={10} />
 														</button>
 													)}
+													{msg.params && (
+														<span
+															className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
+															title={`Settings: ${Object.entries(msg.params)
+																.filter(([, v]) => v !== undefined)
+																.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
+																.join(", ")}`}
+														>
+															<Settings size={10} />
+														</span>
+													)}
 												</div>
 											}
-											className="rounded-xl rounded-br-sm p-4"
+											className="rounded-xl rounded-bl-sm p-4"
 											headerClassName="mb-2"
 											footerClassName="mt-2"
 										/>
 									</div>
 								</div>
 							);
-						}
-
-						/* ── Assistant message (Model A or chat mode) ── */
-						return (
-							<div
-								key={`assistant-${msg.timestamp}`}
-								className="flex justify-start"
-							>
-								<div className="max-w-[80%]">
-									<ModelReplyCard
-										model={msg.model || ""}
-										content={msg.content}
-										thinkingContent={msg.thinkingContent}
-										error={msg.error}
-										metrics={msg.metrics}
-										isStreaming={isStreamingThis}
-										shortenModelName={false}
-										personaName={personaName}
-										personaTooltip={personaTooltip}
-										turnNumber={turnNumber}
-										headerEnd={
-											isStreamingThis ? (
-												<button
-													type="button"
-													onClick={
-														chatSubMode === "conversation"
-															? handleStopConversation
-															: handleStop
-													}
-													className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
-													title="Cancel"
-												>
-													<CircleStop size={14} />
-												</button>
-											) : (
-												i ===
-													messages.findLastIndex(
-														(m) => m.role === "assistant",
-													) &&
-												chatSubMode === "chat" && (
-													<button
-														type="button"
-														onClick={handleRegenerate}
-														className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer ml-1"
-														title="Regenerate"
-													>
-														<RefreshCw size={14} />
-													</button>
-												)
-											)
-										}
-										footerStart={<span>{formatTime(msg.timestamp)}</span>}
-										footerEnd={
-											<div className="flex items-center gap-2">
-												<CopyButton text={msg.content} size={10} />
-												{canDelete && (
-													<button
-														type="button"
-														className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
-														onClick={() => handleDeleteMessage(i)}
-														title="Delete message"
-													>
-														<Trash2 size={10} />
-													</button>
-												)}
-												{msg.params && (
-													<span
-														className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
-														title={`Settings: ${Object.entries(msg.params)
-															.filter(([, v]) => v !== undefined)
-															.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
-															.join(", ")}`}
-													>
-														<Settings size={10} />
-													</span>
-												)}
-											</div>
-										}
-										className="rounded-xl rounded-bl-sm p-4"
-										headerClassName="mb-2"
-										footerClassName="mt-2"
-									/>
-								</div>
-							</div>
-						);
-					})}
+						});
+					})()}
 				</div>
 			</div>
 

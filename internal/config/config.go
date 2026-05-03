@@ -266,12 +266,15 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 		return fmt.Errorf("loopback addresses are not allowed as provider URLs (add to ALLOWED_PROVIDER_HOSTS to permit)")
 	}
 
-	// Resolve the host and check all IPs
+	// Resolve the host and check all IPs.
+	// Store the resolved IPs to detect DNS rebinding: if the host later resolves
+	// to a different set of IPs, the provider URL should be re-validated.
+	// For now, we block any host that currently resolves to a loopback address.
 	ips, err := net.LookupIP(host)
 	if err == nil {
 		for _, ip := range ips {
 			if ip.IsLoopback() {
-				return fmt.Errorf("loopback addresses are not allowed as provider URLs (add to ALLOWED_PROVIDER_HOSTS to permit)")
+				return fmt.Errorf("host %q resolves to loopback address %s — not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ip)
 			}
 		}
 	}

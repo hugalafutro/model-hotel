@@ -16,12 +16,15 @@ export function EventProvider({ children }: { children: ReactNode }) {
 	const { toast } = useToast();
 	const reconnectDelay = useRef(1000);
 	const abortRef = useRef<AbortController | null>(null);
+	const connectingRef = useRef(false);
 
 	useEffect(() => {
 		const token = getAdminToken();
 		if (!token) return;
 
 		const connect = () => {
+			if (connectingRef.current) return;
+			connectingRef.current = true;
 			const ac = new AbortController();
 			abortRef.current = ac;
 
@@ -62,6 +65,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 					// Connection failed or aborted
 				})
 				.finally(() => {
+					connectingRef.current = false;
 					if (!ac.signal.aborted) {
 						// Reconnect with exponential backoff (1s → 2s → 4s → ... → 30s max)
 						const delay = reconnectDelay.current;
@@ -75,6 +79,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 
 		return () => {
 			abortRef.current?.abort();
+			connectingRef.current = false;
 		};
 	}, [toast]);
 
