@@ -133,6 +133,11 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.
 		go func(hash string) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[proxy] panic in TouchLastUsed (virtual key): %v", r)
+				}
+			}()
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
 			_ = h.virtualKeyRepo.TouchLastUsed(tctx, hash)

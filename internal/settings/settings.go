@@ -165,11 +165,18 @@ func (r *Repository) notifyChange(key, value string) {
 
 	change := ChangeEvent{Key: key, Value: value}
 	for _, sub := range subs {
-		select {
-		case sub.ch <- change:
-		default:
-			// Subscriber is too slow; skip to avoid blocking the writer.
-		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[settings] warning: failed to send change event, channel closed: %v", r)
+				}
+			}()
+			select {
+			case sub.ch <- change:
+			default:
+				// Subscriber is too slow; skip to avoid blocking the writer.
+			}
+		}()
 	}
 	for _, fn := range callbacks {
 		go fn(key, value)

@@ -360,6 +360,15 @@ export function Arena() {
 	}, [arenaMode]);
 
 	useEffect(() => {
+		return () => {
+			for (const [, ctrl] of abortMapRef.current) {
+				ctrl.abort();
+			}
+			abortMapRef.current.clear();
+		};
+	}, []);
+
+	useEffect(() => {
 		activePromptIdRef.current = activePromptId;
 	}, [activePromptId]);
 

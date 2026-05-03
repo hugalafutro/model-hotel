@@ -58,7 +58,7 @@ function buildQueryString(
 ): string {
 	const sp = new URLSearchParams();
 	for (const [key, value] of Object.entries(params)) {
-		if (value) {
+		if (value !== undefined && value !== null) {
 			sp.set(key, String(value));
 		}
 	}

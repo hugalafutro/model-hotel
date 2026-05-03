@@ -43,11 +43,18 @@ func (b *Bus) Publish(event Event) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	for ch := range b.subscribers {
-		select {
-		case ch <- event:
-		default:
-			log.Printf("[events] warning: event %q dropped, subscriber too slow", event.Type)
-		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[events] warning: failed to send event %q, channel closed", event.Type)
+				}
+			}()
+			select {
+			case ch <- event:
+			default:
+				log.Printf("[events] warning: event %q dropped, subscriber too slow", event.Type)
+			}
+		}()
 	}
 }
 

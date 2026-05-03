@@ -404,6 +404,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.providerID = candidate.provider.ID
 		log.Printf("[proxy] failover attempt=%d provider=%s model=%s", attempt+1, candidate.provider.ID, candidate.model.ModelID)
 		go func(pid uuid.UUID) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[proxy] panic in TouchLastUsed (provider): %v", r)
+				}
+			}()
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
 			_ = h.providerRepo.TouchLastUsed(tctx, pid)

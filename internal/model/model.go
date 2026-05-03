@@ -267,6 +267,9 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 }
 
 func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, existingModelIDs []string) (int64, error) {
+	if len(existingModelIDs) == 0 {
+		return 0, nil
+	}
 	query := `
 		UPDATE models
 		SET enabled = false
