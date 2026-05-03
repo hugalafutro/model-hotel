@@ -207,7 +207,7 @@ export function ModelDetailPanel({
 				}`}
 			>
 				<div className="overflow-hidden">
-					<div className="space-y-3 pt-3">
+					<div className="space-y-3 pt-3 px-2 -mx-2 pb-2 -mb-2">
 						{editable && (
 							<div
 								className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
@@ -375,7 +375,7 @@ export function ModelDetailPanel({
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 									Capabilities
 								</span>
-								<div className="flex flex-wrap gap-1 mt-1 px-2 -mx-2 py-1.5 -my-1.5">
+								<div className="flex flex-wrap gap-1 mt-1">
 									{CAP_META.filter((m) => caps[m.key]).map((m) => (
 										<span
 											key={m.key}

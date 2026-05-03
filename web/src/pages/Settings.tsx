@@ -542,7 +542,7 @@ export function Settings() {
 						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${appearanceCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 					>
 						<div className="overflow-hidden">
-							<div className="space-y-6">
+							<div className="space-y-6 p-3 -m-3">
 								{/* UI Style */}
 								<div>
 									<p className="text-sm font-medium text-gray-300 mb-3">
@@ -624,7 +624,7 @@ export function Settings() {
 									<p className="text-sm font-medium text-gray-300 mb-2">
 										Accent Color
 									</p>
-									<div className="flex flex-wrap gap-2 p-2 -m-2">
+									<div className="flex flex-wrap gap-2">
 										{accentPresets.map((preset) => (
 											<button
 												key={preset.name}
