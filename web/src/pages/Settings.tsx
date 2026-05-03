@@ -1623,7 +1623,7 @@ function LoggingSettings({
 										<button
 											type="button"
 											onClick={() => setConfirmDelete(true)}
-											className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
+											className="ui-btn ui-btn-danger"
 										>
 											Delete Requests
 										</button>
@@ -1647,7 +1647,7 @@ function LoggingSettings({
 													const olderThan = getDeleteOlderThan(deleteSelection);
 													if (olderThan) purgeMutation.mutate(olderThan);
 												}}
-												className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+												className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
 											>
 												Confirm Delete
 											</button>
@@ -1657,7 +1657,7 @@ function LoggingSettings({
 													setConfirmDelete(false);
 													setDeleteSelection("");
 												}}
-												className="px-3 py-1.5 text-xs rounded-full border bg-gray-900/40 text-gray-300 border-gray-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(156,163,175,0.15)] transition-all"
+												className="ui-btn ui-btn-secondary"
 											>
 												Cancel
 											</button>
@@ -1669,7 +1669,7 @@ function LoggingSettings({
 										<button
 											type="button"
 											onClick={() => setConfirmDeleteAppLogs(true)}
-											className="px-3 py-1.5 text-xs rounded-full border bg-red-900/40 text-red-300 border-red-700/50 cursor-pointer hover:brightness-125 transition-all"
+											className="ui-btn ui-btn-danger"
 										>
 											Delete Logs
 										</button>
@@ -1682,7 +1682,7 @@ function LoggingSettings({
 												type="button"
 												onClick={() => purgeAppLogsMutation.mutate()}
 												disabled={purgeAppLogsMutation.isPending}
-												className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+												className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
 											>
 												{purgeAppLogsMutation.isPending
 													? "Deleting…"
@@ -1691,7 +1691,7 @@ function LoggingSettings({
 											<button
 												type="button"
 												onClick={() => setConfirmDeleteAppLogs(false)}
-												className="px-3 py-1.5 text-xs rounded-full border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
+												className="ui-btn ui-btn-secondary"
 											>
 												Cancel
 											</button>
