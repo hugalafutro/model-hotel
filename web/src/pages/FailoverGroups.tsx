@@ -752,7 +752,7 @@ export function FailoverGroups() {
 				<select
 					value={providerFilter}
 					onChange={(e) => setProviderFilter(e.target.value)}
-					className="max-w-[220px] shrink-0 rounded-md border border-gray-600 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-(--accent)"
+					className="ui-input w-auto max-w-[220px] shrink-0"
 				>
 					<option value="">All providers</option>
 					{providerNames.map((name) => (
