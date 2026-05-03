@@ -1934,25 +1934,12 @@ function ProviderDiscoveryList({
 
 	const discoverAllMutation = useMutation({
 		mutationFn: async () => {
-			toast("Discovering models for all providers…", "info");
 			return api.providers.discoverAll();
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
-			for (const r of data.results) {
-				if (r.error) {
-					toast(`${r.provider_name}: ${r.error}`, "error");
-				} else {
-					toast(`${r.provider_name}: ${r.discovered} models`, "success");
-				}
-			}
-			if (data.discovered > 0) {
-				toast(
-					`Discovered ${data.discovered} models across ${data.succeeded} providers`,
-					"success",
-				);
-			} else if (data.failed > 0) {
+			if (data.failed > 0 && data.succeeded === 0) {
 				toast(`Discovery failed for all ${data.failed} providers`, "error");
 			}
 		},
@@ -1964,13 +1951,11 @@ function ProviderDiscoveryList({
 	const discoverMutation = useMutation({
 		mutationFn: async (id: string) => {
 			setDiscoveringId(id);
-			toast("Discovering models…", "info");
 			return api.providers.discover(id);
 		},
-		onSuccess: (data) => {
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
-			toast(`Discovered ${data?.discovered ?? "new"} models`, "success");
 		},
 		onError: (err: Error) => {
 			toast(`Discovery failed: ${err.message}`, "error");
