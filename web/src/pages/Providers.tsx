@@ -293,7 +293,7 @@ export function Providers() {
 		name: "",
 		base_url: "",
 		api_key: "",
-		provider_type: "openai",
+		provider_type: "custom",
 	});
 	const [showApiKey, setShowApiKey] = useState(false);
 
@@ -522,7 +522,7 @@ export function Providers() {
 				name: "",
 				base_url: "",
 				api_key: "",
-				provider_type: "openai",
+				provider_type: "custom",
 			});
 			setError(null);
 			toast(`Provider "${newProvider.name}" added`, "success");
@@ -567,6 +567,7 @@ export function Providers() {
 	};
 
 	const providerTypeDisplayNames: Record<string, string> = {
+		custom: "Custom",
 		nanogpt: "NanoGPT",
 		"z-ai-coding": "Z.ai Coding Plan",
 		openai: "OpenAI",
@@ -580,7 +581,7 @@ export function Providers() {
 	};
 
 	const providerTypeAllowsEmptyKey = (type: string): boolean => {
-		return type === "opencode-zen";
+		return type === "opencode-zen" || type === "ollama" || type === "custom";
 	};
 
 	const generateProviderName = (type: string): string => {
@@ -606,6 +607,15 @@ export function Providers() {
 			xai: "https://api.x.ai/v1",
 			google: "https://generativelanguage.googleapis.com/v1beta/openai",
 		};
+		if (type === "custom") {
+			setFormData((prev) => ({
+				...prev,
+				provider_type: type,
+				base_url: prev.base_url,
+				name: prev.name,
+			}));
+			return;
+		}
 		const newName = generateProviderName(type);
 		setFormData((prev) => ({
 			...prev,
@@ -904,7 +914,7 @@ export function Providers() {
 									name: "",
 									base_url: "",
 									api_key: "",
-									provider_type: "openai",
+									provider_type: "custom",
 								});
 								setError(null);
 							}}
@@ -935,6 +945,7 @@ export function Providers() {
 									onChange={(e) => handleProviderTypeChange(e.target.value)}
 									className="ui-input"
 								>
+									<option value="custom">Custom</option>
 									<option value="openai">OpenAI</option>
 									<option value="anthropic">Anthropic</option>
 									<option value="nanogpt">NanoGPT</option>
@@ -1054,7 +1065,7 @@ export function Providers() {
 											name: "",
 											base_url: "",
 											api_key: "",
-											provider_type: "openai",
+											provider_type: "custom",
 										});
 										setShowApiKey(false);
 										setError(null);
