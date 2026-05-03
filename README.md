@@ -18,6 +18,8 @@
   <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
 </p>
 
+<div align="center">
+
 > **AI-Assisted Project Disclaimer:**</br>
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.</br>
 >
@@ -26,6 +28,8 @@
 > <img src="https://img.shields.io/badge/GLM_5.1-orchestrator%20and%20council-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle%20and%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-fixer-F97316?style=flat" alt="DeepSeek V4 Flash"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian%20and%20explorer-10B981?style=flat" alt="MiniMax M2.7"></br>
 >
 > <i>Thanks <a href="https://cloud.ollama.com">Ollama Cloud</a> for generous limits. I have nothing nice to say about <a href="https://z.ai">Z.AI</a> or <a href="https://opencode.ai">OpenCode Go</a> in that regard.</i>
+
+</div>
 
 ---
 
@@ -57,6 +61,20 @@ Failover groups are auto-generated when models are discovered, but only when **2
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
+
+### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged — Privacy by Design](#-no-prompts-logged)
+> **Prompts and request content are never captured, logged, or inspected.**
+> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
+>
+> The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only — never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
+
+The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
+
+- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
+- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona") — only their built-in IDs, never the text content you didn't write yourself.
+- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
+
+History data never leaves your browser. It can be cleared at any time from the Settings page.
 
 ### [<img src="docs/icons/logging.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Request Logging with Overhead Breakdown](#-request-logging-with-overhead-breakdown)
 Every request is logged with full latency decomposition:
@@ -98,22 +116,6 @@ A live SSE event bus delivers toast notifications for discovery outcomes, model 
 ## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
 
 Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage — the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses. Decrypted provider keys are cached in memory for up to 5 minutes to avoid repeated key derivation overhead.
-
-### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Data Handling](#-data-handling)
-
-> **Prompts and request content are never captured, logged, or inspected.**
-> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
->
-> The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only — never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
-
-
-The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
-
-- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
-- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona") — only their built-in IDs, never the text content you didn't write yourself.
-- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
-
-History data never leaves your browser. It can be cleared at any time from the Settings page.
 
 ## [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start (Docker Compose)](#-quick-start-docker-compose)
 
