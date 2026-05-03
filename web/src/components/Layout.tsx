@@ -601,8 +601,11 @@ function LastErrorPills() {
 			</div>
 			{/* Error message body */}
 			<div className="px-2 py-1.5">
-				<div className="font-mono text-[9px] text-red-300/80 break-all leading-relaxed">
-					{msg}
+				<div
+					className="font-mono text-[9px] text-red-300/80 break-all leading-relaxed line-clamp-3"
+					title={msg}
+				>
+					{msg.length > 200 ? `${msg.slice(0, 200)}…` : msg}
 				</div>
 			</div>
 		</div>

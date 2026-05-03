@@ -371,7 +371,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<AlertTriangle size={14} className="text-red-400" />
 							<span className="text-sm font-semibold text-red-400">Error</span>
 						</div>
-						<div className="text-sm text-red-300 font-mono wrap-break-words">
+						<div className="text-sm text-red-300 font-mono wrap-break-words max-h-60 overflow-y-auto">
 							{requestLog.error_message}
 						</div>
 					</div>
