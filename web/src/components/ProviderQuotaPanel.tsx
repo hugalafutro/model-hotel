@@ -203,12 +203,12 @@ export function ProviderQuotaPanel() {
 	});
 
 	const { data: openrouterBalance, isRefetching: isOrRefetching } = useQuery({
-		queryKey: ["openrouter-key", openrouterProviderId],
+		queryKey: ["openrouter-balance", openrouterProviderId],
 		queryFn: () =>
 			api.providers.getOpenRouterBalance(openrouterProviderId as string),
 		enabled: Boolean(openrouterProviderId),
 		refetchInterval: collapsed ? false : refreshMs,
-		initialData: () => getCachedData<OpenRouterBalance>("openrouter-key"),
+		initialData: () => getCachedData<OpenRouterBalance>("openrouter-balance"),
 	});
 
 	const anyRefreshing =
@@ -229,7 +229,7 @@ export function ProviderQuotaPanel() {
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
-		queryClient.invalidateQueries({ queryKey: ["openrouter-key"] });
+		queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 		toast("Refreshing quotas...", "info");
 	}, [queryClient, toast]);
 
@@ -248,7 +248,10 @@ export function ProviderQuotaPanel() {
 
 	const showDsBadge = deepseekBalance && deepseekProviderId;
 
-	const showOrBadge = openrouterBalance && openrouterProviderId;
+	const showOrBadge =
+		openrouterBalance &&
+		openrouterProviderId &&
+		openrouterBalance.credits_remaining != null;
 
 	const hasAnyProvider =
 		nanogptProviderId ||
@@ -358,7 +361,7 @@ export function ProviderQuotaPanel() {
 							title="OpenRouter key balance — click to refresh"
 						>
 							{"$"}
-							{openrouterBalance.credits_remaining.toFixed(2)}
+							{openrouterBalance.credits_remaining?.toFixed(2)}
 						</button>
 					)}
 				</div>

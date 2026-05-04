@@ -490,15 +490,16 @@ export function Providers() {
 		refetch: refetchOpenRouterBalance,
 		isError: isOpenRouterError,
 	} = useQuery({
-		queryKey: ["openrouter-key", openrouterProviderId],
+		queryKey: ["openrouter-balance", openrouterProviderId],
 		queryFn: () =>
 			api.providers.getOpenRouterBalance(openrouterProviderId as string),
 		enabled: Boolean(openrouterProviderId),
-		initialData: () => getCachedData<OpenRouterBalance>("openrouter-key"),
+		initialData: () => getCachedData<OpenRouterBalance>("openrouter-balance"),
 	});
 
 	useEffect(() => {
-		if (openrouterBalance) setCachedData("openrouter-key", openrouterBalance);
+		if (openrouterBalance)
+			setCachedData("openrouter-balance", openrouterBalance);
 	}, [openrouterBalance]);
 
 	const nanoGPTErrorToasted = useRef(false);
@@ -968,7 +969,7 @@ export function Providers() {
 											</button>
 										)}
 									{provider.base_url.includes("openrouter.ai") &&
-										openrouterBalance && (
+										openrouterBalance?.credits_remaining != null && (
 											<button
 												type="button"
 												onClick={async () => {
@@ -983,7 +984,7 @@ export function Providers() {
 												title="Refresh balance"
 											>
 												{"$"}
-												{openrouterBalance.credits_remaining.toFixed(2)}
+												{openrouterBalance.credits_remaining?.toFixed(2)}
 											</button>
 										)}
 								</div>
