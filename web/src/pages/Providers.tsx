@@ -1,15 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownAZ, ArrowUpZA, Eye, EyeOff, PlugZap } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type {
-	DeepSeekBalance,
-	DeepSeekBalanceInfo,
-	NanoGPTUsage,
-	OpenRouterBalance,
-	Provider,
-	ZAICodingQuotaResponse,
-} from "../api/types";
+import type { Provider } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
 import { FilterDropdown } from "../components/FilterDropdown";
@@ -20,29 +13,12 @@ import {
 	ZAICodingQuotaModal,
 } from "../components/ProviderModals";
 import { ProviderModelsModal } from "../components/ProviderModelsModal";
+import { QuotaBadges } from "../components/QuotaBadge";
 import { Spinner } from "../components/Spinner";
+import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
+import { useQuotaData } from "../hooks/useQuotaData";
 import { formatTimestamp, formatTokens } from "../utils/format";
-
-const CACHE_PREFIX = "model-hotel";
-
-function getCachedData<T>(key: string): T | undefined {
-	try {
-		const raw = localStorage.getItem(`${CACHE_PREFIX}:${key}`);
-		if (raw) return JSON.parse(raw) as T;
-	} catch {
-		/* ignore */
-	}
-	return undefined;
-}
-
-function setCachedData<T>(key: string, data: T) {
-	try {
-		localStorage.setItem(`${CACHE_PREFIX}:${key}`, JSON.stringify(data));
-	} catch {
-		/* ignore */
-	}
-}
 
 const baseUrls: Record<string, string> = {
 	nanogpt: "https://nano-gpt.com/api/subscription/v1",
@@ -342,9 +318,6 @@ export function Providers() {
 	const [discoverAllCurrentId, setDiscoverAllCurrentId] = useState<
 		string | null
 	>(null);
-	const [quotaUsage, setQuotaUsage] = useState<NanoGPTUsage | null>(null);
-	const [zaiCodingQuotaUsage, setZaiCodingQuotaUsage] =
-		useState<ZAICodingQuotaResponse | null>(null);
 	const [formData, setFormData] = useState<{
 		name: string;
 		base_url: string;
@@ -390,156 +363,14 @@ export function Providers() {
 		queryFn: () => api.settings.get(),
 	});
 
-	const nanogptProviderId = useMemo(() => {
-		return providers?.find((p) => {
-			try {
-				return new URL(p.base_url).hostname.endsWith("nano-gpt.com");
-			} catch {
-				return false;
-			}
-		})?.id;
-	}, [providers]);
-
-	const zaiCodingProviderId = useMemo(() => {
-		return providers?.find((p) => {
-			try {
-				const h = new URL(p.base_url).hostname;
-				return h === "z.ai" || h.endsWith(".z.ai");
-			} catch {
-				return false;
-			}
-		})?.id;
-	}, [providers]);
-
-	const deepseekProviderId = useMemo(() => {
-		return providers?.find((p) => {
-			try {
-				return new URL(p.base_url).hostname.endsWith("deepseek.com");
-			} catch {
-				return false;
-			}
-		})?.id;
-	}, [providers]);
-
-	const openrouterProviderId = useMemo(() => {
-		return providers?.find((p) => {
-			try {
-				return new URL(p.base_url).hostname.endsWith("openrouter.ai");
-			} catch {
-				return false;
-			}
-		})?.id;
-	}, [providers]);
+	const quotaData = useQuotaData(providers, { toastErrors: toast });
 
 	const {
-		data: nanogptUsage,
-		dataUpdatedAt: nanogptDataUpdatedAt,
-		refetch,
-		isRefetching,
-		isError: isNanoGPTError,
-	} = useQuery({
-		queryKey: ["nanogpt-usage", nanogptProviderId],
-		queryFn: () =>
-			api.providers.getUsage(
-				nanogptProviderId as string,
-			) as Promise<NanoGPTUsage>,
-		enabled: Boolean(nanogptProviderId),
-		initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
-	});
-
-	useEffect(() => {
-		if (nanogptUsage) setCachedData("nanogpt-usage", nanogptUsage);
-	}, [nanogptUsage]);
-
-	const {
-		data: zaiCodingUsage,
-		dataUpdatedAt: zaiCodingDataUpdatedAt,
-		refetch: refetchZai,
-		isRefetching: isZaiCodingRefetching,
-		isError: isZAICodingError,
-	} = useQuery({
-		queryKey: ["zai-coding-usage", zaiCodingProviderId],
-		queryFn: () =>
-			api.providers.getUsage(
-				zaiCodingProviderId as string,
-			) as Promise<ZAICodingQuotaResponse>,
-		enabled: Boolean(zaiCodingProviderId),
-		initialData: () =>
-			getCachedData<ZAICodingQuotaResponse>("zai-coding-usage"),
-	});
-
-	useEffect(() => {
-		if (zaiCodingUsage) setCachedData("zai-coding-usage", zaiCodingUsage);
-	}, [zaiCodingUsage]);
-
-	const {
-		data: deepseekBalanceData,
-		refetch: refetchDeepseekBalance,
-		isError: isDeepseekError,
-	} = useQuery({
-		queryKey: ["deepseek-balance", deepseekProviderId],
-		queryFn: () => api.providers.getBalance(deepseekProviderId as string),
-		enabled: Boolean(deepseekProviderId),
-		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
-	});
-
-	useEffect(() => {
-		if (deepseekBalanceData)
-			setCachedData("deepseek-balance", deepseekBalanceData);
-	}, [deepseekBalanceData]);
-
-	const {
-		data: openrouterBalance,
-		refetch: refetchOpenRouterBalance,
-		isError: isOpenRouterError,
-	} = useQuery({
-		queryKey: ["openrouter-balance", openrouterProviderId],
-		queryFn: () =>
-			api.providers.getOpenRouterBalance(openrouterProviderId as string),
-		enabled: Boolean(openrouterProviderId),
-		initialData: () => getCachedData<OpenRouterBalance>("openrouter-balance"),
-	});
-
-	useEffect(() => {
-		if (openrouterBalance)
-			setCachedData("openrouter-balance", openrouterBalance);
-	}, [openrouterBalance]);
-
-	const nanoGPTErrorToasted = useRef(false);
-	useEffect(() => {
-		if (isNanoGPTError && !nanoGPTErrorToasted.current) {
-			toast("Failed to fetch NanoGPT usage quota", "warning");
-			nanoGPTErrorToasted.current = true;
-		}
-		if (!isNanoGPTError) nanoGPTErrorToasted.current = false;
-	}, [isNanoGPTError, toast]);
-
-	const zaiCodingErrorToasted = useRef(false);
-	useEffect(() => {
-		if (isZAICodingError && !zaiCodingErrorToasted.current) {
-			toast("Failed to fetch ZAI usage quota", "warning");
-			zaiCodingErrorToasted.current = true;
-		}
-		if (!isZAICodingError) zaiCodingErrorToasted.current = false;
-	}, [isZAICodingError, toast]);
-
-	const deepseekErrorToasted = useRef(false);
-	useEffect(() => {
-		if (isDeepseekError && !deepseekErrorToasted.current) {
-			toast("Failed to fetch DeepSeek balance", "warning");
-			deepseekErrorToasted.current = true;
-		}
-		if (!isDeepseekError) deepseekErrorToasted.current = false;
-	}, [isDeepseekError, toast]);
-
-	const openRouterErrorToasted = useRef(false);
-	useEffect(() => {
-		if (isOpenRouterError && !openRouterErrorToasted.current) {
-			toast("Failed to fetch OpenRouter key balance", "warning");
-			openRouterErrorToasted.current = true;
-		}
-		if (!isOpenRouterError) openRouterErrorToasted.current = false;
-	}, [isOpenRouterError, toast]);
+		nanogptUsage: modalNano,
+		setNanogptUsage: setModalNano,
+		zaiCodingUsage: modalZaiCoding,
+		setZaiCodingUsage: setModalZaiCoding,
+	} = useQuotaModal();
 
 	// Track which provider is currently being scanned during Discover All
 	useEffect(() => {
@@ -883,32 +714,6 @@ export function Providers() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 				{filteredProviders?.map((provider) => {
-					const isNanoGPT = provider.base_url.includes("nano-gpt.com");
-					const isZAI = provider.base_url.includes("z.ai");
-					const weeklyUsed = isNanoGPT
-						? nanogptUsage?.weeklyInputTokens?.used
-						: null;
-					const weeklyLimit = isNanoGPT
-						? nanogptUsage?.limits?.weeklyInputTokens
-						: null;
-					const showQuotaBadge =
-						isNanoGPT && weeklyUsed != null && weeklyLimit && nanogptUsage;
-
-					const zaiCodingFiveHour = isZAI
-						? zaiCodingUsage?.data?.limits?.find(
-								(l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
-							)
-						: null;
-					const zaiCodingWeekly = isZAI
-						? zaiCodingUsage?.data?.limits?.find(
-								(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
-							)
-						: null;
-					const showZaiCodingBadge =
-						isZAI &&
-						zaiCodingUsage?.success &&
-						(zaiCodingFiveHour || zaiCodingWeekly);
-
 					return (
 						<div
 							key={provider.id}
@@ -989,76 +794,35 @@ export function Providers() {
 
 							<div className="mt-auto pt-4 flex items-center justify-between gap-2">
 								<div className="flex items-center gap-2 min-h-7">
-									{showQuotaBadge && (
-										<button
-											type="button"
-											onClick={() =>
-												nanogptUsage && setQuotaUsage(nanogptUsage)
+									<QuotaBadges
+										quotaData={quotaData}
+										variant="card"
+										providerBaseUrl={provider.base_url}
+										onNanoClick={() =>
+											quotaData.nanogptUsage &&
+											setModalNano(quotaData.nanogptUsage)
+										}
+										onZaiCodingClick={() =>
+											quotaData.zaiCodingUsage &&
+											setModalZaiCoding(quotaData.zaiCodingUsage)
+										}
+										onDeepseekClick={async () => {
+											try {
+												await quotaData.refetchDeepseek();
+												toast("Balance refreshed", "success");
+											} catch {
+												toast("Failed to refresh balance", "error");
 											}
-											className="px-2 py-1.5 rounded-full bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 text-xs font-medium cursor-pointer hover:bg-[#0690a8]/30 transition-colors"
-											title="View quota details"
-										>
-											{formatTokens(weeklyUsed)}/{formatTokens(weeklyLimit)}
-										</button>
-									)}
-									{showZaiCodingBadge && (
-										<button
-											type="button"
-											onClick={() =>
-												zaiCodingUsage && setZaiCodingQuotaUsage(zaiCodingUsage)
+										}}
+										onOpenRouterClick={async () => {
+											try {
+												await quotaData.refetchOpenRouter();
+												toast("Balance refreshed", "success");
+											} catch {
+												toast("Failed to refresh balance", "error");
 											}
-											className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
-											title="View quota details"
-										>
-											{zaiCodingFiveHour
-												? `${(100 - zaiCodingFiveHour.percentage).toFixed(0)}%`
-												: "-"}
-											/
-											{zaiCodingWeekly
-												? `${(100 - zaiCodingWeekly.percentage).toFixed(0)}%`
-												: "-"}
-										</button>
-									)}
-									{provider.base_url.includes("deepseek.com") &&
-										deepseekBalanceData && (
-											<button
-												type="button"
-												onClick={async () => {
-													try {
-														await refetchDeepseekBalance();
-														toast("Balance refreshed", "success");
-													} catch {
-														toast("Failed to refresh balance", "error");
-													}
-												}}
-												className="px-2 py-1.5 rounded-full bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 text-xs font-medium cursor-pointer hover:bg-[#36aaff]/30 transition-colors"
-												title="Refresh balance"
-											>
-												{deepseekBalanceData.balance_infos.find(
-													(b: DeepSeekBalanceInfo) => b.currency === "USD",
-												)?.total_balance ?? "-"}{" "}
-												USD
-											</button>
-										)}
-									{provider.base_url.includes("openrouter.ai") &&
-										openrouterBalance?.credits_remaining != null && (
-											<button
-												type="button"
-												onClick={async () => {
-													try {
-														await refetchOpenRouterBalance();
-														toast("Balance refreshed", "success");
-													} catch {
-														toast("Failed to refresh balance", "error");
-													}
-												}}
-												className="px-2 py-1.5 rounded-full bg-[#6467f2]/20 text-[#6467f2] border border-[#6467f2]/50 text-xs font-medium cursor-pointer hover:bg-[#6467f2]/30 transition-colors"
-												title="Refresh balance"
-											>
-												{"$"}
-												{openrouterBalance.credits_remaining?.toFixed(2)}
-											</button>
-										)}
+										}}
+									/>
 								</div>
 								<div className="flex gap-2">
 									<button
@@ -1312,25 +1076,25 @@ export function Providers() {
 				</Modal>
 			)}
 
-			{quotaUsage && (
+			{modalNano && (
 				<NanoGPTQuotaModal
-					usage={quotaUsage}
-					onClose={() => setQuotaUsage(null)}
-					onRefresh={refetch}
-					isRefreshing={isRefetching}
+					usage={modalNano}
+					onClose={() => setModalNano(null)}
+					onRefresh={quotaData.refetchNano}
+					isRefreshing={quotaData.isNanoRefetching}
 					onToast={toast}
-					lastRefreshed={nanogptDataUpdatedAt}
+					lastRefreshed={quotaData.nanogptDataUpdatedAt}
 				/>
 			)}
 
-			{zaiCodingQuotaUsage && (
+			{modalZaiCoding && (
 				<ZAICodingQuotaModal
-					usage={zaiCodingQuotaUsage}
-					onClose={() => setZaiCodingQuotaUsage(null)}
-					onRefresh={refetchZai}
-					isRefreshing={isZaiCodingRefetching}
+					usage={modalZaiCoding}
+					onClose={() => setModalZaiCoding(null)}
+					onRefresh={quotaData.refetchZaiCoding}
+					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
-					lastRefreshed={zaiCodingDataUpdatedAt}
+					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
 				/>
 			)}
 
