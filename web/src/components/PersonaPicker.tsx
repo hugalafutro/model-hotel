@@ -126,8 +126,10 @@ export function PersonaPicker({
 				</label>
 				<CollapsibleToggle collapsed={collapsed} onToggle={toggleCollapsed} />
 			</div>
-			{!collapsed && (
-				<>
+			<div
+				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+			>
+				<div className="overflow-hidden">
 					<PresetBar
 						items={personas}
 						activeId={activePersonaId}
@@ -160,8 +162,8 @@ export function PersonaPicker({
 						style={{ height: "auto" }}
 						disabled={disabled}
 					/>
-				</>
-			)}
+				</div>
+			</div>
 
 			{/* Persona Overwrite Confirmation */}
 			{pendingPersona && (

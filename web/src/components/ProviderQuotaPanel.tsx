@@ -167,20 +167,24 @@ export function ProviderQuotaPanel() {
 				</div>
 			</div>
 
-			{!collapsed && (
-				<div className="flex flex-wrap gap-1 justify-center">
-					<QuotaBadges
-						quotaData={quotaData}
-						variant="sidebar"
-						onNanoClick={() => setModalNano(quotaData.nanogptUsage ?? null)}
-						onZaiCodingClick={() =>
-							setModalZaiCoding(quotaData.zaiCodingUsage ?? null)
-						}
-						onDeepseekClick={handleRefresh}
-						onOpenRouterClick={handleRefresh}
-					/>
+			<div
+				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+			>
+				<div className="overflow-hidden">
+					<div className="flex flex-wrap gap-1 justify-center">
+						<QuotaBadges
+							quotaData={quotaData}
+							variant="sidebar"
+							onNanoClick={() => setModalNano(quotaData.nanogptUsage ?? null)}
+							onZaiCodingClick={() =>
+								setModalZaiCoding(quotaData.zaiCodingUsage ?? null)
+							}
+							onDeepseekClick={handleRefresh}
+							onOpenRouterClick={handleRefresh}
+						/>
+					</div>
 				</div>
-			)}
+			</div>
 
 			{modalNano && (
 				<NanoGPTQuotaModal

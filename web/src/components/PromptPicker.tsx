@@ -152,8 +152,10 @@ export function PromptPicker({
 				</label>
 				<CollapsibleToggle collapsed={collapsed} onToggle={toggleCollapsed} />
 			</div>
-			{!collapsed && (
-				<>
+			<div
+				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+			>
+				<div className="overflow-hidden">
 					{showPresetBar && (
 						<PresetBar
 							items={prompts}
@@ -189,8 +191,8 @@ export function PromptPicker({
 						autoFocus={autoFocus}
 						id="prompt-picker-textarea"
 					/>
-				</>
-			)}
+				</div>
+			</div>
 
 			{/* Prompt Overwrite Confirmation */}
 			{pendingPrompt && (
