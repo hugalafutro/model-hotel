@@ -650,6 +650,11 @@ export function Providers() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
+			queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
+			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
+			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast("Provider deleted", "success");
 		},
 		onError: (err: Error) => {

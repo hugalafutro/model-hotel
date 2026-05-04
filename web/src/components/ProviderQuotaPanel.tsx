@@ -235,7 +235,15 @@ export function ProviderQuotaPanel() {
 
 	const weeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
 	const weeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
-	const showNanoBadge = nanogptUsage && weeklyUsed != null && weeklyLimit;
+	// Badge visibility must always check that the provider still exists
+	// (providerId is truthy). When a provider is deleted, the query is
+	// disabled but React Query retains cached data, so without the guard
+	// the badge would render with stale data.
+	const showNanoBadge =
+		Boolean(nanogptProviderId) &&
+		nanogptUsage &&
+		weeklyUsed != null &&
+		weeklyLimit;
 
 	const zaiCodingFiveHour = zaiCodingUsage?.data?.limits?.find(
 		(l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
@@ -244,13 +252,15 @@ export function ProviderQuotaPanel() {
 		(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
 	);
 	const showZaiCodingBadge =
-		zaiCodingUsage?.success && (zaiCodingFiveHour || zaiCodingWeekly);
+		Boolean(zaiCodingProviderId) &&
+		zaiCodingUsage?.success &&
+		(zaiCodingFiveHour || zaiCodingWeekly);
 
-	const showDsBadge = deepseekBalance && deepseekProviderId;
+	const showDsBadge = Boolean(deepseekProviderId) && deepseekBalance;
 
 	const showOrBadge =
+		Boolean(openrouterProviderId) &&
 		openrouterBalance &&
-		openrouterProviderId &&
 		openrouterBalance.credits_remaining != null;
 
 	const hasAnyProvider =
