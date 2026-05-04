@@ -120,7 +120,7 @@ export function PersonaPicker({
 			<div className="flex items-center justify-between mb-2">
 				<label
 					htmlFor="persona-picker-textarea"
-					className="text-sm text-(--text-secondary)"
+					className="text-sm font-semibold text-(--accent)"
 				>
 					{label}
 				</label>

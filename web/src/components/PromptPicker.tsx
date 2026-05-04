@@ -146,7 +146,7 @@ export function PromptPicker({
 			<div className="flex items-center justify-between mb-2">
 				<label
 					htmlFor="prompt-picker-textarea"
-					className="text-sm text-(--text-secondary)"
+					className="text-sm font-semibold text-(--accent)"
 				>
 					{label}
 				</label>

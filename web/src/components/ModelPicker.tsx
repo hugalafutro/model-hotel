@@ -185,7 +185,7 @@ export function ModelPicker({
 			{label && (
 				<label
 					htmlFor={id ?? "model-picker-filter"}
-					className="text-sm text-(--text-secondary) block"
+					className="text-sm font-semibold text-(--accent) block"
 				>
 					{label}
 				</label>

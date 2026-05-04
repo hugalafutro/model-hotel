@@ -1449,7 +1449,7 @@ export function Arena() {
 								<div>
 									<label
 										htmlFor="bracket-models-picker"
-										className="text-sm text-(--text-secondary) mb-2 block"
+										className="text-sm font-semibold text-(--accent) mb-2 block"
 									>
 										Models ({bracketModels.length}/8)
 										<span className="text-(--text-tertiary)">
@@ -1477,7 +1477,7 @@ export function Arena() {
 									<div>
 										<label
 											htmlFor="compare-models-picker"
-											className="text-sm text-(--text-secondary) mb-2 block"
+											className="text-sm font-semibold text-(--accent) mb-2 block"
 										>
 											Models ({compareModels.length}/6)
 										</label>

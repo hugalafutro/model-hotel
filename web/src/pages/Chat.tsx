@@ -1188,7 +1188,7 @@ export function Chat() {
 									<div>
 										<label
 											htmlFor="model-a-picker"
-											className="text-sm text-(--text-secondary) mb-2 block"
+											className="text-sm font-semibold text-(--accent) mb-2 block"
 										>
 											Model A
 										</label>
@@ -1217,7 +1217,7 @@ export function Chat() {
 									<div>
 										<label
 											htmlFor="model-b-picker"
-											className="text-sm text-(--text-secondary) mb-2 block"
+											className="text-sm font-semibold text-(--accent) mb-2 block"
 										>
 											Model B
 										</label>
