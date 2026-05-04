@@ -628,15 +628,62 @@ export function Providers() {
 			setError(null);
 			toast(`Provider "${newProvider.name}" added`, "success");
 			const shouldDiscover = settings?.discovery_on_provider_create !== "false";
+			const providerType = getProviderType(newProvider.base_url);
 			if (shouldDiscover) {
 				try {
-					await api.providers.discover(newProvider.id);
+					const result = await api.providers.discover(newProvider.id);
 					queryClient.invalidateQueries({ queryKey: ["models"] });
 					queryClient.invalidateQueries({ queryKey: ["providers"] });
+					toast(
+						`Discovered ${result.discovered} model${result.discovered === 1 ? "" : "s"} from ${newProvider.name}`,
+						"success",
+					);
 				} catch (e) {
-					// SSE events show the error to the user; log for diagnostics.
-					console.warn("Auto-discovery failed after provider creation:", e);
+					toast(
+						`Auto-discovery failed: ${e instanceof Error ? e.message : "Unknown error"}`,
+						"warning",
+					);
 				}
+			}
+
+			// Try to detect quota/balance for providers that support it
+			try {
+				switch (providerType) {
+					case "nanogpt":
+						await api.providers.getUsage(newProvider.id);
+						toast("NanoGPT quota detected", "info");
+						queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
+						break;
+					case "z-ai-coding":
+						await api.providers.getUsage(newProvider.id);
+						toast("Z.ai Coding quota detected", "info");
+						queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
+						break;
+					case "deepseek": {
+						const balance = await api.providers.getBalance(newProvider.id);
+						const usd = balance.balance_infos.find((b) => b.currency === "USD");
+						if (usd) {
+							toast(`DeepSeek balance detected: $${usd.total_balance}`, "info");
+						} else {
+							toast("DeepSeek balance detected", "info");
+						}
+						queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
+						break;
+					}
+					case "openrouter": {
+						const orBalance = await api.providers.getOpenRouterBalance(
+							newProvider.id,
+						);
+						toast(
+							`OpenRouter balance detected: $${orBalance.credits_remaining?.toFixed(2) ?? "—"}`,
+							"info",
+						);
+						queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
+						break;
+					}
+				}
+			} catch {
+				// Quota/balance detection is non-critical; silently skip on failure
 			}
 		},
 		onError: (err: Error) => {
