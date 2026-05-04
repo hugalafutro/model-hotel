@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
+import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
 import { CAP_META } from "./capMeta";
 import { Modal } from "./Modal";
 
@@ -309,6 +310,17 @@ export function ModelDetailPanel({
 										}
 									/>
 								</div>
+								{/* Recommended settings button */}
+								<ApplyRecommendedButton
+									modelId={proxyModelID(model.provider_name, model.model_id)}
+									providerName={model.provider_name}
+									onApply={(recommended) =>
+										onParamsChange?.({
+											...(params as GenerationParams),
+											...recommended,
+										})
+									}
+								/>
 							</div>
 						)}
 

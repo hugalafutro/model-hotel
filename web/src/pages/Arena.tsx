@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE, getAuthHeaders } from "../api/client";
 import type { GenerationParams, Model } from "../api/types";
 import { ActionIconButton } from "../components/ActionIconButton";
+import { ApplyRecommendedButton } from "../components/ApplyRecommendedButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -1916,6 +1917,7 @@ export function Arena() {
 						}))
 					}
 					onClose={() => setParamEditorModel(null)}
+					knownProviders={enabledModels.map((m) => m.provider_name)}
 				/>
 			)}
 
@@ -2358,12 +2360,16 @@ function ParamEditorModal({
 	params,
 	onChange,
 	onClose,
+	knownProviders,
 }: {
 	modelId: string;
 	params: GenerationParams;
 	onChange: (params: GenerationParams) => void;
 	onClose: () => void;
+	knownProviders: string[];
 }) {
+	const providerName = providerFromModelID(modelId, knownProviders);
+
 	return (
 		<Modal title={modelId} onClose={onClose} maxWidth="max-w-sm">
 			<div className="space-y-4">
@@ -2435,6 +2441,12 @@ function ParamEditorModal({
 						onChange={(v) => onChange({ ...params, presence_penalty: v })}
 					/>
 				</div>
+
+				<ApplyRecommendedButton
+					modelId={modelId}
+					providerName={providerName}
+					onApply={(recommended) => onChange({ ...params, ...recommended })}
+				/>
 
 				<div className="flex items-center justify-between pt-2 border-t border-(--border-subtle)">
 					{hasAnyParam(params) && (
