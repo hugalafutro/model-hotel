@@ -534,7 +534,7 @@ function LastErrorPills() {
 	) => (
 		<div className="group relative rounded-md border border-red-500/30 bg-red-950/20 overflow-hidden">
 			{/* Header row with icon, label, and action buttons */}
-			<div className="flex items-center justify-between px-2 py-1 bg-red-900/20 border-b border-red-500/20">
+			<div className="flex items-center justify-between px-2 py-0.5 bg-red-900/20">
 				<div className="flex items-center gap-1.5">
 					<AlertTriangle size={10} className="shrink-0 text-red-400" />
 					<span
@@ -590,7 +590,7 @@ function LastErrorPills() {
 				</div>
 			</div>
 			{/* Error message body */}
-			<div className="px-2 py-1.5">
+			<div className="px-2 py-1">
 				<div
 					className="font-mono text-[9px] text-red-300/80 break-all leading-relaxed line-clamp-3"
 					title={msg}

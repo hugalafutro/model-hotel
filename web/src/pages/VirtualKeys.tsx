@@ -3,6 +3,10 @@ import { KeyRound } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { VirtualKey } from "../api/types";
+import {
+	CollapsibleToggle,
+	useCollapsible,
+} from "../components/CollapsibleToggle";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { CopyablePill } from "../components/CopyablePill";
 import type { SortState } from "../components/DataTable";
@@ -202,6 +206,10 @@ export function VirtualKeys() {
 	const [pageSize, setPageSize] = useState(10);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [terminalTab, setTerminalTab] = useState<"bash" | "powershell">("bash");
+	const { collapsed: exampleCollapsed, toggle: toggleExample } = useCollapsible(
+		"vk-example-collapsed",
+		false,
+	);
 
 	const { data: keys, isLoading } = useQuery({
 		queryKey: ["virtualKeys"],
@@ -379,232 +387,263 @@ export function VirtualKeys() {
 			)}
 
 			{sortedKeys.length > 0 && (
-				<div className="ui-card p-6 space-y-5">
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
-								1
-							</div>
-							<div>
-								<h3 className="text-sm font-medium text-gray-200">
-									Create a Key
-								</h3>
-								<p className="text-xs text-gray-400 mt-1">
-									Click the button above to generate a new virtual key
-								</p>
-							</div>
-						</div>
-						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
-								2
-							</div>
-							<div>
-								<h3 className="text-sm font-medium text-gray-200">
-									Copy the Full Key
-								</h3>
-								<p className="text-xs text-gray-400 mt-1">
-									The complete key is shown only once on creation
-								</p>
-							</div>
-						</div>
-						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
-								3
-							</div>
-							<div>
-								<h3 className="text-sm font-medium text-gray-200">
-									Make Requests
-								</h3>
-								<p className="text-xs text-gray-400 mt-1">
-									Use your key to call the proxy API endpoints
-								</p>
-							</div>
-						</div>
+				<div className="ui-card p-6">
+					<div className="flex items-center justify-between">
+						<h3 className="text-sm font-medium text-gray-300">Quick Start</h3>
+						<CollapsibleToggle
+							collapsed={exampleCollapsed}
+							onToggle={toggleExample}
+							variant="muted"
+							size={14}
+						/>
 					</div>
-
-					<div>
-						<div className="terminal-tab-bar">
-							<button
-								type="button"
-								onClick={() => setTerminalTab("bash")}
-								className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-							>
-								<svg
-									viewBox="0 0 24 24"
-									className="w-3.5 h-3.5"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								>
-									<title>Terminal</title>
-									<polyline points="4 17 10 11 4 5" />
-									<line x1="12" y1="19" x2="20" y2="19" />
-								</svg>
-								bash
-							</button>
-							<button
-								type="button"
-								onClick={() => setTerminalTab("powershell")}
-								className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-							>
-								<svg
-									viewBox="0 0 24 24"
-									className="w-3.5 h-3.5"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								>
-									<title>Monitor</title>
-									<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-									<line x1="8" y1="21" x2="16" y2="21" />
-									<line x1="12" y1="17" x2="12" y2="21" />
-								</svg>
-								PowerShell
-							</button>
-						</div>
-						{terminalTab === "bash" ? (
-							<div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
-								<div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
-									<div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-									<div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-									<div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-									<span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
-										bash
-									</span>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+							exampleCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+						}`}
+					>
+						<div
+							className={`overflow-hidden space-y-5 transition-[margin] duration-300 ${
+								exampleCollapsed ? "mt-0" : "mt-5"
+							}`}
+						>
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+								<div className="flex items-start gap-3 p-4 ui-card">
+									<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+										1
+									</div>
+									<div>
+										<h3 className="text-sm font-medium text-gray-200">
+											Create a Key
+										</h3>
+										<p className="text-xs text-gray-400 mt-1">
+											Click the button above to generate a new virtual key
+										</p>
+									</div>
 								</div>
-								<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
-									<code className="terminal-code">
-										{"curl -X POST "}
-										<span className="text-white font-semibold terminal-highlight">
-											{typeof window !== "undefined"
-												? `${window.location.origin}`
-												: "http://localhost:8080"}
-											{"/v1/chat/completions"}
-										</span>
-										{" \\\n"}
-										{'  -H "Authorization: Bearer '}
-										<span className="text-white font-semibold terminal-highlight">
-											YOUR_API_KEY
-										</span>
-										{'" \\\n'}
-										{'  -H "Content-Type: application/json" \\\n'}
-										{"  -d '{\n"}
-										{'    "model": "'}
-										<span className="text-white font-semibold terminal-highlight">
-											model
-										</span>
-										{'",\n'}
-										{'    "messages": [\n'}
-										{'      { "role": "user", "content": "Hello!" }\n'}
-										{"    ]\n"}
-										{"  }'"}
-									</code>
-								</pre>
+								<div className="flex items-start gap-3 p-4 ui-card">
+									<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+										2
+									</div>
+									<div>
+										<h3 className="text-sm font-medium text-gray-200">
+											Copy the Full Key
+										</h3>
+										<p className="text-xs text-gray-400 mt-1">
+											The complete key is shown only once on creation
+										</p>
+									</div>
+								</div>
+								<div className="flex items-start gap-3 p-4 ui-card">
+									<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+										3
+									</div>
+									<div>
+										<h3 className="text-sm font-medium text-gray-200">
+											Make Requests
+										</h3>
+										<p className="text-xs text-gray-400 mt-1">
+											Use your key to call the proxy API endpoints
+										</p>
+									</div>
+								</div>
 							</div>
-						) : (
-							<div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] min-h-70">
-								<div className="terminal-win11-titlebar flex items-center justify-between px-3 py-1.5 border-b border-[#333]">
-									<div className="flex items-center gap-2">
+
+							<div>
+								<div className="terminal-tab-bar">
+									<button
+										type="button"
+										onClick={() => setTerminalTab("bash")}
+										className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
+									>
 										<svg
-											className="win11-icon"
 											viewBox="0 0 24 24"
-											width="14"
-											height="14"
-											fill="currentColor"
+											className="w-3.5 h-3.5"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
 										>
-											<title>Windows</title>
-											<path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
+											<title>Terminal</title>
+											<polyline points="4 17 10 11 4 5" />
+											<line x1="12" y1="19" x2="20" y2="19" />
 										</svg>
-										<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
-											PowerShell
-										</span>
-									</div>
-									<div className="flex items-center" aria-hidden="true">
-										<span className="inline-flex items-center justify-center w-11.5 h-7.5 text-[#999] hover:text-white hover:bg-[#e81123] transition-colors cursor-default">
-											<svg
-												width="10"
-												height="10"
-												viewBox="0 0 10 10"
-												fill="none"
-												stroke="currentColor"
-												strokeWidth="1.2"
-											>
-												<title>Close</title>
-												<line x1="0" y1="0" x2="10" y2="10" />
-												<line x1="10" y1="0" x2="0" y2="10" />
-											</svg>
-										</span>
-									</div>
+										bash
+									</button>
+									<button
+										type="button"
+										onClick={() => setTerminalTab("powershell")}
+										className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
+									>
+										<svg
+											viewBox="0 0 24 24"
+											className="w-3.5 h-3.5"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											<title>Monitor</title>
+											<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+											<line x1="8" y1="21" x2="16" y2="21" />
+											<line x1="12" y1="17" x2="12" y2="21" />
+										</svg>
+										PowerShell
+									</button>
 								</div>
-								<pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
-									<code className="terminal-win11-code">
-										{"Invoke-RestMethod "}
-										{"-Uri "}
-										<span className="ps-uri text-[#569cd6]">
-											{typeof window !== "undefined"
-												? `"${window.location.origin}/v1/chat/completions"`
-												: '"http://localhost:8080/v1/chat/completions"'}
-										</span>
-										{"\n"}
-										{"  -Method Post\n"}
-										{"  -Headers @{\n"}
-										{"    "}
-										<span className="ps-key text-[#9cdcfe]">
-											{'"Authorization"'}
-										</span>
-										{" = "}
-										<span className="ps-str text-[#ce9178]">
-											{'"Bearer YOUR_API_KEY"'}
-										</span>
-										{"\n"}
-										{"    "}
-										<span className="ps-key text-[#9cdcfe]">
-											{'"Content-Type"'}
-										</span>
-										{" = "}
-										<span className="ps-str text-[#ce9178]">
-											{'"application/json"'}
-										</span>
-										{"\n"}
-										{"  }\n"}
-										{"  -Body (ConvertTo-Json @{\n"}
-										{"    "}
-										<span className="ps-key text-[#9cdcfe]">{"model"}</span>
-										{" = "}
-										<span className="ps-str text-[#ce9178]">{'"model"'}</span>
-										{"\n"}
-										{"    "}
-										<span className="ps-key text-[#9cdcfe]">{"messages"}</span>
-										{" = @(\n"}
-										{"      @{ "}
-										<span className="ps-key text-[#9cdcfe]">{"role"}</span>
-										{" = "}
-										<span className="ps-str text-[#ce9178]">{'"user"'}</span>
-										{"; "}
-										<span className="ps-key text-[#9cdcfe]">{"content"}</span>
-										{" = "}
-										<span className="ps-str text-[#ce9178]">{'"Hello!"'}</span>
-										{" }\n"}
-										{"    )\n"}
-										{"  })"}
-									</code>
-								</pre>
+								{terminalTab === "bash" ? (
+									<div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
+										<div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
+											<div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+											<div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+											<div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+											<span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
+												bash
+											</span>
+										</div>
+										<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
+											<code className="terminal-code">
+												{"curl -X POST "}
+												<span className="text-white font-semibold terminal-highlight">
+													{typeof window !== "undefined"
+														? `${window.location.origin}`
+														: "http://localhost:8080"}
+													{"/v1/chat/completions"}
+												</span>
+												{" \\\n"}
+												{'  -H "Authorization: Bearer '}
+												<span className="text-white font-semibold terminal-highlight">
+													YOUR_API_KEY
+												</span>
+												{'" \\\n'}
+												{'  -H "Content-Type: application/json" \\\n'}
+												{"  -d '{\n"}
+												{'    "model": "'}
+												<span className="text-white font-semibold terminal-highlight">
+													model
+												</span>
+												{'",\n'}
+												{'    "messages": [\n'}
+												{'      { "role": "user", "content": "Hello!" }\n'}
+												{"    ]\n"}
+												{"  }'"}
+											</code>
+										</pre>
+									</div>
+								) : (
+									<div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] min-h-70">
+										<div className="terminal-win11-titlebar flex items-center justify-between px-3 py-1.5 border-b border-[#333]">
+											<div className="flex items-center gap-2">
+												<svg
+													className="win11-icon"
+													viewBox="0 0 24 24"
+													width="14"
+													height="14"
+													fill="currentColor"
+												>
+													<title>Windows</title>
+													<path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
+												</svg>
+												<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
+													PowerShell
+												</span>
+											</div>
+											<div className="flex items-center" aria-hidden="true">
+												<span className="inline-flex items-center justify-center w-11.5 h-7.5 text-[#999] hover:text-white hover:bg-[#e81123] transition-colors cursor-default">
+													<svg
+														width="10"
+														height="10"
+														viewBox="0 0 10 10"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="1.2"
+													>
+														<title>Close</title>
+														<line x1="0" y1="0" x2="10" y2="10" />
+														<line x1="10" y1="0" x2="0" y2="10" />
+													</svg>
+												</span>
+											</div>
+										</div>
+										<pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
+											<code className="terminal-win11-code">
+												{"Invoke-RestMethod "}
+												{"-Uri "}
+												<span className="ps-uri text-[#569cd6]">
+													{typeof window !== "undefined"
+														? `"${window.location.origin}/v1/chat/completions"`
+														: '"http://localhost:8080/v1/chat/completions"'}
+												</span>
+												{"\n"}
+												{"  -Method Post\n"}
+												{"  -Headers @{\n"}
+												{"    "}
+												<span className="ps-key text-[#9cdcfe]">
+													{'"Authorization"'}
+												</span>
+												{" = "}
+												<span className="ps-str text-[#ce9178]">
+													{'"Bearer YOUR_API_KEY"'}
+												</span>
+												{"\n"}
+												{"    "}
+												<span className="ps-key text-[#9cdcfe]">
+													{'"Content-Type"'}
+												</span>
+												{" = "}
+												<span className="ps-str text-[#ce9178]">
+													{'"application/json"'}
+												</span>
+												{"\n"}
+												{"  }\n"}
+												{"  -Body (ConvertTo-Json @{\n"}
+												{"    "}
+												<span className="ps-key text-[#9cdcfe]">{"model"}</span>
+												{" = "}
+												<span className="ps-str text-[#ce9178]">
+													{'"model"'}
+												</span>
+												{"\n"}
+												{"    "}
+												<span className="ps-key text-[#9cdcfe]">
+													{"messages"}
+												</span>
+												{" = @(\n"}
+												{"      @{ "}
+												<span className="ps-key text-[#9cdcfe]">{"role"}</span>
+												{" = "}
+												<span className="ps-str text-[#ce9178]">
+													{'"user"'}
+												</span>
+												{"; "}
+												<span className="ps-key text-[#9cdcfe]">
+													{"content"}
+												</span>
+												{" = "}
+												<span className="ps-str text-[#ce9178]">
+													{'"Hello!"'}
+												</span>
+												{" }\n"}
+												{"    )\n"}
+												{"  })"}
+											</code>
+										</pre>
+									</div>
+								)}
 							</div>
-						)}
-					</div>
 
-					<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
-						<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
-						<p className="text-xs text-gray-300 leading-relaxed">
-							<span className="text-gray-200 font-medium">Note:</span> Virtual
-							keys are used to authenticate requests to the proxy. Each key
-							tracks its own token usage. You can create multiple keys for
-							different clients or environments.
-						</p>
+							<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
+								<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
+								<p className="text-xs text-gray-300 leading-relaxed">
+									<span className="text-gray-200 font-medium">Note:</span>{" "}
+									Virtual keys are used to authenticate requests to the proxy.
+									Each key tracks its own token usage. You can create multiple
+									keys for different clients or environments.
+								</p>
+							</div>
+						</div>
 					</div>
 				</div>
 			)}

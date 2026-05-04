@@ -211,7 +211,7 @@ export function ModelDetailPanel({
 					<div className="space-y-3 pt-3">
 						{editable && (
 							<div
-								className={`overflow-hidden transition-all duration-300 ease-in-out border-t border-(--border-subtle) ${
+								className={`overflow-hidden transition-all duration-300 ease-in-out ${
 									open
 										? "max-h-125 opacity-100 pt-2 mt-1"
 										: "max-h-0 opacity-0 pt-0 mt-0"
