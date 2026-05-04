@@ -379,9 +379,9 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								className="text-red-400/50 hover:text-red-300 hover:drop-shadow-[0_0_6px_rgba(248,113,113,0.5)] transition-all cursor-pointer inline-flex items-center"
 							/>
 						</div>
-						<div className="text-sm text-red-300 font-mono break-words max-h-60 overflow-y-auto">
+						<pre className="text-sm text-red-300 font-mono whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
 							{requestLog.error_message}
-						</div>
+						</pre>
 					</div>
 				)}
 			</Modal>

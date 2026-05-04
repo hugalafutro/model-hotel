@@ -336,6 +336,7 @@ export function Providers() {
 	const { toast } = useToast();
 	const [showModal, setShowModal] = useState(false);
 	const [editProvider, setEditProvider] = useState<Provider | null>(null);
+	const [deleteProvider, setDeleteProvider] = useState<Provider | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [discoveringId, setDiscoveringId] = useState<string | null>(null);
 	const [discoverAllCurrentId, setDiscoverAllCurrentId] = useState<
@@ -653,6 +654,9 @@ export function Providers() {
 		},
 		onError: (err: Error) => {
 			toast(`Failed to delete: ${err.message}`, "error");
+		},
+		onSettled: () => {
+			setDeleteProvider(null);
 		},
 	});
 
@@ -1039,14 +1043,7 @@ export function Providers() {
 									</button>
 									<button
 										type="button"
-										onClick={() => {
-											if (
-												window.confirm(
-													"Delete this provider? This cannot be undone.",
-												)
-											)
-												deleteMutation.mutate(provider.id);
-										}}
+										onClick={() => setDeleteProvider(provider)}
 										className="ui-btn ui-btn-danger"
 									>
 										Delete
@@ -1299,6 +1296,39 @@ export function Providers() {
 					models={models}
 					onClose={() => setModelsProvider(null)}
 				/>
+			)}
+
+			{deleteProvider && (
+				<Modal
+					title="Delete Provider"
+					onClose={() => setDeleteProvider(null)}
+					maxWidth="max-w-sm"
+				>
+					<p className="text-sm text-gray-300 mb-4">
+						Are you sure you want to delete{" "}
+						<span className="text-white font-medium">
+							{deleteProvider.name}
+						</span>
+						? This cannot be undone.
+					</p>
+					<div className="flex gap-3 justify-end">
+						<button
+							type="button"
+							onClick={() => setDeleteProvider(null)}
+							className="ui-btn ui-btn-secondary"
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							onClick={() => deleteMutation.mutate(deleteProvider.id)}
+							disabled={deleteMutation.isPending}
+							className="ui-btn ui-btn-danger"
+						>
+							{deleteMutation.isPending ? "Deleting…" : "Delete"}
+						</button>
+					</div>
+				</Modal>
 			)}
 		</div>
 	);
