@@ -67,8 +67,8 @@ export function ConversationConfig({
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
-					<SlidersHorizontal size={14} className="text-(--text-secondary)" />
-					<span className="text-sm text-(--text-secondary)">
+					<SlidersHorizontal size={14} className="text-(--accent)" />
+					<span className="text-sm font-semibold text-(--accent)">
 						Conversation Config
 					</span>
 				</div>
