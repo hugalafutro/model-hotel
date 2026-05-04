@@ -40,7 +40,7 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] openrouter: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 200))
+		log.Printf("[discovery] openrouter: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -166,7 +166,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 
 	if creditsResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(creditsResp.Body)
-		log.Printf("[discovery] error: openrouter credits: non-200 status %d for provider %s: %s", creditsResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
+		log.Printf("[discovery] error: openrouter credits: non-200 status %d for provider %s: %s", creditsResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d from credits endpoint", creditsResp.StatusCode)
 	}
 
@@ -192,7 +192,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 
 	if keyResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(keyResp.Body)
-		log.Printf("[discovery] error: openrouter key info: non-200 status %d for provider %s: %s", keyResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
+		log.Printf("[discovery] error: openrouter key info: non-200 status %d for provider %s: %s", keyResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d from key endpoint", keyResp.StatusCode)
 	}
 

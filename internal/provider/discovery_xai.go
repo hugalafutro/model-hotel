@@ -67,7 +67,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		return nil, &httpError{StatusCode: resp.StatusCode, Body: string(bodyBytes)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] xai: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 200))
+		log.Printf("[discovery] xai: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
@@ -185,7 +185,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		return nil, &httpError{StatusCode: resp.StatusCode, Body: string(bodyBytes)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] xai: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 200))
+		log.Printf("[discovery] xai: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
