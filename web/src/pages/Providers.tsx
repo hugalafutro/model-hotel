@@ -33,6 +33,8 @@ const baseUrls: Record<string, string> = {
 	google: "https://generativelanguage.googleapis.com/v1beta/openai",
 	cohere: "https://api.cohere.ai/compatibility/v1",
 	openrouter: "https://openrouter.ai/api/v1",
+	koboldcpp: "http://localhost:5001/v1",
+	lmstudio: "http://localhost:1234/v1",
 };
 
 function isKnownProviderUrl(url: string): boolean {
@@ -60,10 +62,18 @@ const providerTypeDisplayNames: Record<string, string> = {
 	google: "Google AI Studio (Gemini)",
 	cohere: "Cohere",
 	openrouter: "OpenRouter",
+	koboldcpp: "KoboldCPP (Local)",
+	lmstudio: "LM Studio (Local)",
 };
 
 function providerTypeAllowsEmptyKey(type: string): boolean {
-	return type === "opencode-zen" || type === "ollama" || type === "custom";
+	return (
+		type === "opencode-zen" ||
+		type === "ollama" ||
+		type === "custom" ||
+		type === "koboldcpp" ||
+		type === "lmstudio"
+	);
 }
 
 function EditProviderModal({
@@ -930,6 +940,8 @@ export function Providers() {
 								<option value="google">Google AI Studio (Gemini)</option>
 								<option value="nanogpt">NanoGPT</option>
 								<option value="ollama">Ollama</option>
+								<option value="koboldcpp">KoboldCPP</option>
+								<option value="lmstudio">LM Studio</option>
 								<option value="openai">OpenAI</option>
 								<option value="opencode-go">OpenCode Go</option>
 								<option value="opencode-zen">OpenCode Zen</option>

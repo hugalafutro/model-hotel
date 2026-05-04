@@ -112,11 +112,19 @@ func DetectProviderType(baseURL string) string {
 		}
 	}
 
-	// Local Ollama instances (localhost with any port)
+	// Local providers (localhost with any port)
 	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
-		if strings.Contains(host, "ollama") {
+		// Port-based heuristics for common local providers
+		port := u.Port()
+		switch port {
+		case "11434":
 			return "ollama"
+		case "5001":
+			return "koboldcpp"
+		case "1234":
+			return "lmstudio"
 		}
+
 		return "openai"
 	}
 
@@ -165,6 +173,10 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverCohere(ctx, provider, apiKey)
 		case "openrouter":
 			return d.discoverOpenRouter(ctx, provider, apiKey)
+		case "koboldcpp":
+			return d.discoverKoboldCPP(ctx, provider, apiKey)
+		case "lmstudio":
+			return d.discoverLMStudio(ctx, provider, apiKey)
 		default:
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}
