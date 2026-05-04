@@ -147,6 +147,14 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, usage)
 		return
+	case "openrouter":
+		keyBalance, err := discovery.GetOpenRouterKeyBalance(r.Context(), prov, h.cfg.MasterKey)
+		if err != nil {
+			respondError(w, "failed to fetch key balance", err, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, keyBalance)
+		return
 	default:
 		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
 		return
@@ -342,6 +350,15 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			}
 		case "zai-coding":
 			_, err := discovery.GetZAICodingQuota(provCtx, prov, h.cfg.MasterKey)
+			if err != nil {
+				result.Error = err.Error()
+				failed++
+			} else {
+				result.Refreshed = true
+				refreshed++
+			}
+		case "openrouter":
+			_, err := discovery.GetOpenRouterKeyBalance(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++

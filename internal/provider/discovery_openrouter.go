@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -138,6 +139,43 @@ func parseOpenRouterPricing(pricing OpenRouterPricing) (float64, float64) {
 	inPrice, _ := strconv.ParseFloat(pricing.Prompt, 64)
 	outPrice, _ := strconv.ParseFloat(pricing.Completion, 64)
 	return inPrice * 1_000_000, outPrice * 1_000_000
+}
+
+func (d *DiscoveryService) GetOpenRouterKeyBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterKeyResponse, error) {
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+	}
+
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	keyURL := baseURL + "/key"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", keyURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "openrouter")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch key balance: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[discovery] error: openrouter key balance: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+
+	var keyResp OpenRouterKeyResponse
+	if err := json.NewDecoder(resp.Body).Decode(&keyResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &keyResp, nil
 }
 
 // openRouterParamsToCapabilities maps supported_parameters to our Capability struct.

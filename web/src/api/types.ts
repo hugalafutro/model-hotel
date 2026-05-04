@@ -258,6 +258,24 @@ export interface DeepSeekBalance {
 	balance_infos: DeepSeekBalanceInfo[];
 }
 
+export interface OpenRouterKeyData {
+	label: string;
+	limit: number | null;
+	limit_reset: string;
+	limit_remaining: number | null;
+	include_byok_in_limit: boolean;
+	usage: number;
+	usage_daily: number;
+	usage_weekly: number;
+	usage_monthly: number;
+	byok_usage: number;
+	is_free_tier: boolean;
+}
+
+export interface OpenRouterKeyResponse {
+	data: OpenRouterKeyData;
+}
+
 export interface FailoverEntry {
 	model_uuid: string;
 	model_id: string;

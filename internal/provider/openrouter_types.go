@@ -47,3 +47,23 @@ type OpenRouterPerRequestLimits struct {
 type OpenRouterModelsResponse struct {
 	Data []OpenRouterModel `json:"data"`
 }
+
+// OpenRouterKeyData represents the key-level data from GET /api/v1/key.
+type OpenRouterKeyData struct {
+	Label              string   `json:"label"`
+	Limit              *float64 `json:"limit"`
+	LimitReset         string   `json:"limit_reset"`
+	LimitRemaining     *float64 `json:"limit_remaining"`
+	IncludeByokInLimit bool     `json:"include_byok_in_limit"`
+	Usage              float64  `json:"usage"`
+	UsageDaily         float64  `json:"usage_daily"`
+	UsageWeekly        float64  `json:"usage_weekly"`
+	UsageMonthly       float64  `json:"usage_monthly"`
+	ByokUsage          float64  `json:"byok_usage"`
+	IsFreeTier         bool     `json:"is_free_tier"`
+}
+
+// OpenRouterKeyResponse is the top-level response from GET /api/v1/key.
+type OpenRouterKeyResponse struct {
+	Data OpenRouterKeyData `json:"data"`
+}

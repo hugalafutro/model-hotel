@@ -6,6 +6,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
+	OpenRouterKeyResponse,
 	Provider,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -140,6 +141,18 @@ export function ProviderQuotaPanel() {
 		[providers],
 	);
 
+	const openrouterProviderId = useMemo(
+		() =>
+			providers?.find((p: Provider) => {
+				try {
+					return new URL(p.base_url).hostname.endsWith("openrouter.ai");
+				} catch {
+					return false;
+				}
+			})?.id,
+		[providers],
+	);
+
 	// Derive the refresh interval from the reactive state so changes
 	// (triggered by the sidebarQuotaRefreshChange event) take effect
 	// immediately without a page reload.
@@ -189,8 +202,20 @@ export function ProviderQuotaPanel() {
 		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
 	});
 
+	const { data: openrouterKeyData, isRefetching: isOrRefetching } = useQuery({
+		queryKey: ["openrouter-key", openrouterProviderId],
+		queryFn: () =>
+			api.providers.getOpenRouterKeyBalance(openrouterProviderId as string),
+		enabled: Boolean(openrouterProviderId),
+		refetchInterval: collapsed ? false : refreshMs,
+		initialData: () => getCachedData<OpenRouterKeyResponse>("openrouter-key"),
+	});
+
 	const anyRefreshing =
-		isNanoRefetching || isZaiCodingRefetching || isDsRefetching;
+		isNanoRefetching ||
+		isZaiCodingRefetching ||
+		isDsRefetching ||
+		isOrRefetching;
 
 	const isAutoRefreshing = anyRefreshing && !collapsed;
 
@@ -204,6 +229,7 @@ export function ProviderQuotaPanel() {
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
+		queryClient.invalidateQueries({ queryKey: ["openrouter-key"] });
 		toast("Refreshing quotas...", "info");
 	}, [queryClient, toast]);
 
@@ -222,8 +248,13 @@ export function ProviderQuotaPanel() {
 
 	const showDsBadge = deepseekBalance && deepseekProviderId;
 
+	const showOrBadge = openrouterKeyData && openrouterProviderId;
+
 	const hasAnyProvider =
-		nanogptProviderId || zaiCodingProviderId || deepseekProviderId;
+		nanogptProviderId ||
+		zaiCodingProviderId ||
+		deepseekProviderId ||
+		openrouterProviderId;
 
 	const { nanogptUsage: modalNano, setNanogptUsage: setModalNano } =
 		useQuotaModal();
@@ -317,6 +348,18 @@ export function ProviderQuotaPanel() {
 							{deepseekBalance.balance_infos.find(
 								(b: DeepSeekBalanceInfo) => b.currency === "USD",
 							)?.total_balance ?? "-"}
+						</button>
+					)}
+					{showOrBadge && (
+						<button
+							type="button"
+							onClick={handleRefresh}
+							className="sidebar-quota-pill sidebar-quota-pill-or"
+							title="OpenRouter key balance — click to refresh"
+						>
+							{openrouterKeyData.data.limit_remaining != null
+								? `$${openrouterKeyData.data.limit_remaining.toFixed(2)}`
+								: "Unlimited"}
 						</button>
 					)}
 				</div>

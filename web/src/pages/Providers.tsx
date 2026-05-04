@@ -6,6 +6,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
+	OpenRouterKeyResponse,
 	Provider,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -417,6 +418,16 @@ export function Providers() {
 		})?.id;
 	}, [providers]);
 
+	const openrouterProviderId = useMemo(() => {
+		return providers?.find((p) => {
+			try {
+				return new URL(p.base_url).hostname.endsWith("openrouter.ai");
+			} catch {
+				return false;
+			}
+		})?.id;
+	}, [providers]);
+
 	const {
 		data: nanogptUsage,
 		dataUpdatedAt: nanogptDataUpdatedAt,
@@ -474,6 +485,22 @@ export function Providers() {
 			setCachedData("deepseek-balance", deepseekBalanceData);
 	}, [deepseekBalanceData]);
 
+	const {
+		data: openrouterKeyData,
+		refetch: refetchOpenRouterKey,
+		isError: isOpenRouterError,
+	} = useQuery({
+		queryKey: ["openrouter-key", openrouterProviderId],
+		queryFn: () =>
+			api.providers.getOpenRouterKeyBalance(openrouterProviderId as string),
+		enabled: Boolean(openrouterProviderId),
+		initialData: () => getCachedData<OpenRouterKeyResponse>("openrouter-key"),
+	});
+
+	useEffect(() => {
+		if (openrouterKeyData) setCachedData("openrouter-key", openrouterKeyData);
+	}, [openrouterKeyData]);
+
 	const nanoGPTErrorToasted = useRef(false);
 	useEffect(() => {
 		if (isNanoGPTError && !nanoGPTErrorToasted.current) {
@@ -500,6 +527,15 @@ export function Providers() {
 		}
 		if (!isDeepseekError) deepseekErrorToasted.current = false;
 	}, [isDeepseekError, toast]);
+
+	const openRouterErrorToasted = useRef(false);
+	useEffect(() => {
+		if (isOpenRouterError && !openRouterErrorToasted.current) {
+			toast("Failed to fetch OpenRouter key balance", "warning");
+			openRouterErrorToasted.current = true;
+		}
+		if (!isOpenRouterError) openRouterErrorToasted.current = false;
+	}, [isOpenRouterError, toast]);
 
 	// Track which provider is currently being scanned during Discover All
 	useEffect(() => {
@@ -772,9 +808,7 @@ export function Providers() {
 				/>
 			</div>
 
-			<div
-				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-			>
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 				{filteredProviders?.map((provider) => {
 					const isNanoGPT = provider.base_url.includes("nano-gpt.com");
 					const isZAI = provider.base_url.includes("z.ai");
@@ -931,6 +965,26 @@ export function Providers() {
 													(b: DeepSeekBalanceInfo) => b.currency === "USD",
 												)?.total_balance ?? "-"}{" "}
 												USD
+											</button>
+										)}
+									{provider.base_url.includes("openrouter.ai") &&
+										openrouterKeyData && (
+											<button
+												type="button"
+												onClick={async () => {
+													try {
+														await refetchOpenRouterKey();
+														toast("Key balance refreshed", "success");
+													} catch {
+														toast("Failed to refresh key balance", "error");
+													}
+												}}
+												className="px-2 py-1.5 rounded-full bg-[#6467f2]/20 text-[#6467f2] border border-[#6467f2]/50 text-xs font-medium cursor-pointer hover:bg-[#6467f2]/30 transition-colors"
+												title="Refresh key balance"
+											>
+												{openrouterKeyData.data.limit_remaining != null
+													? `$${openrouterKeyData.data.limit_remaining.toFixed(2)}`
+													: "Unlimited"}
 											</button>
 										)}
 								</div>
