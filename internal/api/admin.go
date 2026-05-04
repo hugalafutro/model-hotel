@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -409,6 +410,17 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 		}
 		respondError(w, "failed to delete provider", err, http.StatusInternalServerError)
 		return
+	}
+
+	// Sync failover groups since the cascade-deleted models may leave
+	// groups with stale entries or zero candidates.
+	// Guarded because unit tests pass nil dbPool.
+	if h.dbPool != nil {
+		failoverRepo := failover.NewRepository(h.dbPool.Pool())
+		if _, err := failoverRepo.SyncAllModels(context.WithoutCancel(r.Context())); err != nil {
+			// Log but don't fail the delete — the provider is already gone.
+			log.Printf("[admin] failed to sync failover groups after provider delete: %v", err)
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)

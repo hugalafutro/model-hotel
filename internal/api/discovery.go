@@ -46,8 +46,14 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	}
 
 	discovery := provider.NewDiscoveryService()
-	models, err := discovery.DiscoverModels(r.Context(), prov, h.cfg.MasterKey)
+	// Use a context decoupled from the HTTP request deadline for discovery.
+	// Provider availability tests (especially for slow/unreachable providers)
+	// can exhaust the 60s chi middleware timeout before DB upserts run.
+	provCtx, provCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 180*time.Second)
+	defer provCancel()
+	models, err := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
 	if err != nil {
+		provCancel()
 		respondError(w, "failed to discover models", err, http.StatusInternalServerError)
 		return
 	}
@@ -77,14 +83,14 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	existingModelIDs := make([]string, 0, len(models))
 	for _, m := range models {
-		if err := modelRepo.Upsert(r.Context(), m); err != nil {
+		if err := modelRepo.Upsert(provCtx, m); err != nil {
 			respondError(w, "failed to upsert model", err, http.StatusInternalServerError)
 			return
 		}
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
-	if _, err := modelRepo.DisableMissingModels(r.Context(), providerID, existingModelIDs); err != nil {
+	if _, err := modelRepo.DisableMissingModels(provCtx, providerID, existingModelIDs); err != nil {
 		respondError(w, "failed to disable missing models", err, http.StatusInternalServerError)
 		return
 	}
@@ -95,7 +101,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		seenModelIDs[mid] = true
 	}
 	for modelID := range seenModelIDs {
-		if err := failoverRepo.SyncForModel(r.Context(), modelID); err != nil {
+		if err := failoverRepo.SyncForModel(provCtx, modelID); err != nil {
 			respondError(w, "failed to sync failover group", err, http.StatusInternalServerError)
 			return
 		}
@@ -103,7 +109,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	now := time.Now()
 	updateQuery := `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`
-	if _, err := h.dbPool.Pool().Exec(r.Context(), updateQuery, now, providerID); err != nil {
+	if _, err := h.dbPool.Pool().Exec(provCtx, updateQuery, now, providerID); err != nil {
 		respondError(w, "failed to update provider", nil, http.StatusInternalServerError)
 		return
 	}
@@ -224,7 +230,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			Metadata: map[string]interface{}{"provider_id": prov.ID, "provider": prov.Name},
 		})
 
-		provCtx, provCancel := context.WithTimeout(r.Context(), 180*time.Second)
+		provCtx, provCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 180*time.Second)
 		result := DiscoverAllResult{
 			ProviderName: prov.Name,
 		}
