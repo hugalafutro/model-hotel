@@ -58,6 +58,7 @@ function DetailItem({
 	mono = false,
 	accent = false,
 	truncate = false,
+	labelExtra,
 	children,
 }: {
 	icon: typeof Clock;
@@ -66,6 +67,7 @@ function DetailItem({
 	mono?: boolean;
 	accent?: boolean;
 	truncate?: boolean;
+	labelExtra?: React.ReactNode;
 	children?: React.ReactNode;
 }) {
 	const displayValue =
@@ -80,14 +82,15 @@ function DetailItem({
 				/>
 			</div>
 			<div className="flex-1 min-w-0">
-				<div className="text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1">
+				<div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1">
 					{label}
+					{labelExtra}
 				</div>
 				{children ? (
 					children
 				) : (
 					<div
-						className={`text-sm text-(--text-primary) ${mono ? "font-mono" : ""} ${truncate ? "truncate" : "wrap-break-words"}`}
+						className={`text-sm text-(--text-primary) ${mono ? "font-mono" : ""} ${truncate ? "truncate" : "break-words"}`}
 					>
 						{displayValue}
 					</div>
@@ -370,8 +373,13 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<div className="flex items-center gap-2 mb-2">
 							<AlertTriangle size={14} className="text-red-400" />
 							<span className="text-sm font-semibold text-red-400">Error</span>
+							<CopyButton
+								text={requestLog.error_message}
+								size={12}
+								className="text-red-400/50 hover:text-red-300 hover:drop-shadow-[0_0_6px_rgba(248,113,113,0.5)] transition-all cursor-pointer inline-flex items-center"
+							/>
 						</div>
-						<div className="text-sm text-red-300 font-mono wrap-break-words max-h-60 overflow-y-auto">
+						<div className="text-sm text-red-300 font-mono break-words max-h-60 overflow-y-auto">
 							{requestLog.error_message}
 						</div>
 					</div>
@@ -415,13 +423,21 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					</span>
 				</DetailItem>
 				<DetailItem icon={Tag} label="Source" value={appLog.source || "—"} />
-				<DetailItem icon={FileText} label="Message" value={appLog.message}>
-					<div className="flex gap-2">
-						<CopyButton text={appLog.message} />
-						<pre className="flex-1 text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-all bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
-							{appLog.message}
-						</pre>
-					</div>
+				<DetailItem
+					icon={FileText}
+					label="Message"
+					value={appLog.message}
+					labelExtra={
+						<CopyButton
+							text={appLog.message}
+							size={11}
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)] transition-all cursor-pointer inline-flex items-center"
+						/>
+					}
+				>
+					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-all bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
+						{appLog.message}
+					</pre>
 				</DetailItem>
 			</div>
 		</Modal>
