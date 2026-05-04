@@ -14,7 +14,7 @@ import {
 	Users,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE, getAuthHeaders } from "../api/client";
 import type { ChatMessage, GenerationParams } from "../api/types";
 import { ActionIconButton } from "../components/ActionIconButton";
@@ -1030,6 +1030,16 @@ export function Chat() {
 		!!input.trim() &&
 		conversationState !== "running";
 
+	const conversationDisabledReason = useMemo(() => {
+		if (chatSubMode !== "conversation") return "";
+		if (conversationState === "running") return "";
+		if (!selectedModel) return "Select Model A";
+		if (!selectedModelB) return "Select Model B";
+		if (selectedModel === selectedModelB) return "Models must be different";
+		if (!input.trim()) return "Enter a prompt";
+		return "";
+	}, [chatSubMode, selectedModel, selectedModelB, input, conversationState]);
+
 	return (
 		<div
 			className={`flex flex-col gap-6 min-h-[calc(100vh-64px)] ${chatSubMode === "conversation" ? "" : "lg:h-[calc(100vh-64px)] lg:overflow-hidden"}`}
@@ -1259,6 +1269,7 @@ export function Chat() {
 					onRetry={handleRetryConversation}
 					onStop={handleStopConversation}
 					canStart={canStartConversation}
+					disabledReason={conversationDisabledReason}
 					selectedModel={selectedModel}
 					selectedModelB={selectedModelB}
 				/>
@@ -1645,9 +1656,13 @@ export function Chat() {
 								)}
 							</button>
 						</div>
-						<p className="text-xs text-(--text-muted)">
-							Press Enter to send, Shift+Enter for newline
-						</p>
+						{!selectedModel && !isStreaming ? (
+							<p className="text-xs text-amber-400">Select a model first</p>
+						) : (
+							<p className="text-xs text-(--text-muted)">
+								Press Enter to send, Shift+Enter for newline
+							</p>
+						)}
 					</div>
 				</div>
 			)}

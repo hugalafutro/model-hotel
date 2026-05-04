@@ -1469,18 +1469,6 @@ export function Arena() {
 										onRandom={handleRandomBracketModel}
 										paramsReadonly={phase !== "setup"}
 									/>
-									{bracketModels.length > 0 &&
-										![2, 4, 8].includes(bracketModels.length) && (
-											<p className="text-xs text-amber-400 mt-2">
-												Select 2, 4, or 8 models for a bracket tournament.
-											</p>
-										)}
-									{new Set(bracketModels).size !== bracketModels.length &&
-										bracketModels.length > 0 && (
-											<p className="text-xs text-amber-400 mt-2">
-												No duplicate models.
-											</p>
-										)}
 								</div>
 							)}
 							{phase === "setup" && arenaMode === "compare" && (
@@ -1505,17 +1493,6 @@ export function Arena() {
 											onRandom={handleRandomCompareModel}
 											paramsReadonly={phase !== "setup"}
 										/>
-										{compareModels.length > 0 && compareModels.length < 2 && (
-											<p className="text-xs text-amber-400 mt-2">
-												Pick at least 2 models.
-											</p>
-										)}
-										{new Set(compareModels).size !== compareModels.length &&
-											compareModels.length > 0 && (
-												<p className="text-xs text-amber-400 mt-2">
-													No duplicate models.
-												</p>
-											)}
 									</div>
 									<div>
 										<PersonaPicker
@@ -1625,29 +1602,33 @@ export function Arena() {
 					)}
 
 					{/* Run Button */}
-					{buttonLabel && (
-						<button
-							type="button"
-							onClick={isRunning ? handleStopAll : handleRunArena}
-							disabled={phase === "setup" && !canRun}
-							title={phase === "setup" && !canRun ? disabledReason : undefined}
-							className={`ui-btn flex items-center gap-2 shrink-0 ${
-								isRunning ? "ui-btn-danger" : "ui-btn-primary"
-							} disabled:opacity-40`}
-						>
-							{isRunning ? (
-								<>
-									<X size={16} />
-									{buttonLabel}
-								</>
-							) : (
-								<>
-									<Play size={16} />
-									{buttonLabel}
-								</>
-							)}
-						</button>
-					)}
+					<div className="flex flex-col">
+						{buttonLabel && (
+							<button
+								type="button"
+								onClick={isRunning ? handleStopAll : handleRunArena}
+								disabled={phase === "setup" && !canRun}
+								className={`ui-btn flex items-center gap-2 shrink-0 ${
+									isRunning ? "ui-btn-danger" : "ui-btn-primary"
+								} disabled:opacity-40`}
+							>
+								{isRunning ? (
+									<>
+										<X size={16} />
+										{buttonLabel}
+									</>
+								) : (
+									<>
+										<Play size={16} />
+										{buttonLabel}
+									</>
+								)}
+							</button>
+						)}
+						{phase === "setup" && !canRun && disabledReason && (
+							<p className="text-xs text-amber-400 mt-1.5">{disabledReason}</p>
+						)}
+					</div>
 				</div>
 
 				{/* Mode Description */}

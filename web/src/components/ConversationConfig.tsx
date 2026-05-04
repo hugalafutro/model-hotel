@@ -30,6 +30,7 @@ interface ConversationConfigProps {
 	/** Called to abort a running conversation */
 	onStop?: () => void;
 	canStart: boolean;
+	disabledReason?: string;
 	selectedModel: string;
 	selectedModelB: string;
 }
@@ -51,6 +52,7 @@ export function ConversationConfig({
 	onRetry,
 	onStop,
 	canStart,
+	disabledReason,
 	selectedModel,
 	selectedModelB,
 }: ConversationConfigProps) {
@@ -313,6 +315,10 @@ export function ConversationConfig({
 							</button>
 						)}
 					</div>
+					{/* Disabled reason hint */}
+					{isIdle && !canStart && disabledReason && (
+						<p className="text-xs text-amber-400 mt-2">{disabledReason}</p>
+					)}
 				</div>
 			</div>
 		</div>
