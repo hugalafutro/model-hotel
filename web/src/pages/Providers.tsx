@@ -13,6 +13,7 @@ import type {
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
 import { FilterDropdown } from "../components/FilterDropdown";
+import { FilterInput } from "../components/FilterInput";
 import { Modal } from "../components/Modal";
 import {
 	NanoGPTQuotaModal,
@@ -357,6 +358,7 @@ export function Providers() {
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
 	const [typeFilter, setTypeFilter] = useState("");
+	const [nameFilter, setNameFilter] = useState("");
 	const [sortAsc, setSortAsc] = useState(true);
 
 	const { data: providers, isLoading } = useQuery({
@@ -720,10 +722,15 @@ export function Providers() {
 		const list = typeFilter
 			? providers.filter((p) => getProviderType(p.base_url) === typeFilter)
 			: providers;
-		return [...list].sort((a, b) =>
+		const nameFiltered = nameFilter
+			? list.filter((p) =>
+					p.name.toLowerCase().includes(nameFilter.toLowerCase()),
+				)
+			: list;
+		return [...nameFiltered].sort((a, b) =>
 			sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name),
 		);
-	}, [providers, typeFilter, sortAsc]);
+	}, [providers, typeFilter, nameFilter, sortAsc]);
 
 	const allProvidersCount = providers?.length ?? 0;
 
@@ -786,27 +793,36 @@ export function Providers() {
 				</div>
 			</div>
 
-			<div className="flex items-center justify-end gap-2">
-				<button
-					type="button"
-					onClick={() => setSortAsc((prev) => !prev)}
-					title={
-						sortAsc
-							? "Sorted A-Z (click to reverse)"
-							: "Sorted Z-A (click to reverse)"
-					}
-					className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-				>
-					{sortAsc ? <ArrowDownAZ size={16} /> : <ArrowUpZA size={16} />}
-				</button>
-				<FilterDropdown
-					value={typeFilter}
-					onChange={setTypeFilter}
-					placeholder="Provider type"
-					allLabel={`All (${allProvidersCount})`}
-					options={typeOptions}
-					className="w-44"
+			<div className="flex items-center justify-between gap-2">
+				<FilterInput
+					value={nameFilter}
+					onChange={setNameFilter}
+					placeholder="Filter providers…"
+					className="w-[200px]"
+					autoFocus
 				/>
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => setSortAsc((prev) => !prev)}
+						title={
+							sortAsc
+								? "Sorted A-Z (click to reverse)"
+								: "Sorted Z-A (click to reverse)"
+						}
+						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+					>
+						{sortAsc ? <ArrowDownAZ size={16} /> : <ArrowUpZA size={16} />}
+					</button>
+					<FilterDropdown
+						value={typeFilter}
+						onChange={setTypeFilter}
+						placeholder="Provider type"
+						allLabel={`All (${allProvidersCount})`}
+						options={typeOptions}
+						className="w-44"
+					/>
+				</div>
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
