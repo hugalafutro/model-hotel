@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -88,7 +89,11 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 		if logEntry.state == "failed" && logEntry.errorMessage != "" {
 			msg = fmt.Sprintf("Request failed: %s — %s", logEntry.modelID, logEntry.errorMessage)
 			if len(msg) > 200 {
-				msg = msg[:200]
+				for len(msg) > 200 {
+					_, size := utf8.DecodeLastRuneInString(msg)
+					msg = msg[:len(msg)-size]
+				}
+				msg = msg + "…"
 			}
 		}
 		events.Publish(events.Event{

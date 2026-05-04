@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -21,7 +22,12 @@ var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 
 func SanitizeLogBody(body string, maxLen int) string {
 	if len(body) > maxLen {
-		body = body[:maxLen]
+		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters
+		for len(body) > maxLen {
+			_, size := utf8.DecodeLastRuneInString(body)
+			body = body[:len(body)-size]
+		}
+		body = body + "…"
 	}
 	return uuidPattern.ReplaceAllString(body, "[REDACTED]")
 }
