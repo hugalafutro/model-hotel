@@ -39,10 +39,23 @@ func parseLogLine(line string) (source, level, msg string) {
 
 // stderrLogFilter is an io.Writer that forwards log lines to an underlying
 // writer (os.Stderr) only when they look like errors — this keeps docker logs
-// clean while the ring buffer still captures everything for the UI.
+// clean while the ring buffer still captures everything for the DB.
+//
+// Sources listed in stderrSuppressSources are completely suppressed from
+// docker logs (all levels). This is useful for noisy sources whose errors
+// are not operationally useful in docker logs but still need to be captured
+// in the database for full visibility in the app UI. Add sources here when
+// you decide certain errors should not clutter docker logs.
 type stderrLogFilter struct {
 	dst io.Writer
 }
+
+// stderrSuppressSources is the set of log sources that should be completely
+// suppressed from docker logs (stderr), regardless of level. Entries from
+// these sources still flow to the ring buffer and database for full visibility
+// in the app UI. Start empty — add sources when you decide their errors
+// should not appear in docker logs.
+var stderrSuppressSources = map[string]bool{}
 
 func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
 	text := string(p)
@@ -50,11 +63,14 @@ func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
 		if line == "" {
 			continue
 		}
-		_, lvl, _ := parseLogLine(line)
+		src, lvl, _ := parseLogLine(line)
+		if stderrSuppressSources[src] {
+			continue
+		}
 		if lvl == "error" || lvl == "warning" {
 			if _, err := f.dst.Write([]byte(line + "\n")); err != nil {
-			return 0, err
-		}
+				return 0, err
+			}
 		}
 	}
 	return len(p), nil
@@ -88,7 +104,16 @@ type ringBuffer struct {
 	count   int // number of entries written (up to capacity)
 }
 
-const dbLogChannelSize = 1000
+// dbLogChannelSize is the buffered channel capacity for the async DB log
+// writer. At ~200 log lines/sec throughput with 50-row batches flushed every
+// 500ms, a buffer of 5000 can absorb ~25 seconds of DB unavailability before
+// backpressure is applied to the caller.
+const dbLogChannelSize = 5000
+
+// dbLogSendTimeout is how long the DB log writer will block trying to enqueue
+// an entry before giving up. This prevents a slow or unreachable database
+// from stalling the hot path (log.Printf) indefinitely.
+const dbLogSendTimeout = 5 * time.Second
 
 type dbLogWriter struct {
 	pool *pgxpool.Pool
@@ -165,9 +190,15 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 
 func (w *dbLogWriter) write(entry AppLogEntry) {
 	defer func() { recover() }()
+	timer := time.NewTimer(dbLogSendTimeout)
+	defer timer.Stop()
 	select {
 	case w.ch <- entry:
-	default:
+		return
+	case <-timer.C:
+		// DB writer is backed up — drop the entry rather than blocking the
+		// caller. The ring buffer still has it for live UI, and this only
+		// happens if the DB is unreachable for >25 seconds.
 	}
 }
 
