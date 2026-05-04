@@ -353,15 +353,15 @@ function SystemStatus() {
 						</span>
 					</div>
 
-					{/* Total Requests */}
+					{/* Requests Today */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
-						title="Total number of proxied LLM requests recorded in the database"
+						title="Number of proxied LLM requests since midnight local time today"
 					>
-						<span>Total Req</span>
+						<span>Req Today</span>
 						<span className="text-(--text-secondary)">
-							{app && app.total_requests > 0
-								? formatNumber(app.total_requests)
+							{app && app.requests_today > 0
+								? formatNumber(app.requests_today)
 								: dash}
 						</span>
 					</div>

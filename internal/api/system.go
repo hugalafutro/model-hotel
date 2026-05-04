@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"runtime"
 	"runtime/metrics"
@@ -47,7 +48,7 @@ type AppStats struct {
 	InContainer       bool    `json:"in_container"`
 	UptimeSeconds     int64   `json:"uptime_seconds"`
 	CpuPercent        float64 `json:"cpu_percent"`
-	TotalRequests     int64   `json:"total_requests"`
+	RequestsToday     int64   `json:"requests_today"`
 	NetRxBytesSec     float64 `json:"net_rx_bytes_sec"`
 	NetTxBytesSec     float64 `json:"net_tx_bytes_sec"`
 	DiskReadBytesSec  float64 `json:"disk_read_bytes_sec"`
@@ -64,14 +65,17 @@ type DBStats struct {
 var (
 	cachedSystem     *SystemStats
 	cachedSystemTime time.Time
+	cachedSystemSince string
 	cachedSystemMu   sync.Mutex
 )
 
 const systemCacheTTL = 3 * time.Second
 
 func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
+	since := r.URL.Query().Get("since")
+
 	cachedSystemMu.Lock()
-	if cachedSystem != nil && time.Since(cachedSystemTime) < systemCacheTTL {
+	if cachedSystem != nil && cachedSystemSince == since && time.Since(cachedSystemTime) < systemCacheTTL {
 		result := *cachedSystem
 		cachedSystemMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -82,7 +86,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	}
 	cachedSystemMu.Unlock()
 
-	stats, err := h.collect(r.Context())
+	stats, err := h.collect(r.Context(), since)
 	if err != nil {
 		respondError(w, "failed to collect system stats", err, http.StatusInternalServerError)
 		return
@@ -91,6 +95,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	cachedSystemMu.Lock()
 	cachedSystem = stats
 	cachedSystemTime = time.Now()
+	cachedSystemSince = since
 	cachedSystemMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -99,7 +104,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
+func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*SystemStats, error) {
 	stats := &SystemStats{}
 
 	samples := []metrics.Sample{
@@ -119,10 +124,20 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 	diskReadPerSec, diskWritePerSec := util.ReadCgroupDiskIO()
 	procs := util.ReadCgroupProcs()
 
-	var totalRequests int64
-	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs`).Scan(&totalRequests)
+	var requestsToday int64
+
+	since := time.Now().Truncate(24 * time.Hour) // fallback: UTC midnight
+	if sinceParam != "" {
+		parsed, err := time.Parse(time.RFC3339, sinceParam)
+		if err != nil {
+			return nil, fmt.Errorf("invalid since parameter: %w", err)
+		}
+		since = parsed
+	}
+
+	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs WHERE created_at >= $1`, since).Scan(&requestsToday)
 	if err != nil {
-		totalRequests = 0
+		requestsToday = 0
 	}
 
 	stats.App = AppStats{
@@ -135,7 +150,7 @@ func (h *SystemHandler) collect(ctx context.Context) (*SystemStats, error) {
 		InContainer:       inContainer,
 		UptimeSeconds:     int64(time.Since(startedAt).Seconds()),
 		CpuPercent:        cpuPercent,
-		TotalRequests:     totalRequests,
+		RequestsToday:     requestsToday,
 		NetRxBytesSec:     netRxPerSec,
 		NetTxBytesSec:     netTxPerSec,
 		DiskReadBytesSec:  diskReadPerSec,

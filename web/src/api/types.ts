@@ -175,7 +175,7 @@ export interface SystemStats {
 		in_container: boolean;
 		uptime_seconds: number;
 		cpu_percent: number;
-		total_requests: number;
+		requests_today: number;
 		net_rx_bytes_sec: number;
 		net_tx_bytes_sec: number;
 		disk_read_bytes_sec: number;

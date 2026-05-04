@@ -536,8 +536,15 @@ export const api = {
 
 	system: {
 		get: async (): Promise<SystemStats> => {
+			const now = new Date();
+			const midnight = new Date(
+				now.getFullYear(),
+				now.getMonth(),
+				now.getDate(),
+			);
+			const since = midnight.toISOString();
 			return fetchJSON<SystemStats>(
-				`${API_BASE}/api/system`,
+				`${API_BASE}/api/system?since=${encodeURIComponent(since)}`,
 				{
 					headers: getAuthHeaders(),
 				},
