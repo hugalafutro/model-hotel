@@ -67,3 +67,26 @@ type OpenRouterKeyData struct {
 type OpenRouterKeyResponse struct {
 	Data OpenRouterKeyData `json:"data"`
 }
+
+// OpenRouterCreditsData represents the credits data from GET /api/v1/credits.
+type OpenRouterCreditsData struct {
+	TotalCredits float64 `json:"total_credits"`
+	TotalUsage   float64 `json:"total_usage"`
+}
+
+// OpenRouterCreditsResponse is the top-level response from GET /api/v1/credits.
+type OpenRouterCreditsResponse struct {
+	Data OpenRouterCreditsData `json:"data"`
+}
+
+// OpenRouterBalance combines key info and credits into a unified balance response.
+type OpenRouterBalance struct {
+	Label              string   `json:"label"`
+	Limit              *float64 `json:"limit"`
+	LimitRemaining     *float64 `json:"limit_remaining"`
+	Usage              float64  `json:"usage"`
+	CreditsTotal       float64  `json:"credits_total"`
+	CreditsUsed        float64  `json:"credits_used"`
+	CreditsRemaining   float64  `json:"credits_remaining"`
+	IsFreeTier         bool     `json:"is_free_tier"`
+}

@@ -6,7 +6,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
-	OpenRouterKeyResponse,
+	OpenRouterBalance,
 	Provider,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -202,13 +202,13 @@ export function ProviderQuotaPanel() {
 		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
 	});
 
-	const { data: openrouterKeyData, isRefetching: isOrRefetching } = useQuery({
+	const { data: openrouterBalance, isRefetching: isOrRefetching } = useQuery({
 		queryKey: ["openrouter-key", openrouterProviderId],
 		queryFn: () =>
-			api.providers.getOpenRouterKeyBalance(openrouterProviderId as string),
+			api.providers.getOpenRouterBalance(openrouterProviderId as string),
 		enabled: Boolean(openrouterProviderId),
 		refetchInterval: collapsed ? false : refreshMs,
-		initialData: () => getCachedData<OpenRouterKeyResponse>("openrouter-key"),
+		initialData: () => getCachedData<OpenRouterBalance>("openrouter-key"),
 	});
 
 	const anyRefreshing =
@@ -248,7 +248,7 @@ export function ProviderQuotaPanel() {
 
 	const showDsBadge = deepseekBalance && deepseekProviderId;
 
-	const showOrBadge = openrouterKeyData && openrouterProviderId;
+	const showOrBadge = openrouterBalance && openrouterProviderId;
 
 	const hasAnyProvider =
 		nanogptProviderId ||
@@ -357,9 +357,7 @@ export function ProviderQuotaPanel() {
 							className="sidebar-quota-pill sidebar-quota-pill-or"
 							title="OpenRouter key balance — click to refresh"
 						>
-							{openrouterKeyData.data.limit_remaining != null
-								? `$${openrouterKeyData.data.limit_remaining.toFixed(2)}`
-								: "Unlimited"}
+							${openrouterBalance.credits_remaining.toFixed(2)}
 						</button>
 					)}
 				</div>

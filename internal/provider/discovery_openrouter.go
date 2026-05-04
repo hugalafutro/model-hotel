@@ -141,41 +141,81 @@ func parseOpenRouterPricing(pricing OpenRouterPricing) (float64, float64) {
 	return inPrice * 1_000_000, outPrice * 1_000_000
 }
 
-func (d *DiscoveryService) GetOpenRouterKeyBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterKeyResponse, error) {
+func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterBalance, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 	}
 
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+
+	// Fetch credits (actual account balance) from /api/v1/credits
+	creditsURL := baseURL + "/credits"
+	creditsReq, err := http.NewRequestWithContext(ctx, "GET", creditsURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create credits request: %w", err)
+	}
+	creditsReq.Header.Set("Authorization", "Bearer "+apiKey)
+	creditsReq.Header.Set("Content-Type", "application/json")
+
+	creditsResp, err := d.doQuotaRequestWithRetry(ctx, creditsReq, provider.ID.String(), "openrouter")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch credits: %w", err)
+	}
+	defer func() { _ = creditsResp.Body.Close() }()
+
+	if creditsResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(creditsResp.Body)
+		log.Printf("[discovery] error: openrouter credits: non-200 status %d for provider %s: %s", creditsResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
+		return nil, fmt.Errorf("unexpected status code %d from credits endpoint", creditsResp.StatusCode)
+	}
+
+	var creditsData OpenRouterCreditsResponse
+	if err := json.NewDecoder(creditsResp.Body).Decode(&creditsData); err != nil {
+		return nil, fmt.Errorf("failed to decode credits response: %w", err)
+	}
+
+	// Fetch key info (limits, usage) from /api/v1/key
 	keyURL := baseURL + "/key"
-
-	req, err := http.NewRequestWithContext(ctx, "GET", keyURL, nil)
+	keyReq, err := http.NewRequestWithContext(ctx, "GET", keyURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create key request: %w", err)
 	}
+	keyReq.Header.Set("Authorization", "Bearer "+apiKey)
+	keyReq.Header.Set("Content-Type", "application/json")
 
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "openrouter")
+	keyResp, err := d.doQuotaRequestWithRetry(ctx, keyReq, provider.ID.String(), "openrouter")
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch key balance: %w", err)
+		return nil, fmt.Errorf("failed to fetch key info: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = keyResp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: openrouter key balance: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
-
-	var keyResp OpenRouterKeyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&keyResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if keyResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(keyResp.Body)
+		log.Printf("[discovery] error: openrouter key info: non-200 status %d for provider %s: %s", keyResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 200))
+		return nil, fmt.Errorf("unexpected status code %d from key endpoint", keyResp.StatusCode)
 	}
 
-	return &keyResp, nil
+	var keyData OpenRouterKeyResponse
+	if err := json.NewDecoder(keyResp.Body).Decode(&keyData); err != nil {
+		return nil, fmt.Errorf("failed to decode key response: %w", err)
+	}
+
+	remaining := creditsData.Data.TotalCredits - creditsData.Data.TotalUsage
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return &OpenRouterBalance{
+		Label:            keyData.Data.Label,
+		Limit:            keyData.Data.Limit,
+		LimitRemaining:   keyData.Data.LimitRemaining,
+		Usage:            keyData.Data.Usage,
+		CreditsTotal:     creditsData.Data.TotalCredits,
+		CreditsUsed:      creditsData.Data.TotalUsage,
+		CreditsRemaining: remaining,
+		IsFreeTier:       keyData.Data.IsFreeTier,
+	}, nil
 }
 
 // openRouterParamsToCapabilities maps supported_parameters to our Capability struct.

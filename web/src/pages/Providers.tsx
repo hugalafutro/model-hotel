@@ -6,7 +6,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
-	OpenRouterKeyResponse,
+	OpenRouterBalance,
 	Provider,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -486,20 +486,20 @@ export function Providers() {
 	}, [deepseekBalanceData]);
 
 	const {
-		data: openrouterKeyData,
-		refetch: refetchOpenRouterKey,
+		data: openrouterBalance,
+		refetch: refetchOpenRouterBalance,
 		isError: isOpenRouterError,
 	} = useQuery({
 		queryKey: ["openrouter-key", openrouterProviderId],
 		queryFn: () =>
-			api.providers.getOpenRouterKeyBalance(openrouterProviderId as string),
+			api.providers.getOpenRouterBalance(openrouterProviderId as string),
 		enabled: Boolean(openrouterProviderId),
-		initialData: () => getCachedData<OpenRouterKeyResponse>("openrouter-key"),
+		initialData: () => getCachedData<OpenRouterBalance>("openrouter-key"),
 	});
 
 	useEffect(() => {
-		if (openrouterKeyData) setCachedData("openrouter-key", openrouterKeyData);
-	}, [openrouterKeyData]);
+		if (openrouterBalance) setCachedData("openrouter-key", openrouterBalance);
+	}, [openrouterBalance]);
 
 	const nanoGPTErrorToasted = useRef(false);
 	useEffect(() => {
@@ -968,23 +968,21 @@ export function Providers() {
 											</button>
 										)}
 									{provider.base_url.includes("openrouter.ai") &&
-										openrouterKeyData && (
+										openrouterBalance && (
 											<button
 												type="button"
 												onClick={async () => {
 													try {
-														await refetchOpenRouterKey();
-														toast("Key balance refreshed", "success");
+														await refetchOpenRouterBalance();
+														toast("Balance refreshed", "success");
 													} catch {
-														toast("Failed to refresh key balance", "error");
+														toast("Failed to refresh balance", "error");
 													}
 												}}
 												className="px-2 py-1.5 rounded-full bg-[#6467f2]/20 text-[#6467f2] border border-[#6467f2]/50 text-xs font-medium cursor-pointer hover:bg-[#6467f2]/30 transition-colors"
-												title="Refresh key balance"
+												title="Refresh balance"
 											>
-												{openrouterKeyData.data.limit_remaining != null
-													? `$${openrouterKeyData.data.limit_remaining.toFixed(2)}`
-													: "Unlimited"}
+												${openrouterBalance.credits_remaining.toFixed(2)}
 											</button>
 										)}
 								</div>

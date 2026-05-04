@@ -8,7 +8,7 @@ import type {
 	LogsResponse,
 	Model,
 	NanoGPTUsage,
-	OpenRouterKeyResponse,
+	OpenRouterBalance,
 	Provider,
 	ProviderDistributionStats,
 	Stats,
@@ -231,15 +231,13 @@ export const api = {
 				"Failed to fetch balance",
 			);
 		},
-		getOpenRouterKeyBalance: async (
-			id: string,
-		): Promise<OpenRouterKeyResponse> => {
-			return fetchJSON<OpenRouterKeyResponse>(
+		getOpenRouterBalance: async (id: string): Promise<OpenRouterBalance> => {
+			return fetchJSON<OpenRouterBalance>(
 				`${API_BASE}/api/providers/${id}/usage`,
 				{
 					headers: getAuthHeaders(),
 				},
-				"Failed to fetch OpenRouter key balance",
+				"Failed to fetch OpenRouter balance",
 			);
 		},
 	},
