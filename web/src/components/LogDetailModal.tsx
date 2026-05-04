@@ -422,10 +422,16 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						{appLog.level.toUpperCase()}
 					</span>
 				</DetailItem>
-				<DetailItem icon={Tag} label="Source" value={appLog.source || "—"} />
+				<DetailItem
+					icon={Tag}
+					label="Source"
+					value={appLog.source || "—"}
+					accent
+				/>
 				<DetailItem
 					icon={FileText}
 					label="Message"
+					accent
 					value={appLog.message}
 					labelExtra={
 						<CopyButton
