@@ -982,7 +982,8 @@ export function Providers() {
 												className="px-2 py-1.5 rounded-full bg-[#6467f2]/20 text-[#6467f2] border border-[#6467f2]/50 text-xs font-medium cursor-pointer hover:bg-[#6467f2]/30 transition-colors"
 												title="Refresh balance"
 											>
-												${openrouterBalance.credits_remaining.toFixed(2)}
+												{"$"}
+												{openrouterBalance.credits_remaining.toFixed(2)}
 											</button>
 										)}
 								</div>

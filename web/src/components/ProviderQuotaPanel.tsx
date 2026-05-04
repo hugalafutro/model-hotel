@@ -357,7 +357,8 @@ export function ProviderQuotaPanel() {
 							className="sidebar-quota-pill sidebar-quota-pill-or"
 							title="OpenRouter key balance — click to refresh"
 						>
-							${openrouterBalance.credits_remaining.toFixed(2)}
+							{"$"}
+							{openrouterBalance.credits_remaining.toFixed(2)}
 						</button>
 					)}
 				</div>
