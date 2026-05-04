@@ -7,51 +7,17 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	catalog := GetZAICodingModels()
 
-	type testResult struct {
-		index     int
-		available bool
-	}
-
-	results := make([]testResult, len(catalog))
-	sem := make(chan struct{}, 2)
-	var wg sync.WaitGroup
-
-	testCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
-	defer cancel()
-
-	for i, spec := range catalog {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, modelID string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			results[idx] = testResult{index: idx, available: d.testZAICodingModel(testCtx, provider, apiKey, modelID)}
-		}(i, spec.ModelID)
-	}
-	wg.Wait()
-
-	available := 0
 	models := make([]*model.Model, 0, len(catalog))
-	for _, r := range results {
-		if !r.available {
-			continue
-		}
-		available++
-		spec := catalog[r.index]
-
+	for _, spec := range catalog {
 		contextLen := spec.ContextLength
 		maxOutput := spec.MaxOutputTokens
 
@@ -90,7 +56,7 @@ func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Prov
 		})
 	}
 
-	log.Printf("[discovery] zai-coding provider %s: discovered %d/%d models available", provider.ID, available, len(catalog))
+	log.Printf("[discovery] zai-coding provider %s: discovered %d models from catalog", provider.ID, len(catalog))
 
 	return models, nil
 }
@@ -133,41 +99,4 @@ func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Prov
 	return &quota, nil
 }
 
-func (d *DiscoveryService) testZAICodingModel(ctx context.Context, provider *Provider, apiKey, modelID string) bool {
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	reqBody := fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}`, modelID)
 
-	for attempt := range 3 {
-		if attempt > 0 {
-			select {
-			case <-ctx.Done():
-				log.Printf("[discovery] warning: zai-coding model %s availability test failed: context cancelled after %d attempts", modelID, attempt)
-				return false
-			case <-time.After(time.Duration(attempt) * 3 * time.Second):
-			}
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/chat/completions", strings.NewReader(reqBody))
-		if err != nil {
-			log.Printf("[discovery] warning: zai-coding model %s availability test failed: request creation error: %v", modelID, err)
-			return false
-		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := d.httpClient.Do(req)
-		if err != nil {
-			continue
-		}
-		_, _ = io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-
-		if resp.StatusCode == 429 {
-			log.Printf("[discovery] zai-coding model %s rate limited (429), retrying", modelID)
-			continue
-		}
-		return resp.StatusCode < 400
-	}
-	log.Printf("[discovery] warning: zai-coding model %s availability test failed after all retries", modelID)
-	return false
-}
