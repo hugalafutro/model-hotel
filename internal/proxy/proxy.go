@@ -12,13 +12,34 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+// providerUnsupportedParams lists OpenAI Chat Completions parameters that are
+// universally unsupported (cause 400 errors) per provider type. These are
+// preemptively stripped from requests to avoid a wasted round-trip.
+// Sources: official provider docs + empirical testing.
+var providerUnsupportedParams = map[string][]string{
+	"anthropic": {
+		"top_p", // deprecated on all current Anthropic models
+	},
+	"google": {
+		"frequency_penalty", // not supported on Gemini OpenAI-compat endpoint
+		"presence_penalty",  // not supported on Gemini OpenAI-compat endpoint
+		"logprobs",          // not supported
+		"top_logprobs",      // not supported
+	},
+	"cohere": {
+		"logprobs",     // not supported
+		"top_logprobs", // not supported
+	},
+}
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
 	defer func() { _ = resp.Body.Close() }()
@@ -411,13 +432,31 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			defer tcancel()
 			_ = h.providerRepo.TouchLastUsed(tctx, pid)
 		}(candidate.provider.ID)
-		targetURL := util.SanitizeBaseURL(candidate.provider.BaseURL) + "/chat/completions"
+		providerType := provider.DetectProviderType(candidate.provider.BaseURL)
+		targetURL := buildProviderTargetURL(candidate.provider.BaseURL, providerType)
 
 		upstreamBody := proxyReqBody
-		if req.Model != candidate.model.ModelID {
+		needsRewrite := req.Model != candidate.model.ModelID || providerType == "anthropic"
+		if needsRewrite {
 			var raw map[string]interface{}
 			if json.Unmarshal(proxyReqBody, &raw) == nil {
-				raw["model"] = candidate.model.ModelID
+				if req.Model != candidate.model.ModelID {
+					raw["model"] = candidate.model.ModelID
+				}
+				// Preemptively strip params known to be universally rejected per provider.
+				// These are always unsupported and cause 400 errors if sent.
+				// Learned rejections (from 400 auto-retry) are cached per provider+model below.
+				if params, ok := providerUnsupportedParams[providerType]; ok {
+					for _, p := range params {
+						delete(raw, p)
+					}
+				}
+				cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
+				if cached := getCachedRejectedParams(&h.deprecationCache, cacheKey); cached != nil {
+					for param := range cached {
+						delete(raw, param)
+					}
+				}
 				if b, err := json.Marshal(raw); err == nil {
 					upstreamBody = b
 				}
@@ -426,14 +465,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), 30*time.Second)
 		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
-		failoverCancel()
 		if err != nil {
+			failoverCancel()
 			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
 			continue
 		}
-		if candidate.apiKey != "" {
-			proxyReq.Header.Set("Authorization", "Bearer "+candidate.apiKey)
-		}
+
+		setProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
 		proxyReq.Header.Set("Content-Type", "application/json")
 
 		// Reuse the shared upstream Transport instead of creating a new one
@@ -444,6 +482,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			Transport: h.upstreamTransport,
 		}
 		resp, err := upstreamClient.Do(proxyReq)
+		failoverCancel() // context no longer needed after Do completes
 		if err != nil {
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 			// Client-initiated cancellations and deadline exceeded are not
@@ -459,6 +498,80 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 			continue
 		}
+
+		// Auto-retry param-rejection 400s: parse the error, learn which params
+		// are rejected for this model, strip them, and retry once.
+		// Works universally — any LLM API mentioning "temperature" or "top_p"
+		// in a 400 error can only mean the sampling parameter.
+		if resp.StatusCode == 400 {
+			body, readErr := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			// Restore the body so downstream error handling (line ~605) can read it
+			// if we don't successfully retry. Must be set before any fallthrough.
+			resp.Body = io.NopCloser(bytes.NewReader(body))
+			if readErr == nil {
+				if rejected := parseProviderParamError(body); rejected != nil {
+				// Cache the learned rejections for future preemptive stripping.
+				// Merge with any existing entries using CompareAndSwap to avoid
+				// data races from concurrent goroutines mutating the same map.
+				cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
+				for {
+					existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, rejected)
+					if !loaded {
+						// First entry for this key — we just stored 'rejected'.
+						break
+					}
+					// Merge with existing, creating a new map to avoid data races.
+					merged := make(map[string]bool)
+					for k := range existing.(map[string]bool) {
+						merged[k] = true
+					}
+					for k := range rejected {
+						merged[k] = true
+					}
+					if h.deprecationCache.CompareAndSwap(cacheKey, existing, merged) {
+						break
+					}
+					// CompareAndSwap failed — another goroutine updated it, retry.
+				}
+					// Rebuild the request body without rejected params
+					var raw map[string]interface{}
+					if json.Unmarshal(proxyReqBody, &raw) == nil {
+						raw["model"] = candidate.model.ModelID
+						for param := range rejected {
+							delete(raw, param)
+						}
+						// Also strip provider-universally-rejected params on retry
+						if params, ok := providerUnsupportedParams[providerType]; ok {
+							for _, p := range params {
+								delete(raw, p)
+							}
+						}
+						if rebuilt, err := json.Marshal(raw); err == nil {
+							retryCtx, retryCancel := context.WithTimeout(r.Context(), 30*time.Second)
+							retryReq, retryErr := http.NewRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
+							if retryErr != nil {
+								retryCancel()
+								lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
+								continue
+							}
+							setProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
+							retryReq.Header.Set("Content-Type", "application/json")
+							retryClient := &http.Client{Transport: h.upstreamTransport}
+							resp, retryErr = retryClient.Do(retryReq)
+							retryCancel()
+							if retryErr != nil {
+								lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
+								continue
+							}
+							// Successfully retried — fall through to normal response handling
+							log.Printf("[proxy] auto-retry succeeded for model=%s after stripping rejected params: %v", candidate.model.ModelID, mapKeys(rejected))
+						}
+					}
+				}
+			}
+		}
+
 		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		hasMoreCandidates := attempt < len(candidates)-1
@@ -492,7 +605,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			errMsg := util.SanitizeLogBody(string(body), 2000)
-			log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s", resp.StatusCode, req.Model, candidate.provider.ID)
+			log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s body=%s", resp.StatusCode, req.Model, candidate.provider.ID, errMsg)
 			logData.statusCode = resp.StatusCode
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.proxyOverheadMs = proxyOverhead
@@ -505,7 +618,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.failoverAttempt = attempt
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+			// Return the upstream error body so the client sees the actual reason
+			// (e.g. "too many tokens: max tokens must be <= 4096") instead of a generic message.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(resp.StatusCode)
+			_, _ = w.Write(body)
 			return
 		}
 
@@ -532,4 +649,121 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	logData.state = "failed"
 	h.updateRequestLog(r.Context(), logData)
 	http.Error(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
+}
+
+// buildProviderTargetURL constructs the full upstream URL for a given provider.
+// Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
+// because its base URL (https://api.anthropic.com) lacks the /v1 prefix.
+// Defensive: if the base URL already ends with /v1, don't double-append it.
+func buildProviderTargetURL(baseURL, providerType string) string {
+	sanitized := util.SanitizeBaseURL(baseURL)
+	switch providerType {
+	case "anthropic":
+		// Avoid double /v1 if the user configured https://api.anthropic.com/v1
+		if strings.HasSuffix(sanitized, "/v1") {
+			return sanitized + "/chat/completions"
+		}
+		return sanitized + "/v1/chat/completions"
+	default:
+		return sanitized + "/chat/completions"
+	}
+}
+
+// setProviderAuthHeaders sets the correct authentication headers for each provider type.
+// - Anthropic: x-api-key + anthropic-version (no Bearer auth)
+// - All others: standard Authorization: Bearer header
+func setProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
+	if apiKey == "" {
+		return
+	}
+	switch providerType {
+	case "anthropic":
+		req.Header.Set("x-api-key", apiKey)
+		req.Header.Set("anthropic-version", "2023-06-01")
+	default:
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+}
+
+// getCachedRejectedParams returns params known to be rejected for a provider+model,
+// learned from previous 400 responses.
+func getCachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
+	if v, ok := cache.Load(cacheKey); ok {
+		if m, ok := v.(map[string]bool); ok {
+			return m
+		}
+	}
+	return nil
+}
+
+// parseProviderParamError parses 400 error bodies for rejected sampling/param names.
+// Any LLM API mentioning these param names in a 400 error can only be referring
+// to the request parameter — there is no other meaning in this context.
+// This works universally across all providers, not just Anthropic.
+func parseProviderParamError(body []byte) map[string]bool {
+	var errResp struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &errResp) != nil {
+		return nil
+	}
+	msg := errResp.Error.Message
+	rejected := make(map[string]bool)
+
+	// "cannot both be specified" — strip top_p, keep temperature
+	if strings.Contains(msg, "cannot both be specified") {
+		rejected["top_p"] = true
+	}
+	// Known sampling/optional params that providers commonly reject.
+	// We match against backtick-wrapped names (e.g. `top_p`) and quote-wrapped
+	// names (e.g. "top_p") to avoid false positives from substring matching.
+	// Short/common words like "n", "stop", "seed" are NOT matched loosely
+	// because they appear in many unrelated error messages.
+	matchParams := []string{
+		"temperature", "top_p", "top_k", "top_a",
+		"frequency_penalty", "presence_penalty",
+		"logprobs", "top_logprobs",
+		"max_tokens", "stream_options", "reasoning_effort",
+	}
+	for _, p := range matchParams {
+		// Match backtick-wrapped: `param` or quote-wrapped: "param"
+		if strings.Contains(msg, "`"+p+"`") || strings.Contains(msg, "\""+p+"\"") {
+			rejected[p] = true
+		}
+	}
+	// "stop", "n", "seed" are too common as substrings — only match when
+	// explicitly quoted or backticked in the error message.
+	for _, p := range []string{"stop", "n", "seed"} {
+		if strings.Contains(msg, "`"+p+"`") || strings.Contains(msg, "\""+p+"\"") {
+			rejected[p] = true
+		}
+	}
+	// Also catch any top_{single_letter} variant when backtick/quote-wrapped
+	if idx := strings.Index(msg, "`top_"); idx >= 0 && idx+7 <= len(msg) {
+		c := msg[idx+5]
+		if c >= 'a' && c <= 'z' && msg[idx+6] == '`' {
+			rejected[msg[idx+1:idx+6]] = true
+		}
+	}
+	if idx := strings.Index(msg, "\"top_"); idx >= 0 && idx+7 <= len(msg) {
+		c := msg[idx+5]
+		if c >= 'a' && c <= 'z' && msg[idx+6] == '"' {
+			rejected[msg[idx+1:idx+6]] = true
+		}
+	}
+	if len(rejected) == 0 {
+		return nil
+	}
+	return rejected
+}
+
+// mapKeys returns the keys of a map[string]bool for logging.
+func mapKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

@@ -9,12 +9,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -238,9 +240,10 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 	bodyBytes, _ := json.Marshal(body)
 
-	targetURL := util.SanitizeBaseURL(prov.BaseURL) + "/chat/completions"
+	providerType := provider.DetectProviderType(prov.BaseURL)
+	targetURL := buildProviderTargetURL(prov.BaseURL, providerType)
 	proxyReq, _ := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(bodyBytes))
-	proxyReq.Header.Set("Authorization", "Bearer "+apiKey)
+	setProviderAuthHeaders(proxyReq, providerType, apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
 	reqHashBytes := make([]byte, 8)
@@ -357,4 +360,35 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		DurationMs: duration,
 		Response:   content,
 	})
+}
+// buildProviderTargetURL constructs the full upstream URL for a given provider.
+// Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
+// because its base URL (https://api.anthropic.com) lacks the /v1 prefix.
+func buildProviderTargetURL(baseURL, providerType string) string {
+	sanitized := util.SanitizeBaseURL(baseURL)
+	switch providerType {
+	case "anthropic":
+		if strings.HasSuffix(sanitized, "/v1") {
+			return sanitized + "/chat/completions"
+		}
+		return sanitized + "/v1/chat/completions"
+	default:
+		return sanitized + "/chat/completions"
+	}
+}
+
+// setProviderAuthHeaders sets the correct authentication headers for each provider type.
+// - Anthropic: x-api-key + anthropic-version (no Bearer auth)
+// - All others: standard Authorization: Bearer header
+func setProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
+	if apiKey == "" {
+		return
+	}
+	switch providerType {
+	case "anthropic":
+		req.Header.Set("x-api-key", apiKey)
+		req.Header.Set("anthropic-version", "2023-06-01")
+	default:
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 }

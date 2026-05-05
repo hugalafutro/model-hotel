@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -34,6 +35,10 @@ type Handler struct {
 	// requests.  Reusing one Transport avoids creating a fresh Transport
 	// (and its persistent readLoop/writeLoop goroutines) per request.
 	upstreamTransport *http.Transport
+
+	// deprecationCache caches rejected parameters learned from HTTP 400 responses,
+	// keyed by "providerType:modelID". Value: map[string]bool of rejected param names.
+	deprecationCache sync.Map
 }
 
 func NewHandler(
