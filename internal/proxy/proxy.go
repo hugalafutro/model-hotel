@@ -45,12 +45,14 @@ var providerUnsupportedParams = map[string][]string{
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
 	defer func() { _ = resp.Body.Close() }()
+	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
+	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerID)
 
 	logData.statusCode = resp.StatusCode
 	logData.proxyOverheadMs = proxyOverhead
@@ -66,14 +68,18 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	flusher, canFlush := w.(http.Flusher)
 
 	scanner := bufio.NewScanner(resp.Body)
+	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerID)
 	var promptTokens, completionTokens int
 	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
 	clientDisconnected := false
 	sawDone := false
+	chunkCount := 0
+	errorChunkCount := 0
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
+		chunkCount++
 
 		select {
 		case <-r.Context().Done():
@@ -95,6 +101,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			payload := strings.TrimPrefix(string(line), "data: ")
 			if payload == "[DONE]" {
 				sawDone = true
+				debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 				break
 			}
 			var chunk struct {
@@ -112,6 +119,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				}
 				if chunk.Error != nil {
 					lastErrMsg = chunk.Error.Message
+					errorChunkCount++
+					debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerID, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
 				}
 			}
 		}
@@ -134,7 +143,7 @@ logUpdate:
 	}
 	if errMsg == "" && !sawDone {
 		errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
-		debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID)
+		debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 	}
 
 	logData.statusCode = resp.StatusCode
@@ -159,8 +168,11 @@ logUpdate:
 	}
 	h.updateRequestLog(r.Context(), logData)
 
-	if errMsg == "" {
-		debuglog.Info("proxy: streaming completed", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
+	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
+	if errMsg != "" {
+		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerID, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", attempt, "duration_ms", totalDuration)
+	} else {
+		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
 	}
 
 	if vkHash != "" && !clientDisconnected {
@@ -182,6 +194,7 @@ logUpdate:
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
 	defer func() { _ = resp.Body.Close() }()
+	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
 	w.Header().Set("Content-Type", "application/json")
 	var chatResp ChatCompletionResponse
@@ -230,6 +243,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
 			debuglog.Error("proxy: failed to encode response", "error", err)
 		}
+		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {
 		body, _ := io.ReadAll(resp.Body)
 		errMsg := util.SanitizeLogBody(string(body), 500)
@@ -247,6 +261,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
 		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID)
+		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID, "error", errMsg, "duration_ms", totalDuration)
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
 }
@@ -296,6 +311,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	debuglog.Info("proxy: request start", "model", req.Model, "stream", req.Stream, "key", vkName)
+	debuglog.Debug("proxy: request details", "model", req.Model, "stream", req.Stream, "key", vkName, "vk_id", vkID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
 
 	logData := &requestLogData{
 		modelID:         req.Model,
@@ -314,6 +330,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	if strings.HasPrefix(req.Model, "hotel/") {
+		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", req.Model)
 		displayModel := strings.TrimPrefix(req.Model, "hotel/")
 		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
@@ -337,6 +354,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/") {
+		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", req.Model)
 		parts := strings.SplitN(req.Model, "/", 2)
 		if len(parts) != 2 {
 			logData.statusCode = 400
@@ -384,6 +402,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proxyOverhead := parseMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs
+	debuglog.Debug("proxy: model resolved", "model", req.Model, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
 	var proxyReqBody []byte
 	if req.Stream {
@@ -394,6 +413,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 			if b, err := json.Marshal(raw); err == nil {
 				proxyReqBody = b
+				debuglog.Debug("proxy: injected stream_options into request", "model", req.Model)
 			}
 		}
 	}
@@ -429,7 +449,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logData.providerID = candidate.provider.ID
-		debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.ID, "model", candidate.model.ModelID)
+		if attempt == 0 {
+			debuglog.Info("proxy: routing to provider", "provider", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", len(candidates))
+		} else {
+			debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.ID, "model", candidate.model.ModelID)
+		}
+		debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider_name", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", len(candidates))
 		go func(pid uuid.UUID) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -443,10 +468,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}(candidate.provider.ID)
 		providerType := provider.DetectProviderType(candidate.provider.BaseURL)
+		debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
 		targetURL := buildProviderTargetURL(candidate.provider.BaseURL, providerType)
+		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 		upstreamBody := proxyReqBody
 		needsRewrite := req.Model != candidate.model.ModelID || providerType == "anthropic"
+		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", req.Model, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			var raw map[string]interface{}
 			if json.Unmarshal(proxyReqBody, &raw) == nil {
@@ -483,6 +511,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		setProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
 		proxyReq.Header.Set("Content-Type", "application/json")
+		debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 
 		// Reuse the shared upstream Transport instead of creating a new one
 		// per request. A fresh Transport spawns persistent readLoop/writeLoop
@@ -494,6 +523,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		resp, err := upstreamClient.Do(proxyReq)
 		failoverCancel() // context no longer needed after Do completes
 		if err != nil {
+			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", err)
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 			// Client-initiated cancellations and deadline exceeded are not
 			// provider failures. If the caller disconnected (Canceled) or
@@ -516,6 +546,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if resp.StatusCode == 400 {
 			body, readErr := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
+			debuglog.Debug("proxy: received 400 from upstream, checking for param rejection", "provider", candidate.provider.ID, "model", candidate.model.ModelID, "body_length", len(body))
 			// Restore the body so downstream error handling (line ~605) can read it
 			// if we don't successfully retry. Must be set before any fallthrough.
 			resp.Body = io.NopCloser(bytes.NewReader(body))
@@ -571,6 +602,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							resp, retryErr = retryClient.Do(retryReq)
 							retryCancel()
 							if retryErr != nil {
+								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", retryErr)
 								lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
 								continue
 							}
@@ -601,6 +633,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		shouldFailoverNow := isFailoverEligible && hasMoreCandidates
+		debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
 
 		if shouldFailoverNow {
 			_, _ = io.ReadAll(resp.Body)
@@ -616,6 +649,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			_ = resp.Body.Close()
 			errMsg := util.SanitizeLogBody(string(body), 2000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body", errMsg)
+			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.statusCode = resp.StatusCode
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.proxyOverheadMs = proxyOverhead
@@ -643,6 +677,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", req.Stream, "model", req.Model, "provider", candidate.provider.ID, "status", resp.StatusCode)
 		if req.Stream {
 			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
 			return

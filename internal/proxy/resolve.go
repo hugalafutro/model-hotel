@@ -18,6 +18,7 @@ type resolveTimings struct {
 }
 
 func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {
+	debuglog.Debug("resolve: resolving hotel model", "model", displayModel)
 	var t resolveTimings
 	modelLookupStart := time.Now()
 
@@ -37,6 +38,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
 	providerLookupStart := time.Now()
 	var keyDecryptTotal float64
@@ -77,6 +79,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 
 	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
 	var decryptFailures int
+	debuglog.Debug("resolve: building candidates from failover group", "model", displayModel, "priority_order_count", len(fg.PriorityOrder))
 	for _, modelUUID := range fg.PriorityOrder {
 		entryEnabled := true
 		if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
@@ -138,25 +141,31 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	if len(candidates) == 0 && decryptFailures > 0 {
 		return nil, t, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
 	}
+	debuglog.Debug("resolve: hotel model resolved", "model", displayModel, "candidates", len(candidates), "decrypt_failures", decryptFailures)
 	return candidates, t, nil
 }
 
 func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, modelID string) ([]modelCandidate, resolveTimings, error) {
+	debuglog.Debug("resolve: resolving specific provider", "provider", providerName, "model", modelID)
 	var t resolveTimings
 	providerLookupStart := time.Now()
 
 	prov, err := h.providerRepo.GetByName(ctx, providerName)
 	if err != nil {
+		debuglog.Warn("resolve: provider not found", "provider", providerName, "error", err)
 		return nil, t, fmt.Errorf("provider not found: %s", providerName)
 	}
+	debuglog.Debug("resolve: provider found", "provider", prov.Name, "provider_id", prov.ID, "enabled", prov.Enabled)
 
 	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
 
 	modelLookupStart := time.Now()
 	m, err := h.modelRepo.GetByProviderAndModelID(ctx, prov.ID, modelID)
 	if err != nil {
+		debuglog.Warn("resolve: model not found", "model", modelID, "provider", providerName, "error", err)
 		return nil, t, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
 	}
+	debuglog.Debug("resolve: model found", "model", m.ModelID, "provider", prov.Name, "enabled", m.Enabled, "provider_enabled", m.ProviderEnabled)
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
 	if !m.Enabled {
@@ -185,10 +194,12 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		}
 	}
 
+	debuglog.Debug("resolve: specific provider resolved", "provider", prov.Name, "model", m.ModelID, "id", m.ID, "has_api_key", apiKey != "")
 	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, t, nil
 }
 
 func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
+	debuglog.Debug("resolve: evaluating failover decision", "status", statusCode)
 	if statusCode >= 500 {
 		debuglog.Info("resolve: failover decision: 5xx", "status", statusCode)
 		return true
@@ -202,5 +213,6 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 		debuglog.Info("resolve: failover decision: auth error", "status", statusCode)
 		return true
 	}
+	debuglog.Debug("resolve: failover decision: no failover", "status", statusCode)
 	return false
 }

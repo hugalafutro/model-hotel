@@ -100,6 +100,7 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 			case "/api/chat/completions":
 				key = "completions"
 			}
+			debuglog.Debug("admin-chat: routing request", "path", r.URL.Path, "key", key)
 			ctx := context.WithValue(r.Context(), virtualKeyNameKey, key)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
