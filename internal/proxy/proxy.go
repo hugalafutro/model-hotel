@@ -89,8 +89,20 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		default:
 		}
 
-		_, _ = w.Write(line)
-		_, _ = w.Write([]byte("\n"))
+		if _, err := w.Write(line); err != nil {
+			clientDisconnected = true
+			debuglog.Warn("proxy: client write failed during stream",
+				"error", err, "model", logData.modelID, "provider", logData.providerID,
+				"chunks", chunkCount)
+			goto logUpdate
+		}
+		if _, err := w.Write([]byte("\n")); err != nil {
+			clientDisconnected = true
+			debuglog.Warn("proxy: client write failed during stream (newline)",
+				"error", err, "model", logData.modelID, "provider", logData.providerID,
+				"chunks", chunkCount)
+			goto logUpdate
+		}
 		if canFlush {
 			flusher.Flush()
 		}

@@ -12,8 +12,8 @@ import (
 // Intended for use as http.Transport.DialContext to prevent DNS-rebinding
 // attacks that redirect proxy requests to private or reserved IPs.
 type SafeDialer struct {
-	d      *net.Dialer
-	hosts  map[string]bool
+	d     *net.Dialer
+	hosts map[string]bool
 }
 
 // NewSafeDialer creates a SafeDialer that blocks connections to private,

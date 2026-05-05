@@ -3,6 +3,8 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -351,6 +353,119 @@ func TestProxyKeyMiddleware_InvalidScheme(t *testing.T) {
 	}
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", rr.Code)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Streaming client write failure test (integration — requires PostgreSQL)
+// ---------------------------------------------------------------------------
+
+// failAfterNWriter wraps an http.ResponseWriter and returns net.ErrClosed
+// after N successful Write calls. Flush calls always succeed.
+type failAfterNWriter struct {
+	inner      http.ResponseWriter
+	maxWrites  int
+	writeCount int
+}
+
+func (w *failAfterNWriter) Header() http.Header {
+	return w.inner.Header()
+}
+
+func (w *failAfterNWriter) Write(p []byte) (int, error) {
+	w.writeCount++
+	if w.writeCount > w.maxWrites {
+		return 0, net.ErrClosed
+	}
+	return w.inner.Write(p)
+}
+
+func (w *failAfterNWriter) WriteHeader(statusCode int) {
+	w.inner.WriteHeader(statusCode)
+}
+
+func (w *failAfterNWriter) Flush() {
+	// no-op: ResponseRecorder doesn't need flushing
+}
+
+func TestHandleStreamingResponse_ClientWriteFailureMarksDisconnected(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+
+	// Build an upstream SSE server that streams ~50 chunks then [DONE].
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		for i := 0; i < 50; i++ {
+			chunk := fmt.Sprintf(`data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"x"},"finish_reason":null}]}` + "\n\n")
+			fmt.Fprint(w, chunk)
+			flusher.Flush()
+		}
+		// Send usage chunk
+		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":50,"total_tokens":60}}`+"\n\n")
+		flusher.Flush()
+		// Send [DONE]
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	// Make a request to the upstream to get a real *http.Response
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	// Add auth context values needed by the proxy
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Wrap a real ResponseRecorder in our failing writer.
+	// Allow only 3 writes before failing — the client should disconnect early.
+	inner := httptest.NewRecorder()
+	innerRW := &failAfterNWriter{
+		inner:     inner,
+		maxWrites: 3,
+	}
+
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	// Insert initial log entry so updateRequestLog has a row to update.
+	if err := h.insertRequestLog(req.Context(), logData); err != nil {
+		t.Fatalf("failed to insert request log: %v", err)
+	}
+
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+	if logData.errorMessage != "client disconnected" {
+		t.Errorf("expected errorMessage=%q, got %q", "client disconnected", logData.errorMessage)
+	}
+	// The stream should have been interrupted before consuming [DONE].
+	// With maxWrites=3, we get at most 2 data lines written (line + newline = 2 writes per chunk).
+	// The key assertion is that state is failed, not completed.
+	if logData.state == "completed" {
+		t.Error("stream should not show completed when client disconnected mid-stream")
 	}
 }
 
