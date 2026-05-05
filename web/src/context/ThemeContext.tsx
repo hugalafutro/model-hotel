@@ -124,7 +124,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 	const [accentColor, setAccentColor] = useLocalStorage<string>(
 		"accentColor",
-		"#1dd1a1",
+		"#546de5",
 	);
 
 	useEffect(() => {
