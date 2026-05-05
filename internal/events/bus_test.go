@@ -36,7 +36,6 @@ func TestSubscribePublishUnsubscribe(t *testing.T) {
 	b.Publish(event)
 }
 
-
 func TestMultipleSubscribers(t *testing.T) {
 	b := NewBus()
 	ch1 := b.Subscribe()
@@ -158,6 +157,7 @@ func TestConcurrentSubscribePublish(t *testing.T) {
 		b.Unsubscribe(ch)
 	}
 }
+
 // ---------------------------------------------------------------------------
 // Publish after Unsubscribe (panic recovery)
 // ---------------------------------------------------------------------------

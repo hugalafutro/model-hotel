@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -58,7 +59,7 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 	}
 
 	if modelID == "" {
-		log.Printf("[discovery] koboldcpp: no model loaded for provider %s", provider.ID)
+		debuglog.Info("discovery: koboldcpp no model loaded", "provider", provider.ID)
 		return []*model.Model{}, nil
 	}
 
@@ -93,7 +94,7 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 		Enabled:          true,
 	}
 
-	log.Printf("[discovery] koboldcpp: discovered 1 model (%s) for provider %s", modelID, provider.ID)
+	debuglog.Info("discovery: koboldcpp discovered model", "model", modelID, "provider", provider.ID)
 	return []*model.Model{m}, nil
 }
 

@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Server start time — used for uptime calculation.
@@ -63,10 +64,10 @@ type DBStats struct {
 }
 
 var (
-	cachedSystem     *SystemStats
-	cachedSystemTime time.Time
+	cachedSystem      *SystemStats
+	cachedSystemTime  time.Time
 	cachedSystemSince string
-	cachedSystemMu   sync.Mutex
+	cachedSystemMu    sync.Mutex
 )
 
 const systemCacheTTL = 3 * time.Second

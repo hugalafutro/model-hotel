@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -42,7 +43,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
-			log.Printf("[discovery] cohere: http request failed for provider %s: %v", provider.ID, err)
+			debuglog.Error("discovery: cohere http request failed", "provider", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
 		}
 
@@ -53,20 +54,20 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			log.Printf("[discovery] cohere: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, string(bodyBytes))
+			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		var cohereResp CohereModelsResponse
 		if err := json.Unmarshal(bodyBytes, &cohereResp); err != nil {
-			log.Printf("[discovery] cohere: failed to decode response from provider %s: %v", provider.ID, err)
+			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		for _, cm := range cohereResp.Models {
 			// Skip deprecated models
 			if cm.IsDeprecated {
-				log.Printf("[discovery] cohere: skipping deprecated model %s", cm.Name)
+				debuglog.Info("discovery: cohere skipping deprecated model", "model", cm.Name)
 				continue
 			}
 
@@ -113,7 +114,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 			} else {
 				// Minimal entry for models not in pricing catalog
 				modelEntry.DisplayName = cm.Name
-				log.Printf("[discovery] cohere: model %q not in pricing catalog, creating minimal entry", cm.Name)
+				debuglog.Warn("discovery: cohere model not in pricing catalog", "model", cm.Name)
 			}
 
 			models = append(models, modelEntry)
@@ -126,7 +127,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 		pageToken = cohereResp.NextPageToken
 	}
 
-	log.Printf("[discovery] cohere: discovered %d models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: cohere discovered models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }
 

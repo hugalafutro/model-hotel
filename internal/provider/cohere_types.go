@@ -2,15 +2,15 @@ package provider
 
 // CohereNativeModel represents a single model from GET /v1/models
 type CohereNativeModel struct {
-	Name             string                   `json:"name"`
-	Endpoints        []string                 `json:"endpoints"`
-	Finetuned        bool                     `json:"finetuned"`
-	ContextLength    int                      `json:"context_length"`
-	TokenizerURL     string                   `json:"tokenizer_url"`
-	Features         []string                 `json:"features"`
-	DefaultEndpoints []string                 `json:"default_endpoints"`
-	IsDeprecated     bool                     `json:"is_deprecated"`
-	SamplingDefaults *CohereSamplingDefaults  `json:"sampling_defaults,omitempty"`
+	Name             string                  `json:"name"`
+	Endpoints        []string                `json:"endpoints"`
+	Finetuned        bool                    `json:"finetuned"`
+	ContextLength    int                     `json:"context_length"`
+	TokenizerURL     string                  `json:"tokenizer_url"`
+	Features         []string                `json:"features"`
+	DefaultEndpoints []string                `json:"default_endpoints"`
+	IsDeprecated     bool                    `json:"is_deprecated"`
+	SamplingDefaults *CohereSamplingDefaults `json:"sampling_defaults,omitempty"`
 }
 
 type CohereSamplingDefaults struct {

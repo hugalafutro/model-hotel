@@ -1,11 +1,12 @@
 package model
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 type modelCacheEntry struct {
@@ -100,5 +101,5 @@ func WarmModelCache(models []*Model) {
 		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
 	}
 	modelCacheMu.Unlock()
-	log.Printf("[model] warmed cache with %d models", len(models))
+	debuglog.Info("model: warmed cache", "count", len(models))
 }

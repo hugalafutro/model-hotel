@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -24,7 +25,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 
 	// Step 2: If we got a 403/429 (zero-balance or rate-limited account), fall back to catalog
 	if isNoAccessError(err) {
-		log.Printf("[discovery] xai: /language-models returned %d (account has no API access), falling back to catalog for provider %s", errorStatusCode(err), provider.ID)
+		debuglog.Warn("discovery: xai /language-models returned no-access, falling back to catalog", "status", errorStatusCode(err), "provider", provider.ID)
 		return d.discoverXAIFromCatalog(provider), nil
 	}
 
@@ -36,7 +37,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 
 	// Step 4: If /models also returned 403/429, fall back to catalog
 	if isNoAccessError(err2) {
-		log.Printf("[discovery] xai: /models also returned %d (account has no API access), falling back to catalog for provider %s", errorStatusCode(err2), provider.ID)
+		debuglog.Warn("discovery: xai /models also returned no-access, falling back to catalog", "status", errorStatusCode(err2), "provider", provider.ID)
 		return d.discoverXAIFromCatalog(provider), nil
 	}
 
@@ -67,7 +68,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		return nil, &httpError{StatusCode: resp.StatusCode, Body: string(bodyBytes)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] xai: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
+		debuglog.Error("discovery: xai language-models non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
@@ -158,7 +159,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		models = append(models, m)
 	}
 
-	log.Printf("[discovery] xai: discovered %d language models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: xai discovered language models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }
 
@@ -185,7 +186,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		return nil, &httpError{StatusCode: resp.StatusCode, Body: string(bodyBytes)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] xai: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
+		debuglog.Error("discovery: xai minimal models non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
@@ -221,7 +222,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		})
 	}
 
-	log.Printf("[discovery] xai: discovered %d minimal models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: xai discovered minimal models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }
 
@@ -231,7 +232,7 @@ func (d *DiscoveryService) discoverXAIFromCatalog(provider *Provider) []*model.M
 	for i := range catalog {
 		models = append(models, OpenCodeCatalogToModel(&catalog[i], provider.ID, "xai"))
 	}
-	log.Printf("[discovery] xai: using catalog (no API access) - %d models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: xai using catalog", "models", len(models), "provider", provider.ID)
 	return models
 }
 
@@ -265,4 +266,3 @@ func errorStatusCode(err error) int {
 	}
 	return 0
 }
-

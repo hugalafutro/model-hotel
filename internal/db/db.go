@@ -4,11 +4,12 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 //go:embed migrations/*.sql
@@ -46,7 +47,7 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	log.Println("[db] Database connected and migrations applied successfully")
+	debuglog.Info("db: Database connected and migrations applied successfully")
 	return db, nil
 }
 
@@ -143,11 +144,11 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	}
 
 	if applied {
-		log.Printf("[db] Migration %s already applied, skipping", name)
+		debuglog.Info("db: Migration already applied, skipping", "name", name)
 		return nil
 	}
 
-	log.Printf("[db] Applying migration: %s", name)
+	debuglog.Info("db: Applying migration", "name", name)
 
 	if _, err := tx.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("failed to execute migration SQL: %w", err)
@@ -164,7 +165,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 		return fmt.Errorf("failed to commit migration: %w", err)
 	}
 
-	log.Printf("[db] Successfully applied migration: %s", name)
+	debuglog.Info("db: Successfully applied migration", "name", name)
 	return nil
 }
 
@@ -175,7 +176,7 @@ func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 			return nil
 		}
 
-		log.Printf("[db] Database not ready (attempt %d/%d): %v", i+1, maxAttempts, err)
+		debuglog.Info("db: Database not ready", "attempt", i+1, "max", maxAttempts, "error", err)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

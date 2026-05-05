@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -29,20 +30,20 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] error: ollama %s: http request failed: %v", provider.ID, err)
+		debuglog.Error("discovery: ollama http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: ollama %s: unexpected status %d: %s", provider.ID, resp.StatusCode, string(body))
+		debuglog.Error("discovery: ollama unexpected status", "provider", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var tagsResp OllamaTagsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
-		log.Printf("[discovery] error: ollama %s: json decode failed: %v", provider.ID, err)
+		debuglog.Error("discovery: ollama json decode failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -77,7 +78,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	skipped := 0
 	for _, r := range results {
 		if r.err != nil {
-			log.Printf("[discovery] warning: ollama %s: show model %q failed: %v", provider.ID, r.modelID, r.err)
+			debuglog.Warn("discovery: ollama show model failed", "provider", provider.ID, "model", r.modelID, "error", r.err)
 			skipped++
 			continue
 		}
@@ -87,9 +88,9 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	}
 
 	if skipped > 0 {
-		log.Printf("[discovery] ollama %s: %d models discovered, %d skipped", provider.ID, len(models), skipped)
+		debuglog.Info("discovery: ollama discovered models with skips", "provider", provider.ID, "models", len(models), "skipped", skipped)
 	} else {
-		log.Printf("[discovery] ollama %s: discovered %d models", provider.ID, len(models))
+		debuglog.Info("discovery: ollama discovered models", "provider", provider.ID, "models", len(models))
 	}
 
 	return models, nil
@@ -114,7 +115,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: ollama: show model %q failed with status %d: %s", modelName, resp.StatusCode, string(respBody))
+		debuglog.Error("discovery: ollama show model failed with status", "model", modelName, "status", resp.StatusCode, "body", string(respBody))
 		return nil, fmt.Errorf("show failed for %s: status %d", modelName, resp.StatusCode)
 	}
 

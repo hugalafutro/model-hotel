@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -11,6 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // AllowedSettings is the allowlist of keys the API will accept.
@@ -62,8 +63,8 @@ type subscription struct {
 // events. The returned Subscription provides a channel to read from and an
 // Unsubscribe method to clean up.
 type Repository struct {
-	pool  *pgxpool.Pool
-	mu    sync.RWMutex
+	pool     *pgxpool.Pool
+	mu       sync.RWMutex
 	cache    map[string]cacheEntry
 	cacheTTL time.Duration
 
@@ -168,7 +169,7 @@ func (r *Repository) notifyChange(key, value string) {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[settings] warning: failed to send change event, channel closed: %v", r)
+					debuglog.Warn("settings: failed to send change event, channel closed", "recover", r)
 				}
 			}()
 			select {
@@ -231,7 +232,7 @@ func (r *Repository) Set(ctx context.Context, key string, value string) error {
 
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
 	if !AllowedSettings[key] {
-		log.Printf("[settings] warning: rejected setting %q not in allowlist", key)
+		debuglog.Warn("settings: rejected setting not in allowlist", "key", key)
 		return fmt.Errorf("setting %q is not in allowlist", key)
 	}
 	_, err := tx.Exec(ctx, `
@@ -275,7 +276,7 @@ func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool)
 	val := r.GetWithDefault(ctx, key, strconv.FormatBool(defaultValue))
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		log.Printf("[settings] warning: failed to parse %q as bool, using default %v: %v", key, defaultValue, err)
+		debuglog.Warn("settings: failed to parse as bool, using default", "key", key, "default", defaultValue, "error", err)
 		return defaultValue
 	}
 	return b
@@ -285,7 +286,7 @@ func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue t
 	val := r.GetWithDefault(ctx, key, defaultValue.String())
 	d, err := time.ParseDuration(val)
 	if err != nil {
-		log.Printf("[settings] warning: failed to parse %q as duration, using default %v: %v", key, defaultValue, err)
+		debuglog.Warn("settings: failed to parse as duration, using default", "key", key, "default", defaultValue, "error", err)
 		return defaultValue
 	}
 	return d
@@ -295,7 +296,7 @@ func (r *Repository) GetFloat(ctx context.Context, key string, defaultValue floa
 	val := r.GetWithDefault(ctx, key, strconv.FormatFloat(defaultValue, 'f', -1, 64))
 	f, err := strconv.ParseFloat(val, 64)
 	if err != nil {
-		log.Printf("[settings] warning: failed to parse %q as float, using default %v: %v", key, defaultValue, err)
+		debuglog.Warn("settings: failed to parse as float, using default", "key", key, "default", defaultValue, "error", err)
 		return defaultValue
 	}
 	return f
@@ -305,7 +306,7 @@ func (r *Repository) GetInt(ctx context.Context, key string, defaultValue int) i
 	val := r.GetWithDefault(ctx, key, strconv.Itoa(defaultValue))
 	i, err := strconv.Atoi(val)
 	if err != nil {
-		log.Printf("[settings] warning: failed to parse %q as int, using default %d: %v", key, defaultValue, err)
+		debuglog.Warn("settings: failed to parse as int, using default", "key", key, "default", defaultValue, "error", err)
 		return defaultValue
 	}
 	return i

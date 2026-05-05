@@ -17,10 +17,10 @@ const (
 	nonceLength = 12
 
 	// v1: fixed salt, 64MB memory (backward compatible)
-	v1Salt  = "llm-proxy-fixed-salt-v1"
-	v1Time  = 1
-	v1Mem   = 64 * 1024
-	v1Thr   = 4
+	v1Salt = "llm-proxy-fixed-salt-v1"
+	v1Time = 1
+	v1Mem  = 64 * 1024
+	v1Thr  = 4
 
 	// v2: per-provider salt, 8MB memory (fast, secure for high-entropy keys)
 	v2Time = 1
@@ -131,5 +131,3 @@ func GenerateRandomKey() (string, error) {
 func ConstantTimeCompare(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
-
-

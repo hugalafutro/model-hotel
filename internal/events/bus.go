@@ -1,11 +1,12 @@
 package events
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 type Event struct {
@@ -46,13 +47,13 @@ func (b *Bus) Publish(event Event) {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[events] warning: failed to send event %q, channel closed", event.Type)
+					debuglog.Warn("events: failed to send event", "type", event.Type)
 				}
 			}()
 			select {
 			case ch <- event:
 			default:
-				log.Printf("[events] warning: event %q dropped, subscriber too slow", event.Type)
+				debuglog.Warn("events: event dropped, subscriber too slow", "type", event.Type)
 			}
 		}()
 	}

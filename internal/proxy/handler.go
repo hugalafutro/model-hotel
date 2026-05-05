@@ -3,13 +3,15 @@ package proxy
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -17,7 +19,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Handler struct {
@@ -76,7 +77,7 @@ func NewHandler(
 func (h *Handler) Close() {
 	if h.upstreamTransport != nil {
 		h.upstreamTransport.CloseIdleConnections()
-		log.Printf("[proxy] closed upstream transport")
+		debuglog.Info("proxy: closed upstream transport")
 	}
 }
 
@@ -114,7 +115,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
-			log.Printf("[auth] error: missing authorization header from %s", r.RemoteAddr)
+			debuglog.Error("auth: missing authorization header", "remote_addr", r.RemoteAddr)
 			writeOpenAIError(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 			return
 		}
@@ -123,15 +124,15 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
 		if err != nil {
 			if errors.Is(err, virtualkey.ErrNotFound) {
-				log.Printf("[auth] error: key not found from %s", r.RemoteAddr)
+				debuglog.Error("auth: key not found", "remote_addr", r.RemoteAddr)
 				writeOpenAIError(w, "Invalid virtual key", http.StatusUnauthorized)
 			} else {
-				log.Printf("[auth] error: db lookup failed: %v", err)
+				debuglog.Error("auth: db lookup failed", "error", err)
 				writeOpenAIError(w, "Internal error", http.StatusInternalServerError)
 			}
 			return
 		}
-		log.Printf("[auth] authenticated key=%q", vk.Name)
+		debuglog.Info("auth: authenticated", "key", vk.Name)
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
 		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID.String())
 		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
@@ -140,12 +141,14 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		go func(hash string) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[proxy] panic in TouchLastUsed (virtual key): %v", r)
+					debuglog.Error("proxy: panic in TouchLastUsed (virtual key)", "error", r)
 				}
 			}()
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
-			_ = h.virtualKeyRepo.TouchLastUsed(tctx, hash)
+			if err := h.virtualKeyRepo.TouchLastUsed(tctx, hash); err != nil {
+				debuglog.Debug("proxy: failed to touch virtual key last-used", "error", err)
+			}
 		}(keyHash)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

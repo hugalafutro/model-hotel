@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -101,10 +102,10 @@ func (m *mockVirtualKeyStore) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 type mockSettingsStore struct {
-	getWithDefaultFn func(ctx context.Context, key string, defaultValue string) string
-	setFn           func(ctx context.Context, key string, value string) error
-	getAllFn         func(ctx context.Context) (map[string]string, error)
-	setTxFn          func(ctx context.Context, tx pgx.Tx, key, value string) error
+	getWithDefaultFn  func(ctx context.Context, key string, defaultValue string) string
+	setFn             func(ctx context.Context, key string, value string) error
+	getAllFn          func(ctx context.Context) (map[string]string, error)
+	setTxFn           func(ctx context.Context, tx pgx.Tx, key, value string) error
 	invalidateCacheFn func(key string)
 }
 
@@ -153,7 +154,7 @@ func (m *mockAdminAuth) Validate(token string) bool {
 func testHandler(provStore *mockProviderStore, vkStore *mockVirtualKeyStore, setsStore *mockSettingsStore, auth_ *mockAdminAuth, dbPool_ *db.DB) *Handler {
 	return &Handler{
 		cfg: &config.Config{
-			AllowHTTPProviders: true,
+			AllowHTTPProviders:   true,
 			AllowedProviderHosts: []string{"api.example.com", "localhost"},
 		},
 		providerRepo:   provStore,

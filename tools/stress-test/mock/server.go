@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // Server is a mock OpenAI-compatible upstream that returns realistic SSE
@@ -88,7 +89,7 @@ func (s *Server) StartAsync() error {
 	go func() {
 		s.server = &http.Server{Addr: s.addr, Handler: s.newHandler()}
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("[mock] server error: %v", err)
+			debuglog.Error("mock: server error", "error", err)
 		}
 	}()
 
@@ -296,9 +297,4 @@ func (s *Server) handleNonStreaming(w http.ResponseWriter, r *http.Request, mode
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
-}
-
-func init() {
-	// Suppress the default log prefix for the mock server.
-	log.SetFlags(log.Ltime | log.Lmicroseconds)
 }

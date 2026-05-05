@@ -475,6 +475,7 @@ func TestValidateProviderURL_AllowListMultipleEntries(t *testing.T) {
 		t.Error("expected host-d.com to be blocked (not in allowlist)")
 	}
 }
+
 // ---------------------------------------------------------------------------
 // clampInt64
 // ---------------------------------------------------------------------------

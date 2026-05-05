@@ -2,16 +2,16 @@ package proxy
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
-		log.Printf("[proxy] error: failed to list models: %v", err)
+		debuglog.Error("proxy: failed to list models", "error", err)
 		writeOpenAIError(w, "failed to list models", http.StatusInternalServerError)
 		return
 	}
@@ -62,7 +62,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	groups, err := h.failoverRepo.GetEnabled(r.Context())
 	if err != nil {
-		log.Printf("[proxy] warning: failed to list failover groups: %v", err)
+		debuglog.Warn("proxy: failed to list failover groups", "error", err)
 	} else {
 		for _, g := range groups {
 			for _, modelUUID := range g.PriorityOrder {
@@ -129,6 +129,6 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("[proxy] error: failed to encode models response: %v", err)
+		debuglog.Error("proxy: failed to encode models response", "error", err)
 	}
 }

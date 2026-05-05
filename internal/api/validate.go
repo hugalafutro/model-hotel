@@ -75,7 +75,6 @@ func validateMapSize(field string, m map[string]bool, max int) error {
 	return nil
 }
 
-
 // validateNameString trims, checks length, and rejects control/invisible characters.
 // Returns the trimmed value and an error if validation fails.
 func validateNameString(field, value string, min, max int) (string, error) {
@@ -111,8 +110,8 @@ func validatePrintable(field, value string) error {
 		case unicode.IsControl(r):
 			return fmt.Errorf("%s contains invalid control characters", field)
 		case r == '\u200B', r == '\u200C', r == '\u200D', // zero-width joiner/space
-			r == '\uFEFF', // BOM
-			r == '\u2060', // word joiner
+			r == '\uFEFF',                                              // BOM
+			r == '\u2060',                                              // word joiner
 			r == '\u2061', r == '\u2062', r == '\u2063', r == '\u2064': // invisible operators
 			return fmt.Errorf("%s contains invisible characters", field)
 		case r == '\u00A0', // non-breaking space
@@ -128,4 +127,3 @@ func validatePrintable(field, value string) error {
 func trimString(s string) string {
 	return strings.TrimSpace(s)
 }
-

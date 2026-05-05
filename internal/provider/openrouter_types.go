@@ -81,12 +81,12 @@ type OpenRouterCreditsResponse struct {
 
 // OpenRouterBalance combines key info and credits into a unified balance response.
 type OpenRouterBalance struct {
-	Label              string   `json:"label"`
-	Limit              *float64 `json:"limit"`
-	LimitRemaining     *float64 `json:"limit_remaining"`
-	Usage              float64  `json:"usage"`
-	CreditsTotal       float64  `json:"credits_total"`
-	CreditsUsed        float64  `json:"credits_used"`
-	CreditsRemaining   float64  `json:"credits_remaining"`
-	IsFreeTier         bool     `json:"is_free_tier"`
+	Label            string   `json:"label"`
+	Limit            *float64 `json:"limit"`
+	LimitRemaining   *float64 `json:"limit_remaining"`
+	Usage            float64  `json:"usage"`
+	CreditsTotal     float64  `json:"credits_total"`
+	CreditsUsed      float64  `json:"credits_used"`
+	CreditsRemaining float64  `json:"credits_remaining"`
+	IsFreeTier       bool     `json:"is_free_tier"`
 }

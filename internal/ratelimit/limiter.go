@@ -2,7 +2,6 @@ package ratelimit
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -91,7 +91,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Hard kill-switch from env var
 			if !enabled {
-				log.Printf("[ratelimit] rate limiting disabled via env")
+				debuglog.Info("ratelimit: rate limiting disabled via env")
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -109,7 +109,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				l.mu.Lock()
 				l.limiters = make(map[string]*keyEntry)
 				l.mu.Unlock()
-				log.Printf("[ratelimit] rate limiting re-enabled, reset all buckets")
+				debuglog.Info("ratelimit: rate limiting re-enabled, reset all buckets")
 			}
 
 			keyHash := extractKey(r)
@@ -123,7 +123,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
 				l.writeRateLimitHeaders(w, entry.limiter, 0)
-				log.Printf("[ratelimit] warning: rate limit exceeded for key %s", keyHash)
+				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
@@ -133,7 +133,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				// Bucket exhausted — cancel the reservation and reject.
 				reservation.Cancel()
 				l.writeRateLimitHeaders(w, entry.limiter, delay)
-				log.Printf("[ratelimit] warning: rate limit exceeded for key %s", keyHash)
+				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}

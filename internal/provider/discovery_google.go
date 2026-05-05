@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -32,7 +33,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] google: http request failed for provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: google http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -43,13 +44,13 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] google: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
+		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var googleResp GoogleModelsResponse
 	if err := json.Unmarshal(bodyBytes, &googleResp); err != nil {
-		log.Printf("[discovery] google: failed to decode response from provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: google failed to decode response", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -62,7 +63,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 		// Skip non-text/image models (video generation, embedding-only, AQA)
 		if !isRelevantGoogleModel(gm) {
-			log.Printf("[discovery] google: skipping non-chat model %s", modelID)
+			debuglog.Info("discovery: google skipping non-chat model", "model", modelID)
 			continue
 		}
 
@@ -137,7 +138,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 		models = append(models, m)
 	}
 
-	log.Printf("[discovery] google: discovered %d models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: google discovered models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }
 
@@ -210,4 +211,3 @@ func containsString(slice []string, target string) bool {
 	}
 	return false
 }
-

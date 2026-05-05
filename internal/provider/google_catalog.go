@@ -3,11 +3,11 @@ package provider
 // GoogleModelPricing holds pricing data for a Google AI Studio model.
 // Pricing is not available from the API and must be maintained from docs.
 type GoogleModelPricing struct {
-	ModelID                       string  `json:"model_id"`
-	DisplayName                   string  `json:"display_name"`
-	InputPricePerMillion          float64 `json:"input_price_per_million"`
-	InputPricePerMillionCacheHit  float64 `json:"input_price_per_million_cache_hit,omitempty"`
-	OutputPricePerMillion         float64 `json:"output_price_per_million"`
+	ModelID                      string  `json:"model_id"`
+	DisplayName                  string  `json:"display_name"`
+	InputPricePerMillion         float64 `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit float64 `json:"input_price_per_million_cache_hit,omitempty"`
+	OutputPricePerMillion        float64 `json:"output_price_per_million"`
 	// Whether this model has a free tier (affects keyless discovery)
 	FreeTier bool `json:"free_tier"`
 }

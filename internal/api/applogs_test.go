@@ -209,7 +209,7 @@ func TestExtractSource_NoSource(t *testing.T) {
 }
 
 func TestExtractSource_EmptyBrackets(t *testing.T) {
-	// "[] " has empty source and no trailing space after ]... 
+	// "[] " has empty source and no trailing space after ]...
 	// actually end=1, line[end+1]!= ' ' so this won't extract
 	source, _ := extractSource("[] something")
 	if source != "" {

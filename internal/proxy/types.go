@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -81,20 +82,20 @@ func TestListModels_WithProviderAndModel(t *testing.T) {
 	modelID := uuid.New()
 	ctx := context.Background()
 	m := &model.Model{
-		ID:             modelID,
-		ProviderID:     prov.ID,
-		ModelID:        "gpt-test-model",
-		Name:           "GPT Test Model",
-		DisplayName:    "GPT Test Display",
-		Description:    "A test model for ListModels",
-		Capabilities:   "{}",
-		Params:         "{}",
-		Modality:       "text",
+		ID:               modelID,
+		ProviderID:       prov.ID,
+		ModelID:          "gpt-test-model",
+		Name:             "GPT Test Model",
+		DisplayName:      "GPT Test Display",
+		Description:      "A test model for ListModels",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
 		InputModalities:  "[]",
 		OutputModalities: "[]",
-		Enabled:        true,
-		CreatedAt:      time.Now(),
-		LastSeenAt:     time.Now(),
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
 	}
 	if err := h.modelRepo.Upsert(ctx, m); err != nil {
 		t.Fatalf("failed to upsert model: %v", err)

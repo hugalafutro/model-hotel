@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -171,26 +172,26 @@ func TestUpdateRequestLog_Success(t *testing.T) {
 	}()
 
 	logEntry := &requestLogData{
-		modelID:             uuid.NewString(),
-		streaming:           false,
-		virtualKeyName:      "test-key",
-		virtualKeyID:        uuid.NewString(),
-		failoverAttempt:     0,
-		state:               "pending",
-		statusCode:          200,
-		durationMs:          150.0,
-		proxyOverheadMs:     10.0,
-		parseMs:             5.0,
-		modelLookupMs:       1.0,
-		providerLookupMs:    2.0,
-		keyDecryptMs:        0.5,
-		ttftMs:              100.0,
-		tokensPerSecond:     50.0,
-		tokensPrompt:        100,
-		tokensCompletion:    200,
+		modelID:               uuid.NewString(),
+		streaming:             false,
+		virtualKeyName:        "test-key",
+		virtualKeyID:          uuid.NewString(),
+		failoverAttempt:       0,
+		state:                 "pending",
+		statusCode:            200,
+		durationMs:            150.0,
+		proxyOverheadMs:       10.0,
+		parseMs:               5.0,
+		modelLookupMs:         1.0,
+		providerLookupMs:      2.0,
+		keyDecryptMs:          0.5,
+		ttftMs:                100.0,
+		tokensPerSecond:       50.0,
+		tokensPrompt:          100,
+		tokensCompletion:      200,
 		tokensPromptCacheHit:  50,
 		tokensPromptCacheMiss: 50,
-		errorMessage:        "",
+		errorMessage:          "",
 	}
 
 	err = h.insertRequestLog(context.Background(), logEntry)

@@ -1,22 +1,22 @@
 package provider
 
 type OpenAIModelSpec struct {
-	ModelID                       string
-	DisplayName                   string
-	Description                   string
-	ContextLength                 int
-	MaxOutputTokens               int
-	Modality                      string
-	InputModalities               string
-	OutputModalities              string
-	Streaming                     bool
-	Reasoning                     bool
-	ToolCalling                   bool
-	StructuredOutput              bool
-	Vision                        bool
-	InputPricePerMillion          float64
-	InputPricePerMillionCacheHit  float64
-	OutputPricePerMillion         float64
+	ModelID                      string
+	DisplayName                  string
+	Description                  string
+	ContextLength                int
+	MaxOutputTokens              int
+	Modality                     string
+	InputModalities              string
+	OutputModalities             string
+	Streaming                    bool
+	Reasoning                    bool
+	ToolCalling                  bool
+	StructuredOutput             bool
+	Vision                       bool
+	InputPricePerMillion         float64
+	InputPricePerMillionCacheHit float64
+	OutputPricePerMillion        float64
 }
 
 var openaiCatalog = []OpenAIModelSpec{

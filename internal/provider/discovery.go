@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -35,7 +35,7 @@ func NewDiscoveryService() *DiscoveryService {
 func DetectProviderType(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {
-		log.Printf("[discovery] warning: failed to parse base URL %q, falling back to openai", baseURL)
+		debuglog.Warn("discovery: failed to parse base URL", "url", baseURL)
 		return "openai"
 	}
 	host := strings.ToLower(u.Hostname())
@@ -133,7 +133,7 @@ func DetectProviderType(baseURL string) string {
 
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
 	providerType := DetectProviderType(provider.BaseURL)
-	log.Printf("[discovery] starting discovery for provider %s (type=%s)", provider.ID, providerType)
+	debuglog.Info("discovery: starting discovery", "provider", provider.ID, "type", providerType)
 
 	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
 	// key bytes. When the key is empty, skip decryption and use empty string.
@@ -144,7 +144,7 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		var err error
 		apiKey, err = auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 		if err != nil {
-			log.Printf("[discovery] error: failed to decrypt API key for provider %s: %v", provider.ID, err)
+			debuglog.Error("discovery: failed to decrypt API key", "provider", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 		}
 	}
@@ -182,11 +182,11 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		}
 	}()
 	if err != nil {
-		log.Printf("[discovery] error: discovery failed for provider %s (type=%s): %v", provider.ID, providerType, err)
+		debuglog.Error("discovery: discovery failed", "provider", provider.ID, "type", providerType, "error", err)
 		return nil, err
 	}
 
-	log.Printf("[discovery] completed for provider %s: %d models found", provider.ID, len(models))
+	debuglog.Info("discovery: completed", "provider", provider.ID, "models", len(models))
 	return models, nil
 }
 
@@ -226,7 +226,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 	for attempt := range maxQuotaRetries {
 		if attempt > 0 {
 			backoff := time.Duration(attempt) * 3 * time.Second
-			log.Printf("[discovery] %s provider %s: retrying quota fetch in %v (attempt %d/%d)", providerType, providerID, backoff, attempt+1, maxQuotaRetries)
+			debuglog.Info("discovery: retrying quota fetch", "type", providerType, "provider", providerID, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxQuotaRetries)
 			select {
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled during retry: %w", lastErr)

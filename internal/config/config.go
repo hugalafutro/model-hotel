@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/joho/godotenv"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type Config struct {
@@ -29,6 +30,7 @@ type Config struct {
 	DBMaxConns           int32
 	DBMinConns           int32
 	ModelsDevEnabled     bool
+	DebugLog             bool
 }
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
@@ -71,6 +73,7 @@ func Load() (*Config, error) {
 		DBMaxConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25), 1, 1000)),
 		DBMinConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
 		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
+		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -123,6 +126,7 @@ func (c *Config) String() string {
 		{"HTTP Providers", fmt.Sprintf("%t", c.AllowHTTPProviders)},
 		{"Rate Limiting", fmt.Sprintf("%t", c.RateLimitEnabled)},
 		{"Max Request Size", formatBytes(c.MaxRequestSize)},
+		{"Debug Log", fmt.Sprintf("%t", c.DebugLog)},
 	}
 
 	// Calculate label column width

@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -38,7 +39,7 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] lmstudio: http request failed for provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: lmstudio http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -56,7 +57,7 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 	models := make([]*model.Model, 0, len(modelsResp.Data))
 	for _, m := range modelsResp.Data {
 		caps := model.Capability{
-			Streaming:       true,
+			Streaming:        true,
 			StructuredOutput: true, // LM Studio supports response_format with JSON schema
 		}
 		capJSON, _ := json.Marshal(caps)
@@ -87,6 +88,6 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 		models = append(models, model)
 	}
 
-	log.Printf("[discovery] lmstudio: discovered %d models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: lmstudio discovered models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }

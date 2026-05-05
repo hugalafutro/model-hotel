@@ -3,10 +3,11 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"log"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
@@ -74,9 +75,9 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
 	)
 	if err != nil {
-		log.Printf("[proxy] error: failed to update request log %s: %v", logEntry.id, err)
+		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)
 	} else if tag.RowsAffected() == 0 {
-		log.Printf("[proxy] warning: updateRequestLog no rows affected for log %s (may have been deleted)", logEntry.id)
+		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
 	}
 
 	// Publish request lifecycle event for terminal states

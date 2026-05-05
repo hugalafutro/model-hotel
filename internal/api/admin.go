@@ -4,23 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // ProviderStore defines the provider repository methods used by the API.
@@ -419,7 +420,7 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 		failoverRepo := failover.NewRepository(h.dbPool.Pool())
 		if _, err := failoverRepo.SyncAllModels(context.WithoutCancel(r.Context())); err != nil {
 			// Log but don't fail the delete — the provider is already gone.
-			log.Printf("[admin] failed to sync failover groups after provider delete: %v", err)
+			debuglog.Info("admin: failed to sync failover groups after provider delete", "error", err)
 		}
 	}
 

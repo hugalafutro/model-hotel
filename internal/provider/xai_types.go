@@ -9,7 +9,7 @@ type XAIModel struct {
 }
 
 type XAIModelsResponse struct {
-	Object string      `json:"object"`
+	Object string     `json:"object"`
 	Data   []XAIModel `json:"data"`
 }
 

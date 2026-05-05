@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 

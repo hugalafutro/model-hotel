@@ -7,14 +7,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -271,7 +272,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			err.Error(), false, "internal", nil, 0, "failed",
 		)
 		if logErr != nil {
-			log.Printf("[admin] error: TestModel log insert failed: %v", logErr)
+			debuglog.Error("admin: TestModel log insert failed", "error", logErr)
 		}
 
 		writeJSON(w, TestModelResponse{Error: err.Error()})
@@ -302,7 +303,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
 		)
 		if logErr != nil {
-			log.Printf("[admin] error: TestModel log insert failed: %v", logErr)
+			debuglog.Error("admin: TestModel log insert failed", "error", logErr)
 		}
 
 		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
@@ -320,7 +321,9 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
-	_ = json.Unmarshal(respBody, &chatResp)
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		debuglog.Debug("admin: failed to parse test model chat response", "error", err)
+	}
 
 	content := ""
 	if len(chatResp.Choices) > 0 {
@@ -352,7 +355,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "internal", nil, 0, "completed",
 	)
 	if logErr != nil {
-		log.Printf("[admin] error: TestModel log insert failed: %v", logErr)
+		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
 	}
 
 	writeJSON(w, TestModelResponse{
@@ -361,6 +364,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		Response:   content,
 	})
 }
+
 // buildProviderTargetURL constructs the full upstream URL for a given provider.
 // Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
 // because its base URL (https://api.anthropic.com) lacks the /v1 prefix.

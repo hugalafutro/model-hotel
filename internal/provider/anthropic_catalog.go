@@ -1,10 +1,10 @@
 package provider
 
 type AnthropicPricingSpec struct {
-	ModelID                       string
-	InputPricePerMillion          float64
-	InputPricePerMillionCacheHit  float64
-	OutputPricePerMillion         float64
+	ModelID                      string
+	InputPricePerMillion         float64
+	InputPricePerMillionCacheHit float64
+	OutputPricePerMillion        float64
 }
 
 var anthropicPricing = []AnthropicPricingSpec{
@@ -61,4 +61,3 @@ func stripAnthropicDate(modelID string) string {
 	}
 	return modelID
 }
-

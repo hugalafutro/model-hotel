@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 const dockerSocketPath = "/var/run/docker.sock"
@@ -35,7 +36,7 @@ func IsDockerAvailable() bool {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/info", nil)
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Printf("[docker] failed to connect to Docker API: %v", err)
+			debuglog.Info("docker: failed to connect to Docker API", "error", err)
 			dockerAvailable = false
 			return
 		}
@@ -157,7 +158,7 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[docker] failed to list containers: %v", err)
+		debuglog.Info("docker: failed to list containers", "error", err)
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -206,7 +207,7 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[docker] stats API returned %d for %s: %s", resp.StatusCode, containerID[:12], string(body[:min(len(body), 200)]))
+		debuglog.Info("docker: stats API returned non-200", "status", resp.StatusCode, "container", containerID[:12], "body", string(body[:min(len(body), 200)]))
 		return nil, fmt.Errorf("docker stats API returned %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -435,7 +436,7 @@ func DetectComposeProject() string {
 				}
 			}
 		} else if err != nil {
-			log.Printf("[docker] failed to inspect own container: %v", err)
+			debuglog.Info("docker: failed to inspect own container", "error", err)
 		}
 		if resp != nil {
 			_ = resp.Body.Close()

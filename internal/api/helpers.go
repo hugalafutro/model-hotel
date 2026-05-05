@@ -2,11 +2,12 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // respondError logs the error details server-side and sends an HTTP error response.
@@ -14,9 +15,9 @@ import (
 // For 5xx errors without an error value, the message is still logged for debugging.
 func respondError(w http.ResponseWriter, message string, err error, code int) {
 	if err != nil {
-		log.Printf("[api] error: %s: %v", message, err)
+		debuglog.Error("api: "+message, "error", err)
 	} else if code >= 500 {
-		log.Printf("[api] error: %s", message)
+		debuglog.Error("api: " + message)
 	}
 	http.Error(w, message, code)
 }
@@ -25,7 +26,7 @@ func respondError(w http.ResponseWriter, message string, err error, code int) {
 // If err is non-nil, the error details are logged server-side only.
 func respondBadRequest(w http.ResponseWriter, message string, err error) {
 	if err != nil {
-		log.Printf("[api] bad request: %s: %v", message, err)
+		debuglog.Info("api: bad request: "+message, "error", err)
 	}
 	http.Error(w, message, http.StatusBadRequest)
 }
@@ -50,7 +51,7 @@ func parseUUIDParam(w http.ResponseWriter, r *http.Request, key string, label ..
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("[api] error: failed to encode JSON response: %v", err)
+		debuglog.Error("api: failed to encode JSON response", "error", err)
 	}
 }
 
@@ -59,6 +60,6 @@ func writeJSONCreated(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("[api] error: failed to encode JSON response: %v", err)
+		debuglog.Error("api: failed to encode JSON response", "error", err)
 	}
 }

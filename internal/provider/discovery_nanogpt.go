@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	log.Printf("[discovery] starting nanogpt discovery for provider %s", provider.ID)
+	debuglog.Info("discovery: starting nanogpt discovery", "provider", provider.ID)
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models?detailed=true", nil)
 	if err != nil {
@@ -27,20 +28,20 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] error: nanogpt http request failed for provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: nanogpt http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: nanogpt returned status %d for provider %s: %s", resp.StatusCode, provider.ID, string(body))
+		debuglog.Error("discovery: nanogpt non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", string(body))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var nanoResp NanoGPTDetailedResponse
 	if err := json.NewDecoder(resp.Body).Decode(&nanoResp); err != nil {
-		log.Printf("[discovery] error: failed to decode nanogpt response for provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: nanogpt decode response failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -106,7 +107,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		})
 	}
 
-	log.Printf("[discovery] nanogpt discovered %d models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }
 
@@ -135,7 +136,7 @@ func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provid
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: nanogpt usage: non-200 status %d for provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: nanogpt usage non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 

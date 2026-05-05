@@ -1,12 +1,13 @@
 package provider
 
 import (
-	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 func NormalizeName(name string) string {
@@ -78,5 +79,5 @@ func WarmProviderCache(providers []*Provider) {
 	for _, p := range providers {
 		cacheProvider(p)
 	}
-	log.Printf("[provider] warmed cache with %d providers", len(providers))
+	debuglog.Info("provider: warmed cache", "providers", len(providers))
 }

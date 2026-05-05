@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 type FailoverGroup struct {
@@ -300,7 +301,7 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		var entryEnabledJSON []byte
 		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
 			&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
-			log.Printf("[failover] warning: row scan failed: %v", err)
+			debuglog.Warn("failover: row scan failed", "error", err)
 			return nil, fmt.Errorf("scanFailoverGroups: row scan failed: %w", err)
 		}
 		if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
@@ -325,7 +326,6 @@ type SyncResult struct {
 	DisabledGroups []DisabledGroupInfo `json:"disabled_groups"`
 	SyncErrors     []string            `json:"sync_errors,omitempty"`
 }
-
 
 var commonPrefixes = []string{
 	"zai-org/",
@@ -466,7 +466,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 	}
 
-	log.Printf("[failover] synced %d groups, disabled %d groups", len(syncedBases), len(result.DisabledGroups))
+	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "disabled", len(result.DisabledGroups))
 
 	return result, nil
 }
@@ -534,10 +534,10 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 	_, err = r.UpsertWithConfig(ctx, base, modelUUIDs, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
 	if err != nil {
-		log.Printf("[failover] error: failed to sync group for %q: %v", base, err)
+		debuglog.Error("failover: failed to sync group", "display_model", base, "error", err)
 		return err
 	}
-	log.Printf("[failover] synced group for %q with %d providers", base, len(modelUUIDs))
+	debuglog.Info("failover: synced group", "display_model", base, "providers", len(modelUUIDs))
 	return err
 }
 
@@ -549,7 +549,7 @@ func (r *Repository) disableAutoGroup(ctx context.Context, displayModel string) 
 	`, displayModel)
 	if err == nil && tag.RowsAffected() > 0 {
 		InvalidateFailoverCache()
-		log.Printf("[failover] disabled auto-group for %q", displayModel)
+		debuglog.Info("failover: disabled auto-group", "display_model", displayModel)
 		return true
 	}
 	return false

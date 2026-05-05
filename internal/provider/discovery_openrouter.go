@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -29,7 +30,7 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] openrouter: http request failed for provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: openrouter http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -40,13 +41,13 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] openrouter: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
+		debuglog.Error("discovery: openrouter non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var orResp OpenRouterModelsResponse
 	if err := json.Unmarshal(bodyBytes, &orResp); err != nil {
-		log.Printf("[discovery] openrouter: failed to decode response from provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: openrouter failed to decode response", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -59,7 +60,7 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 
 		// Skip non-text-output models (image generation only, embedding only, etc.)
 		if !isOpenRouterChatModel(orm) {
-			log.Printf("[discovery] openrouter: skipping non-chat model %s (modality: %s)", orm.ID, orm.Architecture.Modality)
+			debuglog.Info("discovery: openrouter skipping non-chat model", "model", orm.ID, "modality", orm.Architecture.Modality)
 			continue
 		}
 
@@ -118,7 +119,7 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 		models = append(models, modelEntry)
 	}
 
-	log.Printf("[discovery] openrouter: discovered %d models for provider %s (from %d total)", len(models), provider.ID, len(orResp.Data))
+	debuglog.Info("discovery: openrouter discovered models", "models", len(models), "provider", provider.ID, "total", len(orResp.Data))
 	return models, nil
 }
 
@@ -166,7 +167,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 
 	if creditsResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(creditsResp.Body)
-		log.Printf("[discovery] error: openrouter credits: non-200 status %d for provider %s: %s", creditsResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: openrouter credits non-200 status", "status", creditsResp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d from credits endpoint", creditsResp.StatusCode)
 	}
 
@@ -192,7 +193,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 
 	if keyResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(keyResp.Body)
-		log.Printf("[discovery] error: openrouter key info: non-200 status %d for provider %s: %s", keyResp.StatusCode, provider.ID, util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: openrouter key info non-200 status", "status", keyResp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d from key endpoint", keyResp.StatusCode)
 	}
 

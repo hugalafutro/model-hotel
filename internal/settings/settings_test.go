@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 var testPool *pgxpool.Pool

@@ -5,9 +5,10 @@ import (
 	"crypto/cipher"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 var (
@@ -63,7 +64,7 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		log.Printf("[keycache] warning: decryption failed, possible wrong master key: %v", err)
+		debuglog.Warn("keycache: decryption failed, possible wrong master key", "error", err)
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
@@ -80,7 +81,7 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 	_, err := DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
 	if err != nil {
-		log.Printf("[keycache] error: failed to warm key cache: %v", err)
+		debuglog.Error("keycache: failed to warm key cache", "error", err)
 	}
 }
 

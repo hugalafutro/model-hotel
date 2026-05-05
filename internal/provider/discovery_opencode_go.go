@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -25,7 +26,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] error: opencode-go %s: http request failed: %v", provider.ID, err)
+		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -33,7 +34,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	// If /models endpoint is not available, fall back to full catalog.
 	// This handles the case where the endpoint may be removed or rate-limited.
 	if resp.StatusCode == http.StatusNotFound {
-		log.Printf("[discovery] warning: opencode-go %s: /models returned 404, falling back to static catalog", provider.ID)
+		debuglog.Warn("discovery: opencode-go /models returned 404, falling back to catalog", "provider", provider.ID)
 		catalog := GetOpenCodeGoCatalog()
 		models := make([]*model.Model, 0, len(catalog))
 		for i := range catalog {
@@ -48,13 +49,13 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] error: opencode-go %s: unexpected status %d: %s", provider.ID, resp.StatusCode, string(bodyBytes))
+		debuglog.Error("discovery: opencode-go unexpected status", "provider", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		log.Printf("[discovery] error: opencode-go %s: json decode failed: %v", provider.ID, err)
+		debuglog.Error("discovery: opencode-go json decode failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -64,7 +65,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	for _, m := range openAIResp.Data {
 		spec := LookupOpenCodeCatalog(catalog, m.ID)
 		if spec == nil {
-			log.Printf("[discovery] opencode-go %s: model %q not in catalog, creating minimal entry", provider.ID, m.ID)
+			debuglog.Warn("discovery: opencode-go model not in catalog", "provider", provider.ID, "model", m.ID)
 			// Model exists in API but not in our catalog — create minimal entry
 			// (preserves forward compatibility when new models are added)
 			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
@@ -87,6 +88,6 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
 	}
 
-	log.Printf("[discovery] opencode-go %s: discovered %d models", provider.ID, len(models))
+	debuglog.Info("discovery: opencode-go discovered models", "provider", provider.ID, "models", len(models))
 	return models, nil
 }

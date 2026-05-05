@@ -333,7 +333,6 @@ func TestCircuitBreaker_ContextCancellationSkipContract(t *testing.T) {
 	}
 }
 
-
 func TestCircuitBreaker_NilSettingsUsesDefaults(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
 	cb.Threshold = 3

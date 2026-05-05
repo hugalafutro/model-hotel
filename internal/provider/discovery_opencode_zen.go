@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -25,7 +26,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[discovery] error: http request failed for provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: opencode-zen http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -36,13 +37,13 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[discovery] error: non-200 status %d from provider %s: %s", resp.StatusCode, provider.ID, util.SanitizeLogBody(string(bodyBytes), 2000))
+		debuglog.Error("discovery: opencode-zen non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		log.Printf("[discovery] error: failed to decode response from provider %s: %v", provider.ID, err)
+		debuglog.Error("discovery: opencode-zen failed to decode response", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -55,13 +56,13 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 
 		if keyless {
 			if spec == nil || spec.InputPricePerMillion > 0 || spec.OutputPricePerMillion > 0 {
-				log.Printf("[discovery] opencode-zen: skipping paid model %s (keyless provider %s)", m.ID, provider.ID)
+				debuglog.Info("discovery: opencode-zen skipping paid model", "model", m.ID, "provider", provider.ID)
 				continue
 			}
 		}
 
 		if spec == nil {
-			log.Printf("[discovery] model %s not in catalog, creating minimal entry", m.ID)
+			debuglog.Warn("discovery: opencode-zen model not in catalog", "model", m.ID)
 			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
 			models = append(models, &model.Model{
 				ID:               uuid.New(),
@@ -82,6 +83,6 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
 	}
 
-	log.Printf("[discovery] opencode-zen: discovered %d models for provider %s", len(models), provider.ID)
+	debuglog.Info("discovery: opencode-zen discovered models", "models", len(models), "provider", provider.ID)
 	return models, nil
 }

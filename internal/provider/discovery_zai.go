@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
@@ -56,7 +58,7 @@ func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Prov
 		})
 	}
 
-	log.Printf("[discovery] zai-coding provider %s: discovered %d models from catalog", provider.ID, len(catalog))
+	debuglog.Info("discovery: zai-coding discovered models from catalog", "provider", provider.ID, "models", len(catalog))
 
 	return models, nil
 }
@@ -79,24 +81,22 @@ func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Prov
 
 	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "zai-coding")
 	if err != nil {
-		log.Printf("[discovery] error: zai-coding provider %s quota fetch failed: %v", provider.ID, err)
+		debuglog.Error("discovery: zai-coding quota fetch failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch quota: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[discovery] error: zai-coding provider %s quota fetch returned status %d: %s", provider.ID, resp.StatusCode, string(body))
+		debuglog.Error("discovery: zai-coding quota fetch non-200 status", "provider", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var quota ZAICodingQuotaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
-		log.Printf("[discovery] error: zai-coding provider %s quota decode failed: %v", provider.ID, err)
+		debuglog.Error("discovery: zai-coding quota decode failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return &quota, nil
 }
-
-

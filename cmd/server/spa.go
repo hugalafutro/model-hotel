@@ -3,10 +3,11 @@ package main
 import (
 	"embed"
 	"io/fs"
-	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 var _ embed.FS
@@ -23,7 +24,7 @@ func NewSPAHandler() *SPAHandler {
 	if err == nil {
 		indexHTML, readErr := fs.ReadFile(subFS, "index.html")
 		if readErr == nil && len(indexHTML) > 0 {
-			log.Println("[server] Using embedded static files")
+			debuglog.Info("server: using embedded static files")
 			return &SPAHandler{
 				fileServer: http.FileServer(http.FS(subFS)),
 				indexHTML:  indexHTML,
@@ -35,7 +36,7 @@ func NewSPAHandler() *SPAHandler {
 	staticDir := "./web/dist"
 	indexHTML, err := os.ReadFile(staticDir + "/index.html")
 	if err != nil {
-		log.Printf("[server] WARNING: Could not read frontend files: %v", err)
+		debuglog.Error("server: could not read frontend files", "error", err)
 		return &SPAHandler{
 			indexHTML: []byte("<!DOCTYPE html><html><body><h1>Model Hotel</h1><p>Frontend not available. Run <code>cd web && npm run build</code></p></body></html>"),
 			useEmbed:  false,
@@ -43,7 +44,7 @@ func NewSPAHandler() *SPAHandler {
 		}
 	}
 
-	log.Println("[server] Using filesystem static files from " + staticDir)
+	debuglog.Info("server: using filesystem static files", "path", staticDir)
 	return &SPAHandler{
 		fileServer: http.FileServer(http.Dir(staticDir)),
 		indexHTML:  indexHTML,

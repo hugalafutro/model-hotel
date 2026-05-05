@@ -82,6 +82,7 @@ func GetIntQueryParam(r *http.Request, key string, defaultValue int) int {
 func IntToStr(i int) string {
 	return strconv.Itoa(i)
 }
+
 // WriteOpenAIError writes an OpenAI-compatible JSON error response.
 // All proxy-path error responses must be JSON, not plain text, because
 // clients like SillyTavern parse responses as JSON and crash on plain

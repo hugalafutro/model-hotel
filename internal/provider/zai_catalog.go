@@ -1,12 +1,12 @@
 package provider
 
 type ZAICodingModelSpec struct {
-	ModelID         string
-	ContextLength   int
-	MaxOutputTokens int
-	Modality        string
-	Reasoning       bool
-	ToolCalling     bool
+	ModelID          string
+	ContextLength    int
+	MaxOutputTokens  int
+	Modality         string
+	Reasoning        bool
+	ToolCalling      bool
 	StructuredOutput bool
 }
 

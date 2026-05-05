@@ -8,9 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type FailoverHandler struct {
@@ -364,7 +366,9 @@ func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339))
+	if err := h.settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		debuglog.Debug("failover: failed to persist last_synced_at", "error", err)
+	}
 
 	writeJSON(w, result)
 }

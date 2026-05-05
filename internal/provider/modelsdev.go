@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -27,10 +27,10 @@ type ModelsDevCache struct {
 
 // ModelsDevProviderSpec represents a provider entry in the models.dev API.
 type ModelsDevProviderSpec struct {
-	ID     string                       `json:"id"`
-	Name   string                       `json:"name"`
-	API    string                       `json:"api"`
-	Doc    string                       `json:"doc"`
+	ID     string                         `json:"id"`
+	Name   string                         `json:"name"`
+	API    string                         `json:"api"`
+	Doc    string                         `json:"doc"`
 	Models map[string]*ModelsDevModelSpec `json:"models"`
 }
 
@@ -51,7 +51,7 @@ type ModelsDevModelSpec struct {
 	OpenWeights      bool                 `json:"open_weights"`
 	Cost             ModelsDevCost        `json:"cost"`
 	Limit            ModelsDevLimit       `json:"limit"`
-	Interleaved ModelsDevInterleaved `json:"interleaved,omitempty"`
+	Interleaved      ModelsDevInterleaved `json:"interleaved,omitempty"`
 }
 
 type ModelsDevModalities struct {
@@ -60,13 +60,13 @@ type ModelsDevModalities struct {
 }
 
 type ModelsDevCost struct {
-	Input           float64  `json:"input"`
-	Output          float64  `json:"output"`
-	CacheRead       *float64 `json:"cache_read,omitempty"`
-	CacheWrite      *float64 `json:"cache_write,omitempty"`
-	InputAudio      *float64 `json:"input_audio,omitempty"`
-	OutputAudio     *float64 `json:"output_audio,omitempty"`
-	Reasoning       *float64 `json:"reasoning,omitempty"`
+	Input       float64  `json:"input"`
+	Output      float64  `json:"output"`
+	CacheRead   *float64 `json:"cache_read,omitempty"`
+	CacheWrite  *float64 `json:"cache_write,omitempty"`
+	InputAudio  *float64 `json:"input_audio,omitempty"`
+	OutputAudio *float64 `json:"output_audio,omitempty"`
+	Reasoning   *float64 `json:"reasoning,omitempty"`
 }
 
 type ModelsDevLimit struct {
@@ -183,7 +183,7 @@ func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
 	c.loadTime = time.Now()
 	c.mu.Unlock()
 
-	log.Printf("[models.dev] loaded %d models from %d providers", len(index), len(providers))
+	debuglog.Info("modelsdev: loaded models", "models", len(index), "providers", len(providers))
 	return nil
 }
 
@@ -282,7 +282,9 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 	// Parse existing capabilities to merge.
 	var caps model.Capability
 	if m.Capabilities != "" && m.Capabilities != "{}" {
-		_ = json.Unmarshal([]byte(m.Capabilities), &caps)
+		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+			debuglog.Debug("models.dev: failed to parse capabilities JSON", "model_id", m.ModelID, "error", err)
+		}
 	}
 
 	enriched := false

@@ -3,11 +3,12 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -278,25 +279,31 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		existingModelIDs := make([]string, 0, len(models))
 		for _, m := range models {
 			if err := modelRepo.Upsert(provCtx, m); err != nil {
-				log.Printf("[discovery] warning: failed to upsert model %s for provider %s: %v", m.ModelID, prov.Name, err)
+				debuglog.Warn("discovery: failed to upsert model", "model", m.ModelID, "provider", prov.Name, "error", err)
 				continue
 			}
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 		}
 
-		_, _ = modelRepo.DisableMissingModels(provCtx, prov.ID, existingModelIDs)
+		if _, err := modelRepo.DisableMissingModels(provCtx, prov.ID, existingModelIDs); err != nil {
+			debuglog.Debug("discovery: failed to disable missing models", "provider", prov.Name, "error", err)
+		}
 
 		seenModelIDs := make(map[string]bool)
 		for _, mid := range existingModelIDs {
 			seenModelIDs[mid] = true
 		}
 		for modelID := range seenModelIDs {
-			_ = failoverRepo.SyncForModel(provCtx, modelID)
+			if err := failoverRepo.SyncForModel(provCtx, modelID); err != nil {
+				debuglog.Debug("discovery: failed to sync failover for model", "model_id", modelID, "error", err)
+			}
 		}
 
 		now := time.Now()
-		_, _ = h.dbPool.Pool().Exec(provCtx,
-			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID)
+		if _, err := h.dbPool.Pool().Exec(provCtx,
+			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID); err != nil {
+			debuglog.Debug("discovery: failed to update last_discovered_at", "provider_id", prov.ID, "error", err)
+		}
 
 		provCancel()
 		results = append(results, result)

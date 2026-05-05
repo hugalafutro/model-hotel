@@ -15,6 +15,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // AppLogEntry represents a single captured application log line.
@@ -354,12 +356,12 @@ func (h *Handler) RegisterAppLogs(r chi.Router) {
 
 // appLogsHistoryResponse is the JSON structure returned when history mode is active.
 type appLogsHistoryResponse struct {
-	Entries      []AppLogEntry        `json:"entries"`
-	Total        int                  `json:"total"`
-	Page         int                  `json:"page"`
-	PerPage      int                  `json:"per_page"`
-	LevelCounts  map[string]int       `json:"level_counts"`
-	SourceCounts map[string]int       `json:"source_counts"`
+	Entries      []AppLogEntry  `json:"entries"`
+	Total        int            `json:"total"`
+	Page         int            `json:"page"`
+	PerPage      int            `json:"per_page"`
+	LevelCounts  map[string]int `json:"level_counts"`
+	SourceCounts map[string]int `json:"source_counts"`
 }
 
 // GetAppLogs returns recent application log entries as a JSON array.
@@ -389,7 +391,7 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 	if appLogBuffer == nil {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode([]AppLogEntry{}); err != nil {
-			log.Printf("[applogs] error: failed to encode empty response: %v", err)
+			debuglog.Error("applogs: failed to encode empty response", "error", err)
 		}
 		return
 	}
@@ -413,7 +415,7 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(entries); err != nil {
-		log.Printf("[applogs] error: failed to encode entries: %v", err)
+		debuglog.Error("applogs: failed to encode entries", "error", err)
 	}
 }
 
@@ -472,7 +474,7 @@ func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[stri
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
 		if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{}); err != nil {
-			log.Printf("[applogs] error: failed to encode response: %v", err)
+			debuglog.Error("applogs: failed to encode response", "error", err)
 		}
 		return
 	}
@@ -562,7 +564,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	var total int
 	if err := h.dbPool.Pool().QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
 		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); encErr != nil {
-			log.Printf("[applogs] error: failed to encode error response: %v", encErr)
+			debuglog.Error("applogs: failed to encode error response", "error", encErr)
 		}
 		return
 	}
@@ -578,7 +580,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.dbPool.Pool().Query(ctx, dataSQL, args...)
 	if err != nil {
 		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to query logs"}); err != nil {
-			log.Printf("[applogs] error: failed to encode error response: %v", err)
+			debuglog.Error("applogs: failed to encode error response", "error", err)
 		}
 		return
 	}
@@ -604,7 +606,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		LevelCounts:  levelCounts,
 		SourceCounts: sourceCounts,
 	}); err != nil {
-		log.Printf("[applogs] error: failed to encode history response: %v", err)
+		debuglog.Error("applogs: failed to encode history response", "error", err)
 	}
 }
 
@@ -624,7 +626,7 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]int{"deleted": deleted}); err != nil {
-		log.Printf("[applogs] error: failed to encode delete response: %v", err)
+		debuglog.Error("applogs: failed to encode delete response", "error", err)
 	}
 }
 

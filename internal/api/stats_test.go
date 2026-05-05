@@ -368,9 +368,9 @@ func TestFillEmptyBuckets_Daily_PartialGaps(t *testing.T) {
 
 	// Provide points for days 0, 3, and 6.
 	points := []TimeSeriesPoint{
-		makePoint(bucketFormat(start), 100, 1000, 1),                            // day 0
-		makePoint(bucketFormat(start.Add(3*24*time.Hour)), 50, 500, 2),          // day 3
-		makePoint(bucketFormat(start.Add(6*24*time.Hour)), 200, 2000, 0),        // day 6
+		makePoint(bucketFormat(start), 100, 1000, 1),                     // day 0
+		makePoint(bucketFormat(start.Add(3*24*time.Hour)), 50, 500, 2),   // day 3
+		makePoint(bucketFormat(start.Add(6*24*time.Hour)), 200, 2000, 0), // day 6
 	}
 
 	got := fillEmptyBuckets(points, start, end, "day")

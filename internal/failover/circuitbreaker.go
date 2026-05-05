@@ -3,11 +3,12 @@ package failover
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
@@ -65,6 +66,7 @@ type ProviderStatus struct {
 //   - Half-open: a limited number of probe requests are allowed through.
 //     If they succeed, the circuit closes. If any fails, the circuit
 //     re-opens with a fresh cooldown.
+//
 // SettingsReader provides dynamic configuration for the circuit breaker.
 // This decouples the breaker from the settings package — callers inject
 // a thin shim that reads from their settings repository.
@@ -102,10 +104,10 @@ type CircuitBreaker struct {
 // Hardcoded defaults are used when settings is nil or a key is missing.
 func NewCircuitBreaker(settings SettingsReader) *CircuitBreaker {
 	return &CircuitBreaker{
-		circuits:         make(map[string]*circuit),
-		settings:        settings,
-		Threshold:        5,
-		Cooldown:         60 * time.Second,
+		circuits:          make(map[string]*circuit),
+		settings:          settings,
+		Threshold:         5,
+		Cooldown:          60 * time.Second,
 		HalfOpenMaxProbes: 1,
 	}
 }
@@ -135,7 +137,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID) bool {
 		if time.Since(c.openedAt) >= cb.effectiveCooldown() {
 			c.state = StateHalfOpen
 			c.halfOpenProbes = 0
-			log.Printf("[circuit-breaker] provider=%s state=open→half-open (cooldown elapsed)", providerID)
+			debuglog.Info("circuit-breaker: provider state=open→half-open (cooldown elapsed)", "provider", providerID)
 			return false // allow probe through
 		}
 		return true
@@ -163,14 +165,14 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID) {
 		if c.consecutiveFails >= cb.effectiveThreshold() {
 			c.state = StateOpen
 			c.openedAt = time.Now()
-			log.Printf("[circuit-breaker] provider=%s state=closed→open (consecutive failures: %d)", providerID, c.consecutiveFails)
+			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerID, "consecutive_failures", c.consecutiveFails)
 			cb.publishEvent(providerID, "open", c)
 		}
 	case StateHalfOpen:
 		c.state = StateOpen
 		c.openedAt = time.Now()
 		c.consecutiveFails = cb.effectiveThreshold()
-		log.Printf("[circuit-breaker] provider=%s state=half-open→open (probe failed)", providerID)
+		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerID)
 		cb.publishEvent(providerID, "open", c)
 	case StateOpen:
 		// Already open — no-op.
@@ -196,7 +198,7 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID) {
 			c.state = StateClosed
 			c.consecutiveFails = 0
 			c.halfOpenProbes = 0
-			log.Printf("[circuit-breaker] provider=%s state=half-open→closed (probe succeeded)", providerID)
+			debuglog.Info("circuit-breaker: provider state=half-open→closed (probe succeeded)", "provider", providerID)
 			cb.publishEvent(providerID, "closed", c)
 		}
 	}

@@ -200,6 +200,7 @@ func TestWriteJSONCreated_EncodingError(t *testing.T) {
 		t.Errorf("expected status %d (WriteHeader called before encoding), got %d", http.StatusCreated, w.Code)
 	}
 }
+
 // ---------------------------------------------------------------------------
 // respondError tests
 // ---------------------------------------------------------------------------

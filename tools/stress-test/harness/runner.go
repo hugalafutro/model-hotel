@@ -2,11 +2,11 @@ package harness
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/tools/stress-test/metrics"
 )
 
@@ -66,7 +66,7 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 	// Trigger discovery so the provider's models are registered.
 	// The mock server has a /v1/models endpoint that returns "mock-model".
 	if err := r.admin.TriggerDiscovery(prov.ID); err != nil {
-		log.Printf("[runner] warning: discovery failed (will try to use model anyway): %v", err)
+		debuglog.Warn("runner: discovery failed (will try to use model anyway)", "error", err)
 	}
 
 	r.providerID = prov.ID
@@ -90,7 +90,7 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 		r.keyIDs[i] = vk.ID
 	}
 
-	log.Printf("[runner] setup complete: provider=%s, keys=%d, model=%s", prov.ID, numKeys, r.model)
+	debuglog.Info("runner: setup complete", "provider", prov.ID, "keys", numKeys, "model", r.model)
 	return nil
 }
 
@@ -98,15 +98,15 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 func (r *Runner) Cleanup() {
 	for _, id := range r.keyIDs {
 		if err := r.admin.DeleteVirtualKey(id); err != nil {
-			log.Printf("[runner] warning: failed to delete key %s: %v", id, err)
+			debuglog.Warn("runner: failed to delete key", "keyID", id, "error", err)
 		}
 	}
 	if r.providerID != "" {
 		if err := r.admin.DeleteProvider(r.providerID); err != nil {
-			log.Printf("[runner] warning: failed to delete provider %s: %v", r.providerID, err)
+			debuglog.Warn("runner: failed to delete provider", "providerID", r.providerID, "error", err)
 		}
 	}
-	log.Printf("[runner] cleanup complete")
+	debuglog.Info("runner: cleanup complete")
 }
 
 // RunScenario executes a single test scenario and returns the results.
@@ -118,7 +118,7 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 
 	label := fmt.Sprintf("%d-conc, RL=%v, %d-key, stream=%v",
 		cfg.Concurrency, cfg.RateLimitOn, cfg.NumKeys, cfg.Streaming)
-	log.Printf("[runner] starting scenario: %s (%d requests)", label, totalReqs)
+	debuglog.Info("runner: starting scenario", "label", label, "requests", totalReqs)
 
 	// Configure rate limiting
 	if err := r.admin.UpdateSettings(map[string]string{
@@ -126,7 +126,7 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 		"rate_limit_rps":     fmt.Sprintf("%.0f", cfg.RPS),
 		"rate_limit_burst":   fmt.Sprintf("%d", cfg.Burst),
 	}); err != nil {
-		log.Printf("[runner] warning: failed to update rate limit settings: %v", err)
+		debuglog.Warn("runner: failed to update rate limit settings", "error", err)
 	}
 
 	// Brief pause for settings to propagate (the settings API is synchronous
@@ -165,7 +165,7 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 
 			sent := requestsSent.Add(1)
 			if sent%100 == 0 {
-				log.Printf("[runner] %s: %d/%d requests sent", label, sent, totalReqs)
+				debuglog.Info("runner: requests sent", "label", label, "sent", sent, "total", totalReqs)
 			}
 		}(i)
 	}
@@ -173,8 +173,7 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 	wg.Wait()
 	summary := collector.Summarize(wallStart)
 
-	log.Printf("[runner] scenario complete: %s → %d success, %d errors, %.1f req/s",
-		label, summary.SuccessCount, summary.ErrorCount, summary.ThroughputRPS)
+	debuglog.Info("runner: scenario complete", "label", label, "success", summary.SuccessCount, "errors", summary.ErrorCount, "throughputRPS", summary.ThroughputRPS)
 
 	return &ScenarioResult{
 		Config:  cfg,

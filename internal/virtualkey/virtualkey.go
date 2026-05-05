@@ -2,11 +2,12 @@ package virtualkey
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 type VirtualKey struct {
@@ -106,7 +107,7 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 		`UPDATE virtual_keys SET last_used_at = now() WHERE key_hash = $1`,
 		keyHash)
 	if err != nil {
-		log.Printf("[vkey] error: failed to touch last_used_at: %v", err)
+		debuglog.Error("vkey: failed to touch last_used_at", "error", err)
 	}
 	return err
 }

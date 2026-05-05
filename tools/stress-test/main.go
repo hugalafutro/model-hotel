@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/tools/stress-test/harness"
 	"github.com/hugalafutro/model-hotel/tools/stress-test/metrics"
 	"github.com/hugalafutro/model-hotel/tools/stress-test/mock"
@@ -74,17 +75,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Println("╔══════════════════════════════════════════════════════════════╗")
-	log.Println("║  Model Hotel Synthetic Stress Test                          ║")
-	log.Println("╚══════════════════════════════════════════════════════════════╝")
-	log.Printf("Proxy:    %s", *proxyURL)
-	log.Printf("Mock:     :%d", *mockPort)
-	log.Printf("Concurrency levels: %v", concurrencyLevels)
-	log.Printf("Key counts: %v", keyCounts)
-	log.Printf("Rate limit modes: %v", rlModes)
-	log.Printf("Streaming: %v", *streaming)
-	log.Printf("Chunk delay: %dms, chunks: %d, tokens/chunk: %d", *chunkDelay, *chunkCount, *tokensPerChunk)
-	log.Println()
+	debuglog.Info("main: ╔══════════════════════════════════════════════════════════════╗")
+	debuglog.Info("main: ║  Model Hotel Synthetic Stress Test                          ║")
+	debuglog.Info("main: ╚══════════════════════════════════════════════════════════════╝")
+	debuglog.Info("main: Proxy", "url", *proxyURL)
+	debuglog.Info("main: Mock", "port", *mockPort)
+	debuglog.Info("main: Concurrency levels", "levels", concurrencyLevels)
+	debuglog.Info("main: Key counts", "counts", keyCounts)
+	debuglog.Info("main: Rate limit modes", "modes", rlModes)
+	debuglog.Info("main: Streaming", "enabled", *streaming)
+	debuglog.Info("main: Chunk config", "chunkDelay", *chunkDelay, "chunkCount", *chunkCount, "tokensPerChunk", *tokensPerChunk)
 
 	// ── Start mock server ──────────────────────────────────────────
 	mockAddr := fmt.Sprintf(":%d", *mockPort)
@@ -94,12 +94,12 @@ func main() {
 	mockServer.TokensPerChunk = *tokensPerChunk
 	mockServer.InitialDelay = time.Duration(*initialDelay) * time.Millisecond
 
-	log.Println("[main] starting mock upstream server...")
+	debuglog.Info("main: starting mock upstream server...")
 	if err := mockServer.StartAsync(); err != nil {
 		log.Fatalf("Failed to start mock server: %v", err)
 	}
 	defer mockServer.Stop()
-	log.Println("[main] mock server listening on", mockAddr)
+	debuglog.Info("main: mock server listening", "addr", mockAddr)
 
 	// Wait for mock to be ready
 	<-mockServer.Ready()
@@ -112,7 +112,7 @@ func main() {
 				mockServer.RejectParams = append(mockServer.RejectParams, p)
 			}
 		}
-		log.Printf("[main] mock server will reject params: %v", mockServer.RejectParams)
+		debuglog.Info("main: mock server will reject params", "params", mockServer.RejectParams)
 	}
 
 	// ── Create clients ─────────────────────────────────────────────
@@ -130,7 +130,7 @@ func main() {
 	if clientTimeout > 10*time.Minute {
 		clientTimeout = 10 * time.Minute
 	}
-	log.Printf("[main] per-request client timeout: %s", clientTimeout)
+	debuglog.Info("main: per-request client timeout", "timeout", clientTimeout)
 
 	proxyClient := harness.NewProxyClient(*proxyURL, clientTimeout)
 	runner := harness.NewRunner(proxyClient, admin)
@@ -159,7 +159,7 @@ func main() {
 			}
 		}
 		runner.SetExtraParams(extraMap)
-		log.Printf("[main] extra request params: %v", extraMap)
+		debuglog.Info("main: extra request params", "params", extraMap)
 	}
 
 	// ── Determine max keys needed ──────────────────────────────────
@@ -171,7 +171,7 @@ func main() {
 		log.Fatalf("Failed to set up test fixtures: %v", err)
 	}
 	defer func() {
-		log.Println("[main] cleaning up test fixtures...")
+		debuglog.Info("main: cleaning up test fixtures...")
 		runner.Cleanup()
 	}()
 
@@ -195,7 +195,7 @@ func main() {
 		}
 	}
 
-	log.Printf("[main] running %d scenarios...\n", len(scenarios))
+	debuglog.Info("main: running scenarios", "count", len(scenarios))
 
 	// ── Execute scenarios ──────────────────────────────────────────
 	var scenarioReports []metrics.ScenarioReport
@@ -204,7 +204,7 @@ func main() {
 		label := fmt.Sprintf("%d-conc, RL=%v, %d-key, stream=%v",
 			sc.Concurrency, sc.RateLimitOn, sc.NumKeys, sc.Streaming)
 
-		log.Printf("\n[main] ── Scenario %d/%d: %s ──\n", i+1, len(scenarios), label)
+		debuglog.Info("main: scenario", "index", i+1, "total", len(scenarios), "label", label)
 
 		result := runner.RunScenario(sc)
 
@@ -219,7 +219,7 @@ func main() {
 
 		// Cool-down between scenarios
 		if i < len(scenarios)-1 {
-			log.Println("[main] cooling down for 2 seconds...")
+			debuglog.Info("main: cooling down for 2 seconds...")
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -238,7 +238,7 @@ func main() {
 
 	// ── Mock server stats ──────────────────────────────────────────
 	served, failed := mockServer.Stats()
-	log.Printf("[main] mock server stats: %d served, %d failed", served, failed)
+	debuglog.Info("main: mock server stats", "served", served, "failed", failed)
 }
 
 func parseIntList(s string) []int {
@@ -251,7 +251,7 @@ func parseIntList(s string) []int {
 		}
 		v, err := strconv.Atoi(p)
 		if err != nil {
-			log.Printf("warning: ignoring invalid concurrency value %q: %v", p, err)
+			debuglog.Warn("main: ignoring invalid concurrency value", "value", p, "error", err)
 			continue
 		}
 		result = append(result, v)
@@ -266,7 +266,7 @@ func parseBoolList(s string) []bool {
 		p = strings.TrimSpace(p)
 		b, err := strconv.ParseBool(p)
 		if err != nil {
-			log.Printf("warning: ignoring invalid bool value %q: %v", p, err)
+			debuglog.Warn("main: ignoring invalid bool value", "value", p, "error", err)
 			continue
 		}
 		result = append(result, b)

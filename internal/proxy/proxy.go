@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"strings"
@@ -16,11 +15,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
 // providerUnsupportedParams lists OpenAI Chat Completions parameters that are
 // universally unsupported (cause 400 errors) per provider type. These are
 // preemptively stripped from requests to avoid a wasted round-trip.
@@ -128,11 +130,11 @@ logUpdate:
 	}
 	if clientDisconnected {
 		errMsg = "client disconnected"
-		log.Printf("[proxy] warning: client disconnected during streaming, model=%s", logData.modelID)
+		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
 	}
 	if errMsg == "" && !sawDone {
 		errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
-		log.Printf("[proxy] warning: stream ended without [DONE] sentinel, model=%s", logData.modelID)
+		debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID)
 	}
 
 	logData.statusCode = resp.StatusCode
@@ -158,7 +160,7 @@ logUpdate:
 	h.updateRequestLog(r.Context(), logData)
 
 	if errMsg == "" {
-		log.Printf("[proxy] streaming completed, model=%s provider=%s attempt=%d ttft=%.1fms duration=%.1fms", logData.modelID, logData.providerID, attempt, ttft, totalDuration)
+		debuglog.Info("proxy: streaming completed", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
 	}
 
 	if vkHash != "" && !clientDisconnected {
@@ -226,7 +228,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
-			log.Printf("[proxy] error: failed to encode response: %v", err)
+			debuglog.Error("proxy: failed to encode response", "error", err)
 		}
 	} else {
 		body, _ := io.ReadAll(resp.Body)
@@ -244,7 +246,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
-		log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s", resp.StatusCode, logData.modelID, logData.providerID)
+		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID)
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
 }
@@ -260,7 +262,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		var err error
 		bodyBytes, err = io.ReadAll(r.Body)
 		if err != nil {
-			log.Printf("[proxy] warning: failed to read request body: %v", err)
+			debuglog.Warn("proxy: failed to read request body", "error", err)
 			writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 			return
 		}
@@ -269,7 +271,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		log.Printf("[proxy] warning: failed to parse request body: %v", err)
+		debuglog.Warn("proxy: failed to parse request body", "error", err)
 		writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -293,7 +295,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		vkHash = v.(string)
 	}
 
-	log.Printf("[proxy] request start model=%s stream=%v key=%q", req.Model, req.Stream, vkName)
+	debuglog.Info("proxy: request start", "model", req.Model, "stream", req.Stream, "key", vkName)
 
 	logData := &requestLogData{
 		modelID:         req.Model,
@@ -304,7 +306,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		state:           "pending",
 	}
 	if err := h.insertRequestLog(r.Context(), logData); err != nil {
-		log.Printf("[proxy] error: failed to insert initial request log: %v", err)
+		debuglog.Error("proxy: failed to insert initial request log", "error", err)
 	}
 
 	var candidates []modelCandidate
@@ -405,11 +407,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		// Capped at 2s. First attempt (attempt=0) has no delay.
 		if attempt > 0 {
 			backoff := time.Duration(math.Min(float64(100*time.Millisecond)*math.Pow(2, float64(attempt-1)), float64(2*time.Second)))
-			log.Printf("[proxy] failover backoff: waiting %v before attempt %d", backoff, attempt+1)
+			debuglog.Info("proxy: failover backoff", "backoff", backoff, "attempt", attempt+1)
 			select {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
-				log.Printf("[proxy] client disconnected during failover backoff")
+				debuglog.Info("proxy: client disconnected during failover backoff")
 				logData.statusCode = 499
 				logData.errorMessage = "client disconnected during failover"
 				logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
@@ -427,16 +429,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logData.providerID = candidate.provider.ID
-		log.Printf("[proxy] failover attempt=%d provider=%s model=%s", attempt+1, candidate.provider.ID, candidate.model.ModelID)
+		debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.ID, "model", candidate.model.ModelID)
 		go func(pid uuid.UUID) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[proxy] panic in TouchLastUsed (provider): %v", r)
+					debuglog.Error("proxy: panic in TouchLastUsed (provider)", "error", r)
 				}
 			}()
 			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tcancel()
-			_ = h.providerRepo.TouchLastUsed(tctx, pid)
+			if err := h.providerRepo.TouchLastUsed(tctx, pid); err != nil {
+				debuglog.Debug("proxy: failed to touch provider last-used", "error", err)
+			}
 		}(candidate.provider.ID)
 		providerType := provider.DetectProviderType(candidate.provider.BaseURL)
 		targetURL := buildProviderTargetURL(candidate.provider.BaseURL, providerType)
@@ -500,7 +504,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					h.circuitBreaker.RecordFailure(candidate.provider.ID)
 				}
 			} else {
-				log.Printf("[proxy] client disconnected during request to provider=%s model=%s", candidate.provider.ID, req.Model)
+				debuglog.Info("proxy: client disconnected during request to provider", "provider", candidate.provider.ID, "model", req.Model)
 			}
 			continue
 		}
@@ -517,29 +521,29 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 			if readErr == nil {
 				if rejected := parseProviderParamError(body); rejected != nil {
-				// Cache the learned rejections for future preemptive stripping.
-				// Merge with any existing entries using CompareAndSwap to avoid
-				// data races from concurrent goroutines mutating the same map.
-				cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
-				for {
-					existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, rejected)
-					if !loaded {
-						// First entry for this key — we just stored 'rejected'.
-						break
+					// Cache the learned rejections for future preemptive stripping.
+					// Merge with any existing entries using CompareAndSwap to avoid
+					// data races from concurrent goroutines mutating the same map.
+					cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
+					for {
+						existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, rejected)
+						if !loaded {
+							// First entry for this key — we just stored 'rejected'.
+							break
+						}
+						// Merge with existing, creating a new map to avoid data races.
+						merged := make(map[string]bool)
+						for k := range existing.(map[string]bool) {
+							merged[k] = true
+						}
+						for k := range rejected {
+							merged[k] = true
+						}
+						if h.deprecationCache.CompareAndSwap(cacheKey, existing, merged) {
+							break
+						}
+						// CompareAndSwap failed — another goroutine updated it, retry.
 					}
-					// Merge with existing, creating a new map to avoid data races.
-					merged := make(map[string]bool)
-					for k := range existing.(map[string]bool) {
-						merged[k] = true
-					}
-					for k := range rejected {
-						merged[k] = true
-					}
-					if h.deprecationCache.CompareAndSwap(cacheKey, existing, merged) {
-						break
-					}
-					// CompareAndSwap failed — another goroutine updated it, retry.
-				}
 					// Rebuild the request body without rejected params
 					var raw map[string]interface{}
 					if json.Unmarshal(proxyReqBody, &raw) == nil {
@@ -571,7 +575,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 								continue
 							}
 							// Successfully retried — fall through to normal response handling
-							log.Printf("[proxy] auto-retry succeeded for model=%s after stripping rejected params: %v", candidate.model.ModelID, mapKeys(rejected))
+							debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
 						}
 					}
 				}
@@ -602,7 +606,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
-			log.Printf("[proxy] failover triggered: attempt=%d provider=%s status=%d", attempt+1, candidate.provider.ID, resp.StatusCode)
+			debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt
 			continue
 		}
@@ -611,7 +615,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			errMsg := util.SanitizeLogBody(string(body), 2000)
-			log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s body=%s", resp.StatusCode, req.Model, candidate.provider.ID, errMsg)
+			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body", errMsg)
 			logData.statusCode = resp.StatusCode
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.proxyOverheadMs = proxyOverhead
@@ -648,7 +652,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[proxy] error: all providers exhausted for model=%s: %s", req.Model, lastErr)
+	debuglog.Error("proxy: all providers exhausted", "model", req.Model, "error", lastErr)
 	logData.providerID = uuid.Nil
 	logData.statusCode = 502
 	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0

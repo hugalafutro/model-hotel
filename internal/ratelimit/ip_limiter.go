@@ -1,7 +1,6 @@
 package ratelimit
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -77,7 +77,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
 			l.writeHeaders(w, entry.limiter, 0)
-			log.Printf("[ratelimit-ip] warning: rate limit exceeded for IP %s", ip)
+			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
@@ -86,7 +86,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		if delay > 0 {
 			reservation.Cancel()
 			l.writeHeaders(w, entry.limiter, delay)
-			log.Printf("[ratelimit-ip] warning: rate limit exceeded for IP %s", ip)
+			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
