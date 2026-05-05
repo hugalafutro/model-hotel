@@ -372,69 +372,44 @@ function SystemStatus() {
 							</span>
 						</div>
 
-						{/* DB Row 1: size, connections, cache hit */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title="Postgres database size, active connections, and buffer cache hit ratio"
-						>
-							<span>DB</span>
-							<span>
-								{stats?.db ? (
-									<>
-										<span className="text-(--text-secondary)">
-											{formatMB(stats.db.size_mb)}
-										</span>
-										<span className="text-(--text-secondary) mx-1">|</span>
-										<span className="text-(--text-secondary)">
-											{stats.db.connections}
-											<span className={u}> conn</span>
-										</span>
-										<span className="text-(--text-secondary) mx-1">|</span>
-										<span
-											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}
-										>
-											Hit {stats.db.cache_hit_ratio}
-											<span className={u}>%</span>
-										</span>
-									</>
-								) : (
-									dash
-								)}
-							</span>
-						</div>
-
-						{/* DB Row 2: tx/sec, dead tuples, lock waits */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary) -mt-px"
-							title="Database transactions/sec, accumulated dead tuples (autovacuum lag), and blocked lock waits"
-						>
-							<span className="invisible">DB</span>
-							<span>
-								{stats?.db ? (
-									<>
-										<span className="text-(--text-secondary)">
-											{stats.db.tx_per_sec.toFixed(1)}
-											<span className={u}> tx/s</span>
-										</span>
-										<span className="text-(--text-secondary) mx-1">|</span>
-										<span
-											className={`text-(--text-secondary) ${dc(stats.db.dead_tuples, 10000, 50000)}`}
-										>
-											{stats.db.dead_tuples.toLocaleString()}
-											<span className={u}> dead</span>
-										</span>
-										<span className="text-(--text-secondary) mx-1">|</span>
-										<span
-											className={`text-(--text-secondary) ${dc(stats.db.lock_waits, 5, 20)}`}
-										>
-											{stats.db.lock_waits}
-											<span className={u}> locks</span>
-										</span>
-									</>
-								) : (
-									dash
-								)}
-							</span>
+						{/* DB: size & hit ratio / connections & tx/sec */}
+						<div className="grid grid-cols-[auto_1fr_auto_1fr] grid-rows-[auto_auto] gap-x-1 items-center text-(--text-tertiary)">
+							<span className="row-span-2 self-center">DB</span>
+							{stats?.db ? (
+								<>
+									<span
+										className="text-(--text-secondary)"
+										title="Postgres database size on disk"
+									>
+										{formatMB(stats.db.size_mb)}
+									</span>
+									<span className="text-(--text-secondary)">|</span>
+									<span
+										className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}
+										title="Buffer cache hit ratio (higher is better)"
+									>
+										Hit {stats.db.cache_hit_ratio}
+										<span className={u}>%</span>
+									</span>
+									<span
+										className="text-(--text-secondary)"
+										title="Active database connections"
+									>
+										{stats.db.connections}
+										<span className={u}> conn</span>
+									</span>
+									<span className="text-(--text-secondary)">|</span>
+									<span
+										className="text-(--text-secondary)"
+										title="Database transactions per second"
+									>
+										{stats.db.tx_per_sec.toFixed(1)}
+										<span className={u}> tx/s</span>
+									</span>
+								</>
+							) : (
+								<span className="col-span-3 row-span-2">{dash}</span>
+							)}
 						</div>
 					</div>
 				</div>
