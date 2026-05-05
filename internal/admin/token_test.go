@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,8 +38,8 @@ func TestNewCreatesHashedToken(t *testing.T) {
 		t.Fatalf("Failed to read token file: %v", err)
 	}
 
-	if len(data) != 64 {
-		t.Errorf("Stored token should be 64-char SHA-256 hash, got %d chars", len(data))
+	if !strings.HasPrefix(string(data), sha256Prefix) {
+		t.Errorf("Stored token should have %q prefix, got %q", sha256Prefix, string(data))
 	}
 	if string(data) == token {
 		t.Error("Stored file should NOT contain the plaintext token")
@@ -151,8 +152,11 @@ func TestLegacyPlaintextMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read migrated token file: %v", err)
 	}
-	if len(data) != 64 {
-		t.Errorf("Migrated file should be 64-char hash, got %d chars", len(data))
+	if !strings.HasPrefix(string(data), sha256Prefix) {
+		t.Errorf("Migrated file should have %q prefix, got %q", sha256Prefix, string(data))
+	}
+	if len(data) != len(sha256Prefix)+64 {
+		t.Errorf("Migrated file should be %d chars (prefix + hash), got %d chars", len(sha256Prefix)+64, len(data))
 	}
 
 	mgr2, _, err := New(tmpDir, "")
@@ -267,8 +271,11 @@ func TestNewWithExplicitToken(t *testing.T) {
 	if string(data) == explicitToken {
 		t.Error("Stored file should NOT contain the plaintext token")
 	}
-	if len(data) != 64 {
-		t.Errorf("Stored token should be 64-char SHA-256 hash, got %d chars", len(data))
+	if !strings.HasPrefix(string(data), sha256Prefix) {
+		t.Errorf("Stored token should have %q prefix, got %q", sha256Prefix, string(data))
+	}
+	if len(data) != len(sha256Prefix)+64 {
+		t.Errorf("Stored token should be %d chars (prefix + 64-char hash), got %d", len(sha256Prefix)+64, len(data))
 	}
 
 	// Verify the token persists across reload (and explicit token is ignored on reload)
@@ -287,5 +294,209 @@ func TestNewWithExplicitToken(t *testing.T) {
 
 	if mgr2.Validate("some-other-token") {
 		t.Error("Ignored explicit token on reload should NOT validate")
+	}
+}
+
+// --- New tests for sha256: prefix format ---
+
+func TestNewCreatesTokenWithSha256Prefix(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mgr, _, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("Failed to read token file: %v", err)
+	}
+	content := string(data)
+	if !strings.HasPrefix(content, sha256Prefix) {
+		t.Errorf("Newly created token file should start with %q, got %q", sha256Prefix, content)
+	}
+	if len(content) != len(sha256Prefix)+64 {
+		t.Errorf("File content should be %d chars (prefix + 64-char hash), got %d", len(sha256Prefix)+64, len(content))
+	}
+	if !mgr.Validate(mgr.Token()) {
+		t.Error("Token should validate")
+	}
+}
+
+func TestSha256PrefixedFileReadAsHash(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write a sha256: prefixed hash directly
+	hashHex := hex.EncodeToString(make([]byte, 32))
+	content := sha256Prefix + hashHex
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	if err := os.WriteFile(tokenPath, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write token file: %v", err)
+	}
+
+	mgr, isNew, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	if isNew {
+		t.Error("Prefixed hash file should not be treated as new")
+	}
+
+	// File should not be modified (not re-hashed)
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("Failed to read token file: %v", err)
+	}
+	if string(data) != content {
+		t.Errorf("File should remain unchanged, got %q", string(data))
+	}
+
+	// Token() should be empty (no plaintext available)
+	if mgr.Token() != "" {
+		t.Error("Token() should be empty when loading from stored hash")
+	}
+}
+
+func TestLegacyBare64HexFileStillWorks(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write a bare 64-char hex hash (legacy format, no prefix)
+	hashHex := hex.EncodeToString(make([]byte, 32))
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	if err := os.WriteFile(tokenPath, []byte(hashHex), 0600); err != nil {
+		t.Fatalf("Failed to write token file: %v", err)
+	}
+
+	mgr, isNew, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	if isNew {
+		t.Error("Legacy bare hash file should not be treated as new")
+	}
+
+	// File should not be modified (backward compat — keep as-is)
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("Failed to read token file: %v", err)
+	}
+	if string(data) != hashHex {
+		t.Error("Legacy bare hash file should not be rewritten")
+	}
+
+	// We can't validate against a known token since we don't know the plaintext,
+	// but we can confirm the manager loaded the hash and Token() is empty
+	if mgr.Token() != "" {
+		t.Error("Token() should be empty when loading from stored hash")
+	}
+}
+
+func TestValidateTokenWithPrefixedAndLegacyFormat(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a token, get the plaintext
+	mgr1, _, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("First New() failed: %v", err)
+	}
+	token := mgr1.Token()
+
+	// Read the file — should be sha256: prefixed now
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("Failed to read token file: %v", err)
+	}
+	if !strings.HasPrefix(string(data), sha256Prefix) {
+		t.Fatal("Expected sha256: prefixed file from new creation")
+	}
+
+	// Validate works with sha256: prefixed format
+	if !mgr1.Validate(token) {
+		t.Error("Validate should work with sha256: prefixed format")
+	}
+
+	// Now simulate a legacy bare hash file: write the hash without prefix
+	hashPart := string(data[len(sha256Prefix):])
+	if err := os.WriteFile(tokenPath, []byte(hashPart), 0600); err != nil {
+		t.Fatalf("Failed to write legacy format: %v", err)
+	}
+
+	mgr2, _, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("Second New() failed: %v", err)
+	}
+
+	// Validate still works with legacy bare hash
+	if !mgr2.Validate(token) {
+		t.Error("Validate should work with legacy bare hash format")
+	}
+	if mgr2.Validate("wrong-token") {
+		t.Error("Wrong token should not validate")
+	}
+}
+
+func TestPlaintextTokenGetsHashedAndRewrittenWithPrefix(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write a non-64-char plaintext token
+	plaintext := "my-plaintext-test-token"
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	if err := os.WriteFile(tokenPath, []byte(plaintext), 0600); err != nil {
+		t.Fatalf("Failed to write plaintext token: %v", err)
+	}
+
+	mgr, isNew, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	if isNew {
+		t.Error("Plaintext token file should not be treated as new")
+	}
+
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("Failed to read token file: %v", err)
+	}
+	content := string(data)
+	if !strings.HasPrefix(content, sha256Prefix) {
+		t.Errorf("Rewritten file should have %q prefix, got %q", sha256Prefix, content)
+	}
+	if len(content) != len(sha256Prefix)+64 {
+		t.Errorf("Rewritten file should be %d chars, got %d", len(sha256Prefix)+64, len(content))
+	}
+
+	// Token() should be empty (plaintext not stored)
+	if mgr.Token() != "" {
+		t.Error("Token() should be empty after migration")
+	}
+
+	// Validate should work against the original plaintext
+	if !mgr.Validate(plaintext) {
+		t.Error("Original plaintext should validate after migration")
 	}
 }

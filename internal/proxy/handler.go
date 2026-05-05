@@ -65,6 +65,7 @@ func NewHandler(
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...)).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       90 * time.Second,
 		},

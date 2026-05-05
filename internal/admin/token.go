@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 )
 
 const tokenLength = 32
+const sha256Prefix = "sha256:"
 
 type Manager struct {
 	dataDir    string
@@ -57,6 +59,8 @@ func (m *Manager) Validate(token string) bool {
 	}
 	hash := sha256.Sum256([]byte(token))
 	hashHex := hex.EncodeToString(hash[:])
+
+	// tokenHash is always stored without the sha256: prefix (see loadOrCreateToken)
 	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(m.tokenHash)) == 1
 }
 
@@ -76,13 +80,22 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash string, plai
 		return m.createAndSaveToken(tokenPath, initialToken)
 	}
 
+	// sha256: prefix format
+	if strings.HasPrefix(content, sha256Prefix) {
+		return content[len(sha256Prefix):], "", false, nil
+	}
+
+	// Legacy: bare 64-char hex hash (no prefix). Not migrated to sha256:
+	// prefix to avoid rewriting a file that already stores a valid hash.
 	if len(content) == 64 {
 		return content, "", false, nil
 	}
 
+	// Plaintext: hash and rewrite with sha256: prefix
 	hash := sha256.Sum256([]byte(content))
 	hashHex := hex.EncodeToString(hash[:])
-	if err := os.WriteFile(tokenPath, []byte(hashHex), 0600); err != nil {
+	prefixed := sha256Prefix + hashHex
+	if err := os.WriteFile(tokenPath, []byte(prefixed), 0600); err != nil {
 		return "", "", false, fmt.Errorf("failed to migrate token file: %w", err)
 	}
 
@@ -103,8 +116,9 @@ func (m *Manager) createAndSaveToken(tokenPath string, initialToken string) (tok
 
 	hash := sha256.Sum256([]byte(plain))
 	hashHex := hex.EncodeToString(hash[:])
+	prefixed := sha256Prefix + hashHex
 
-	if err := os.WriteFile(tokenPath, []byte(hashHex), 0600); err != nil {
+	if err := os.WriteFile(tokenPath, []byte(prefixed), 0600); err != nil {
 		return "", "", false, fmt.Errorf("failed to write token file: %w", err)
 	}
 

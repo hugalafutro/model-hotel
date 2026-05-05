@@ -159,14 +159,13 @@ func main() {
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
 	defer rateLimiter.Stop()
 
-	ipLimiter := ratelimit.NewIPLimiter(cfg.RateLimitIPRPS, cfg.RateLimitIPBurst)
+	ipLimiter := ratelimit.NewIPLimiter(cfg.RateLimitIPRPS, cfg.RateLimitIPBurst, cfg.TrustedProxies)
 	defer ipLimiter.Stop()
 
 	r := chi.NewRouter()
 
 	// Global middleware
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(silentLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))

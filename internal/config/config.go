@@ -31,6 +31,7 @@ type Config struct {
 	DBMinConns           int32
 	ModelsDevEnabled     bool
 	DebugLog             bool
+	TrustedProxies       []*net.IPNet
 }
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
@@ -49,6 +50,11 @@ var defaultKnownProviderHosts = []string{
 	"api.cohere.com",
 	"api.cohere.ai",
 	"openrouter.ai",
+}
+
+// KnownProviderHosts returns the built-in provider host allowlist.
+func KnownProviderHosts() []string {
+	return append([]string{}, defaultKnownProviderHosts...)
 }
 
 func Load() (*Config, error) {
@@ -74,6 +80,7 @@ func Load() (*Config, error) {
 		DBMinConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
 		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
 		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
+		TrustedProxies:       LoadTrustedProxies(),
 	}
 
 	if cfg.DatabaseURL == "" {

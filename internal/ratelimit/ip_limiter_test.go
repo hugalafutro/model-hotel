@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -16,7 +17,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
-	lim := NewIPLimiter(10, 5)
+	lim := NewIPLimiter(10, 5, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +37,7 @@ func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
 }
 
 func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
-	lim := NewIPLimiter(10, 3)
+	lim := NewIPLimiter(10, 3, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +65,7 @@ func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
 }
 
 func TestIPLimiter_PerIPIsolation(t *testing.T) {
-	lim := NewIPLimiter(10, 2)
+	lim := NewIPLimiter(10, 2, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +99,7 @@ func TestIPLimiter_PerIPIsolation(t *testing.T) {
 }
 
 func TestIPLimiter_HeadersOnSuccess(t *testing.T) {
-	lim := NewIPLimiter(10, 20)
+	lim := NewIPLimiter(10, 20, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +127,7 @@ func TestIPLimiter_HeadersOnSuccess(t *testing.T) {
 }
 
 func TestIPLimiter_RetryAfterOn429(t *testing.T) {
-	lim := NewIPLimiter(1, 1)
+	lim := NewIPLimiter(1, 1, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +153,7 @@ func TestIPLimiter_RetryAfterOn429(t *testing.T) {
 }
 
 func TestIPLimiter_DefaultsWhenZero(t *testing.T) {
-	lim := NewIPLimiter(0, 0)
+	lim := NewIPLimiter(0, 0, nil)
 	defer lim.Stop()
 	if lim.rps != defaultIPRPS {
 		t.Errorf("rps = %v, want %v", lim.rps, defaultIPRPS)
@@ -163,7 +164,7 @@ func TestIPLimiter_DefaultsWhenZero(t *testing.T) {
 }
 
 func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
-	lim := NewIPLimiter(10, 20)
+	lim := NewIPLimiter(10, 20, nil)
 	defer lim.Stop()
 
 	lim.mu.Lock()
@@ -196,7 +197,7 @@ func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
 func TestExtractClientIP_RemoteAddr(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", nil)
 	r.RemoteAddr = "192.168.1.1:54321"
-	ip := extractClientIP(r)
+	ip := extractClientIP(r, nil)
 	if ip != "192.168.1.1" {
 		t.Errorf("expected 192.168.1.1, got %q", ip)
 	}
@@ -205,63 +206,107 @@ func TestExtractClientIP_RemoteAddr(t *testing.T) {
 func TestExtractClientIP_RemoteAddrNoPort(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", nil)
 	r.RemoteAddr = "192.168.1.1"
-	ip := extractClientIP(r)
-	// Should return the original string when SplitHostPort fails
+	ip := extractClientIP(r, nil)
 	if ip != "192.168.1.1" {
 		t.Errorf("expected 192.168.1.1, got %q", ip)
 	}
 }
 
-func TestExtractClientIP_XRealIP(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
-	r.RemoteAddr = "10.0.0.1:1234"
-	r.Header.Set("X-Real-IP", "8.8.8.8")
-	ip := extractClientIP(r)
-	if ip != "8.8.8.8" {
-		t.Errorf("expected 8.8.8.8 from X-Real-IP, got %q", ip)
-	}
-}
-
-func TestExtractClientIP_XForwardedFor(t *testing.T) {
+func TestExtractClientIP_XFFIgnoredWhenUntrusted(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", nil)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2, 3.3.3.3")
-	ip := extractClientIP(r)
-	if ip != "1.1.1.1" {
-		t.Errorf("expected first IP from X-Forwarded-For, got %q", ip)
+	// nil trustedProxies means header is ignored
+	ip := extractClientIP(r, nil)
+	if ip != "10.0.0.1" {
+		t.Errorf("expected RemoteAddr when no trusted proxies, got %q", ip)
 	}
 }
 
-func TestExtractClientIP_XForwardedForPriority(t *testing.T) {
+func TestExtractClientIP_XRealIPIgnoredWhenUntrusted(t *testing.T) {
+	r := httptest.NewRequest("POST", "/", nil)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Real-IP", "8.8.8.8")
+	ip := extractClientIP(r, nil)
+	if ip != "10.0.0.1" {
+		t.Errorf("expected RemoteAddr when no trusted proxies, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XFFHonoredWhenTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", nil)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2")
+	ip := extractClientIP(r, trusted)
+	if ip != "1.1.1.1" {
+		t.Errorf("expected first XFF IP when trusted, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XRealIPHonoredWhenTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", nil)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Real-IP", "8.8.8.8")
+	ip := extractClientIP(r, trusted)
+	if ip != "8.8.8.8" {
+		t.Errorf("expected X-Real-IP when trusted, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XFFPriorityWhenTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
 	r := httptest.NewRequest("POST", "/", nil)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "4.4.4.4")
 	r.Header.Set("X-Real-IP", "5.5.5.5")
-	ip := extractClientIP(r)
-	// X-Forwarded-For takes priority over X-Real-IP
+	ip := extractClientIP(r, trusted)
 	if ip != "4.4.4.4" {
-		t.Errorf("X-Forwarded-For should take priority, got %q", ip)
+		t.Errorf("X-Forwarded-For should take priority when trusted, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_HeadersIgnoredWhenRemoteNotTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", nil)
+	r.RemoteAddr = "192.168.1.1:1234" // not in trusted CIDR
+	r.Header.Set("X-Forwarded-For", "1.1.1.1")
+	r.Header.Set("X-Real-IP", "2.2.2.2")
+	ip := extractClientIP(r, trusted)
+	if ip != "192.168.1.1" {
+		t.Errorf("expected RemoteAddr when remote not trusted, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_EmptyXFFWhenTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", nil)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "")
+	r.Header.Set("X-Real-IP", "9.9.9.9")
+	ip := extractClientIP(r, trusted)
+	if ip != "9.9.9.9" {
+		t.Errorf("expected fallback to X-Real-IP when trusted, got %q", ip)
 	}
 }
 
 func TestExtractClientIP_IPv6(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", nil)
 	r.RemoteAddr = "[::1]:12345"
-	ip := extractClientIP(r)
+	ip := extractClientIP(r, nil)
 	if ip != "::1" {
 		t.Errorf("expected ::1 for IPv6, got %q", ip)
-	}
-}
-
-func TestExtractClientIP_EmptyXFF(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
-	r.RemoteAddr = "10.0.0.1:1234"
-	r.Header.Set("X-Forwarded-For", "")
-	r.Header.Set("X-Real-IP", "9.9.9.9")
-	ip := extractClientIP(r)
-	// Empty XFF should fall through to X-Real-IP
-	if ip != "9.9.9.9" {
-		t.Errorf("expected fallback to X-Real-IP, got %q", ip)
 	}
 }
 
@@ -270,7 +315,7 @@ func TestExtractClientIP_EmptyXFF(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIPLimiter_ConcurrentAccess(t *testing.T) {
-	lim := NewIPLimiter(1000, 1000)
+	lim := NewIPLimiter(1000, 1000, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

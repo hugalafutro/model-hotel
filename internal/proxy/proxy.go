@@ -68,6 +68,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	flusher, canFlush := w.(http.Flusher)
 
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
 	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerID)
 	var promptTokens, completionTokens int
 	var promptCacheHitTokens, promptCacheMissTokens int
@@ -88,9 +89,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		default:
 		}
 
-		if canFlush {
-			flusher.Flush()
-		}
 		_, _ = w.Write(line)
 		_, _ = w.Write([]byte("\n"))
 		if canFlush {

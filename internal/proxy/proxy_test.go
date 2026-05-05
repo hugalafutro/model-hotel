@@ -53,7 +53,7 @@ func newIntegrationHandler() *Handler {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
 	return &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key-for-proxy-tests"},
 		settingsRepo:   settingsRepo,
@@ -314,7 +314,7 @@ func TestFailoverBackoff_Sequence(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestProxyKeyMiddleware_MissingHeader(t *testing.T) {
-	h := &Handler{cfg: &config.Config{MasterKey: "test"}, ipLimiter: ratelimit.NewIPLimiter(30, 60)}
+	h := &Handler{cfg: &config.Config{MasterKey: "test"}, ipLimiter: ratelimit.NewIPLimiter(30, 60, nil)}
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -334,7 +334,7 @@ func TestProxyKeyMiddleware_MissingHeader(t *testing.T) {
 }
 
 func TestProxyKeyMiddleware_InvalidScheme(t *testing.T) {
-	h := &Handler{cfg: &config.Config{MasterKey: "test"}, ipLimiter: ratelimit.NewIPLimiter(30, 60)}
+	h := &Handler{cfg: &config.Config{MasterKey: "test"}, ipLimiter: ratelimit.NewIPLimiter(30, 60, nil)}
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true

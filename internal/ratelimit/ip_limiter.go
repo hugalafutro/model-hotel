@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -34,17 +35,18 @@ type ipEntry struct {
 // It should be mounted BEFORE the auth middleware so it catches
 // unauthenticated floods (brute-force key guessing, etc.).
 type IPLimiter struct {
-	mu       sync.Mutex
-	limiters map[string]*ipEntry
-	rps      float64
-	burst    int
-	stopCh   chan struct{}
+	mu             sync.Mutex
+	limiters       map[string]*ipEntry
+	rps            float64
+	burst          int
+	stopCh         chan struct{}
+	trustedProxies []*net.IPNet
 }
 
 // NewIPLimiter creates an IP rate limiter. If rps <= 0, the limiter
 // is effectively unlimited (extremely high rate). A background goroutine
 // cleans up entries idle for 10 minutes.
-func NewIPLimiter(rps float64, burst int) *IPLimiter {
+func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet) *IPLimiter {
 	if rps <= 0 {
 		rps = defaultIPRPS
 	}
@@ -52,10 +54,11 @@ func NewIPLimiter(rps float64, burst int) *IPLimiter {
 		burst = defaultIPBurst
 	}
 	l := &IPLimiter{
-		limiters: make(map[string]*ipEntry),
-		rps:      rps,
-		burst:    burst,
-		stopCh:   make(chan struct{}),
+		limiters:       make(map[string]*ipEntry),
+		rps:            rps,
+		burst:          burst,
+		stopCh:         make(chan struct{}),
+		trustedProxies: trustedProxies,
 	}
 	go l.cleanupLoop()
 	return l
@@ -71,7 +74,7 @@ func (l *IPLimiter) Stop() {
 // and sets Retry-After and X-RateLimit-* headers.
 func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := extractClientIP(r)
+		ip := extractClientIP(r, l.trustedProxies)
 		entry := l.getLimiter(ip)
 
 		reservation := entry.limiter.Reserve()
@@ -149,18 +152,22 @@ func (l *IPLimiter) cleanup() {
 }
 
 // extractClientIP determines the client IP from the request.
-// Priority: X-Forwarded-For (first entry) > X-Real-IP > RemoteAddr.
-// The port is stripped from RemoteAddr if present.
-func extractClientIP(r *http.Request) string {
-	// X-Forwarded-For may contain a comma-separated chain; the first
-	// entry is the original client.
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if ip := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0]); ip != "" {
-			return ip
+// When trustedProxies is non-empty and contains the RemoteAddr, X-Forwarded-For
+// and X-Real-IP headers are honoured. Otherwise, only RemoteAddr is used.
+func extractClientIP(r *http.Request, trustedProxies []*net.IPNet) string {
+	if len(trustedProxies) > 0 {
+		if config.IsTrustedProxy(r.RemoteAddr, trustedProxies) {
+			// X-Forwarded-For may contain a comma-separated chain; the first
+			// entry is the original client.
+			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+				if ip := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0]); ip != "" {
+					return ip
+				}
+			}
+			if xri := r.Header.Get("X-Real-IP"); xri != "" {
+				return strings.TrimSpace(xri)
+			}
 		}
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return strings.TrimSpace(xri)
 	}
 	// RemoteAddr includes port for TCP connections — strip it.
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
