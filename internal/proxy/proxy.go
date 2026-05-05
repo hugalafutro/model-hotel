@@ -68,6 +68,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
 	clientDisconnected := false
+	sawDone := false
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -91,6 +92,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		if strings.HasPrefix(string(line), "data: ") {
 			payload := strings.TrimPrefix(string(line), "data: ")
 			if payload == "[DONE]" {
+				sawDone = true
 				break
 			}
 			var chunk struct {
@@ -127,6 +129,10 @@ logUpdate:
 	if clientDisconnected {
 		errMsg = "client disconnected"
 		log.Printf("[proxy] warning: client disconnected during streaming, model=%s", logData.modelID)
+	}
+	if errMsg == "" && !sawDone {
+		errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
+		log.Printf("[proxy] warning: stream ended without [DONE] sentinel, model=%s", logData.modelID)
 	}
 
 	logData.statusCode = resp.StatusCode

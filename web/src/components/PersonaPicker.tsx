@@ -34,7 +34,7 @@ export function PersonaPicker({
 	onActivePersonaChange,
 	onSystemPromptChange,
 	label = "Persona",
-	textareaPlaceholder = "Enter your custom prompt here…",
+	textareaPlaceholder = "Enter custom persona for AI here…",
 	className,
 	disabled = false,
 	onRandom,

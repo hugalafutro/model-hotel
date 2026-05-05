@@ -27,20 +27,30 @@ export interface StreamChunk {
  * - AbortSignal support
  * - Silent JSON parse errors (matching existing behavior)
  */
+/** Whether the stream ended via a `[DONE]` sentinel, was aborted, or ended without one. */
+export type StreamCompletion = {
+	/** True if the stream ended with a `[DONE]` sentinel (normal completion). */
+	sawDone: boolean;
+	/** True if the stream was aborted via AbortSignal. */
+	aborted: boolean;
+};
+
 export async function readSSEStream<T = unknown>(opts: {
 	reader: ReadableStreamDefaultReader<Uint8Array>;
 	signal?: AbortSignal;
 	onChunk: (parsed: T) => void;
 	/** Set to null to skip sentinel check. Defaults to "[DONE]". */
 	doneSentinel?: string | null;
-}): Promise<void> {
+}): Promise<StreamCompletion> {
 	const { reader, signal, onChunk, doneSentinel = "[DONE]" } = opts;
 	const decoder = new TextDecoder();
 	let buffer = "";
+	let sawDone = false;
 
 	while (true) {
 		const { done, value } = await reader.read();
-		if (done || signal?.aborted) break;
+		if (signal?.aborted) break;
+		if (done) break;
 
 		buffer += decoder.decode(value, { stream: true });
 		const lines = buffer.split("\n");
@@ -60,6 +70,11 @@ export async function readSSEStream<T = unknown>(opts: {
 				// ignore malformed JSON
 			}
 		}
-		if (streamDone) break;
+		if (streamDone) {
+			sawDone = !signal?.aborted;
+			break;
+		}
 	}
+
+	return { sawDone, aborted: !!signal?.aborted };
 }

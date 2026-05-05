@@ -1,13 +1,4 @@
-import {
-	Bot,
-	Clock,
-	Copy,
-	Info,
-	Maximize2,
-	Settings,
-	X,
-	Zap,
-} from "lucide-react";
+import { Bot, Clock, Copy, Info, Maximize2, Settings, Zap } from "lucide-react";
 import { memo, type ReactNode, useEffect, useState } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
@@ -401,14 +392,6 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								title="Copy"
 							>
 								<Copy size={16} />
-							</button>
-							<button
-								type="button"
-								onClick={() => setMaximized(false)}
-								className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
-								title="Close"
-							>
-								<X size={18} />
 							</button>
 						</div>
 					</div>

@@ -362,11 +362,12 @@ export function Arena() {
 	}, [arenaMode]);
 
 	useEffect(() => {
+		const map = abortMapRef.current;
 		return () => {
-			for (const [, ctrl] of abortMapRef.current) {
+			for (const [, ctrl] of map) {
 				ctrl.abort();
 			}
-			abortMapRef.current.clear();
+			map.clear();
 		};
 	}, []);
 
@@ -645,7 +646,7 @@ export function Arena() {
 					const reader = resp.body?.getReader();
 					if (!reader) throw new Error("No readable stream");
 
-					await readSSEStream<StreamChunk>({
+					const completion = await readSSEStream<StreamChunk>({
 						reader,
 						signal: abortCtrl.signal,
 						onChunk(chunk) {
@@ -720,6 +721,11 @@ export function Arena() {
 					const charsPerSecond =
 						durationMs > 0 ? charCount / (durationMs / 1000) : null;
 
+					const truncationError: string | null =
+						!completion.sawDone && !completion.aborted
+							? "Stream was cut off — the response may be incomplete."
+							: null;
+
 					setRounds(
 						produce((draft) => {
 							if (draft[roundIdx]?.matchups[matchupIdx]) {
@@ -728,6 +734,7 @@ export function Arena() {
 								mu[respKey] = {
 									...(mu[respKey] as ArenaResponse),
 									done: true,
+									error: truncationError,
 									metrics: {
 										charsPerSecond,
 										durationMs: Math.round(durationMs),

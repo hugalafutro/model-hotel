@@ -135,7 +135,7 @@ async function streamModelResponse(
 		const reader = resp.body?.getReader();
 		if (!reader) throw new Error("No readable stream");
 
-		await readSSEStream<StreamChunk>({
+		const completion = await readSSEStream<StreamChunk>({
 			reader,
 			signal: abortCtrl.signal,
 			onChunk: (chunk) => {
@@ -162,6 +162,23 @@ async function streamModelResponse(
 				}
 			},
 		});
+		if (!completion.sawDone && !completion.aborted) {
+			const durationMs = Math.round(performance.now() - startTime);
+			const charsPerSecond =
+				durationMs > 0 ? charCount / (durationMs / 1000) : null;
+			return {
+				rawContent,
+				content,
+				thinkingContent,
+				error: content
+					? "Stream was cut off — the response may be incomplete."
+					: "Stream ended unexpectedly with no content.",
+				durationMs,
+				charsPerSecond,
+				promptTokens,
+				completionTokens,
+			};
+		}
 	} catch (err) {
 		const errorMsg = err instanceof Error ? err.message : "Unknown error";
 		return {
