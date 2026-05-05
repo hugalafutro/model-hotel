@@ -474,7 +474,11 @@ export function Arena() {
 			}
 			if (!prompt.trim()) return "Enter a prompt";
 		}
-		if (phase === "voting") return "Vote on all matchups to continue";
+		if (phase === "voting")
+			return "Vote on all matchups to continue to the next round";
+		if (phase === "next_round_ready") {
+			if (!prompt.trim()) return "Enter a prompt for the next round";
+		}
 		return "";
 	}, [phase, arenaMode, compareModels, bracketModels, prompt]);
 
@@ -1628,6 +1632,22 @@ export function Arena() {
 						)}
 						{phase === "setup" && !canRun && disabledReason && (
 							<p className="text-xs text-amber-400 mt-1.5">{disabledReason}</p>
+						)}
+						{phase === "running" && (
+							<p className="text-xs text-(--text-muted) mt-1.5">
+								<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse inline-block mr-1.5 align-middle" />
+								Models are generating — click Stop to cancel
+							</p>
+						)}
+						{phase === "voting" && (
+							<p className="text-xs text-amber-400 mt-1.5">
+								Vote on all matchups to continue to the next round
+							</p>
+						)}
+						{phase === "next_round_ready" && !canRun && (
+							<p className="text-xs text-amber-400 mt-1.5">
+								{disabledReason || "Start the next round when ready"}
+							</p>
 						)}
 					</div>
 				</div>

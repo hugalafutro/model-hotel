@@ -1030,6 +1030,23 @@ export function Chat() {
 		!!input.trim() &&
 		conversationState !== "running";
 
+	const lastChatError = (() => {
+		if (chatSubMode !== "chat") return null;
+		for (let i = messages.length - 1; i >= 0; i--) {
+			if (messages[i].role === "assistant" && messages[i].error) {
+				return { error: messages[i].error, model: messages[i].model || "" };
+			}
+		}
+		return null;
+	})();
+
+	const failedConversationModel = (() => {
+		if (chatSubMode !== "conversation" || conversationState !== "error")
+			return undefined;
+		const lastErr = [...messages].reverse().find((m) => m.error);
+		return lastErr?.model ? lastErr.model.split("/").pop() : undefined;
+	})();
+
 	const conversationDisabledReason = useMemo(() => {
 		if (chatSubMode !== "conversation") return "";
 		if (conversationState === "running") return "";
@@ -1272,6 +1289,7 @@ export function Chat() {
 					disabledReason={conversationDisabledReason}
 					selectedModel={selectedModel}
 					selectedModelB={selectedModelB}
+					failedModel={failedConversationModel}
 				/>
 			)}
 
@@ -1630,6 +1648,13 @@ export function Chat() {
 									selectedModel ? "Type a message…" : "Select a model first"
 								}
 								disabled={!selectedModel || isStreaming}
+								title={
+									!selectedModel
+										? "Select a model first"
+										: isStreaming
+											? "Generating…"
+											: undefined
+								}
 								rows={1}
 								maxLength={32000}
 								className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
@@ -1639,6 +1664,13 @@ export function Chat() {
 								type="button"
 								onClick={isStreaming ? handleStop : handleSend}
 								disabled={!selectedModel}
+								title={
+									!selectedModel
+										? "Select a model first"
+										: isStreaming
+											? ""
+											: "Send message"
+								}
 								className={`ui-btn flex items-center gap-2 shrink-0 ${
 									isStreaming ? "ui-btn-danger" : "ui-btn-primary"
 								}`}
@@ -1657,7 +1689,15 @@ export function Chat() {
 							</button>
 						</div>
 						{!selectedModel && !isStreaming ? (
-							<p className="text-xs text-amber-400">Select a model first</p>
+							<p className="text-xs text-amber-400">
+								Select a model to start chatting
+							</p>
+						) : lastChatError ? (
+							<p className="text-xs text-red-400">
+								{lastChatError.model
+									? `${lastChatError.model.split("/").pop()}: ${lastChatError.error} — try Regenerate or pick a different model`
+									: `${lastChatError.error} — try Regenerate or pick a different model`}
+							</p>
 						) : (
 							<p className="text-xs text-(--text-muted)">
 								Press Enter to send, Shift+Enter for newline
@@ -1734,8 +1774,15 @@ export function Chat() {
 							{conversationState === "error" && (
 								<div className="flex items-center gap-2 text-xs text-red-400">
 									<span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-									Generation failed — use Retry in config above, or Clear/Reset
-									below
+									{(() => {
+										const lastErr = [...messages]
+											.reverse()
+											.find((m) => m.error);
+										const modelPart = lastErr?.model
+											? `${lastErr.model.split("/").pop()}: `
+											: "";
+										return `${modelPart}Generation failed — use Retry in config above, or Clear/Reset below`;
+									})()}
 								</div>
 							)}
 						</div>
