@@ -33,12 +33,17 @@ func NewSafeDialer(allowedHosts []string) *SafeDialer {
 // DialContext implements the dial function signature expected by
 // http.Transport.DialContext. It resolves the target host, checks
 // every resolved IP against blocked ranges, and refuses the
-// connection if all IPs are private/reserved.
+// connection if all IPs are private/reserved. To close the TOCTOU
+// gap between DNS resolution and dial, it dials by IP (picking the
+// first allowed address) so the connection target is the same IP that
+// was checked. The original hostname is preserved via TLS ServerName
+// and HTTP Host header by the transport layer.
 func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	host, _, err := net.SplitHostPort(addr)
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		// No port in addr — unusual but defensive.
 		host = addr
+		port = ""
 	}
 
 	// Allowlisted hosts skip all IP checks.
@@ -68,7 +73,20 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		return nil, fmt.Errorf("proxy: refused connection to private/reserved IP %s for host %s", ips[0].IP, host)
 	}
 
-	return s.d.DialContext(ctx, network, addr)
+	// Dial by the first allowed IP to close the TOCTOU gap: the IP we
+	// checked is the one we connect to, preventing DNS rebinding between
+	// resolution and dial.
+	for _, ip := range ips {
+		if isBlockedIP(ip.IP) {
+			continue
+		}
+		dialAddr := net.JoinHostPort(ip.IP.String(), port)
+		return s.d.DialContext(ctx, network, dialAddr)
+	}
+
+	// Should not be reachable (fell through without a non-blocked IP),
+	// but handle gracefully.
+	return nil, fmt.Errorf("proxy: no allowed IP found for host %s", host)
 }
 
 // isBlockedIP checks whether an IP falls into a range that should never be

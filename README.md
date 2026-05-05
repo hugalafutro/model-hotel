@@ -162,6 +162,7 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
 | `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Allowed CORS origins (comma-separated) |
 | `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Additional allowed provider hosts (comma-separated; built-in provider hosts are always allowed) |
+| `TRUSTED_PROXIES` | No | *(empty)* | Trusted proxy CIDRs (comma-separated). When set, `X-Forwarded-For` and `X-Real-IP` headers are only honored from these IPs. When empty, forwarded headers are ignored and only `RemoteAddr` is used. |
 | `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size |
 | `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size |
 | `MODELSDEV_ENABLED` | No | `true` | Enable enrichment from [models.dev](https://models.dev/) catalogue (pricing, capabilities, context limits) |
