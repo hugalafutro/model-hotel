@@ -516,6 +516,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		var retryCancel context.CancelFunc
 		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), 30*time.Second)
 		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
 		if err != nil {
@@ -536,8 +537,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			Transport: h.upstreamTransport,
 		}
 		resp, err := upstreamClient.Do(proxyReq)
-		failoverCancel() // context no longer needed after Do completes
 		if err != nil {
+			failoverCancel() // no body to consume on error
 			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", err)
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 			// Client-initiated cancellations and deadline exceeded are not
@@ -561,6 +562,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if resp.StatusCode == 400 {
 			body, readErr := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
+			failoverCancel() // 400 body consumed, context no longer needed
 			debuglog.Debug("proxy: received 400 from upstream, checking for param rejection", "provider", candidate.provider.ID, "model", candidate.model.ModelID, "body_length", len(body))
 			// Restore the body so downstream error handling (line ~605) can read it
 			// if we don't successfully retry. Must be set before any fallthrough.
@@ -604,7 +606,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						if rebuilt, err := json.Marshal(raw); err == nil {
-							retryCtx, retryCancel := context.WithTimeout(r.Context(), 30*time.Second)
+							retryCtx, rc := context.WithTimeout(r.Context(), 30*time.Second)
+							retryCancel = rc
 							retryReq, retryErr := http.NewRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 							if retryErr != nil {
 								retryCancel()
@@ -615,12 +618,15 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							retryReq.Header.Set("Content-Type", "application/json")
 							retryClient := &http.Client{Transport: h.upstreamTransport}
 							resp, retryErr = retryClient.Do(retryReq)
-							retryCancel()
 							if retryErr != nil {
+								retryCancel() // no body to consume on retry error
 								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", retryErr)
 								lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
 								continue
 							}
+							failoverCancel() // original 400 body already consumed, original context no longer needed
+							// retryCancel() must NOT be called here — retry resp.Body is read below.
+							// Store retryCancel for deferred cleanup after body consumption.
 							// Successfully retried — fall through to normal response handling
 							debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
 						}
@@ -653,6 +659,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if shouldFailoverNow {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
+			failoverCancel() // body consumed before failover continue
+			if retryCancel != nil {
+				retryCancel() // retry body consumed, context no longer needed
+			}
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
 			debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt
@@ -662,6 +672,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
+			failoverCancel() // body consumed for non-200 response
+			if retryCancel != nil {
+				retryCancel() // retry body consumed, context no longer needed
+			}
 			errMsg := util.SanitizeLogBody(string(body), 2000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
@@ -695,10 +709,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", req.Stream, "model", req.Model, "provider", candidate.provider.ID, "status", resp.StatusCode)
 		if req.Stream {
 			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
+			failoverCancel() // body consumed by handleStreamingResponse
+			if retryCancel != nil {
+				retryCancel()
+			}
 			return
 		}
 
 		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
+		failoverCancel() // body consumed by handleNonStreamingResponse
+		if retryCancel != nil {
+			retryCancel()
+		}
 		return
 	}
 
