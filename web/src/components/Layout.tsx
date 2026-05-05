@@ -375,7 +375,7 @@ function SystemStatus() {
 						{/* DB: size & hit ratio / connections & tx/sec */}
 						<div className="flex justify-between items-center text-(--text-tertiary)">
 							<span className="self-center">DB</span>
-							<span className="grid grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto] gap-x-1 items-center">
+							<span className="grid grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto] gap-x-1 items-center text-right">
 								{stats?.db ? (
 									<>
 										<span
