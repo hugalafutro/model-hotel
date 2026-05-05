@@ -38,6 +38,13 @@ type Runner struct {
 	model       string   // model ID to use (e.g. "stress-mock/mock-model")
 }
 
+// SetExtraParams configures the proxy client to send additional request
+// parameters in every chat completion request. This exercises the proxy's
+// param-rejection auto-retry path when combined with mock server RejectParams.
+func (r *Runner) SetExtraParams(params map[string]interface{}) {
+	r.proxyClient.ExtraParams = params
+}
+
 // NewRunner creates a scenario runner. Call Setup to provision fixtures
 // and Cleanup to tear them down.
 func NewRunner(proxyClient *ProxyClient, admin *AdminClient) *Runner {

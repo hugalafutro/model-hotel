@@ -27,6 +27,11 @@ type Server struct {
 	TokensPerChunk int           // completion tokens per chunk (default 3)
 	InitialDelay   time.Duration // delay before first chunk (simulates TTFT)
 	ErrorRate      float64       // 0.0–1.0, probability of returning 500
+
+	// RejectParams lists request body param names that trigger a 400 error
+	// with a provider-style rejection message. This exercises the proxy's
+	// parseProviderParamError auto-retry path.
+	RejectParams []string
 }
 
 // NewServer creates a mock upstream listening on addr (e.g. ":9090").
@@ -110,9 +115,10 @@ func (s *Server) Stats() (int64, int64) {
 	return s.totalServed.Load(), s.totalFailed.Load()
 }
 
-// URL returns the base URL of the mock server.
+// URL returns the base URL of the mock server (includes /v1 to match
+// OpenAI provider base URL convention used by the proxy).
 func (s *Server) URL() string {
-	return "http://localhost" + s.addr
+	return "http://localhost" + s.addr + "/v1"
 }
 
 func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +136,29 @@ func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body.Close()
+
+	// Parse into a raw map so we can check for rejected params,
+	// then extract the fields we need.
+	var raw map[string]interface{}
+	json.Unmarshal(body, &raw)
+
+	// Check for params that this mock provider rejects (simulates providers
+	// like Anthropic that reject top_p, or Gemini that rejects frequency_penalty).
+	if len(s.RejectParams) > 0 {
+		for _, p := range s.RejectParams {
+			if _, exists := raw[p]; exists {
+				s.totalFailed.Add(1)
+				// Format matches OpenAI-style error that parseProviderParamError parses.
+				msg := fmt.Sprintf("`%s` is not supported by this model", p)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error": map[string]string{"message": msg, "type": "invalid_request_error"},
+				})
+				return
+			}
+		}
+	}
 
 	var req struct {
 		Stream bool   `json:"stream"`

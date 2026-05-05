@@ -32,6 +32,8 @@ func main() {
 	chunkCount := flag.Int("chunk-count", 15, "Number of SSE chunks per response")
 	tokensPerChunk := flag.Int("tokens-per-chunk", 3, "Completion tokens per SSE chunk")
 	initialDelay := flag.Int("initial-delay", 10, "Initial delay before first chunk in ms (simulates TTFT)")
+	rejectParams := flag.String("reject-params", "", "Comma-separated param names the mock server rejects with 400 (e.g. top_p,frequency_penalty)")
+	extraParams := flag.String("extra-params", "", "Comma-separated param names to include in requests (set to 0.5 for floats, e.g. top_p=0.5,frequency_penalty=1.0)")
 
 	// Rate limit defaults (used when RL is on)
 	rps := flag.Float64("rps", 10, "Rate limit RPS when enabled")
@@ -102,6 +104,17 @@ func main() {
 	// Wait for mock to be ready
 	<-mockServer.Ready()
 
+	// Parse reject/extra params
+	if *rejectParams != "" {
+		for _, p := range strings.Split(*rejectParams, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				mockServer.RejectParams = append(mockServer.RejectParams, p)
+			}
+		}
+		log.Printf("[main] mock server will reject params: %v", mockServer.RejectParams)
+	}
+
 	// ── Create clients ─────────────────────────────────────────────
 	admin := harness.NewAdminClient(*proxyURL, *adminToken)
 
@@ -121,6 +134,33 @@ func main() {
 
 	proxyClient := harness.NewProxyClient(*proxyURL, clientTimeout)
 	runner := harness.NewRunner(proxyClient, admin)
+
+	// Parse extra params (e.g. "top_p=0.5,frequency_penalty=1.0") and configure
+	// the proxy client to include them in every request. This exercises the
+	// proxy's param-rejection auto-retry path when combined with -reject-params.
+	if *extraParams != "" {
+		extraMap := make(map[string]interface{})
+		for _, kv := range strings.Split(*extraParams, ",") {
+			kv = strings.TrimSpace(kv)
+			if kv == "" {
+				continue
+			}
+			parts := strings.SplitN(kv, "=", 2)
+			key := strings.TrimSpace(parts[0])
+			if len(parts) == 2 {
+				val := strings.TrimSpace(parts[1])
+				if f, err := strconv.ParseFloat(val, 64); err == nil {
+					extraMap[key] = f
+				} else {
+					extraMap[key] = val
+				}
+			} else {
+				extraMap[key] = true
+			}
+		}
+		runner.SetExtraParams(extraMap)
+		log.Printf("[main] extra request params: %v", extraMap)
+	}
 
 	// ── Determine max keys needed ──────────────────────────────────
 	maxKeys := maxInt(keyCounts)

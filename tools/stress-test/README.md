@@ -49,6 +49,9 @@ go run . -admin-token abc123 -chunk-delay 100 -chunk-count 20
 
 # Non-streaming test
 go run . -admin-token abc123 -streaming false
+
+# Test proxy's param-rejection auto-retry (mock rejects top_p, proxy should strip and retry)
+go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concurrency 10
 ```
 
 ### CLI Flags
@@ -67,6 +70,8 @@ go run . -admin-token abc123 -streaming false
 | `-chunk-count` | `15` | Number of SSE chunks per response |
 | `-tokens-per-chunk` | `3` | Completion tokens per SSE chunk |
 | `-initial-delay` | `10` | Initial delay before first chunk (ms, simulates TTFT) |
+| `-reject-params` | `""` | Comma-separated param names the mock server rejects with 400 (e.g. `top_p,frequency_penalty`) |
+| `-extra-params` | `""` | Comma-separated params to include in requests, with optional values (e.g. `top_p=0.5,frequency_penalty=1.0`) |
 | `-rps` | `10` | Rate limit RPS when enabled |
 | `-burst` | `20` | Rate limit burst when enabled |
 | `-output` | `markdown` | Output format: text, markdown, json |
@@ -125,9 +130,11 @@ Request -> chi middleware (RequestID, RealIP, Logger, Recoverer, Compress, Secur
       3. Decrypt provider API key (AES-256-GCM, cached)
       4. INSERT into request_logs (DB write)
       5. For each candidate in failover chain:
-         a. Forward to upstream provider (HTTP POST via shared Transport)
-         b. On 5xx/429/401/403: exponential backoff (100ms base, 2s cap), try next
-         c. On 200: stream/return response
+         a. Strip provider-unsupported params preemptively
+         b. Forward to upstream provider (HTTP POST via shared Transport)
+         c. On 400: parse error for rejected params, cache them, strip and retry once
+         d. On 5xx/429/401/403: exponential backoff (100ms base, 2s cap), try next
+         e. On 200: stream/return response
       6. UPDATE request_logs (DB write)
       7. UPDATE virtual_keys SET tokens_used (DB write)
       8. Fire-and-forget TouchLastUsed (DB write)

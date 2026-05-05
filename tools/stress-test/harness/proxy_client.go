@@ -15,8 +15,9 @@ import (
 
 // ProxyClient sends chat completion requests through the proxy.
 type ProxyClient struct {
-	baseURL string
-	client  *http.Client
+	baseURL     string
+	client      *http.Client
+	ExtraParams map[string]interface{} // additional params merged into every request body
 }
 
 // NewProxyClient creates a client that sends requests to the proxy.
@@ -46,6 +47,11 @@ func (p *ProxyClient) SendChatCompletion(virtualKey, model string, streaming boo
 		reqBody["stream_options"] = map[string]interface{}{
 			"include_usage": true,
 		}
+	}
+	// Merge extra params (e.g. top_p, frequency_penalty) to exercise
+	// the proxy's param-rejection auto-retry path.
+	for k, v := range p.ExtraParams {
+		reqBody[k] = v
 	}
 
 	body, _ := json.Marshal(reqBody)
