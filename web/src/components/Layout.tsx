@@ -373,43 +373,45 @@ function SystemStatus() {
 						</div>
 
 						{/* DB: size & hit ratio / connections & tx/sec */}
-						<div className="grid grid-cols-[auto_1fr_auto_1fr] grid-rows-[auto_auto] gap-x-1 items-center text-(--text-tertiary)">
-							<span className="row-span-2 self-center">DB</span>
-							{stats?.db ? (
-								<>
-									<span
-										className="text-(--text-secondary)"
-										title="Postgres database size on disk"
-									>
-										{formatMB(stats.db.size_mb)}
-									</span>
-									<span className="text-(--text-secondary)">|</span>
-									<span
-										className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}
-										title="Buffer cache hit ratio (higher is better)"
-									>
-										Hit {stats.db.cache_hit_ratio}
-										<span className={u}>%</span>
-									</span>
-									<span
-										className="text-(--text-secondary)"
-										title="Active database connections"
-									>
-										{stats.db.connections}
-										<span className={u}> conn</span>
-									</span>
-									<span className="text-(--text-secondary)">|</span>
-									<span
-										className="text-(--text-secondary)"
-										title="Database transactions per second"
-									>
-										{stats.db.tx_per_sec.toFixed(1)}
-										<span className={u}> tx/s</span>
-									</span>
-								</>
-							) : (
-								<span className="col-span-3 row-span-2">{dash}</span>
-							)}
+						<div className="flex justify-between items-center text-(--text-tertiary)">
+							<span className="self-center">DB</span>
+							<span className="grid grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto] gap-x-1 items-center">
+								{stats?.db ? (
+									<>
+										<span
+											className="text-(--text-secondary)"
+											title="Postgres database size on disk"
+										>
+											{formatMB(stats.db.size_mb)}
+										</span>
+										<span className="text-(--text-secondary)">|</span>
+										<span
+											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}
+											title="Buffer cache hit ratio (higher is better)"
+										>
+											Hit {stats.db.cache_hit_ratio}
+											<span className={u}>%</span>
+										</span>
+										<span
+											className="text-(--text-secondary)"
+											title="Active database connections"
+										>
+											{stats.db.connections}
+											<span className={u}> conn</span>
+										</span>
+										<span className="text-(--text-secondary)">|</span>
+										<span
+											className="text-(--text-secondary)"
+											title="Database transactions per second"
+										>
+											{stats.db.tx_per_sec.toFixed(1)}
+											<span className={u}> tx/s</span>
+										</span>
+									</>
+								) : (
+									<span className="col-span-3 row-span-2">{dash}</span>
+								)}
+							</span>
 						</div>
 					</div>
 				</div>
