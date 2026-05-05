@@ -12,7 +12,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
 		log.Printf("[proxy] error: failed to list models: %v", err)
-		http.Error(w, "failed to list models", http.StatusInternalServerError)
+		writeOpenAIError(w, "failed to list models", http.StatusInternalServerError)
 		return
 	}
 

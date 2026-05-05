@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -80,4 +81,37 @@ func GetIntQueryParam(r *http.Request, key string, defaultValue int) int {
 // parameterized SQL queries with positional arguments.
 func IntToStr(i int) string {
 	return strconv.Itoa(i)
+}
+// WriteOpenAIError writes an OpenAI-compatible JSON error response.
+// All proxy-path error responses must be JSON, not plain text, because
+// clients like SillyTavern parse responses as JSON and crash on plain
+// text error messages.
+func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"error": map[string]interface{}{
+			"message": message,
+			"type":    OpenAIErrorType(statusCode),
+			"code":    statusCode,
+		},
+	})
+}
+
+// OpenAIErrorType maps an HTTP status code to the corresponding OpenAI error type string.
+func OpenAIErrorType(code int) string {
+	switch {
+	case code == 401:
+		return "authentication_error"
+	case code == 403:
+		return "permission_error"
+	case code == 404:
+		return "not_found_error"
+	case code == 429:
+		return "rate_limit_error"
+	case code >= 500:
+		return "server_error"
+	default:
+		return "invalid_request_error"
+	}
 }

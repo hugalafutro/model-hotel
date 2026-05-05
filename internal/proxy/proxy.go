@@ -239,7 +239,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
 		log.Printf("[proxy] warning: upstream non-200 status=%d model=%s provider=%s", resp.StatusCode, logData.modelID, logData.providerID)
-		http.Error(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
 }
 
@@ -255,7 +255,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, err = io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("[proxy] warning: failed to read request body: %v", err)
-			http.Error(w, "failed to read request body", http.StatusBadRequest)
+			writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 			return
 		}
 		_ = r.Body.Close()
@@ -264,13 +264,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var req ChatCompletionRequest
 	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		log.Printf("[proxy] warning: failed to parse request body: %v", err)
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
 
 	if req.Model == "" {
-		http.Error(w, "model is required", http.StatusBadRequest)
+		writeOpenAIError(w, "model is required", http.StatusBadRequest)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.parseMs = parseMs
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, err.Error(), http.StatusNotFound)
+			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		if len(candidates) == 0 {
@@ -325,7 +325,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.parseMs = parseMs
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
+			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
 			return
 		}
 	} else if strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/") {
@@ -337,7 +337,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.parseMs = parseMs
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, "invalid model format, expected provider/model", http.StatusBadRequest)
+			writeOpenAIError(w, "invalid model format, expected provider/model", http.StatusBadRequest)
 			return
 		}
 		providerName, modelID := parts[0], parts[1]
@@ -349,7 +349,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.parseMs = parseMs
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			http.Error(w, err.Error(), http.StatusNotFound)
+			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return
 		}
 	} else {
@@ -359,7 +359,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.parseMs = parseMs
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
-		http.Error(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
+		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
 		return
 	}
 
@@ -371,7 +371,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.modelLookupMs = timings.modelLookupMs
 		logData.state = "failed"
 		h.updateRequestLog(r.Context(), logData)
-		http.Error(w, "model not found or disabled", http.StatusNotFound)
+		writeOpenAIError(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
 
@@ -415,7 +415,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				logData.failoverAttempt = attempt - 1
 				logData.state = "failed"
 				h.updateRequestLog(r.Context(), logData)
-				http.Error(w, "client disconnected", http.StatusRequestTimeout)
+				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
 				return
 			}
 		}
@@ -618,11 +618,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.failoverAttempt = attempt
 			logData.state = "failed"
 			h.updateRequestLog(r.Context(), logData)
-			// Return the upstream error body so the client sees the actual reason
-			// (e.g. "too many tokens: max tokens must be <= 4096") instead of a generic message.
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(resp.StatusCode)
-			_, _ = w.Write(body)
+			// Forward the upstream error to the client. If the upstream returned
+			// valid JSON (most OpenAI-compatible providers do), pass it through
+			// as-is. If it's not JSON (e.g. plain text, HTML error page), wrap it
+			// in an OpenAI-compatible error envelope so clients like SillyTavern
+			// don't crash on JSON.parse.
+			if json.Valid(body) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(resp.StatusCode)
+				_, _ = w.Write(body)
+			} else {
+				writeOpenAIError(w, errMsg, resp.StatusCode)
+			}
 			return
 		}
 
@@ -648,7 +655,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	logData.failoverAttempt = len(candidates) - 1
 	logData.state = "failed"
 	h.updateRequestLog(r.Context(), logData)
-	http.Error(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
+	writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
 }
 
 // buildProviderTargetURL constructs the full upstream URL for a given provider.
@@ -766,4 +773,11 @@ func mapKeys(m map[string]bool) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// writeOpenAIError writes an OpenAI-compatible JSON error response.
+// All proxy error responses must be JSON, not plain text, because clients like
+// SillyTavern parse responses as JSON and crash on plain text error messages.
+func writeOpenAIError(w http.ResponseWriter, message string, statusCode int) {
+	util.WriteOpenAIError(w, message, statusCode)
 }

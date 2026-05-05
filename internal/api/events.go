@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		util.WriteOpenAIError(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
 

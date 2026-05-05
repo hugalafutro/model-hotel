@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -195,11 +196,9 @@ func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
 	cache.Store("key", map[string]bool(nil))
 
 	got := getCachedRejectedParams(&cache, "key")
-	if got == nil {
-		// nil map value is a valid map[string]bool, so it should be returned
-		// This is consistent with the type assertion succeeding for nil maps
-	}
-	_ = got // just verifying it doesn't panic
+	// A nil map[string]bool passes the type assertion, so Load returns it.
+	// This just verifies it doesn't panic.
+	_ = got
 }
 
 func TestGetCachedRejectedParams_MultipleKeys(t *testing.T) {
@@ -446,5 +445,49 @@ func TestMapKeys_NilMap(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("expected empty slice for nil map, got %v", got)
+	}
+}
+func TestWriteOpenAIError(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeOpenAIError(rr, "model is required", http.StatusBadRequest)
+
+	if rr.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", rr.Header().Get("Content-Type"))
+	}
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	errObj, ok := resp["error"].(map[string]interface{})
+	if !ok {
+		t.Fatal("response missing 'error' object")
+	}
+	if errObj["message"] != "model is required" {
+		t.Errorf("expected message 'model is required', got %v", errObj["message"])
+	}
+	if errObj["type"] != "invalid_request_error" {
+		t.Errorf("expected type 'invalid_request_error', got %v", errObj["type"])
+	}
+}
+
+func TestWriteOpenAIError_502(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeOpenAIError(rr, "all providers failed for model test", http.StatusBadGateway)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Errorf("expected status 502, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	errObj := resp["error"].(map[string]interface{})
+	if errObj["message"] != "all providers failed for model test" {
+		t.Errorf("unexpected message: %v", errObj["message"])
 	}
 }

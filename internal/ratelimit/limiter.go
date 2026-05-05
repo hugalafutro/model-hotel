@@ -12,6 +12,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // SettingsReader defines the subset of the settings repository that the
@@ -123,7 +124,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			if !reservation.OK() {
 				l.writeRateLimitHeaders(w, entry.limiter, 0)
 				log.Printf("[ratelimit] warning: rate limit exceeded for key %s", keyHash)
-				http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
 
@@ -133,7 +134,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				reservation.Cancel()
 				l.writeRateLimitHeaders(w, entry.limiter, delay)
 				log.Printf("[ratelimit] warning: rate limit exceeded for key %s", keyHash)
-				http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
 

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // default IP-based rate limit values
@@ -76,7 +78,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		if !reservation.OK() {
 			l.writeHeaders(w, entry.limiter, 0)
 			log.Printf("[ratelimit-ip] warning: rate limit exceeded for IP %s", ip)
-			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 
@@ -85,7 +87,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			reservation.Cancel()
 			l.writeHeaders(w, entry.limiter, delay)
 			log.Printf("[ratelimit-ip] warning: rate limit exceeded for IP %s", ip)
-			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 

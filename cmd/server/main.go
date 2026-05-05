@@ -740,7 +740,7 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			body, err := io.ReadAll(r.Body)
 			_ = r.Body.Close()
 			if err != nil {
-				http.Error(w, "failed to read request body", http.StatusBadRequest)
+				util.WriteOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 				return
 			}
 
