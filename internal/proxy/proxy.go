@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -445,8 +446,16 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		resp, err := upstreamClient.Do(proxyReq)
 		if err != nil {
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
-			if h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true) {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID)
+			// Client-initiated cancellations and deadline exceeded are not
+			// provider failures. If the caller disconnected (Canceled) or
+			// the request timed out (DeadlineExceeded), we must not penalize
+			// the circuit breaker for that.
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				if h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true) {
+					h.circuitBreaker.RecordFailure(candidate.provider.ID)
+				}
+			} else {
+				log.Printf("[proxy] client disconnected during request to provider=%s model=%s", candidate.provider.ID, req.Model)
 			}
 			continue
 		}

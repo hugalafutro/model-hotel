@@ -292,6 +292,48 @@ func TestCircuitBreaker_SettingsOverrideCooldown(t *testing.T) {
 	}
 }
 
+// TestCircuitBreaker_ContextCancellationSkipContract documents the expected
+// behavior that context cancellation and deadline exceeded errors should NOT
+// count as provider failures. The skip logic lives in the proxy handler
+// (proxy.go:446-460), which checks errors.Is(err, context.Canceled) and
+// errors.Is(err, context.DeadlineExceeded) before calling RecordFailure.
+//
+// This test verifies the RecordFailure contract: if RecordFailure is called
+// the expected number of times, the circuit opens. The proxy handler is
+// responsible for NOT calling RecordFailure for context errors.
+func TestCircuitBreaker_ContextCancellationSkipContract(t *testing.T) {
+	// If RecordFailure is called 3 times (threshold), the circuit opens.
+	cb := newTestCB(3, 30*time.Second)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid)
+	cb.RecordFailure(pid)
+
+	if cb.IsOpen(pid) {
+		t.Error("should not be open after 2 failures (threshold=3)")
+	}
+
+	cb.RecordFailure(pid) // 3rd failure → opens
+
+	if !cb.IsOpen(pid) {
+		t.Error("should be open after 3 consecutive failures")
+	}
+
+	// Reset and verify that skipping RecordFailure (as the proxy handler
+	// does for context errors) means the circuit stays closed.
+	cb.Reset(pid)
+
+	cb.RecordFailure(pid)
+	cb.RecordFailure(pid)
+	// 3rd "failure" was a context cancellation → RecordFailure NOT called
+	// So we're at 2 failures, not 3. Circuit should remain closed.
+
+	if cb.IsOpen(pid) {
+		t.Error("should remain closed: only 2 failures recorded (3rd was a context cancellation, skipped)")
+	}
+}
+
+
 func TestCircuitBreaker_NilSettingsUsesDefaults(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
 	cb.Threshold = 3
