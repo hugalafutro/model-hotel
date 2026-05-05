@@ -32,6 +32,11 @@ export function ApplyRecommendedButton({
 					? "border-(--accent)/30 bg-(--accent)/10 text-(--accent) hover:bg-(--accent)/20 hover:border-(--accent)/50"
 					: "border-(--border-subtle) bg-(--surface-hover)/50 text-(--text-muted) cursor-not-allowed"
 			}`}
+			title={
+				hasRecommended
+					? "Apply recommended settings from models.dev catalogue"
+					: undefined
+			}
 		>
 			{loading ? (
 				<>
@@ -42,13 +47,15 @@ export function ApplyRecommendedButton({
 				<>
 					<Sparkles size={12} />
 					Apply Recommended
-					<span className="text-[10px] opacity-70">({paramCount} params)</span>
+					<span className="text-[10px] opacity-70 whitespace-nowrap">
+						({paramCount} params)
+					</span>
 					{matchedModel && matchedModel !== modelId && (
 						<span
-							className="text-[10px] opacity-60"
-							title={`Matched: ${matchedModel}`}
+							className="text-[10px] opacity-60 whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 rounded bg-(--surface-hover) px-1 py-px"
+							title={`models.dev matched: ${matchedModel}`}
 						>
-							↗ {matchedModel}
+							↗&#x200A;{matchedModel}
 						</span>
 					)}
 				</>

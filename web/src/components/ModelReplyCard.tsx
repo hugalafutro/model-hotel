@@ -180,7 +180,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 				{/* ── Header ── */}
 				{model && (
 					<div
-						className={`flex items-center justify-between ${headerClassName || ""}`}
+						className={`flex items-center justify-between gap-2 ${headerClassName || ""}`}
 					>
 						<div className="flex items-center gap-2 min-w-0">
 							<Bot size={14} className="text-(--accent) shrink-0" />
