@@ -1,6 +1,10 @@
 package provider
 
 import (
+	"fmt"
+	"io"
+	"net"
+	"net/url"
 	"testing"
 	"time"
 
@@ -612,4 +616,83 @@ func mustParseTime(s string) time.Time {
 		panic(err)
 	}
 	return t
+}
+
+// ---------------------------------------------------------------------------
+// isTransientNetworkError
+// ---------------------------------------------------------------------------
+
+func TestIsTransientNetworkError_NilError(t *testing.T) {
+	if isTransientNetworkError(nil) {
+		t.Error("isTransientNetworkError(nil) should be false")
+	}
+}
+
+func TestIsTransientNetworkError_DNSError(t *testing.T) {
+	dnsErr := &net.DNSError{IsNotFound: true}
+	wrapped := fmt.Errorf("wrapped: %w", dnsErr)
+	if !isTransientNetworkError(wrapped) {
+		t.Error("isTransientNetworkError(DNSError) should be true")
+	}
+}
+
+// timeoutError implements net.Error with Timeout()=true
+type timeoutError struct{}
+
+func (timeoutError) Error() string   { return "timeout" }
+func (timeoutError) Timeout() bool   { return true }
+func (timeoutError) Temporary() bool { return false }
+
+func TestIsTransientNetworkError_NetErrorTimeout(t *testing.T) {
+	if !isTransientNetworkError(timeoutError{}) {
+		t.Error("isTransientNetworkError(net.Error with Timeout=true) should be true")
+	}
+}
+
+// noTimeoutError implements net.Error with Timeout()=false
+type noTimeoutError struct{}
+
+func (noTimeoutError) Error() string   { return "not a timeout" }
+func (noTimeoutError) Timeout() bool   { return false }
+func (noTimeoutError) Temporary() bool { return false }
+
+func TestIsTransientNetworkError_NetErrorNoTimeout(t *testing.T) {
+	if isTransientNetworkError(noTimeoutError{}) {
+		t.Error("isTransientNetworkError(net.Error with Timeout=false) should be false")
+	}
+}
+
+func TestIsTransientNetworkError_OpError(t *testing.T) {
+	opErr := &net.OpError{Op: "dial", Net: "tcp", Err: io.EOF}
+	if !isTransientNetworkError(opErr) {
+		t.Error("isTransientNetworkError(OpError) should be true")
+	}
+}
+
+func TestIsTransientNetworkError_URLErrorWrappingTransient(t *testing.T) {
+	dnsErr := &net.DNSError{IsNotFound: true}
+	urlErr := &url.Error{Op: "Get", URL: "http://example.com", Err: dnsErr}
+	if !isTransientNetworkError(urlErr) {
+		t.Error("isTransientNetworkError(url.Error wrapping DNSError) should be true")
+	}
+}
+
+func TestIsTransientNetworkError_URLErrorWrappingNonTransient(t *testing.T) {
+	urlErr := &url.Error{Op: "Get", URL: "http://example.com", Err: io.EOF}
+	if isTransientNetworkError(urlErr) {
+		t.Error("isTransientNetworkError(url.Error wrapping io.EOF) should be false")
+	}
+}
+
+func TestIsTransientNetworkError_OtherError(t *testing.T) {
+	if isTransientNetworkError(io.EOF) {
+		t.Error("isTransientNetworkError(io.EOF) should be false")
+	}
+}
+
+func TestIsTransientNetworkError_URLErrorWrappingTimeout(t *testing.T) {
+	urlErr := &url.Error{Op: "Get", URL: "http://example.com", Err: timeoutError{}}
+	if !isTransientNetworkError(urlErr) {
+		t.Error("isTransientNetworkError(url.Error wrapping timeout net.Error) should be true")
+	}
 }

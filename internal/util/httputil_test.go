@@ -3,6 +3,7 @@ package util
 import (
 	"net/http/httptest"
 	"testing"
+	"unicode/utf8"
 )
 
 // ---------------------------------------------------------------------------
@@ -437,5 +438,95 @@ func TestParseInt_SingleDigit(t *testing.T) {
 	}
 	if result != 7 {
 		t.Errorf("expected 7, got %d", result)
+	}
+}
+
+func TestSanitizeLogBody_ShortBody_NoTruncation(t *testing.T) {
+	body := "hello world"
+	result := SanitizeLogBody(body, 100)
+	if result != body {
+		t.Errorf("expected %q, got %q", body, result)
+	}
+}
+
+func TestSanitizeLogBody_ExactLength_NoTruncation(t *testing.T) {
+	body := "hello world"
+	result := SanitizeLogBody(body, 11)
+	if result != body {
+		t.Errorf("expected %q, got %q", body, result)
+	}
+}
+
+func TestSanitizeLogBody_LongBody_Truncated(t *testing.T) {
+	body := "hello world this is a long string"
+	result := SanitizeLogBody(body, 10)
+	// After removing runes until len <= 10: "hello worl" (10 bytes) + "…" (3 bytes) = 13 bytes
+	if len(result) != 13 {
+		t.Errorf("expected length 13 (10 bytes + 3-byte …), got %d", len(result))
+	}
+	expected := "hello worl…"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestSanitizeLogBody_MultiByteUTF8(t *testing.T) {
+	// Chinese characters are 3 bytes each in UTF-8
+	// "你好世界" is 12 bytes; truncating to maxLen=10 removes last rune '界' (3 bytes),
+	// leaving "你好世" (9 bytes) + "…" (3 bytes) = 12 bytes
+	body := "你好世界"
+	result := SanitizeLogBody(body, 10)
+	if !utf8.ValidString(result) {
+		t.Errorf("result is not valid UTF-8: %q", result)
+	}
+	expected := "你好世…"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestSanitizeLogBody_UUIDRedacted(t *testing.T) {
+	body := "error: team 793ac38b-0211-43e6-baa7-aa7054c39931 not found"
+	result := SanitizeLogBody(body, 200)
+	expected := "error: team [REDACTED] not found"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestSanitizeLogBody_UUIDRedactedAfterTruncation(t *testing.T) {
+	// Body with UUID, truncation first then redaction
+	body := "error team 793ac38b-0211-43e6-baa7-aa7054c39931 not found in region us-east-1"
+	result := SanitizeLogBody(body, 30)
+	// After removing runes until len <= 30:
+	// "error team 793ac38b-0211-43e6-" (30 bytes) + "…" (3 bytes) = 33 bytes
+	// The UUID is partial, so regex does not match. Result is unchanged from truncation.
+	expected := "error team 793ac38b-0211-43e6-…"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestSanitizeLogBody_MultipleUUIDs(t *testing.T) {
+	body := "ids: 793ac38b-0211-43e6-baa7-aa7054c39931 and 550e8400-e29b-41d4-a716-446655440000"
+	result := SanitizeLogBody(body, 200)
+	expected := "ids: [REDACTED] and [REDACTED]"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestSanitizeLogBody_ZeroMaxLen(t *testing.T) {
+	body := "hello"
+	result := SanitizeLogBody(body, 0)
+	if result != "…" {
+		t.Errorf("expected %q, got %q", "…", result)
+	}
+}
+
+func TestSanitizeLogBody_EmptyBody(t *testing.T) {
+	result := SanitizeLogBody("", 100)
+	if result != "" {
+		t.Errorf("expected empty string, got %q", result)
 	}
 }

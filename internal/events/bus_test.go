@@ -158,3 +158,28 @@ func TestConcurrentSubscribePublish(t *testing.T) {
 		b.Unsubscribe(ch)
 	}
 }
+// ---------------------------------------------------------------------------
+// Publish after Unsubscribe (panic recovery)
+// ---------------------------------------------------------------------------
+
+func TestPublishAfterUnsubscribe_NoPanic(t *testing.T) {
+	// This tests the recover() path in Publish — sending to a closed channel
+	// should not panic.
+	b := NewBus()
+	ch := b.Subscribe()
+
+	// Drain the channel in a goroutine so Unsubscribe can close it
+	go func() {
+		for range ch {
+		}
+	}()
+
+	b.Unsubscribe(ch)
+
+	// This should NOT panic even though the channel is closed.
+	// The Publish method has a recover() wrapper.
+	b.Publish(Event{Type: "after-close"})
+
+	// Give a moment for any goroutine to complete
+	time.Sleep(10 * time.Millisecond)
+}

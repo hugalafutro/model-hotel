@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -197,5 +198,97 @@ func TestWriteJSONCreated_EncodingError(t *testing.T) {
 	// is already committed. The encoding error cannot override it.
 	if w.Code != http.StatusCreated {
 		t.Errorf("expected status %d (WriteHeader called before encoding), got %d", http.StatusCreated, w.Code)
+	}
+}
+// ---------------------------------------------------------------------------
+// respondError tests
+// ---------------------------------------------------------------------------
+
+func TestRespondError_WithErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "something failed", fmt.Errorf("db connection lost"), http.StatusInternalServerError)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+	body := w.Body.String()
+	if body != "something failed\n" {
+		t.Errorf("expected body %q, got %q", "something failed\n", body)
+	}
+}
+
+func TestRespondError_5xxWithoutErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "internal error", nil, http.StatusInternalServerError)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestRespondError_4xxWithoutErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "not found", nil, http.StatusNotFound)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestRespondError_BodyIsMessageNotErrorDetails(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "user message", fmt.Errorf("internal details"), http.StatusBadRequest)
+	body := w.Body.String()
+	if strings.Contains(body, "internal details") {
+		t.Error("response body should not contain internal error details")
+	}
+	if body != "user message\n" {
+		t.Errorf("expected body %q, got %q", "user message\n", body)
+	}
+}
+
+func TestRespondError_ContentTypeIsTextPlain(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "error msg", nil, http.StatusBadRequest)
+	ct := w.Header().Get("Content-Type")
+	if ct != "text/plain; charset=utf-8" {
+		t.Errorf("expected text/plain content type, got %q", ct)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// respondBadRequest tests
+// ---------------------------------------------------------------------------
+
+func TestRespondBadRequest_WithErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "invalid input", fmt.Errorf("name too short"))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestRespondBadRequest_WithoutErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "bad request", nil)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestRespondBadRequest_BodyIsMessage(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "invalid parameter", fmt.Errorf("internal: name too long"))
+	body := w.Body.String()
+	if body != "invalid parameter\n" {
+		t.Errorf("expected body %q, got %q", "invalid parameter\n", body)
+	}
+	if strings.Contains(body, "internal") {
+		t.Error("response body should not contain internal error details")
+	}
+}
+
+func TestRespondBadRequest_StatusCode(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "bad", nil)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 }

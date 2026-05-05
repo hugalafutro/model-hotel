@@ -475,3 +475,328 @@ func TestValidateProviderURL_AllowListMultipleEntries(t *testing.T) {
 		t.Error("expected host-d.com to be blocked (not in allowlist)")
 	}
 }
+// ---------------------------------------------------------------------------
+// clampInt64
+// ---------------------------------------------------------------------------
+
+func TestClampInt64_WithinRange(t *testing.T) {
+	result := clampInt64(5, 1, 10)
+	if result != 5 {
+		t.Errorf("clampInt64(5, 1, 10) = %d, want 5", result)
+	}
+}
+
+func TestClampInt64_BelowMin(t *testing.T) {
+	result := clampInt64(0, 1, 10)
+	if result != 1 {
+		t.Errorf("clampInt64(0, 1, 10) = %d, want 1", result)
+	}
+}
+
+func TestClampInt64_AboveMax(t *testing.T) {
+	result := clampInt64(15, 1, 10)
+	if result != 10 {
+		t.Errorf("clampInt64(15, 1, 10) = %d, want 10", result)
+	}
+}
+
+func TestClampInt64_AtMin(t *testing.T) {
+	result := clampInt64(1, 1, 10)
+	if result != 1 {
+		t.Errorf("clampInt64(1, 1, 10) = %d, want 1", result)
+	}
+}
+
+func TestClampInt64_AtMax(t *testing.T) {
+	result := clampInt64(10, 1, 10)
+	if result != 10 {
+		t.Errorf("clampInt64(10, 1, 10) = %d, want 10", result)
+	}
+}
+
+func TestClampInt64_NegativeValues(t *testing.T) {
+	result := clampInt64(-5, -10, -1)
+	if result != -5 {
+		t.Errorf("clampInt64(-5, -10, -1) = %d, want -5", result)
+	}
+}
+
+func TestClampInt64_BelowMinNegative(t *testing.T) {
+	result := clampInt64(-15, -10, -1)
+	if result != -10 {
+		t.Errorf("clampInt64(-15, -10, -1) = %d, want -10", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// clampFloat
+// ---------------------------------------------------------------------------
+
+func TestClampFloat_WithinRange(t *testing.T) {
+	result := clampFloat(0.5, 0.0, 1.0)
+	if result != 0.5 {
+		t.Errorf("clampFloat(0.5, 0, 1) = %g, want 0.5", result)
+	}
+}
+
+func TestClampFloat_BelowMin(t *testing.T) {
+	result := clampFloat(-0.1, 0.0, 1.0)
+	if result != 0.0 {
+		t.Errorf("clampFloat(-0.1, 0, 1) = %g, want 0", result)
+	}
+}
+
+func TestClampFloat_AboveMax(t *testing.T) {
+	result := clampFloat(1.5, 0.0, 1.0)
+	if result != 1.0 {
+		t.Errorf("clampFloat(1.5, 0, 1) = %g, want 1", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getBoolEnvWithDefault
+// ---------------------------------------------------------------------------
+
+func TestGetBoolEnvWithDefault_TrueValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{"true", "true", true},
+		{"TRUE", "TRUE", true},
+		{"True", "True", true},
+		{"1", "1", true},
+		{"yes", "yes", true},
+		{"YES", "YES", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("TEST_BOOL", tc.value)
+			defer os.Unsetenv("TEST_BOOL")
+			result := getBoolEnvWithDefault("TEST_BOOL", false)
+			if result != tc.want {
+				t.Errorf("getBoolEnvWithDefault(%q) = %v, want %v", tc.value, result, tc.want)
+			}
+		})
+	}
+}
+
+func TestGetBoolEnvWithDefault_FalseValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"false", "false"},
+		{"FALSE", "FALSE"},
+		{"0", "0"},
+		{"no", "no"},
+		{"NO", "NO"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("TEST_BOOL", tc.value)
+			defer os.Unsetenv("TEST_BOOL")
+			result := getBoolEnvWithDefault("TEST_BOOL", true)
+			if result != false {
+				t.Errorf("getBoolEnvWithDefault(%q) = %v, want false", tc.value, result)
+			}
+		})
+	}
+}
+
+func TestGetBoolEnvWithDefault_DefaultOnEmpty(t *testing.T) {
+	os.Unsetenv("TEST_BOOL_MISSING")
+	result := getBoolEnvWithDefault("TEST_BOOL_MISSING", true)
+	if result != true {
+		t.Error("expected default true when env var is missing")
+	}
+
+	result = getBoolEnvWithDefault("TEST_BOOL_MISSING", false)
+	if result != false {
+		t.Error("expected default false when env var is missing")
+	}
+}
+
+func TestGetBoolEnvWithDefault_DefaultOnGarbage(t *testing.T) {
+	os.Setenv("TEST_BOOL", "maybe")
+	defer os.Unsetenv("TEST_BOOL")
+	result := getBoolEnvWithDefault("TEST_BOOL", true)
+	if result != true {
+		t.Error("expected default value for unrecognized string")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getIntEnvWithDefault
+// ---------------------------------------------------------------------------
+
+func TestGetIntEnvWithDefault_ValidInt(t *testing.T) {
+	os.Setenv("TEST_INT", "42")
+	defer os.Unsetenv("TEST_INT")
+	result := getIntEnvWithDefault("TEST_INT", 0)
+	if result != 42 {
+		t.Errorf("expected 42, got %d", result)
+	}
+}
+
+func TestGetIntEnvWithDefault_Empty(t *testing.T) {
+	os.Unsetenv("TEST_INT_MISSING")
+	result := getIntEnvWithDefault("TEST_INT_MISSING", 99)
+	if result != 99 {
+		t.Errorf("expected default 99, got %d", result)
+	}
+}
+
+func TestGetIntEnvWithDefault_InvalidString(t *testing.T) {
+	os.Setenv("TEST_INT", "not-a-number")
+	defer os.Unsetenv("TEST_INT")
+	result := getIntEnvWithDefault("TEST_INT", 50)
+	if result != 50 {
+		t.Errorf("expected fallback default 50, got %d", result)
+	}
+}
+
+func TestGetIntEnvWithDefault_NegativeValue(t *testing.T) {
+	os.Setenv("TEST_INT", "-5")
+	defer os.Unsetenv("TEST_INT")
+	result := getIntEnvWithDefault("TEST_INT", 0)
+	if result != -5 {
+		t.Errorf("expected -5, got %d", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getFloatEnvWithDefault
+// ---------------------------------------------------------------------------
+
+func TestGetFloatEnvWithDefault_ValidFloat(t *testing.T) {
+	os.Setenv("TEST_FLOAT", "3.14")
+	defer os.Unsetenv("TEST_FLOAT")
+	result := getFloatEnvWithDefault("TEST_FLOAT", 0.0)
+	if result != 3.14 {
+		t.Errorf("expected 3.14, got %g", result)
+	}
+}
+
+func TestGetFloatEnvWithDefault_Empty(t *testing.T) {
+	os.Unsetenv("TEST_FLOAT_MISSING")
+	result := getFloatEnvWithDefault("TEST_FLOAT_MISSING", 2.5)
+	if result != 2.5 {
+		t.Errorf("expected default 2.5, got %g", result)
+	}
+}
+
+func TestGetFloatEnvWithDefault_InvalidString(t *testing.T) {
+	os.Setenv("TEST_FLOAT", "abc")
+	defer os.Unsetenv("TEST_FLOAT")
+	result := getFloatEnvWithDefault("TEST_FLOAT", 1.0)
+	if result != 1.0 {
+		t.Errorf("expected fallback default 1.0, got %g", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// formatCORSOrigins
+// ---------------------------------------------------------------------------
+
+func TestFormatCORSOrigins_EmptyList(t *testing.T) {
+	result := formatCORSOrigins([]string{}, 80)
+	if result != "(none)" {
+		t.Errorf("expected (none) for empty list, got %q", result)
+	}
+}
+
+func TestFormatCORSOrigins_SingleOrigin(t *testing.T) {
+	result := formatCORSOrigins([]string{"http://localhost:5173"}, 80)
+	if result != "http://localhost:5173" {
+		t.Errorf("expected single origin, got %q", result)
+	}
+}
+
+func TestFormatCORSOrigins_MultipleFitInMax(t *testing.T) {
+	origins := []string{"http://a.com", "http://b.com", "http://c.com"}
+	result := formatCORSOrigins(origins, 80)
+	if result != "http://a.com, http://b.com, http://c.com" {
+		t.Errorf("expected all origins joined, got %q", result)
+	}
+}
+
+func TestFormatCORSOrigins_Truncation(t *testing.T) {
+	origins := []string{"http://a.com", "http://b.com", "http://c.com"}
+	result := formatCORSOrigins(origins, 30)
+	if !contains(result, "... and") {
+		t.Errorf("expected truncation with suffix, got %q", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// padRight
+// ---------------------------------------------------------------------------
+
+func TestPadRight_ShorterThanWidth(t *testing.T) {
+	result := padRight("hi", 5)
+	if result != "hi   " {
+		t.Errorf("expected %q, got %q", "hi   ", result)
+	}
+}
+
+func TestPadRight_ExactWidth(t *testing.T) {
+	result := padRight("hello", 5)
+	if result != "hello" {
+		t.Errorf("expected %q, got %q", "hello", result)
+	}
+}
+
+func TestPadRight_LongerThanWidth(t *testing.T) {
+	result := padRight("hello world", 5)
+	if result != "hello world" {
+		t.Errorf("expected unchanged string for longer than width, got %q", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// formatBytes
+// ---------------------------------------------------------------------------
+
+func TestFormatBytes_Bytes(t *testing.T) {
+	result := formatBytes(500)
+	if result != "500 B" {
+		t.Errorf("expected %q, got %q", "500 B", result)
+	}
+}
+
+func TestFormatBytes_Kilobytes(t *testing.T) {
+	result := formatBytes(2048)
+	if result != "2 KB" {
+		t.Errorf("expected %q, got %q", "2 KB", result)
+	}
+}
+
+func TestFormatBytes_Megabytes(t *testing.T) {
+	result := formatBytes(5 * 1024 * 1024)
+	if result != "5 MB" {
+		t.Errorf("expected %q, got %q", "5 MB", result)
+	}
+}
+
+func TestFormatBytes_Gigabytes(t *testing.T) {
+	result := formatBytes(3 * 1024 * 1024 * 1024)
+	if result != "3 GB" {
+		t.Errorf("expected %q, got %q", "3 GB", result)
+	}
+}
+
+func TestFormatBytes_Zero(t *testing.T) {
+	result := formatBytes(0)
+	if result != "0 B" {
+		t.Errorf("expected %q, got %q", "0 B", result)
+	}
+}
+
+func TestFormatBytes_JustUnderKB(t *testing.T) {
+	result := formatBytes(1023)
+	if result != "1023 B" {
+		t.Errorf("expected %q, got %q", "1023 B", result)
+	}
+}
