@@ -186,6 +186,9 @@ export interface SystemStats {
 		size_mb: number;
 		connections: number;
 		cache_hit_ratio: number;
+		tx_per_sec: number;
+		dead_tuples: number;
+		lock_waits: number;
 	};
 	docker: {
 		available: boolean;

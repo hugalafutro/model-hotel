@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"runtime"
 	"runtime/metrics"
@@ -61,6 +62,9 @@ type DBStats struct {
 	SizeMB        float64 `json:"size_mb"`
 	Connections   int     `json:"connections"`
 	CacheHitRatio float64 `json:"cache_hit_ratio"`
+	TxPerSec      float64 `json:"tx_per_sec"`
+	DeadTuples    int64   `json:"dead_tuples"`
+	LockWaits     int     `json:"lock_waits"`
 }
 
 var (
@@ -68,6 +72,11 @@ var (
 	cachedSystemTime  time.Time
 	cachedSystemSince string
 	cachedSystemMu    sync.Mutex
+
+	// For tx/sec delta calculation.
+	prevTxCount  int64
+	prevTxTime   time.Time
+	prevTxMu     sync.Mutex
 )
 
 const systemCacheTTL = 3 * time.Second
@@ -182,10 +191,57 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		cacheHitRatio = 0
 	}
 
+	// Transactions per second (delta from previous collection).
+	// Note: the 3-second response cache means the rate is a rolling avg
+	// across cache intervals rather than truly instantaneous.
+	var txPerSec float64
+	var totalTx int64
+	err = h.pool.QueryRow(ctx,
+		"SELECT xact_commit + xact_rollback FROM pg_stat_database WHERE datname = current_database()",
+	).Scan(&totalTx)
+	if err != nil {
+		totalTx = 0
+	}
+
+	prevTxMu.Lock()
+	if !prevTxTime.IsZero() {
+		elapsed := time.Since(prevTxTime).Seconds()
+		if elapsed > 0 {
+			txPerSec = float64(totalTx-prevTxCount) / elapsed
+			if txPerSec < 0 {
+				txPerSec = 0
+			}
+		}
+	}
+	prevTxCount = totalTx
+	prevTxTime = time.Now()
+	prevTxMu.Unlock()
+
+	// Dead tuples across all user tables.
+	var deadTuples int64
+	err = h.pool.QueryRow(ctx,
+		"SELECT COALESCE(sum(n_dead_tup), 0) FROM pg_stat_user_tables",
+	).Scan(&deadTuples)
+	if err != nil {
+		deadTuples = 0
+	}
+
+	// Lock waits (granted=false).
+	var lockWaits int
+	err = h.pool.QueryRow(ctx,
+		"SELECT count(*) FROM pg_locks WHERE NOT granted",
+	).Scan(&lockWaits)
+	if err != nil {
+		lockWaits = 0
+	}
+
 	stats.DB = DBStats{
 		SizeMB:        float64(dbSize) / 1024 / 1024,
 		Connections:   connCount,
 		CacheHitRatio: cacheHitRatio,
+		TxPerSec:      math.Round(txPerSec*10) / 10,
+		DeadTuples:    deadTuples,
+		LockWaits:     lockWaits,
 	}
 
 	stats.Docker = util.CollectDockerStats(util.DetectComposeProject())

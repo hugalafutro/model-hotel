@@ -372,7 +372,7 @@ function SystemStatus() {
 							</span>
 						</div>
 
-						{/* DB */}
+						{/* DB Row 1: size, connections, cache hit */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title="Postgres database size, active connections, and buffer cache hit ratio"
@@ -395,6 +395,40 @@ function SystemStatus() {
 										>
 											Hit {stats.db.cache_hit_ratio}
 											<span className={u}>%</span>
+										</span>
+									</>
+								) : (
+									dash
+								)}
+							</span>
+						</div>
+
+						{/* DB Row 2: tx/sec, dead tuples, lock waits */}
+						<div
+							className="flex justify-between items-center text-(--text-tertiary) -mt-px"
+							title="Database transactions/sec, accumulated dead tuples (autovacuum lag), and blocked lock waits"
+						>
+							<span className="invisible">DB</span>
+							<span>
+								{stats?.db ? (
+									<>
+										<span className="text-(--text-secondary)">
+											{stats.db.tx_per_sec.toFixed(1)}
+											<span className={u}> tx/s</span>
+										</span>
+										<span className="text-(--text-secondary) mx-1">|</span>
+										<span
+											className={`text-(--text-secondary) ${dc(stats.db.dead_tuples, 10000, 50000)}`}
+										>
+											{stats.db.dead_tuples.toLocaleString()}
+											<span className={u}> dead</span>
+										</span>
+										<span className="text-(--text-secondary) mx-1">|</span>
+										<span
+											className={`text-(--text-secondary) ${dc(stats.db.lock_waits, 5, 20)}`}
+										>
+											{stats.db.lock_waits}
+											<span className={u}> locks</span>
 										</span>
 									</>
 								) : (
