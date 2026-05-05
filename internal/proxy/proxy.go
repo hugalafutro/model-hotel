@@ -77,6 +77,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	sawDone := false
 	chunkCount := 0
 	errorChunkCount := 0
+	var bytesWritten int64
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -89,19 +90,23 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		default:
 		}
 
-		if _, err := w.Write(line); err != nil {
+		if n, err := w.Write(line); err != nil {
 			clientDisconnected = true
 			debuglog.Warn("proxy: client write failed during stream",
 				"error", err, "model", logData.modelID, "provider", logData.providerID,
-				"chunks", chunkCount)
+				"chunks", chunkCount, "bytes_written", bytesWritten)
 			goto logUpdate
+		} else {
+			bytesWritten += int64(n)
 		}
-		if _, err := w.Write([]byte("\n")); err != nil {
+		if n, err := w.Write([]byte("\n")); err != nil {
 			clientDisconnected = true
 			debuglog.Warn("proxy: client write failed during stream (newline)",
 				"error", err, "model", logData.modelID, "provider", logData.providerID,
-				"chunks", chunkCount)
+				"chunks", chunkCount, "bytes_written", bytesWritten)
 			goto logUpdate
+		} else {
+			bytesWritten += int64(n)
 		}
 		if canFlush {
 			flusher.Flush()
@@ -178,7 +183,7 @@ logUpdate:
 	}
 	h.updateRequestLog(r.Context(), logData)
 
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
+	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {
 		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerID, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", attempt, "duration_ms", totalDuration)
 	} else {
