@@ -723,7 +723,9 @@ export function Arena() {
 
 					const truncationError: string | null =
 						!completion.sawDone && !completion.aborted
-							? "Stream was cut off — the response may be incomplete."
+							? completion.idleTimeout
+								? "Stream stalled — no data received within the timeout period."
+								: "Stream was cut off — the response may be incomplete."
 							: null;
 
 					setRounds(

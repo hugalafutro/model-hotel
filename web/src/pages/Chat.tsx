@@ -206,9 +206,11 @@ async function streamModelResponse(
 				rawContent,
 				content,
 				thinkingContent,
-				error: content
-					? "Stream was cut off — the response may be incomplete."
-					: "Stream ended unexpectedly with no content.",
+				error: completion.idleTimeout
+					? "Stream stalled — no data received within the timeout period."
+					: content
+						? "Stream was cut off — the response may be incomplete."
+						: "Stream ended unexpectedly with no content.",
 				durationMs,
 				charsPerSecond,
 				promptTokens,

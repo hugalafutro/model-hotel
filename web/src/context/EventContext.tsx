@@ -47,6 +47,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 						reader,
 						signal: ac.signal,
 						doneSentinel: null,
+						idleTimeoutMs: 0,
 						onChunk(event) {
 							// Dispatch custom event for programmatic consumers (e.g., logs page)
 							window.dispatchEvent(
