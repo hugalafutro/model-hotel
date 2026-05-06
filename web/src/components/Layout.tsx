@@ -815,7 +815,7 @@ export function Layout({ children }: LayoutProps) {
 					</ul>
 					<ProviderQuotaPanel />
 				</nav>
-				<div className="px-4 pb-4 shrink-0">
+				<div className="px-4 pb-0.5 shrink-0">
 					<LastErrorPills />
 					<div className="flex justify-between items-center mb-2">
 						<a
