@@ -740,32 +740,32 @@ export function Providers() {
 										textClassName="text-lg font-semibold text-white"
 										tooltip="Click to copy provider name"
 									/>
-									<div className="flex items-center gap-2">
-										{!provider.enabled && (
-											<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
-												Disabled
-											</span>
-										)}
-										{provider.total_tokens > 0 && (
-											<span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30">
-												{formatTokens(provider.total_tokens)} tokens
-											</span>
-										)}
-										{(() => {
-											const count = modelCounts.get(provider.name) ?? 0;
-											return (
-												count > 0 && (
-													<button
-														type="button"
-														onClick={() => setModelsProvider(provider)}
-														className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors"
-													>
-														{count} {count === 1 ? "model" : "models"}
-													</button>
-												)
-											);
-										})()}
-									</div>
+								</div>
+								<div className="flex items-center gap-2 mt-1">
+									{!provider.enabled && (
+										<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
+											Disabled
+										</span>
+									)}
+									{provider.total_tokens > 0 && (
+										<span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30 whitespace-nowrap">
+											{formatTokens(provider.total_tokens)} tokens
+										</span>
+									)}
+									{(() => {
+										const count = modelCounts.get(provider.name) ?? 0;
+										return (
+											count > 0 && (
+												<button
+													type="button"
+													onClick={() => setModelsProvider(provider)}
+													className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors whitespace-nowrap"
+												>
+													{count} {count === 1 ? "model" : "models"}
+												</button>
+											)
+										);
+									})()}
 								</div>
 								<CopyablePill
 									text={provider.base_url}
