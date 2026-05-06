@@ -1699,7 +1699,7 @@ export function Arena() {
 							<div
 								className={`${
 									isCompare
-										? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+										? "flex flex-wrap justify-center gap-4 [&>*]:w-full [&>*]:md:w-[calc(50%-0.5rem)] [&>*]:xl:w-[calc(33.333%-0.67rem)]"
 										: "space-y-4"
 								} transition-opacity duration-500 ${
 									roundIdx <= currentRound ? "opacity-100" : "opacity-20"
