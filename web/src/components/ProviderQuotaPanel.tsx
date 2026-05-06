@@ -169,7 +169,6 @@ export function ProviderQuotaPanel() {
 						iconStyle="double"
 						expandTitle="Expand quotas"
 						collapseTitle="Collapse"
-						className="sidebar-quota-btn"
 					/>
 				</div>
 			</div>

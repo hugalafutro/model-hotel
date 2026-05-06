@@ -762,23 +762,6 @@ html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 	justify-content: flex-end;
 }
 
-.sidebar-stats-trigger-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: none;
-	background: transparent;
-	cursor: pointer;
-	color: var(--text-muted);
-	transition: color 0.15s;
-	flex-shrink: 0;
-}
-
-.sidebar-stats-trigger-btn:hover {
-	color: var(--text-tertiary);
-}
-
 .sidebar-stats-content {
 	margin-top: 0.25rem;
 }
@@ -793,10 +776,6 @@ html[data-ui-style="cyber-terminal"] .sidebar-stats-trigger {
 	font-family: var(--font-mono);
 	text-transform: uppercase;
 	letter-spacing: 0.1em;
-}
-
-html[data-ui-style="glassmorphism-lite"] .sidebar-stats-trigger-btn {
-	border-radius: 8px;
 }
 
 /* =============================================

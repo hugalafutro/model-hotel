@@ -431,7 +431,6 @@ function SystemStatus() {
 					iconStyle="double"
 					expandTitle="Expand stats"
 					collapseTitle="Collapse stats"
-					className="sidebar-stats-trigger-btn"
 				/>
 			</div>
 		</div>
