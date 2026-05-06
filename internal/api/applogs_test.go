@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -405,6 +406,54 @@ func TestDetectLevel_Warning(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// wordMatch
+// ---------------------------------------------------------------------------
+
+func TestWordMatch_Basic(t *testing.T) {
+	tests := []struct {
+		s      string
+		word   string
+		result bool
+	}{
+		{"error", "error", true},
+		{"an error occurred", "error", true},
+		{"error: bad thing", "error", true},
+		{"error_chunks=0", "error", false},
+		{"has_error=false", "error", false},
+		{"errorHandling", "error", false},
+		{"no issues here", "error", false},
+		{"warn: something", "warn", true},
+		{"warning: deprecated", "warn", false},
+		{"warning: deprecated", "warning", true},
+		{"warnings were present", "warn", false},
+		{"warnings were present", "warning", false},    // "warning" doesn't match "warnings" (trailing s)
+		{"warnings were present", "warnings", true},   // "warnings" as exact word does match
+		{"warning: check this", "warning", true},       // "warning" as exact word does match
+		{"has_warnings=true", "warn", false},
+		{"has_warnings=true", "warning", false}, // "warnings" preceded by _, not word boundary
+		{"fatal error", "fatal", true},
+		{"fatality", "fatal", false},
+		{"panic: crashed", "panic", true},
+		{"panicking", "panic", false},
+		// Word at start and end of string
+		{"error at start", "error", true},
+		{"at end error", "error", true},
+		// Punctuation boundaries
+		{"error, something", "error", true},
+		{"error.", "error", true},
+		{"error=bad_thing", "error", true}, // "error" as whole word before =
+	}
+	for _, tc := range tests {
+		t.Run(tc.s+"/"+tc.word, func(t *testing.T) {
+			got := wordMatch(strings.ToLower(tc.s), tc.word)
+			if got != tc.result {
+				t.Errorf("wordMatch(%q, %q) = %v, want %v", tc.s, tc.word, got, tc.result)
+			}
+		})
+	}
+}
+
 func TestDetectLevel_Info(t *testing.T) {
 	tests := []struct {
 		name string
@@ -419,6 +468,28 @@ func TestDetectLevel_Info(t *testing.T) {
 			result := detectLevel(tc.line)
 			if result != "info" {
 				t.Errorf("detectLevel(%q) = %q, want %q", tc.line, result, "info")
+			}
+		})
+	}
+}
+func TestDetectLevel_NoFalsePositiveFromFieldNames(t *testing.T) {
+	// Regression test: structured slog attrs like "error_chunks=0" or
+	// "has_error=false" must NOT cause the line to be classified as error.
+	tests := []struct {
+		name string
+		line string
+		want string
+	}{
+		{"error_chunks field", "proxy: streaming finished error_chunks=0 has_error=false", "info"},
+		{"has_error field", "proxy: completed has_error=false", "info"},
+		{"error as word still matches", "proxy: error: connection refused", "error"},
+		{"error in error_message field", "proxy: failed error_message=timeout", "info"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := detectLevel(tc.line)
+			if got != tc.want {
+				t.Errorf("detectLevel(%q) = %q, want %q", tc.line, got, tc.want)
 			}
 		})
 	}

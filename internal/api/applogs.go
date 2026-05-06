@@ -276,7 +276,10 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 
 	// Extract source from "[source]" prefix in message, same as parseLogLine.
 	source, msgStr := extractSource(msg.String())
-	appLevel = maxLevel(appLevel, detectLevel(msgStr))
+	// For slog entries, the level is authoritative — do not let the text
+	// heuristic (detectLevel) override it.  Field values like "error_chunks=0"
+	// or "has_error=false" would falsely trigger detectLevel's "error" match.
+	// The heuristic remains useful for legacy log.Printf lines (Write path).
 	msgStr = stripLevelPrefix(msgStr)
 
 	entry := AppLogEntry{
@@ -440,15 +443,43 @@ func extractSource(line string) (string, string) {
 
 // detectLevel attempts to infer a log level from the content of the line.
 // Go's standard log package does not emit levels, so we use heuristics.
+// We use word-boundary matching to avoid false positives from field names
+// like "error_chunks" or "has_error" which are structured key=value attrs,
+// not actual error conditions.
 func detectLevel(line string) string {
 	lower := strings.ToLower(line)
-	if strings.Contains(lower, "error") || strings.Contains(lower, "fatal") || strings.Contains(lower, "panic") {
+	if wordMatch(lower, "error") || wordMatch(lower, "errors") || wordMatch(lower, "fatal") || wordMatch(lower, "panic") {
 		return "error"
 	}
-	if strings.Contains(lower, "warn") {
+	if wordMatch(lower, "warn") || wordMatch(lower, "warning") || wordMatch(lower, "warnings") {
 		return "warning"
 	}
 	return "info"
+}
+
+// wordMatch reports whether word appears as a whole word in s (case-insensitive
+// input expected). A "whole word" means the word is preceded and followed by a
+// non-alphanumeric, non-underscore character (or string boundaries). This
+// prevents "error" from matching inside "error_chunks" or "has_error".
+func wordMatch(s, word string) bool {
+	for {
+		i := strings.Index(s, word)
+		if i < 0 {
+			return false
+		}
+		beforeOK := i == 0 || !isWordChar(s[i-1])
+		after := i + len(word)
+		afterOK := after >= len(s) || !isWordChar(s[after])
+		if beforeOK && afterOK {
+			return true
+		}
+		// Advance past this match and keep searching.
+		s = s[after:]
+	}
+}
+
+func isWordChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 // stripLevelPrefix removes a leading level indicator from a log message so the
