@@ -1663,6 +1663,12 @@ export function Chat() {
 												metrics={msg.metrics}
 												isStreaming={isStreamingThis}
 												shortenModelName={false}
+												isReasoningModel={enabledModels.some(
+													(m) =>
+														proxyModelID(m.provider_name, m.model_id) ===
+															msg.model &&
+														parseCapabilities(m.capabilities).reasoning,
+												)}
 												tint="blue"
 												personaName={personaName}
 												personaTooltip={personaTooltip}
@@ -1719,6 +1725,12 @@ export function Chat() {
 											metrics={msg.metrics}
 											isStreaming={isStreamingThis}
 											shortenModelName={false}
+											isReasoningModel={enabledModels.some(
+												(m) =>
+													proxyModelID(m.provider_name, m.model_id) ===
+														msg.model &&
+													parseCapabilities(m.capabilities).reasoning,
+											)}
 											personaName={personaName}
 											personaTooltip={personaTooltip}
 											turnNumber={turnNumber}

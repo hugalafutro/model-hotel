@@ -51,7 +51,11 @@ import {
 	saveCompareToHistory,
 	saveCompetitionToHistory,
 } from "../utils/arenaHistory";
-import { providerFromModelID, proxyModelID } from "../utils/model";
+import {
+	parseCapabilities,
+	providerFromModelID,
+	proxyModelID,
+} from "../utils/model";
 import { hasAnyParam } from "../utils/params";
 import { readSSEStream, type StreamChunk } from "../utils/sse";
 import { fetchWithRetry, staggerByProvider } from "../utils/stagger";
@@ -2241,6 +2245,9 @@ function ResponseCard({
 				shortenModelName={true}
 				showInfoIcon={true}
 				params={params}
+				isReasoningModel={
+					!!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
+				}
 				onModelNameClick={modelObj ? () => setDetailModel(modelObj) : undefined}
 				afterModel={
 					response.error && response.done ? (

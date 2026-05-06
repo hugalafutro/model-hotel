@@ -65,6 +65,8 @@ interface ModelReplyCardProps {
 	showInfoIcon?: boolean;
 	/** Generation params used for this response — shown as tooltip on a settings indicator */
 	params?: GenerationParams;
+	/** Whether this model has reasoning capability — shows "Thinking…" instead of "Waiting…" during empty streaming */
+	isReasoningModel?: boolean;
 	/** Persona name to display in the footer/status bar */
 	personaName?: string;
 	/** Tooltip text for the persona badge (e.g. full persona prompt) */
@@ -120,6 +122,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	shortenModelName = true,
 	showInfoIcon = false,
 	params,
+	isReasoningModel = false,
 	personaName,
 	personaTooltip,
 	turnNumber,
@@ -272,8 +275,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<MarkdownContent>{content}</MarkdownContent>
 							) : !hasThinking && isStreaming ? (
 								<div className="text-(--text-tertiary) text-xs flex items-center gap-2">
-									<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
-									Waiting…
+									<span
+										className={`w-1.5 h-1.5 rounded-full animate-pulse ${isReasoningModel ? "bg-amber-400" : "bg-(--accent)"}`}
+									/>
+									{isReasoningModel ? "Thinking…" : "Waiting…"}
 								</div>
 							) : null}
 							{error && content && (
