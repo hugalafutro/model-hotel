@@ -2325,7 +2325,6 @@ function ResponseCard({
 				isLoser={isLoser}
 				shortenModelName={true}
 				showInfoIcon={true}
-				accentModelName={true}
 				params={params}
 				isReasoningModel={
 					!!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning

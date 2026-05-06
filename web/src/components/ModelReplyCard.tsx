@@ -1,6 +1,5 @@
 import { Bot, Clock, Copy, Info, Maximize2, Settings, Zap } from "lucide-react";
 import { memo, type ReactNode, useEffect, useState } from "react";
-
 import type { GenerationParams } from "../api/types";
 import { formatDuration } from "../utils/format";
 import { MARKDOWN_PROSE_CLASSES, MarkdownContent } from "./MarkdownContent";
@@ -65,8 +64,6 @@ interface ModelReplyCardProps {
 	params?: GenerationParams;
 	/** Whether this model has reasoning capability — shows "Thinking…" instead of "Waiting…" during empty streaming */
 	isReasoningModel?: boolean;
-	/** Whether to always style the model name with the accent color (default: false) */
-	accentModelName?: boolean;
 	/** Persona name to display in the footer/status bar */
 	personaName?: string;
 	/** Tooltip text for the persona badge (e.g. full persona prompt) */
@@ -87,8 +84,7 @@ const MAXIMIZED_PROSE_CLASSES =
 	"[&_a]:text-(--accent) [&_a]:underline " +
 	"[&_hr]:border-(--border-subtle) " +
 	"[&_table]:text-sm [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 " +
-	"[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle) " +
-	"[&_ .katex-display]:overflow-x-auto [&_ .katex-display]:my-3";
+	"[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
 
 export const ModelReplyCard = memo(function ModelReplyCard({
 	model,
@@ -115,7 +111,6 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	showInfoIcon = false,
 	params,
 	isReasoningModel = false,
-	accentModelName = false,
 	personaName,
 	personaTooltip,
 	turnNumber,
@@ -199,14 +194,14 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							>
 								{onModelNameClick ? (
 									<span
-										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all ${modelMaxWidth} ${accentModelName || tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
 										title={model}
 									>
 										{displayName}
 									</span>
 								) : (
 									<span
-										className={`text-sm font-medium truncate ${modelMaxWidth} ${accentModelName || tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+										className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
 										title={model}
 									>
 										{displayName}
