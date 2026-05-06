@@ -4,6 +4,7 @@
 
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
 <p align="center"><em>"Because we have LiteLLM at home"</em></p>
+<br><br>
 
 <p align="center">
   <img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI">
@@ -20,16 +21,17 @@
 
 <div align="center">
 
-> **AI-Assisted Project Disclaimer:**</br>
-> Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.</br>
+> **AI-Assisted Project Disclaimer:**<br>
+> Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.<br>
 >
-> Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [Opencode](https://opencode.ai), using [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</br>
+> Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [Opencode](https://opencode.ai), using [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)<br>
 >
 >
-> <img src="https://img.shields.io/badge/GLM_5.1-orchestrator%20and%20council-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle%20and%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-fixer-F97316?style=flat" alt="DeepSeek V4 Flash"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian%20and%20explorer-10B981?style=flat" alt="MiniMax M2.7"> <img src="https://img.shields.io/badge/Qwen3_VL_235B-observer-06B6D4?style=flat" alt="Kimi K2.5"></br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"></br>
+> <img src="https://img.shields.io/badge/GLM_5.1-orchestrator%20and%20council-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle%20and%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"><br><img src="https://img.shields.io/badge/DeepSeek_V4_Flash-fixer-F97316?style=flat" alt="DeepSeek V4 Flash"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian%20and%20explorer-10B981?style=flat" alt="MiniMax M2.7"> <img src="https://img.shields.io/badge/Qwen3_VL_235B-observer-06B6D4?style=flat" alt="Kimi K2.5"><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"><br>
 >
-> <i>Thanks <a href="https://ollama.com">Ollama Cloud</a> for generous limits. I have nothing nice to say about <a href="https://z.ai">Z.AI</a> or <a href="https://opencode.ai">OpenCode Go</a> in that regard.</i></br></br>
-> <i>Try [tokensave](https://github.com/aovestdipaperino/tokensave) out! <img src="https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800" alt="Tokens Saved">&nbsp;in this repo so far.</i>
+> <i>Thanks <a href="https://ollama.com">Ollama Cloud</a> for generous limits. I have nothing nice to say about <a href="https://z.ai">Z.AI</a> or <a href="https://opencode.ai">OpenCode Go</a> in that regard.</i><br><br>
+<i>Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave</a></i><br>
+![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800)
 </div>
 
 ---
