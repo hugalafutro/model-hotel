@@ -35,6 +35,7 @@ func main() {
 	initialDelay := flag.Int("initial-delay", 10, "Initial delay before first chunk in ms (simulates TTFT)")
 	rejectParams := flag.String("reject-params", "", "Comma-separated param names the mock server rejects with 400 (e.g. top_p,frequency_penalty)")
 	extraParams := flag.String("extra-params", "", "Comma-separated param names to include in requests (set to 0.5 for floats, e.g. top_p=0.5,frequency_penalty=1.0)")
+	errorRate := flag.Float64("error-rate", 0, "Probability (0.0-1.0) that the mock server returns 500 instead of a normal response")
 
 	// Rate limit defaults (used when RL is on)
 	rps := flag.Float64("rps", 10, "Rate limit RPS when enabled")
@@ -85,6 +86,7 @@ func main() {
 	debuglog.Info("main: Rate limit modes", "modes", rlModes)
 	debuglog.Info("main: Streaming", "enabled", *streaming)
 	debuglog.Info("main: Chunk config", "chunkDelay", *chunkDelay, "chunkCount", *chunkCount, "tokensPerChunk", *tokensPerChunk)
+	debuglog.Info("main: Error rate", "rate", *errorRate)
 
 	// ── Start mock server ──────────────────────────────────────────
 	mockAddr := fmt.Sprintf(":%d", *mockPort)
@@ -93,6 +95,7 @@ func main() {
 	mockServer.ChunkCount = *chunkCount
 	mockServer.TokensPerChunk = *tokensPerChunk
 	mockServer.InitialDelay = time.Duration(*initialDelay) * time.Millisecond
+	mockServer.ErrorRate = *errorRate
 
 	debuglog.Info("main: starting mock upstream server...")
 	if err := mockServer.StartAsync(); err != nil {

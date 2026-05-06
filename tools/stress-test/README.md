@@ -52,6 +52,9 @@ go run . -admin-token abc123 -streaming false
 
 # Test proxy's param-rejection auto-retry (mock rejects top_p, proxy should strip and retry)
 go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concurrency 10
+
+# Test circuit breaker behavior (20% error rate causes circuit to open)
+go run . -admin-token abc123 -error-rate 0.2 -concurrency 50
 ```
 
 ### CLI Flags
@@ -72,6 +75,7 @@ go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concu
 | `-initial-delay` | `10` | Initial delay before first chunk (ms, simulates TTFT) |
 | `-reject-params` | `""` | Comma-separated param names the mock server rejects with 400 (e.g. `top_p,frequency_penalty`) |
 | `-extra-params` | `""` | Comma-separated params to include in requests, with optional values (e.g. `top_p=0.5,frequency_penalty=1.0`) |
+| `-error-rate` | `0` | Probability (0.0–1.0) the mock server returns 500 instead of a normal response (for testing circuit breaker / failover) |
 | `-rps` | `10` | Rate limit RPS when enabled |
 | `-burst` | `20` | Rate limit burst when enabled |
 | `-output` | `markdown` | Output format: text, markdown, json |
@@ -108,8 +112,11 @@ The default flag values produce 16 scenarios:
 +---------------+     +---------------+     +---------------+
      admin API           IP rate limiter
      virtual keys        per-key rate limiter
-                        failover (exponential backoff)
-                        request logging          SSE streaming
+                         circuit breaker (per-provider)
+                         failover (exponential backoff with jitter)
+                         request timeout (configurable)
+                         async request logging
+                         SSE streaming
 ```
 
 The stress test is purely external — it talks to the proxy via HTTP, creates fixtures via the admin API, and measures end-to-end behaviour. No proxy code changes are needed to run it (beyond the loopback allowlist config).
@@ -120,39 +127,46 @@ Understanding the internal path helps interpret results:
 
 ```
 Request -> chi middleware (RequestID, RealIP, Logger, Recoverer, Compress, Security, CORS, MaxBytesReader)
-  -> streamingAwareTimeout (5min for streaming)
+  -> streamingAwareTimeout (request_timeout setting, default 1m; 10x for streaming)
   -> IPLimiter.Middleware (per-IP token bucket, always-on DoS safety net)
   -> ProxyKeyMiddleware (SHA-256 hash lookup against virtual_keys -- 1 DB query)
-  -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate)
+  -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate, with wasDisabled atomic for re-enable bucket reset)
   -> ChatCompletions handler:
-      1. Parse body
+      1. Parse body, inject stream_options for streaming requests
       2. Resolve model (failover group or provider/model) -- DB + cache
       3. Decrypt provider API key (AES-256-GCM, cached)
-      4. INSERT into request_logs (DB write)
+      4. Async INSERT into request_logs (DB write, fire-and-forget)
       5. For each candidate in failover chain:
-         a. Strip provider-unsupported params preemptively
-         b. Forward to upstream provider (HTTP POST via shared Transport)
-         c. On 400: parse error for rejected params, cache them, strip and retry once
-         d. On 5xx/429/401/403: exponential backoff (100ms base, 2s cap), try next
-         e. On 200: stream/return response
-      6. UPDATE request_logs (DB write)
-      7. UPDATE virtual_keys SET tokens_used (DB write)
-      8. Fire-and-forget TouchLastUsed (DB write)
+         a. Check circuit breaker (per-provider; skip if open, half-open allows 1 probe)
+         b. Strip provider-unsupported params preemptively
+         c. Forward to upstream provider (HTTP POST via SafeDialer with per-request DNS)
+         d. On 400: parse error for rejected params, cache them, strip and retry once
+         e. On 429: if failover_on_rate_limit enabled, try next candidate; else fail
+         f. On 5xx/401/403: exponential backoff with jitter (failoverBackoff), try next
+         g. On success: record circuit breaker success, stream/return response
+      6. Record circuit breaker failure if all candidates failed
+      7. Async UPDATE request_logs (DB write)
+      8. UPDATE virtual_keys SET tokens_used (DB write)
+      9. Fire-and-forget TouchLastUsed (DB write)
+     Settings are read from context (cached, 30s TTL) to avoid per-request DB reads.
 ```
 
 Likely bottleneck candidates at high concurrency:
 
-- **Postgres connection pool** (pgxpool MaxConns=25) — 4-5 DB writes per request
+- **Postgres connection pool** (pgxpool MaxConns=25, configurable via DATABASE_MAX_CONNS) — multiple DB writes per request
 - **Shared http.Transport** — Go defaults (100 total idle conns, 2 per host) may cause connection churn
-- **Rate limiter mutex** — single `sync.Mutex` for all key entries
+- **Rate limiter** — per-key token bucket with `wasDisabled` atomic for clean re-enable bucket reset
+- **Circuit breaker** — per-provider state tracking; failed providers are skipped, reducing effective capacity
 - **Goroutine count** — each streaming request holds a goroutine for the full stream duration
+- **Request timeout** — configurable via `request_timeout` setting (default 1m, 10x for streaming); long-running requests may consume goroutines
 
 ## File Structure
 
 ```
 tools/stress-test/
 +-- main.go              # CLI entry point, scenario orchestration
-+-- go.mod               # Standalone module (stdlib only)
++-- go.mod               # Standalone module (imports internal/debuglog)
++-- main_test.go         # Unit tests for CLI helpers
 +-- mock/
 |   +-- server.go        # Mock OpenAI-compatible SSE upstream
 +-- harness/
