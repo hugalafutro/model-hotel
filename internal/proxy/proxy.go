@@ -490,9 +490,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		logData.providerID = candidate.provider.ID
 		if attempt == 0 {
-			debuglog.Info("proxy: routing to provider", "provider", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", len(candidates))
+			debuglog.Info("proxy: routing to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", len(candidates))
 		} else {
-			debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.ID, "model", candidate.model.ModelID)
+			debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
 		}
 		debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider_name", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", len(candidates))
 		go func(pid uuid.UUID) {
@@ -571,7 +571,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		timings.safeDialMs = safeDialMs
 		if err != nil {
 			failoverCancel() // no body to consume on error
-			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", err)
+			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
 			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 			// Client-initiated cancellations and deadline exceeded are not
 			// provider failures. If the caller disconnected (Canceled) or
@@ -582,7 +582,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					h.circuitBreaker.RecordFailure(candidate.provider.ID)
 				}
 			} else {
-				debuglog.Info("proxy: client disconnected during request to provider", "provider", candidate.provider.ID, "model", req.Model)
+				debuglog.Info("proxy: client disconnected during request to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", req.Model)
 			}
 			continue
 		}
@@ -595,7 +595,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			body, readErr := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			failoverCancel() // 400 body consumed, context no longer needed
-			debuglog.Debug("proxy: received 400 from upstream, checking for param rejection", "provider", candidate.provider.ID, "model", candidate.model.ModelID, "body_length", len(body))
+			debuglog.Debug("proxy: received 400 from upstream, checking for param rejection", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "body_length", len(body))
 			// Restore the body so downstream error handling (line ~605) can read it
 			// if we don't successfully retry. Must be set before any fallthrough.
 			resp.Body = io.NopCloser(bytes.NewReader(body))
@@ -653,7 +653,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							resp, retryErr = retryClient.Do(retryReq)
 							if retryErr != nil {
 								retryCancel() // no body to consume on retry error
-								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", retryErr)
+								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
 								lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
 								continue
 							}
@@ -697,7 +697,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				retryCancel() // retry body consumed, context no longer needed
 			}
 			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
-			debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.ID, "status", resp.StatusCode)
+			debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt
 			continue
 		}
@@ -710,8 +710,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				retryCancel() // retry body consumed, context no longer needed
 			}
 			errMsg := util.SanitizeLogBody(string(body), 2000)
-			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body", errMsg)
-			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
+			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body", errMsg)
+			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.statusCode = resp.StatusCode
 			logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 			logData.proxyOverheadMs = proxyOverhead
@@ -741,7 +741,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", req.Stream, "model", req.Model, "provider", candidate.provider.ID, "status", resp.StatusCode)
+		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", req.Stream, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		if req.Stream {
 			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
 			failoverCancel() // body consumed by handleStreamingResponse

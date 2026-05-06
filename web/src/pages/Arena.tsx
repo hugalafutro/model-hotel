@@ -1,6 +1,7 @@
 import { produce } from "immer";
 import {
 	AlertCircle,
+	ArrowLeftRight,
 	Bot,
 	CheckCircle2,
 	CircleStop,
@@ -1353,6 +1354,7 @@ export function Arena() {
 	const showResponseGrid = phase !== "setup";
 
 	const roundLabel = (roundIdx: number, totalRounds: number): string => {
+		if (arenaMode === "compare") return "Generation";
 		if (totalRounds === 1) return "Match";
 		if (roundIdx === totalRounds - 1) return "Final";
 		if (roundIdx === totalRounds - 2) return "Semifinals";
@@ -1712,7 +1714,7 @@ export function Arena() {
 											<div
 												// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in compare mode
 												key={`compare-${roundIdx}-${matchupIdx}`}
-												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4"
+												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 min-h-[22rem]"
 											>
 												{mu.slotA === null && roundIdx === currentRound ? (
 													<SwapPicker
@@ -2244,6 +2246,7 @@ function ResponseCard({
 				isLoser={isLoser}
 				shortenModelName={true}
 				showInfoIcon={true}
+				accentModelName={true}
 				params={params}
 				isReasoningModel={
 					!!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
@@ -2277,6 +2280,16 @@ function ResponseCard({
 									title="Re-roll"
 								>
 									<RefreshCw size={14} />
+								</button>
+								<button
+									type="button"
+									onClick={() =>
+										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
+									}
+									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
+									title="Swap model"
+								>
+									<ArrowLeftRight size={14} />
 								</button>
 							</>
 						)}
@@ -2312,10 +2325,6 @@ function ResponseCard({
 								<Trophy size={14} className="text-amber-400" />
 							</span>
 						)}
-					</>
-				}
-				footerEnd={
-					<div className="flex items-center gap-2">
 						{response.done && response.content && (
 							<CopyButton text={response.content} size={12} />
 						)}
@@ -2344,8 +2353,9 @@ function ResponseCard({
 								/>
 							</button>
 						)}
-					</div>
+					</>
 				}
+				footerEnd={null}
 				className="flex flex-col"
 				headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
 				bodyClassName="px-4 pb-4 pt-0 overflow-y-auto h-85"
@@ -2514,7 +2524,7 @@ function SwapPicker({
 	}, [enabledModels, disabledModels, alreadyUsed, search]);
 
 	return (
-		<div className="flex flex-col items-center max-h-60 min-h-0">
+		<div className="flex flex-col h-full min-h-0">
 			<p className="text-xs text-amber-400 mb-2 shrink-0">
 				Pick a replacement model
 			</p>
@@ -2524,7 +2534,7 @@ function SwapPicker({
 				placeholder="Search models…"
 				className="w-full max-w-xs mb-2 shrink-0"
 			/>
-			<div className="flex flex-wrap gap-1 overflow-y-auto w-full justify-center content-start px-2 min-h-0">
+			<div className="flex flex-wrap gap-1 overflow-y-auto w-full justify-center content-start px-2 min-h-0 flex-1">
 				{available.map((m) => {
 					const id = proxyModelID(m.provider_name, m.model_id);
 					return (
