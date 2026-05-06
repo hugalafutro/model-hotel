@@ -19,22 +19,37 @@ import (
 	"strings"
 )
 
+// currentLevel stores the active slog level so it can be preserved when
+// reconfiguring the handler via SetHandler.
+var currentLevel slog.Level
+
 // Init configures the default slog logger based on the debug flag.
 // If debug is true, log level is set to Debug; otherwise Info.
 // This also reads the DEBUG_LOG env var as a fallback if debug is false
 // but the env var is explicitly set to a truthy value.
 func Init(debug bool) {
-	var level slog.Level
 	if debug || isDebugLogEnv() {
-		level = slog.LevelDebug
+		currentLevel = slog.LevelDebug
 	} else {
-		level = slog.LevelInfo
+		currentLevel = slog.LevelInfo
 	}
 
 	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
+		Level: currentLevel,
 	})
 	slog.SetDefault(slog.New(handler))
+}
+
+// Level returns the current slog log level (set by Init).
+func Level() slog.Level {
+	return currentLevel
+}
+
+// SetHandler replaces the default slog handler. Use this to route slog
+// output through a custom handler (e.g. one that writes to the app log
+// ring buffer and database). Call after api.InitAppLogBuffer.
+func SetHandler(h slog.Handler) {
+	slog.SetDefault(slog.New(h))
 }
 
 // isDebugLogEnv returns true if the DEBUG_LOG env var is set to a truthy value.

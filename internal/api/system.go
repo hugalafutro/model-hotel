@@ -74,9 +74,9 @@ var (
 	cachedSystemMu    sync.Mutex
 
 	// For tx/sec delta calculation.
-	prevTxCount  int64
-	prevTxTime   time.Time
-	prevTxMu     sync.Mutex
+	prevTxCount int64
+	prevTxTime  time.Time
+	prevTxMu    sync.Mutex
 )
 
 const systemCacheTTL = 3 * time.Second

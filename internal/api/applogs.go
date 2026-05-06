@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -217,6 +219,129 @@ func InitAppLogBuffer(pool *pgxpool.Pool) {
 		dbWriter = newDBLogWriter(pool)
 	}
 	log.SetOutput(io.MultiWriter(&stderrLogFilter{dst: os.Stderr}, appLogBuffer))
+}
+
+// NewAppSlogHandler returns a slog.Handler that writes structured log entries
+// through the app log pipeline (ring buffer + DB writer + filtered stderr).
+// Call after InitAppLogBuffer and pass to debuglog.SetHandler to route all
+// slog output through the app logging system.
+func NewAppSlogHandler(level slog.Level) slog.Handler {
+	return &appSlogHandler{
+		level:  level,
+		stderr: &stderrLogFilter{dst: os.Stderr},
+	}
+}
+
+// appSlogHandler implements slog.Handler by creating AppLogEntry values
+// directly from slog records, routing them through the ring buffer and DB
+// writer, and conditionally forwarding to stderr for docker logs.
+type appSlogHandler struct {
+	level  slog.Level
+	stderr *stderrLogFilter
+	group  string
+	attrs  []slog.Attr
+}
+
+func (h *appSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= h.level
+}
+
+func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
+	// Build message: prepend group prefix if set, then append any attrs.
+	var msg strings.Builder
+	if h.group != "" {
+		fmt.Fprintf(&msg, "[%s] ", h.group)
+	}
+	msg.WriteString(r.Message)
+
+	// Append any handler-level attrs.
+	for _, a := range h.attrs {
+		fmt.Fprintf(&msg, " %s=%v", a.Key, a.Value)
+	}
+	// Append per-record attrs.
+	r.Attrs(func(a slog.Attr) bool {
+		fmt.Fprintf(&msg, " %s=%v", a.Key, a.Value)
+		return true
+	})
+
+	// Map slog level to app level.
+	appLevel := "info"
+	switch {
+	case r.Level >= slog.LevelError:
+		appLevel = "error"
+	case r.Level >= slog.LevelWarn:
+		appLevel = "warning"
+	}
+
+	// Extract source from "[source]" prefix in message, same as parseLogLine.
+	source, msgStr := extractSource(msg.String())
+	appLevel = maxLevel(appLevel, detectLevel(msgStr))
+	msgStr = stripLevelPrefix(msgStr)
+
+	entry := AppLogEntry{
+		Timestamp: r.Time.UTC().Format(time.RFC3339Nano),
+		Level:     appLevel,
+		Source:    source,
+		Message:   msgStr,
+	}
+
+	// Write to ring buffer and DB.
+	if appLogBuffer != nil {
+		appLogBuffer.writeEntry(entry)
+	}
+	if w := dbWriter; w != nil {
+		w.write(entry)
+	}
+
+	// Forward to stderr filter for docker logs (only errors/warnings).
+	_, _ = fmt.Fprintf(h.stderr, "%s %s\n",
+		r.Time.Format("2006/01/02 15:04:05"),
+		msg.String())
+
+	return nil
+}
+
+func (h *appSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &appSlogHandler{
+		level:  h.level,
+		stderr: h.stderr,
+		group:  h.group,
+		attrs:  append(slices.Clone(h.attrs), attrs...),
+	}
+}
+
+func (h *appSlogHandler) WithGroup(name string) slog.Handler {
+	if h.group != "" {
+		name = h.group + "." + name
+	}
+	return &appSlogHandler{
+		level:  h.level,
+		stderr: h.stderr,
+		group:  name,
+		attrs:  slices.Clone(h.attrs),
+	}
+}
+
+// levelSeverity maps app log levels to numeric severity for comparison.
+var levelSeverity = map[string]int{"error": 3, "warning": 2, "info": 1}
+
+// maxLevel returns the higher-severity of two app log levels.
+func maxLevel(a, b string) string {
+	if levelSeverity[a] > levelSeverity[b] {
+		return a
+	}
+	return b
+}
+
+// writeEntry adds a pre-built AppLogEntry to the ring buffer (no text parsing).
+func (rb *ringBuffer) writeEntry(entry AppLogEntry) {
+	rb.mu.Lock()
+	rb.entries[rb.head] = entry
+	rb.head = (rb.head + 1) % appLogBufferSize
+	if rb.count < appLogBufferSize {
+		rb.count++
+	}
+	rb.mu.Unlock()
 }
 
 func StopAppLogWriter() {

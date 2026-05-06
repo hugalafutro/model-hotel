@@ -108,6 +108,10 @@ func main() {
 
 	api.InitAppLogBuffer(database.Pool())
 
+	// Route slog output through the app log pipeline so debuglog calls
+	// reach the ring buffer and database (not just os.Stdout).
+	debuglog.SetHandler(api.NewAppSlogHandler(debuglog.Level()))
+
 	// Clean up stale request logs left in "pending" or "streaming" state
 	// from a previous server crash, restart, or unhandled error.
 	// Using serverStartTime (captured before DB was ready) means we only
