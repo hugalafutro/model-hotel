@@ -4,19 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type DiscoveryService struct {
 	httpClient *http.Client
+	// quotaBreaker tracks per-provider circuit breaker state for quota fetches.
+	// Key: providerID string, Value: *quotaCircuitState.
+	quotaBreaker sync.Map
 }
 
 func NewDiscoveryService() *DiscoveryService {
@@ -192,6 +199,69 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 
 const maxQuotaRetries = 3
 
+// Circuit breaker thresholds.
+const (
+	// quotaBreakerThreshold is the number of consecutive failures before the
+	// circuit opens and further quota fetches are short-circuited.
+	quotaBreakerThreshold = 5
+	// quotaBreakerResetAfter is how long an open circuit stays open before
+	// transitioning to half-open, allowing one probe request through.
+	quotaBreakerResetAfter = 5 * time.Minute
+)
+
+// quotaCircuitState tracks consecutive failures for a single provider.
+type quotaCircuitState struct {
+	mu             sync.Mutex
+	consecFailures int
+	openUntil      time.Time // zero means closed; set when circuit opens
+}
+
+// isCircuitOpen returns true if the circuit is open (requests should be
+// short-circuited). If the open window has expired, it transitions to
+// half-open and returns false (allowing one probe).
+func (s *quotaCircuitState) isCircuitOpen() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.openUntil.IsZero() {
+		return false
+	}
+	if time.Now().Before(s.openUntil) {
+		return true
+	}
+	// Half-open: allow one probe. Don't reset consecFailures yet; the
+	// probe success will do that.
+	s.openUntil = time.Time{}
+	return false
+}
+
+// recordSuccess resets the circuit breaker state on a successful fetch.
+func (s *quotaCircuitState) recordSuccess() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.consecFailures = 0
+	s.openUntil = time.Time{}
+}
+
+// recordFailure increments the failure counter and opens the circuit if the
+// threshold is reached. Returns true if the circuit just opened.
+func (s *quotaCircuitState) recordFailure() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.consecFailures++
+	if s.consecFailures >= quotaBreakerThreshold && s.openUntil.IsZero() {
+		s.openUntil = time.Now().Add(quotaBreakerResetAfter)
+		return true
+	}
+	return false
+}
+
+// getOrCreateCircuit returns the circuit breaker state for a provider,
+// creating one if it doesn't exist yet.
+func (d *DiscoveryService) getOrCreateCircuit(providerID string) *quotaCircuitState {
+	val, _ := d.quotaBreaker.LoadOrStore(providerID, &quotaCircuitState{})
+	return val.(*quotaCircuitState)
+}
+
 // isTransientNetworkError returns true for DNS failures, timeouts, and
 // connection errors that are likely to succeed on retry.
 func isTransientNetworkError(err error) bool {
@@ -218,14 +288,44 @@ func isTransientNetworkError(err error) bool {
 	return false
 }
 
+// isRetryableStatus returns true for HTTP status codes that warrant a retry.
+func isRetryableStatus(statusCode int) bool {
+	switch {
+	case statusCode == http.StatusTooManyRequests: // 429
+		return true
+	case statusCode >= 500 && statusCode < 600: // 5xx
+		return true
+	default:
+		return false
+	}
+}
+
+// retryBackoff computes a linear backoff with jitter: base × attempt + random
+// jitter in [0, base). This prevents thundering herd when multiple providers
+// fail simultaneously.
+func retryBackoff(base time.Duration, attempt int) time.Duration {
+	delay := time.Duration(attempt) * base
+	jitter := time.Duration(rand.Int64N(int64(base)))
+	return delay + jitter
+}
+
 // doQuotaRequestWithRetry executes an HTTP request with retries for transient
-// network errors (DNS failures, timeouts, connection issues). Non-transient
-// errors and successful responses are returned immediately.
+// network errors (DNS failures, timeouts, connection issues) and retryable
+// HTTP statuses (429, 5xx). The circuit breaker short-circuits requests to
+// providers that have failed consecutively beyond the threshold.
+// On success, the circuit breaker is reset automatically.
+// On final failure, the circuit breaker failure counter is incremented.
 func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *http.Request, providerID, providerType string) (*http.Response, error) {
+	circuit := d.getOrCreateCircuit(providerID)
+	if circuit.isCircuitOpen() {
+		debuglog.Warn("discovery: circuit breaker open, skipping quota fetch", "type", providerType, "provider", providerID)
+		return nil, fmt.Errorf("quota fetch circuit breaker open for provider %s (consecutive failures threshold reached)", providerID)
+	}
+
 	var lastErr error
 	for attempt := range maxQuotaRetries {
 		if attempt > 0 {
-			backoff := time.Duration(attempt) * 3 * time.Second
+			backoff := retryBackoff(3*time.Second, attempt)
 			debuglog.Info("discovery: retrying quota fetch", "type", providerType, "provider", providerID, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxQuotaRetries)
 			select {
 			case <-ctx.Done():
@@ -239,9 +339,23 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 				lastErr = err
 				continue
 			}
+			circuit.recordFailure()
 			return nil, err
 		}
+		// Retry on 429 (rate-limited) and 5xx (server error) responses.
+		if isRetryableStatus(resp.StatusCode) {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			lastErr = fmt.Errorf("retryable HTTP %d: %s", resp.StatusCode, util.SanitizeLogBody(string(body), 200))
+			debuglog.Info("discovery: retryable HTTP status for quota fetch", "type", providerType, "provider", providerID, "status", resp.StatusCode, "attempt", attempt+1)
+			continue
+		}
+		// Success or non-retryable status — return as-is.
+		circuit.recordSuccess()
 		return resp, nil
+	}
+	if opened := circuit.recordFailure(); opened {
+		debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerID, "threshold", quotaBreakerThreshold)
 	}
 	return nil, fmt.Errorf("quota fetch failed after %d attempts: %w", maxQuotaRetries, lastErr)
 }

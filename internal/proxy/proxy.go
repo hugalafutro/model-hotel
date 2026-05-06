@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"sync"
@@ -459,10 +460,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var lastErr string
 	for attempt, candidate := range candidates {
-		// Exponential backoff between failover attempts: 0ms, 100ms, 200ms, 400ms...
-		// Capped at 2s. First attempt (attempt=0) has no delay.
+		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
+		// Capped at 2s, with ±50ms jitter to avoid thundering herd.
+		// First attempt (attempt=0) has no delay.
 		if attempt > 0 {
-			backoff := time.Duration(math.Min(float64(100*time.Millisecond)*math.Pow(2, float64(attempt-1)), float64(2*time.Second)))
+			backoff := failoverBackoff(100*time.Millisecond, 2*time.Second, attempt)
 			debuglog.Info("proxy: failover backoff", "backoff", backoff, "attempt", attempt+1)
 			select {
 			case <-time.After(backoff):
@@ -884,6 +886,18 @@ func parseProviderParamError(body []byte) map[string]bool {
 }
 
 // mapKeys returns the keys of a map[string]bool for logging.
+// failoverBackoff calculates exponential backoff with jitter between failover attempts.
+// base is the starting delay, cap is the maximum delay, attempt is the 1-indexed attempt number.
+// Jitter of [0, base) is added to spread retries from concurrent requests hitting the same cascade.
+func failoverBackoff(base, cap_ time.Duration, attempt int) time.Duration {
+	exp := time.Duration(float64(base) * math.Pow(2, float64(attempt-1)))
+	if exp > cap_ {
+		exp = cap_
+	}
+	jitter := time.Duration(rand.Int64N(int64(base)))
+	return exp + jitter
+}
+
 func mapKeys(m map[string]bool) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

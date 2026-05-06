@@ -1,10 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -694,5 +698,257 @@ func TestIsTransientNetworkError_URLErrorWrappingTimeout(t *testing.T) {
 	urlErr := &url.Error{Op: "Get", URL: "http://example.com", Err: timeoutError{}}
 	if !isTransientNetworkError(urlErr) {
 		t.Error("isTransientNetworkError(url.Error wrapping timeout net.Error) should be true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// isRetryableStatus
+// ---------------------------------------------------------------------------
+
+func TestIsRetryableStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     int
+		expected bool
+	}{
+		{"429 Too Many Requests", 429, true},
+		{"500 Internal Server Error", 500, true},
+		{"502 Bad Gateway", 502, true},
+		{"503 Service Unavailable", 503, true},
+		{"200 OK", 200, false},
+		{"401 Unauthorized", 401, false},
+		{"403 Forbidden", 403, false},
+		{"404 Not Found", 404, false},
+		{"400 Bad Request", 400, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRetryableStatus(tt.code); got != tt.expected {
+				t.Errorf("isRetryableStatus(%d) = %v, want %v", tt.code, got, tt.expected)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// retryBackoff
+// ---------------------------------------------------------------------------
+
+func TestRetryBackoff(t *testing.T) {
+	base := 3 * time.Second
+
+	// Attempt 0 should return just jitter (delay=0 + jitter in [0, base))
+	b0 := retryBackoff(base, 0)
+	if b0 < 0 || b0 >= base {
+		t.Errorf("retryBackoff(base, 0) = %v, want [0, %v)", b0, base)
+	}
+
+	// Attempt 1: delay=3s + jitter in [0, 3s) → [3s, 6s)
+	b1 := retryBackoff(base, 1)
+	if b1 < 3*time.Second || b1 >= 6*time.Second {
+		t.Errorf("retryBackoff(base, 1) = %v, want [3s, 6s)", b1)
+	}
+
+	// Attempt 2: delay=6s + jitter in [0, 3s) → [6s, 9s)
+	b2 := retryBackoff(base, 2)
+	if b2 < 6*time.Second || b2 >= 9*time.Second {
+		t.Errorf("retryBackoff(base, 2) = %v, want [6s, 9s)", b2)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// quotaCircuitState
+// ---------------------------------------------------------------------------
+
+func TestQuotaCircuitState_ClosedByDefault(t *testing.T) {
+	s := &quotaCircuitState{}
+	if s.isCircuitOpen() {
+		t.Error("new circuit should be closed")
+	}
+}
+
+func TestQuotaCircuitState_OpensAfterThreshold(t *testing.T) {
+	s := &quotaCircuitState{}
+	for i := 0; i < quotaBreakerThreshold-1; i++ {
+		if s.recordFailure() {
+			t.Errorf("circuit should not open at failure %d (threshold=%d)", i+1, quotaBreakerThreshold)
+		}
+	}
+	// The threshold-th failure should open the circuit.
+	if !s.recordFailure() {
+		t.Error("circuit should open on threshold-th failure")
+	}
+	if !s.isCircuitOpen() {
+		t.Error("circuit should be open after reaching threshold")
+	}
+}
+
+func TestQuotaCircuitState_SuccessResets(t *testing.T) {
+	s := &quotaCircuitState{}
+	// Fail a few times (not enough to open).
+	for i := 0; i < quotaBreakerThreshold-1; i++ {
+		s.recordFailure()
+	}
+	s.recordSuccess()
+	// consecFailures reset to 0, so threshold more failures needed.
+	for i := 0; i < quotaBreakerThreshold-1; i++ {
+		if s.isCircuitOpen() {
+			t.Error("circuit should not be open yet")
+		}
+		s.recordFailure()
+	}
+	// One more should open it.
+	if !s.recordFailure() {
+		t.Error("circuit should open after threshold failures post-reset")
+	}
+}
+
+func TestQuotaCircuitState_HalfOpenAfterReset(t *testing.T) {
+	s := &quotaCircuitState{}
+	// Open the circuit.
+	for i := 0; i < quotaBreakerThreshold; i++ {
+		s.recordFailure()
+	}
+	if !s.isCircuitOpen() {
+		t.Fatal("circuit should be open")
+	}
+	// Manually set openUntil to the past to simulate expiry.
+	s.mu.Lock()
+	s.openUntil = time.Now().Add(-1 * time.Second)
+	s.mu.Unlock()
+	// isCircuitOpen should transition to half-open (returns false).
+	if s.isCircuitOpen() {
+		t.Error("expired circuit should transition to half-open (return false)")
+	}
+	// A success should fully close it.
+	s.recordSuccess()
+	if s.isCircuitOpen() {
+		t.Error("circuit should be closed after success")
+	}
+}
+
+func TestQuotaCircuitState_HalfOpenFailureReopens(t *testing.T) {
+	s := &quotaCircuitState{}
+	// Open the circuit.
+	for i := 0; i < quotaBreakerThreshold; i++ {
+		s.recordFailure()
+	}
+	// Expire the open window.
+	s.mu.Lock()
+	s.openUntil = time.Now().Add(-1 * time.Second)
+	s.mu.Unlock()
+	// Transition to half-open.
+	s.isCircuitOpen()
+	// A failure should re-open the circuit immediately.
+	s.recordFailure()
+	if !s.isCircuitOpen() {
+		t.Error("circuit should re-open after failure in half-open state")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// doQuotaRequestWithRetry (integration-ish)
+// ---------------------------------------------------------------------------
+
+func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
+	svc := NewDiscoveryService()
+	providerID := "test-provider-123"
+
+	// Open the circuit by recording enough failures.
+	circuit := svc.getOrCreateCircuit(providerID)
+	for i := 0; i < quotaBreakerThreshold; i++ {
+		circuit.recordFailure()
+	}
+
+	req, _ := http.NewRequest("GET", "http://example.com/quota", nil)
+	ctx := context.Background()
+	_, err := svc.doQuotaRequestWithRetry(ctx, req, providerID, "zai-coding")
+	if err == nil {
+		t.Fatal("expected error when circuit breaker is open")
+	}
+	if !strings.Contains(err.Error(), "circuit breaker open") {
+		t.Errorf("expected circuit breaker error, got: %v", err)
+	}
+}
+
+func TestDoQuotaRequestWithRetry_Retries429(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount < 3 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte("rate limited"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"quota": 100}`))
+	}))
+	defer server.Close()
+
+	svc := NewDiscoveryService()
+	svc.httpClient = server.Client()
+	req, _ := http.NewRequest("GET", server.URL+"/quota", nil)
+	ctx := context.Background()
+	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-429", "zai-coding")
+	if err != nil {
+		t.Fatalf("expected success after retries, got: %v", err)
+	}
+	if callCount != 3 {
+		t.Errorf("expected 3 calls (2x429 + 1x200), got %d", callCount)
+	}
+}
+
+func TestDoQuotaRequestWithRetry_Retries5xx(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount < 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("maintenance"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"quota": 100}`))
+	}))
+	defer server.Close()
+
+	svc := NewDiscoveryService()
+	svc.httpClient = server.Client()
+	req, _ := http.NewRequest("GET", server.URL+"/quota", nil)
+	ctx := context.Background()
+	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-5xx", "zai-coding")
+	if err != nil {
+		t.Fatalf("expected success after retries, got: %v", err)
+	}
+	if callCount != 2 {
+		t.Errorf("expected 2 calls, got %d", callCount)
+	}
+}
+
+func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("forbidden"))
+	}))
+	defer server.Close()
+
+	svc := NewDiscoveryService()
+	svc.httpClient = server.Client()
+	req, _ := http.NewRequest("GET", server.URL+"/quota", nil)
+	ctx := context.Background()
+	resp, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-403", "zai-coding")
+	if err != nil {
+		t.Fatalf("expected no error for non-retryable status, got: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	if callCount != 1 {
+		t.Errorf("expected 1 call (no retry for 403), got %d", callCount)
 	}
 }

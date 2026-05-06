@@ -286,27 +286,32 @@ func TestChatCompletions_StreamOptionsInjection(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFailoverBackoff_Sequence(t *testing.T) {
-	base := float64(100 * time.Millisecond)
-	cap := float64(2 * time.Second)
+	base := 100 * time.Millisecond
+	cap_ := 2 * time.Second
 
-	expected := []time.Duration{
-		0,
-		100 * time.Millisecond,
-		200 * time.Millisecond,
-		400 * time.Millisecond,
-		800 * time.Millisecond,
-		1600 * time.Millisecond,
-		2000 * time.Millisecond,
-		2000 * time.Millisecond,
+	// Each attempt's backoff should be in [exponential, exponential+base)
+	// because jitter is [0, base).
+	cases := []struct {
+		attempt    int
+		minBackoff time.Duration
+		maxBackoff time.Duration
+	}{
+		{1, 100 * time.Millisecond, 200 * time.Millisecond},
+		{2, 200 * time.Millisecond, 300 * time.Millisecond},
+		{3, 400 * time.Millisecond, 500 * time.Millisecond},
+		{4, 800 * time.Millisecond, 900 * time.Millisecond},
+		{5, 1600 * time.Millisecond, 1700 * time.Millisecond},
+		{6, 2000 * time.Millisecond, 2100 * time.Millisecond}, // capped
+		{7, 2000 * time.Millisecond, 2100 * time.Millisecond}, // capped
 	}
 
-	for attempt, want := range expected {
-		if attempt == 0 {
-			continue
-		}
-		got := backoffDuration(base, cap, attempt)
-		if got != want {
-			t.Errorf("attempt %d: backoff = %v, want %v", attempt, got, want)
+	for _, tc := range cases {
+		for i := 0; i < 100; i++ {
+			got := failoverBackoff(base, cap_, tc.attempt)
+			if got < tc.minBackoff || got >= tc.maxBackoff {
+				t.Errorf("attempt %d (sample %d): backoff = %v, want in [%v, %v)", tc.attempt, i, got, tc.minBackoff, tc.maxBackoff)
+				break // one failure per case is enough
+			}
 		}
 	}
 }
@@ -481,14 +486,5 @@ func withAuthContext(r *http.Request) *http.Request {
 	return r.WithContext(ctx)
 }
 
-func backoffDuration(base, cap float64, attempt int) time.Duration {
-	return time.Duration(min(base*pow2(attempt-1), cap))
-}
-
-func pow2(n int) float64 {
-	result := 1.0
-	for i := 0; i < n; i++ {
-		result *= 2
-	}
-	return result
-}
+// backoffDuration and pow2 removed — backoff logic is now in production code
+// (failoverBackoff in proxy.go) with jitter.

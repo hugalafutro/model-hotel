@@ -85,13 +85,13 @@ function deepseekBadgeContent(
 		(b: DeepSeekBalanceInfo) => b.currency === "USD",
 	)?.total_balance;
 	const label = variant === "sidebar" ? `$ ${usd ?? "-"}` : `${usd ?? "-"} USD`;
-	return { label, title: "DeepSeek balance — click to refresh" };
+	return { label, title: "DeepSeek balance — click for details" };
 }
 
 function openRouterBadgeContent(balance: OpenRouterBalance): BadgeContent {
 	return {
 		label: `$${balance.credits_remaining?.toFixed(2) ?? "-"}`,
-		title: "OpenRouter key balance — click to refresh",
+		title: "OpenRouter key balance — click for details",
 	};
 }
 
