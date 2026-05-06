@@ -10,6 +10,7 @@ import { FilterInput } from "../components/FilterInput";
 import { Modal } from "../components/Modal";
 import {
 	NanoGPTQuotaModal,
+	OpenRouterQuotaModal,
 	ZAICodingQuotaModal,
 } from "../components/ProviderModals";
 import { ProviderModelsModal } from "../components/ProviderModelsModal";
@@ -380,6 +381,8 @@ export function Providers() {
 		setNanogptUsage: setModalNano,
 		zaiCodingUsage: modalZaiCoding,
 		setZaiCodingUsage: setModalZaiCoding,
+		openrouterBalance: modalOpenRouter,
+		setOpenrouterBalance: setModalOpenRouter,
 	} = useQuotaModal();
 
 	// Track which provider is currently being scanned during Discover All
@@ -824,14 +827,10 @@ export function Providers() {
 												toast("Failed to refresh balance", "error");
 											}
 										}}
-										onOpenRouterClick={async () => {
-											try {
-												await quotaData.refetchOpenRouter();
-												toast("Balance refreshed", "success");
-											} catch {
-												toast("Failed to refresh balance", "error");
-											}
-										}}
+										onOpenRouterClick={() =>
+											quotaData.openrouterBalance &&
+											setModalOpenRouter(quotaData.openrouterBalance)
+										}
 									/>
 								</div>
 								<div className="flex gap-2">
@@ -1107,6 +1106,17 @@ export function Providers() {
 					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
+				/>
+			)}
+
+			{modalOpenRouter && (
+				<OpenRouterQuotaModal
+					balance={modalOpenRouter}
+					onClose={() => setModalOpenRouter(null)}
+					onRefresh={quotaData.refetchOpenRouter}
+					isRefreshing={quotaData.isOrRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.openrouterDataUpdatedAt}
 				/>
 			)}
 

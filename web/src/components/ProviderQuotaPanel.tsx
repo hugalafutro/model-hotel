@@ -6,7 +6,11 @@ import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { CollapsibleToggle } from "./CollapsibleToggle";
-import { NanoGPTQuotaModal, ZAICodingQuotaModal } from "./ProviderModals";
+import {
+	NanoGPTQuotaModal,
+	OpenRouterQuotaModal,
+	ZAICodingQuotaModal,
+} from "./ProviderModals";
 import { QuotaBadges } from "./QuotaBadge";
 
 function isQuotaDisabled(): boolean {
@@ -126,11 +130,13 @@ export function ProviderQuotaPanel() {
 		toast("Refreshing quotas...", "info");
 	}, [toast, invalidateAll]);
 
-	const { nanogptUsage: modalNano, setNanogptUsage: setModalNano } =
-		useQuotaModal();
 	const {
+		nanogptUsage: modalNano,
+		setNanogptUsage: setModalNano,
 		zaiCodingUsage: modalZaiCoding,
 		setZaiCodingUsage: setModalZaiCoding,
+		openrouterBalance: modalOpenRouter,
+		setOpenrouterBalance: setModalOpenRouter,
 	} = useQuotaModal();
 
 	if (!quotaData.hasAnyProvider || disabled) return null;
@@ -160,6 +166,7 @@ export function ProviderQuotaPanel() {
 						collapsed={collapsed}
 						onToggle={toggleCollapsed}
 						size={10}
+						iconStyle="double"
 						expandTitle="Expand quotas"
 						collapseTitle="Collapse"
 						className="sidebar-quota-btn"
@@ -180,7 +187,9 @@ export function ProviderQuotaPanel() {
 								setModalZaiCoding(quotaData.zaiCodingUsage ?? null)
 							}
 							onDeepseekClick={handleRefresh}
-							onOpenRouterClick={handleRefresh}
+							onOpenRouterClick={() =>
+								setModalOpenRouter(quotaData.openrouterBalance ?? null)
+							}
 						/>
 					</div>
 				</div>
@@ -204,6 +213,16 @@ export function ProviderQuotaPanel() {
 					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
+				/>
+			)}
+			{modalOpenRouter && (
+				<OpenRouterQuotaModal
+					balance={modalOpenRouter}
+					onClose={() => setModalOpenRouter(null)}
+					onRefresh={quotaData.refetchOpenRouter}
+					isRefreshing={quotaData.isOrRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.openrouterDataUpdatedAt}
 				/>
 			)}
 		</div>

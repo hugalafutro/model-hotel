@@ -23,6 +23,13 @@ const VARIANT_CLASSES: Record<QuotaBadgeVariant, string> = {
 	card: "px-2 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors",
 };
 
+const TYPE_PREFIX: Record<QuotaProviderType, string> = {
+	nanogpt: "NG",
+	"zai-coding": "ZAI",
+	deepseek: "DS",
+	openrouter: "OR",
+};
+
 const TYPE_STYLES: Record<
 	QuotaProviderType,
 	Record<QuotaBadgeVariant, string>
@@ -144,6 +151,9 @@ export function QuotaBadge({
 			className={className}
 			title={title ?? defaultTitle}
 		>
+			{variant === "sidebar" && (
+				<span className="sidebar-quota-pill-prefix">{TYPE_PREFIX[type]}</span>
+			)}
 			{label}
 		</button>
 	);

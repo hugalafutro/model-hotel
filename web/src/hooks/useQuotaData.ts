@@ -142,7 +142,8 @@ export interface QuotaDataResult {
 	isDsRefetching: boolean;
 	isOrRefetching: boolean;
 
-	/** dataUpdatedAt for NanoGPT + Z.ai (used in modals). */
+	/** dataUpdatedAt for modals. */
+	openrouterDataUpdatedAt: number;
 	nanogptDataUpdatedAt: number;
 	zaiCodingDataUpdatedAt: number;
 
@@ -252,6 +253,7 @@ export function useQuotaData(
 	// ── OpenRouter query ──
 	const {
 		data: openrouterBalance,
+		dataUpdatedAt: openrouterDataUpdatedAt,
 		isRefetching: isOrRefetching,
 		isError: isOpenRouterError,
 		refetch: refetchOrRaw,
@@ -394,6 +396,7 @@ export function useQuotaData(
 		isOrRefetching,
 		nanogptDataUpdatedAt,
 		zaiCodingDataUpdatedAt,
+		openrouterDataUpdatedAt,
 		invalidateAll,
 	};
 }

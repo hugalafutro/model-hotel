@@ -1,11 +1,17 @@
 import { createContext, type ReactNode, useContext, useState } from "react";
-import type { NanoGPTUsage, ZAICodingQuotaResponse } from "../api/types";
+import type {
+	NanoGPTUsage,
+	OpenRouterBalance,
+	ZAICodingQuotaResponse,
+} from "../api/types";
 
 interface QuotaModalContextType {
 	nanogptUsage: NanoGPTUsage | null;
 	setNanogptUsage: (v: NanoGPTUsage | null) => void;
 	zaiCodingUsage: ZAICodingQuotaResponse | null;
 	setZaiCodingUsage: (v: ZAICodingQuotaResponse | null) => void;
+	openrouterBalance: OpenRouterBalance | null;
+	setOpenrouterBalance: (v: OpenRouterBalance | null) => void;
 }
 
 const QuotaModalContext = createContext<QuotaModalContextType | null>(null);
@@ -14,6 +20,8 @@ export function QuotaModalProvider({ children }: { children: ReactNode }) {
 	const [nanogptUsage, setNanogptUsage] = useState<NanoGPTUsage | null>(null);
 	const [zaiCodingUsage, setZaiCodingUsage] =
 		useState<ZAICodingQuotaResponse | null>(null);
+	const [openrouterBalance, setOpenrouterBalance] =
+		useState<OpenRouterBalance | null>(null);
 	return (
 		<QuotaModalContext.Provider
 			value={{
@@ -21,6 +29,8 @@ export function QuotaModalProvider({ children }: { children: ReactNode }) {
 				setNanogptUsage,
 				zaiCodingUsage,
 				setZaiCodingUsage,
+				openrouterBalance,
+				setOpenrouterBalance,
 			}}
 		>
 			{children}

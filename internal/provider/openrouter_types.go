@@ -83,8 +83,12 @@ type OpenRouterCreditsResponse struct {
 type OpenRouterBalance struct {
 	Label            string   `json:"label"`
 	Limit            *float64 `json:"limit"`
+	LimitReset       string   `json:"limit_reset"`
 	LimitRemaining   *float64 `json:"limit_remaining"`
 	Usage            float64  `json:"usage"`
+	UsageDaily       float64  `json:"usage_daily"`
+	UsageWeekly      float64  `json:"usage_weekly"`
+	UsageMonthly     float64  `json:"usage_monthly"`
 	CreditsTotal     float64  `json:"credits_total"`
 	CreditsUsed      float64  `json:"credits_used"`
 	CreditsRemaining float64  `json:"credits_remaining"`

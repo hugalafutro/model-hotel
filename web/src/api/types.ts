@@ -266,8 +266,12 @@ export interface DeepSeekBalance {
 export interface OpenRouterBalance {
 	label: string;
 	limit: number | null;
+	limit_reset: string;
 	limit_remaining: number | null;
 	usage: number;
+	usage_daily: number;
+	usage_weekly: number;
+	usage_monthly: number;
 	credits_total: number;
 	credits_used: number;
 	credits_remaining: number;

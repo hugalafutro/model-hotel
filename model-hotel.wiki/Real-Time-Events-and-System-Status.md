@@ -2,6 +2,10 @@
 
 Model Hotel provides real-time visibility into system state through two mechanisms: an SSE event bus (for toast notifications) and live system statistics (for the sidebar).
 
+> 📸 **Screenshot needed:** Sidebar system status panel — showing CPU, RAM, DB connections, Docker container metrics with color-coded thresholds.
+
+> 📸 **Screenshot needed:** Dashboard page — showing the metrics area with time-range toggle (1H/1D/7D), request area chart, provider distribution pie chart and table.
+
 ## Event Bus (SSE)
 
 The backend publishes events to an in-memory pub/sub bus (`internal/events/bus.go`). The frontend subscribes via Server-Sent Events (SSE) at `/api/events` using the admin token.
@@ -30,6 +34,9 @@ These are the actual events published by the codebase. The event bus schema supp
 | `tokens.error` | error | Token counting failed for a virtual key during proxying |
 | `logs.stale_startup` | warning | Server restart interrupted pending requests (stale cleanup on startup) |
 | `logs.stale_cleanup` | warning | Periodic stale request cleanup marked requests as interrupted |
+| `circuit_breaker.open` | error | A provider's circuit breaker has opened (too many failures) |
+| `circuit_breaker.half-open` | warning | Circuit breaker transitioning to half-open (testing recovery) |
+| `circuit_breaker.closed` | success | Circuit breaker has recovered and closed |
 
 > **Important:** There are NO events for `provider.created`, `provider.updated`, `provider.deleted`, `model.discovered`, `failover.triggered`, `rate_limit.hit`, `virtual_key.created`, `virtual_key.deleted`, `settings.changed`, or a generic `error` type. The event bus is not a general-purpose CRUD notification system — it only publishes events for the specific situations listed above.
 
@@ -120,3 +127,5 @@ The sidebar uses color coding to highlight issues at a glance:
 ### Backend Caching
 
 The `/api/system` endpoint caches its results for 3 seconds (`systemCacheTTL`) to avoid hammering cgroup/Docker APIs on rapid concurrent requests. The frontend's 10-second poll interval combined with the 3-second stale time ensures data is fresh without excessive load.
+
+System stats include aggregated Docker container metrics for all containers in the compose project, providing a complete picture of resource usage across the full stack (app + database).

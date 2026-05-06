@@ -1,5 +1,9 @@
 import { RefreshCw } from "lucide-react";
-import type { NanoGPTUsage, ZAICodingQuotaResponse } from "../api/types";
+import type {
+	NanoGPTUsage,
+	OpenRouterBalance,
+	ZAICodingQuotaResponse,
+} from "../api/types";
 import { useTheme } from "../context/ThemeContext";
 import {
 	formatDate,
@@ -10,6 +14,13 @@ import {
 } from "../utils/format";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
+
+/** Returns a Tailwind bg-[color] class based on remaining percentage. */
+function remainingBarColor(remainingPct: number): string {
+	if (remainingPct < 20) return "bg-red-500";
+	if (remainingPct < 60) return "bg-amber-500";
+	return "bg-[#6467f2]";
+}
 
 export function NanoGPTQuotaModal({
 	usage,
@@ -29,7 +40,8 @@ export function NanoGPTQuotaModal({
 	const { uiStyle } = useTheme();
 	const weeklyLimit = usage.limits.weeklyInputTokens ?? 0;
 	const weeklyUsed = usage.weeklyInputTokens?.used ?? 0;
-	const weeklyPercent = weeklyLimit > 0 ? (weeklyUsed / weeklyLimit) * 100 : 0;
+	const weeklyRemaining =
+		weeklyLimit > 0 ? ((weeklyLimit - weeklyUsed) / weeklyLimit) * 100 : 100;
 
 	const handleRefresh = async () => {
 		try {
@@ -98,17 +110,19 @@ export function NanoGPTQuotaModal({
 					</div>
 					<div className="w-full bg-gray-700 rounded-full h-3">
 						<div
-							className="bg-[#0690a8] h-3 rounded-full transition-all"
+							className={`${remainingBarColor(weeklyRemaining)} h-3 rounded-full transition-all`}
 							style={{
-								width: `${Math.min(weeklyPercent, 100)}%`,
+								width: `${Math.min(weeklyRemaining, 100)}%`,
 							}}
 						/>
 					</div>
 					<p className="text-xs text-gray-500 mt-1">
-						{weeklyPercent.toFixed(1)}% used. Resets{" "}
+						{weeklyLimit > 0
+							? `${(100 - weeklyRemaining).toFixed(1)}% used`
+							: "No limit set"}
 						{usage.weeklyInputTokens?.resetAt
-							? `${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
-							: "N/A"}
+							? `. Resets ${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
+							: ""}
 					</p>
 				</div>
 
@@ -124,9 +138,9 @@ export function NanoGPTQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className="bg-purple-500 h-3 rounded-full transition-all"
+								className={`${remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(usage.dailyImages.percentUsed * 100, 100)}%`,
+									width: `${Math.min(100 - usage.dailyImages.percentUsed * 100, 100)}%`,
 								}}
 							/>
 						</div>
@@ -154,9 +168,9 @@ export function NanoGPTQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className="bg-amber-500 h-3 rounded-full transition-all"
+								className={`${remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(usage.dailyInputTokens.percentUsed * 100, 100)}%`,
+									width: `${Math.min(100 - usage.dailyInputTokens.percentUsed * 100, 100)}%`,
 								}}
 							/>
 						</div>
@@ -306,7 +320,7 @@ export function ZAICodingQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className="bg-[#36aaff] h-3 rounded-full transition-all"
+								className={`${remainingBarColor(100 - fiveHourLimit.percentage)} h-3 rounded-full transition-all`}
 								style={{
 									width: `${Math.min(100 - fiveHourLimit.percentage, 100)}%`,
 								}}
@@ -333,7 +347,7 @@ export function ZAICodingQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className="bg-[#36aaff] h-3 rounded-full transition-all"
+								className={`${remainingBarColor(100 - weeklyLimit.percentage)} h-3 rounded-full transition-all`}
 								style={{
 									width: `${Math.min(100 - weeklyLimit.percentage, 100)}%`,
 								}}
@@ -360,7 +374,7 @@ export function ZAICodingQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className="bg-purple-500 h-3 rounded-full transition-all"
+								className={`${remainingBarColor(100 - mcpLimit.percentage)} h-3 rounded-full transition-all`}
 								style={{
 									width: `${Math.min(100 - mcpLimit.percentage, 100)}%`,
 								}}
@@ -387,6 +401,193 @@ export function ZAICodingQuotaModal({
 						)}
 					</div>
 				)}
+
+				{lastRefreshed ? (
+					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+						<span>Last refreshed</span>
+						<span>
+							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
+						</span>
+					</div>
+				) : null}
+			</div>
+		</Modal>
+	);
+}
+export function OpenRouterQuotaModal({
+	balance,
+	onClose,
+	onRefresh,
+	isRefreshing,
+	onToast,
+	lastRefreshed,
+}: {
+	balance: OpenRouterBalance;
+	onClose: () => void;
+	onRefresh: () => Promise<unknown>;
+	isRefreshing: boolean;
+	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	lastRefreshed?: number;
+}) {
+	const { uiStyle } = useTheme();
+
+	const handleRefresh = async () => {
+		try {
+			await onRefresh();
+			onToast("Balance refreshed", "success");
+		} catch {
+			onToast("Failed to refresh balance", "error");
+		}
+	};
+
+	const creditsRemaining =
+		balance.credits_total > 0
+			? (balance.credits_remaining / balance.credits_total) * 100
+			: 100;
+
+	const formatDollars = (v: number) =>
+		v.toLocaleString("en-US", {
+			style: "currency",
+			currency: "USD",
+		});
+
+	return (
+		<Modal
+			header={
+				<div className="flex justify-between items-start mb-6">
+					<div>
+						<h2 className="text-xl font-bold text-white">OpenRouter Credits</h2>
+						<p className="text-sm text-gray-400 mt-1">
+							{balance.is_free_tier ? (
+								<span className="inline-flex items-center gap-1.5">
+									<span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+									Free Tier
+								</span>
+							) : (
+								<span className="inline-flex items-center gap-1.5">
+									<span className="w-2 h-2 rounded-full bg-green-400"></span>
+									Paid Account
+								</span>
+							)}
+						</p>
+					</div>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={handleRefresh}
+							disabled={isRefreshing}
+							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
+							aria-label="Refresh"
+							title="Refresh balance info"
+						>
+							{isRefreshing && uiStyle === "cyber-terminal" ? (
+								<Spinner />
+							) : (
+								<RefreshCw
+									size={18}
+									className={isRefreshing ? "animate-spin" : ""}
+								/>
+							)}
+						</button>
+					</div>
+				</div>
+			}
+			onClose={onClose}
+			scrollable
+		>
+			<div className="space-y-6">
+				<div>
+					<div className="flex justify-between items-center mb-2">
+						<span className="text-sm font-medium text-gray-300">
+							Account Credits
+						</span>
+						<span className="text-sm text-gray-400">
+							{formatDollars(balance.credits_remaining)} remaining
+						</span>
+					</div>
+					<div className="w-full bg-gray-700 rounded-full h-3">
+						<div
+							className={`${remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
+							style={{
+								width: `${Math.min(creditsRemaining, 100)}%`,
+							}}
+						/>
+					</div>
+					<p className="text-xs text-gray-500 mt-1">
+						{balance.credits_total > 0
+							? `${(100 - creditsRemaining).toFixed(1)}% used`
+							: "No credits"}
+						{" · "}
+						{formatDollars(balance.credits_used)} of{" "}
+						{formatDollars(balance.credits_total)}
+					</p>
+				</div>
+
+				{balance.limit !== null && (
+					<div>
+						<div className="flex justify-between items-center mb-2">
+							<span className="text-sm font-medium text-gray-300">
+								Key Spending Limit
+							</span>
+							<span className="text-sm text-gray-400">
+								{formatDollars(balance.limit_remaining ?? 0)} remaining
+							</span>
+						</div>
+						<div className="w-full bg-gray-700 rounded-full h-3">
+							<div
+								className={`${balance.limit > 0 ? remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100) : "bg-amber-500"} h-3 rounded-full transition-all`}
+								style={{
+									width: `${Math.min(
+										balance.limit > 0
+											? ((balance.limit_remaining ?? 0) / balance.limit) * 100
+											: 0,
+										100,
+									)}%`,
+								}}
+							/>
+						</div>
+						<p className="text-xs text-gray-500 mt-1">
+							{balance.limit > 0
+								? `${(((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% remaining`
+								: balance.limit === 0
+									? "$0 limit — spending blocked"
+									: "No limit set"}
+							{balance.limit_reset
+								? ` · Resets ${formatTimestamp(balance.limit_reset)} - ${formatTimeUntil(new Date(balance.limit_reset).getTime())}`
+								: ""}
+						</p>
+					</div>
+				)}
+
+				<div>
+					<h3 className="text-sm font-medium text-gray-300 mb-3">
+						Usage Breakdown
+					</h3>
+					<div className="grid grid-cols-2 gap-3 text-sm">
+						<div>
+							<span className="text-gray-500">Today</span>
+							<p className="text-gray-200">
+								{formatDollars(balance.usage_daily)}
+							</p>
+						</div>
+						<div>
+							<span className="text-gray-500">This Week</span>
+							<p className="text-gray-200">
+								{formatDollars(balance.usage_weekly)}
+							</p>
+						</div>
+						<div>
+							<span className="text-gray-500">This Month</span>
+							<p className="text-gray-200">
+								{formatDollars(balance.usage_monthly)}
+							</p>
+						</div>
+						<div>
+							<span className="text-gray-500">All Time</span>
+							<p className="text-gray-200">{formatDollars(balance.usage)}</p>
+						</div>
+					</div>
+				</div>
 
 				{lastRefreshed ? (
 					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">

@@ -23,17 +23,17 @@ html {
 	--shadow-glow: 0 0 20px var(--accent-light);
 
 	/* Hover glow tokens — drop-shadow values */
-	--glow-accent-sm: 0 0 4px var(--accent);
-	--glow-accent: 0 0 6px var(--accent);
-	--glow-accent-lg: 0 0 8px var(--accent);
-	--glow-red: 0 0 6px var(--color-red-500, red);
-	--glow-amber: 0 0 6px var(--color-amber-400, amber);
-	--glow-white: 0 0 4px white;
+	--glow-accent-sm: 0 0 8px var(--accent);
+	--glow-accent: 0 0 12px var(--accent);
+	--glow-accent-lg: 0 0 16px var(--accent);
+	--glow-red: 0 0 12px var(--color-red-500, red);
+	--glow-amber: 0 0 12px var(--color-amber-400, amber);
+	--glow-white: 0 0 8px white;
 	/* Hover glow tokens — box-shadow values */
-	--glow-box-red: 0 0 8px 2px rgba(239, 68, 68, 0.2);
-	--glow-box-green: 0 0 8px 2px rgba(34, 197, 94, 0.2);
-	--glow-box-amber: 0 0 8px 2px rgba(245, 158, 11, 0.2);
-	--glow-box-gray: 0 0 8px 2px rgba(156, 163, 175, 0.15);
+	--glow-box-red: 0 0 12px 2px rgba(239, 68, 68, 0.3);
+	--glow-box-green: 0 0 12px 2px rgba(34, 197, 94, 0.3);
+	--glow-box-amber: 0 0 12px 2px rgba(245, 158, 11, 0.3);
+	--glow-box-gray: 0 0 12px 2px rgba(156, 163, 175, 0.2);
 }
 
 /* =============================================
@@ -484,6 +484,12 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 .sidebar-quota-btn:disabled {
 	opacity: 0.4;
 	cursor: not-allowed;
+}
+
+.sidebar-quota-pill-prefix {
+	font-weight: 700;
+	margin-right: 3px;
+	opacity: 0.85;
 }
 
 .sidebar-quota-pill {

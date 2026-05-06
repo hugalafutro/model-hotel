@@ -210,8 +210,12 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 	return &OpenRouterBalance{
 		Label:            keyData.Data.Label,
 		Limit:            keyData.Data.Limit,
+		LimitReset:       keyData.Data.LimitReset,
 		LimitRemaining:   keyData.Data.LimitRemaining,
 		Usage:            keyData.Data.Usage,
+		UsageDaily:       keyData.Data.UsageDaily,
+		UsageWeekly:      keyData.Data.UsageWeekly,
+		UsageMonthly:     keyData.Data.UsageMonthly,
 		CreditsTotal:     creditsData.Data.TotalCredits,
 		CreditsUsed:      creditsData.Data.TotalUsage,
 		CreditsRemaining: remaining,

@@ -8,7 +8,14 @@ From the **Models** page, open any model's detail panel and click the **Test** b
 
 > **Note:** The Test button lives in `ModelDetailModal` on the **Models** page, not on the Providers page.
 
-The test endpoint (`POST /api/models/{id}/test`) sends a fixed prompt (`"Respond only with Hi"`) with `max_tokens: 10` directly to the provider's `/chat/completions` endpoint — it does **not** go through the model-hotel proxy (`/v1/chat/completions`). This means it validates:
+The test endpoint (`POST /api/models/{id}/test`) sends:
+- `model`: the model's `model_id`
+- `messages`: `[{"role": "user", "content": "Respond only with 'Hi'"}]`
+- `max_tokens`: 10
+
+With a **30-second timeout**. Returns: `success`, `duration_ms`, `response` (assistant content), `error` on failure.
+
+The request goes directly to the provider's `/chat/completions` endpoint — it does **not** go through the model-hotel proxy (`/v1/chat/completions`). This means it validates:
 
 - **API key decryption** — The key is decrypted using the same Argon2 + AES-256-GCM pipeline
 - **Provider connectivity** — The base URL is reachable and returns a valid response
@@ -21,6 +28,16 @@ The test reports:
 - **Error details** — If the request fails, the full error message
 
 > **Note:** TTFT is **not** reported by the test endpoint. Although the `TestModelResponse` struct includes a `ttft_ms` field, it is never populated in success responses. The test uses a non-streaming request, so there is no separate time-to-first-token measurement — only total `duration_ms` is meaningful.
+
+### Masked API Keys
+
+Provider API keys are shown in the UI with a `masked_key` field (e.g., `op***ky`). The full key is never exposed after creation — only the masked preview is available for identification purposes.
+
+### Last Used Tracking
+
+Each provider has a `last_used_at` timestamp that is updated on every proxy request (fire-and-forget with a 5-second timeout). This helps track which providers are actively being used and can inform deprecation or rotation decisions.
+
+> 📸 **Screenshot needed:** Provider health indicators — showing enabled/disabled status, last used timestamps, and circuit breaker status indicators.
 
 ## Provider Quotas & Balances
 

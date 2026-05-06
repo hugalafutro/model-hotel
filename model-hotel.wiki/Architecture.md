@@ -8,6 +8,10 @@ Model Hotel is a multi-provider AI gateway built with:
 - **Database**: PostgreSQL 16 with pgx driver
 - **Deployment**: Docker Compose
 
+
+> 📸 **Screenshot needed:** System architecture overview — a diagram showing the request flow from client through proxy to providers, with the DB, SSE event bus, and embedded frontend all visible.
+
+
 ## System Components
 
 ### Backend Structure
@@ -125,38 +129,95 @@ web/                  # Frontend React app
 ### Core Tables
 
 **providers**: LLM provider configuration
-- `id`, `name`, `base_url`, `encrypted_key`, `key_nonce`, `key_salt`
-- `enabled`, `last_discovered_at`, `last_used_at`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | auto-generated |
+| name | TEXT NOT NULL | |
+| base_url | TEXT NOT NULL | |
+| encrypted_key | BYTEA NOT NULL | AES-256-GCM encrypted API key |
+| key_nonce | BYTEA NOT NULL | nonce for key decryption |
+| key_salt | BYTEA | Argon2id key derivation salt (migration 009) |
+| masked_key | TEXT | Display mask like `op***ky` (migration 018) |
+| enabled | BOOLEAN default true | |
+| last_discovered_at | TIMESTAMPTZ | when models were last auto-discovered |
+| last_used_at | TIMESTAMPTZ | tracks recency of use (migration 022) |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
 
 **models**: Discovered models from providers
-- `id`, `provider_id`, `model_id`, `display_name`
-- `capabilities` (JSON), `params` (JSON)
-- `enabled`, `provider_enabled`, `disabled_manually`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | |
+| provider_id | UUID FK | |
+| model_id | TEXT NOT NULL | Upstream model identifier |
+| display_name | TEXT | Human-readable name |
+| capabilities | JSONB | Supported features |
+| params | JSONB | Model parameters (context window, etc.) |
+| input_price_per_million | REAL | Standard input pricing |
+| output_price_per_million | REAL | Output pricing |
+| input_price_per_million_cache_hit | REAL | Cache-hit pricing (migration 017, for DeepSeek and similar) |
+| enabled | BOOLEAN default true | |
+| provider_enabled | BOOLEAN | Mirror of provider enabled state |
+| disabled_manually | BOOLEAN | True if user manually disabled (vs auto-disabled by discovery), migration 021 |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
 
 **model_failover_groups**: Hotel routing groups
-- `id`, `display_model` (unique base model name)
-- `priority_order` (array of model UUIDs)
-- `group_enabled`, `entry_enabled` (per-entry toggle)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | |
+| display_model | TEXT UNIQUE NOT NULL | Base model name for hotel/ prefix routing |
+| priority_order | JSONB | Ordered array of model UUIDs |
+| display_name | TEXT | Human-readable group name (migration 019) |
+| description | TEXT | Group description (migration 019) |
+| entry_enabled | JSONB | Map of {model_uuid: bool} per-entry toggles (migration 019) |
+| group_enabled | BOOLEAN default true | Group-level on/off (migration 019) |
+| auto_created | BOOLEAN default false | true = auto-created by sync (migration 019) |
+| updated_at | TIMESTAMPTZ | (migration 016) |
 
 **request_logs**: Usage and performance metrics
 - **NO prompt content stored**
-- `id`, `model_id`, `virtual_key_id`, `status_code`
+- `id`, `model_id`, `virtual_key_id`, `virtual_key_name`, `status_code`
 - `latency_ms`, `ttft_ms`, `duration_ms`, `tokens_per_second`
 - `tokens_prompt`, `tokens_completion`, `tokens_prompt_cache_hit/miss`
 - `proxy_overhead_breakdown` (parse, lookup, decrypt)
-- `streaming`, `failover_attempt`, `state`
+- `streaming`, `failover_attempt` (INT DEFAULT 0), `state` (pending/streaming/completed/failed)
+- `safe_dial_ms` (DOUBLE PRECISION), `settings_read_ms` (DOUBLE PRECISION)
 - `error_message` (provider errors only)
 
 **virtual_keys**: Per-client API keys
-- `id`, `key_hash` (SHA-256), `name`, `tokens_used`
+- `id`, `key_hash` (SHA-256), `key_preview` (last 4 chars, e.g. `aBcD`), `name`, `tokens_used`
 
 **settings**: Runtime configuration
 - `key`, `value`, `updated_at`
 - See `settings.AllowedSettings` for valid keys
 
 **app_logs**: Application events
-- `id`, `level`, `message`, `metadata` (JSON)
-- `created_at` (ring buffer + optional DB persistence)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | |
+| timestamp | TIMESTAMPTZ NOT NULL | |
+| level | TEXT NOT NULL default 'info' | |
+| source | TEXT NOT NULL default '' | |
+| message | TEXT NOT NULL | |
+| created_at | TIMESTAMPTZ NOT NULL default now() |
+
+Indexes: `idx_app_logs_created_at DESC`, `idx_app_logs_level`, `idx_app_logs_source`, `idx_app_logs_created_at_retention`
+
+**proxy_keys**: API keys for proxy clients (separate from virtual keys)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID PK | |
+| key_hash | TEXT NOT NULL UNIQUE | SHA-256 hash of the proxy key |
+| name | TEXT | Label for the key |
+| created_at | TIMESTAMPTZ | |
+
+Note: Created in migration 001. Currently minimal — exists for future per-client authentication separate from virtual keys.
 
 ## Frontend Architecture
 

@@ -10,12 +10,10 @@ The standard chat interface for interactive model testing with a single model.
 
 - **Model picker** — Select any discovered model with search and filtering. Collapsible sections for provider grouping.
 - **System personas** — Choose from preset characters or enter a custom system prompt via `PersonaPicker`:
-  - **Merlin** — Mythic allegory (wizards, quests, and ancient wisdom)
-  - **Madame Vex** — Aggressively positive life coach
-  - **Sarge** — Hard-boiled detective noir
-  - **Auntie Wei** — Gossiping neighbor with strong opinions
-  - **Grimm** — Museum docent (creepy, pedantic, exacting)
-  - **Kairos** — Sports commentator (every moment is the defining moment)
+  - **Configurable** — Custom system prompt, all parameters adjustable
+  - **Code Helper** — Optimized for programming tasks
+  - **Concise** — Brief, to-the-point responses
+  - **Savant** — Detailed, thorough explanations
 - **Generation parameters** — All 7 parameters are adjustable:
   1. `temperature` — Randomness (0–2, step 0.01)
   2. `top_p` — Nucleus sampling (0–1, step 0.01)
@@ -36,50 +34,57 @@ Chat uses the admin API at `/api/chat/chat` (admin-authenticated proxy to the pr
 
 ## Conversation Mode
 
-Watch two models talk to each other. A unique feature for observing model behavior, testing consistency, or just entertainment.
+Chat also supports a **Conversation mode** where two models (Model A and Model B) take turns responding to each other, creating a dialogue.
 
 ### How It Works
 
-1. Select **Model A** and **Model B** (can be the same or different models)
-2. Optionally set different system prompts/personas for each model
-3. Configure generation parameters for each model independently
-4. Enter a **starter prompt** using a free-text `<textarea>` (not a `PromptPicker`)
-5. Set **rounds** (1–50, each round = both models respond once)
-6. Set **delay** (0–5000ms pause between turns)
-7. Click **Start**
+1. You provide an initial prompt
+2. Model A responds to the prompt
+3. Model B responds to Model A's output
+4. They alternate, with each model seeing the other's responses relabeled as `user` role messages
+5. The conversation continues for `maxTurns` iterations (configurable, each turn = one model response)
 
-### Conversation Flow
+### Configuration
 
-```
-Round 1:
-  User Prompt → Model A (generates response)
-  Model A Response → Model B (as input)
-  Model B Response → Model A (as input for round 2)
+- **Max Turns** — Number of back-and-forth exchanges (each model's response counts as one turn). The total messages = `maxTurns × 2`
+- **Turn Delay** — Configurable delay (ms) between model turns
+- **Model A / Model B** — Each can be any enabled model from the picker
 
-Round 2:
-  Model A Response → Model B
-  Model B Response → Model A
+### State Persistence
 
-... continues for N rounds
-```
+- Conversation messages are saved to localStorage on every update
+- If an error occurs, the state becomes `error` and the original prompt is restored to the input field
+- Users can click "Resume" to continue from the last successful turn
 
-### Controls
+### Message Construction
 
-- **Start** — Begin the conversation
-- **Continue** — Resume after pausing (adds more rounds)
-- **Pause** — Stop after the current turn completes
-- **Reset** — Clear the conversation and start over
-- **Collapsible config** — Hide/show the configuration panel to maximize chat space
+Messages from the opposite model are re-labeled with `user` role so each model only sees a single alternating dialogue. If a system persona is set, it's prepended as the first message.
 
-### Persistence
+> 📸 **Screenshot needed:** Chat page — showing the model picker, persona selector, parameter panel, and a streaming response with thinking block expanded.
 
-Conversation state can be persisted to `localStorage` (toggle in Settings → Chat). This saves:
+> 📸 **Screenshot needed:** Chat page — Conversation mode active, showing two models alternating with Model A and Model B labels.
 
-- Selected models (A and B)
-- System prompts / personas (per model)
-- Generation parameters (per model)
-- Message history
-- Round configuration
+---
+
+## Thinking Blocks
+
+When models return reasoning/thinking content, the UI detects and renders it as collapsible blocks:
+
+### Detectable Formats
+
+1. **Fence format:** `<<\n...thinking content...\n>>` — content between `<<` and `>>` delimiters
+2. **XML tag format:** `<thinking>...</thinking>` (also matches `<thought>`, `<start_thought>`, ` thinking`)
+
+### Rendering
+
+- Thinking blocks render as a collapsible section with a 🧠 brain icon
+- Default state: collapsed
+- When open: shows thinking content in a scrollable container (max-height: 60vh)
+- During streaming: text pulses with the accent color animation
+
+> 📸 **Screenshot needed:** Thinking block — collapsed state showing the brain icon, and expanded state showing reasoning content.
+
+---
 
 ## Arena Mode
 
@@ -94,7 +99,9 @@ Run a bracket-style tournament between two groups of models:
 3. Set generation parameters (global for all matchups, or per-slot via `ParamEditorModal`)
 4. Click **Run Arena**
 
-The system generates bracket matchups between pairs. After each matchup, you **vote** for the better response. The tournament auto-advances through rounds — winners proceed to the next bracket round.
+The system generates bracket matchups between pairs. After each matchup, you **vote** for the better response. The tournament auto-advances through rounds — winners proceed to the next bracket round. Eventually crowns a champion.
+
+Competition mode has its own prompt, active prompt ID, and persona settings stored in localStorage (separate from Compare mode).
 
 **Built-in Arena Prompts:**
 - **Dilemma** — A locked room with a single impossible choice
@@ -102,6 +109,8 @@ The system generates bracket matchups between pairs. After each matchup, you **v
 - **Hook** — An impossible-to-stop novel opening paragraph
 - **Blueprint** — Design a pointless but indispensable app
 - **Spiral** — Define "almost" without using synonyms
+
+> 📸 **Screenshot needed:** Arena page — Competition mode showing a tournament bracket with voting buttons.
 
 ### Compare Mode (Grid Comparison)
 
@@ -112,7 +121,11 @@ Multi-model comparison without voting:
 3. See all responses in a **grid layout** (not side-by-side) — responsive columns: 1 on mobile, 2 on medium, 3 on wide screens
 4. Compare metrics (duration, tokens, chars/second)
 
+No tournament or elimination — just side-by-side comparison. Has separate localStorage keys for prompt and persona (independent from Competition mode).
+
 > **Note:** Compare mode uses a `grid` CSS layout (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`), not a simple side-by-side split.
+
+> 📸 **Screenshot needed:** Arena page — Compare mode showing a grid of multiple model responses side by side.
 
 ### Arena Features
 
