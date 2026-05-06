@@ -446,6 +446,17 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// shared atomic field.
 	var safeDialMs float64
 
+	// Non-streaming timeout is configurable via request_timeout setting (default 1m).
+	// Streaming requests get 10× the non-streaming timeout to accommodate
+	// thinking/reasoning models that can take several minutes before first token.
+	// Read once before the loop so all attempts within a single request use
+	// the same timeout, avoiding inconsistency if the setting changes mid-request.
+	baseTimeout := h.settingsRepo.GetDuration(r.Context(), "request_timeout", time.Minute)
+	failoverTimeout := baseTimeout
+	if req.Stream {
+		failoverTimeout = baseTimeout * 10
+	}
+
 	var lastErr string
 	for attempt, candidate := range candidates {
 		// Exponential backoff between failover attempts: 0ms, 100ms, 200ms, 400ms...
@@ -529,7 +540,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var retryCancel context.CancelFunc
-		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), 30*time.Second)
+		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), failoverTimeout)
 		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
 		if err != nil {
 			failoverCancel()
@@ -625,7 +636,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						if rebuilt, err := json.Marshal(raw); err == nil {
-							retryCtx, rc := context.WithTimeout(r.Context(), 30*time.Second)
+							retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
 							retryCtx = context.WithValue(retryCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
 							retryCancel = rc
 							retryReq, retryErr := http.NewRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))

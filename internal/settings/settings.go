@@ -22,6 +22,7 @@ var AllowedSettings = map[string]bool{
 	"discovery_on_provider_create": true,
 	"log_retention":                true,
 	"stale_request_timeout":        true,
+	"request_timeout":              true,
 	"failover_on_rate_limit":       true,
 	"circuit_breaker_enabled":      true,
 	"circuit_breaker_threshold":    true,
