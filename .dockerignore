@@ -1,3 +1,8 @@
 # Additions to default .dockerignore
 .data
 *.env
+
+# Prevent host node_modules from copying into Docker (causes conflicts with pnpm install)
+web/node_modules/
+web/dist/
+web/package-lock.json
