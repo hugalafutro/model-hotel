@@ -474,8 +474,7 @@ export function Arena() {
 			if (new Set(bracketModels).size !== bracketModels.length)
 				return "No duplicate models";
 			if (![2, 4, 8].includes(bracketModels.length)) {
-				const nextValid =
-					bracketModels.length < 2 ? 2 : bracketModels.length < 4 ? 4 : 8;
+				const nextValid = nextBracketSize(bracketModels.length);
 				return `Pick ${nextValid - bracketModels.length} more or remove to get ${nextValid}`;
 			}
 			if (!prompt.trim()) return "Enter a prompt";
@@ -586,6 +585,23 @@ export function Arena() {
 		const val = proxyModelID(pick.provider_name, pick.model_id);
 		setCompareModels([...compareModels, val]);
 	}, [enabledModels, compareModels]);
+	// Compute bracket preview pairs for setup phase
+	const previewPairs = useMemo(() => {
+		if (
+			arenaMode !== "competition" ||
+			phase !== "setup" ||
+			bracketModels.length === 0
+		)
+			return null;
+		const target = nextBracketSize(bracketModels.length);
+		const items = [...bracketModels];
+		while (items.length < target) items.push("");
+		const pairs: { a: string; b: string }[] = [];
+		for (let i = 0; i < items.length; i += 2) {
+			pairs.push({ a: items[i], b: items[i + 1] ?? "" });
+		}
+		return pairs;
+	}, [arenaMode, phase, bracketModels]);
 
 	const streamModel = useCallback(
 		(
@@ -1552,6 +1568,43 @@ export function Arena() {
 			<div className="ui-card p-4 shrink-0">
 				<div className="flex items-center gap-4 flex-wrap">
 					{/* Bracket Pills */}
+					{/* Setup preview: show selected models and matchups before running */}
+					{previewPairs && (
+						<div className="flex flex-col gap-2 flex-1 min-w-0">
+							<div className="flex items-center gap-2">
+								<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
+									First Round
+								</div>
+								<div className="flex items-center gap-2 flex-wrap">
+									{previewPairs.map((p, i) => (
+										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: preview position is stable for the static preview
+											key={`preview-mu-${i}`}
+											className="flex items-center gap-2"
+										>
+											<BracketPreviewPill modelId={p.a} isTbd={p.a === ""} />
+											<span className="text-(--accent) font-bold text-xs px-1">
+												VS
+											</span>
+											<BracketPreviewPill modelId={p.b} isTbd={p.b === ""} />
+										</div>
+									))}
+								</div>
+							</div>
+						</div>
+					)}
+					{phase === "setup" &&
+						arenaMode === "compare" &&
+						compareModels.length > 0 && (
+							<div className="flex flex-col gap-2 flex-1 min-w-0">
+								<div className="flex items-center gap-2 flex-wrap">
+									{compareModels.map((m, i) => (
+										// biome-ignore lint/suspicious/noArrayIndexKey: preview list order matches model order
+										<BracketPreviewPill key={`preview-cmp-${i}`} modelId={m} />
+									))}
+								</div>
+							</div>
+						)}
 					{rounds.length > 0 && (
 						<div className="flex flex-col gap-2 flex-1 min-w-0">
 							{rounds.map((round, roundIdx) => {
@@ -2016,6 +2069,32 @@ function VoteThumb({
 				className={`absolute inset-0 transition-opacity duration-500 ${showUp ? "opacity-100" : "opacity-0"}`}
 			/>
 		</span>
+	);
+}
+
+/** Returns the smallest valid bracket size (2, 4, or 8) that fits `count` models. */
+function nextBracketSize(count: number): number {
+	return count <= 2 ? 2 : count <= 4 ? 4 : 8;
+}
+
+function BracketPreviewPill({
+	modelId,
+	isTbd = false,
+}: {
+	modelId: string;
+	isTbd?: boolean;
+}) {
+	if (isTbd || !modelId) {
+		return (
+			<div className="px-3 py-2 rounded-lg border border-dashed border-(--border-subtle) bg-(--surface) text-xs text-(--text-tertiary) min-w-24 text-center">
+				TBD
+			</div>
+		);
+	}
+	return (
+		<div className="px-3 py-2 rounded-lg border bg-(--accent)/15 border-(--accent)/40 text-(--accent) text-xs font-medium truncate max-w-40">
+			{modelId.split("/").pop()}
+		</div>
 	);
 }
 
