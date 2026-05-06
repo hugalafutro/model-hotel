@@ -22,6 +22,7 @@
 <div align="center">
 
 > **AI-Assisted Project Disclaimer:**<br>
+>
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.<br>
 >
 > Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>
