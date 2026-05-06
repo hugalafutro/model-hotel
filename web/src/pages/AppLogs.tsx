@@ -148,7 +148,21 @@ export function AppLogs() {
 			case "keycache":
 			case "model":
 			case "provider":
+			case "cache":
+			case "db":
 				return "bg-lime-900/30 text-lime-400";
+			case "access":
+				return "bg-fuchsia-900/30 text-fuchsia-400";
+			case "server":
+			case "startup":
+			case "retention":
+				return "bg-blue-900/30 text-blue-400";
+			case "circuit-breaker":
+				return "bg-orange-900/30 text-orange-400";
+			case "modelsdev":
+				return "bg-rose-900/30 text-rose-400";
+			case "applogs":
+				return "bg-gray-700/30 text-gray-400";
 			default:
 				return "bg-gray-800/30 text-gray-400";
 		}

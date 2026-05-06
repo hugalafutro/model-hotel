@@ -673,8 +673,8 @@ function ModelDetailModal({
 						onClick={() => onToggle(model.id, !model.enabled)}
 						className={`px-3 py-1.5 text-xs rounded-full border cursor-pointer transition-all ${
 							model.enabled
-								? "bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(34,197,94,0.2)]"
-								: "bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)]"
+								? "bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[var(--glow-box-green)]"
+								: "bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
 						}`}
 					>
 						{model.enabled ? "Enabled" : "Disabled"}
@@ -688,7 +688,7 @@ function ModelDetailModal({
 								? "bg-red-900/50 text-red-300 border-red-700/50"
 								: testing
 									? "bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-									: "bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(245,158,11,0.2)]"
+									: "bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
 						}`}
 					>
 						{testing && <Spinner />}
@@ -709,7 +709,7 @@ function ModelDetailModal({
 								onDelete(model.id);
 								onClose();
 							}}
-							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[0_0_8px_2px_rgba(239,68,68,0.2)] transition-all"
+							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)] transition-all"
 						>
 							Confirm delete
 						</button>

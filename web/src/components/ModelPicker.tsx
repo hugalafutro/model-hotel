@@ -309,7 +309,7 @@ export function ModelPicker({
 															className={`shrink-0 flex items-center transition-all ${
 																paramsReadonly
 																	? "opacity-30 cursor-not-allowed"
-																	: "cursor-pointer hover:drop-shadow-[0_0_6px_var(--accent)] hover:text-(--accent)"
+																	: "cursor-pointer hover:drop-shadow-[var(--glow-accent)] hover:text-(--accent)"
 															}`}
 															title={
 																paramsReadonly

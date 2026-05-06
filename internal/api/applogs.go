@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -398,14 +399,40 @@ func stripLogTimestamp(line string) string {
 	return line
 }
 
-// extractSource parses a "[prefix]" tag from the beginning of a log message.
-// Returns the source (without brackets) and the remaining message.
-// If no bracketed prefix is found, returns ("", line).
+// extractSource parses a source tag from the beginning of a log message.
+// It supports two formats:
+//   - Bracketed: "[proxy] message" → source="proxy", msg="message"
+//   - Colon-separated: "proxy: message" → source="proxy", msg="message"
+//
+// If no source prefix is found, returns ("", line).
 func extractSource(line string) (string, string) {
+	// Bracketed format: [source] message
 	if len(line) > 0 && line[0] == '[' {
 		end := strings.Index(line, "]")
 		if end > 0 && end < len(line)-1 && line[end+1] == ' ' {
 			return line[1:end], line[end+2:]
+		}
+	}
+	// Colon-separated format: source: message
+	// Source must be at least 2 chars and match [a-zA-Z_][a-zA-Z0-9._-]*
+	if colon := strings.Index(line, ": "); colon >= 2 {
+		candidate := line[:colon]
+		valid := true
+		for i, ch := range candidate {
+			if i == 0 {
+				if !unicode.IsLetter(ch) && ch != '_' {
+					valid = false
+					break
+				}
+			} else {
+				if !unicode.IsLetter(ch) && !unicode.IsDigit(ch) && ch != '_' && ch != '.' && ch != '-' {
+					valid = false
+					break
+				}
+			}
+		}
+		if valid {
+			return candidate, line[colon+2:]
 		}
 	}
 	return "", line
@@ -424,21 +451,16 @@ func detectLevel(line string) string {
 	return "info"
 }
 
-// stripLevelPrefix removes a leading level indicator (e.g. "INFO ", "WARN ",
-// "ERROR") from a log message so the UI table doesn't show a redundant level
-// string — the level is stored separately in the AppLogEntry.Level field.
+// stripLevelPrefix removes a leading level indicator from a log message so the
+// UI table doesn't show a redundant level string — the level is stored separately
+// in the AppLogEntry.Level field. Handles both bare prefixes ("INFO ", "WARN ",
+// "ERROR ") and key=value-style prefixes emitted by slog attrs ("level=INFO ",
+// "level=WARN ", "level=ERROR ").
 func stripLevelPrefix(msg string) string {
-	after, ok := strings.CutPrefix(msg, "INFO  ")
-	if ok {
-		return after
-	}
-	after, ok = strings.CutPrefix(msg, "WARN  ")
-	if ok {
-		return after
-	}
-	after, ok = strings.CutPrefix(msg, "ERROR ")
-	if ok {
-		return after
+	for _, prefix := range []string{"level=INFO ", "level=WARN ", "level=ERROR ", "INFO  ", "WARN  ", "ERROR "} {
+		if after, ok := strings.CutPrefix(msg, prefix); ok {
+			return after
+		}
 	}
 	return msg
 }

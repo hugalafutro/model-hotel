@@ -938,7 +938,7 @@ export function FailoverGroups() {
 											.getElementById(`failover-section-${letter}`)
 											?.scrollIntoView({ behavior: "smooth", block: "start" })
 									}
-									className="text-xs font-medium text-gray-500 hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all px-1.5 py-0.5 rounded"
+									className="text-xs font-medium text-gray-500 hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all px-1.5 py-0.5 rounded"
 								>
 									{letter}
 								</button>

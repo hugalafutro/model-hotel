@@ -45,7 +45,7 @@ export function ConfirmDialog({
 				<button
 					type="button"
 					onClick={onCancel}
-					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[0_0_8px_var(--accent)]"
+					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
 					aria-label="Close"
 				>
 					<X size={20} />

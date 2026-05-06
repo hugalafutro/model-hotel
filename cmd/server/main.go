@@ -709,22 +709,35 @@ func silentLogger(next http.Handler) http.Handler {
 		}
 		if !isNoisy {
 			status := ww.Status()
-			level := "INFO "
 			switch {
 			case status >= 500:
-				level = "ERROR"
+				debuglog.Error("access: request",
+					"method", r.Method,
+					"host", r.Host,
+					"path", r.URL.Path,
+					"remote", r.RemoteAddr,
+					"status", status,
+					"bytes", ww.BytesWritten(),
+					"duration", duration)
 			case status >= 400:
-				level = "WARN "
+				debuglog.Warn("access: request",
+					"method", r.Method,
+					"host", r.Host,
+					"path", r.URL.Path,
+					"remote", r.RemoteAddr,
+					"status", status,
+					"bytes", ww.BytesWritten(),
+					"duration", duration)
+			default:
+				debuglog.Info("access: request",
+					"method", r.Method,
+					"host", r.Host,
+					"path", r.URL.Path,
+					"remote", r.RemoteAddr,
+					"status", status,
+					"bytes", ww.BytesWritten(),
+					"duration", duration)
 			}
-			debuglog.Info("access: request",
-				"level", level,
-				"method", r.Method,
-				"host", r.Host,
-				"path", r.URL.Path,
-				"remote", r.RemoteAddr,
-				"status", status,
-				"bytes", ww.BytesWritten(),
-				"duration", duration)
 		}
 	})
 }

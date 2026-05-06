@@ -384,7 +384,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<CopyButton
 								text={requestLog.error_message}
 								size={12}
-								className="text-red-400/50 hover:text-red-300 hover:drop-shadow-[0_0_6px_rgba(248,113,113,0.5)] transition-all cursor-pointer inline-flex items-center"
+								className="text-red-400/50 hover:text-red-300 hover:drop-shadow-[var(--glow-red)] transition-all cursor-pointer inline-flex items-center"
 							/>
 						</div>
 						<pre className="text-sm text-red-300 font-mono whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
@@ -445,7 +445,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<CopyButton
 							text={appLog.message}
 							size={11}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_4px_var(--accent)] transition-all cursor-pointer inline-flex items-center"
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all cursor-pointer inline-flex items-center"
 						/>
 					}
 				>

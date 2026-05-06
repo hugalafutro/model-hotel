@@ -67,7 +67,7 @@ export function NanoGPTQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 							aria-label="Refresh"
 							title="Refresh quota info"
 						>
@@ -274,7 +274,7 @@ export function ZAICodingQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[0_0_8px_var(--accent)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 							aria-label="Refresh"
 							title="Refresh quota info"
 						>

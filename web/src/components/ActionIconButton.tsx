@@ -15,11 +15,11 @@ interface ActionIconButtonProps {
 const colorClasses = {
 	amber: {
 		base: "text-amber-400",
-		glow: "hover:drop-shadow-[0_0_6px_var(--color-amber-400,amber)]",
+		glow: "hover:drop-shadow-[var(--glow-amber)]",
 	},
 	red: {
 		base: "text-red-500",
-		glow: "hover:drop-shadow-[0_0_6px_var(--color-red-500,red)]",
+		glow: "hover:drop-shadow-[var(--glow-red)]",
 	},
 };
 

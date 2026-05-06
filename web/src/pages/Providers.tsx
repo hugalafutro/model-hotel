@@ -707,7 +707,7 @@ export function Providers() {
 								? "Sorted A-Z (click to reverse)"
 								: "Sorted Z-A (click to reverse)"
 						}
-						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 					>
 						{sortAsc ? <ArrowDownAZ size={16} /> : <ArrowUpZA size={16} />}
 					</button>

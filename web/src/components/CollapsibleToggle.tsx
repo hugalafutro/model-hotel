@@ -36,7 +36,7 @@ export function CollapsibleToggle({
 		overrideClassName ??
 		(variant === "muted"
 			? "p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent)"
-			: "p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]");
+			: "p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]");
 
 	const icons =
 		iconStyle === "double" ? (

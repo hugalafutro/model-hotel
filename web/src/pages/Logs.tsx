@@ -709,7 +709,7 @@ function RequestLogs() {
 								{hasDateFilter && (
 									<button
 										type="button"
-										className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[0_0_8px_var(--accent)]"
+										className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
 										onClick={clearDateFilter}
 										title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
 									>
@@ -727,7 +727,7 @@ function RequestLogs() {
 										<button
 											type="button"
 											onClick={() => setShowDatePicker(false)}
-											className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[0_0_8px_var(--accent)]"
+											className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
 										>
 											<X size={16} />
 										</button>

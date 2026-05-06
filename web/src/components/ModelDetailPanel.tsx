@@ -93,7 +93,7 @@ export function ModelDetailPanel({
 						<button
 							type="button"
 							onClick={() => onParamsChange?.({})}
-							className="p-1.5 rounded-md transition-all cursor-pointer shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]"
+							className="p-1.5 rounded-md transition-all cursor-pointer shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[var(--glow-red)]"
 							title="Reset parameters"
 						>
 							<RotateCcw size={14} />
@@ -105,8 +105,8 @@ export function ModelDetailPanel({
 							onClick={() => setOpen((s) => !s)}
 							className={`p-1.5 rounded-md transition-all cursor-pointer shrink-0 ${
 								open || hasCustom
-									? "text-(--accent) drop-shadow-[0_0_6px_var(--accent)]"
-									: "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+									? "text-(--accent) drop-shadow-[var(--glow-accent)]"
+									: "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							}`}
 							title="Generation parameters"
 						>
@@ -127,7 +127,7 @@ export function ModelDetailPanel({
 						<button
 							type="button"
 							onClick={() => setCollapsed((c) => !c)}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							title={
 								collapsed ? "Expand model details" : "Collapse model details"
 							}

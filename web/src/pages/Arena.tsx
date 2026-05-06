@@ -1398,7 +1398,7 @@ export function Arena() {
 						<button
 							type="button"
 							onClick={() => setShowHistoryModal(true)}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							title="Match history"
 						>
 							<History size={14} />
@@ -2264,7 +2264,7 @@ function ResponseCard({
 								<button
 									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
-									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer"
+									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
 									title="Re-roll"
 								>
 									<RefreshCw size={14} />

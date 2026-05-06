@@ -223,6 +223,144 @@ func TestExtractSource_NoSpaceAfterBracket(t *testing.T) {
 		t.Errorf("expected empty source when no space after ], got %q", source)
 	}
 }
+// ---------------------------------------------------------------------------
+// extractSource colon-separated format
+// ---------------------------------------------------------------------------
+
+func TestExtractSource_ColonSimple(t *testing.T) {
+	source, msg := extractSource("proxy: request received")
+	if source != "proxy" {
+		t.Errorf("expected source %q, got %q", "proxy", source)
+	}
+	if msg != "request received" {
+		t.Errorf("expected message %q, got %q", "request received", msg)
+	}
+}
+
+func TestExtractSource_ColonHyphenated(t *testing.T) {
+	source, msg := extractSource("circuit-breaker: provider state=open")
+	if source != "circuit-breaker" {
+		t.Errorf("expected source %q, got %q", "circuit-breaker", source)
+	}
+	if msg != "provider state=open" {
+		t.Errorf("expected message %q, got %q", "provider state=open", msg)
+	}
+}
+
+func TestExtractSource_ColonWithDots(t *testing.T) {
+	source, msg := extractSource("models.dev: loaded models")
+	if source != "models.dev" {
+		t.Errorf("expected source %q, got %q", "models.dev", source)
+	}
+	if msg != "loaded models" {
+		t.Errorf("expected message %q, got %q", "loaded models", msg)
+	}
+}
+
+func TestExtractSource_ColonWithUnderscore(t *testing.T) {
+	source, msg := extractSource("TRUSTED_PROXIES: skipping invalid CIDR")
+	if source != "TRUSTED_PROXIES" {
+		t.Errorf("expected source %q, got %q", "TRUSTED_PROXIES", source)
+	}
+	if msg != "skipping invalid CIDR" {
+		t.Errorf("expected message %q, got %q", "skipping invalid CIDR", msg)
+	}
+}
+
+func TestExtractSource_ColonStartsWithDigit(t *testing.T) {
+	source, msg := extractSource("1invalid: message")
+	if source != "" {
+		t.Errorf("expected empty source for digit-start, got %q", source)
+	}
+	if msg != "1invalid: message" {
+		t.Errorf("expected unchanged message, got %q", msg)
+	}
+}
+
+func TestExtractSource_ColonSpaceInCandidate(t *testing.T) {
+	source, msg := extractSource("foo bar: message")
+	if source != "" {
+		t.Errorf("expected empty source for space in candidate, got %q", source)
+	}
+	if msg != "foo bar: message" {
+		t.Errorf("expected unchanged message, got %q", msg)
+	}
+}
+
+func TestExtractSource_ColonSingleChar(t *testing.T) {
+	// Single-char source before colon is too short (needs >= 2 chars)
+	source, msg := extractSource("a: message")
+	if source != "" {
+		t.Errorf("expected empty source for single-char, got %q", source)
+	}
+	if msg != "a: message" {
+		t.Errorf("expected unchanged message, got %q", msg)
+	}
+}
+
+func TestExtractSource_ColonSpecialChars(t *testing.T) {
+	source, msg := extractSource("hello@world: message")
+	if source != "" {
+		t.Errorf("expected empty source for special chars, got %q", source)
+	}
+	if msg != "hello@world: message" {
+		t.Errorf("expected unchanged message, got %q", msg)
+	}
+}
+
+func TestExtractSource_BracketPreferredOverColon(t *testing.T) {
+	// Bracketed format should be tried first
+	source, msg := extractSource("[proxy] access: request")
+	if source != "proxy" {
+		t.Errorf("expected source %q, got %q", "proxy", source)
+	}
+	if msg != "access: request" {
+		t.Errorf("expected message %q, got %q", "access: request", msg)
+	}
+}
+
+func TestExtractSource_ColonOpencodeGo(t *testing.T) {
+	source, msg := extractSource("opencode-go: discovered models")
+	if source != "opencode-go" {
+		t.Errorf("expected source %q, got %q", "opencode-go", source)
+	}
+	if msg != "discovered models" {
+		t.Errorf("expected message %q, got %q", "discovered models", msg)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// stripLevelPrefix key=value format
+// ---------------------------------------------------------------------------
+
+func TestStripLevelPrefix_LevelEqualsInfo(t *testing.T) {
+	result := stripLevelPrefix("level=INFO request completed")
+	if result != "request completed" {
+		t.Errorf("expected %q, got %q", "request completed", result)
+	}
+}
+
+func TestStripLevelPrefix_LevelEqualsWarn(t *testing.T) {
+	result := stripLevelPrefix("level=WARN slow response")
+	if result != "slow response" {
+		t.Errorf("expected %q, got %q", "slow response", result)
+	}
+}
+
+func TestStripLevelPrefix_LevelEqualsError(t *testing.T) {
+	result := stripLevelPrefix("level=ERROR connection refused")
+	if result != "connection refused" {
+		t.Errorf("expected %q, got %q", "connection refused", result)
+	}
+}
+
+func TestStripLevelPrefix_LevelEqualsNoMatch(t *testing.T) {
+	// "level=DEBUG" is not a recognized prefix
+	result := stripLevelPrefix("level=DEBUG trace output")
+	if result != "level=DEBUG trace output" {
+		t.Errorf("expected unchanged, got %q", result)
+	}
+}
 
 // ---------------------------------------------------------------------------
 // detectLevel

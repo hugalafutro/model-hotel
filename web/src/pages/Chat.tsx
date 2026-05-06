@@ -1495,7 +1495,7 @@ export function Chat() {
 												<CopyButton
 													text={msg.content}
 													size={10}
-													className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[0_0_4px_white]"}`}
+													className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[var(--glow-white)]"}`}
 												/>
 											</div>
 										</div>
@@ -1542,7 +1542,7 @@ export function Chat() {
 														{canDelete && (
 															<button
 																type="button"
-																className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+																className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 																onClick={() => handleDeleteMessage(i)}
 																title="Delete message"
 															>
@@ -1598,7 +1598,7 @@ export function Chat() {
 														<button
 															type="button"
 															onClick={handleRegenerate}
-															className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] transition-all cursor-pointer ml-1"
+															className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer ml-1"
 															title="Regenerate"
 														>
 															<RefreshCw size={14} />
@@ -1613,7 +1613,7 @@ export function Chat() {
 													{canDelete && (
 														<button
 															type="button"
-															className="inline-flex items-center cursor-pointer hover:drop-shadow-[0_0_4px_var(--color-red-500,red)] text-red-500 transition-all"
+															className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 															onClick={() => handleDeleteMessage(i)}
 															title="Delete message"
 														>
@@ -1622,7 +1622,7 @@ export function Chat() {
 													)}
 													{msg.params && (
 														<span
-															className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[0_0_4px_var(--accent)] transition-all"
+															className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
 															title={`Settings: ${Object.entries(msg.params)
 																.filter(([, v]) => v !== undefined)
 																.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)

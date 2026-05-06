@@ -689,7 +689,7 @@ function UsageBarPanel({
 										<button
 											type="button"
 											onClick={() => onEntryClick(entry.label)}
-											className={`truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+											className={`truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
 											title={`View details for ${entry.label}`}
 										>
 											{entry.label}
@@ -1311,22 +1311,21 @@ export function Dashboard() {
 									? "Showing only active (non-deleted) virtual keys. Click to include deleted keys in stats."
 									: "Showing all virtual keys including deleted ones. Click to filter to active keys only."
 							}
-							className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+							className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
 								excludeDeleted
 									? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+									: "bg-gray-700/60 text-gray-400 hover:bg-gray-600"
 							}`}
 						>
 							<span
-								className={`w-2 h-2 rounded-full transition-colors ${
+								className={`w-1.5 h-1.5 rounded-full transition-colors ${
 									excludeDeleted ? "bg-amber-400" : "bg-gray-500"
 								}`}
 							/>
 							{excludeDeleted ? "Active Keys Only" : "All Keys"}
 						</button>
-						<div className="flex items-center gap-1.5 ml-2 px-2 py-1 rounded-lg bg-(--surface-elevated) border border-(--border-default)">
+						<div className="flex items-center gap-1 ml-1.5">
 							<RangeToggle value={globalRange} onChange={setGlobalRange} />
-							<div className="w-px h-4 bg-(--border-subtle)" />
 							<MetricToggle value={globalMetric} onChange={setGlobalMetric} />
 						</div>
 						{!hideManualRefresh && (
@@ -1338,7 +1337,7 @@ export function Dashboard() {
 								className={`flex items-center justify-center w-7 h-7 rounded-full transition-all ${
 									isRefreshing
 										? "cursor-not-allowed opacity-60"
-										: "cursor-pointer hover:bg-(--accent)/20 hover:drop-shadow-[0_0_8px_var(--accent)]"
+										: "cursor-pointer hover:bg-(--accent)/20 hover:drop-shadow-[var(--glow-accent-lg)]"
 								}`}
 							>
 								<RefreshCw

@@ -203,7 +203,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							>
 								{onModelNameClick ? (
 									<span
-										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
 										title={model}
 									>
 										{displayName}
@@ -218,7 +218,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								)}
 								{showInfoIcon && onModelNameClick && (
 									<span
-										className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[0_0_6px_var(--accent)] transition-all"
+										className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all"
 										title="Model details"
 									>
 										<Info size={12} />
@@ -245,7 +245,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<button
 									type="button"
 									onClick={() => setMaximized(true)}
-									className="p-1 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+									className="p-1 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 									title="Maximize reply"
 								>
 									<Maximize2 size={14} />
@@ -388,7 +388,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								onClick={() => {
 									navigator.clipboard.writeText(content);
 								}}
-								className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[0_0_6px_var(--accent)]"
+								className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 								title="Copy"
 							>
 								<Copy size={16} />
