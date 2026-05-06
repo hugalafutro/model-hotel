@@ -411,10 +411,10 @@ function SystemStatus() {
 								) : (
 									<>
 										<span className="text-(--text-muted)">-</span>
-										<span className="text-(--text-muted)">|</span>
+										<span className="text-(--text-secondary)">|</span>
 										<span className="text-(--text-muted)">-</span>
 										<span className="text-(--text-muted)">-</span>
-										<span className="text-(--text-muted)">|</span>
+										<span className="text-(--text-secondary)">|</span>
 										<span className="text-(--text-muted)">-</span>
 									</>
 								)}
