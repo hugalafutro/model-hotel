@@ -47,7 +47,7 @@ function RangeToggle({
 }) {
 	const labels: Record<Range, string> = { "1h": "1H", "24h": "1D", "7d": "7D" };
 	return (
-		<div className="flex items-center gap-0.5">
+		<div className="flex items-center gap-px">
 			{(["1h", "24h", "7d"] as Range[]).map((r) => {
 				const active = value === r;
 				return (
@@ -55,7 +55,7 @@ function RangeToggle({
 						type="button"
 						key={r}
 						onClick={() => onChange(r)}
-						className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-md transition-colors ${
+						className={`px-1.5 py-0.5 text-[10px] font-semibold rounded transition-colors ${
 							active
 								? "text-white"
 								: "text-(--text-muted) hover:text-(--text-secondary)"
@@ -78,7 +78,7 @@ function MetricToggle({
 	onChange: (v: MetricType) => void;
 }) {
 	return (
-		<div className="flex items-center gap-0.5">
+		<div className="flex items-center gap-px">
 			{(["tokens", "requests"] as MetricType[]).map((m) => {
 				const active = value === m;
 				const label = m === "tokens" ? "Tok" : "Req";
@@ -87,7 +87,7 @@ function MetricToggle({
 						type="button"
 						key={m}
 						onClick={() => onChange(m)}
-						className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-md transition-colors ${
+						className={`px-1.5 py-0.5 text-[10px] font-semibold rounded transition-colors ${
 							active
 								? "text-white"
 								: "text-(--text-muted) hover:text-(--text-secondary)"
@@ -659,14 +659,14 @@ function UsageBarPanel({
 	return (
 		<div className="ui-card p-6">
 			<div className="flex items-center justify-between mb-5">
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 min-w-0">
 					<Icon size={18} className="text-(--accent)" />
-					<h3 className="text-lg font-semibold text-(--text-primary)">
+					<h3 className="text-lg font-semibold text-(--text-primary) whitespace-nowrap">
 						{title}
 					</h3>
 					{loading && <Spinner className="ml-1" />}
 				</div>
-				<div className="flex items-center gap-1.5">
+				<div className="flex items-center gap-1 shrink-0">
 					{metric !== undefined && onMetricChange !== undefined && (
 						<MetricToggle value={metric} onChange={onMetricChange} />
 					)}
