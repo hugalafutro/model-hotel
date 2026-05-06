@@ -221,7 +221,7 @@ export function NanoGPTQuotaModal({
 				)}
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
 						<span>Last refreshed</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
@@ -403,7 +403,7 @@ export function ZAICodingQuotaModal({
 				)}
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
 						<span>Last refreshed</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
@@ -499,27 +499,26 @@ export function OpenRouterQuotaModal({
 				<div>
 					<div className="flex justify-between items-center mb-2">
 						<span className="text-sm font-medium text-gray-300">
-							Account Credits
+							Account Balance
 						</span>
-						<span className="text-sm text-gray-400">
-							{formatDollars(balance.credits_remaining)} remaining
+						<span className="text-sm text-white font-medium">
+							{formatDollars(balance.credits_remaining)}
 						</span>
 					</div>
-					<div className="w-full bg-gray-700 rounded-full h-3">
-						<div
-							className={`${remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
-							style={{
-								width: `${Math.min(creditsRemaining, 100)}%`,
-							}}
-						/>
-					</div>
+					{balance.credits_total > 0 && (
+						<div className="w-full bg-gray-700 rounded-full h-3">
+							<div
+								className={`${remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
+								style={{
+									width: `${Math.min(creditsRemaining, 100)}%`,
+								}}
+							/>
+						</div>
+					)}
 					<p className="text-xs text-gray-500 mt-1">
 						{balance.credits_total > 0
-							? `${(100 - creditsRemaining).toFixed(1)}% used`
-							: "No credits"}
-						{" · "}
-						{formatDollars(balance.credits_used)} of{" "}
-						{formatDollars(balance.credits_total)}
+							? `${formatDollars(balance.credits_used)} spent of ${formatDollars(balance.credits_total)} purchased`
+							: "No credits purchased"}
 					</p>
 				</div>
 
@@ -560,9 +559,10 @@ export function OpenRouterQuotaModal({
 				)}
 
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
-						Usage Breakdown
-					</h3>
+					<h3 className="text-sm font-medium text-gray-300 mb-3">Key Usage</h3>
+					<p className="text-xs text-gray-500 mb-3">
+						Spending by this API key (account total may differ)
+					</p>
 					<div className="grid grid-cols-2 gap-3 text-sm">
 						<div>
 							<span className="text-gray-500">Today</span>
@@ -590,7 +590,7 @@ export function OpenRouterQuotaModal({
 				</div>
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-700/50">
+					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
 						<span>Last refreshed</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
