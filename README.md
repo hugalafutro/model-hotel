@@ -34,7 +34,9 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave</a>
 </div>
 
 <details>
-<summary>
+<summary>📊 Usage Statistics</summary>
+
+```
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
@@ -141,7 +143,7 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave</a>
 │ github_issue_write █                      1 ( 0.0%)    │
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
 └────────────────────────────────────────────────────────┘
-</summary>
+```
 </details>
 
 ---
