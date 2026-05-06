@@ -409,7 +409,14 @@ function SystemStatus() {
 										</span>
 									</>
 								) : (
-									<span className="col-span-3 row-span-2">{dash}</span>
+									<>
+										<span className="text-(--text-muted)">-</span>
+										<span className="text-(--text-muted)">|</span>
+										<span className="text-(--text-muted)">-</span>
+										<span className="text-(--text-muted)">-</span>
+										<span className="text-(--text-muted)">|</span>
+										<span className="text-(--text-muted)">-</span>
+									</>
 								)}
 							</span>
 						</div>
