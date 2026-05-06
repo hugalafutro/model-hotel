@@ -231,6 +231,28 @@ Quick actions:
 - **Disable/Enable**: Toggle availability
 - **Delete**: Permanent removal
 
+## Brand Colors
+
+Each provider type has a brand color used for quota badges and sidebar pills. Colors are defined in `web/src/utils/providerBrands.ts`:
+
+| Provider | Key | Color |
+|----------|-----|-------|
+| Anthropic/Claude | `anthropic` | `#D97757` |
+| OpenAI | `openai` | `#000000` |
+| Google/Gemini | `google` | `#4285F4` |
+| DeepSeek | `deepseek` | `#4D6BFE` |
+| xAI/Grok | `xai` | `#1A1A1A` |
+| Ollama | `ollama` | `#3D3D3D` |
+| OpenRouter | `openrouter` | `#6366F1` |
+| Cohere | `cohere` | `#D4E7C5` |
+| Z.AI | `zai-coding` | `#7C3AED` |
+| NanoGPT | `nanogpt` | `#0EA5B0` |
+| LM Studio | `lmstudio` | `#E879F9` |
+| KoboldCpp | `koboldcpp` | `#DC2626` |
+| OpenCode | `opencode` | `#2D2D2D` |
+
+Dark brand colors (OpenAI, xAI, Ollama, OpenCode) use lighter text overrides in the sidebar for readability.
+
 ## Best Practices
 
 1. **Use descriptive names**: "OpenAI Production" vs "OpenAI"

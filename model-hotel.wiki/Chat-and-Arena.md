@@ -24,13 +24,18 @@ The standard chat interface for interactive model testing with a single model.
   7. `presence_penalty` — Presence penalty (−2 to 2, step 0.01)
 - **Streaming responses** — Real-time token streaming with thinking block rendering (separate collapsible section for reasoning models)
 - **Message controls** — Copy, delete, regenerate, stop generating
+- **Message display** — User messages with images show the thumbnail inline above the text. Audio attachments show a format badge (e.g., "WAV audio").
 - **Model detail pill** — Inline model info with parameter display
 - **Auto-resize textarea** — Expands as you type, shift+enter for newline
 - **Conversation context** — Full multi-turn conversation with the model
+- **Multimodal input** — Image and audio attachment support:
+  - **Image upload** — When a vision-capable model is selected (`capabilities.vision`), an image icon appears next to the input. Select an image file (up to 20 MB) and it's sent as an OpenAI-compatible `image_url` content part with base64 data. A thumbnail preview appears above the textarea with a remove button.
+  - **Audio upload** — When an audio-capable model is selected (`capabilities.audio_input`), a mic icon appears next to the input. Select an audio file (up to 25 MB) and it's sent as an OpenAI-compatible `input_audio` content part with base64 data (format auto-detected from file extension). An audio indicator chip appears above the textarea with a remove button.
+  - Only one attachment at a time — selecting an image clears any pending audio and vice versa. Messages can be sent with just an attachment (no text required), or with both text and an attachment. If text is present, it's placed after the media part in the content array (most providers expect text after media).
 
 ### Chat API
 
-Chat uses the admin API at `/api/chat/chat` (admin-authenticated proxy to the provider). This bypasses virtual key requirements — the admin token is used for authentication.
+Chat uses the admin API at `/api/chat/chat` (admin-authenticated proxy to the provider). This bypasses virtual key requirements — the admin token is used for authentication. The proxy is a transparent pass-through — multimodal content (image/audio parts) is forwarded as-is to the upstream provider without any transformation.
 
 ## Conversation Mode
 

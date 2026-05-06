@@ -76,6 +76,7 @@ web/                  # Frontend React app
   │   ├── api/        # API client and TypeScript types
   │   ├── context/    # React contexts (Theme, Events, etc.)
   │   └── utils/      # Frontend utilities
+  │       └── providerBrands.ts  # Provider brand colors & prefixes (single source of truth)
   └── dist/           # Built static files (served by Go)
 ```
 
@@ -92,13 +93,13 @@ web/                  # Frontend React app
    - ProxyKeyMiddleware (SHA-256 hash lookup)
    - RateLimiter.Middleware (per-key token bucket)
 3. ChatCompletions handler:
-   - Parse request body
-   - Resolve model (failover group or provider/model)
-   - Decrypt provider API key (AES-256-GCM, cached 5min)
-   - INSERT request_logs (pending state)
-   - For each failover candidate:
-     - Forward to upstream provider
-     - On 5xx/429/401/403: exponential backoff, retry next
+    - Parse request body
+    - Resolve model (failover group or provider/model)
+    - Decrypt provider API key (AES-256-GCM, cached 5min)
+    - INSERT request_logs (pending state)
+    - For each failover candidate:
+      - Forward **raw request body** to upstream (multimodal content parts pass through unchanged)
+      - On 5xx/429/401/403: exponential backoff, retry next
      - On 200: stream/return response
    - UPDATE request_logs (completed/failed state)
    - UPDATE virtual_keys (increment tokens_used)
@@ -241,9 +242,25 @@ Note: Created in migration 001. Currently minimal — exists for future per-clie
 - **Failover**: Configure hotel routing groups, priorities
 - **Virtual Keys**: Create/revoke client API keys
 - **Logs**: Request logs with filtering, app logs
-- **Chat**: Interactive chat with personas, streaming
+- **Chat**: Interactive chat with personas, streaming, multimodal input (vision/audio)
 - **Arena**: Competition mode (brackets), Compare mode (grid)
 - **Settings**: Runtime configuration UI
+
+### Provider Brand Colors
+
+Provider-specific styling (colors, display prefixes) is centralized in `web/src/utils/providerBrands.ts`:
+
+- **`PROVIDER_BRAND_COLORS`**: Maps `ProviderBrand` type keys to hex colors. Used for quota badges (sidebar pills and card variant).
+- **`PROVIDER_PREFIXES`**: Short display prefixes for sidebar quota pills (e.g., `nanogpt → "NG"`).
+
+**Important**: Tailwind JIT cannot detect dynamic class strings like `` `bg-[${color}]/20` ``, so card-variant badge styles must use static string literals in `QuotaBadge.tsx`. Sidebar pill styles are defined in `index.css` as `.sidebar-quota-pill-{provider}` classes across all three themes (default, `cyber-terminal`, `glassmorphism-lite`).
+
+When adding a new provider, update all three color sources:
+1. `PROVIDER_BRAND_COLORS` and `PROVIDER_PREFIXES` in `providerBrands.ts`
+2. `TYPE_STYLES` in `QuotaBadge.tsx` (static Tailwind classes)
+3. `.sidebar-quota-pill-{key}` classes in `index.css` (all three themes)
+
+Dark brand colors (e.g., `openai` #000000, `xai` #1A1A1A) use lighter text overrides (#a0a0a0/#b0b0b0) in CSS for dark-background readability.
 
 ### SSE Events
 
@@ -390,6 +407,8 @@ go run cmd/server/main.go
 3. Add quota/balance fetching if provider supports it
 4. Add to `defaultKnownProviderHosts` in `internal/config/config.go`
 5. Update frontend model enrichment if needed
+6. Add brand color and prefix to `PROVIDER_BRAND_COLORS`/`PROVIDER_PREFIXES` in `web/src/utils/providerBrands.ts`
+7. Add `QuotaProviderType` entry, sidebar/CSS pill classes, and card-variant `TYPE_STYLES` in `web/src/components/QuotaBadge.tsx` and `web/src/index.css` (all 3 themes)
 
 For providers that don't have a dedicated catalog, the [models.dev](https://models.dev/) enrichment layer (see [Model Discovery](Model-Discovery#modelsdev-enrichment)) will automatically fill in pricing, capabilities, and context limits for known models. You only need a hardcoded catalog if the provider's models are not in models.dev or if you need provider-specific overrides.
 

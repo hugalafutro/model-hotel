@@ -3,8 +3,10 @@ import {
 	CircleStop,
 	Eraser,
 	Gauge,
+	Image as ImageIcon,
 	MessageSquare,
 	MessagesSquare,
+	Mic,
 	RefreshCw,
 	RotateCcw,
 	Send,
@@ -16,7 +18,12 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE, getAuthHeaders } from "../api/client";
-import type { ChatMessage, GenerationParams } from "../api/types";
+import type {
+	ChatMessage,
+	ContentPart,
+	GenerationParams,
+	MessageContent,
+} from "../api/types";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -34,7 +41,7 @@ import { useToast } from "../context/ToastContext";
 import { CHAT_PERSONAS } from "../data/presets";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useEnabledModels } from "../hooks/useModels";
-import { proxyModelID } from "../utils/model";
+import { parseCapabilities, proxyModelID } from "../utils/model";
 import { hasAnyParam } from "../utils/params";
 import { readSSEStream, type StreamChunk } from "../utils/sse";
 import { fetchWithRetry } from "../utils/stagger";
@@ -50,12 +57,41 @@ function formatTime(ts: number): string {
 
 type ConversationState = "idle" | "running" | "paused" | "completed" | "error";
 
+/**
+ * Build the messages array for the API. When a message has attachments
+ * (image or audio), produces an OpenAI-compatible content-parts array;
+ * otherwise uses a plain string for backward compatibility.
+ */
+function buildMessageContent(msg: ChatMessage): MessageContent {
+	if (msg.imageUrl || msg.audioAttachment) {
+		const parts: ContentPart[] = [];
+		if (msg.imageUrl) {
+			parts.push({ type: "image_url", image_url: { url: msg.imageUrl } });
+		}
+		if (msg.audioAttachment) {
+			parts.push({
+				type: "input_audio",
+				input_audio: {
+					data: msg.audioAttachment.data,
+					format: msg.audioAttachment.format,
+				},
+			});
+		}
+		// Always include the text part last (most providers expect text after media)
+		if (msg.content) {
+			parts.push({ type: "text", text: msg.content });
+		}
+		return parts;
+	}
+	return msg.content;
+}
+
 function getApiMessagesForModel(
 	allMessages: ChatMessage[],
 	targetModelId: string,
 	persona: string,
-): Array<{ role: string; content: string }> {
-	const apiMessages: Array<{ role: string; content: string }> = [];
+): Array<{ role: string; content: MessageContent }> {
+	const apiMessages: Array<{ role: string; content: MessageContent }> = [];
 	if (persona.trim()) {
 		apiMessages.push({ role: "system", content: persona.trim() });
 	}
@@ -63,7 +99,7 @@ function getApiMessagesForModel(
 		if (msg.role === "user") {
 			apiMessages.push({
 				role: "user",
-				content: msg.content,
+				content: buildMessageContent(msg),
 			});
 		} else if (msg.role === "assistant") {
 			if (msg.model === targetModelId) {
@@ -95,7 +131,7 @@ interface StreamResult {
 
 async function streamModelResponse(
 	modelId: string,
-	apiMessages: Array<{ role: string; content: string }>,
+	apiMessages: Array<{ role: string; content: MessageContent }>,
 	params: GenerationParams,
 	abortCtrl: AbortController,
 	onDelta: (raw: string, content: string, thinking: string) => void,
@@ -318,6 +354,19 @@ export function Chat() {
 	const { toast } = useToast();
 	const quotaWarnedRef = useRef(false);
 
+	// ── Multimodal attachment state (chat mode only) ──
+	const [pendingImage, setPendingImage] = useState<{
+		dataUrl: string;
+		name: string;
+	} | null>(null);
+	const [pendingAudio, setPendingAudio] = useState<{
+		dataUrl: string;
+		name: string;
+		format: string;
+	} | null>(null);
+	const imageInputRef = useRef<HTMLInputElement>(null);
+	const audioInputRef = useRef<HTMLInputElement>(null);
+
 	// Derived state based on current mode
 	const selectedModel =
 		chatSubMode === "chat" ? chatSelectedModel : conversationModelA;
@@ -436,6 +485,13 @@ export function Chat() {
 		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModelB,
 	);
 
+	// ── Model capabilities for attachment icon visibility ──
+	const modelCaps = selectedModelObj
+		? parseCapabilities(selectedModelObj.capabilities)
+		: {};
+	const hasVision = !!modelCaps.vision;
+	const hasAudioInput = !!modelCaps.audio_input;
+
 	const scrollToBottom = useCallback(() => {
 		requestAnimationFrame(() => {
 			const el = messagesContainerRef.current;
@@ -487,7 +543,7 @@ export function Chat() {
 	const streamAssistantReply = useCallback(
 		async (
 			model: string,
-			chatMessages: Array<{ role: string; content: string }>,
+			chatMessages: Array<{ role: string; content: MessageContent }>,
 			messageIndex: number,
 		) => {
 			const abortCtrl = new AbortController();
@@ -550,30 +606,40 @@ export function Chat() {
 	);
 
 	const handleSend = useCallback(async () => {
-		if (!input.trim() || !selectedModel || isStreaming) return;
+		const hasAttachment = pendingImage || pendingAudio;
+		if ((!input.trim() && !hasAttachment) || !selectedModel || isStreaming)
+			return;
 		if (sendingRef.current) return;
 
 		const userMessage: ChatMessage = {
 			role: "user",
 			content: input.trim(),
 			timestamp: Date.now(),
+			...(pendingImage ? { imageUrl: pendingImage.dataUrl } : {}),
+			...(pendingAudio
+				? {
+						audioAttachment: {
+							data: pendingAudio.dataUrl.split(",")[1] || pendingAudio.dataUrl,
+							format: pendingAudio.format,
+						},
+					}
+				: {}),
 		};
+		// Clear attachments
+		setPendingImage(null);
+		setPendingAudio(null);
+
 		const updatedMessages = [...messages, userMessage];
 		setMessages(updatedMessages);
 		setInput("");
 		setIsStreaming(true);
 		sendingRef.current = true;
 
-		const chatMessages: Array<{ role: string; content: string }> = [];
-		if (systemPrompt.trim()) {
-			chatMessages.push({
-				role: "system",
-				content: systemPrompt.trim(),
-			});
-		}
-		for (const m of updatedMessages) {
-			chatMessages.push({ role: m.role, content: m.content });
-		}
+		const chatMessages = getApiMessagesForModel(
+			updatedMessages,
+			selectedModel,
+			systemPrompt,
+		);
 
 		try {
 			const result = await streamAssistantReply(
@@ -600,7 +666,63 @@ export function Chat() {
 		systemPrompt,
 		toast,
 		streamAssistantReply,
+		pendingImage,
+		pendingAudio,
 	]);
+
+	// ── Multimodal attachment handlers ──
+	const handleImageSelect = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (!file) return;
+			if (file.size > 20 * 1024 * 1024) {
+				toast("Image must be under 20 MB", "error");
+				return;
+			}
+			const reader = new FileReader();
+			reader.onload = () => {
+				setPendingImage({ dataUrl: reader.result as string, name: file.name });
+				setPendingAudio(null); // only one attachment at a time
+			};
+			reader.readAsDataURL(file);
+			// Reset so the same file can be re-selected
+			e.target.value = "";
+		},
+		[toast],
+	);
+
+	const handleAudioSelect = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (!file) return;
+			if (file.size > 25 * 1024 * 1024) {
+				toast("Audio must be under 25 MB", "error");
+				return;
+			}
+			const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
+			const formatMap: Record<string, string> = {
+				mp3: "mp3",
+				wav: "wav",
+				ogg: "ogg",
+				m4a: "m4a",
+				flac: "flac",
+				webm: "webm",
+			};
+			const format = formatMap[ext] || ext;
+			const reader = new FileReader();
+			reader.onload = () => {
+				setPendingAudio({
+					dataUrl: reader.result as string,
+					name: file.name,
+					format,
+				});
+				setPendingImage(null); // only one attachment at a time
+			};
+			reader.readAsDataURL(file);
+			e.target.value = "";
+		},
+		[toast],
+	);
 
 	const handleStop = useCallback(() => {
 		abortRef.current?.abort();
@@ -1483,11 +1605,31 @@ export function Chat() {
 												borderRadius: "var(--radius-card)",
 											}}
 										>
-											<MarkdownContent
-												className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
-											>
-												{msg.content}
-											</MarkdownContent>
+											{msg.imageUrl && (
+												<img
+													src={msg.imageUrl}
+													alt="User attachment"
+													className="max-h-48 rounded mb-1.5"
+												/>
+											)}
+											{msg.audioAttachment && (
+												<div
+													className={`flex items-center gap-1.5 mb-1.5 text-xs ${isConversationMode ? "text-(--text-secondary)" : "text-white/80"}`}
+												>
+													<Mic size={12} />
+													<span>
+														{msg.audioAttachment.format.toUpperCase()} audio
+													</span>
+												</div>
+											)}
+											{(msg.content ||
+												(!msg.imageUrl && !msg.audioAttachment)) && (
+												<MarkdownContent
+													className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
+												>
+													{msg.content}
+												</MarkdownContent>
+											)}
 											<div
 												className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
 											>
@@ -1649,7 +1791,96 @@ export function Chat() {
 			{chatSubMode === "chat" && (
 				<div className="ui-card p-4 shrink-0">
 					<div className="space-y-2">
+						{/* Attachment preview row */}
+						{(pendingImage || pendingAudio) && (
+							<div className="flex items-center gap-2 flex-wrap">
+								{pendingImage && (
+									<div className="relative group inline-block">
+										<img
+											src={pendingImage.dataUrl}
+											alt={pendingImage.name}
+											className="h-16 w-16 object-cover rounded-lg border border-(--border)"
+										/>
+										<button
+											type="button"
+											onClick={() => setPendingImage(null)}
+											className="absolute -top-1.5 -right-1.5 bg-red-500/90 hover:bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none cursor-pointer"
+											title="Remove image"
+										>
+											×
+										</button>
+									</div>
+								)}
+								{pendingAudio && (
+									<div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-(--surface) border border-(--border) text-xs text-(--text-secondary)">
+										<Mic size={12} />
+										<span className="max-w-[120px] truncate">
+											{pendingAudio.name}
+										</span>
+										<button
+											type="button"
+											onClick={() => setPendingAudio(null)}
+											className="text-red-400 hover:text-red-300 cursor-pointer ml-0.5"
+											title="Remove audio"
+										>
+											×
+										</button>
+									</div>
+								)}
+							</div>
+						)}
 						<div className="flex items-center gap-3">
+							{/* Attachment buttons */}
+							{selectedModel && !isStreaming && (
+								<div className="flex items-center gap-1 shrink-0">
+									{hasVision && (
+										<>
+											<input
+												ref={imageInputRef}
+												type="file"
+												accept="image/*"
+												className="hidden"
+												onChange={handleImageSelect}
+											/>
+											<button
+												type="button"
+												onClick={() => imageInputRef.current?.click()}
+												className={`p-2 rounded-lg cursor-pointer transition-colors ${
+													pendingImage
+														? "bg-(--accent)/20 text-(--accent)"
+														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
+												}`}
+												title="Attach image"
+											>
+												<ImageIcon size={18} />
+											</button>
+										</>
+									)}
+									{hasAudioInput && (
+										<>
+											<input
+												ref={audioInputRef}
+												type="file"
+												accept="audio/*"
+												className="hidden"
+												onChange={handleAudioSelect}
+											/>
+											<button
+												type="button"
+												onClick={() => audioInputRef.current?.click()}
+												className={`p-2 rounded-lg cursor-pointer transition-colors ${
+													pendingAudio
+														? "bg-(--accent)/20 text-(--accent)"
+														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
+												}`}
+												title="Attach audio"
+											>
+												<Mic size={18} />
+											</button>
+										</>
+									)}
+								</div>
+							)}
 							<textarea
 								value={input}
 								onChange={(e) => {

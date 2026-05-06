@@ -382,9 +382,25 @@ export interface GenerationParams {
 	presence_penalty?: number;
 }
 
+/** OpenAI-compatible multimodal content part types */
+export type TextContentPart = { type: "text"; text: string };
+export type ImageContentPart = {
+	type: "image_url";
+	image_url: { url: string };
+};
+export type AudioContentPart = {
+	type: "input_audio";
+	input_audio: { data: string; format: string };
+};
+export type ContentPart = TextContentPart | ImageContentPart | AudioContentPart;
+
+export type MessageContent = string | ContentPart[];
+
 export interface ChatMessage {
 	role: "user" | "assistant" | "system";
 	content: string;
+	imageUrl?: string;
+	audioAttachment?: { data: string; format: string };
 	rawContent?: string;
 	thinkingContent?: string;
 	error?: string | null;
