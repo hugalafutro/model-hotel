@@ -224,6 +224,7 @@ func TestExtractSource_NoSpaceAfterBracket(t *testing.T) {
 		t.Errorf("expected empty source when no space after ], got %q", source)
 	}
 }
+
 // ---------------------------------------------------------------------------
 // extractSource colon-separated format
 // ---------------------------------------------------------------------------
@@ -427,9 +428,9 @@ func TestWordMatch_Basic(t *testing.T) {
 		{"warning: deprecated", "warn", false},
 		{"warning: deprecated", "warning", true},
 		{"warnings were present", "warn", false},
-		{"warnings were present", "warning", false},    // "warning" doesn't match "warnings" (trailing s)
-		{"warnings were present", "warnings", true},   // "warnings" as exact word does match
-		{"warning: check this", "warning", true},       // "warning" as exact word does match
+		{"warnings were present", "warning", false}, // "warning" doesn't match "warnings" (trailing s)
+		{"warnings were present", "warnings", true}, // "warnings" as exact word does match
+		{"warning: check this", "warning", true},    // "warning" as exact word does match
 		{"has_warnings=true", "warn", false},
 		{"has_warnings=true", "warning", false}, // "warnings" preceded by _, not word boundary
 		{"fatal error", "fatal", true},

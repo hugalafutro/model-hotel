@@ -326,17 +326,6 @@ func (h *appSlogHandler) WithGroup(name string) slog.Handler {
 	}
 }
 
-// levelSeverity maps app log levels to numeric severity for comparison.
-var levelSeverity = map[string]int{"error": 3, "warning": 2, "info": 1}
-
-// maxLevel returns the higher-severity of two app log levels.
-func maxLevel(a, b string) string {
-	if levelSeverity[a] > levelSeverity[b] {
-		return a
-	}
-	return b
-}
-
 // writeEntry adds a pre-built AppLogEntry to the ring buffer (no text parsing).
 func (rb *ringBuffer) writeEntry(entry AppLogEntry) {
 	rb.mu.Lock()
