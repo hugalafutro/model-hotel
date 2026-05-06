@@ -7,8 +7,9 @@ A black-box stress testing tool that fires concurrent streaming requests through
 1. **Starts a mock upstream server** that responds to `/v1/chat/completions` with realistic SSE streaming chunks and `/v1/models` for discovery
 2. **Creates a provider** in the proxy pointing at the mock (via the admin API)
 3. **Creates virtual keys** for distributing requests across multiple identities
-4. **Runs the scenario matrix**: for each combination of concurrency / rate-limit mode / key count, fires requests through the proxy and collects metrics
-5. **Reports** p50/p95/p99 latencies, TTFT (time to first token), throughput, error rates, and status code distribution
+4. **Optionally configures** circuit breaker, request timeout, and rate-limit failover settings via the admin API
+5. **Runs the scenario matrix**: for each combination of concurrency / rate-limit mode / key count, fires requests through the proxy and collects metrics
+6. **Reports** p50/p95/p99 latencies, TTFT (time to first token), throughput, error rates, and status code distribution
 
 ## Prerequisites
 
@@ -53,15 +54,21 @@ go run . -admin-token abc123 -streaming false
 # Test proxy's param-rejection auto-retry (mock rejects top_p, proxy should strip and retry)
 go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concurrency 10
 
-# Test circuit breaker behavior (20% error rate causes circuit to open)
-go run . -admin-token abc123 -error-rate 0.2 -concurrency 50
+# Test circuit breaker: mock returns 500 errors 50% of the time
+go run . -admin-token abc123 -error-rate 0.5 -circuit-breaker-enabled true -circuit-breaker-threshold 3 -circuit-breaker-cooldown 30s -concurrency 50
+
+# Test with custom request timeout
+go run . -admin-token abc123 -request-timeout 30s -concurrency 100
+
+# Test rate-limit failover: when a provider returns 429, proxy tries the next provider
+go run . -admin-token abc123 -failover-on-rate-limit true -rate-limit false -concurrency 100
 ```
 
 ### CLI Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-proxy-url` | `http://localhost:8081` | Proxy base URL |
+| `-proxy-url` | `http://localhost:8080` | Proxy base URL |
 | `-admin-token` | *(required)* | Admin token for API calls |
 | `-mock-port` | `9090` | Port for the mock upstream server |
 | `-concurrency` | `10,50,100,1000` | Comma-separated concurrency levels |
@@ -73,11 +80,16 @@ go run . -admin-token abc123 -error-rate 0.2 -concurrency 50
 | `-chunk-count` | `15` | Number of SSE chunks per response |
 | `-tokens-per-chunk` | `3` | Completion tokens per SSE chunk |
 | `-initial-delay` | `10` | Initial delay before first chunk (ms, simulates TTFT) |
+| `-error-rate` | `0` | Probability of mock returning 500 error (0.0–1.0) |
 | `-reject-params` | `""` | Comma-separated param names the mock server rejects with 400 (e.g. `top_p,frequency_penalty`) |
 | `-extra-params` | `""` | Comma-separated params to include in requests, with optional values (e.g. `top_p=0.5,frequency_penalty=1.0`) |
-| `-error-rate` | `0` | Probability (0.0–1.0) the mock server returns 500 instead of a normal response (for testing circuit breaker / failover) |
 | `-rps` | `10` | Rate limit RPS when enabled |
 | `-burst` | `20` | Rate limit burst when enabled |
+| `-circuit-breaker-enabled` | `""` | Enable circuit breaker: `true` or `false` (empty = don't change) |
+| `-circuit-breaker-threshold` | `0` | Consecutive failures before circuit opens (0 = don't change) |
+| `-circuit-breaker-cooldown` | `""` | Circuit breaker cooldown duration, e.g. `30s`, `1m` (empty = don't change) |
+| `-request-timeout` | `""` | Proxy request timeout, e.g. `30s`, `1m0s`, `2m0s` (empty = don't change) |
+| `-failover-on-rate-limit` | `""` | Enable rate-limit failover: `true` or `false` (empty = don't change) |
 | `-output` | `markdown` | Output format: text, markdown, json |
 
 ## Test Matrix
@@ -103,18 +115,34 @@ The default flag values produce 16 scenarios:
 | 15 | 100 | ON | 10 | Multi-key RL at high scale |
 | 16 | 1000 | ON | 10 | Multi-key RL extreme |
 
+### Circuit Breaker Test Example
+
+Combine `-error-rate` with circuit breaker flags to test failover under upstream failures:
+
+```bash
+# Enable circuit breaker: 3 consecutive 500s opens the circuit, 30s cooldown
+# Mock returns 500 errors 50% of the time
+go run . -admin-token abc123 \
+  -concurrency 50 -requests 200 \
+  -error-rate 0.5 \
+  -circuit-breaker-enabled true \
+  -circuit-breaker-threshold 3 \
+  -circuit-breaker-cooldown 30s
+```
+
 ## Architecture
 
 ```
 +---------------+     +---------------+     +---------------+
 |  stress-test  |---->|  Model Hotel  |---->|  Mock Server   |
-|    runner     |     |  (:8081)      |     |  (:9090)       |
+|    runner     |     |  (:8080)      |     |  (:9090)       |
 +---------------+     +---------------+     +---------------+
-     admin API           IP rate limiter
-     virtual keys        per-key rate limiter
+      admin API           IP rate limiter
+      virtual keys        per-key rate limiter
                          circuit breaker (per-provider)
-                         failover (exponential backoff with jitter)
+                         rate-limit failover
                          request timeout (configurable)
+                         idle stream timeout
                          async request logging
                          SSE streaming
 ```
@@ -127,52 +155,49 @@ Understanding the internal path helps interpret results:
 
 ```
 Request -> chi middleware (RequestID, RealIP, Logger, Recoverer, Compress, Security, CORS, MaxBytesReader)
-  -> streamingAwareTimeout (request_timeout setting, default 1m; 10x for streaming)
+  -> streamingAwareTimeout (configurable, default 1m for streaming)
   -> IPLimiter.Middleware (per-IP token bucket, always-on DoS safety net)
   -> ProxyKeyMiddleware (SHA-256 hash lookup against virtual_keys -- 1 DB query)
-  -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate, with wasDisabled atomic for re-enable bucket reset)
+  -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate)
   -> ChatCompletions handler:
-      1. Parse body, inject stream_options for streaming requests
+      1. Parse body
       2. Resolve model (failover group or provider/model) -- DB + cache
       3. Decrypt provider API key (AES-256-GCM, cached)
-      4. Async INSERT into request_logs (DB write, fire-and-forget)
-      5. For each candidate in failover chain:
-         a. Check circuit breaker (per-provider; skip if open, half-open allows 1 probe)
+      4. Async INSERT into request_logs (DB write, non-blocking)
+      5. Per-request DNS resolution + settings cache refresh (with timing)
+      6. For each candidate in failover chain:
+         a. Check circuit breaker (open = skip, half-open = probe)
          b. Strip provider-unsupported params preemptively
-         c. Forward to upstream provider (HTTP POST via SafeDialer with per-request DNS)
+         c. Forward to upstream provider (HTTP POST via shared Transport)
          d. On 400: parse error for rejected params, cache them, strip and retry once
-         e. On 429: if failover_on_rate_limit enabled, try next candidate; else fail
-         f. On 5xx/401/403: exponential backoff with jitter (failoverBackoff), try next
-         g. On success: record circuit breaker success, stream/return response
-      6. Record circuit breaker failure if all candidates failed
-      7. Async UPDATE request_logs (DB write)
+         e. On 429: if failover_on_rate_limit enabled, try next provider
+         f. On 5xx/401/403: exponential backoff (100ms base, 2s cap), try next
+         g. On 200: stream/return response with idle timeout detection
+      7. UPDATE request_logs (DB write)
       8. UPDATE virtual_keys SET tokens_used (DB write)
       9. Fire-and-forget TouchLastUsed (DB write)
-     Settings are read from context (cached, 30s TTL) to avoid per-request DB reads.
 ```
 
 Likely bottleneck candidates at high concurrency:
 
-- **Postgres connection pool** (pgxpool MaxConns=25, configurable via DATABASE_MAX_CONNS) — multiple DB writes per request
+- **Postgres connection pool** (pgxpool MaxConns=25) — 4-5 DB writes per request (insert is async)
 - **Shared http.Transport** — Go defaults (100 total idle conns, 2 per host) may cause connection churn
-- **Rate limiter** — per-key token bucket with `wasDisabled` atomic for clean re-enable bucket reset
-- **Circuit breaker** — per-provider state tracking; failed providers are skipped, reducing effective capacity
+- **Rate limiter mutex** — single `sync.Mutex` for all key entries
 - **Goroutine count** — each streaming request holds a goroutine for the full stream duration
-- **Request timeout** — configurable via `request_timeout` setting (default 1m, 10x for streaming); long-running requests may consume goroutines
+- **Circuit breaker state** — per-provider circuit may open under sustained errors
 
 ## File Structure
 
 ```
 tools/stress-test/
 +-- main.go              # CLI entry point, scenario orchestration
-+-- go.mod               # Standalone module (imports internal/debuglog)
-+-- main_test.go         # Unit tests for CLI helpers
++-- go.mod               # Standalone module (uses internal/debuglog)
 +-- mock/
-|   +-- server.go        # Mock OpenAI-compatible SSE upstream
+|   +-- server.go        # Mock OpenAI-compatible SSE upstream (configurable error rate, param rejection)
 +-- harness/
 |   +-- admin.go         # Admin API helpers (create provider, keys, settings)
 |   +-- proxy_client.go  # HTTP client that measures TTFT and streaming latency
-|   +-- runner.go        # Scenario runner (goroutine pool + metrics collection)
+|   +-- runner.go        # Scenario runner (goroutine pool + metrics + settings config)
 +-- metrics/
     +-- collector.go     # Thread-safe metrics accumulator + percentile calculator
     +-- report.go        # Aggregate stats + formatting (text/markdown/json)
@@ -183,7 +208,7 @@ tools/stress-test/
 ```markdown
 # Model Hotel Synthetic Stress Test Report
 
-- **Proxy:** `http://localhost:8081`
+- **Proxy:** `http://localhost:8080`
 - **Mock upstream:** `http://localhost:9090`
 
 | # | Scenario | Requests | Success | Errors | Throughput | p50 | p95 | p99 | TTFT p50 | TTFT p95 | Status codes |

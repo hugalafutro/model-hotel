@@ -20,6 +20,9 @@ type ScenarioConfig struct {
 	Streaming   bool
 	// TotalRequests is the total number of requests to send. If 0, defaults to Concurrency * 10.
 	TotalRequests int
+	CircuitBreakerEnabled string  // empty = don't change, "true"/"false"
+	RequestTimeout        string  // empty = don't change, e.g. "30s", "1m0s"
+	FailoverOnRateLimit   string  // empty = don't change, "true"/"false"
 }
 
 // ScenarioResult holds the outcome of a scenario run.
@@ -43,6 +46,13 @@ type Runner struct {
 // param-rejection auto-retry path when combined with mock server RejectParams.
 func (r *Runner) SetExtraParams(params map[string]interface{}) {
 	r.proxyClient.ExtraParams = params
+}
+
+// ApplySettings pushes arbitrary settings to the proxy via the admin API.
+// This is used to configure circuit breaker, request timeout, and failover
+// behaviour before scenarios start.
+func (r *Runner) ApplySettings(settings map[string]string) error {
+	return r.admin.UpdateSettings(settings)
 }
 
 // NewRunner creates a scenario runner. Call Setup to provision fixtures
@@ -121,11 +131,21 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 	debuglog.Info("runner: starting scenario", "label", label, "requests", totalReqs)
 
 	// Configure rate limiting
-	if err := r.admin.UpdateSettings(map[string]string{
+	settings := map[string]string{
 		"rate_limit_enabled": fmt.Sprintf("%v", cfg.RateLimitOn),
 		"rate_limit_rps":     fmt.Sprintf("%.0f", cfg.RPS),
 		"rate_limit_burst":   fmt.Sprintf("%d", cfg.Burst),
-	}); err != nil {
+	}
+	if cfg.CircuitBreakerEnabled != "" {
+		settings["circuit_breaker_enabled"] = cfg.CircuitBreakerEnabled
+	}
+	if cfg.RequestTimeout != "" {
+		settings["request_timeout"] = cfg.RequestTimeout
+	}
+	if cfg.FailoverOnRateLimit != "" {
+		settings["failover_on_rate_limit"] = cfg.FailoverOnRateLimit
+	}
+	if err := r.admin.UpdateSettings(settings); err != nil {
 		debuglog.Warn("runner: failed to update rate limit settings", "error", err)
 	}
 
