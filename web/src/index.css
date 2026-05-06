@@ -509,43 +509,133 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	line-height: 1.6;
 }
 
-.sidebar-quota-pill-nano {
-	background-color: rgba(6, 144, 168, 0.15);
-	color: #0690a8;
-	border-color: rgba(6, 144, 168, 0.4);
+.sidebar-quota-pill-anthropic {
+	background-color: rgba(217, 119, 87, 0.15);
+	color: #D97757;
+	border-color: rgba(217, 119, 87, 0.4);
 }
-.sidebar-quota-pill-nano:hover {
-	background-color: rgba(6, 144, 168, 0.25);
+.sidebar-quota-pill-anthropic:hover {
+	background-color: rgba(217, 119, 87, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-openai {
+	background-color: rgba(160, 160, 160, 0.15);
+	color: #a0a0a0;
+	border-color: rgba(160, 160, 160, 0.4);
+}
+.sidebar-quota-pill-openai:hover {
+	background-color: rgba(160, 160, 160, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-google {
+	background-color: rgba(66, 133, 244, 0.15);
+	color: #4285F4;
+	border-color: rgba(66, 133, 244, 0.4);
+}
+.sidebar-quota-pill-google:hover {
+	background-color: rgba(66, 133, 244, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-deepseek {
+	background-color: rgba(77, 107, 254, 0.15);
+	color: #4D6BFE;
+	border-color: rgba(77, 107, 254, 0.4);
+}
+.sidebar-quota-pill-deepseek:hover {
+	background-color: rgba(77, 107, 254, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-xai {
+	background-color: rgba(160, 160, 160, 0.15);
+	color: #a0a0a0;
+	border-color: rgba(160, 160, 160, 0.4);
+}
+.sidebar-quota-pill-xai:hover {
+	background-color: rgba(160, 160, 160, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-ollama {
+	background-color: rgba(61, 61, 61, 0.15);
+	color: #b0b0b0;
+	border-color: rgba(61, 61, 61, 0.4);
+}
+.sidebar-quota-pill-ollama:hover {
+	background-color: rgba(61, 61, 61, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-openrouter {
+	background-color: rgba(99, 102, 241, 0.15);
+	color: #6366F1;
+	border-color: rgba(99, 102, 241, 0.4);
+}
+.sidebar-quota-pill-openrouter:hover {
+	background-color: rgba(99, 102, 241, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-cohere {
+	background-color: rgba(212, 231, 197, 0.15);
+	color: #7BAF50;
+	border-color: rgba(212, 231, 197, 0.4);
+}
+.sidebar-quota-pill-cohere:hover {
+	background-color: rgba(212, 231, 197, 0.25);
 	filter: brightness(1.1);
 }
 
 .sidebar-quota-pill-zai-coding {
-	background-color: rgba(54, 170, 255, 0.15);
-	color: #36aaff;
-	border-color: rgba(54, 170, 255, 0.4);
+	background-color: rgba(124, 58, 237, 0.15);
+	color: #7C3AED;
+	border-color: rgba(124, 58, 237, 0.4);
 }
 .sidebar-quota-pill-zai-coding:hover {
-	background-color: rgba(54, 170, 255, 0.25);
+	background-color: rgba(124, 58, 237, 0.25);
 	filter: brightness(1.1);
 }
 
-.sidebar-quota-pill-ds {
-	background-color: rgba(54, 170, 255, 0.15);
-	color: #36aaff;
-	border-color: rgba(54, 170, 255, 0.4);
+.sidebar-quota-pill-nanogpt {
+	background-color: rgba(14, 165, 176, 0.15);
+	color: #0EA5B0;
+	border-color: rgba(14, 165, 176, 0.4);
 }
-.sidebar-quota-pill-ds:hover {
-	background-color: rgba(54, 170, 255, 0.25);
+.sidebar-quota-pill-nanogpt:hover {
+	background-color: rgba(14, 165, 176, 0.25);
 	filter: brightness(1.1);
 }
 
-.sidebar-quota-pill-or {
-	background-color: rgba(100, 111, 242, 0.15);
-	color: #6467f2;
-	border-color: rgba(100, 111, 242, 0.4);
+.sidebar-quota-pill-lmstudio {
+	background-color: rgba(232, 121, 249, 0.15);
+	color: #E879F9;
+	border-color: rgba(232, 121, 249, 0.4);
 }
-.sidebar-quota-pill-or:hover {
-	background-color: rgba(100, 111, 242, 0.25);
+.sidebar-quota-pill-lmstudio:hover {
+	background-color: rgba(232, 121, 249, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-koboldcpp {
+	background-color: rgba(220, 38, 38, 0.15);
+	color: #DC2626;
+	border-color: rgba(220, 38, 38, 0.4);
+}
+.sidebar-quota-pill-koboldcpp:hover {
+	background-color: rgba(220, 38, 38, 0.25);
+	filter: brightness(1.1);
+}
+
+.sidebar-quota-pill-opencode {
+	background-color: rgba(45, 45, 45, 0.15);
+	color: #b0b0b0;
+	border-color: rgba(45, 45, 45, 0.4);
+}
+.sidebar-quota-pill-opencode:hover {
+	background-color: rgba(45, 45, 45, 0.25);
 	filter: brightness(1.1);
 }
 
@@ -560,22 +650,19 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill {
 	letter-spacing: 0.05em;
 }
 
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-nano {
-	border-color: var(--accent);
-	box-shadow: inset 0 0 8px rgba(var(--accent-rgb), 0.05);
-}
-
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-zai-coding {
-	border-color: var(--accent);
-	box-shadow: inset 0 0 8px rgba(var(--accent-rgb), 0.05);
-}
-
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-ds {
-	border-color: var(--accent);
-	box-shadow: inset 0 0 8px rgba(var(--accent-rgb), 0.05);
-}
-
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-or {
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-anthropic,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-openai,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-google,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-deepseek,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-xai,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-ollama,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-openrouter,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-cohere,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-zai-coding,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-nanogpt,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-lmstudio,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-koboldcpp,
+html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-opencode {
 	border-color: var(--accent);
 	box-shadow: inset 0 0 8px rgba(var(--accent-rgb), 0.05);
 }
@@ -586,24 +673,69 @@ html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
 	-webkit-backdrop-filter: blur(12px);
 }
 
-html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-nano {
-	background-color: rgba(6, 144, 168, 0.12);
-	border-color: rgba(6, 144, 168, 0.3);
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-anthropic {
+	background-color: rgba(217, 119, 87, 0.12);
+	border-color: rgba(217, 119, 87, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-openai {
+	background-color: rgba(160, 160, 160, 0.12);
+	border-color: rgba(160, 160, 160, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-google {
+	background-color: rgba(66, 133, 244, 0.12);
+	border-color: rgba(66, 133, 244, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-deepseek {
+	background-color: rgba(77, 107, 254, 0.12);
+	border-color: rgba(77, 107, 254, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-xai {
+	background-color: rgba(160, 160, 160, 0.12);
+	border-color: rgba(160, 160, 160, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-ollama {
+	background-color: rgba(61, 61, 61, 0.12);
+	border-color: rgba(61, 61, 61, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-openrouter {
+	background-color: rgba(99, 102, 241, 0.12);
+	border-color: rgba(99, 102, 241, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-cohere {
+	background-color: rgba(212, 231, 197, 0.12);
+	border-color: rgba(212, 231, 197, 0.3);
 }
 
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-zai-coding {
-	background-color: rgba(54, 170, 255, 0.12);
-	border-color: rgba(54, 170, 255, 0.3);
+	background-color: rgba(124, 58, 237, 0.12);
+	border-color: rgba(124, 58, 237, 0.3);
 }
 
-html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-ds {
-	background-color: rgba(54, 170, 255, 0.12);
-	border-color: rgba(54, 170, 255, 0.3);
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-nanogpt {
+	background-color: rgba(14, 165, 176, 0.12);
+	border-color: rgba(14, 165, 176, 0.3);
 }
 
-html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-or {
-	background-color: rgba(100, 111, 242, 0.12);
-	border-color: rgba(100, 111, 242, 0.3);
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-lmstudio {
+	background-color: rgba(232, 121, 249, 0.12);
+	border-color: rgba(232, 121, 249, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-koboldcpp {
+	background-color: rgba(220, 38, 38, 0.12);
+	border-color: rgba(220, 38, 38, 0.3);
+}
+
+html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill-opencode {
+	background-color: rgba(45, 45, 45, 0.12);
+	border-color: rgba(45, 45, 45, 0.3);
 }
 
 html[data-ui-style="clean-saas"] .sidebar-quota-pill {

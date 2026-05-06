@@ -12,6 +12,7 @@ import {
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
 import { formatTokens } from "../utils/format";
+import { PROVIDER_PREFIXES } from "../utils/providerBrands";
 
 // ── Variant styling ────────────────────────────────────────────────────
 
@@ -23,11 +24,12 @@ const VARIANT_CLASSES: Record<QuotaBadgeVariant, string> = {
 	card: "px-2 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors",
 };
 
+/** Type-safe prefix lookup — backed by the central brand map. */
 const TYPE_PREFIX: Record<QuotaProviderType, string> = {
-	nanogpt: "NG",
-	"zai-coding": "ZAI",
-	deepseek: "DS",
-	openrouter: "OR",
+	nanogpt: PROVIDER_PREFIXES.nanogpt,
+	"zai-coding": PROVIDER_PREFIXES["zai-coding"],
+	deepseek: PROVIDER_PREFIXES.deepseek,
+	openrouter: PROVIDER_PREFIXES.openrouter,
 };
 
 const TYPE_STYLES: Record<
@@ -35,20 +37,20 @@ const TYPE_STYLES: Record<
 	Record<QuotaBadgeVariant, string>
 > = {
 	nanogpt: {
-		sidebar: "sidebar-quota-pill sidebar-quota-pill-nano",
-		card: "bg-[#0690a8]/20 text-[#0690a8] border border-[#0690a8]/50 hover:bg-[#0690a8]/30",
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-nanogpt",
+		card: "bg-[#0EA5B0]/20 text-[#0EA5B0] border border-[#0EA5B0]/50 hover:bg-[#0EA5B0]/30",
 	},
 	"zai-coding": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-zai-coding",
-		card: "bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 hover:bg-[#36aaff]/30",
+		card: "bg-[#7C3AED]/20 text-[#7C3AED] border border-[#7C3AED]/50 hover:bg-[#7C3AED]/30",
 	},
 	deepseek: {
-		sidebar: "sidebar-quota-pill sidebar-quota-pill-ds",
-		card: "bg-[#36aaff]/20 text-[#36aaff] border border-[#36aaff]/50 hover:bg-[#36aaff]/30",
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-deepseek",
+		card: "bg-[#4D6BFE]/20 text-[#4D6BFE] border border-[#4D6BFE]/50 hover:bg-[#4D6BFE]/30",
 	},
 	openrouter: {
-		sidebar: "sidebar-quota-pill sidebar-quota-pill-or",
-		card: "bg-[#6467f2]/20 text-[#6467f2] border border-[#6467f2]/50 hover:bg-[#6467f2]/30",
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-openrouter",
+		card: "bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/50 hover:bg-[#6366F1]/30",
 	},
 };
 

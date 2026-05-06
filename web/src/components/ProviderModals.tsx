@@ -19,7 +19,7 @@ import { Spinner } from "./Spinner";
 function remainingBarColor(remainingPct: number): string {
 	if (remainingPct < 20) return "bg-red-500";
 	if (remainingPct < 60) return "bg-amber-500";
-	return "bg-[#6467f2]";
+	return "bg-[#6366F1]";
 }
 
 export function NanoGPTQuotaModal({
