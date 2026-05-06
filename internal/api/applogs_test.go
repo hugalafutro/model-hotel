@@ -224,7 +224,6 @@ func TestExtractSource_NoSpaceAfterBracket(t *testing.T) {
 		t.Errorf("expected empty source when no space after ], got %q", source)
 	}
 }
-
 // ---------------------------------------------------------------------------
 // extractSource colon-separated format
 // ---------------------------------------------------------------------------
@@ -473,6 +472,7 @@ func TestDetectLevel_Info(t *testing.T) {
 		})
 	}
 }
+
 func TestDetectLevel_NoFalsePositiveFromFieldNames(t *testing.T) {
 	// Regression test: structured slog attrs like "error_chunks=0" or
 	// "has_error=false" must NOT cause the line to be classified as error.
@@ -495,7 +495,6 @@ func TestDetectLevel_NoFalsePositiveFromFieldNames(t *testing.T) {
 		})
 	}
 }
-
 // ---------------------------------------------------------------------------
 // parseLogLine
 // ---------------------------------------------------------------------------
