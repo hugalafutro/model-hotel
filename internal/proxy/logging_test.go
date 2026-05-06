@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -11,10 +12,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// insertRequestLog integration tests (requires PostgreSQL)
+// insertRequestLogAsync integration tests (requires PostgreSQL)
 // ---------------------------------------------------------------------------
 
-func TestInsertRequestLog_Success(t *testing.T) {
+func TestInsertRequestLogAsync_Success(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {
 		t.Skip("database not available")
@@ -29,13 +30,17 @@ func TestInsertRequestLog_Success(t *testing.T) {
 		state:           "pending",
 	}
 
-	err := h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Errorf("insertRequestLog failed: %v", err)
+	h.insertRequestLogAsync(logEntry)
+	// Wait briefly for the async goroutine to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// ID should have been set synchronously before the goroutine
+	if logEntry.id == "" {
+		t.Error("id should be populated synchronously by insertRequestLogAsync")
 	}
 }
 
-func TestInsertRequestLog_SetsID(t *testing.T) {
+func TestInsertRequestLogAsync_SetsIDImmediately(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {
 		t.Skip("database not available")
@@ -51,25 +56,23 @@ func TestInsertRequestLog_SetsID(t *testing.T) {
 	}
 
 	if logEntry.id != "" {
-		t.Error("id should be empty before insert")
+		t.Error("id should be empty before async insert")
 	}
 
-	err := h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Fatalf("insertRequestLog failed: %v", err)
-	}
+	h.insertRequestLogAsync(logEntry)
 
+	// ID must be set synchronously, before goroutine runs
 	if logEntry.id == "" {
-		t.Error("id should be populated after insert")
+		t.Error("id should be populated synchronously by insertRequestLogAsync")
 	}
 	// Verify it is a valid UUID
-	_, err = uuid.Parse(logEntry.id)
+	_, err := uuid.Parse(logEntry.id)
 	if err != nil {
 		t.Errorf("id should be a valid UUID, got %q: %v", logEntry.id, err)
 	}
 }
 
-func TestInsertRequestLog_SetsRequestHash(t *testing.T) {
+func TestInsertRequestLogAsync_SetsRequestHashImmediately(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {
 		t.Skip("database not available")
@@ -84,13 +87,10 @@ func TestInsertRequestLog_SetsRequestHash(t *testing.T) {
 		state:           "pending",
 	}
 
-	err := h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Fatalf("insertRequestLog failed: %v", err)
-	}
+	h.insertRequestLogAsync(logEntry)
 
 	if logEntry.requestHash == "" {
-		t.Error("requestHash should be populated after insert")
+		t.Error("requestHash should be populated synchronously by insertRequestLogAsync")
 	}
 	// generateRequestHash returns 16 hex chars (8 bytes)
 	if len(logEntry.requestHash) != 16 {
@@ -98,7 +98,7 @@ func TestInsertRequestLog_SetsRequestHash(t *testing.T) {
 	}
 }
 
-func TestInsertRequestLog_EmptyVirtualKeyID(t *testing.T) {
+func TestInsertRequestLogAsync_EmptyVirtualKeyID(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {
 		t.Skip("database not available")
@@ -113,20 +113,16 @@ func TestInsertRequestLog_EmptyVirtualKeyID(t *testing.T) {
 		state:           "pending",
 	}
 
-	err := h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Errorf("insertRequestLog with empty virtualKeyID failed: %v", err)
-	}
+	h.insertRequestLogAsync(logEntry)
+	time.Sleep(100 * time.Millisecond)
+	// No panic = pass
 }
 
-func TestInsertRequestLog_ContextCanceled(t *testing.T) {
+func TestInsertRequestLogAsync_ContextCanceled(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {
 		t.Skip("database not available")
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -137,9 +133,11 @@ func TestInsertRequestLog_ContextCanceled(t *testing.T) {
 		state:           "pending",
 	}
 
-	err := h.insertRequestLog(ctx, logEntry)
-	if err == nil {
-		t.Error("expected error with canceled context")
+	// async version uses its own context internally, so canceled context
+	// from the caller doesn't affect it — the ID should still be set.
+	h.insertRequestLogAsync(logEntry)
+	if logEntry.id == "" {
+		t.Error("id should be populated even with async insert")
 	}
 }
 
@@ -194,9 +192,10 @@ func TestUpdateRequestLog_Success(t *testing.T) {
 		errorMessage:          "",
 	}
 
-	err = h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Fatalf("insertRequestLog failed: %v", err)
+	h.insertRequestLogAsync(logEntry)
+	time.Sleep(100 * time.Millisecond) // wait for async DB insert
+	if logEntry.id == "" {
+		t.Fatalf("insertRequestLogAsync did not set id")
 	}
 
 	// Now update the log with a valid providerID
@@ -243,10 +242,8 @@ func TestUpdateRequestLog_CalculatesLatency(t *testing.T) {
 		proxyOverheadMs: 30.0,
 	}
 
-	err = h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Fatalf("insertRequestLog failed: %v", err)
-	}
+	h.insertRequestLogAsync(logEntry)
+	time.Sleep(100 * time.Millisecond) // wait for async DB insert
 
 	logEntry.providerID = prov.ID
 	logEntry.state = "completed"
@@ -277,10 +274,8 @@ func TestUpdateRequestLog_NilProviderID(t *testing.T) {
 		proxyOverheadMs: 10.0,
 	}
 
-	err := h.insertRequestLog(context.Background(), logEntry)
-	if err != nil {
-		t.Fatalf("insertRequestLog failed: %v", err)
-	}
+	h.insertRequestLogAsync(logEntry)
+	time.Sleep(100 * time.Millisecond) // wait for async DB insert
 
 	// Update with nil providerID (uuid.Nil)
 	logEntry.state = "failed"

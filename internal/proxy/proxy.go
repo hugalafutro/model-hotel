@@ -336,13 +336,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		failoverAttempt: 0,
 		state:           "pending",
 	}
-	if err := h.insertRequestLog(r.Context(), logData); err != nil {
-		debuglog.Error("proxy: failed to insert initial request log", "error", err)
-	}
+	h.insertRequestLogAsync(logData)
 
 	var candidates []modelCandidate
 	var timings resolveTimings
 	var err error
+
+	// Capture settings read time from rate limiter middleware (stored in context).
+	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if ms, ok := v.(float64); ok {
+			timings.settingsReadMs = ms
+		}
+	}
 
 	if strings.HasPrefix(req.Model, "hotel/") {
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", req.Model)
@@ -416,7 +421,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyOverhead := parseMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs
+	proxyOverhead := parseMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.safeDialMs + timings.settingsReadMs
 	debuglog.Debug("proxy: model resolved", "model", req.Model, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
 	var proxyReqBody []byte
@@ -435,6 +440,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if proxyReqBody == nil {
 		proxyReqBody = bodyBytes
 	}
+
+	// Per-request DNS resolution timing. SafeDialer's DialContext writes
+	// into this pointer via context, avoiding cross-request races on a
+	// shared atomic field.
+	var safeDialMs float64
 
 	var lastErr string
 	for attempt, candidate := range candidates {
@@ -455,6 +465,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				logData.modelLookupMs = timings.modelLookupMs
 				logData.providerLookupMs = timings.providerLookupMs
 				logData.keyDecryptMs = timings.keyDecryptMs
+				logData.safeDialMs = timings.safeDialMs
+				logData.settingsReadMs = timings.settingsReadMs
 				logData.failoverAttempt = attempt - 1
 				logData.state = "failed"
 				h.updateRequestLog(r.Context(), logData)
@@ -533,10 +545,17 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		// per request. A fresh Transport spawns persistent readLoop/writeLoop
 		// goroutines per connection that only die after IdleConnTimeout, so
 		// creating one per request causes unbounded goroutine growth.
+		// Inject per-request dial timing pointer so SafeDialer writes
+		// DNS resolution time into this request's own variable, avoiding
+		// cross-request race conditions on a shared atomic.
+		dialCtx := context.WithValue(failoverCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
+		proxyReq = proxyReq.WithContext(dialCtx)
+
 		upstreamClient := &http.Client{
 			Transport: h.upstreamTransport,
 		}
 		resp, err := upstreamClient.Do(proxyReq)
+		timings.safeDialMs = safeDialMs
 		if err != nil {
 			failoverCancel() // no body to consume on error
 			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.ID, "error", err)
@@ -607,6 +626,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						}
 						if rebuilt, err := json.Marshal(raw); err == nil {
 							retryCtx, rc := context.WithTimeout(r.Context(), 30*time.Second)
+							retryCtx = context.WithValue(retryCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
 							retryCancel = rc
 							retryReq, retryErr := http.NewRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 							if retryErr != nil {
@@ -686,6 +706,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			logData.modelLookupMs = timings.modelLookupMs
 			logData.providerLookupMs = timings.providerLookupMs
 			logData.keyDecryptMs = timings.keyDecryptMs
+			logData.safeDialMs = timings.safeDialMs
+			logData.settingsReadMs = timings.settingsReadMs
 			logData.ttftMs = ttft
 			logData.errorMessage = errMsg
 			logData.failoverAttempt = attempt
@@ -733,6 +755,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	logData.modelLookupMs = timings.modelLookupMs
 	logData.providerLookupMs = timings.providerLookupMs
 	logData.keyDecryptMs = timings.keyDecryptMs
+	logData.safeDialMs = timings.safeDialMs
+	logData.settingsReadMs = timings.settingsReadMs
 	logData.errorMessage = fmt.Sprintf("all providers failed: %s", lastErr)
 	logData.failoverAttempt = len(candidates) - 1
 	logData.state = "failed"

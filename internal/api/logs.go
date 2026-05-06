@@ -28,6 +28,8 @@ type LogEntry struct {
 	ModelLookupMs     float64   `json:"model_lookup_ms"`
 	ProviderLookupMs  float64   `json:"provider_lookup_ms"`
 	KeyDecryptMs      float64   `json:"key_decrypt_ms"`
+	SafeDialMs        float64   `json:"safe_dial_ms"`
+	SettingsReadMs    float64   `json:"settings_read_ms"`
 	TokensPerSecond   float64   `json:"tokens_per_second"`
 	TokensPrompt      int       `json:"tokens_prompt"`
 	TokensCompletion  int       `json:"tokens_completion"`
@@ -167,6 +169,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
                COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
                COALESCE(rl.parse_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
+               COALESCE(rl.safe_dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
                COALESCE(rl.tokens_per_second, 0),
                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
 COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
@@ -268,6 +271,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
 			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+			&entry.SafeDialMs, &entry.SettingsReadMs,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,

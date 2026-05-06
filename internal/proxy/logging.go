@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -11,36 +12,73 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
-func (h *Handler) insertRequestLog(ctx context.Context, logEntry *requestLogData) error {
+// insertRequestLogAsync pre-generates the log ID and fires off the DB
+// insert + SSE event in a goroutine so the handler is not blocked by the
+// write. The ID is assigned synchronously so updateRequestLog can reference
+// it later. If the insert fails, the error is logged but does not fail the
+// request — the update will simply be a no-op.
+func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	logEntry.id = uuid.New().String()
 	logEntry.requestHash = generateRequestHash()
-	var vkID interface{}
-	if logEntry.virtualKeyID != "" {
-		vkID = logEntry.virtualKeyID
+	logEntry.insertWg.Add(1)
+
+	go func() {
+		defer logEntry.insertWg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				debuglog.Error("proxy: panic in insertRequestLog", "error", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var vkID interface{}
+		if logEntry.virtualKeyID != "" {
+			vkID = logEntry.virtualKeyID
+		}
+		_, err := h.dbPool.Exec(ctx, `
+			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			logEntry.id, logEntry.modelID, logEntry.requestHash, logEntry.streaming, logEntry.virtualKeyName, vkID, logEntry.failoverAttempt, logEntry.state,
+		)
+		if err != nil {
+			debuglog.Error("proxy: failed to insert initial request log", "request_id", logEntry.id, "error", err)
+			return
+		}
+		events.Publish(events.Event{
+			Type:     "request.started",
+			Severity: "info",
+			Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
+			Metadata: map[string]interface{}{
+				"request_id": logEntry.id,
+				"model_id":   logEntry.modelID,
+				"streaming":  logEntry.streaming,
+				"state":      logEntry.state,
+			},
+		})
+	}()
+}
+
+// WaitForInsert blocks until the async INSERT goroutine has completed (or
+// timed out after 5 seconds). Callers should invoke this before
+// updateRequestLog to guarantee the row exists in the database.
+func (h *Handler) WaitForInsert(logEntry *requestLogData) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		logEntry.insertWg.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		debuglog.Warn("proxy: timed out waiting for request log INSERT", "request_id", logEntry.id)
 	}
-	_, err := h.dbPool.Exec(ctx, `
-		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		logEntry.id, logEntry.modelID, logEntry.requestHash, logEntry.streaming, logEntry.virtualKeyName, vkID, logEntry.failoverAttempt, logEntry.state,
-	)
-	if err != nil {
-		return err
-	}
-	events.Publish(events.Event{
-		Type:     "request.started",
-		Severity: "info",
-		Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
-		Metadata: map[string]interface{}{
-			"request_id": logEntry.id,
-			"model_id":   logEntry.modelID,
-			"streaming":  logEntry.streaming,
-			"state":      logEntry.state,
-		},
-	})
-	return nil
 }
 
 func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData) {
+	// Ensure the async INSERT has completed before we try to UPDATE the row.
+	h.WaitForInsert(logEntry)
+
 	var providerID interface{}
 	if logEntry.providerID != uuid.Nil {
 		providerID = logEntry.providerID
@@ -52,12 +90,14 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 			provider_id = $2,
 			status_code = $3,
 			duration_ms = $4,
-			latency_ms = $19,
+			latency_ms = $21,
 			proxy_overhead_ms = $5,
 			parse_ms = $6,
 			model_lookup_ms = $7,
 			provider_lookup_ms = $8,
 			key_decrypt_ms = $9,
+			safe_dial_ms = $22,
+			settings_read_ms = $23,
 			ttft_ms = $10,
 			tokens_per_second = $11,
 			tokens_prompt = $12,
@@ -73,6 +113,7 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 		logEntry.keyDecryptMs, logEntry.ttftMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
+		logEntry.safeDialMs, logEntry.settingsReadMs,
 	)
 	if err != nil {
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)

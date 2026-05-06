@@ -22,3 +22,15 @@ const VirtualKeyHashKey contextKey = "virtual_key_hash"
 // Downstream handlers (proxy.ChatCompletions) can read from this
 // instead of re-reading r.Body, avoiding a full second allocation.
 const RequestBodyKey contextKey = "request_body"
+
+// SettingsReadMsKey is the context key under which the rate limiter
+// middleware stores the time spent reading settings (float64, in ms).
+// The proxy handler reads this for observability logging.
+const SettingsReadMsKey contextKey = "settings_read_ms"
+
+// SafeDialMsKey is the context key under which the proxy handler stores a
+// *float64 pointer for capturing per-request DNS resolution timing.
+// The SafeDialer's DialContext writes dial duration into this pointer
+// so the handler can read it after the upstream request completes,
+// avoiding cross-request race conditions from a shared atomic.
+const SafeDialMsKey contextKey = "safe_dial_ms"

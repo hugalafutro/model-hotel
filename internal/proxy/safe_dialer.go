@@ -6,6 +6,9 @@ import (
 	"log/slog"
 	"net"
 	"strings"
+	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
 // SafeDialer wraps a net.Dialer with IP-range checking on every dial.
@@ -51,8 +54,15 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		return s.d.DialContext(ctx, network, addr)
 	}
 
-	// Resolve the host to IP addresses.
+	// Resolve the host to IP addresses (timed).
+	dnsStart := time.Now()
 	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	// Write per-request dial timing if the caller provided a pointer.
+	if v := ctx.Value(ctxkeys.SafeDialMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			*p = float64(time.Since(dnsStart).Microseconds()) / 1000.0
+		}
+	}
 	if err != nil {
 		// Resolution failure: let the underlying dial proceed so the
 		// caller sees a normal connection error instead of a confusing

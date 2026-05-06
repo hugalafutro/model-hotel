@@ -124,11 +124,34 @@ func (cb *CircuitBreaker) getOrCreate(providerID string) *circuit {
 // IsOpen returns true if the circuit breaker is preventing requests to
 // this provider. It also handles the Open → Half-Open transition when
 // the cooldown has elapsed.
+//
+// Fast path: most calls hit the Closed state, which only needs a read lock.
+// Only the Open→HalfOpen transition requires a write lock.
 func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID) bool {
+	// Fast path: read lock for the common case (StateClosed or unknown).
+	cb.mu.RLock()
+	c, ok := cb.circuits[providerID.String()]
+	if !ok || c.state == StateClosed {
+		cb.mu.RUnlock()
+		return false
+	}
+	// Need to inspect state more closely — if HalfOpen, also fast path.
+	if c.state == StateHalfOpen {
+		cb.mu.RUnlock()
+		return false
+	}
+	cb.mu.RUnlock()
+
+	// Slow path: write lock for potential Open→HalfOpen transition.
+	// We re-read the circuit via getOrCreate after acquiring the write lock,
+	// which ensures we operate on the current state — not the snapshot from
+	// the RLock phase. If another goroutine transitioned the state between
+	// our RUnlock and Lock (e.g. RecordSuccess: HalfOpen→Closed), we see
+	// the up-to-date state and return the correct result.
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	c := cb.getOrCreate(providerID.String())
+	c = cb.getOrCreate(providerID.String())
 
 	switch c.state {
 	case StateClosed:

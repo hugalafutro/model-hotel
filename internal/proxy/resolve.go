@@ -15,6 +15,8 @@ type resolveTimings struct {
 	modelLookupMs    float64
 	providerLookupMs float64
 	keyDecryptMs     float64
+	safeDialMs       float64
+	settingsReadMs   float64
 }
 
 func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {

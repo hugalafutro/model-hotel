@@ -96,6 +96,8 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
+			settingsStart := time.Now()
+
 			// Runtime toggle from DB settings
 			if !l.settings.GetBool(r.Context(), settingsKeyEnabled, true) {
 				l.wasDisabled.Store(true)
@@ -120,6 +122,10 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			entry := l.getLimiter(keyHash, r.Context())
 
+			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter)
+			settingsReadMs := float64(time.Since(settingsStart).Microseconds()) / 1000.0
+			ctx := context.WithValue(r.Context(), ctxkeys.SettingsReadMsKey, settingsReadMs)
+
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
 				l.writeRateLimitHeaders(w, entry.limiter, 0)
@@ -139,7 +145,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			}
 
 			l.writeRateLimitHeaders(w, entry.limiter, 0)
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

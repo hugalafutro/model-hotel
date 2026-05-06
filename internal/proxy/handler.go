@@ -53,6 +53,7 @@ func NewHandler(
 	rateLimiter *ratelimit.Limiter,
 	ipLimiter *ratelimit.IPLimiter,
 ) *Handler {
+	sd := NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...))
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,
@@ -65,7 +66,7 @@ func NewHandler(
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...)).DialContext,
+			DialContext:           sd.DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       90 * time.Second,
 		},

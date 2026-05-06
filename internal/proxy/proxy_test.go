@@ -449,9 +449,9 @@ func TestHandleStreamingResponse_ClientWriteFailureMarksDisconnected(t *testing.
 	}
 
 	// Insert initial log entry so updateRequestLog has a row to update.
-	if err := h.insertRequestLog(req.Context(), logData); err != nil {
-		t.Fatalf("failed to insert request log: %v", err)
-	}
+	// Insert initial log entry (async, but ID is set synchronously)
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond) // wait for async DB insert
 
 	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
 

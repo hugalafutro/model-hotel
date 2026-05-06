@@ -345,6 +345,14 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 									label: "Key Decryption",
 									value: requestLog.key_decrypt_ms,
 								},
+								{
+									label: "DNS Safety Check",
+									value: requestLog.safe_dial_ms,
+								},
+								{
+									label: "Settings Reads",
+									value: requestLog.settings_read_ms,
+								},
 							].map(
 								({ label, value }) =>
 									value > 0 && (

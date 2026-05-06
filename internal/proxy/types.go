@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"sync"
+
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -31,6 +33,8 @@ type requestLogData struct {
 	modelLookupMs         float64
 	providerLookupMs      float64
 	keyDecryptMs          float64
+	safeDialMs            float64
+	settingsReadMs        float64
 	ttftMs                float64
 	tokensPerSecond       float64
 	tokensPrompt          int
@@ -43,6 +47,7 @@ type requestLogData struct {
 	errorMessage          string
 	failoverAttempt       int
 	state                 string
+	insertWg              sync.WaitGroup // signals when the async INSERT has completed
 }
 
 type modelCandidate struct {

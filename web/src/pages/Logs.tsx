@@ -223,6 +223,8 @@ interface OverheadBreakdown {
 	model_lookup_ms: number;
 	provider_lookup_ms: number;
 	key_decrypt_ms: number;
+	safe_dial_ms: number;
+	settings_read_ms: number;
 }
 
 function OverheadModal({
@@ -236,7 +238,9 @@ function OverheadModal({
 		breakdown.parse_ms +
 		breakdown.model_lookup_ms +
 		breakdown.provider_lookup_ms +
-		breakdown.key_decrypt_ms;
+		breakdown.key_decrypt_ms +
+		breakdown.safe_dial_ms +
+		breakdown.settings_read_ms;
 	return (
 		<Modal
 			title="Proxy Overhead Breakdown"
@@ -266,6 +270,18 @@ function OverheadModal({
 					<span className="text-gray-400">Key decryption</span>
 					<span className="text-gray-200 font-mono">
 						{formatMs(breakdown.key_decrypt_ms)}
+					</span>
+				</div>
+				<div className="flex justify-between text-sm">
+					<span className="text-gray-400">DNS safety check</span>
+					<span className="text-gray-200 font-mono">
+						{formatMs(breakdown.safe_dial_ms)}
+					</span>
+				</div>
+				<div className="flex justify-between text-sm">
+					<span className="text-gray-400">Settings reads</span>
+					<span className="text-gray-200 font-mono">
+						{formatMs(breakdown.settings_read_ms)}
 					</span>
 				</div>
 				<div className="border-t border-gray-700 my-2" />
@@ -990,6 +1006,8 @@ function RequestLogs() {
 																		provider_lookup_ms:
 																			log.provider_lookup_ms || 0,
 																		key_decrypt_ms: log.key_decrypt_ms || 0,
+																		safe_dial_ms: log.safe_dial_ms || 0,
+																		settings_read_ms: log.settings_read_ms || 0,
 																	})
 																: undefined
 														}
