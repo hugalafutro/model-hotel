@@ -517,8 +517,8 @@ export function OpenRouterQuotaModal({
 					)}
 					<p className="text-xs text-gray-500 mt-1">
 						{balance.credits_total > 0
-							? `${formatDollars(balance.credits_used)} spent of ${formatDollars(balance.credits_total)} purchased`
-							: "No credits purchased"}
+							? `${formatDollars(balance.credits_used)} spent total`
+							: "No credits"}
 					</p>
 				</div>
 
