@@ -31,7 +31,7 @@ func TestIsNumeric(t *testing.T) {
 	}{
 		{"digits", "12345", true},
 		{"zero", "0", true},
-		{"empty", "", true},  // no non-digit chars, loop doesn't fail
+		{"empty", "", true}, // no non-digit chars, loop doesn't fail
 		{"with letters", "123abc", false},
 		{"with space", "12 34", false},
 		{"negative", "-5", false},

@@ -224,6 +224,7 @@ func TestExtractSource_NoSpaceAfterBracket(t *testing.T) {
 		t.Errorf("expected empty source when no space after ], got %q", source)
 	}
 }
+
 // ---------------------------------------------------------------------------
 // extractSource colon-separated format
 // ---------------------------------------------------------------------------
@@ -495,6 +496,7 @@ func TestDetectLevel_NoFalsePositiveFromFieldNames(t *testing.T) {
 		})
 	}
 }
+
 // ---------------------------------------------------------------------------
 // parseLogLine
 // ---------------------------------------------------------------------------
