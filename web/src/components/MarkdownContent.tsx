@@ -1,6 +1,9 @@
 import { memo } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import "katex/dist/katex.min.css";
 import { markdownComponents } from "./markdownComponents";
 
 export const MARKDOWN_PROSE_CLASSES =
@@ -14,7 +17,8 @@ export const MARKDOWN_PROSE_CLASSES =
 	"[&_a]:text-(--accent) [&_a]:underline " +
 	"[&_hr]:border-(--border-subtle) " +
 	"[&_table]:text-[10px] [&_th]:px-1.5 [&_th]:py-0.5 [&_td]:px-1.5 [&_td]:py-0.5 " +
-	"[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
+	"[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle) " +
+	"[&_ .katex-display]:overflow-x-auto [&_ .katex-display]:my-2";
 
 interface MarkdownContentProps {
 	children: string;
@@ -28,7 +32,8 @@ export const MarkdownContent = memo(function MarkdownContent({
 	return (
 		<div className={`${MARKDOWN_PROSE_CLASSES} ${className || ""}`}>
 			<ReactMarkdown
-				remarkPlugins={[remarkGfm]}
+				remarkPlugins={[remarkGfm, remarkMath]}
+				rehypePlugins={[rehypeKatex]}
 				components={markdownComponents}
 			>
 				{children}

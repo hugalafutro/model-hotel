@@ -84,7 +84,8 @@ const MAXIMIZED_PROSE_CLASSES =
 	"[&_a]:text-(--accent) [&_a]:underline " +
 	"[&_hr]:border-(--border-subtle) " +
 	"[&_table]:text-sm [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 " +
-	"[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle)";
+	"[&_th]:border [&_th]:border-(--border-subtle) [&_td]:border [&_td]:border-(--border-subtle) " +
+	"[&_ .katex-display]:overflow-x-auto [&_ .katex-display]:my-3";
 
 export const ModelReplyCard = memo(function ModelReplyCard({
 	model,
