@@ -537,12 +537,14 @@ function TokenSplitBar({
 	total,
 	range,
 	onRangeChange,
+	loading,
 }: {
 	prompt: number;
 	completion: number;
 	total: number;
 	range: Range;
 	onRangeChange: (r: Range) => void;
+	loading?: boolean;
 }) {
 	const totalPC = prompt + completion;
 	if (totalPC === 0) {
@@ -552,6 +554,7 @@ function TokenSplitBar({
 					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 						<Target size={18} className="text-(--accent)" />
 						Token Mix
+						{loading && <Spinner className="ml-1" />}
 					</h3>
 					<RangeToggle value={range} onChange={onRangeChange} />
 				</div>
@@ -570,6 +573,7 @@ function TokenSplitBar({
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Target size={18} className="text-(--accent)" />
 					Token Mix
+					{loading && <Spinner className="ml-1" />}
 				</h3>
 				<RangeToggle value={range} onChange={onRangeChange} />
 			</div>
@@ -936,6 +940,33 @@ export function Dashboard() {
 	useEffect(() => {
 		localStorage.setItem("dashboardMetric", globalMetric);
 	}, [globalMetric]);
+
+	// Per-section local states: synced from global header toggles,
+	// but each component's own toggles only affect that section.
+	const [chartRange, setChartRange] = useState<Range>(globalRange);
+	const [doughnutRange, setDoughnutRange] = useState<Range>(globalRange);
+	const [doughnutMetric, setDoughnutMetric] =
+		useState<MetricType>(globalMetric);
+	const [tokenRange, setTokenRange] = useState<Range>(globalRange);
+	const [usageRange, setUsageRange] = useState<Range>(globalRange);
+	const [usageMetric, setUsageMetric] = useState<MetricType>(globalMetric);
+
+	// Sync locals when global header toggles change (render-time pattern per React docs)
+	const [prevGlobalRange, setPrevGlobalRange] = useState(globalRange);
+	const [prevGlobalMetric, setPrevGlobalMetric] = useState(globalMetric);
+	if (prevGlobalRange !== globalRange) {
+		setPrevGlobalRange(globalRange);
+		setChartRange(globalRange);
+		setDoughnutRange(globalRange);
+		setTokenRange(globalRange);
+		setUsageRange(globalRange);
+	}
+	if (prevGlobalMetric !== globalMetric) {
+		setPrevGlobalMetric(globalMetric);
+		setDoughnutMetric(globalMetric);
+		setUsageMetric(globalMetric);
+	}
+
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);
 	const [errorModalOpen, setErrorModalOpen] = useState(false);
 	const [latencyModalOpen, setLatencyModalOpen] = useState(false);
@@ -995,6 +1026,7 @@ export function Dashboard() {
 		queryClient.invalidateQueries({ queryKey: ["stats-top-models"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-top-providers"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-top-virtual-keys"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-tokens"] });
 		toast("Refreshing dashboard…", "info");
 		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
 	}, [queryClient, toast]);
@@ -1052,17 +1084,17 @@ export function Dashboard() {
 	});
 
 	const { data: tsData, isLoading: tsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries", globalRange, excludeDeleted],
+		queryKey: ["stats-timeseries", chartRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: globalRange, excludeDeleted }),
+			api.stats.getTimeSeries({ period: chartRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries-tokens", globalRange, excludeDeleted],
+		queryKey: ["stats-timeseries-tokens", chartRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: globalRange, excludeDeleted }),
+			api.stats.getTimeSeries({ period: chartRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -1070,14 +1102,14 @@ export function Dashboard() {
 	const { data: provDist, isLoading: provDistLoading } = useQuery({
 		queryKey: [
 			"stats-provider-distribution",
-			globalRange,
-			globalMetric,
+			doughnutRange,
+			doughnutMetric,
 			excludeDeleted,
 		],
 		queryFn: () =>
 			api.stats.getProviderDistribution({
-				period: globalRange,
-				metric: globalMetric,
+				period: doughnutRange,
+				metric: doughnutMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1085,11 +1117,11 @@ export function Dashboard() {
 	});
 
 	const { data: modelStats, isLoading: modelStatsLoading } = useQuery({
-		queryKey: ["stats-top-models", globalRange, globalMetric, excludeDeleted],
+		queryKey: ["stats-top-models", usageRange, usageMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
-				period: globalRange,
-				metric: globalMetric,
+				period: usageRange,
+				metric: usageMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1097,16 +1129,11 @@ export function Dashboard() {
 	});
 
 	const { data: providerStats, isLoading: providerStatsLoading } = useQuery({
-		queryKey: [
-			"stats-top-providers",
-			globalRange,
-			globalMetric,
-			excludeDeleted,
-		],
+		queryKey: ["stats-top-providers", usageRange, usageMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
-				period: globalRange,
-				metric: globalMetric,
+				period: usageRange,
+				metric: usageMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -1116,16 +1143,23 @@ export function Dashboard() {
 	const { data: vkStats, isLoading: vkStatsLoading } = useQuery({
 		queryKey: [
 			"stats-top-virtual-keys",
-			globalRange,
-			globalMetric,
+			usageRange,
+			usageMetric,
 			excludeDeleted,
 		],
 		queryFn: () =>
 			api.stats.get({
-				period: globalRange,
-				metric: globalMetric,
+				period: usageRange,
+				metric: usageMetric,
 				excludeDeleted,
 			}),
+		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
+	});
+
+	const { data: tokenStats, isLoading: tokenStatsLoading } = useQuery({
+		queryKey: ["stats-tokens", tokenRange, excludeDeleted],
+		queryFn: () => api.stats.get({ period: tokenRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -1193,7 +1227,7 @@ export function Dashboard() {
 		return tsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				globalRange === "7d"
+				chartRange === "7d"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -1218,7 +1252,7 @@ export function Dashboard() {
 		return tokenTsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				globalRange === "7d"
+				chartRange === "7d"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -1248,7 +1282,7 @@ export function Dashboard() {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: globalMetric === "tokens" ? " tokens" : " requests",
+					suffix: usageMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
 	const byProvider = providerStats
@@ -1259,7 +1293,7 @@ export function Dashboard() {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: globalMetric === "tokens" ? " tokens" : " requests",
+					suffix: usageMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
 	const byVK = vkStats
@@ -1270,7 +1304,7 @@ export function Dashboard() {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: globalMetric === "tokens" ? " tokens" : " requests",
+					suffix: usageMetric === "tokens" ? " tokens" : " requests",
 					deleted: k === "Deleted",
 				}))
 		: [];
@@ -1494,8 +1528,8 @@ export function Dashboard() {
 					<>
 						<TimeSeriesChart
 							data={acData}
-							range={globalRange}
-							onRangeChange={setGlobalRange}
+							range={chartRange}
+							onRangeChange={setChartRange}
 							metric="Requests"
 							icon={Activity}
 							color={accents.requests}
@@ -1505,8 +1539,8 @@ export function Dashboard() {
 						/>
 						<TimeSeriesChart
 							data={tokenAcData}
-							range={globalRange}
-							onRangeChange={setGlobalRange}
+							range={chartRange}
+							onRangeChange={setChartRange}
 							metric="Tokens"
 							icon={Zap}
 							color={accents.tokens}
@@ -1520,8 +1554,8 @@ export function Dashboard() {
 					<>
 						<TimeSeriesChart
 							data={tokenAcData}
-							range={globalRange}
-							onRangeChange={setGlobalRange}
+							range={chartRange}
+							onRangeChange={setChartRange}
 							metric="Tokens"
 							icon={Zap}
 							color={accents.tokens}
@@ -1532,8 +1566,8 @@ export function Dashboard() {
 						/>
 						<TimeSeriesChart
 							data={acData}
-							range={globalRange}
-							onRangeChange={setGlobalRange}
+							range={chartRange}
+							onRangeChange={setChartRange}
 							metric="Requests"
 							icon={Activity}
 							color={accents.requests}
@@ -1549,18 +1583,22 @@ export function Dashboard() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<ProviderDoughnut
 					items={provDist?.items || []}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
-					metric={globalMetric}
-					onMetricChange={setGlobalMetric}
+					range={doughnutRange}
+					onRangeChange={setDoughnutRange}
+					metric={doughnutMetric}
+					onMetricChange={setDoughnutMetric}
 					loading={provDistLoading}
 				/>
 				<TokenSplitBar
-					prompt={stats?.total_tokens_prompt || 0}
-					completion={stats?.total_tokens_completion || 0}
-					total={totalTokens}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
+					prompt={tokenStats?.total_tokens_prompt || 0}
+					completion={tokenStats?.total_tokens_completion || 0}
+					total={
+						(tokenStats?.total_tokens_prompt || 0) +
+						(tokenStats?.total_tokens_completion || 0)
+					}
+					range={tokenRange}
+					onRangeChange={setTokenRange}
+					loading={tokenStatsLoading}
 				/>
 			</div>
 
@@ -1570,10 +1608,10 @@ export function Dashboard() {
 					title="Top Models"
 					icon={ArrowUpRight}
 					entries={byModel}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
-					metric={globalMetric}
-					onMetricChange={setGlobalMetric}
+					range={usageRange}
+					onRangeChange={setUsageRange}
+					metric={usageMetric}
+					onMetricChange={setUsageMetric}
 					loading={modelStatsLoading}
 					onEntryClick={handleModelClick}
 				/>
@@ -1581,20 +1619,20 @@ export function Dashboard() {
 					title="Top Providers"
 					icon={ArrowUpRight}
 					entries={byProvider}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
-					metric={globalMetric}
-					onMetricChange={setGlobalMetric}
+					range={usageRange}
+					onRangeChange={setUsageRange}
+					metric={usageMetric}
+					onMetricChange={setUsageMetric}
 					loading={providerStatsLoading}
 				/>
 				<UsageBarPanel
 					title="Top Virtual Keys"
 					icon={ArrowUpRight}
 					entries={byVK}
-					range={globalRange}
-					onRangeChange={setGlobalRange}
-					metric={globalMetric}
-					onMetricChange={setGlobalMetric}
+					range={usageRange}
+					onRangeChange={setUsageRange}
+					metric={usageMetric}
+					onMetricChange={setUsageMetric}
 					loading={vkStatsLoading}
 				/>
 			</div>
