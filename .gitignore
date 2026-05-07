@@ -4,6 +4,7 @@
 /discovery_test
 *.exe
 *.exe~
+*.bak
 *.dll
 *.so
 *.dylib
