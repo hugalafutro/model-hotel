@@ -344,6 +344,79 @@ func TestSplitAndTrim_LeadingComma(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// OpenAIErrorType
+// ---------------------------------------------------------------------------
+
+func TestOpenAIErrorType_401(t *testing.T) {
+	result := OpenAIErrorType(401)
+	if result != "authentication_error" {
+		t.Errorf("OpenAIErrorType(401) = %q, want %q", result, "authentication_error")
+	}
+}
+
+func TestOpenAIErrorType_403(t *testing.T) {
+	result := OpenAIErrorType(403)
+	if result != "permission_error" {
+		t.Errorf("OpenAIErrorType(403) = %q, want %q", result, "permission_error")
+	}
+}
+
+func TestOpenAIErrorType_404(t *testing.T) {
+	result := OpenAIErrorType(404)
+	if result != "not_found_error" {
+		t.Errorf("OpenAIErrorType(404) = %q, want %q", result, "not_found_error")
+	}
+}
+
+func TestOpenAIErrorType_429(t *testing.T) {
+	result := OpenAIErrorType(429)
+	if result != "rate_limit_error" {
+		t.Errorf("OpenAIErrorType(429) = %q, want %q", result, "rate_limit_error")
+	}
+}
+
+func TestOpenAIErrorType_500(t *testing.T) {
+	result := OpenAIErrorType(500)
+	if result != "server_error" {
+		t.Errorf("OpenAIErrorType(500) = %q, want %q", result, "server_error")
+	}
+}
+
+func TestOpenAIErrorType_502(t *testing.T) {
+	result := OpenAIErrorType(502)
+	if result != "server_error" {
+		t.Errorf("OpenAIErrorType(502) = %q, want %q", result, "server_error")
+	}
+}
+
+func TestOpenAIErrorType_503(t *testing.T) {
+	result := OpenAIErrorType(503)
+	if result != "server_error" {
+		t.Errorf("OpenAIErrorType(503) = %q, want %q", result, "server_error")
+	}
+}
+
+func TestOpenAIErrorType_400(t *testing.T) {
+	result := OpenAIErrorType(400)
+	if result != "invalid_request_error" {
+		t.Errorf("OpenAIErrorType(400) = %q, want %q", result, "invalid_request_error")
+	}
+}
+
+func TestOpenAIErrorType_200(t *testing.T) {
+	result := OpenAIErrorType(200)
+	if result != "invalid_request_error" {
+		t.Errorf("OpenAIErrorType(200) = %q, want %q", result, "invalid_request_error")
+	}
+}
+
+func TestOpenAIErrorType_0(t *testing.T) {
+	result := OpenAIErrorType(0)
+	if result != "invalid_request_error" {
+		t.Errorf("OpenAIErrorType(0) = %q, want %q", result, "invalid_request_error")
+	}
+}
+
 // IntToStr
 // ---------------------------------------------------------------------------
 

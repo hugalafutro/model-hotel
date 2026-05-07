@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -615,6 +617,98 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
+	}
+}
+
+// --- Pure function tests ---
+
+func TestIsUniqueViolation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "nil_error",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "pg_error_23505_unique_violation",
+			err:  &pgconn.PgError{Code: "23505"},
+			want: true,
+		},
+		{
+			name: "pg_error_23503_fk_violation",
+			err:  &pgconn.PgError{Code: "23503"},
+			want: false,
+		},
+		{
+			name: "pg_error_42P01_undefined_table",
+			err:  &pgconn.PgError{Code: "42P01"},
+			want: false,
+		},
+		{
+			name: "wrapped_pg_error_23505",
+			err:  fmt.Errorf("wrap: %w", &pgconn.PgError{Code: "23505"}),
+			want: true,
+		},
+		{
+			name: "non_pg_error",
+			err:  errors.New("some other error"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isUniqueViolation(tt.err)
+			if got != tt.want {
+				t.Errorf("isUniqueViolation(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProviderTypeAllowsEmptyKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		baseURL string
+		want    bool
+	}{
+		{
+			name:    "opencode_zen_base_url",
+			baseURL: "https://opencode.ai/api/zen",
+			want:    true,
+		},
+		{
+			name:    "openai_base_url",
+			baseURL: "https://api.openai.com/v1",
+			want:    false,
+		},
+		{
+			name:    "anthropic_base_url",
+			baseURL: "https://api.anthropic.com/v1",
+			want:    false,
+		},
+		{
+			name:    "ollama_localhost",
+			baseURL: "http://localhost:11434",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := providerTypeAllowsEmptyKey(tt.baseURL)
+			if got != tt.want {
+				t.Errorf("providerTypeAllowsEmptyKey(%q) = %v, want %v", tt.baseURL, got, tt.want)
+			}
+		})
 	}
 }
 
