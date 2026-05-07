@@ -40,20 +40,20 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave</a>
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                            800 │
-│Messages                                         22,523 │
-│Days                                                 21 │
+│Sessions                                            866 │
+│Messages                                         24,579 │
+│Days                                                 22 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                       $79.85 │
-│Avg Cost/Day                                      $3.80 │
+│Avg Cost/Day                                      $3.63 │
 │Avg Tokens/Session                                 1.7M │
-│Median Tokens/Session                            332.5K │
-│Input                                            739.8M │
-│Output                                             5.9M │
+│Median Tokens/Session                            358.4K │
+│Input                                            873.3M │
+│Output                                             6.3M │
 │Cache Read                                       589.0M │
 │Cache Write                                        2.4M │
 └────────────────────────────────────────────────────────┘
@@ -62,85 +62,100 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave</a>
 ┌────────────────────────────────────────────────────────┐
 │                      TOOL USAGE                        │
 ├────────────────────────────────────────────────────────┤
-│ read               ████████████████████ 9286 (38.0%)   │
-│ bash               ██████████           5103 (20.9%)   │
-│ edit               ███████              3253 (13.3%)   │
-│ grep               █████                2531 (10.4%)   │
-│ glob               █                    855 ( 3.5%)    │
-│ todowrite          █                    725 ( 3.0%)    │
-│ tokensave_tokens.. █                    592 ( 2.4%)    │
-│ task               █                    535 ( 2.2%)    │
-│ tokensave_tokens.. █                    326 ( 1.3%)    │
-│ write              █                    266 ( 1.1%)    │
-│ compress           █                    129 ( 0.5%)    │
-│ sequential-think.. █                    120 ( 0.5%)    │
-│ webfetch           █                    100 ( 0.4%)    │
-│ apply_patch        █                     62 ( 0.3%)    │
-│ git_git_status     █                     46 ( 0.2%)    │
-│ tokensave_tokens.. █                     41 ( 0.2%)    │
-│ git_git_diff_uns.. █                     39 ( 0.2%)    │
-│ warpgrep_codebas.. █                     39 ( 0.2%)    │
-│ git_git_diff_sta.. █                     26 ( 0.1%)    │
+│ read               ████████████████████ 9863 (36.7%)   │
+│ bash               ███████████          5867 (21.8%)   │
+│ edit               ██████               3340 (12.4%)   │
+│ grep               █████                2682 (10.0%)   │
+│ glob               █                    877 ( 3.3%)    │
+│ todowrite          █                    811 ( 3.0%)    │
+│ tokensave_tokens.. █                    695 ( 2.6%)    │
+│ task               █                    565 ( 2.1%)    │
+│ tokensave_tokens.. █                    361 ( 1.3%)    │
+│ write              █                    286 ( 1.1%)    │
+│ tokensave_tokens.. █                    224 ( 0.8%)    │
+│ sequential-think.. █                    164 ( 0.6%)    │
+│ compress           █                    158 ( 0.6%)    │
+│ tokensave_tokens.. █                    140 ( 0.5%)    │
+│ webfetch           █                    101 ( 0.4%)    │
+│ apply_patch        █                     62 ( 0.2%)    │
+│ tokensave_tokens.. █                     55 ( 0.2%)    │
+│ git_git_status     █                     48 ( 0.2%)    │
+│ git_git_diff_uns.. █                     41 ( 0.2%)    │
+│ warpgrep_codebas.. █                     39 ( 0.1%)    │
+│ git_git_diff_sta.. █                     28 ( 0.1%)    │
+│ grep_app_searchG.. █                     28 ( 0.1%)    │
 │ git_git_add        █                     26 ( 0.1%)    │
 │ git_git_commit     █                     25 ( 0.1%)    │
 │ morph_edit         █                     24 ( 0.1%)    │
-│ git_git_log        █                     22 ( 0.1%)    │
+│ git_git_log        █                     23 ( 0.1%)    │
 │ chrome-devtools_.. █                     18 ( 0.1%)    │
+│ question           █                     18 ( 0.1%)    │
+│ context7_query-d.. █                     17 ( 0.1%)    │
 │ searxng_searxng_.. █                     17 ( 0.1%)    │
 │ invalid            █                     16 ( 0.1%)    │
-│ question           █                     16 ( 0.1%)    │
+│ tokensave_tokens.. █                     16 ( 0.1%)    │
+│ searxng_web_url_.. █                     15 ( 0.1%)    │
+│ tokensave_tokens.. █                     14 ( 0.1%)    │
 │ chrome-devtools_.. █                     14 ( 0.1%)    │
-│ websearch_web_se.. █                     13 ( 0.1%)    │
-│ searxng_web_url_.. █                     12 ( 0.0%)    │
-│ auto_continue      █                     11 ( 0.0%)    │
+│ websearch_web_se.. █                     13 ( 0.0%)    │
+│ auto_continue      █                     12 ( 0.0%)    │
 │ websearch          █                     10 ( 0.0%)    │
 │ chrome-devtools_.. █                     10 ( 0.0%)    │
 │ chrome-devtools_.. █                     10 ( 0.0%)    │
-│ tokensave_tokens.. █                      7 ( 0.0%)    │
-│ ast_grep_replace   █                      7 ( 0.0%)    │
+│ ast_grep_replace   █                      9 ( 0.0%)    │
+│ memory_remember    █                      9 ( 0.0%)    │
+│ tokensave_tokens.. █                      8 ( 0.0%)    │
 │ warpgrep_github_.. █                      7 ( 0.0%)    │
-│ memory_remember    █                      6 ( 0.0%)    │
+│ memory_recall      █                      6 ( 0.0%)    │
 │ tokensave_tokens.. █                      5 ( 0.0%)    │
 │ chrome-devtools_.. █                      5 ( 0.0%)    │
-│ memory_recall      █                      5 ( 0.0%)    │
 │ arch-linux_searc.. █                      5 ( 0.0%)    │
+│ tokensave_tokens.. █                      4 ( 0.0%)    │
+│ tokensave_tokens.. █                      4 ( 0.0%)    │
 │ submit_plan        █                      4 ( 0.0%)    │
 │ chrome-devtools_.. █                      4 ( 0.0%)    │
 │ chrome-devtools_.. █                      4 ( 0.0%)    │
-│ tokensave_tokens.. █                      4 ( 0.0%)    │
+│ context7_resolve.. █                      3 ( 0.0%)    │
+│ tokensave_tokens.. █                      3 ( 0.0%)    │
+│ tokensave_tokens.. █                      3 ( 0.0%)    │
 │ tokensave_tokens.. █                      3 ( 0.0%)    │
 │ tokensave_tokens.. █                      3 ( 0.0%)    │
 │ chrome-devtools_.. █                      3 ( 0.0%)    │
 │ github_pull_requ.. █                      3 ( 0.0%)    │
-│ context7_query-d.. █                      2 ( 0.0%)    │
+│ tokensave_tokens.. █                      3 ( 0.0%)    │
 │ chrome-devtools_.. █                      2 ( 0.0%)    │
 │ tokensave_tokens.. █                      2 ( 0.0%)    │
 │ tokensave_tokens.. █                      2 ( 0.0%)    │
-│ tokensave_tokens.. █                      2 ( 0.0%)    │
-│ tokensave_tokens.. █                      2 ( 0.0%)    │
+│ skill              █                      2 ( 0.0%)    │
 │ chrome-devtools_.. █                      2 ( 0.0%)    │
 │ chrome-devtools_.. █                      2 ( 0.0%)    │
 │ arch-linux_get_o.. █                      2 ( 0.0%)    │
 │ memory_forget      █                      2 ( 0.0%)    │
-│ context7_resolve.. █                      1 ( 0.0%)    │
+│ github_get_me      █                      2 ( 0.0%)    │
+│ tokensave_tokens.. █                      2 ( 0.0%)    │
+│ tokensave_tokens.. █                      2 ( 0.0%)    │
+│ ast_grep_search    █                      2 ( 0.0%)    │
 │ chrome-devtools_.. █                      1 ( 0.0%)    │
 │ chrome-devtools_.. █                      1 ( 0.0%)    │
-│ tokensave_tokens.. █                      1 ( 0.0%)    │
-│ tokensave_tokens.. █                      1 ( 0.0%)    │
 │ github_delete_file █                      1 ( 0.0%)    │
-│ tokensave_tokens.. █                      1 ( 0.0%)    │
 │ tokenscope         █                      1 ( 0.0%)    │
 │ git_git_show       █                      1 ( 0.0%)    │
-│ grep_app_searchG.. █                      1 ( 0.0%)    │
 │ github_get_file_.. █                      1 ( 0.0%)    │
 │ chrome-devtools_.. █                      1 ( 0.0%)    │
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
-│ tokensave_tokens.. █                      1 ( 0.0%)    │
-│ github_get_me      █                      1 ( 0.0%)    │
 │ github_issue_write █                      1 ( 0.0%)    │
+│ tokensave_tokens.. █                      1 ( 0.0%)    │
+│ tokensave_tokens.. █                      1 ( 0.0%)    │
+│ tokensave_tokens.. █                      1 ( 0.0%)    │
+│ tokensave_tokens.. █                      1 ( 0.0%)    │
+│ tokensave_tokens.. █                      1 ( 0.0%)    │
+│ envsitter_keys     █                      1 ( 0.0%)    │
+│ memory_update      █                      1 ( 0.0%)    │
+│ github_list_pull.. █                      1 ( 0.0%)    │
+│ github_search_is.. █                      1 ( 0.0%)    │
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
 └────────────────────────────────────────────────────────┘
 ```
