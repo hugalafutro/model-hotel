@@ -24,7 +24,8 @@ export function formatNumber(n: number | null | undefined): string {
 
 export function formatTokens(n: number | null | undefined): string {
 	if (n == null) return "-";
-	if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+	if (n >= 1_000_000_000)
+		return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
 	if (n >= 1_000_000)
 		return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;

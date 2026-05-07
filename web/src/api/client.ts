@@ -54,7 +54,7 @@ async function fetchJSON<T>(
 	return response.json();
 }
 
-function buildQueryString(
+export function buildQueryString(
 	params: Record<string, string | number | boolean | undefined>,
 ): string {
 	const sp = new URLSearchParams();
@@ -66,7 +66,7 @@ function buildQueryString(
 	return sp.toString();
 }
 
-function buildUrl(
+export function buildUrl(
 	path: string,
 	params?: Record<string, string | number | boolean | undefined>,
 ): string {
