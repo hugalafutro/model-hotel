@@ -35,21 +35,26 @@ var allowedSettings = map[string]struct {
 	min      float64
 	max      float64
 }{
-	"rate_limit_enabled":        {typeName: "string"}, // bool as string
-	"rate_limit_rps":            {typeName: "float", min: 0, max: 10000},
-	"rate_limit_burst":          {typeName: "int", min: 1, max: 10000},
-	"request_timeout":           {typeName: "string"}, // duration (e.g. "1m0s")
-	"failover_on_rate_limit":    {typeName: "string"}, // bool as string
-	"circuit_breaker_enabled":   {typeName: "string"}, // bool as string
-	"circuit_breaker_threshold": {typeName: "int", min: 1, max: 100},
-	"circuit_breaker_cooldown":  {typeName: "string"}, // duration (e.g. "1m0s")
-	"discovery_interval":        {typeName: "string"}, // predefined option
-	"dashboard_refresh":         {typeName: "string"}, // predefined option
-	"quota_refresh":             {typeName: "string"}, // predefined option
-	"history_limit":             {typeName: "string"}, // predefined option
-	"log_retention":             {typeName: "string"}, // predefined option
-	"stale_request_timeout":     {typeName: "string"}, // predefined option
-	"toast_duration":            {typeName: "int", min: 1000, max: 15000},
+	"rate_limit_enabled":           {typeName: "string"}, // bool as string
+	"rate_limit_rps":               {typeName: "float", min: 0, max: 10000},
+	"rate_limit_burst":             {typeName: "int", min: 1, max: 10000},
+	"request_timeout":              {typeName: "string"}, // duration (e.g. "1m0s")
+	"failover_on_rate_limit":       {typeName: "string"}, // bool as string
+	"circuit_breaker_enabled":      {typeName: "string"}, // bool as string
+	"circuit_breaker_threshold":    {typeName: "int", min: 1, max: 100},
+	"circuit_breaker_cooldown":     {typeName: "string"}, // duration (e.g. "1m0s")
+	"discovery_interval":           {typeName: "string"}, // predefined option
+	"discovery_on_startup":         {typeName: "string"}, // bool as string
+	"discovery_on_provider_create": {typeName: "string"}, // bool as string
+	"dashboard_refresh":            {typeName: "string"}, // predefined option
+	"quota_refresh":                {typeName: "string"}, // predefined option
+	"history_limit":                {typeName: "string"}, // predefined option
+	"log_retention":                {typeName: "string"}, // predefined option
+	"stale_request_timeout":        {typeName: "string"}, // predefined option
+	"toast_duration":               {typeName: "int", min: 1000, max: 15000},
+	"theme":                        {typeName: "string"}, // light/dark
+	"ui_style":                     {typeName: "string"}, // e.g. "default"
+	"accent_color":                 {typeName: "string"}, // hex color
 }
 
 const maxSettingValueLen = 500
