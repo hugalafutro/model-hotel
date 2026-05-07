@@ -74,7 +74,7 @@ func (p *ProxyClient) SendChatCompletion(virtualKey, model string, streaming boo
 			Error:      fmt.Sprintf("do request: %v", err),
 		}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if streaming {
 		return p.readStreamingResponse(resp, start)

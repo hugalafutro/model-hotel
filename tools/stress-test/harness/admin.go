@@ -29,11 +29,17 @@ func NewAdminClient(proxyURL, adminToken string) *AdminClient {
 
 // CreateProviderResponse is the JSON response from creating a provider.
 type CreateProviderResponse struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	BaseURL    string `json:"base_url"`
-	Enabled    bool   `json:"enabled"`
-	ModelCount int    `json:"model_count"`
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	BaseURL          string  `json:"base_url"`
+	MaskedKey        string  `json:"masked_key"`
+	Enabled          bool    `json:"enabled"`
+	ModelCount       int     `json:"model_count"`
+	TotalTokens      int     `json:"total_tokens"`
+	LastDiscoveredAt *string `json:"last_discovered_at"`
+	LastUsedAt       *string `json:"last_used_at"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
 }
 
 // CreateProvider creates a provider pointing to the mock upstream.
@@ -49,7 +55,7 @@ func (a *AdminClient) CreateProvider(name, baseURL, apiKey string) (*CreateProvi
 	if err != nil {
 		return nil, fmt.Errorf("create provider: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -69,7 +75,7 @@ func (a *AdminClient) DeleteProvider(id string) error {
 	if err != nil {
 		return fmt.Errorf("delete provider: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -80,10 +86,13 @@ func (a *AdminClient) DeleteProvider(id string) error {
 
 // CreateVirtualKeyResponse is the response from creating a virtual key.
 type CreateVirtualKeyResponse struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Key        string `json:"key"`
-	KeyPreview string `json:"key_preview"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Key        string  `json:"key,omitempty"`
+	KeyPreview string  `json:"key_preview"`
+	TokensUsed int64   `json:"tokens_used"`
+	LastUsedAt *string `json:"last_used_at"`
+	CreatedAt  string  `json:"created_at"`
 }
 
 // CreateVirtualKey creates a new virtual key and returns the raw key value.
@@ -95,7 +104,7 @@ func (a *AdminClient) CreateVirtualKey(name string) (*CreateVirtualKeyResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("create virtual key: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -115,7 +124,7 @@ func (a *AdminClient) DeleteVirtualKey(id string) error {
 	if err != nil {
 		return fmt.Errorf("delete virtual key: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -132,7 +141,7 @@ func (a *AdminClient) UpdateSettings(settings map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("update settings: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -147,7 +156,7 @@ func (a *AdminClient) GetSettings() (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get settings: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result map[string]string
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -162,7 +171,7 @@ func (a *AdminClient) TriggerDiscovery(providerID string) error {
 	if err != nil {
 		return fmt.Errorf("trigger discovery: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)

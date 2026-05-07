@@ -7,9 +7,8 @@ A black-box stress testing tool that fires concurrent streaming requests through
 1. **Starts a mock upstream server** that responds to `/v1/chat/completions` with realistic SSE streaming chunks and `/v1/models` for discovery
 2. **Creates a provider** in the proxy pointing at the mock (via the admin API)
 3. **Creates virtual keys** for distributing requests across multiple identities
-4. **Optionally configures** circuit breaker, request timeout, and rate-limit failover settings via the admin API
-5. **Runs the scenario matrix**: for each combination of concurrency / rate-limit mode / key count, fires requests through the proxy and collects metrics
-6. **Reports** p50/p95/p99 latencies, TTFT (time to first token), throughput, error rates, and status code distribution
+4. **Runs the scenario matrix**: for each combination of concurrency / rate-limit mode / key count, fires requests through the proxy and collects metrics
+5. **Reports** p50/p95/p99 latencies, TTFT (time to first token), throughput, error rates, and status code distribution
 
 ## Prerequisites
 
@@ -19,12 +18,20 @@ The proxy must already be running with:
 ALLOW_HTTP_PROVIDERS=true \
 ALLOWED_PROVIDER_HOSTS=localhost \
 RATE_LIMIT_ENABLED=true \
+RATE_LIMIT_IP_RPS=30 \
+RATE_LIMIT_IP_BURST=60 \
 MASTER_KEY=your-master-key \
 DATABASE_URL=postgres://llmproxy:changeme@localhost:5432/llmproxy \
   ./server
 ```
 
-`ALLOWED_PROVIDER_HOSTS=localhost` is required because the mock server runs on localhost. The proxy blocks loopback addresses by default, but allows them when explicitly listed in the allowlist (this was a small config change — see `internal/config/config.go`).
+`ALLOWED_PROVIDER_HOSTS=localhost` is required because the mock server runs on localhost. The proxy blocks loopback addresses by default, but allows them when explicitly listed in the allowlist (see `internal/config/config.go`).
+
+### IP Rate Limiter
+
+The proxy has an **always-on IP rate limiter** (separate from per-key rate limiting) that acts as a DoS safety net. It is configured via environment variables only (`RATE_LIMIT_IP_RPS` and `RATE_LIMIT_IP_BURST`, defaults: 30 RPS / 60 burst) and **cannot be toggled through the settings API**.
+
+The stress test controls **per-key rate limiting** via the `/api/settings` endpoint (the `-rate-limit`, `-rps`, and `-burst` flags). If you see unexpected 429 responses at high concurrency, the IP rate limiter may be the cause. Increase `RATE_LIMIT_IP_RPS`/`RATE_LIMIT_IP_BURST` above your expected aggregate request rate.
 
 ## Running
 
@@ -53,15 +60,6 @@ go run . -admin-token abc123 -streaming false
 
 # Test proxy's param-rejection auto-retry (mock rejects top_p, proxy should strip and retry)
 go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concurrency 10
-
-# Test circuit breaker: mock returns 500 errors 50% of the time
-go run . -admin-token abc123 -error-rate 0.5 -circuit-breaker-enabled true -circuit-breaker-threshold 3 -circuit-breaker-cooldown 30s -concurrency 50
-
-# Test with custom request timeout
-go run . -admin-token abc123 -request-timeout 30s -concurrency 100
-
-# Test rate-limit failover: when a provider returns 429, proxy tries the next provider
-go run . -admin-token abc123 -failover-on-rate-limit true -rate-limit false -concurrency 100
 ```
 
 ### CLI Flags
@@ -80,16 +78,10 @@ go run . -admin-token abc123 -failover-on-rate-limit true -rate-limit false -con
 | `-chunk-count` | `15` | Number of SSE chunks per response |
 | `-tokens-per-chunk` | `3` | Completion tokens per SSE chunk |
 | `-initial-delay` | `10` | Initial delay before first chunk (ms, simulates TTFT) |
-| `-error-rate` | `0` | Probability of mock returning 500 error (0.0–1.0) |
 | `-reject-params` | `""` | Comma-separated param names the mock server rejects with 400 (e.g. `top_p,frequency_penalty`) |
 | `-extra-params` | `""` | Comma-separated params to include in requests, with optional values (e.g. `top_p=0.5,frequency_penalty=1.0`) |
 | `-rps` | `10` | Rate limit RPS when enabled |
 | `-burst` | `20` | Rate limit burst when enabled |
-| `-circuit-breaker-enabled` | `""` | Enable circuit breaker: `true` or `false` (empty = don't change) |
-| `-circuit-breaker-threshold` | `0` | Consecutive failures before circuit opens (0 = don't change) |
-| `-circuit-breaker-cooldown` | `""` | Circuit breaker cooldown duration, e.g. `30s`, `1m` (empty = don't change) |
-| `-request-timeout` | `""` | Proxy request timeout, e.g. `30s`, `1m0s`, `2m0s` (empty = don't change) |
-| `-failover-on-rate-limit` | `""` | Enable rate-limit failover: `true` or `false` (empty = don't change) |
 | `-output` | `markdown` | Output format: text, markdown, json |
 
 ## Test Matrix
@@ -115,21 +107,6 @@ The default flag values produce 16 scenarios:
 | 15 | 100 | ON | 10 | Multi-key RL at high scale |
 | 16 | 1000 | ON | 10 | Multi-key RL extreme |
 
-### Circuit Breaker Test Example
-
-Combine `-error-rate` with circuit breaker flags to test failover under upstream failures:
-
-```bash
-# Enable circuit breaker: 3 consecutive 500s opens the circuit, 30s cooldown
-# Mock returns 500 errors 50% of the time
-go run . -admin-token abc123 \
-  -concurrency 50 -requests 200 \
-  -error-rate 0.5 \
-  -circuit-breaker-enabled true \
-  -circuit-breaker-threshold 3 \
-  -circuit-breaker-cooldown 30s
-```
-
 ## Architecture
 
 ```
@@ -139,12 +116,8 @@ go run . -admin-token abc123 \
 +---------------+     +---------------+     +---------------+
       admin API           IP rate limiter
       virtual keys        per-key rate limiter
-                         circuit breaker (per-provider)
-                         rate-limit failover
-                         request timeout (configurable)
-                         idle stream timeout
-                         async request logging
-                         SSE streaming
+                         failover (exponential backoff)
+                         request logging          SSE streaming
 ```
 
 The stress test is purely external — it talks to the proxy via HTTP, creates fixtures via the admin API, and measures end-to-end behaviour. No proxy code changes are needed to run it (beyond the loopback allowlist config).
@@ -155,49 +128,56 @@ Understanding the internal path helps interpret results:
 
 ```
 Request -> chi middleware (RequestID, RealIP, Logger, Recoverer, Compress, Security, CORS, MaxBytesReader)
-  -> streamingAwareTimeout (configurable, default 1m for streaming)
-  -> IPLimiter.Middleware (per-IP token bucket, always-on DoS safety net)
+  -> streamingAwareTimeout (5min for streaming)
+  -> IPLimiter.Middleware (per-IP token bucket, always-on DoS safety net, config: RATE_LIMIT_IP_RPS/RATE_LIMIT_IP_BURST)
   -> ProxyKeyMiddleware (SHA-256 hash lookup against virtual_keys -- 1 DB query)
-  -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate)
+  -> RateLimiter.Middleware (per-key token bucket from golang.org/x/time/rate, config: rate_limit_rps/rate_limit_burst via settings API)
   -> ChatCompletions handler:
       1. Parse body
       2. Resolve model (failover group or provider/model) -- DB + cache
       3. Decrypt provider API key (AES-256-GCM, cached)
-      4. Async INSERT into request_logs (DB write, non-blocking)
-      5. Per-request DNS resolution + settings cache refresh (with timing)
-      6. For each candidate in failover chain:
-         a. Check circuit breaker (open = skip, half-open = probe)
-         b. Strip provider-unsupported params preemptively
-         c. Forward to upstream provider (HTTP POST via shared Transport)
-         d. On 400: parse error for rejected params, cache them, strip and retry once
-         e. On 429: if failover_on_rate_limit enabled, try next provider
-         f. On 5xx/401/403: exponential backoff (100ms base, 2s cap), try next
-         g. On 200: stream/return response with idle timeout detection
-      7. UPDATE request_logs (DB write)
-      8. UPDATE virtual_keys SET tokens_used (DB write)
-      9. Fire-and-forget TouchLastUsed (DB write)
+      4. INSERT into request_logs (DB write)
+      5. For each candidate in failover chain:
+         a. Strip provider-unsupported params preemptively
+         b. Forward to upstream provider (HTTP POST via shared Transport)
+         c. On 400: parse error for rejected params, cache them, strip and retry once
+         d. On 5xx/429/401/403: exponential backoff (100ms base, 2s cap), try next
+         e. On 200: stream/return response
+      6. UPDATE request_logs (DB write)
+      7. UPDATE virtual_keys SET tokens_used (DB write)
+      8. Fire-and-forget TouchLastUsed (DB write)
 ```
+
+### Two-Layer Rate Limiting
+
+The proxy has **two independent rate limiting layers**:
+
+| Layer | Scope | Config | Controls |
+|-------|-------|--------|----------|
+| **IP Rate Limiter** | Per IP address | `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars | Always-on DoS safety net. Cannot be toggled via API. |
+| **Per-Key Rate Limiter** | Per virtual key | `rate_limit_rps` / `rate_limit_burst` via `PUT /api/settings` | Can be toggled on/off via `rate_limit_enabled`. Stress test controls this. |
+
+At high concurrency, the IP limiter may trigger before the per-key limiter. If running scenarios with >30 RPS aggregate, increase `RATE_LIMIT_IP_RPS` and `RATE_LIMIT_IP_BURST` accordingly.
 
 Likely bottleneck candidates at high concurrency:
 
-- **Postgres connection pool** (pgxpool MaxConns=25) — 4-5 DB writes per request (insert is async)
+- **Postgres connection pool** (pgxpool MaxConns=25) — 4-5 DB writes per request
 - **Shared http.Transport** — Go defaults (100 total idle conns, 2 per host) may cause connection churn
 - **Rate limiter mutex** — single `sync.Mutex` for all key entries
 - **Goroutine count** — each streaming request holds a goroutine for the full stream duration
-- **Circuit breaker state** — per-provider circuit may open under sustained errors
 
 ## File Structure
 
 ```
 tools/stress-test/
 +-- main.go              # CLI entry point, scenario orchestration
-+-- go.mod               # Standalone module (uses internal/debuglog)
++-- go.mod               # Standalone module (stdlib only)
 +-- mock/
-|   +-- server.go        # Mock OpenAI-compatible SSE upstream (configurable error rate, param rejection)
+|   +-- server.go        # Mock OpenAI-compatible SSE upstream
 +-- harness/
 |   +-- admin.go         # Admin API helpers (create provider, keys, settings)
 |   +-- proxy_client.go  # HTTP client that measures TTFT and streaming latency
-|   +-- runner.go        # Scenario runner (goroutine pool + metrics + settings config)
+|   +-- runner.go        # Scenario runner (goroutine pool + metrics collection)
 +-- metrics/
     +-- collector.go     # Thread-safe metrics accumulator + percentile calculator
     +-- report.go        # Aggregate stats + formatting (text/markdown/json)
@@ -208,7 +188,7 @@ tools/stress-test/
 ```markdown
 # Model Hotel Synthetic Stress Test Report
 
-- **Proxy:** `http://localhost:8080`
+- **Proxy:** `http://localhost:8081`
 - **Mock upstream:** `http://localhost:9090`
 
 | # | Scenario | Requests | Success | Errors | Throughput | p50 | p95 | p99 | TTFT p50 | TTFT p95 | Status codes |

@@ -56,43 +56,43 @@ func (r *Report) writeJSON(w io.Writer) error {
 }
 
 func (r *Report) writeText(w io.Writer) error {
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "╔══════════════════════════════════════════════════════════════╗\n")
-	fmt.Fprintf(w, "║  Model Hotel Synthetic Stress Test Report                   ║\n")
-	fmt.Fprintf(w, "╚══════════════════════════════════════════════════════════════╝\n")
-	fmt.Fprintf(w, "Proxy: %s    Mock: %s\n\n", r.ProxyURL, r.MockURL)
+	_, _ = fmt.Fprintf(w, "\n")
+	_, _ = fmt.Fprintf(w, "╔══════════════════════════════════════════════════════════════╗\n")
+	_, _ = fmt.Fprintf(w, "║  Model Hotel Synthetic Stress Test Report                   ║\n")
+	_, _ = fmt.Fprintf(w, "╚══════════════════════════════════════════════════════════════╝\n")
+	_, _ = fmt.Fprintf(w, "Proxy: %s    Mock: %s\n\n", r.ProxyURL, r.MockURL)
 
 	for i, sc := range r.Scenarios {
 		s := sc.Summary
-		fmt.Fprintf(w, "── Scenario %d: %s ──\n", i+1, sc.Label)
-		fmt.Fprintf(w, "  Requests:    %d total → %d success, %d errors\n", s.TotalRequests, s.SuccessCount, s.ErrorCount)
-		fmt.Fprintf(w, "  Throughput:  %.1f req/s\n", s.ThroughputRPS)
-		fmt.Fprintf(w, "  Latency:     p50=%s  p95=%s  p99=%s  max=%s\n",
+		_, _ = fmt.Fprintf(w, "── Scenario %d: %s ──\n", i+1, sc.Label)
+		_, _ = fmt.Fprintf(w, "  Requests:    %d total → %d success, %d errors\n", s.TotalRequests, s.SuccessCount, s.ErrorCount)
+		_, _ = fmt.Fprintf(w, "  Throughput:  %.1f req/s\n", s.ThroughputRPS)
+		_, _ = fmt.Fprintf(w, "  Latency:     p50=%s  p95=%s  p99=%s  max=%s\n",
 			s.LatencyP50.Round(time.Microsecond), s.LatencyP95.Round(time.Microsecond),
 			s.LatencyP99.Round(time.Microsecond), s.LatencyMax.Round(time.Microsecond))
 		if sc.Streaming {
-			fmt.Fprintf(w, "  TTFT:        p50=%s  p95=%s  p99=%s\n",
+			_, _ = fmt.Fprintf(w, "  TTFT:        p50=%s  p95=%s  p99=%s\n",
 				s.TTFTP50.Round(time.Microsecond), s.TTFTP95.Round(time.Microsecond),
 				s.TTFTP99.Round(time.Microsecond))
 		}
-		fmt.Fprintf(w, "  Wall time:   %s\n", s.TotalDuration.Round(time.Millisecond))
-		fmt.Fprintf(w, "  Status codes: %s\n", formatStatusCodes(s.StatusCodes))
+		_, _ = fmt.Fprintf(w, "  Wall time:   %s\n", s.TotalDuration.Round(time.Millisecond))
+		_, _ = fmt.Fprintf(w, "  Status codes: %s\n", formatStatusCodes(s.StatusCodes))
 		if len(s.UniqueErrors) > 0 {
-			fmt.Fprintf(w, "  Errors:      %s\n", strings.Join(s.UniqueErrors, "; "))
+			_, _ = fmt.Fprintf(w, "  Errors:      %s\n", strings.Join(s.UniqueErrors, "; "))
 		}
-		fmt.Fprintf(w, "\n")
+		_, _ = fmt.Fprintf(w, "\n")
 	}
 
 	return nil
 }
 
 func (r *Report) writeMarkdown(w io.Writer) error {
-	fmt.Fprintf(w, "\n# Model Hotel Synthetic Stress Test Report\n\n")
-	fmt.Fprintf(w, "- **Proxy:** `%s`\n", r.ProxyURL)
-	fmt.Fprintf(w, "- **Mock upstream:** `%s`\n\n", r.MockURL)
+	_, _ = fmt.Fprintf(w, "\n# Model Hotel Synthetic Stress Test Report\n\n")
+	_, _ = fmt.Fprintf(w, "- **Proxy:** `%s`\n", r.ProxyURL)
+	_, _ = fmt.Fprintf(w, "- **Mock upstream:** `%s`\n\n", r.MockURL)
 
-	fmt.Fprintf(w, "| # | Scenario | Requests | Success | Errors | Throughput | p50 | p95 | p99 | TTFT p50 | TTFT p95 | Status codes |\n")
-	fmt.Fprintf(w, "|---|----------|----------|---------|--------|------------|-----|-----|-----|----------|----------|-------------|\n")
+	_, _ = fmt.Fprintf(w, "| # | Scenario | Requests | Success | Errors | Throughput | p50 | p95 | p99 | TTFT p50 | TTFT p95 | Status codes |\n")
+	_, _ = fmt.Fprintf(w, "|---|----------|----------|---------|--------|------------|-----|-----|-----|----------|----------|-------------|\n")
 
 	for i, sc := range r.Scenarios {
 		s := sc.Summary
@@ -102,45 +102,45 @@ func (r *Report) writeMarkdown(w io.Writer) error {
 			ttftP50 = durStr(s.TTFTP50)
 			ttftP95 = durStr(s.TTFTP95)
 		}
-		fmt.Fprintf(w, "| %d | %s | %d | %d | %d | %.1f/s | %s | %s | %s | %s | %s | %s |\n",
+		_, _ = fmt.Fprintf(w, "| %d | %s | %d | %d | %d | %.1f/s | %s | %s | %s | %s | %s | %s |\n",
 			i+1, sc.Label, s.TotalRequests, s.SuccessCount, s.ErrorCount,
 			s.ThroughputRPS, durStr(s.LatencyP50), durStr(s.LatencyP95), durStr(s.LatencyP99),
 			ttftP50, ttftP95, formatStatusCodes(s.StatusCodes))
 	}
 
-	fmt.Fprintf(w, "\n")
+	_, _ = fmt.Fprintf(w, "\n")
 
 	// Detailed per-scenario blocks
 	for i, sc := range r.Scenarios {
 		s := sc.Summary
-		fmt.Fprintf(w, "## Scenario %d: %s\n\n", i+1, sc.Label)
-		fmt.Fprintf(w, "- Concurrency: **%d**\n", sc.Concurrency)
-		fmt.Fprintf(w, "- Rate limiting: **%v**\n", sc.RateLimitOn)
-		fmt.Fprintf(w, "- Virtual keys: **%d**\n", sc.NumKeys)
-		fmt.Fprintf(w, "- Streaming: **%v**\n\n", sc.Streaming)
-		fmt.Fprintf(w, "| Metric | Value |\n|--------|-------|\n")
-		fmt.Fprintf(w, "| Total requests | %d |\n", s.TotalRequests)
-		fmt.Fprintf(w, "| Success | %d |\n", s.SuccessCount)
-		fmt.Fprintf(w, "| Errors | %d |\n", s.ErrorCount)
-		fmt.Fprintf(w, "| Throughput | %.1f req/s |\n", s.ThroughputRPS)
-		fmt.Fprintf(w, "| Wall time | %s |\n", durStr(s.TotalDuration))
-		fmt.Fprintf(w, "| Latency p50 | %s |\n", durStr(s.LatencyP50))
-		fmt.Fprintf(w, "| Latency p95 | %s |\n", durStr(s.LatencyP95))
-		fmt.Fprintf(w, "| Latency p99 | %s |\n", durStr(s.LatencyP99))
-		fmt.Fprintf(w, "| Latency max | %s |\n", durStr(s.LatencyMax))
+		_, _ = fmt.Fprintf(w, "## Scenario %d: %s\n\n", i+1, sc.Label)
+		_, _ = fmt.Fprintf(w, "- Concurrency: **%d**\n", sc.Concurrency)
+		_, _ = fmt.Fprintf(w, "- Rate limiting: **%v**\n", sc.RateLimitOn)
+		_, _ = fmt.Fprintf(w, "- Virtual keys: **%d**\n", sc.NumKeys)
+		_, _ = fmt.Fprintf(w, "- Streaming: **%v**\n\n", sc.Streaming)
+		_, _ = fmt.Fprintf(w, "| Metric | Value |\n|--------|-------|\n")
+		_, _ = fmt.Fprintf(w, "| Total requests | %d |\n", s.TotalRequests)
+		_, _ = fmt.Fprintf(w, "| Success | %d |\n", s.SuccessCount)
+		_, _ = fmt.Fprintf(w, "| Errors | %d |\n", s.ErrorCount)
+		_, _ = fmt.Fprintf(w, "| Throughput | %.1f req/s |\n", s.ThroughputRPS)
+		_, _ = fmt.Fprintf(w, "| Wall time | %s |\n", durStr(s.TotalDuration))
+		_, _ = fmt.Fprintf(w, "| Latency p50 | %s |\n", durStr(s.LatencyP50))
+		_, _ = fmt.Fprintf(w, "| Latency p95 | %s |\n", durStr(s.LatencyP95))
+		_, _ = fmt.Fprintf(w, "| Latency p99 | %s |\n", durStr(s.LatencyP99))
+		_, _ = fmt.Fprintf(w, "| Latency max | %s |\n", durStr(s.LatencyMax))
 		if sc.Streaming {
-			fmt.Fprintf(w, "| TTFT p50 | %s |\n", durStr(s.TTFTP50))
-			fmt.Fprintf(w, "| TTFT p95 | %s |\n", durStr(s.TTFTP95))
-			fmt.Fprintf(w, "| TTFT p99 | %s |\n", durStr(s.TTFTP99))
+			_, _ = fmt.Fprintf(w, "| TTFT p50 | %s |\n", durStr(s.TTFTP50))
+			_, _ = fmt.Fprintf(w, "| TTFT p95 | %s |\n", durStr(s.TTFTP95))
+			_, _ = fmt.Fprintf(w, "| TTFT p99 | %s |\n", durStr(s.TTFTP99))
 		}
-		fmt.Fprintf(w, "| Status codes | %s |\n", formatStatusCodes(s.StatusCodes))
+		_, _ = fmt.Fprintf(w, "| Status codes | %s |\n", formatStatusCodes(s.StatusCodes))
 		if len(s.UniqueErrors) > 0 {
-			fmt.Fprintf(w, "\n**Errors:**\n")
+			_, _ = fmt.Fprintf(w, "\n**Errors:**\n")
 			for _, e := range s.UniqueErrors {
-				fmt.Fprintf(w, "- `%s`\n", e)
+				_, _ = fmt.Fprintf(w, "- `%s`\n", e)
 			}
 		}
-		fmt.Fprintf(w, "\n")
+		_, _ = fmt.Fprintf(w, "\n")
 	}
 
 	return nil

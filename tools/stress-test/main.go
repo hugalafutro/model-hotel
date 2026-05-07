@@ -17,7 +17,7 @@ import (
 
 func main() {
 	// Connection settings
-	proxyURL := flag.String("proxy-url", "http://localhost:8081", "Proxy base URL")
+	proxyURL := flag.String("proxy-url", "http://localhost:8080", "Proxy base URL")
 	adminToken := flag.String("admin-token", "", "Admin token for API calls (required)")
 	mockPort := flag.Int("mock-port", 9090, "Port for the mock upstream server")
 
@@ -33,20 +33,12 @@ func main() {
 	chunkCount := flag.Int("chunk-count", 15, "Number of SSE chunks per response")
 	tokensPerChunk := flag.Int("tokens-per-chunk", 3, "Completion tokens per SSE chunk")
 	initialDelay := flag.Int("initial-delay", 10, "Initial delay before first chunk in ms (simulates TTFT)")
-	errorRate := flag.Float64("error-rate", 0, "Probability of mock server returning 500 error (0.0-1.0, 0 = disabled)")
 	rejectParams := flag.String("reject-params", "", "Comma-separated param names the mock server rejects with 400 (e.g. top_p,frequency_penalty)")
 	extraParams := flag.String("extra-params", "", "Comma-separated param names to include in requests (set to 0.5 for floats, e.g. top_p=0.5,frequency_penalty=1.0)")
 
 	// Rate limit defaults (used when RL is on)
 	rps := flag.Float64("rps", 10, "Rate limit RPS when enabled")
 	burst := flag.Int("burst", 20, "Rate limit burst when enabled")
-
-	// Circuit breaker & timeout settings (applied before each scenario via UpdateSettings)
-	circuitBreakerEnabled := flag.String("circuit-breaker-enabled", "", "Enable circuit breaker: true or false (empty = don't change)")
-	circuitBreakerThreshold := flag.Int("circuit-breaker-threshold", 0, "Consecutive failures before circuit opens (0 = don't change)")
-	circuitBreakerCooldown := flag.String("circuit-breaker-cooldown", "", "Circuit breaker cooldown duration, e.g. 30s, 1m (empty = don't change)")
-	requestTimeout := flag.String("request-timeout", "", "Proxy request timeout, e.g. 30s, 1m0s, 2m0s (empty = don't change)")
-	failoverOnRateLimit := flag.String("failover-on-rate-limit", "", "Enable rate-limit failover: true or false (empty = don't change)")
 
 	// Output
 	outputFormat := flag.String("output", "markdown", "Output format: text, markdown, json")
@@ -93,9 +85,6 @@ func main() {
 	debuglog.Info("main: Rate limit modes", "modes", rlModes)
 	debuglog.Info("main: Streaming", "enabled", *streaming)
 	debuglog.Info("main: Chunk config", "chunkDelay", *chunkDelay, "chunkCount", *chunkCount, "tokensPerChunk", *tokensPerChunk)
-	debuglog.Info("main: Circuit breaker", "enabled", *circuitBreakerEnabled, "threshold", *circuitBreakerThreshold, "cooldown", *circuitBreakerCooldown)
-	debuglog.Info("main: Request timeout", "timeout", *requestTimeout)
-	debuglog.Info("main: Failover on rate limit", "enabled", *failoverOnRateLimit)
 
 	// ── Start mock server ──────────────────────────────────────────
 	mockAddr := fmt.Sprintf(":%d", *mockPort)
@@ -104,7 +93,6 @@ func main() {
 	mockServer.ChunkCount = *chunkCount
 	mockServer.TokensPerChunk = *tokensPerChunk
 	mockServer.InitialDelay = time.Duration(*initialDelay) * time.Millisecond
-	mockServer.ErrorRate = *errorRate
 
 	debuglog.Info("main: starting mock upstream server...")
 	if err := mockServer.StartAsync(); err != nil {
@@ -187,31 +175,6 @@ func main() {
 		runner.Cleanup()
 	}()
 
-	// ── Apply circuit breaker & timeout settings ──────────────────
-	settingsUpdates := map[string]string{}
-	if *circuitBreakerEnabled != "" {
-		settingsUpdates["circuit_breaker_enabled"] = *circuitBreakerEnabled
-	}
-	if *circuitBreakerThreshold > 0 {
-		settingsUpdates["circuit_breaker_threshold"] = fmt.Sprintf("%d", *circuitBreakerThreshold)
-	}
-	if *circuitBreakerCooldown != "" {
-		settingsUpdates["circuit_breaker_cooldown"] = *circuitBreakerCooldown
-	}
-	if *requestTimeout != "" {
-		settingsUpdates["request_timeout"] = *requestTimeout
-	}
-	if *failoverOnRateLimit != "" {
-		settingsUpdates["failover_on_rate_limit"] = *failoverOnRateLimit
-	}
-	if len(settingsUpdates) > 0 {
-		debuglog.Info("main: applying circuit breaker & timeout settings", "updates", settingsUpdates)
-		if err := runner.ApplySettings(settingsUpdates); err != nil {
-			debuglog.Warn("main: failed to apply circuit breaker & timeout settings", "error", err)
-		}
-		time.Sleep(100 * time.Millisecond) // let settings propagate
-	}
-
 	// ── Build scenario matrix ──────────────────────────────────────
 	var scenarios []harness.ScenarioConfig
 	for _, conc := range concurrencyLevels {
@@ -219,16 +182,13 @@ func main() {
 			for _, rlOn := range rlModes {
 				// Use only the keys needed for this scenario
 				scenario := harness.ScenarioConfig{
-					Concurrency:           conc,
-					NumKeys:               numKeys,
-					RateLimitOn:           rlOn,
-					RPS:                   *rps,
-					Burst:                 *burst,
-					Streaming:             *streaming,
-					TotalRequests:         *requestsPerScenario,
-					CircuitBreakerEnabled: *circuitBreakerEnabled,
-					RequestTimeout:        *requestTimeout,
-					FailoverOnRateLimit:   *failoverOnRateLimit,
+					Concurrency:   conc,
+					NumKeys:       numKeys,
+					RateLimitOn:   rlOn,
+					RPS:           *rps,
+					Burst:         *burst,
+					Streaming:     *streaming,
+					TotalRequests: *requestsPerScenario,
 				}
 				scenarios = append(scenarios, scenario)
 			}

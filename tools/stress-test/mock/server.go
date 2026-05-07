@@ -53,13 +53,13 @@ func (s *Server) newHandler() http.Handler {
 	mux.HandleFunc("/v1/chat/completions", s.handleCompletions)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "OK")
+		_, _ = fmt.Fprint(w, "OK")
 	})
 	// Models endpoint — returns a single mock model so that the proxy's
 	// discovery can register it and provider/model routing works.
 	mux.HandleFunc("/v1/models", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"object": "list",
 			"data": []map[string]interface{}{
 				{
@@ -102,7 +102,7 @@ func (s *Server) StartAsync() error {
 // Stop shuts down the mock server.
 func (s *Server) Stop() {
 	if s.server != nil {
-		s.server.Close()
+		_ = s.server.Close()
 	}
 }
 
@@ -127,7 +127,7 @@ func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
 	if s.ErrorRate > 0 && rand.Float64() < s.ErrorRate {
 		s.totalFailed.Add(1)
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, `{"error":{"message":"mock internal error","type":"server_error"}}`)
+		_, _ = fmt.Fprintf(w, `{"error":{"message":"mock internal error","type":"server_error"}}`)
 		return
 	}
 
@@ -136,12 +136,12 @@ func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to read body", http.StatusBadRequest)
 		return
 	}
-	r.Body.Close()
+	_ = r.Body.Close()
 
 	// Parse into a raw map so we can check for rejected params,
 	// then extract the fields we need.
 	var raw map[string]interface{}
-	json.Unmarshal(body, &raw)
+	_ = json.Unmarshal(body, &raw)
 
 	// Check for params that this mock provider rejects (simulates providers
 	// like Anthropic that reject top_p, or Gemini that rejects frequency_penalty).
@@ -153,7 +153,7 @@ func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
 				msg := fmt.Sprintf("`%s` is not supported by this model", p)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"error": map[string]string{"message": msg, "type": "invalid_request_error"},
 				})
 				return
@@ -165,7 +165,7 @@ func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
 		Stream bool   `json:"stream"`
 		Model  string `json:"model"`
 	}
-	json.Unmarshal(body, &req)
+	_ = json.Unmarshal(body, &req)
 
 	// Simulate initial processing delay (provider TTFT contribution)
 	if s.InitialDelay > 0 {
@@ -218,7 +218,7 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, model s
 		}
 
 		data, _ := json.Marshal(chunk)
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 		if canFlush {
 			flusher.Flush()
 		}
@@ -249,12 +249,12 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, model s
 		},
 	}
 	data, _ := json.Marshal(finalChunk)
-	fmt.Fprintf(w, "data: %s\n\n", data)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 	if canFlush {
 		flusher.Flush()
 	}
 
-	fmt.Fprintf(w, "data: [DONE]\n\n")
+	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
 	if canFlush {
 		flusher.Flush()
 	}
@@ -296,5 +296,5 @@ func (s *Server) handleNonStreaming(w http.ResponseWriter, r *http.Request, mode
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
