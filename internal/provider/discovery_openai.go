@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -16,31 +14,16 @@ import (
 )
 
 func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	raw := util.SanitizeBaseURL(provider.BaseURL)
-	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/v1/models", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
+	baseURL := util.SanitizeAPIURL(provider.BaseURL)
 
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+apiKey)
+	headers.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/v1/models", headers)
 	if err != nil {
 		debuglog.Error("discovery: openai fetch models failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: openai non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	var openAIResp OpenAIModelsResponse

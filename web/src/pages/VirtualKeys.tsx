@@ -16,7 +16,10 @@ import {
 	SortableHeader,
 	StaticHeader,
 } from "../components/DataTable";
+import { EmptyState } from "../components/EmptyState";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
+import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../context/ToastContext";
 import { formatNumber, formatRelativeTime } from "../utils/format";
 
@@ -257,35 +260,25 @@ export function VirtualKeys() {
 	);
 
 	if (isLoading) {
-		return (
-			<div className="flex items-center justify-center h-64">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)" />
-			</div>
-		);
+		return <LoadingSpinner />;
 	}
 
 	return (
 		<div className="space-y-6">
-			<div className="flex justify-between items-center">
-				<div>
-					<div className="flex items-center gap-3">
-						<KeyRound size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-(--text-primary)">
-							Virtual Keys
-						</h1>
-					</div>
-					<p className="text-gray-400">
-						Issue keys for clients to access the proxy at /v1
-					</p>
-				</div>
-				<button
-					type="button"
-					onClick={() => setShowCreate(true)}
-					className="ui-btn ui-btn-primary"
-				>
-					+ Create Key
-				</button>
-			</div>
+			<PageHeader
+				icon={KeyRound}
+				title="Virtual Keys"
+				description="Issue keys for clients to access the proxy at /v1"
+				actions={
+					<button
+						type="button"
+						onClick={() => setShowCreate(true)}
+						className="ui-btn ui-btn-primary"
+					>
+						+ Create Key
+					</button>
+				}
+			/>
 
 			{sortedKeys.length > 0 && (
 				<div className="flex items-center justify-end">
@@ -379,11 +372,7 @@ export function VirtualKeys() {
 					</table>
 				</div>
 			) : (
-				<div className="text-center py-12 ui-card">
-					<p className="text-gray-500">
-						No virtual keys. Create one to start using the proxy.
-					</p>
-				</div>
+				<EmptyState message="No virtual keys. Create one to start using the proxy." />
 			)}
 
 			{sortedKeys.length > 0 && (

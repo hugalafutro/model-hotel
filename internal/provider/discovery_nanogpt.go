@@ -18,29 +18,19 @@ import (
 func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	debuglog.Info("discovery: starting nanogpt discovery", "provider", provider.ID)
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models?detailed=true", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
 
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+apiKey)
+	headers.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models?detailed=true", headers)
 	if err != nil {
 		debuglog.Error("discovery: nanogpt http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: nanogpt non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", string(body))
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
 
 	var nanoResp NanoGPTDetailedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&nanoResp); err != nil {
+	if err := json.Unmarshal(bodyBytes, &nanoResp); err != nil {
 		debuglog.Error("discovery: nanogpt decode response failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

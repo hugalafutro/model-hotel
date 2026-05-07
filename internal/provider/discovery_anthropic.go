@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -16,8 +15,7 @@ import (
 )
 
 func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	raw := util.SanitizeBaseURL(provider.BaseURL)
-	baseURL := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "/v1")
+	baseURL := util.SanitizeAPIURL(provider.BaseURL)
 
 	pricingCatalog := GetAnthropicPricing()
 

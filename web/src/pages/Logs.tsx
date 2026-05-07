@@ -26,6 +26,7 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { Modal } from "../components/Modal";
+import { PageHeader } from "../components/PageHeader";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { AppLogs } from "./AppLogs";
@@ -572,55 +573,51 @@ function RequestLogs() {
 				/>
 			)}
 
-			<div className="flex justify-between items-center">
-				<div>
-					<div className="flex items-center gap-3">
-						<ScrollText size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-(--text-primary)">
-							Requests
-						</h1>
-						<button
-							type="button"
-							onClick={() => {
-								setLiveEnabled(!liveEnabled);
-								toast(
-									liveEnabled ? "Live updates paused" : "Live updates resumed",
-									"info",
-								);
-							}}
-							className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
-								liveEnabled
-									? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-							}`}
-						>
-							<span
-								className={`w-2 h-2 rounded-full transition-colors ${
-									liveEnabled ? "bg-green-400" : "bg-gray-500"
-								}`}
-							/>
-							Live
-						</button>
-					</div>
-					<p className="text-gray-400">
-						Monitor API requests across all providers and keys
-					</p>
-				</div>
-				{displayTotal > 0 && (
-					<PaginationBar
-						page={page}
-						totalPages={Math.ceil(displayTotal / pageSize)}
-						totalItems={displayTotal}
-						pageSize={pageSize}
-						onPageChange={setPage}
-						onPageSizeChange={(s) => {
-							setPageSize(s);
-							setPage(1);
+			<PageHeader
+				icon={ScrollText}
+				title="Requests"
+				description="Monitor API requests across all providers and keys"
+				badge={
+					<button
+						type="button"
+						onClick={() => {
+							setLiveEnabled(!liveEnabled);
+							toast(
+								liveEnabled ? "Live updates paused" : "Live updates resumed",
+								"info",
+							);
 						}}
-						label="entries"
-					/>
-				)}
-			</div>
+						className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+							liveEnabled
+								? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+								: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+						}`}
+					>
+						<span
+							className={`w-2 h-2 rounded-full transition-colors ${
+								liveEnabled ? "bg-green-400" : "bg-gray-500"
+							}`}
+						/>
+						Live
+					</button>
+				}
+				actions={
+					displayTotal > 0 ? (
+						<PaginationBar
+							page={page}
+							totalPages={Math.ceil(displayTotal / pageSize)}
+							totalItems={displayTotal}
+							pageSize={pageSize}
+							onPageChange={setPage}
+							onPageSizeChange={(s) => {
+								setPageSize(s);
+								setPage(1);
+							}}
+							label="entries"
+						/>
+					) : undefined
+				}
+			/>
 
 			{/* Controls */}
 			<div className="ui-card p-4 shrink-0">

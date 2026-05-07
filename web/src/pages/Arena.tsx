@@ -33,6 +33,7 @@ import { Modal } from "../components/Modal";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ModelReplyCard } from "../components/ModelReplyCard";
+import { PageHeader } from "../components/PageHeader";
 import { ParamSlider } from "../components/ParamSlider";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { PresetBar } from "../components/PresetBar";
@@ -1361,6 +1362,8 @@ export function Arena() {
 
 	const isRunning = runningModels.size > 0;
 
+	const arenaIcon = arenaMode === "competition" ? Swords : GitCompare;
+
 	const buttonLabel = useMemo(() => {
 		if (isRunning) return "Stop";
 		if (phase === "setup") return "Run Arena";
@@ -1381,23 +1384,15 @@ export function Arena() {
 	return (
 		<div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
 			{/* Header */}
-			<div>
-				<div className="flex items-center gap-3">
-					{arenaMode === "competition" ? (
-						<Swords size={28} strokeWidth={2} className="text-(--accent)" />
-					) : (
-						<GitCompare size={28} strokeWidth={2} className="text-(--accent)" />
-					)}
-					<h1 className="text-2xl font-bold text-(--text-primary)">
-						{arenaMode === "competition" ? "Arena" : "Compare"}
-					</h1>
-				</div>
-				<p className="text-gray-400">
-					{arenaMode === "competition"
+			<PageHeader
+				icon={arenaIcon}
+				title={arenaMode === "competition" ? "Arena" : "Compare"}
+				description={
+					arenaMode === "competition"
 						? "Bracket tournament — models compete head-to-head"
-						: "Side-by-side — compare model outputs on the same prompt"}
-				</p>
-			</div>
+						: "Side-by-side — compare model outputs on the same prompt"
+				}
+			/>
 
 			{/* Controls */}
 			<div className="ui-card p-4">

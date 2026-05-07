@@ -20,9 +20,13 @@ import { ChevronRight, Shuffle } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { CandidateModel, FailoverGroup } from "../api/types";
+import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
+import { EmptyState } from "../components/EmptyState";
 import { FilterInput } from "../components/FilterInput";
 import { Modal } from "../components/Modal";
+import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
+import { Toggle } from "../components/Toggle";
 import { useToast } from "../context/ToastContext";
 import { formatTimestamp, formatTokens } from "../utils/format";
 
@@ -69,20 +73,12 @@ function SortableEntry({ entry, onToggle }: SortableEntryProps) {
 					<span className="text-gray-400 truncate">{entry.model_id}</span>
 				</div>
 			</div>
-			<button
-				type="button"
-				onClick={() => onToggle(entry.model_uuid, !entry.enabled)}
-				className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none shrink-0 ${
-					entry.enabled ? "bg-(--accent)" : "bg-gray-600"
-				}`}
-				aria-label={entry.enabled ? "Disable provider" : "Enable provider"}
-			>
-				<span
-					className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-						entry.enabled ? "translate-x-3.5" : "translate-x-0.5"
-					}`}
-				/>
-			</button>
+			<Toggle
+				size="sm"
+				checked={entry.enabled}
+				onChange={(v) => onToggle(entry.model_uuid, v)}
+				ariaLabel={entry.enabled ? "Disable provider" : "Enable provider"}
+			/>
 		</div>
 	);
 }
@@ -697,61 +693,61 @@ export function FailoverGroups() {
 
 	return (
 		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
-			<div className="flex justify-between items-center">
-				<div>
-					<div className="flex items-center gap-3">
-						<Shuffle size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-(--text-primary)">
-							Failover Groups
-						</h1>
-						{!allSameState && groups && groups.length > 0 && (
-							<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
-								<span className="text-green-400">{totalEnabled} enabled</span>
-								<span className="text-gray-600">/</span>
-								<span className="text-red-400">{totalDisabled} disabled</span>
-							</span>
-						)}
-					</div>
-					<p className="text-gray-400">
+			<PageHeader
+				icon={Shuffle}
+				title="Failover Groups"
+				description={
+					<>
 						Route requests through multiple providers in priority order via{" "}
 						<code className="text-(--accent)">hotel/model</code>
-					</p>
-					<p className="text-(--text-muted) text-xs flex items-center gap-1.5 mt-0.5">
-						<span className="shrink-0" aria-hidden="true">
-							⠿
+					</>
+				}
+				badge={
+					!allSameState && groups && groups.length > 0 ? (
+						<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+							<span className="text-green-400">{totalEnabled} enabled</span>
+							<span className="text-gray-600">/</span>
+							<span className="text-red-400">{totalDisabled} disabled</span>
 						</span>
-						Drag models by the handle (⠿) to reorder priority
-					</p>
-				</div>
-				<div className="flex items-center gap-3">
-					{lastSyncedAt && (
-						<span className="text-xs text-gray-500">
-							Last sync: {lastSyncedAt ? formatTimestamp(lastSyncedAt) : ""}
-						</span>
-					)}
-					<button
-						type="button"
-						onClick={() => syncMutation.mutate()}
-						disabled={syncMutation.isPending}
-						className="ui-btn ui-btn-secondary"
-					>
-						{syncMutation.isPending ? (
-							<>
-								<Spinner /> Syncing…
-							</>
-						) : (
-							"Sync"
+					) : undefined
+				}
+				actions={
+					<>
+						{lastSyncedAt && (
+							<span className="text-xs text-gray-500">
+								Last sync: {lastSyncedAt ? formatTimestamp(lastSyncedAt) : ""}
+							</span>
 						)}
-					</button>
-					<button
-						type="button"
-						onClick={() => setShowCreateModal(true)}
-						className="ui-btn ui-btn-primary"
-					>
-						+ New Group
-					</button>
-				</div>
-			</div>
+						<button
+							type="button"
+							onClick={() => syncMutation.mutate()}
+							disabled={syncMutation.isPending}
+							className="ui-btn ui-btn-secondary"
+						>
+							{syncMutation.isPending ? (
+								<>
+									<Spinner /> Syncing…
+								</>
+							) : (
+								"Sync"
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={() => setShowCreateModal(true)}
+							className="ui-btn ui-btn-primary"
+						>
+							+ New Group
+						</button>
+					</>
+				}
+			/>
+			<p className="text-(--text-muted) text-xs flex items-center gap-1.5 -mt-4">
+				<span className="shrink-0" aria-hidden="true">
+					⠿
+				</span>
+				Drag models by the handle (⠿) to reorder priority
+			</p>
 
 			<div className="flex items-center gap-3 flex-wrap">
 				<FilterInput
@@ -839,32 +835,24 @@ export function FailoverGroups() {
 
 			{groups && groups.length === 0 ? (
 				searchQuery || providerFilter ? (
-					<div className="text-center py-12">
-						<div className="text-gray-500 mb-4">No groups matching filters</div>
-						<button
-							type="button"
-							onClick={() => {
+					<EmptyState
+						message="No groups matching filters"
+						action={{
+							label: "Clear filters",
+							onClick: () => {
 								setSearchQuery("");
 								setProviderFilter("");
-							}}
-							className="ui-btn ui-btn-primary"
-						>
-							Clear filters
-						</button>
-					</div>
+							},
+						}}
+					/>
 				) : (
-					<div className="text-center py-12">
-						<div className="text-gray-500 mb-4">
-							No failover groups configured
-						</div>
-						<button
-							type="button"
-							onClick={() => syncMutation.mutate()}
-							className="ui-btn ui-btn-primary"
-						>
-							Auto-discover from models
-						</button>
-					</div>
+					<EmptyState
+						message="No failover groups configured"
+						action={{
+							label: "Auto-discover from models",
+							onClick: () => syncMutation.mutate(),
+						}}
+					/>
 				)
 			) : (
 				<div className="relative flex gap-4">
@@ -957,36 +945,13 @@ export function FailoverGroups() {
 			)}
 
 			{deleteGroup && (
-				<Modal
-					title="Delete Failover Group"
-					onClose={() => setDeleteGroup(null)}
-					maxWidth="max-w-sm"
-				>
-					<p className="text-sm text-gray-300 mb-4">
-						Are you sure you want to delete{" "}
-						<span className="text-white font-medium">
-							hotel/{deleteGroup.display_model}
-						</span>
-						? This cannot be undone.
-					</p>
-					<div className="flex gap-3 justify-end">
-						<button
-							type="button"
-							onClick={() => setDeleteGroup(null)}
-							className="ui-btn ui-btn-secondary"
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							onClick={confirmDelete}
-							disabled={deleteMutation.isPending}
-							className="ui-btn ui-btn-danger"
-						>
-							{deleteMutation.isPending ? "Deleting…" : "Delete"}
-						</button>
-					</div>
-				</Modal>
+				<DeleteConfirmModal
+					entityName={`hotel/${deleteGroup.display_model}`}
+					entityType="failover group"
+					isPending={deleteMutation.isPending}
+					onConfirm={confirmDelete}
+					onCancel={() => setDeleteGroup(null)}
+				/>
 			)}
 		</div>
 	);

@@ -30,8 +30,10 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import type { MetricType, Model } from "../api/types";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
+import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { proxyModelID } from "../utils/model";
@@ -1154,11 +1156,7 @@ export function Dashboard() {
 	);
 
 	if (!stats && statsLoading) {
-		return (
-			<div className="flex items-center justify-center h-64">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
-			</div>
-		);
+		return <LoadingSpinner />;
 	}
 
 	if (statsError) {
@@ -1292,17 +1290,12 @@ export function Dashboard() {
 	return (
 		<div className="space-y-6">
 			{/* Page header */}
-			<div className="flex items-end justify-between">
-				<div>
-					<div className="flex items-center gap-3">
-						<LayoutDashboard
-							size={28}
-							strokeWidth={2}
-							className="text-(--accent)"
-						/>
-						<h1 className="text-2xl font-bold text-(--text-primary)">
-							Dashboard
-						</h1>
+			<PageHeader
+				icon={LayoutDashboard}
+				title="Dashboard"
+				description="Overview of your Model Hotel usage"
+				badge={
+					<>
 						<button
 							type="button"
 							onClick={() => setExcludeDeleted(!excludeDeleted)}
@@ -1346,84 +1339,85 @@ export function Dashboard() {
 								/>
 							</button>
 						)}
+					</>
+				}
+				actions={
+					<div className="flex gap-4">
+						{gaugeStatsLoading ? (
+							<div className="flex items-center justify-center gap-2 py-4 text-sm text-(--text-muted)">
+								<Spinner /> Loading gauges…
+							</div>
+						) : gaugeStatsError ? (
+							<div className="flex items-center justify-center gap-2 py-4 text-sm text-red-400">
+								<AlertTriangle size={14} /> Failed to load gauge stats
+							</div>
+						) : (
+							<>
+								<Gauge
+									label={`Requests/${rangeLabel}`}
+									value={gaugeRequestCount}
+									decimals={0}
+									suffix=""
+									color={accents.requests}
+									onClick={() => setRequestsModalOpen(true)}
+									tooltip="Click to view request history"
+									maxScale={Math.max(100, gaugeRequestCount * 1.2)}
+								/>
+								<Gauge
+									label={`Avg TTFT/${rangeLabel}`}
+									value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
+									decimals={1}
+									suffix="s"
+									color={accents.latency}
+									onClick={() => setTtftModalOpen(true)}
+									tooltip="Click to view TTFT history"
+									maxScale={Math.max(
+										1,
+										((gaugeStats?.avg_ttft_ms || 0) / 1000) * 1.5,
+									)}
+								/>
+								<Gauge
+									label={`Avg Overhead/${rangeLabel}`}
+									value={gaugeStats?.avg_overhead_ms || 0}
+									decimals={1}
+									suffix="ms"
+									color={accents.overhead}
+									onClick={() => setOverheadModalOpen(true)}
+									tooltip="Click to view overhead history"
+									maxScale={Math.max(
+										100,
+										(gaugeStats?.avg_overhead_ms || 0) * 1.5,
+									)}
+								/>
+								<Gauge
+									label={`Rate Limit Hits/${rangeLabel}`}
+									value={gaugeStats?.rate_limit_hits || 0}
+									decimals={0}
+									suffix=""
+									color="#a855f7"
+									onClick={() => setRateLimitModalOpen(true)}
+									tooltip="Click to view rate limit hit history"
+									maxScale={Math.max(
+										10,
+										(gaugeStats?.rate_limit_hits || 0) * 1.5,
+									)}
+								/>
+								<Gauge
+									label={`Error Rate/${rangeLabel}`}
+									value={(gaugeStats?.error_rate || 0) * 100}
+									decimals={1}
+									suffix="%"
+									color={accents.errors}
+									onClick={() => setErrorModalOpen(true)}
+									tooltip="Click to view error rate history"
+								/>
+							</>
+						)}
 					</div>
-					<p className="text-gray-400">Overview of your Model Hotel usage</p>
-				</div>
-				<div className="flex gap-4">
-					{gaugeStatsLoading ? (
-						<div className="flex items-center justify-center gap-2 py-4 text-sm text-(--text-muted)">
-							<Spinner /> Loading gauges…
-						</div>
-					) : gaugeStatsError ? (
-						<div className="flex items-center justify-center gap-2 py-4 text-sm text-red-400">
-							<AlertTriangle size={14} /> Failed to load gauge stats
-						</div>
-					) : (
-						<>
-							<Gauge
-								label={`Requests/${rangeLabel}`}
-								value={gaugeRequestCount}
-								decimals={0}
-								suffix=""
-								color={accents.requests}
-								onClick={() => setRequestsModalOpen(true)}
-								tooltip="Click to view request history"
-								maxScale={Math.max(100, gaugeRequestCount * 1.2)}
-							/>
-							<Gauge
-								label={`Avg TTFT/${rangeLabel}`}
-								value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
-								decimals={1}
-								suffix="s"
-								color={accents.latency}
-								onClick={() => setTtftModalOpen(true)}
-								tooltip="Click to view TTFT history"
-								maxScale={Math.max(
-									1,
-									((gaugeStats?.avg_ttft_ms || 0) / 1000) * 1.5,
-								)}
-							/>
-							<Gauge
-								label={`Avg Overhead/${rangeLabel}`}
-								value={gaugeStats?.avg_overhead_ms || 0}
-								decimals={1}
-								suffix="ms"
-								color={accents.overhead}
-								onClick={() => setOverheadModalOpen(true)}
-								tooltip="Click to view overhead history"
-								maxScale={Math.max(
-									100,
-									(gaugeStats?.avg_overhead_ms || 0) * 1.5,
-								)}
-							/>
-							<Gauge
-								label={`Rate Limit Hits/${rangeLabel}`}
-								value={gaugeStats?.rate_limit_hits || 0}
-								decimals={0}
-								suffix=""
-								color="#a855f7"
-								onClick={() => setRateLimitModalOpen(true)}
-								tooltip="Click to view rate limit hit history"
-								maxScale={Math.max(
-									10,
-									(gaugeStats?.rate_limit_hits || 0) * 1.5,
-								)}
-							/>
-							<Gauge
-								label={`Error Rate/${rangeLabel}`}
-								value={(gaugeStats?.error_rate || 0) * 100}
-								decimals={1}
-								suffix="%"
-								color={accents.errors}
-								onClick={() => setErrorModalOpen(true)}
-								tooltip="Click to view error rate history"
-							/>
-						</>
-					)}
-				</div>
-			</div>
-
+				}
+			/>
 			{/* Stat cards */}
+
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
 				<StatCard
 					label="Total Providers"

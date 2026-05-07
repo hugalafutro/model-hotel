@@ -5,9 +5,13 @@ import { api } from "../api/client";
 import type { Provider } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
+import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
+import { EmptyState } from "../components/EmptyState";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
+import { PageHeader } from "../components/PageHeader";
 import {
 	NanoGPTQuotaModal,
 	OpenRouterQuotaModal,
@@ -16,6 +20,7 @@ import {
 import { ProviderModelsModal } from "../components/ProviderModelsModal";
 import { QuotaBadges } from "../components/QuotaBadge";
 import { Spinner } from "../components/Spinner";
+import { Toggle } from "../components/Toggle";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
@@ -262,26 +267,17 @@ function EditProviderModal({
 						>
 							Enabled
 						</label>
-						<button
-							type="button"
-							role="switch"
-							aria-checked={formData.enabled}
-							onClick={() =>
+						<Toggle
+							checked={formData.enabled}
+							onChange={(v) =>
 								setFormData({
 									...formData,
-									enabled: !formData.enabled,
+									enabled: v,
 								})
 							}
-							className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-(--accent) focus:ring-offset-2 focus:ring-offset-gray-800 ${
-								formData.enabled ? "bg-(--accent)" : "bg-gray-600"
-							}`}
-						>
-							<span
-								className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-									formData.enabled ? "translate-x-6" : "translate-x-1"
-								}`}
-							/>
-						</button>
+							showFocusRing
+							ariaLabel="Provider enabled"
+						/>
 					</div>
 
 					<div className="flex space-x-3 justify-end pt-4">
@@ -635,63 +631,55 @@ export function Providers() {
 	const allProvidersCount = providers?.length ?? 0;
 
 	if (isLoading) {
-		return (
-			<div className="flex items-center justify-center h-64">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
-			</div>
-		);
+		return <LoadingSpinner />;
 	}
 
 	return (
 		<div className="space-y-6">
-			<div className="flex justify-between items-center">
-				<div>
-					<div className="flex items-center gap-3">
-						<PlugZap size={28} strokeWidth={2} className="text-(--accent)" />
-						<h1 className="text-2xl font-bold text-(--text-primary)">
-							Providers
-						</h1>
-					</div>
-					<p className="text-gray-400">Manage your provider configurations</p>
-				</div>
-				<div className="flex items-center gap-3">
-					<button
-						type="button"
-						onClick={() => discoverAllMutation.mutate()}
-						disabled={discoverAllMutation.isPending || discoveringId !== null}
-						className="ui-btn ui-btn-secondary"
-					>
-						{discoverAllMutation.isPending ? (
-							<>
-								<Spinner /> Discovering...
-							</>
-						) : (
-							"Discover All Models"
-						)}
-					</button>
-					<button
-						type="button"
-						onClick={() => refreshQuotasMutation.mutate()}
-						disabled={refreshQuotasMutation.isPending}
-						className="ui-btn ui-btn-secondary"
-					>
-						{refreshQuotasMutation.isPending ? (
-							<>
-								<Spinner /> Refreshing...
-							</>
-						) : (
-							"Refresh Quotas/Balances"
-						)}
-					</button>
-					<button
-						type="button"
-						onClick={() => setShowModal(true)}
-						className="ui-btn ui-btn-primary"
-					>
-						+ Add Provider
-					</button>
-				</div>
-			</div>
+			<PageHeader
+				icon={PlugZap}
+				title="Providers"
+				description="Manage your provider configurations"
+				actions={
+					<>
+						<button
+							type="button"
+							onClick={() => discoverAllMutation.mutate()}
+							disabled={discoverAllMutation.isPending || discoveringId !== null}
+							className="ui-btn ui-btn-secondary"
+						>
+							{discoverAllMutation.isPending ? (
+								<>
+									<Spinner /> Discovering...
+								</>
+							) : (
+								"Discover All Models"
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={() => refreshQuotasMutation.mutate()}
+							disabled={refreshQuotasMutation.isPending}
+							className="ui-btn ui-btn-secondary"
+						>
+							{refreshQuotasMutation.isPending ? (
+								<>
+									<Spinner /> Refreshing...
+								</>
+							) : (
+								"Refresh Quotas/Balances"
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={() => setShowModal(true)}
+							className="ui-btn ui-btn-primary"
+						>
+							+ Add Provider
+						</button>
+					</>
+				}
+			/>
 
 			<div className="flex items-center justify-between gap-2">
 				<FilterInput
@@ -882,17 +870,13 @@ export function Providers() {
 				{filteredProviders?.length === 0 &&
 					providers &&
 					providers.length > 0 && (
-						<div className="col-span-full text-center py-12 ui-card">
-							<p className="text-gray-500">
-								No providers match the selected filter.
-							</p>
+						<div className="col-span-full">
+							<EmptyState message="No providers match the selected filter." />
 						</div>
 					)}
 				{providers?.length === 0 && (
-					<div className="col-span-full text-center py-12 ui-card">
-						<p className="text-gray-500">
-							No providers configured. Add your first provider to get started.
-						</p>
+					<div className="col-span-full">
+						<EmptyState message="No providers configured. Add your first provider to get started." />
 					</div>
 				)}
 			</div>
@@ -1137,36 +1121,13 @@ export function Providers() {
 			)}
 
 			{deleteProvider && (
-				<Modal
-					title="Delete Provider"
-					onClose={() => setDeleteProvider(null)}
-					maxWidth="max-w-sm"
-				>
-					<p className="text-sm text-gray-300 mb-4">
-						Are you sure you want to delete{" "}
-						<span className="text-white font-medium">
-							{deleteProvider.name}
-						</span>
-						? This cannot be undone.
-					</p>
-					<div className="flex gap-3 justify-end">
-						<button
-							type="button"
-							onClick={() => setDeleteProvider(null)}
-							className="ui-btn ui-btn-secondary"
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							onClick={() => deleteMutation.mutate(deleteProvider.id)}
-							disabled={deleteMutation.isPending}
-							className="ui-btn ui-btn-danger"
-						>
-							{deleteMutation.isPending ? "Deleting…" : "Delete"}
-						</button>
-					</div>
-				</Modal>
+				<DeleteConfirmModal
+					entityName={deleteProvider.name}
+					entityType="provider"
+					isPending={deleteMutation.isPending}
+					onConfirm={() => deleteMutation.mutate(deleteProvider.id)}
+					onCancel={() => setDeleteProvider(null)}
+				/>
 			)}
 		</div>
 	);

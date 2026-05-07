@@ -18,8 +18,7 @@ import (
 )
 
 func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	apiBase := strings.TrimSuffix(strings.TrimSuffix(baseURL, "/"), "/v1")
+	apiBase := util.SanitizeAPIURL(provider.BaseURL)
 
 	tagsURL := apiBase + "/api/tags"
 	req, err := http.NewRequestWithContext(ctx, "GET", tagsURL, nil)

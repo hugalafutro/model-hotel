@@ -7,8 +7,10 @@ import { CapBadge } from "../components/CapBadge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyablePill } from "../components/CopyablePill";
 import { CAP_META, hasCap } from "../components/capMeta";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
 import { ModelTable } from "../components/ModelTable";
+import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { formatNumber, formatRelativeTime } from "../utils/format";
@@ -870,35 +872,29 @@ export function Models() {
 	});
 
 	if (isLoading) {
-		return (
-			<div className="flex items-center justify-center h-64">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
-			</div>
-		);
+		return <LoadingSpinner />;
 	}
 
 	const totalEnabled = models?.filter((m) => m.enabled).length ?? 0;
 	const totalDisabled = (models?.length ?? 0) - totalEnabled;
 	const allSameState = totalEnabled === 0 || totalDisabled === 0;
 
+	const modelBadge = !allSameState ? (
+		<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+			<span className="text-green-400">{totalEnabled} enabled</span>
+			<span className="text-gray-600">/</span>
+			<span className="text-red-400">{totalDisabled} disabled</span>
+		</span>
+	) : undefined;
+
 	return (
 		<div className="space-y-4">
-			<div>
-				<div className="flex items-center gap-3">
-					<Bot size={28} strokeWidth={2} className="text-(--accent)" />
-					<h1 className="text-2xl font-bold text-(--text-primary)">
-						{models?.length ?? 0} Models
-					</h1>
-					{!allSameState && (
-						<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
-							<span className="text-green-400">{totalEnabled} enabled</span>
-							<span className="text-gray-600">/</span>
-							<span className="text-red-400">{totalDisabled} disabled</span>
-						</span>
-					)}
-				</div>
-				<p className="text-gray-400">Discovered models from your providers</p>
-			</div>
+			<PageHeader
+				icon={Bot}
+				title={`${models?.length ?? 0} Models`}
+				description="Discovered models from your providers"
+				badge={modelBadge}
+			/>
 
 			<ModelTable
 				models={models ?? []}

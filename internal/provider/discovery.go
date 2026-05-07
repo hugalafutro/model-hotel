@@ -34,6 +34,38 @@ func NewDiscoveryService() *DiscoveryService {
 	}
 }
 
+// fetchURL makes an HTTP request with the given headers, reads the full
+// response body, and checks for a 200 OK status. Returns the response body
+// bytes on success. The caller is responsible for unmarshaling the result.
+func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, headers http.Header) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	for k, vs := range headers {
+		for _, v := range vs {
+			req.Header.Add(k, v)
+		}
+	}
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, util.SanitizeLogBody(string(bodyBytes), 2000))
+	}
+
+	return bodyBytes, nil
+}
+
 // DetectProviderType parses the provider's base URL and returns a type string
 // based on the hostname and (for some providers) the URL path. It uses exact
 // host matching and suffix matching so that "https://my-proxy.deepseek.com"

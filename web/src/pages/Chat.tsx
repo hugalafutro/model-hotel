@@ -33,6 +33,7 @@ import { MarkdownContent } from "../components/MarkdownContent";
 import { ModelDetailPanel } from "../components/ModelDetailPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ModelReplyCard } from "../components/ModelReplyCard";
+import { PageHeader } from "../components/PageHeader";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { SubModeToggle } from "../components/SubModeToggle";
 import { useSidebarMode } from "../context/SidebarModeContext";
@@ -1198,38 +1199,22 @@ export function Chat() {
 		return "";
 	}, [chatSubMode, selectedModel, selectedModelB, input, conversationState]);
 
+	const chatIcon = chatSubMode === "chat" ? MessageSquare : MessagesSquare;
+
 	return (
 		<div
 			className={`flex flex-col gap-6 min-h-[calc(100vh-64px)] ${chatSubMode === "conversation" ? "" : "lg:h-[calc(100vh-64px)] lg:overflow-hidden"}`}
 		>
 			{/* Header */}
-			<div className="flex justify-between items-center shrink-0">
-				<div>
-					<div className="flex items-center gap-3">
-						{chatSubMode === "chat" ? (
-							<MessageSquare
-								size={28}
-								strokeWidth={2}
-								className="text-(--accent)"
-							/>
-						) : (
-							<MessagesSquare
-								size={28}
-								strokeWidth={2}
-								className="text-(--accent)"
-							/>
-						)}
-						<h1 className="text-2xl font-bold text-(--text-primary)">
-							{chatSubMode === "chat" ? "Chat" : "Conversation"}
-						</h1>
-					</div>
-					<p className="text-gray-400">
-						{chatSubMode === "chat"
-							? "Test enabled models in temporary chat"
-							: "Watch two models converse with each other"}
-					</p>
-				</div>
-			</div>
+			<PageHeader
+				icon={chatIcon}
+				title={chatSubMode === "chat" ? "Chat" : "Conversation"}
+				description={
+					chatSubMode === "chat"
+						? "Test enabled models in temporary chat"
+						: "Watch two models converse with each other"
+				}
+			/>
 
 			{/* Controls */}
 			<div className="ui-card p-4 shrink-0">

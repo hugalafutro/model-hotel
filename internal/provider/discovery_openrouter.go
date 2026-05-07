@@ -21,28 +21,14 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	url := fmt.Sprintf("%s/models", baseURL)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+apiKey)
+	headers.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
 	if err != nil {
 		debuglog.Error("discovery: openrouter http request failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: openrouter non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var orResp OpenRouterModelsResponse
