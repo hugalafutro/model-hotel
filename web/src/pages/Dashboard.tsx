@@ -1023,9 +1023,7 @@ export function Dashboard() {
 		queryClient.invalidateQueries({
 			queryKey: ["stats-provider-distribution"],
 		});
-		queryClient.invalidateQueries({ queryKey: ["stats-top-models"] });
-		queryClient.invalidateQueries({ queryKey: ["stats-top-providers"] });
-		queryClient.invalidateQueries({ queryKey: ["stats-top-virtual-keys"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-tokens"] });
 		toast("Refreshing dashboard…", "info");
 		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
@@ -1116,37 +1114,9 @@ export function Dashboard() {
 		refetchInterval: dashboardRefreshMs,
 	});
 
-	const { data: modelStats, isLoading: modelStatsLoading } = useQuery({
-		queryKey: ["stats-top-models", usageRange, usageMetric, excludeDeleted],
-		queryFn: () =>
-			api.stats.get({
-				period: usageRange,
-				metric: usageMetric,
-				excludeDeleted,
-			}),
-		placeholderData: (prev) => prev,
-		refetchInterval: dashboardRefreshMs,
-	});
-
-	const { data: providerStats, isLoading: providerStatsLoading } = useQuery({
-		queryKey: ["stats-top-providers", usageRange, usageMetric, excludeDeleted],
-		queryFn: () =>
-			api.stats.get({
-				period: usageRange,
-				metric: usageMetric,
-				excludeDeleted,
-			}),
-		placeholderData: (prev) => prev,
-		refetchInterval: dashboardRefreshMs,
-	});
-
-	const { data: vkStats, isLoading: vkStatsLoading } = useQuery({
-		queryKey: [
-			"stats-top-virtual-keys",
-			usageRange,
-			usageMetric,
-			excludeDeleted,
-		],
+	// Single query for all usage bar panels (by model, provider, virtual key)
+	const { data: usageStats, isLoading: usageStatsLoading } = useQuery({
+		queryKey: ["stats-usage", usageRange, usageMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
 				period: usageRange,
@@ -1274,8 +1244,8 @@ export function Dashboard() {
 
 	// Format usage panels from their respective range queries.
 	// Filter out zero-value entries so NULL/empty aggregates don't clutter the UI.
-	const byModel = modelStats
-		? Object.entries(modelStats.by_model)
+	const byModel = usageStats
+		? Object.entries(usageStats.by_model)
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
@@ -1285,8 +1255,8 @@ export function Dashboard() {
 					suffix: usageMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
-	const byProvider = providerStats
-		? Object.entries(providerStats.by_provider)
+	const byProvider = usageStats
+		? Object.entries(usageStats.by_provider)
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
@@ -1296,8 +1266,8 @@ export function Dashboard() {
 					suffix: usageMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
-	const byVK = vkStats
-		? Object.entries(vkStats.by_virtual_key)
+	const byVK = usageStats
+		? Object.entries(usageStats.by_virtual_key)
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
@@ -1612,7 +1582,7 @@ export function Dashboard() {
 					onRangeChange={setUsageRange}
 					metric={usageMetric}
 					onMetricChange={setUsageMetric}
-					loading={modelStatsLoading}
+					loading={usageStatsLoading}
 					onEntryClick={handleModelClick}
 				/>
 				<UsageBarPanel
@@ -1623,7 +1593,7 @@ export function Dashboard() {
 					onRangeChange={setUsageRange}
 					metric={usageMetric}
 					onMetricChange={setUsageMetric}
-					loading={providerStatsLoading}
+					loading={usageStatsLoading}
 				/>
 				<UsageBarPanel
 					title="Top Virtual Keys"
@@ -1633,7 +1603,7 @@ export function Dashboard() {
 					onRangeChange={setUsageRange}
 					metric={usageMetric}
 					onMetricChange={setUsageMetric}
-					loading={vkStatsLoading}
+					loading={usageStatsLoading}
 				/>
 			</div>
 
