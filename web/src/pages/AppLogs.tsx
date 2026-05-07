@@ -410,7 +410,7 @@ export function AppLogs() {
 													{entry.source}
 												</span>
 											) : (
-												<span className="text-gray-600">—</span>
+												<span className="text-gray-600">-</span>
 											)}
 										</td>
 										<td
@@ -425,7 +425,7 @@ export function AppLogs() {
 									colSpan={4}
 									message={
 										totalItems === 0
-											? "No log entries yet — logs will appear here as the server generates output"
+											? "No log entries yet - logs will appear here as the server generates output"
 											: "No entries match your filter"
 									}
 								/>

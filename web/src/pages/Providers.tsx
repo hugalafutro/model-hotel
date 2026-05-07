@@ -515,7 +515,7 @@ export function Providers() {
 							newProvider.id,
 						);
 						toast(
-							`OpenRouter balance detected: $${orBalance.credits_remaining?.toFixed(2) ?? "—"}`,
+							`OpenRouter balance detected: $${orBalance.credits_remaining?.toFixed(2) ?? "-"}`,
 							"info",
 						);
 						queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
@@ -1025,7 +1025,7 @@ export function Providers() {
 									className="ui-input pr-10! overflow-hidden"
 									placeholder={
 										providerTypeAllowsEmptyKey(formData.provider_type)
-											? "Optional — free models work without a key"
+											? "Optional - free models work without a key"
 											: "API key"
 									}
 								/>

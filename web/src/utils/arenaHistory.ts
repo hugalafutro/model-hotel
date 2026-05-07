@@ -27,8 +27,8 @@ export interface HistoryResponse {
 export interface HistoryMatchupSlot {
 	modelId: string;
 	// Only store preset persona references, never the actual custom text
-	personaId: string | null; // preset ID like "merlin", "sarge" etc. — null means custom/none
-	// personaPrompt is deliberately OMITTED for privacy — it could contain user-written text
+	personaId: string | null; // preset ID like "merlin", "sarge" etc. - null means custom/none
+	// personaPrompt is deliberately OMITTED for privacy - it could contain user-written text
 	params?: Record<string, unknown>;
 }
 
@@ -51,7 +51,7 @@ export interface ArenaHistoryEntry {
 	timestamp: number;
 	mode: HistoryMode;
 	// For preset prompts: store the preset ID only, never the user's custom prompt text
-	promptPresetId: string | null; // e.g. "dilemma", "lore", "hook" — null means custom prompt (not stored)
+	promptPresetId: string | null; // e.g. "dilemma", "lore", "hook" - null means custom prompt (not stored)
 	// personaId for compare mode global persona (preset only)
 	comparePersonaId: string | null;
 	// Competition bracket results
@@ -106,7 +106,7 @@ interface BracketRoundInput {
 }
 
 // ---------------------------------------------------------------------------
-// Known preset IDs — used to determine whether a personaId is a preset or custom
+// Known preset IDs - used to determine whether a personaId is a preset or custom
 // ---------------------------------------------------------------------------
 
 const KNOWN_PERSONA_IDS = new Set([
@@ -271,7 +271,7 @@ export function saveArenaHistory(entry: ArenaHistoryEntry): void {
 		}
 		localStorage.setItem(ARENA_HISTORY_KEY, JSON.stringify(history));
 	} catch {
-		// Silently ignore — history is non-critical
+		// Silently ignore - history is non-critical
 	}
 }
 
@@ -328,7 +328,7 @@ export function saveCompetitionToHistory(
 		id: generateHistoryId(),
 		timestamp: Date.now(),
 		mode: "competition",
-		// Only store the preset prompt ID — never the custom text
+		// Only store the preset prompt ID - never the custom text
 		promptPresetId: isPresetPromptId(promptPresetId) ? promptPresetId : null,
 		// Only store the preset persona ID
 		comparePersonaId: isPresetPersonaId(comparePersonaId)
@@ -364,7 +364,7 @@ export function saveCompareToHistory(args: SaveCompareToHistoryArgs): void {
 		id: generateHistoryId(),
 		timestamp: Date.now(),
 		mode: "compare",
-		// Only store the preset prompt ID — never the custom text
+		// Only store the preset prompt ID - never the custom text
 		promptPresetId: isPresetPromptId(promptPresetId) ? promptPresetId : null,
 		// Only store the preset persona ID
 		comparePersonaId: isPresetPersonaId(comparePersonaId)

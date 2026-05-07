@@ -215,7 +215,7 @@ export function ArenaHistoryModal({
 											)}
 										</span>
 										<span className="text-(--text-tertiary) ml-1 min-w-5 text-center">
-											{mu.vote ? `→ ${mu.vote}` : "—"}
+											{mu.vote ? `→ ${mu.vote}` : "-"}
 										</span>
 									</div>
 								);

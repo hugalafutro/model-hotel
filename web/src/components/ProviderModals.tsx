@@ -549,7 +549,7 @@ export function OpenRouterQuotaModal({
 							{balance.limit > 0
 								? `${(((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% remaining`
 								: balance.limit === 0
-									? "$0 limit — spending blocked"
+									? "$0 limit - spending blocked"
 									: "No limit set"}
 							{balance.limit_reset
 								? ` · Resets ${formatTimestamp(balance.limit_reset)} - ${formatTimeUntil(new Date(balance.limit_reset).getTime())}`

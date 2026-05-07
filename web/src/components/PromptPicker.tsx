@@ -66,7 +66,7 @@ export function PromptPicker({
 	const handleSelect = useCallback(
 		(preset: ArenaPromptPreset) => {
 			if (prompt.trim() && activePromptId === null) {
-				// User has custom text — confirm before overwriting
+				// User has custom text - confirm before overwriting
 				setPendingPrompt(preset);
 				return;
 			}
@@ -85,7 +85,7 @@ export function PromptPicker({
 
 	const handleCustom = useCallback(() => {
 		if (activePromptId !== null) {
-			// A preset is active — warn that switching to custom will clear
+			// A preset is active - warn that switching to custom will clear
 			setPendingPrompt({
 				id: "__custom__",
 				icon: "✏️",
@@ -187,7 +187,7 @@ export function PromptPicker({
 						maxLength={maxLength}
 						className="ui-input w-full resize-y max-h-32 min-h-11 overflow-y-auto mt-1.5"
 						disabled={disabled}
-						// biome-ignore lint/a11y/noAutofocus: intentional UX — auto-focuses the input when the modal/picker opens
+						// biome-ignore lint/a11y/noAutofocus: intentional UX - auto-focuses the input when the modal/picker opens
 						autoFocus={autoFocus}
 						id="prompt-picker-textarea"
 					/>

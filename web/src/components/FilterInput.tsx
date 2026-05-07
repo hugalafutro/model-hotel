@@ -29,7 +29,7 @@ export const FilterInput = memo(function FilterInput({
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				disabled={disabled}
-				// biome-ignore lint/a11y/noAutofocus: intentional UX — auto-focuses the input when the modal/picker opens
+				// biome-ignore lint/a11y/noAutofocus: intentional UX - auto-focuses the input when the modal/picker opens
 				autoFocus={autoFocus}
 				className="ui-input h-9 py-0! w-full pr-7! disabled:opacity-50 disabled:cursor-not-allowed"
 			/>

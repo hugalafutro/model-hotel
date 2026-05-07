@@ -54,7 +54,7 @@ export function useLocalStorage<T>(
 					try {
 						localStorage.setItem(key, serializeRef.current(nextValue));
 					} catch {
-						/* quota exceeded — silently ignore */
+						/* quota exceeded - silently ignore */
 					}
 				}
 				return nextValue;

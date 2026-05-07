@@ -24,7 +24,7 @@ const VARIANT_CLASSES: Record<QuotaBadgeVariant, string> = {
 	card: "px-2 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors",
 };
 
-/** Type-safe prefix lookup — backed by the central brand map. */
+/** Type-safe prefix lookup - backed by the central brand map. */
 const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	nanogpt: PROVIDER_PREFIXES.nanogpt,
 	"zai-coding": PROVIDER_PREFIXES["zai-coding"],
@@ -64,7 +64,7 @@ function nanoBadgeContent(
 ): BadgeContent {
 	return {
 		label: `${formatTokens(weeklyUsed)}/${formatTokens(weeklyLimit)}`,
-		title: "NanoGPT weekly token quota — click for details",
+		title: "NanoGPT weekly token quota - click for details",
 	};
 }
 
@@ -74,7 +74,7 @@ function zaiCodingBadgeContent(
 	const fiveHour = getZaiCodingFiveHourLimit(usage);
 	const weekly = getZaiCodingWeeklyLimit(usage);
 	const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
-	return { label, title: "Z.ai Coding Plan token quota — click for details" };
+	return { label, title: "Z.ai Coding Plan token quota - click for details" };
 }
 
 function deepseekBadgeContent(
@@ -85,13 +85,13 @@ function deepseekBadgeContent(
 		(b: DeepSeekBalanceInfo) => b.currency === "USD",
 	)?.total_balance;
 	const label = variant === "sidebar" ? `$ ${usd ?? "-"}` : `${usd ?? "-"} USD`;
-	return { label, title: "DeepSeek balance — click for details" };
+	return { label, title: "DeepSeek balance - click for details" };
 }
 
 function openRouterBadgeContent(balance: OpenRouterBalance): BadgeContent {
 	return {
 		label: `$${balance.credits_remaining?.toFixed(2) ?? "-"}`,
-		title: "OpenRouter key balance — click for details",
+		title: "OpenRouter key balance - click for details",
 	};
 }
 
@@ -169,7 +169,7 @@ interface QuotaBadgesProps {
 	/**
 	 * When provided, only renders the badge matching this provider's type.
 	 * Use on provider cards so each card only shows its own quota badge.
-	 * Omit (or undefined) to show all visible badges — used by the sidebar panel.
+	 * Omit (or undefined) to show all visible badges - used by the sidebar panel.
 	 */
 	providerBaseUrl?: string;
 	onNanoClick?: () => void;

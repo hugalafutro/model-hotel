@@ -1488,7 +1488,7 @@ export function Dashboard() {
 				/>
 			</div>
 
-			{/* Time-series charts row — selected metric renders first */}
+			{/* Time-series charts row - selected metric renders first */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{globalMetric === "requests" ? (
 					<>

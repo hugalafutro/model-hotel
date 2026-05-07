@@ -8,34 +8,45 @@ The standard chat interface for interactive model testing with a single model.
 
 ### Features
 
-- **Model picker** — Select any discovered model with search and filtering. Collapsible sections for provider grouping.
-- **System personas** — Choose from preset characters or enter a custom system prompt via `PersonaPicker`:
-  - **Configurable** — Custom system prompt, all parameters adjustable
-  - **Code Helper** — Optimized for programming tasks
-  - **Concise** — Brief, to-the-point responses
-  - **Savant** — Detailed, thorough explanations
-- **Generation parameters** — All 7 parameters are adjustable:
-  1. `temperature` — Randomness (0–2, step 0.01)
-  2. `top_p` — Nucleus sampling (0–1, step 0.01)
-  3. `max_tokens` — Maximum output length (1–32768, step 1)
-  4. `min_p` — Minimum probability threshold (0–1, step 0.01)
-  5. `top_k` — Top-K sampling (1–100, step 1)
-  6. `frequency_penalty` — Frequency penalty (−2 to 2, step 0.01)
-  7. `presence_penalty` — Presence penalty (−2 to 2, step 0.01)
-- **Streaming responses** — Real-time token streaming with thinking block rendering (separate collapsible section for reasoning models)
-- **Message controls** — Copy, delete, regenerate, stop generating
-- **Message display** — User messages with images show the thumbnail inline above the text. Audio attachments show a format badge (e.g., "WAV audio").
-- **Model detail pill** — Inline model info with parameter display
-- **Auto-resize textarea** — Expands as you type, shift+enter for newline
-- **Conversation context** — Full multi-turn conversation with the model
-- **Multimodal input** — Image and audio attachment support:
-  - **Image upload** — When a vision-capable model is selected (`capabilities.vision`), an image icon appears next to the input. Select an image file (up to 20 MB) and it's sent as an OpenAI-compatible `image_url` content part with base64 data. A thumbnail preview appears above the textarea with a remove button.
-  - **Audio upload** — When an audio-capable model is selected (`capabilities.audio_input`), a mic icon appears next to the input. Select an audio file (up to 25 MB) and it's sent as an OpenAI-compatible `input_audio` content part with base64 data (format auto-detected from file extension). An audio indicator chip appears above the textarea with a remove button.
-  - Only one attachment at a time — selecting an image clears any pending audio and vice versa. Messages can be sent with just an attachment (no text required), or with both text and an attachment. If text is present, it's placed after the media part in the content array (most providers expect text after media).
+- **Model picker** - Select any discovered model with search and filtering. Collapsible sections for provider grouping.
+- **System personas** - Choose from preset characters or enter a custom system prompt via `PersonaPicker`:
+  - **Merlin 🧙** - Wise, archaic-speaking wizard
+  - **Madame Vex 🔮** - Dramatic, cryptic fortune teller
+  - **Sarge 🦾** - Gruff, no-nonsense drill sergeant
+  - **Auntie Wei 🍵** - Warm, nurturing, traditional wisdom
+  - **Grimm 💀** - Morbidly cheerful goth
+  - **Kairos 🎙️** - Energetic sports commentator
+  - **Phreak 📡** - Paranoia-laced hacker persona
+  - **Chef Roux 🍳** - French culinary artist
+  - **Unit 734 🤖** - Clinical AI assistant
+  - **Elder Bramble 🌳** - Ancient nature spirit
+  - **Nera 📰** - Hard-boiled investigative journalist
+  - **Oolo 🃏** - Mischevious jester
+  - **Dr. Maren 🔭** - Enthusiastic scientist
+  - **Nonna Pia 🍝** - Italian grandmother
+  - **Whisper 🔤** - Minimalist, single-word responses
+- **Generation parameters** - All 7 parameters are adjustable:
+  1. `temperature` - Randomness (0–2, step 0.01)
+  2. `top_p` - Nucleus sampling (0–1, step 0.01)
+  3. `max_tokens` - Maximum output length (1–32768, step 1)
+  4. `min_p` - Minimum probability threshold (0–1, step 0.01)
+  5. `top_k` - Top-K sampling (1–100, step 1)
+  6. `frequency_penalty` - Frequency penalty (−2 to 2, step 0.01)
+  7. `presence_penalty` - Presence penalty (−2 to 2, step 0.01)
+- **Streaming responses** - Real-time token streaming with thinking block rendering (separate collapsible section for reasoning models)
+- **Message controls** - Copy, delete, regenerate, stop generating
+- **Message display** - User messages with images show the thumbnail inline above the text. Audio attachments show a format badge (e.g., "WAV audio").
+- **Model detail pill** - Inline model info with parameter display
+- **Auto-resize textarea** - Expands as you type, shift+enter for newline
+- **Conversation context** - Full multi-turn conversation with the model
+- **Multimodal input** - Image and audio attachment support:
+  - **Image upload** - When a vision-capable model is selected (`capabilities.vision`), an image icon appears next to the input. Select an image file (up to 20 MB) and it's sent as an OpenAI-compatible `image_url` content part with base64 data. A thumbnail preview appears above the textarea with a remove button.
+  - **Audio upload** - When an audio-capable model is selected (`capabilities.audio_input`), a mic icon appears next to the input. Select an audio file (up to 25 MB) and it's sent as an OpenAI-compatible `input_audio` content part with base64 data (format auto-detected from file extension). An audio indicator chip appears above the textarea with a remove button.
+  - Only one attachment at a time - selecting an image clears any pending audio and vice versa. Messages can be sent with just an attachment (no text required), or with both text and an attachment. If text is present, it's placed after the media part in the content array (most providers expect text after media).
 
 ### Chat API
 
-Chat uses the admin API at `/api/chat/chat` (admin-authenticated proxy to the provider). This bypasses virtual key requirements — the admin token is used for authentication. The proxy is a transparent pass-through — multimodal content (image/audio parts) is forwarded as-is to the upstream provider without any transformation.
+Chat uses the admin API at `/api/chat/chat` (admin-authenticated proxy to the provider). This bypasses virtual key requirements - the admin token is used for authentication. The proxy is a transparent pass-through - multimodal content (image/audio parts) is forwarded as-is to the upstream provider without any transformation.
 
 ## Conversation Mode
 
@@ -51,9 +62,9 @@ Chat also supports a **Conversation mode** where two models (Model A and Model B
 
 ### Configuration
 
-- **Max Turns** — Number of back-and-forth exchanges (each model's response counts as one turn). The total messages = `maxTurns × 2`
-- **Turn Delay** — Configurable delay (ms) between model turns
-- **Model A / Model B** — Each can be any enabled model from the picker
+- **Max Turns** - Number of back-and-forth exchanges (each model's response counts as one turn). The total messages = `maxTurns × 2`
+- **Turn Delay** - Configurable delay (ms) between model turns
+- **Model A / Model B** - Each can be any enabled model from the picker
 
 ### State Persistence
 
@@ -65,9 +76,9 @@ Chat also supports a **Conversation mode** where two models (Model A and Model B
 
 Messages from the opposite model are re-labeled with `user` role so each model only sees a single alternating dialogue. If a system persona is set, it's prepended as the first message.
 
-> 📸 **Screenshot needed:** Chat page — showing the model picker, persona selector, parameter panel, and a streaming response with thinking block expanded.
+> 📸 **Screenshot needed:** Chat page - showing the model picker, persona selector, parameter panel, and a streaming response with thinking block expanded.
 
-> 📸 **Screenshot needed:** Chat page — Conversation mode active, showing two models alternating with Model A and Model B labels.
+> 📸 **Screenshot needed:** Chat page - Conversation mode active, showing two models alternating with Model A and Model B labels.
 
 ---
 
@@ -77,7 +88,7 @@ When models return reasoning/thinking content, the UI detects and renders it as 
 
 ### Detectable Formats
 
-1. **Fence format:** `<<\n...thinking content...\n>>` — content between `<<` and `>>` delimiters
+1. **Fence format:** `<<\n...thinking content...\n>>` - content between `<<` and `>>` delimiters
 2. **XML tag format:** `<thinking>...</thinking>` (also matches `<thought>`, `<start_thought>`, ` thinking`)
 
 ### Rendering
@@ -87,7 +98,7 @@ When models return reasoning/thinking content, the UI detects and renders it as 
 - When open: shows thinking content in a scrollable container (max-height: 60vh)
 - During streaming: text pulses with the accent color animation
 
-> 📸 **Screenshot needed:** Thinking block — collapsed state showing the brain icon, and expanded state showing reasoning content.
+> 📸 **Screenshot needed:** Thinking block - collapsed state showing the brain icon, and expanded state showing reasoning content.
 
 ---
 
@@ -99,49 +110,69 @@ Compare models with structured evaluation. Arena has **two sub-modes**: **Compet
 
 Run a bracket-style tournament between two groups of models:
 
-1. Select models for the bracket (up to 16 models)
+1. Select models for the bracket (up to 8 models (2, 4, or 8 for bracket))
 2. Choose an **arena prompt** (preset or custom) via `PromptPicker`
 3. Set generation parameters (global for all matchups, or per-slot via `ParamEditorModal`)
 4. Click **Run Arena**
 
-The system generates bracket matchups between pairs. After each matchup, you **vote** for the better response. The tournament auto-advances through rounds — winners proceed to the next bracket round. Eventually crowns a champion.
+The system generates bracket matchups between pairs. After each matchup, you **vote** for the better response. The tournament auto-advances through rounds - winners proceed to the next bracket round. Eventually crowns a champion.
 
 Competition mode has its own prompt, active prompt ID, and persona settings stored in localStorage (separate from Compare mode).
 
 **Built-in Arena Prompts:**
-- **Dilemma** — A locked room with a single impossible choice
-- **Lore** — A reluctant deity faces a new religion
-- **Hook** — An impossible-to-stop novel opening paragraph
-- **Blueprint** — Design a pointless but indispensable app
-- **Spiral** — Define "almost" without using synonyms
+- **Dilemma** - A locked room with a single impossible choice
+- **Lore** - A reluctant deity faces a new religion
+- **Hook** - An impossible-to-stop novel opening paragraph
+- **Blueprint** - Design a pointless but indispensable app
+- **Spiral** - Define "almost" without using synonyms
+- **Trolley Problem** - Force a moral choice between two bad outcomes
+- **Algorithm** - Design a fair but incomprehensible decision procedure
+- **Paradox** - Resolve a self-contradictory statement
+- **Integral** - Sum an infinite series of emotions
+- **Contract** - Write a binding agreement with a supernatural entity
+- **Cipher** - Encode a secret in an unbreakable code
+- **Eulogy** - Eulogize a living person for their future legacy
+- **Fork** - Choose between two paths that diverge in a wood
+- **Mosaic** - Tell a story using only碎片 (碎片 = fragments)
+- **Heist** - Plan the perfect bank robbery (fictional only)
 
-> 📸 **Screenshot needed:** Arena page — Competition mode showing a tournament bracket with voting buttons.
+> 📸 **Screenshot needed:** Arena page - Competition mode showing a tournament bracket with voting buttons.
 
 ### Compare Mode (Grid Comparison)
 
 Multi-model comparison without voting:
 
-1. Select one or more models (up to 3)
+1. Select one or more models (up to 6)
 2. Enter any prompt (preset or custom)
-3. See all responses in a **grid layout** (not side-by-side) — responsive columns: 1 on mobile, 2 on medium, 3 on wide screens
+3. See all responses in a **grid layout** (not side-by-side) - responsive columns: 1 on mobile, 2 on medium, 3 on wide screens
 4. Compare metrics (duration, tokens, chars/second)
 
-No tournament or elimination — just side-by-side comparison. Has separate localStorage keys for prompt and persona (independent from Competition mode).
+No tournament or elimination - just side-by-side comparison. Has separate localStorage keys for prompt and persona (independent from Competition mode).
 
 > **Note:** Compare mode uses a `grid` CSS layout (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`), not a simple side-by-side split.
 
-> 📸 **Screenshot needed:** Arena page — Compare mode showing a grid of multiple model responses side by side.
+> 📸 **Screenshot needed:** Arena page - Compare mode showing a grid of multiple model responses side by side.
 
 ### Arena Features
 
-- **Model detail panel** — Click model pills to see full model info (context, pricing, capabilities)
-- **Thinking blocks** — Rendered separately from main response in a collapsible section
-- **Markdown rendering** — Full markdown support in responses
-- **Copy / retry** — Per-response actions
-- **Per-model generation parameters** — Each slot in a matchup can have individual `GenerationParams` (temperature, top_p, etc.) via the `ParamEditorModal`
-- **Personas in Arena** — Both Competition and Compare modes support persona selection via `PersonaPicker`, allowing you to give each model a different system prompt
-- **Auto-advance** — Automatic progression through bracket tournament rounds (built-in behavior, not a user-facing toggle)
-- **Persist state** — Save arena configuration and history to `localStorage`
+- **Model detail panel** - Click model pills to see full model info (context, pricing, capabilities)
+- **Thinking blocks** - Rendered separately from main response in a collapsible section
+- **Markdown rendering** - Full markdown support in responses
+- **Copy / retry** - Per-response actions
+- **Per-model generation parameters** - Each slot in a matchup can have individual `GenerationParams` (temperature, top_p, etc.) via the `ParamEditorModal`
+- **Personas in Arena** - Both Competition and Compare modes support persona selection via `PersonaPicker`, allowing you to give each model a different system prompt
+- **Auto-advance** - Automatic progression through bracket tournament rounds (built-in behavior, not a user-facing toggle)
+
+### Additional Features
+
+- **Model Swap** - Failed models in competition mode can be swapped via `SwapPicker` component
+- **Winner Modal** - `WinnerSummaryModal` displays bracket history and winner after competition
+- **Cancel Slot** - Individual model responses can be cancelled mid-stream
+- **Retry Per Slot** - Re-generate a single model's response without affecting others
+- **Provider Staggering** - Same-provider requests are spaced 300ms apart to avoid rate limiting
+- **Apply Recommended Params** - Button in ParamEditorModal to apply provider's recommended parameters
+
+- **Persist state** - Save arena configuration and history to `localStorage`
 
 ### Arena History Modal
 
@@ -149,9 +180,9 @@ When Arena History is enabled (Settings → Arena History), past session results
 
 - Filterable history view (Competition, Compare, or All)
 - Per-entry detail expansion with model info and responses
-- **Restore** — Reload a past session configuration
-- **Delete** — Remove individual entries
-- **Clear All** — Purge all arena history
+- **Restore** - Reload a past session configuration
+- **Delete** - Remove individual entries
+- **Clear All** - Purge all arena history
 
 ### Arena History Privacy
 
@@ -159,7 +190,7 @@ When Arena History is enabled (Settings → Arena History), session results are 
 
 - **Model-generated responses** are stored locally for review
 - **Preset prompts and personas** are saved by reference only (e.g., "Dilemma preset")
-- **Custom user-entered text is never logged** — only the fact that a custom prompt was used is recorded
+- **Custom user-entered text is never logged** - only the fact that a custom prompt was used is recorded
 - History data never leaves your browser and can be cleared from Settings
 
 ### Arena API

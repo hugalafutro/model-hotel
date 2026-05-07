@@ -1,6 +1,6 @@
 # Synthetic Stress Test for Model Hotel
 
-A black-box stress testing tool that fires concurrent streaming requests through the proxy against a mock OpenAI-compatible upstream — no real provider API keys or spending required.
+A black-box stress testing tool that fires concurrent streaming requests through the proxy against a mock OpenAI-compatible upstream - no real provider API keys or spending required.
 
 ## How It Works
 
@@ -32,6 +32,17 @@ DATABASE_URL=postgres://llmproxy:changeme@localhost:5432/llmproxy \
 The proxy has an **always-on IP rate limiter** (separate from per-key rate limiting) that acts as a DoS safety net. It is configured via environment variables only (`RATE_LIMIT_IP_RPS` and `RATE_LIMIT_IP_BURST`, defaults: 30 RPS / 60 burst) and **cannot be toggled through the settings API**.
 
 The stress test controls **per-key rate limiting** via the `/api/settings` endpoint (the `-rate-limit`, `-rps`, and `-burst` flags). If you see unexpected 429 responses at high concurrency, the IP rate limiter may be the cause. Increase `RATE_LIMIT_IP_RPS`/`RATE_LIMIT_IP_BURST` above your expected aggregate request rate.
+
+## Quick-Start Checklist
+
+Before running, verify each item:
+
+1. **Proxy is running** - `curl http://localhost:8080/api/settings -H "Authorization: Bearer <ADMIN_TOKEN>"` returns settings
+2. **PostgreSQL is up** - `pg_isready -h localhost -p 5432`
+3. **Environment vars set** - `MASTER_KEY`, `DATABASE_URL`, `ALLOW_HTTP_PROVIDERS=true`, `ALLOWED_PROVIDER_HOSTS=localhost`
+4. **IP rate limiter is high enough** - `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` exceed your max aggregate RPS (default 30/60 is fine for ≤100 concurrency)
+5. **Port 9090 is free** - the mock server binds to `:9090` by default
+6. **Admin token** - check `data/admin-token` file or server startup logs
 
 ## Running
 
@@ -93,17 +104,17 @@ The default flag values produce 16 scenarios:
 | 1 | 10 | OFF | 1 | Baseline proxy overhead |
 | 2 | 50 | OFF | 1 | Moderate load, single key |
 | 3 | 100 | OFF | 1 | High concurrency, single key |
-| 4 | 1000 | OFF | 1 | Extreme concurrency — goroutine/transport/DB pool pressure |
+| 4 | 1000 | OFF | 1 | Extreme concurrency - goroutine/transport/DB pool pressure |
 | 5 | 10 | ON | 1 | Rate limiting correctness at low load |
 | 6 | 50 | ON | 1 | Rate limiting under moderate load |
 | 7 | 100 | ON | 1 | Rate limiting under high load |
-| 8 | 1000 | ON | 1 | Rate limiting under extreme load — bucket exhaustion |
-| 9 | 10 | OFF | 10 | Multi-key isolation — no cross-key interference |
+| 8 | 1000 | ON | 1 | Rate limiting under extreme load - bucket exhaustion |
+| 9 | 10 | OFF | 10 | Multi-key isolation - no cross-key interference |
 | 10 | 50 | OFF | 10 | Multi-key at moderate scale |
 | 11 | 100 | OFF | 10 | Multi-key at high scale |
-| 12 | 1000 | OFF | 10 | Multi-key extreme — 10 independent token buckets |
+| 12 | 1000 | OFF | 10 | Multi-key extreme - 10 independent token buckets |
 | 13 | 10 | ON | 10 | Multi-key rate limiting |
-| 14 | 50 | ON | 10 | Multi-key RL at moderate scale — 10 x 10 RPS = 100 RPS aggregate |
+| 14 | 50 | ON | 10 | Multi-key RL at moderate scale - 10 x 10 RPS = 100 RPS aggregate |
 | 15 | 100 | ON | 10 | Multi-key RL at high scale |
 | 16 | 1000 | ON | 10 | Multi-key RL extreme |
 
@@ -120,7 +131,7 @@ The default flag values produce 16 scenarios:
                          request logging          SSE streaming
 ```
 
-The stress test is purely external — it talks to the proxy via HTTP, creates fixtures via the admin API, and measures end-to-end behaviour. No proxy code changes are needed to run it (beyond the loopback allowlist config).
+The stress test is purely external - it talks to the proxy via HTTP, creates fixtures via the admin API, and measures end-to-end behaviour. No proxy code changes are needed to run it (beyond the loopback allowlist config).
 
 ## What Model Hotel Does Per Request
 
@@ -161,25 +172,30 @@ At high concurrency, the IP limiter may trigger before the per-key limiter. If r
 
 Likely bottleneck candidates at high concurrency:
 
-- **Postgres connection pool** (pgxpool MaxConns=25) — 4-5 DB writes per request
-- **Shared http.Transport** — Go defaults (100 total idle conns, 2 per host) may cause connection churn
-- **Rate limiter mutex** — single `sync.Mutex` for all key entries
-- **Goroutine count** — each streaming request holds a goroutine for the full stream duration
+- **Postgres connection pool** (pgxpool MaxConns=25) - 4-5 DB writes per request
+- **Shared http.Transport** - Go defaults (100 total idle conns, 2 per host) may cause connection churn
+- **Rate limiter mutex** - single `sync.Mutex` for all key entries
+- **Goroutine count** - each streaming request holds a goroutine for the full stream duration
 
 ## File Structure
 
 ```
 tools/stress-test/
 +-- main.go              # CLI entry point, scenario orchestration
-+-- go.mod               # Standalone module (stdlib only)
++-- main_test.go         # Unit tests for CLI parsers (parseIntList, parseBoolList, maxInt)
++-- go.mod               # Standalone module (stdlib only, replace directive to ../../)
++-- .golangci.yml        # Linter config
 +-- mock/
 |   +-- server.go        # Mock OpenAI-compatible SSE upstream
+|   +-- server_test.go   # Mock server endpoint tests
 +-- harness/
-|   +-- admin.go         # Admin API helpers (create provider, keys, settings)
+|   +-- admin.go         # Admin API client (create/delete providers, keys, settings)
 |   +-- proxy_client.go  # HTTP client that measures TTFT and streaming latency
 |   +-- runner.go        # Scenario runner (goroutine pool + metrics collection)
+|   +-- harness_test.go  # Unit tests for AdminClient + ProxyClient
 +-- metrics/
     +-- collector.go     # Thread-safe metrics accumulator + percentile calculator
+    +-- collector_test.go # Comprehensive collector + percentile tests
     +-- report.go        # Aggregate stats + formatting (text/markdown/json)
 ```
 
@@ -197,6 +213,18 @@ tools/stress-test/
 | 4 | 1000-conc, RL=false, 1-key, stream=true | 10000 | 9987 | 13 | 423.1/s | 2.1s | 3.8s | 5.2s | 890ms | 2.1s | 200: 9987, 502: 13 |
 | 8 | 1000-conc, RL=true, 1-key, stream=true | 10000 | 4200 | 5800 | 42.1/s | 1.2s | 3.4s | 5.0s | 890ms | 2.1s | 200: 4200, 429: 5800 |
 ```
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `Failed to set up test fixtures: create provider: 500` | Proxy can't reach mock or `ALLOW_HTTP_PROVIDERS` not set | Set `ALLOW_HTTP_PROVIDERS=true` and `ALLOWED_PROVIDER_HOSTS=localhost` |
+| `Failed to start mock server: listen tcp :9090: bind: address already in use` | Another process on port 9090 | Use `-mock-port 9091` or kill the process |
+| All requests return 429 at high concurrency | IP rate limiter is throttling | Increase `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars on the proxy |
+| Discovery fails (`discovery failed`) | Mock server not ready or unreachable | Check mock server logs; ensure it started before the proxy call |
+| `Error: -admin-token is required` | Missing required flag | Pass `-admin-token <TOKEN>` (find it in `data/admin-token` or startup logs) |
+| Stale `stress-mock` provider / `stress-key-*` keys after Ctrl-C | Cleanup defer didn't run | Delete manually via dashboard or API |
+| `connection refused` on proxy | Proxy not running | Start proxy first with required env vars |
 
 ## Cleanup
 

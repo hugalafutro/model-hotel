@@ -12,11 +12,13 @@ Model Hotel auto-detects provider types from base URLs:
 | Anthropic | `api.anthropic.com` | `anthropic` |
 | DeepSeek | `api.deepseek.com` | `deepseek` |
 | NanoGPT | `api.nano-gpt.com` | `nanogpt` |
-| Z.AI | `api.z.ai` | `zai` |
+| Z.AI | `api.z.ai` | `zai-coding` (detection produces this type, not just `zai`) |
 | Ollama | `ollama.com` or `localhost` | `ollama` |
 | OpenCode Zen | `opencode.ai/zen` | `opencode-zen` |
 | OpenCode Go | `opencode.ai/zen/go` | `opencode-go` |
 | OpenRouter | `openrouter.ai` | `openrouter` |
+| KoboldCpp | Port-based | `koboldcpp` (Port-based: `localhost:5001`) |
+| LM Studio | Port-based | `lmstudio` (Port-based: `localhost:1234`) |
 | xAI (Grok) | `api.x.ai` | `xai` |
 | Google AI Studio (Gemini) | `generativelanguage.googleapis.com` | `google` |
 | Cohere | `api.cohere.ai` / `api.cohere.com` | `cohere` |
@@ -55,7 +57,7 @@ Each provider has the following properties:
 4. Click **Create Provider**
 5. Model discovery runs automatically (if `discovery_on_provider_create` is enabled)
 
-> 📸 **Screenshot needed:** Provider creation dialog — showing the form with name, base URL, API key input (with masked display), and provider type auto-detection.
+> 📸 **Screenshot needed:** Provider creation dialog - showing the form with name, base URL, API key input (with masked display), and provider type auto-detection.
 
 ### Via Admin API
 
@@ -122,17 +124,26 @@ curl http://localhost:8081/api/providers/{id}/balance \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-Response:
+Response (actual `DeepSeekBalanceResponse`):
 ```json
 {
-  "balance": 124.50,
-  "currency": "CNY"
+  "is_available": true,
+  "balance_infos": [
+    {
+      "currency": "CNY",
+      "total_balance": "124.50",
+      "granted_balance": "100.00",
+      "topped_up_balance": "24.50"
+    }
+  ]
 }
 ```
 
 **Note**: Balance is fetched on-demand and cached briefly. Displayed in sidebar quota panel if available.
 
-> 📸 **Screenshot needed:** Provider quota panel — showing usage/balance information for a provider that supports quota checking.
+> ⚠️ **Circuit Breaker Note**: Balance/quotas fetches use a circuit breaker with threshold of 5 consecutive failures and 5-minute cooldown before retrying.
+
+> 📸 **Screenshot needed:** Provider quota panel - showing usage/balance information for a provider that supports quota checking.
 
 ### Z.AI & NanoGPT Usage
 
@@ -144,13 +155,8 @@ curl http://localhost:8081/api/providers/{id}/usage \
 ```
 
 Response:
-```json
-{
-  "quota": 1000000,
-  "used": 234567,
-  "remaining": 765433
-}
-```
+- NanoGPT uses `NanoGPTUsageResponse` with per-period limits, daily/weekly token tracking, and image quotas
+- Z.AI uses `ZAICodingQuotaResponse` with a `limits[]` array containing per-model usage data, not a simple quota/used/remaining structure
 
 ### Refresh All Quotas
 
@@ -169,7 +175,7 @@ To create a keyless provider:
 
 1. Leave **API Key** field empty when creating the provider
 2. `encrypted_key` is stored as an empty byte array (`len(prov.EncryptedKey) == 0`)
-3. During proxy resolution, keyless providers skip decryption entirely — the API key is sent as an empty string
+3. During proxy resolution, keyless providers skip decryption entirely - the API key is sent as an empty string
 4. Rate limits and quotas still apply
 
 ## OpenRouter
@@ -185,6 +191,26 @@ OpenRouter is auto-detected from base URLs containing `openrouter` (e.g., `https
 - **Balance checking**: OpenRouter exposes balance information via `/api/v1/credits` (total credits and usage) and `/api/v1/key` (rate limits, usage limits, free tier status). Available through the `GET /api/providers/{id}/balance` endpoint and displayed in the sidebar quota panel.
 - **Model discovery**: Uses `GET /api/v1/models` (see [Model Discovery](Model-Discovery.md) for details).
 - **Quota display**: The frontend shows OpenRouter balance details including credits remaining, rate limit usage, and free tier status.
+
+### Balance Response Structure
+
+OpenRouter balance information via `GET /api/providers/{id}/balance`:
+```json
+{
+  "Label": "Free Tier",
+  "Limit": 1000,
+  "LimitReset": "2024-01-01T00:00:00Z",
+  "LimitRemaining": 850,
+  "Usage": 150,
+  "UsageDaily": 10,
+  "UsageWeekly": 50,
+  "UsageMonthly": 150,
+  "CreditsTotal": 1000,
+  "CreditsUsed": 150,
+  "CreditsRemaining": 850,
+  "IsFreeTier": true
+}
+```
 
 ### Key Configuration Notes
 
@@ -223,7 +249,7 @@ The **Providers** page shows:
 - 💰 **Quota** or **Balance** (if available)
 - ❌ **Error count** (from failed operations)
 
-> 📸 **Screenshot needed:** Providers page — showing the provider list with name, type, enabled status, quota badges, and action buttons.
+> 📸 **Screenshot needed:** Providers page - showing the provider list with name, type, enabled status, quota badges, and action buttons.
 
 Quick actions:
 - **Discover Models**: Trigger manual discovery

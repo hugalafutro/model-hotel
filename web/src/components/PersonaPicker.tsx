@@ -60,7 +60,7 @@ export function PersonaPicker({
 	const handleSelect = useCallback(
 		(persona: PersonaPreset) => {
 			if (systemPrompt.trim() && activePersonaId === null) {
-				// User has custom text — confirm before overwriting
+				// User has custom text - confirm before overwriting
 				setPendingPersona(persona);
 				return;
 			}
@@ -79,7 +79,7 @@ export function PersonaPicker({
 
 	const handleCustom = useCallback(() => {
 		if (activePersonaId !== null) {
-			// A preset is active — warn that switching to custom will clear
+			// A preset is active - warn that switching to custom will clear
 			setPendingPersona({
 				id: "__custom__",
 				icon: "✏️",

@@ -40,7 +40,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 					const reader = response.body?.getReader();
 					if (!reader) throw new Error("No readable stream");
 
-					// Connection succeeded — reset backoff
+					// Connection succeeded - reset backoff
 					reconnectDelay.current = 1000;
 
 					return readSSEStream<ServerEvent>({

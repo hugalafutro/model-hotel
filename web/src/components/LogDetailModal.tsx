@@ -71,7 +71,7 @@ function DetailItem({
 	children?: React.ReactNode;
 }) {
 	const displayValue =
-		value === null || value === undefined || value === "" ? "—" : value;
+		value === null || value === undefined || value === "" ? "-" : value;
 
 	return (
 		<div className="flex items-start gap-3 p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle)">
@@ -211,7 +211,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<div className="text-lg font-bold text-(--text-primary)">
 							{requestLog.ttft_ms > 0
 								? formatDuration(requestLog.ttft_ms)
-								: "—"}
+								: "-"}
 						</div>
 						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							TTFT
@@ -220,7 +220,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 						<Zap size={16} className="mx-auto mb-1 text-(--accent)" />
 						<div className="text-lg font-bold text-(--text-primary)">
-							{requestLog.tokens_per_second?.toFixed(1) ?? "—"}
+							{requestLog.tokens_per_second?.toFixed(1) ?? "-"}
 						</div>
 						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							Tokens/s
@@ -229,7 +229,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 						<Gauge size={16} className="mx-auto mb-1 text-(--accent)" />
 						<div className="text-lg font-bold text-(--text-primary)">
-							{totalTokens > 0 ? totalTokens.toLocaleString() : "—"}
+							{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
 						</div>
 						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							Total Tokens
@@ -261,7 +261,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						icon={Key}
 						label="Virtual Key"
 						value={
-							requestLog.virtual_key_name || requestLog.virtual_key_id || "—"
+							requestLog.virtual_key_name || requestLog.virtual_key_id || "-"
 						}
 					/>
 					<DetailItem
@@ -433,7 +433,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 				<DetailItem
 					icon={Tag}
 					label="Source"
-					value={appLog.source || "—"}
+					value={appLog.source || "-"}
 					accent
 				/>
 				<DetailItem

@@ -90,7 +90,7 @@ export function ConversationConfig({
 							</span>
 						</span>
 					)}
-					{/* Round counter (when active) — each round = both models respond */}
+					{/* Round counter (when active) - each round = both models respond */}
 					{conversationState !== "idle" && conversationState !== "paused" && (
 						<span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
 							<Gauge size={12} />
@@ -143,8 +143,8 @@ export function ConversationConfig({
 						<div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
 							<span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
 							{failedModel
-								? `${failedModel}: Generation failed — use Retry or change the model to continue`
-								: "Generation failed — use Retry or change the model to continue"}
+								? `${failedModel}: Generation failed - use Retry or change the model to continue`
+								: "Generation failed - use Retry or change the model to continue"}
 						</div>
 					)}
 
@@ -296,7 +296,7 @@ export function ConversationConfig({
 											</button>
 										</>
 									) : (
-										/* Later turn failed — retry from last successful turn */
+										/* Later turn failed - retry from last successful turn */
 										<button
 											type="button"
 											onClick={onRetry}
@@ -308,7 +308,7 @@ export function ConversationConfig({
 									))}
 							</div>
 						)}
-						{/* Stop button — visible while conversation is running */}
+						{/* Stop button - visible while conversation is running */}
 						{conversationState === "running" && onStop && (
 							<button
 								type="button"

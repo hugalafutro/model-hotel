@@ -42,7 +42,7 @@ interface ModelReplyCardProps {
 	footerStart?: ReactNode;
 	/** Content rendered on the right side of the footer */
 	footerEnd?: ReactNode;
-	/** Tint style for the card — "accent" applies a light accent background tint, "blue" applies a light blue tint */
+	/** Tint style for the card - "accent" applies a light accent background tint, "blue" applies a light blue tint */
 	tint?: "accent" | "blue" | "default";
 	/** Additional class names for the root card element */
 	className?: string;
@@ -60,9 +60,9 @@ interface ModelReplyCardProps {
 	shortenModelName?: boolean;
 	/** Whether to show a small info icon after the model name to indicate clickability */
 	showInfoIcon?: boolean;
-	/** Generation params used for this response — shown as tooltip on a settings indicator */
+	/** Generation params used for this response - shown as tooltip on a settings indicator */
 	params?: GenerationParams;
-	/** Whether this model has reasoning capability — shows "Thinking…" instead of "Waiting…" during empty streaming */
+	/** Whether this model has reasoning capability - shows "Thinking…" instead of "Waiting…" during empty streaming */
 	isReasoningModel?: boolean;
 	/** Persona name to display in the footer/status bar */
 	personaName?: string;
@@ -176,7 +176,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 					>
 						<div className="flex items-center gap-2 min-w-0">
 							<Bot size={14} className="text-(--accent) shrink-0" />
-							{/* biome-ignore lint/a11y/noStaticElementInteractions: conditionally interactive — role/tabIndex/keyboard handler are only set when onModelNameClick is provided */}
+							{/* biome-ignore lint/a11y/noStaticElementInteractions: conditionally interactive - role/tabIndex/keyboard handler are only set when onModelNameClick is provided */}
 							<div
 								role={onModelNameClick ? "button" : undefined}
 								tabIndex={onModelNameClick ? 0 : undefined}
@@ -390,7 +390,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 						</div>
 					</div>
 
-					{/* Modal body — thinking + content */}
+					{/* Modal body - thinking + content */}
 					<div className="max-h-[85vh] overflow-y-auto pr-1">
 						{hasThinking && (
 							<ThinkingBlock

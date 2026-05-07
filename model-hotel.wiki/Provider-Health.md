@@ -15,58 +15,58 @@ The test endpoint (`POST /api/models/{id}/test`) sends:
 
 With a **30-second timeout**. Returns: `success`, `duration_ms`, `response` (assistant content), `error` on failure.
 
-The request goes directly to the provider's `/chat/completions` endpoint — it does **not** go through the model-hotel proxy (`/v1/chat/completions`). This means it validates:
+The request goes directly to the provider's `/chat/completions` endpoint - it does **not** go through the model-hotel proxy (`/v1/chat/completions`). This means it validates:
 
-- **API key decryption** — The key is decrypted using the same Argon2 + AES-256-GCM pipeline
-- **Provider connectivity** — The base URL is reachable and returns a valid response
-- **Model availability** — The model ID is accepted by the provider
+- **API key decryption** - The key is decrypted using the same Argon2 + AES-256-GCM pipeline
+- **Provider connectivity** - The base URL is reachable and returns a valid response
+- **Model availability** - The model ID is accepted by the provider
 
 The test reports:
 
-- **Total duration** — End-to-end request time in milliseconds
-- **Actual response** — The model's generated text (truncated)
-- **Error details** — If the request fails, the full error message
+- **Total duration** - End-to-end request time in milliseconds
+- **Actual response** - The model's generated text (truncated)
+- **Error details** - If the request fails, the full error message
 
-> **Note:** TTFT is **not** reported by the test endpoint. Although the `TestModelResponse` struct includes a `ttft_ms` field, it is never populated in success responses. The test uses a non-streaming request, so there is no separate time-to-first-token measurement — only total `duration_ms` is meaningful.
+> **Note:** TTFT is **not** reported by the test endpoint. Although the `TestModelResponse` struct includes a `ttft_ms` field, it is never populated in success responses. The test uses a non-streaming request, so there is no separate time-to-first-token measurement - only total `duration_ms` is meaningful.
 
 ### Masked API Keys
 
-Provider API keys are shown in the UI with a `masked_key` field (e.g., `op***ky`). The full key is never exposed after creation — only the masked preview is available for identification purposes.
+Provider API keys are shown in the UI with a `masked_key` field (e.g., `op***ky`). The full key is never exposed after creation - only the masked preview is available for identification purposes.
 
 ### Last Used Tracking
 
 Each provider has a `last_used_at` timestamp that is updated on every proxy request (fire-and-forget with a 5-second timeout). This helps track which providers are actively being used and can inform deprecation or rotation decisions.
 
-> 📸 **Screenshot needed:** Provider health indicators — showing enabled/disabled status, last used timestamps, and circuit breaker status indicators.
+> 📸 **Screenshot needed:** Provider health indicators - showing enabled/disabled status, last used timestamps, and circuit breaker status indicators.
 
 ## Provider Quotas & Balances
 
 For supported providers, the sidebar displays a **Quotas** panel with live account information. The data varies by provider type because each provider exposes different metrics:
 
-### DeepSeek — Balance
+### DeepSeek - Balance
 
 - Fetches balance from the DeepSeek `/user/balance` API endpoint
-- Shows remaining credit in **USD** (total balance)
+- Shows remaining credit in **CNY** (total balance)
 - Displayed as a pill: `$ X.XX`
 - Click the pill to refresh
 
 DeepSeek exposes account **balance** (how much credit remains), not usage quotas.
 
-### NanoGPT — Usage Quota
+### NanoGPT - Usage Quota
 
 - Fetches usage data from the NanoGPT API
 - Shows **weekly token quota**: used vs. limit (e.g., `50K/500K`)
 - Modal panel with detailed breakdown of input/output token usage
 - Displayed as a pill: `used/limit`
 
-NanoGPT exposes **quota/usage** — weekly limits on how many tokens you can consume.
+NanoGPT exposes **quota/usage** - weekly limits on how many tokens you can consume.
 
-### Z.AI — Quota Limits
+### Z.AI - Quota Limits
 
 - Fetches quota data from the Z.AI API
 - Shows **remaining percentage** for two quota windows:
-  - **5-hour window** — short-term rate limit
-  - **Weekly window** — weekly usage limit
+  - **5-hour window** - short-term rate limit
+  - **Weekly window** - weekly usage limit
 - Displayed as a pill: `5h% / weekly%`
 - Modal panel with per-limit breakdown (limit type, unit, percentage remaining)
 
@@ -81,7 +81,7 @@ Z.AI exposes **quota limits** with percentage-based consumption tracking across 
 
 ## System Status Sidebar
 
-The left sidebar shows real-time system statistics, **polled every 10 seconds** via `/api/system`. This is a regular HTTP poll, not an SSE push — the system stats are fetched independently from the event bus.
+The left sidebar shows real-time system statistics, **polled every 10 seconds** via `/api/system`. This is a regular HTTP poll, not an SSE push - the system stats are fetched independently from the event bus.
 
 ### Metrics
 
@@ -100,7 +100,7 @@ The left sidebar shows real-time system statistics, **polled every 10 seconds** 
 | DB Cache Hit Ratio | PostgreSQL | PostgreSQL | Buffer cache hit percentage |
 | Total Requests | request_logs count | request_logs count | Total proxied requests recorded |
 
-When running under Docker Compose (detected via `docker.sock` mount), Docker API stats are aggregated across **all compose services** (app + database) — providing a more complete picture than the app container alone.
+When running under Docker Compose (detected via `docker.sock` mount), Docker API stats are aggregated across **all compose services** (app + database) - providing a more complete picture than the app container alone.
 
 ### Color Thresholds
 

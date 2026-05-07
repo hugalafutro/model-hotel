@@ -132,7 +132,7 @@ const PROVIDER_ALIASES: Record<string, string | false> = {
 	deepseek: "deepseek",
 	meta: "meta",
 	cohere: "cohere",
-	openrouter: false, // aggregator — skip direct matching
+	openrouter: false, // aggregator - skip direct matching
 	together: "together",
 	fireworks: "fireworks",
 	groq: "groq",
@@ -143,7 +143,7 @@ function normalizeForMatch(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// models.dev API fetch (no module-level cache — TanStack Query handles caching)
+// models.dev API fetch (no module-level cache - TanStack Query handles caching)
 // ---------------------------------------------------------------------------
 
 const MODELS_DEV_URL = "https://models.dev/api.json";
@@ -212,7 +212,7 @@ function findModelsDevMatch(
 			else if (normModel.includes(normKey) || normModel.includes(normModelId)) {
 				score = 60;
 			}
-			// No model match — skip
+			// No model match - skip
 			else {
 				continue;
 			}
@@ -313,7 +313,7 @@ export async function fetchRecommendedSettings(
 		return result;
 	}
 
-	// No curated match but we have models.dev data — at least set max_tokens (capped)
+	// No curated match but we have models.dev data - at least set max_tokens (capped)
 	if (modelsDevMaxTokens !== undefined) {
 		result.params = { max_tokens: modelsDevMaxTokens };
 		result.maxTokensSource = "models.dev";

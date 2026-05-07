@@ -506,7 +506,7 @@ export function Settings() {
 								type="button"
 								onClick={() => {
 									setPosition("top-left");
-									toast("Test notification — you'll see toasts here", "info");
+									toast("Test notification - you'll see toasts here", "info");
 								}}
 								className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
 									toastPosition === "top-left"
@@ -520,7 +520,7 @@ export function Settings() {
 								type="button"
 								onClick={() => {
 									setPosition("top-center");
-									toast("Test notification — you'll see toasts here", "info");
+									toast("Test notification - you'll see toasts here", "info");
 								}}
 								className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
 									toastPosition === "top-center"
@@ -534,7 +534,7 @@ export function Settings() {
 								type="button"
 								onClick={() => {
 									setPosition("top-right");
-									toast("Test notification — you'll see toasts here", "info");
+									toast("Test notification - you'll see toasts here", "info");
 								}}
 								className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
 									toastPosition === "top-right"
@@ -548,7 +548,7 @@ export function Settings() {
 								type="button"
 								onClick={() => {
 									setPosition("bottom-left");
-									toast("Test notification — you'll see toasts here", "info");
+									toast("Test notification - you'll see toasts here", "info");
 								}}
 								className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
 									toastPosition === "bottom-left"
@@ -562,7 +562,7 @@ export function Settings() {
 								type="button"
 								onClick={() => {
 									setPosition("bottom-center");
-									toast("Test notification — you'll see toasts here", "info");
+									toast("Test notification - you'll see toasts here", "info");
 								}}
 								className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
 									toastPosition === "bottom-center"
@@ -576,7 +576,7 @@ export function Settings() {
 								type="button"
 								onClick={() => {
 									setPosition("bottom-right");
-									toast("Test notification — you'll see toasts here", "info");
+									toast("Test notification - you'll see toasts here", "info");
 								}}
 								className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
 									toastPosition === "bottom-right"
@@ -661,8 +661,8 @@ export function Settings() {
 									}
 									toast(
 										newVal
-											? "Sidebar quotas disabled — pill hidden and auto-refresh paused"
-											: "Sidebar quotas enabled — pill visible and auto-refresh resumed",
+											? "Sidebar quotas disabled - pill hidden and auto-refresh paused"
+											: "Sidebar quotas enabled - pill visible and auto-refresh resumed",
 										newVal ? "info" : "success",
 									);
 									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
@@ -700,7 +700,7 @@ export function Settings() {
 									);
 									toast(
 										val === "0"
-											? "Sidebar quota auto-refresh disabled — use manual refresh"
+											? "Sidebar quota auto-refresh disabled - use manual refresh"
 											: `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
 										"success",
 									);
@@ -763,7 +763,7 @@ export function Settings() {
 									);
 									toast(
 										val === "0"
-											? "Dashboard auto-refresh disabled — use manual refresh"
+											? "Dashboard auto-refresh disabled - use manual refresh"
 											: `Dashboard refresh set to every ${val} second${val === "1" ? "" : "s"}`,
 										"success",
 									);
@@ -922,7 +922,7 @@ export function Settings() {
 										toast(
 											next
 												? "Arena history enabled"
-												: "Arena history disabled — existing entries preserved",
+												: "Arena history disabled - existing entries preserved",
 											next ? "success" : "info",
 										);
 									}}

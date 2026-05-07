@@ -208,9 +208,9 @@ async function streamModelResponse(
 				content,
 				thinkingContent,
 				error: completion.idleTimeout
-					? "Stream stalled — no data received within the timeout period."
+					? "Stream stalled - no data received within the timeout period."
 					: content
-						? "Stream was cut off — the response may be incomplete."
+						? "Stream was cut off - the response may be incomplete."
 						: "Stream ended unexpectedly with no content.",
 				durationMs,
 				charsPerSecond,
@@ -454,7 +454,7 @@ export function Chat() {
 	// Cleanup: abort streams on unmount
 	// We store the abort controllers in separate cleanup refs so the React
 	// Compiler doesn't mark conversationAbortRef as "effect-only" and forbid
-	// mutation in event handlers — which is perfectly valid React.
+	// mutation in event handlers - which is perfectly valid React.
 	const cleanupAbortRef = useRef<AbortController | null>(null);
 	const cleanupConvAbortRef = useRef<AbortController | null>(null);
 
@@ -521,7 +521,7 @@ export function Chat() {
 			/* quota exceeded */
 			if (!quotaWarnedRef.current) {
 				quotaWarnedRef.current = true;
-				toast("Storage full — chat history not saved", "warning");
+				toast("Storage full - chat history not saved", "warning");
 			}
 		}
 	}, [messages, persistChat, toast]);
@@ -536,7 +536,7 @@ export function Chat() {
 			/* quota exceeded */
 			if (!quotaWarnedRef.current) {
 				quotaWarnedRef.current = true;
-				toast("Storage full — chat history not saved", "warning");
+				toast("Storage full - chat history not saved", "warning");
 			}
 		}
 	}, [messages, persistConversation, chatSubMode, toast]);
@@ -1040,7 +1040,7 @@ export function Chat() {
 		}
 
 		if (currentTurn === 0) {
-			// First turn failed — the prompt is already restored in `input`.
+			// First turn failed - the prompt is already restored in `input`.
 			// Reset to idle so runConversation(false) runs as a fresh start.
 			setConversationState("idle");
 			setCurrentTurn(0);
@@ -1049,7 +1049,7 @@ export function Chat() {
 				runConversation(false);
 			});
 		} else {
-			// Later turn failed — decrement turn counter to re-do the failed turn.
+			// Later turn failed - decrement turn counter to re-do the failed turn.
 			// The prompt was not lost (it was never in `input` for later turns).
 			const newTurn = currentTurn > 0 ? currentTurn - 1 : 0;
 			setCurrentTurn(newTurn);
@@ -1106,7 +1106,7 @@ export function Chat() {
 					const remaining = prev.filter((_, i) => !toRemove.has(i));
 
 					if (remaining.length === 0) {
-						// Deleted everything — back to idle, restore the prompt
+						// Deleted everything - back to idle, restore the prompt
 						setConversationState("idle");
 						setCurrentTurn(0);
 						if (lastPromptRef.current) {
@@ -1116,7 +1116,7 @@ export function Chat() {
 					}
 
 					if (remaining.length === 1 && remaining[0]?.role === "user") {
-						// Only the initial user prompt remains — back to idle
+						// Only the initial user prompt remains - back to idle
 						setConversationState("idle");
 						setCurrentTurn(0);
 						setInput(remaining[0].content);
@@ -1549,7 +1549,7 @@ export function Chat() {
 								(isLastAssistant && !isStreaming) ||
 								(isStreamingThis && isLastAssistant);
 
-							// Turn number: only in conversation mode — counts assistant messages up to and including this one
+							// Turn number: only in conversation mode - counts assistant messages up to and including this one
 							const turnNumber =
 								chatSubMode === "conversation" && msg.role === "assistant"
 									? messages.filter(
@@ -1786,7 +1786,7 @@ export function Chat() {
 				</div>
 			</div>
 
-			{/* Input / Stats Area — chat mode input bar + conversation stats when active */}
+			{/* Input / Stats Area - chat mode input bar + conversation stats when active */}
 			{chatSubMode === "chat" && (
 				<div className="ui-card p-4 shrink-0">
 					<div className="space-y-2">
@@ -1942,8 +1942,8 @@ export function Chat() {
 						) : lastChatError ? (
 							<p className="text-xs text-red-400">
 								{lastChatError.model
-									? `${lastChatError.model.split("/").pop()}: ${lastChatError.error} — try Regenerate or pick a different model`
-									: `${lastChatError.error} — try Regenerate or pick a different model`}
+									? `${lastChatError.model.split("/").pop()}: ${lastChatError.error} - try Regenerate or pick a different model`
+									: `${lastChatError.error} - try Regenerate or pick a different model`}
 							</p>
 						) : (
 							<p className="text-xs text-(--text-muted)">
@@ -2028,7 +2028,7 @@ export function Chat() {
 										const modelPart = lastErr?.model
 											? `${lastErr.model.split("/").pop()}: `
 											: "";
-										return `${modelPart}Generation failed — use Retry in config above, or Clear/Reset below`;
+										return `${modelPart}Generation failed - use Retry in config above, or Clear/Reset below`;
 									})()}
 								</div>
 							)}

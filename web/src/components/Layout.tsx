@@ -519,7 +519,7 @@ function LastErrorPills() {
 
 	// Show the pill if there's an error and it hasn't been dismissed.
 	// If the error key changes (new error), dismissedAppKey no longer matches,
-	// so the pill auto-reappears — no useEffect needed.
+	// so the pill auto-reappears - no useEffect needed.
 	const showAppError = lastAppError && appErrorKey !== dismissedAppKey;
 	const showReqError = lastReqError && reqErrorKey !== dismissedReqKey;
 

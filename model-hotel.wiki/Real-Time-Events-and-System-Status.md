@@ -2,9 +2,9 @@
 
 Model Hotel provides real-time visibility into system state through two mechanisms: an SSE event bus (for toast notifications) and live system statistics (for the sidebar).
 
-> 📸 **Screenshot needed:** Sidebar system status panel — showing CPU, RAM, DB connections, Docker container metrics with color-coded thresholds.
+> 📸 **Screenshot needed:** Sidebar system status panel - showing CPU, RAM, DB connections, Docker container metrics with color-coded thresholds.
 
-> 📸 **Screenshot needed:** Dashboard page — showing the metrics area with time-range toggle (1H/1D/7D), request area chart, provider distribution pie chart and table.
+> 📸 **Screenshot needed:** Dashboard page - showing the metrics area with time-range toggle (1H/1D/7D), request area chart, provider distribution pie chart and table.
 
 ## Event Bus (SSE)
 
@@ -14,11 +14,11 @@ The backend publishes events to an in-memory pub/sub bus (`internal/events/bus.g
 
 The event bus is simple:
 
-- **In-memory** — No persistence; events are lost on server restart
-- **Pub/sub** — Subscribers get a buffered channel (capacity 64)
-- **Non-blocking** — If a subscriber's channel is full, the event is dropped for that subscriber (with a warning logged)
-- **Heartbeat** — The server sends `: heartbeat` comments every 30 seconds to keep the connection alive
-- **JSON payloads** — Each event is serialized as `data: {JSON}\n\n`
+- **In-memory** - No persistence; events are lost on server restart
+- **Pub/sub** - Subscribers get a buffered channel (capacity 64)
+- **Non-blocking** - If a subscriber's channel is full, the event is dropped for that subscriber (with a warning logged)
+- **Heartbeat** - The server sends `: heartbeat` comments every 30 seconds to keep the connection alive
+- **JSON payloads** - Each event is serialized as `data: {JSON}\n\n`
 
 ### Event Types
 
@@ -38,22 +38,22 @@ These are the actual events published by the codebase. The event bus schema supp
 | `circuit_breaker.half-open` | warning | Circuit breaker transitioning to half-open (testing recovery) |
 | `circuit_breaker.closed` | success | Circuit breaker has recovered and closed |
 
-> **Important:** There are NO events for `provider.created`, `provider.updated`, `provider.deleted`, `model.discovered`, `failover.triggered`, `rate_limit.hit`, `virtual_key.created`, `virtual_key.deleted`, `settings.changed`, or a generic `error` type. The event bus is not a general-purpose CRUD notification system — it only publishes events for the specific situations listed above.
+> **Important:** There are NO events for `provider.created`, `provider.updated`, `provider.deleted`, `model.discovered`, `failover.triggered`, `rate_limit.hit`, `virtual_key.created`, `virtual_key.deleted`, `settings.changed`, or a generic `error` type. The event bus is not a general-purpose CRUD notification system - it only publishes events for the specific situations listed above.
 
 ### Failover Retries Are Not SSE Events
 
-When a proxy request triggers a failover retry (the upstream provider returned 5xx or timed out), the retry happens transparently and is **logged to stdout** only. Failover retries are **not** pushed as SSE events — the client receives the successful response from the fallback provider without any toast notification.
+When a proxy request triggers a failover retry (the upstream provider returned 5xx or timed out), the retry happens transparently and is **logged to stdout** only. Failover retries are **not** pushed as SSE events - the client receives the successful response from the fallback provider without any toast notification.
 
 ### Toast Notifications
 
 Events are displayed as toast notifications in the dashboard:
 
-- **Configurable position** — top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
-- **Configurable timeout** — 1–30 seconds (default 4s)
-- **Severity-based colors** — success=green, info=blue, warning=amber, error=red
-- **Duplicate suppression** — Same message type won't stack multiple toasts
+- **Configurable position** - top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
+- **Configurable timeout** - 1–30 seconds (default 4s)
+- **Severity-based colors** - success=green, info=blue, warning=amber, error=red
+- **Duplicate suppression** - Same message type won't stack multiple toasts
 
-The frontend `EventProvider` component subscribes to the SSE stream and calls `toast(event.message, event.severity)` for each received event. It does not use the event type or metadata — only the message and severity are rendered.
+The frontend `EventProvider` component subscribes to the SSE stream and calls `toast(event.message, event.severity)` for each received event. It does not use the event type or metadata - only the message and severity are rendered.
 
 ### SSE Reconnection
 
@@ -68,7 +68,7 @@ The connection is established via `fetch()` with the admin token in the `Authori
 
 ## System Status
 
-The sidebar displays live system statistics, **polled every 10 seconds** via a standard HTTP GET to `/api/system`. This is not an SSE push — the frontend uses `react-query` with `refetchInterval: 10000`. SSE is only for toast notifications.
+The sidebar displays live system statistics, **polled every 10 seconds** via a standard HTTP GET to `/api/system`. This is not an SSE push - the frontend uses `react-query` with `refetchInterval: 10000`. SSE is only for toast notifications.
 
 ### Metrics
 
@@ -91,7 +91,7 @@ The `/api/system` endpoint returns an object with `app`, `db`, and `docker` fiel
 
 ### Docker Container Stats
 
-When the app detects it's running under Docker Compose (via `docker.sock` mount), it queries the Docker API for **aggregated resource metrics** across all compose services — CPU, memory, network, disk I/O, and process count for the entire stack (app + database).
+When the app detects it's running under Docker Compose (via `docker.sock` mount), it queries the Docker API for **aggregated resource metrics** across all compose services - CPU, memory, network, disk I/O, and process count for the entire stack (app + database).
 
 The `AggregatedDockerStats` struct provides:
 
@@ -122,7 +122,7 @@ The sidebar uses color coding to highlight issues at a glance:
 | Goroutines | < 300 | ≥ 300 | ≥ 1,000 |
 | DB Cache Hit | ≥ 95% | < 95% | < 80% |
 
-> **Note:** The memory thresholds are 75%/90%, matching the CPU thresholds — not the 80%/95% that was previously documented. The actual frontend function `dc(v, w, c)` uses `dc(cpuPct, 75, 90)` for CPU and `dc(memUsagePct, 75, 90)` for memory.
+> **Note:** The memory thresholds are 75%/90%, matching the CPU thresholds - not the 80%/95% that was previously documented. The actual frontend function `dc(v, w, c)` uses `dc(cpuPct, 75, 90)` for CPU and `dc(memUsagePct, 75, 90)` for memory.
 
 ### Backend Caching
 

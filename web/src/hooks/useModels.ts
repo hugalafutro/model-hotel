@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import type { Model } from "../api/types";
 
 /**
- * Fetch all models. React Query deduplicates by queryKey — multiple
+ * Fetch all models. React Query deduplicates by queryKey - multiple
  * components sharing the key get cached data without extra requests.
  */
 export function useModels() {
@@ -27,7 +27,7 @@ export function useProviders() {
 }
 
 /**
- * Enabled models only — filters to models that are both enabled and
+ * Enabled models only - filters to models that are both enabled and
  * have a provider assigned. Used by Chat and Arena for model pickers.
  */
 export function useEnabledModels() {
@@ -40,7 +40,7 @@ export function useEnabledModels() {
 }
 
 /**
- * Simplified provider data — just name + base_url.
+ * Simplified provider data - just name + base_url.
  * Used by Chat and Arena for ModelPicker grouping.
  */
 export function useProviderData() {

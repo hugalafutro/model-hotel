@@ -4,11 +4,11 @@
  * When multiple LLM requests target the same provider, firing them all
  * simultaneously can trigger rate limits. This module provides:
  *
- * 1. `staggerByProvider` — groups items by provider and returns them with
+ * 1. `staggerByProvider` - groups items by provider and returns them with
  *    staggered delays so same-provider requests are spaced apart while
  *    different providers start immediately.
  *
- * 2. `fetchWithRetry` — wraps a fetch call with exponential backoff retry
+ * 2. `fetchWithRetry` - wraps a fetch call with exponential backoff retry
  *    logic for transient failures (429, 502, 503, 504).
  */
 

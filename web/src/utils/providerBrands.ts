@@ -1,4 +1,4 @@
-/** Provider brand keys — union type for compile-time safety. */
+/** Provider brand keys - union type for compile-time safety. */
 export type ProviderBrand =
 	| "anthropic"
 	| "openai"
@@ -15,7 +15,7 @@ export type ProviderBrand =
 	| "opencode";
 
 /**
- * Provider brand colors — single source of truth for consistent provider styling.
+ * Provider brand colors - single source of truth for consistent provider styling.
  *
  * Each key maps to a provider type used throughout the app
  * (matches `baseUrls` keys in Providers.tsx and `QuotaProviderType`).

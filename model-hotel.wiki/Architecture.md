@@ -9,7 +9,7 @@ Model Hotel is a multi-provider AI gateway built with:
 - **Deployment**: Docker Compose
 
 
-> 📸 **Screenshot needed:** System architecture overview — a diagram showing the request flow from client through proxy to providers, with the DB, SSE event bus, and embedded frontend all visible.
+> 📸 **Screenshot needed:** System architecture overview - a diagram showing the request flow from client through proxy to providers, with the DB, SSE event bus, and embedded frontend all visible.
 
 
 ## System Components
@@ -44,19 +44,22 @@ internal/
   │   ├── resolve.go  # Hotel routing resolution
   │   ├── logging.go  # Request logging
   │   ├── helpers.go  # Proxy helpers
-  │   └── types.go    # Chat completion types
+  │   ├── types.go    # Chat completion types
+  │   └── safe_dialer.go
   ├── provider/       # Provider management
   │   ├── provider.go # Provider repository (CRUD)
   │   ├── discovery.go # Auto-discovery logic + type detection
   │   ├── modelsdev.go # Models.dev enrichment (pricing, capabilities from open-source catalogue)
   │   ├── cache.go    # Provider caching
-  │   └── discovery_*.go # Per-provider discovery (openai, anthropic, deepseek, nanogpt, ollama, zai, opencode_*)
+  │   └── discovery_*.go # Per-provider discovery (openai, anthropic, cohere, deepseek, google, koboldcpp, lmstudio, nanogpt, ollama, opencode_go, opencode_zen, openrouter, xai, zai (plus discovery_types.go, discovery_test.go))
   ├── model/          # Model repository
   │   ├── model.go    # Model CRUD + metadata
   │   └── cache.go    # Model caching
   ├── virtualkey/     # Virtual key repository
   │   ├── virtualkey.go # Key CRUD + generation
-  │   └── auth.go     # Key authentication middleware
+  │   └── auth.go     # Virtual key hashing (SHA-256)
+  ├── ctxkeys/        # Shared context key constants (avoids import cycles)
+  ├── debuglog/       # Structured logging wrapper (DEBUG_LOG env var control, custom slog handler)
   ├── failover/       # Failover group repository
   │   ├── failover.go # Failover group management
   │   └── cache.go    # Failover caching
@@ -77,6 +80,7 @@ web/                  # Frontend React app
   │   ├── context/    # React contexts (Theme, Events, etc.)
   │   └── utils/      # Frontend utilities
   │       └── providerBrands.ts  # Provider brand colors & prefixes (single source of truth)
+  │             arenaHistory.ts, format.ts, model.ts, params.ts, recommendedSettings.ts, sse.ts, stagger.ts, thinking.ts
   └── dist/           # Built static files (served by Go)
 ```
 
@@ -87,11 +91,11 @@ web/                  # Frontend React app
 ```
 1. Client sends request to /v1/chat/completions with virtual key
 2. Chi middleware chain:
-   - RequestID, RealIP, Logger, Recoverer, Compress
+   - RequestID, RealIP, silentLogger (custom chi logger), Recoverer, Compress
    - streamingAwareTimeout (5min for streaming)
    - IPLimiter.Middleware (per-IP DoS protection)
    - ProxyKeyMiddleware (SHA-256 hash lookup)
-   - RateLimiter.Middleware (per-key token bucket)
+   - RateLimiter.Middleware (per-key token bucket, gated by RateLimitEnabled)
 3. ChatCompletions handler:
     - Parse request body
     - Resolve model (failover group or provider/model)
@@ -218,7 +222,7 @@ Indexes: `idx_app_logs_created_at DESC`, `idx_app_logs_level`, `idx_app_logs_sou
 | name | TEXT | Label for the key |
 | created_at | TIMESTAMPTZ | |
 
-Note: Created in migration 001. Currently minimal — exists for future per-client authentication separate from virtual keys.
+Note: Created in migration 001. Currently minimal - exists for future per-client authentication separate from virtual keys.
 
 ## Frontend Architecture
 
@@ -265,14 +269,12 @@ Dark brand colors (e.g., `openai` #000000, `xai` #1A1A1A) use lighter text overr
 ### SSE Events
 
 Real-time events pushed via Server-Sent Events:
-- `discovery.complete` — Model discovery finished for a provider
-- `discovery.models_disabled` — Models were disabled after discovery
-- `failover.sync_error` — Error during failover group sync
-- `logs.stale_startup` — Stale request detected at startup
-- `logs.stale_cleanup` — Stale request cleaned up
-- `request.started` — Proxy request began
-- `request.completed` — Proxy request finished
-- `tokens.error` — Error counting tokens
+- `discovery.complete` - Model discovery finished for a provider
+- `discovery.models_disabled` - Models were disabled after discovery
+- `failover.sync_error` - Error during failover group sync
+- `logs.stale_startup` - Stale request detected at startup
+- `logs.stale_cleanup` - Stale request cleaned up
+- `tokens.error` - Error counting tokens
 
 Event bus decouples backend operations from frontend UI updates.
 

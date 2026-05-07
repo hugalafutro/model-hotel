@@ -521,7 +521,7 @@ function RequestLogs() {
 	};
 
 	// A request stuck in pending/streaming longer than the configured timeout
-	// is almost certainly dead (server crash, unhandled error, etc.) — treat it
+	// is almost certainly dead (server crash, unhandled error, etc.) - treat it
 	// as stale rather than showing a permanently pulsing "Resolving…" / "Live" row.
 	// Default 30m to accommodate providers with long time-to-first-token.
 	// The setting is stored as a Go duration string (e.g. "30m0s", "1h0m0s").
@@ -697,7 +697,7 @@ function RequestLogs() {
 									}`}
 									title={
 										hasDateFilter
-											? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} — click to change`
+											? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
 											: "Filter by date range"
 									}
 								>
@@ -774,14 +774,14 @@ function RequestLogs() {
 				</div>
 			</div>
 
-			{/* Initial loading state — show spinner when first fetch hasn't arrived */}
+			{/* Initial loading state - show spinner when first fetch hasn't arrived */}
 			{isLoading && !logsData && (
 				<div className="flex items-center justify-center py-20">
 					<div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
 				</div>
 			)}
 
-			{/* Error state — show message when fetch fails and no fallback data */}
+			{/* Error state - show message when fetch fails and no fallback data */}
 			{error && !logsData && displayEntries.length === 0 && (
 				<div className="ui-card p-8 text-center">
 					<p className="text-red-400 text-sm">
@@ -976,7 +976,7 @@ function RequestLogs() {
 											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isInProgress(log) && log.duration_ms === 0 ? (
 													<span className="inline-block animate-pulse text-blue-400">
-														—
+														-
 													</span>
 												) : log.duration_ms > 0 ? (
 													log.duration_ms >= 1000 ? (
@@ -1040,7 +1040,7 @@ function RequestLogs() {
 }
 
 /* =========================================================
-   Logs page export — switches between Request Logs and App Logs
+    Logs page export - switches between Request Logs and App Logs
    ===================================================== */
 export function Logs() {
 	const { logsSubMode } = useSidebarMode();

@@ -17,15 +17,15 @@ interface ModelDetailPanelProps {
 	model: Model;
 	params?: GenerationParams;
 	onParamsChange?: (params: GenerationParams) => void;
-	/** Optional close callback — when provided, shows an X button in the header */
+	/** Optional close callback - when provided, shows an X button in the header */
 	onClose?: () => void;
 	/** Whether to show the collapse/expand toggle (default: true) */
 	collapsible?: boolean;
-	/** Tint style for the panel — "accent" applies accent border tint, "blue" applies blue border tint */
+	/** Tint style for the panel - "accent" applies accent border tint, "blue" applies blue border tint */
 	tint?: "accent" | "blue" | "default";
 	/** When true, the panel border pulses with an accent glow (e.g. while the model is generating) */
 	pulseBorder?: boolean;
-	/** When true, skip the outer card wrapper — used when panel is inside a Modal that already provides a card */
+	/** When true, skip the outer card wrapper - used when panel is inside a Modal that already provides a card */
 	embedded?: boolean;
 }
 

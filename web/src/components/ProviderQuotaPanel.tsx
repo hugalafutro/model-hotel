@@ -74,9 +74,9 @@ export function ProviderQuotaPanel() {
 				/* ignore */
 			}
 			if (next) {
-				toast("Quota panel collapsed — auto-refresh paused", "info");
+				toast("Quota panel collapsed - auto-refresh paused", "info");
 			} else {
-				toast("Quota panel expanded — auto-refresh resumed", "info");
+				toast("Quota panel expanded - auto-refresh resumed", "info");
 			}
 			return next;
 		});

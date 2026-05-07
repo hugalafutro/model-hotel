@@ -22,10 +22,10 @@ export function useRecommendedSettings(
 	const { data, isLoading, error } = useQuery({
 		queryKey: ["recommendedSettings", modelId, providerName],
 		queryFn: () => fetchRecommendedSettings(modelId, providerName),
-		staleTime: 30 * 60 * 1000, // 30 min — same as the underlying cache
+		staleTime: 30 * 60 * 1000, // 30 min - same as the underlying cache
 		gcTime: 60 * 60 * 1000, // keep in cache for 1 hour
 		retry: 1,
-		// Don't refetch on window focus — this data changes rarely
+		// Don't refetch on window focus - this data changes rarely
 		refetchOnWindowFocus: false,
 	});
 

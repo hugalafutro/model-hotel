@@ -338,7 +338,7 @@ export function Arena() {
 			/* quota exceeded */
 			if (!quotaWarnedRef.current) {
 				quotaWarnedRef.current = true;
-				toast("Storage full — arena state not saved", "warning");
+				toast("Storage full - arena state not saved", "warning");
 			}
 		}
 	}, [
@@ -653,7 +653,7 @@ export function Arena() {
 							maxRetries: 2,
 							onRetry: (attempt, delayMs, status) => {
 								toast(
-									`${model}: ${status || "network error"} — retry ${attempt} in ${(delayMs / 1000).toFixed(1)}s…`,
+									`${model}: ${status || "network error"} - retry ${attempt} in ${(delayMs / 1000).toFixed(1)}s…`,
 									"info",
 								);
 							},
@@ -746,8 +746,8 @@ export function Arena() {
 					const truncationError: string | null =
 						!completion.sawDone && !completion.aborted
 							? completion.idleTimeout
-								? "Stream stalled — no data received within the timeout period."
-								: "Stream was cut off — the response may be incomplete."
+								? "Stream stalled - no data received within the timeout period."
+								: "Stream was cut off - the response may be incomplete."
 							: null;
 
 					setRounds(
@@ -1389,8 +1389,8 @@ export function Arena() {
 				title={arenaMode === "competition" ? "Arena" : "Compare"}
 				description={
 					arenaMode === "competition"
-						? "Bracket tournament — models compete head-to-head"
-						: "Side-by-side — compare model outputs on the same prompt"
+						? "Bracket tournament - models compete head-to-head"
+						: "Side-by-side - compare model outputs on the same prompt"
 				}
 			/>
 
@@ -1484,7 +1484,7 @@ export function Arena() {
 										Models ({bracketModels.length}/8)
 										<span className="text-(--text-tertiary)">
 											{" "}
-											— pick 2, 4, or 8 for a bracket
+											Pick 2, 4, or 8 for a bracket
 										</span>
 									</label>
 									<ModelPicker
@@ -1699,7 +1699,7 @@ export function Arena() {
 						{phase === "running" && (
 							<p className="text-xs text-(--text-muted) mt-1.5">
 								<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse inline-block mr-1.5 align-middle" />
-								Models are generating — click Stop to cancel
+								Models are generating - click Stop to cancel
 							</p>
 						)}
 						{phase === "voting" && (
@@ -1718,8 +1718,8 @@ export function Arena() {
 				{/* Mode Description */}
 				<p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3 mt-3">
 					{arenaMode === "competition"
-						? "Models compete in a single-elimination bracket. Pick 2, 4, or 8 models — each round, pairs face the same prompt and you vote for the better response. Winners advance until one model remains."
-						: "Pick models and run the same prompt through them simultaneously. No voting, no bracket — just pure side-by-side output comparison to evaluate which model best fits your needs."}
+						? "Models compete in a single-elimination bracket. Pick 2, 4, or 8 models - each round, pairs face the same prompt and you vote for the better response. Winners advance until one model remains."
+						: "Pick models and run the same prompt through them simultaneously. No voting, no bracket - just pure side-by-side output comparison to evaluate which model best fits your needs."}
 				</p>
 			</div>
 
