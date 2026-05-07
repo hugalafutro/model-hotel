@@ -68,3 +68,48 @@ func TestGetInt64(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUint64(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		s    metrics.Sample
+		want uint64
+	}{
+		{
+			name: "kind_uint64_42",
+			s:    metrics.Sample{Value: value(metrics.KindUint64, 42)},
+			want: 42,
+		},
+		{
+			name: "kind_uint64_zero",
+			s:    metrics.Sample{Value: value(metrics.KindUint64, 0)},
+			want: 0,
+		},
+		{
+			name: "kind_uint64_large",
+			s:    metrics.Sample{Value: value(metrics.KindUint64, 1<<63)},
+			want: 1 << 63,
+		},
+		{
+			name: "kind_float64_wrong_kind",
+			s:    metrics.Sample{Value: value(metrics.KindFloat64, math.Float64bits(42.5))},
+			want: 0,
+		},
+		{
+			name: "kind_bad_wrong_kind",
+			s:    metrics.Sample{Value: value(metrics.KindBad, 0)},
+			want: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getUint64(tt.s)
+			if got != tt.want {
+				t.Errorf("getUint64(%+v) = %d, want %d", tt.s, got, tt.want)
+			}
+		})
+	}
+}

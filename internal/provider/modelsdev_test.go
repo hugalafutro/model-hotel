@@ -100,3 +100,26 @@ func TestIsNumeric(t *testing.T) {
 		})
 	}
 }
+
+func TestLooksLikeDate(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"valid_date_with_hyphens", "2024-08-06", true},
+		{"valid_date_no_hyphens", "20240806", true},
+		{"too_short", "2024-08", false},
+		{"not_numeric", "abcdefgh", false},
+		{"empty", "", false},
+		{"still_numeric", "2024-13-45", true},
+		{"seven_chars", "2024080", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := looksLikeDate(tt.input); got != tt.want {
+				t.Errorf("looksLikeDate(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}

@@ -542,3 +542,30 @@ func TestParseLogLine_PlainMessage(t *testing.T) {
 		t.Errorf("expected unchanged message, got %q", msg)
 	}
 }
+
+func TestIsWordChar(t *testing.T) {
+	tests := []struct {
+		name string
+		c    byte
+		want bool
+	}{
+		{"lowercase_a", 'a', true},
+		{"lowercase_z", 'z', true},
+		{"uppercase_A", 'A', true},
+		{"uppercase_Z", 'Z', true},
+		{"digit_0", '0', true},
+		{"digit_9", '9', true},
+		{"underscore", '_', true},
+		{"space", ' ', false},
+		{"hyphen", '-', false},
+		{"dot", '.', false},
+		{"at_symbol", '@', false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isWordChar(tt.c); got != tt.want {
+				t.Errorf("isWordChar(%q) = %v, want %v", tt.c, got, tt.want)
+			}
+		})
+	}
+}

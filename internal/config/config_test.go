@@ -801,3 +801,47 @@ func TestFormatBytes_JustUnderKB(t *testing.T) {
 		t.Errorf("expected %q, got %q", "1023 B", result)
 	}
 }
+
+func TestGetEnvWithDefault(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		envValue     string
+		defaultValue string
+		want         string
+	}{
+		{
+			name:         "set_var_returns_env",
+			key:          "TEST_VAR",
+			envValue:     "env_value",
+			defaultValue: "default_value",
+			want:         "env_value",
+		},
+		{
+			name:         "unset_var_returns_default",
+			key:          "MISSING_VAR",
+			envValue:     "",
+			defaultValue: "default_value",
+			want:         "default_value",
+		},
+		{
+			name:         "empty_env_var_returns_default",
+			key:          "EMPTY_VAR",
+			envValue:     "",
+			defaultValue: "default_value",
+			want:         "default_value",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				t.Setenv(tt.key, tt.envValue)
+				defer t.Cleanup(func() { t.Setenv(tt.key, "") })
+			}
+			got := getEnvWithDefault(tt.key, tt.defaultValue)
+			if got != tt.want {
+				t.Errorf("getEnvWithDefault(%q, %q) = %q, want %q", tt.key, tt.defaultValue, got, tt.want)
+			}
+		})
+	}
+}
