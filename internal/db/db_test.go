@@ -15,7 +15,10 @@ var testDB *DB
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
+	testURL := os.Getenv("TEST_DATABASE_URL")
+		if testURL == "" {
+			testURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		}
 
 	var err error
 	testDB, err = New(ctx, testURL, 25, 5)
@@ -79,7 +82,10 @@ func TestPoolConfiguration(t *testing.T) {
 func TestClose(t *testing.T) {
 	// Create a fresh DB to close without affecting the shared testDB.
 	ctx := context.Background()
-	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
+	testURL := os.Getenv("TEST_DATABASE_URL")
+		if testURL == "" {
+			testURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		}
 
 	d, err := New(ctx, testURL, 25, 5)
 	if err != nil {
@@ -132,7 +138,10 @@ func TestWaitForReadyTimeout(t *testing.T) {
 
 func TestRunMigrationsIdempotent(t *testing.T) {
 	ctx := context.Background()
-	testURL := "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable"
+	testURL := os.Getenv("TEST_DATABASE_URL")
+		if testURL == "" {
+			testURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		}
 
 	// Create a new DB; this calls runMigrations internally via New.
 	d, err := New(ctx, testURL, 25, 5)

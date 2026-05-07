@@ -27,7 +27,11 @@ var apiTestDB *db.DB
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	var err error
-	apiTestDB, err = db.New(ctx, "postgres://llmproxy:changeme@localhost:5432/testdb?sslmode=disable", 25, 5)
+	apiTestDBURL := os.Getenv("TEST_DATABASE_URL")
+		if apiTestDBURL == "" {
+			apiTestDBURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		}
+	apiTestDB, err = db.New(ctx, apiTestDBURL, 25, 5)
 	if err != nil {
 		apiTestDB = nil
 	}

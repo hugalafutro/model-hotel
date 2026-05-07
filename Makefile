@@ -1,4 +1,4 @@
-.PHONY: build run clean test deps docker-up docker-down docker-logs
+.PHONY: build run clean test deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
 
 build:
 	go build -o server ./cmd/server/
@@ -17,10 +17,21 @@ deps:
 	go mod tidy
 
 docker-up:
-	docker compose up -d db
+	docker compose up -d
+
+docker-build:
+	docker compose up -d --build
 
 docker-down:
 	docker compose down
 
 docker-logs:
 	docker compose logs -f
+
+# -- Test database (ephemeral, no persistent volume) --
+
+test-db-up:
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-db-down:
+	docker compose -f docker-compose.test.yml down -v

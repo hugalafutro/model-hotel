@@ -1,0 +1,23 @@
+# Ephemeral test database - auto-creates 'testdb', no persistent volumes.
+# Usage: make test-db-up   (starts)
+#        make test-db-down (stops + removes data)
+#        make test         (runs go tests against it)
+#
+# Port 5433 avoids conflict with docker-compose.yml's app DB (port 5432).
+# Both can run simultaneously.
+
+name: model-hotel-test
+services:
+    test-db:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_USER: llmproxy
+            POSTGRES_PASSWORD: changeme
+            POSTGRES_DB: testdb
+        ports:
+            - "5433:5432"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U llmproxy -d testdb"]
+            interval: 2s
+            timeout: 2s
+            retries: 10
