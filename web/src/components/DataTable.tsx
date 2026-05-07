@@ -17,17 +17,19 @@ export function SortableHeader<F extends string>({
 	sort,
 	onSort,
 	tooltip,
+	className,
 }: {
 	label: string;
 	field: F;
 	sort: SortState<F>;
 	onSort: (f: F) => void;
 	tooltip?: string;
+	className?: string;
 }) {
 	const active = sort.field === field;
 	return (
 		<th
-			className={`${HEADER_BASE} select-none hover:text-gray-200`}
+			className={`${HEADER_BASE} select-none hover:text-gray-200 ${className ?? ""}`}
 			title={tooltip}
 		>
 			<button
