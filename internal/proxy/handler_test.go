@@ -441,3 +441,34 @@ func TestRegisterAdminChat_OnlyPostMethods(t *testing.T) {
 		return nil
 	})
 }
+
+// ---------------------------------------------------------------------------
+// RegisterAdminChat virtual key context tests
+// ---------------------------------------------------------------------------
+
+func TestRegisterAdminChat_SetsVirtualKeyContext(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	r := chi.NewRouter()
+	h.RegisterAdminChat(r)
+
+	// Test that /chat route sets virtual key context to "chat"
+	var capturedVKName interface{}
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedVKName = r.Context().Value(virtualKeyNameKey)
+	})
+
+	// Wrap the route to capture context
+	r.Post("/chat", func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+	})
+
+	req := httptest.NewRequest("POST", "/chat", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if capturedVKName != "chat" {
+		t.Errorf("expected virtual key name 'chat', got %v", capturedVKName)
+	}
+}

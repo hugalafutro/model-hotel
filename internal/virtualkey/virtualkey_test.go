@@ -21,18 +21,20 @@ var testDB *db.DB
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	var err error
-	testDBURL := os.Getenv("TEST_DATABASE_URL")
-	if testDBURL == "" {
-		testDBURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
-	}
-	testDB, err = db.New(ctx, testDBURL, 25, 5)
-	if err != nil {
+	testDBURL, setupErr := db.SetupTestDB("virtualkey")
+	if setupErr != nil {
 		testDB = nil
+	} else {
+		testDB, err = db.New(ctx, testDBURL, 25, 5)
+		if err != nil {
+			testDB = nil
+		}
 	}
 	code := m.Run()
 	if testDB != nil {
 		testDB.Close()
 	}
+	db.CleanupTestDB("virtualkey")
 	os.Exit(code)
 }
 

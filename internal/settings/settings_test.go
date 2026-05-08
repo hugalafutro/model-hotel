@@ -17,10 +17,13 @@ var testPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	testURL := os.Getenv("TEST_DATABASE_URL")
-	if testURL == "" {
-		testURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+	testURL, setupErr := db.SetupTestDB("settings")
+	if setupErr != nil {
+		fmt.Printf("failed to setup test DB: %v\n", setupErr)
+		os.Exit(1)
 	}
+	defer db.CleanupTestDB("settings")
+
 	testDB, err := db.New(ctx, testURL, 25, 5)
 	if err != nil {
 		fmt.Printf("failed to initialize test DB: %v\n", err)

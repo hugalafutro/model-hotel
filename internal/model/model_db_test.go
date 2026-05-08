@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 var testPool *pgxpool.Pool
@@ -19,22 +21,23 @@ func skipIfNoDB(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	dbURL := os.Getenv("TEST_DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
-	}
-
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
+	dbURL, err := db.SetupTestDB("model")
 	if err != nil {
 		testPool = nil
 	} else {
-		testPool = pool
+		testDB, dbErr := db.New(ctx, dbURL, 25, 5)
+		if dbErr != nil {
+			testPool = nil
+		} else {
+			testPool = testDB.Pool()
+		}
 	}
 	code := m.Run()
 	if testPool != nil {
 		testPool.Close()
 	}
+	db.CleanupTestDB("model")
 	os.Exit(code)
 }
 

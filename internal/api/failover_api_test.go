@@ -23,22 +23,26 @@ import (
 // ---------------------------------------------------------------------------
 
 var apiTestDB *db.DB
+var apiTestDBURL string
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	var err error
-	apiTestDBURL := os.Getenv("TEST_DATABASE_URL")
-	if apiTestDBURL == "" {
-		apiTestDBURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
-	}
-	apiTestDB, err = db.New(ctx, apiTestDBURL, 25, 5)
-	if err != nil {
+	var setupErr error
+	apiTestDBURL, setupErr = db.SetupTestDB("api")
+	if setupErr != nil {
 		apiTestDB = nil
+	} else {
+		apiTestDB, err = db.New(ctx, apiTestDBURL, 25, 5)
+		if err != nil {
+			apiTestDB = nil
+		}
 	}
 	code := m.Run()
 	if apiTestDB != nil {
 		apiTestDB.Close()
 	}
+	db.CleanupTestDB("api")
 	os.Exit(code)
 }
 

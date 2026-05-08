@@ -456,3 +456,262 @@ func TestChatCompletions_AdditionalParameters(t *testing.T) {
 		t.Errorf("expected model '%s', got %v", modelName, resp["model"])
 	}
 }
+
+// Test ChatCompletions non-streaming with successful response
+func TestChatCompletions_NonStreaming_Success(t *testing.T) {
+	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	defer upstream.Close()
+
+	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("expected Content-Type 'application/json', got %v", contentType)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp["model"] != modelName {
+		t.Errorf("expected model '%s', got %v", modelName, resp["model"])
+	}
+
+	choices := resp["choices"].([]interface{})
+	if len(choices) != 1 {
+		t.Errorf("expected 1 choice, got %d", len(choices))
+	}
+
+	usage := resp["usage"].(map[string]interface{})
+	if usage["prompt_tokens"] != float64(5) {
+		t.Errorf("expected prompt_tokens=5, got %v", usage["prompt_tokens"])
+	}
+	if usage["completion_tokens"] != float64(7) {
+		t.Errorf("expected completion_tokens=7, got %v", usage["completion_tokens"])
+	}
+}
+
+// Test ChatCompletions non-streaming with upstream 4xx error
+func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
+	if testDB == nil {
+		t.Skip("database not available")
+	}
+
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+
+	// Create upstream that returns 400 error
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "invalid request",
+				"type":    "invalid_request_error",
+			},
+		})
+	}))
+	defer upstream.Close()
+
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-integration")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-4xx-" + uuid.New().String()[:8]
+	createdProvider, err := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: upstream.URL,
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "error-model",
+		Name:             "Error Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-4xx"), "sk-tes...")
+	if err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: virtualKeyRepo,
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		dbPool:         pool,
+	}
+
+	body := `{"model": "`+providerName+`/error-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, virtualkey.Hash("test-vk-4xx"))
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should return 400 error from upstream
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	// Should have error structure
+	if resp["error"] == nil {
+		t.Error("expected error in response")
+	}
+}
+
+// Test ChatCompletions non-streaming with upstream 5xx error
+func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
+	if testDB == nil {
+		t.Skip("database not available")
+	}
+
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+
+	// Create upstream that returns 503 error
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "service unavailable",
+				"type":    "server_error",
+			},
+		})
+	}))
+	defer upstream.Close()
+
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-integration")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-5xx-" + uuid.New().String()[:8]
+	createdProvider, err := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: upstream.URL,
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "error-model-5xx",
+		Name:             "Error Model 5xx",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-5xx"), "sk-tes...")
+	if err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: virtualKeyRepo,
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		dbPool:         pool,
+	}
+
+	body := `{"model": "`+providerName+`/error-model-5xx", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, virtualkey.Hash("test-vk-5xx"))
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should return error response (502 Bad Gateway for upstream 5xx)
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp["error"] == nil {
+		t.Error("expected error in response")
+	}
+}
+

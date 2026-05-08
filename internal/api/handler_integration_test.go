@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -32,9 +31,9 @@ const testMasterKey = "testmasterkey1234567890abcdef"
 func newTestHandler(t *testing.T) *Handler {
 	t.Helper()
 
-	dbURL := os.Getenv("TEST_DATABASE_URL")
+	dbURL := apiTestDBURL
 	if dbURL == "" {
-		dbURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		t.Skip("skipping: test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
@@ -42,7 +41,7 @@ func newTestHandler(t *testing.T) *Handler {
 		t.Skip("skipping: test database not available")
 	}
 
-	// Clean test data (best effort, may fail due to concurrent tests)
+	// Clean test data within our isolated database (safe since each package has its own DB)
 	pool.Exec(context.Background(), `
 		TRUNCATE providers, models, virtual_keys, request_logs,
 		       app_logs, model_failover_groups, settings CASCADE

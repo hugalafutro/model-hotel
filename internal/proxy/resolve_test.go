@@ -4,7 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // ---------------------------------------------------------------------------
@@ -262,5 +267,220 @@ func TestResolveTimings_ZeroValue(t *testing.T) {
 	}
 	if rt.keyDecryptMs != 0 {
 		t.Errorf("zero resolveTimings.keyDecryptMs = %f, want 0", rt.keyDecryptMs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// resolveHotelModel integration tests (requires PostgreSQL) - expanded
+// ---------------------------------------------------------------------------
+
+func TestResolveHotelModel_Success(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-hotel-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "gpt-4",
+		Name:             "GPT-4",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	// Create a failover group
+	if _, err := h.failoverRepo.Upsert(context.Background(), "hotel-model", []uuid.UUID{modelID}); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(context.Background(), "hotel-model") }()
+
+	candidates, timings, err := h.resolveHotelModel(context.Background(), "hotel-model")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(candidates))
+	}
+
+	if candidates[0].model.ID != modelID {
+		t.Errorf("expected model ID %v, got %v", modelID, candidates[0].model.ID)
+	}
+	if candidates[0].provider.ID != createdProvider.ID {
+		t.Errorf("expected provider ID %v, got %v", createdProvider.ID, candidates[0].provider.ID)
+	}
+	if candidates[0].apiKey != "test-api-key" {
+		t.Errorf("expected decrypted API key, got %q", candidates[0].apiKey)
+	}
+
+	// Verify timings were recorded
+	if timings.modelLookupMs < 0 {
+		t.Errorf("expected modelLookupMs > 0, got %f", timings.modelLookupMs)
+	}
+	if timings.providerLookupMs < 0 {
+		t.Errorf("expected providerLookupMs > 0, got %f", timings.providerLookupMs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// resolveSpecificProvider integration tests (requires PostgreSQL) - expanded
+// ---------------------------------------------------------------------------
+
+func TestResolveSpecificProvider_Success(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-specific-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "specific-model",
+		Name:             "Specific Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	candidates, timings, err := h.resolveSpecificProvider(context.Background(), providerName, "specific-model")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(candidates))
+	}
+
+	if candidates[0].model.ModelID != "specific-model" {
+		t.Errorf("expected model ID 'specific-model', got %v", candidates[0].model.ModelID)
+	}
+	if candidates[0].provider.ID != createdProvider.ID {
+		t.Errorf("expected provider ID %v, got %v", createdProvider.ID, candidates[0].provider.ID)
+	}
+	if candidates[0].apiKey != "test-api-key" {
+		t.Errorf("expected decrypted API key, got %q", candidates[0].apiKey)
+	}
+
+	// Verify timings were recorded
+	if timings.modelLookupMs < 0 {
+		t.Errorf("expected modelLookupMs > 0, got %f", timings.modelLookupMs)
+	}
+	if timings.providerLookupMs < 0 {
+		t.Errorf("expected providerLookupMs > 0, got %f", timings.providerLookupMs)
+	}
+	if timings.keyDecryptMs < 0 {
+		t.Errorf("expected keyDecryptMs > 0, got %f", timings.keyDecryptMs)
+	}
+}
+
+func TestResolveSpecificProvider_WrongMasterKey(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider with wrong master key
+	keyPair, err := auth.Encrypt("test-api-key", "wrong-master-key")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-wrong-key-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "wrong-key-model",
+		Name:             "Wrong Key Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	candidates, _, err := h.resolveSpecificProvider(context.Background(), providerName, "wrong-key-model")
+
+	if err == nil {
+		t.Error("expected error for wrong master key")
+	}
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(candidates))
 	}
 }
