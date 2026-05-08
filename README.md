@@ -282,6 +282,23 @@ You can also set a fixed admin token via the `ADMIN_TOKEN` environment variable.
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
 
+## Development
+
+```bash
+make build          # build the server binary
+make test           # run all tests
+make lint           # run golangci-lint (same as CI)
+make fmt            # auto-format imports + code (gci + go fmt)
+```
+
+Pre-commit hook for import formatting:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+This runs `gci write` on staged Go files automatically, catching import grouping issues before they hit CI.
+
 ## [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Configuration](#-configuration)
 
 ### Environment Variables
