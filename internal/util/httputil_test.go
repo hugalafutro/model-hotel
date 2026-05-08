@@ -1,9 +1,14 @@
 package util
 
 import (
+	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 // ---------------------------------------------------------------------------
@@ -601,5 +606,87 @@ func TestSanitizeLogBody_EmptyBody(t *testing.T) {
 	result := SanitizeLogBody("", 100)
 	if result != "" {
 		t.Errorf("expected empty string, got %q", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ParseUUIDParam
+// ---------------------------------------------------------------------------
+
+func TestParseUUIDParam_Valid(t *testing.T) {
+	testUUID := uuid.Must(uuid.Parse("793ac38b-0211-43e6-baa7-aa7054c39931"))
+	r := httptest.NewRequest("GET", "/test/"+testUUID.String(), nil)
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", testUUID.String())
+	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+
+	result, err := ParseUUIDParam(r, "id")
+	if err != nil {
+		t.Fatalf("ParseUUIDParam failed: %v", err)
+	}
+	if result != testUUID {
+		t.Errorf("expected %v, got %v", testUUID, result)
+	}
+}
+
+func TestParseUUIDParam_Invalid(t *testing.T) {
+	r := httptest.NewRequest("GET", "/test/not-a-uuid", nil)
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "not-a-uuid")
+	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+
+	result, err := ParseUUIDParam(r, "id")
+	if err == nil {
+		t.Error("ParseUUIDParam should return error for invalid UUID")
+	}
+	if result != uuid.Nil {
+		t.Errorf("expected uuid.Nil, got %v", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WriteOpenAIError
+// ---------------------------------------------------------------------------
+
+func TestWriteOpenAIError(t *testing.T) {
+	w := httptest.NewRecorder()
+	testMessage := "test error"
+	testStatusCode := 429
+
+	WriteOpenAIError(w, testMessage, testStatusCode)
+
+	// Check status code
+	if w.Code != testStatusCode {
+		t.Errorf("expected status code %d, got %d", testStatusCode, w.Code)
+	}
+
+	// Check content type
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", w.Header().Get("Content-Type"))
+	}
+
+	// Check response body structure
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to parse JSON response: %v", err)
+	}
+
+	errorObj, ok := response["error"].(map[string]interface{})
+	if !ok {
+		t.Fatal("response should contain 'error' object")
+	}
+
+	if errorObj["message"] != testMessage {
+		t.Errorf("expected message %q, got %q", testMessage, errorObj["message"])
+	}
+
+	if errorObj["type"] != "rate_limit_error" {
+		t.Errorf("expected type %q, got %q", "rate_limit_error", errorObj["type"])
+	}
+
+	if errorObj["code"] != float64(testStatusCode) {
+		t.Errorf("expected code %d, got %v", testStatusCode, errorObj["code"])
 	}
 }

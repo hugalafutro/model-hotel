@@ -482,3 +482,22 @@ func TestCleanup_EmptyMap(t *testing.T) {
 	}
 	lim.mu.Unlock()
 }
+
+func TestNewLimiter(t *testing.T) {
+	s := newStubSettings()
+	lim := NewLimiter(s)
+	defer lim.Stop()
+
+	if lim == nil {
+		t.Fatal("NewLimiter should return non-nil Limiter")
+	}
+	if lim.settings == nil {
+		t.Error("settings should be set")
+	}
+	if lim.limiters == nil {
+		t.Error("limiters map should be initialized")
+	}
+	if lim.stopCh == nil {
+		t.Error("stopCh should be initialized")
+	}
+}

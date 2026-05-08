@@ -183,3 +183,17 @@ func TestPublishAfterUnsubscribe_NoPanic(t *testing.T) {
 	// Give a moment for any goroutine to complete
 	time.Sleep(10 * time.Millisecond)
 }
+
+func TestPublishConvenience(t *testing.T) {
+	ch := DefaultBus.Subscribe()
+	defer DefaultBus.Unsubscribe(ch)
+	Publish(Event{Type: "convenience"})
+	select {
+	case recv := <-ch:
+		if recv.Type != "convenience" {
+			t.Errorf("expected 'convenience', got %q", recv.Type)
+		}
+	case <-time.After(time.Second):
+		t.Error("timeout waiting for convenience Publish")
+	}
+}

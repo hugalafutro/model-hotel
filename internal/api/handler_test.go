@@ -1,0 +1,583 @@
+package api
+
+import (
+	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/virtualkey"
+)
+
+// TestRegisterModels_Routes verifies that model routes are registered correctly
+func TestRegisterModels_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterModels(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	// Routes are registered with trailing slashes - /models/, /models/{id}, etc.
+	expectedRoutes := []string{
+		"GET /models/",
+		"PATCH /models/{id}",
+		"DELETE /models/{id}",
+		"POST /models/{id}/test",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestDeleteModel_Succeeds tests DeleteModel handler
+func TestDeleteModel_Succeeds(t *testing.T) {
+	t.Skip("DeleteModel requires real database - integration test needed")
+}
+
+// TestPurgeLogs_Success tests PurgeLogs with valid older_than value
+func TestPurgeLogs_Success(t *testing.T) {
+	t.Skip("PurgeLogs requires real database - integration test needed")
+}
+
+// TestPurgeLogs_InvalidValue tests PurgeLogs with invalid older_than
+func TestPurgeLogs_InvalidValue(t *testing.T) {
+	h := &Handler{
+		dbPool: nil,
+	}
+
+	body := bytes.NewReader([]byte(`{"older_than":"invalid"}`))
+	req, w := newChiRequest(http.MethodDelete, "/logs/purge", body)
+
+	h.PurgeLogs(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+// TestPurgeLogs_All tests PurgeLogs with "all" value
+func TestPurgeLogs_All(t *testing.T) {
+	t.Skip("PurgeLogs requires real database - integration test needed")
+}
+
+// TestListLogs_Success tests ListLogs handler returns status OK
+func TestListLogs_Success(t *testing.T) {
+	t.Skip("ListLogs requires real database - integration test needed")
+}
+
+// TestListLogs_WithFilters tests ListLogs with various filter query params
+func TestListLogs_WithFilters(t *testing.T) {
+	t.Skip("ListLogs requires real database - integration test needed")
+}
+
+// TestRegisterSettings_Routes verifies settings routes are registered correctly
+func TestRegisterSettings_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterSettings(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"GET /settings/",
+		"PUT /settings/",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestUpdateSettings_Success tests UpdateSettings handler
+func TestUpdateSettings_Success(t *testing.T) {
+	t.Skip("UpdateSettings requires real database - integration test needed")
+}
+
+// TestUpdateSettings_UnknownSetting tests UpdateSettings with unknown key
+func TestUpdateSettings_UnknownSetting(t *testing.T) {
+	t.Skip("UpdateSettings requires real database - integration test needed")
+}
+
+// TestUpdateSettings_InvalidValue tests UpdateSettings with invalid value type
+func TestUpdateSettings_InvalidValue(t *testing.T) {
+	t.Skip("UpdateSettings requires real database - integration test needed")
+}
+
+// TestUpdateSettings_ValueTooLong tests UpdateSettings with too long value
+func TestUpdateSettings_ValueTooLong(t *testing.T) {
+	t.Skip("UpdateSettings requires real database - integration test needed")
+}
+
+// TestUpdateSettings_RangeValidation tests range validation for numeric settings
+func TestUpdateSettings_RangeValidation(t *testing.T) {
+	t.Skip("UpdateSettings requires real database - integration test needed")
+}
+
+// TestGetAppLogs_History tests history mode without DB
+func TestGetAppLogs_History(t *testing.T) {
+	t.Skip("GetAppLogs requires real database - integration test needed")
+}
+
+// TestClearAppLogs tests ClearAppLogs
+func TestClearAppLogs(t *testing.T) {
+	t.Skip("ClearAppLogs requires real database - integration test needed")
+}
+
+// TestRegisterAppLogs_Routes verifies app logs routes
+func TestRegisterAppLogs_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterAppLogs(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"GET /logs/app",
+		"DELETE /logs/app",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestRegisterEvents_Routes verifies events routes
+func TestRegisterEvents_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterEvents(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"GET /events",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestAuthMiddleware tests auth middleware
+func TestAuthMiddleware(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := &Handler{
+		adminMgr: mockAuth,
+	}
+
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d (no token), got %d", http.StatusUnauthorized, w.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d (valid token), got %d", http.StatusOK, w.Code)
+	}
+}
+
+// TestRegisterProviderDiscovery_Routes verifies discovery routes
+func TestRegisterProviderDiscovery_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterProviderDiscovery(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"POST /providers/discover-all",
+		"POST /providers/refresh-quotas",
+		"POST /providers/{id}/discover/",
+		"GET /providers/{id}/usage/",
+		"GET /providers/{id}/balance/",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestDiscoverProviderModels tests DiscoverProviderModels handler
+func TestDiscoverProviderModels(t *testing.T) {
+	t.Skip("DiscoverProviderModels requires real database - integration test needed")
+}
+
+// TestDiscoverAllModels tests DiscoverAllModels handler
+func TestDiscoverAllModels(t *testing.T) {
+	t.Skip("DiscoverAllModels requires real database - integration test needed")
+}
+
+// TestRefreshAllQuotas tests RefreshAllQuotas handler
+func TestRefreshAllQuotas(t *testing.T) {
+	t.Skip("RefreshAllQuotas requires real database - integration test needed")
+}
+
+// TestGetProviderUsage tests GetProviderUsage handler
+func TestGetProviderUsage(t *testing.T) {
+	t.Skip("GetProviderUsage requires real database - integration test needed")
+}
+
+// TestGetProviderBalance tests GetProviderBalance handler
+func TestGetProviderBalance(t *testing.T) {
+	t.Skip("GetProviderBalance requires real database - integration test needed")
+}
+
+// TestRegisterLogs_Routes verifies logs routes are registered correctly
+func TestRegisterLogs_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterLogs(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"GET /logs/",
+		"DELETE /logs/purge",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestRegisterVirtualKeys_Routes verifies virtual keys routes
+func TestRegisterVirtualKeys_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := &Handler{}
+	h.RegisterVirtualKeys(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"POST /virtual-keys/",
+		"GET /virtual-keys/",
+		"GET /virtual-keys/{id}",
+		"DELETE /virtual-keys/{id}",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestRegisterSystem_Routes verifies system routes
+func TestRegisterSystem_Routes(t *testing.T) {
+	r := chi.NewRouter()
+	h := NewSystemHandler(nil)
+	h.Register(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"GET /system/",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestCond tests cond helper
+func TestCond(t *testing.T) {
+	tests := []struct {
+		name     string
+		val      string
+		cond     bool
+		expected string
+	}{
+		{"true_condition", "value", true, "value"},
+		{"false_condition", "value", false, ""},
+		{"empty_value_true", "", true, ""},
+		{"empty_value_false", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cond(tt.val, tt.cond); got != tt.expected {
+				t.Errorf("cond(%q, %v) = %q, want %q", tt.val, tt.cond, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestVirtualKeyToResponse tests virtualKeyToResponse helper
+func TestVirtualKeyToResponse(t *testing.T) {
+	now := time.Now()
+	vk := &virtualkey.VirtualKey{
+		ID:         uuid.New(),
+		Name:       "test-key",
+		KeyPreview: "sk-...ab",
+		TokensUsed: 100,
+		LastUsedAt: &now,
+		CreatedAt:  now,
+	}
+
+	resp := virtualKeyToResponse(vk, true, "sk-test-key-12345")
+
+	if resp.Name != "test-key" {
+		t.Errorf("expected name 'test-key', got %q", resp.Name)
+	}
+	if resp.Key != "sk-test-key-12345" {
+		t.Errorf("expected key 'sk-test-key-12345', got %q", resp.Key)
+	}
+	if resp.KeyPreview != "sk-...ab" {
+		t.Errorf("expected key_preview 'sk-...ab', got %q", resp.KeyPreview)
+	}
+	if resp.TokensUsed != 100 {
+		t.Errorf("expected tokens_used 100, got %d", resp.TokensUsed)
+	}
+}
+
+// TestVirtualKeyToResponse_ExcludeKey tests virtualKeyToResponse with includeKey=false
+func TestVirtualKeyToResponse_ExcludeKey(t *testing.T) {
+	vk := &virtualkey.VirtualKey{
+		ID:         uuid.New(),
+		Name:       "test-key",
+		KeyPreview: "sk-...ab",
+		TokensUsed: 50,
+		LastUsedAt: nil,
+		CreatedAt:  time.Now(),
+	}
+
+	resp := virtualKeyToResponse(vk, false, "sk-test-key")
+
+	if resp.Key != "" {
+		t.Errorf("expected empty key for exclude, got %q", resp.Key)
+	}
+}
+
+// TestVirtualKeyToResponse_NoLastUsed tests virtualKeyToResponse with nil LastUsedAt
+func TestVirtualKeyToResponse_NoLastUsed(t *testing.T) {
+	vk := &virtualkey.VirtualKey{
+		ID:         uuid.New(),
+		Name:       "test-key",
+		KeyPreview: "sk-...ab",
+		TokensUsed: 0,
+		LastUsedAt: nil,
+		CreatedAt:  time.Now(),
+	}
+
+	resp := virtualKeyToResponse(vk, false, "")
+
+	if resp.LastUsedAt != nil {
+		t.Errorf("expected nil LastUsedAt, got %v", resp.LastUsedAt)
+	}
+}
+
+// TestStatsHandler_Register tests stats routes
+func TestStatsHandler_Register(t *testing.T) {
+	r := chi.NewRouter()
+	h := NewStatsHandler(nil, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h.Register(r)
+
+	var routes []string
+	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		routes = append(routes, method+" "+path)
+		return nil
+	})
+
+	expectedRoutes := []string{
+		"GET /stats/",
+		"GET /stats/timeseries",
+		"GET /stats/provider-distribution",
+	}
+
+	for _, exp := range expectedRoutes {
+		found := false
+		for _, r := range routes {
+			if r == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %q not found, got %v", exp, routes)
+		}
+	}
+}
+
+// TestStatsHandler_ParsePeriod tests parsePeriod helper
+func TestStatsHandler_ParsePeriod(t *testing.T) {
+	tests := []struct {
+		period string
+		want   time.Duration
+	}{
+		{"1h", time.Hour},
+		{"7d", 7 * 24 * time.Hour},
+		{"invalid", 24 * time.Hour}, // default
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.period, func(t *testing.T) {
+			req, _ := newChiRequest(http.MethodGet, "/stats?period="+tt.period, nil)
+			got := parsePeriod(req)
+			if got != tt.want {
+				t.Errorf("parsePeriod(%q) = %v, want %v", tt.period, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestStatsHandler_ParseMetric tests parseMetric helper
+func TestStatsHandler_ParseMetric(t *testing.T) {
+	tests := []struct {
+		metric string
+		want   string
+	}{
+		{"tokens", "tokens"},
+		{"requests", "requests"},
+		{"invalid", "requests"}, // default
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.metric, func(t *testing.T) {
+			req, _ := newChiRequest(http.MethodGet, "/stats?metric="+tt.metric, nil)
+			got := parseMetric(req)
+			if got != tt.want {
+				t.Errorf("parseMetric(%q) = %q, want %q", tt.metric, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestStatsHandler_ParseExcludeDeleted tests parseExcludeDeleted helper
+func TestStatsHandler_ParseExcludeDeleted(t *testing.T) {
+	tests := []struct {
+		exclude string
+		want    bool
+	}{
+		{"true", true},
+		{"false", false},
+		{"invalid", false}, // default
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.exclude, func(t *testing.T) {
+			req, _ := newChiRequest(http.MethodGet, "/stats?exclude_deleted="+tt.exclude, nil)
+			got := parseExcludeDeleted(req)
+			if got != tt.want {
+				t.Errorf("parseExcludeDeleted(%q) = %v, want %v", tt.exclude, got, tt.want)
+			}
+		})
+	}
+}

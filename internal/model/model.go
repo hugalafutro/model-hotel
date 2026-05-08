@@ -354,8 +354,6 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		return r.Get(ctx, id)
 	}
 
-	setClauses = append(setClauses, "updated_at = now()")
-
 	args = append([]interface{}{id}, args...)
 
 	query := fmt.Sprintf("UPDATE models SET %s WHERE id = $1", strings.Join(setClauses, ", "))

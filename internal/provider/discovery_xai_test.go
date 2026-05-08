@@ -56,3 +56,11 @@ func TestIsNoAccessError_Pointer(t *testing.T) {
 		t.Error("isNoAccessError(&httpError{403}) = false, want true")
 	}
 }
+
+func TestHTTPError_Error(t *testing.T) {
+	err := &httpError{StatusCode: 418, Body: "I'm a teapot"}
+	msg := err.Error()
+	if msg != "unexpected status 418" {
+		t.Errorf("Error() = %q, want %q", msg, "unexpected status 418")
+	}
+}

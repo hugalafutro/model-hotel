@@ -352,3 +352,74 @@ func TestCircuitBreaker_NilSettingsUsesDefaults(t *testing.T) {
 		t.Error("should be open after 3/3 failures (struct default)")
 	}
 }
+
+func TestState_String(t *testing.T) {
+	tests := []struct {
+		name  string
+		state State
+		want  string
+	}{
+		{"StateClosed", StateClosed, "closed"},
+		{"StateOpen", StateOpen, "open"},
+		{"StateHalfOpen", StateHalfOpen, "half-open"},
+		{"StateUnknown", State(999), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.state.String()
+			if got != tt.want {
+				t.Errorf("String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestState_MarshalText(t *testing.T) {
+	tests := []struct {
+		name    string
+		state   State
+		want    string
+		wantErr bool
+	}{
+		{"StateClosed", StateClosed, "closed", false},
+		{"StateOpen", StateOpen, "open", false},
+		{"StateHalfOpen", StateHalfOpen, "half-open", false},
+		{"StateUnknown", State(999), "unknown", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.state.MarshalText()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarshalText() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if string(got) != tt.want {
+				t.Errorf("MarshalText() = %q, want %q", string(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestCircuitBreaker_SeverityForState(t *testing.T) {
+	tests := []struct {
+		name  string
+		state string
+		want  string
+	}{
+		{"open", "open", "warning"},
+		{"closed", "closed", "success"},
+		{"unknown", "unknown", "info"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCB(3, 30*time.Second)
+			got := cb.severityForState(tt.state)
+			if got != tt.want {
+				t.Errorf("severityForState(%q) = %q, want %q", tt.state, got, tt.want)
+			}
+		})
+	}
+}

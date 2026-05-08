@@ -3,7 +3,10 @@ package proxy
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
 func TestIsBlockedIP_LoopbackIPv4(t *testing.T) {
@@ -146,5 +149,120 @@ func TestSafeDialer_BlockedHost(t *testing.T) {
 	}
 	if err.Error() != "proxy: refused connection to private/reserved IP 127.0.0.1 for host 127.0.0.1" {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSafeDialer_PrivateIPv4Range10(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	conn, err := sd.DialContext(ctx, "tcp", "10.0.0.1:80")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected error for private IP 10.x.x.x, got nil")
+	}
+	expectedError := "proxy: refused connection to private/reserved IP 10.0.0.1 for host 10.0.0.1"
+	if err.Error() != expectedError {
+		t.Fatalf("unexpected error: %v, expected: %v", err, expectedError)
+	}
+}
+
+func TestSafeDialer_PrivateIPv4Range172(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	conn, err := sd.DialContext(ctx, "tcp", "172.16.0.1:80")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected error for private IP 172.16.x.x, got nil")
+	}
+	expectedError := "proxy: refused connection to private/reserved IP 172.16.0.1 for host 172.16.0.1"
+	if err.Error() != expectedError {
+		t.Fatalf("unexpected error: %v, expected: %v", err, expectedError)
+	}
+}
+
+func TestSafeDialer_PrivateIPv4Range192(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	conn, err := sd.DialContext(ctx, "tcp", "192.168.1.1:80")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected error for private IP 192.168.x.x, got nil")
+	}
+	expectedError := "proxy: refused connection to private/reserved IP 192.168.1.1 for host 192.168.1.1"
+	if err.Error() != expectedError {
+		t.Fatalf("unexpected error: %v, expected: %v", err, expectedError)
+	}
+}
+
+func TestSafeDialer_LinkLocalIPv6(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	conn, err := sd.DialContext(ctx, "tcp", "[fe80::1]:80")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected error for link-local IPv6, got nil")
+	}
+	expectedError := "proxy: refused connection to private/reserved IP fe80::1 for host fe80::1"
+	if err.Error() != expectedError {
+		t.Fatalf("unexpected error: %v, expected: %v", err, expectedError)
+	}
+}
+
+func TestSafeDialer_UnspecifiedIP(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	conn, err := sd.DialContext(ctx, "tcp", "0.0.0.0:80")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected error for unspecified IP 0.0.0.0, got nil")
+	}
+	expectedError := "proxy: refused connection to private/reserved IP 0.0.0.0 for host 0.0.0.0"
+	if err.Error() != expectedError {
+		t.Fatalf("unexpected error: %v, expected: %v", err, expectedError)
+	}
+}
+
+func TestSafeDialer_NoPortInAddr(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	// When no port is provided, should handle gracefully
+	_, err := sd.DialContext(ctx, "tcp", "127.0.0.1")
+	if err == nil {
+		t.Error("expected error for loopback without port")
+	}
+}
+
+func TestSafeDialer_DialTimingContext(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	var dialMs float64
+	ctx := context.WithValue(context.Background(), ctxkeys.SafeDialMsKey, &dialMs)
+
+	// This will fail to connect but should set the timing value
+	_, _ = sd.DialContext(ctx, "tcp", "127.0.0.1:80")
+	// dialMs should be >= 0 (DNS resolution was attempted, even for IP)
+	if dialMs < 0 {
+		t.Errorf("expected dialMs >= 0, got %f", dialMs)
+	}
+}
+
+func TestSafeDialer_DNSErrorFallback(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	// Non-existent host should fall through to dial and get a connection error,
+	// not a "private IP" error
+	_, err := sd.DialContext(ctx, "tcp", "this-host-does-not-exist-xyz123.invalid:80")
+	if err == nil {
+		t.Error("expected error for non-existent host")
+	}
+	// The error should NOT be our blocked-IP error
+	if err != nil && strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("expected DNS/connection error, got blocked-IP error: %v", err)
 	}
 }

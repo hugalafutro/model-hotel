@@ -1,9 +1,30 @@
 package debuglog
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 )
+
+// captureHandler captures log records for testing
+type captureHandler struct {
+	records []slog.Record
+	level   slog.Level
+}
+
+func (h *captureHandler) Enabled(_ context.Context, l slog.Level) bool {
+	return l >= h.level
+}
+func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
+	h.records = append(h.records, r)
+	return nil
+}
+func (h *captureHandler) WithAttrs(attrs []slog.Attr) slog.Handler { return h }
+func (h *captureHandler) WithGroup(name string) slog.Handler       { return h }
+
+func newCaptureHandler(level slog.Level) *captureHandler {
+	return &captureHandler{level: level}
+}
 
 func TestInit(t *testing.T) {
 	t.Run("debug true sets LevelDebug", func(t *testing.T) {
@@ -72,4 +93,101 @@ func TestLevel(t *testing.T) {
 			t.Errorf("Level() = %v, want %v", got, slog.LevelInfo)
 		}
 	})
+}
+
+func TestSetHandler(t *testing.T) {
+	h := newCaptureHandler(slog.LevelInfo)
+	SetHandler(h)
+
+	// Verify handler is used by logging something
+	Info("test message")
+	if len(h.records) == 0 {
+		t.Error("SetHandler: custom handler not being used")
+	}
+}
+
+func TestDebug(t *testing.T) {
+	t.Run("when debug enabled", func(t *testing.T) {
+		Init(true)
+		h := newCaptureHandler(slog.LevelDebug)
+		SetHandler(h)
+
+		Debug("debug message", "key", "value")
+		if len(h.records) == 0 {
+			t.Error("Debug: no record captured")
+		}
+		rec := h.records[0]
+		if rec.Level != slog.LevelDebug {
+			t.Errorf("Debug: level = %v, want %v", rec.Level, slog.LevelDebug)
+		}
+		if rec.Message != "debug message" {
+			t.Errorf("Debug: message = %q, want %q", rec.Message, "debug message")
+		}
+	})
+
+	t.Run("when debug disabled", func(t *testing.T) {
+		Init(false)
+		h := newCaptureHandler(slog.LevelInfo)
+		SetHandler(h)
+
+		Debug("debug message")
+		// When debug is disabled, Debug calls should be discarded by slog
+		if len(h.records) > 0 {
+			t.Error("Debug: should not capture records when debug disabled")
+		}
+	})
+}
+
+func TestInfo(t *testing.T) {
+	Init(true)
+	h := newCaptureHandler(slog.LevelInfo)
+	SetHandler(h)
+
+	Info("info message", "key", "value")
+	if len(h.records) == 0 {
+		t.Error("Info: no record captured")
+	}
+	rec := h.records[0]
+	if rec.Level != slog.LevelInfo {
+		t.Errorf("Info: level = %v, want %v", rec.Level, slog.LevelInfo)
+	}
+	if rec.Message != "info message" {
+		t.Errorf("Info: message = %q, want %q", rec.Message, "info message")
+	}
+}
+
+func TestWarn(t *testing.T) {
+	Init(true)
+	h := newCaptureHandler(slog.LevelWarn)
+	SetHandler(h)
+
+	Warn("warning message", "key", "value")
+	if len(h.records) == 0 {
+		t.Error("Warn: no record captured")
+	}
+	rec := h.records[0]
+	if rec.Level != slog.LevelWarn {
+		t.Errorf("Warn: level = %v, want %v", rec.Level, slog.LevelWarn)
+	}
+	if rec.Message != "warning message" {
+		t.Errorf("Warn: message = %q, want %q", rec.Message, "warning message")
+	}
+}
+
+func TestError(t *testing.T) {
+	Init(true)
+	h := newCaptureHandler(slog.LevelError)
+	SetHandler(h)
+
+	Error("error message", "key", "value")
+	if len(h.records) == 0 {
+		t.Error("Error: no record captured")
+	}
+	rec := h.records[0]
+	if rec.Level != slog.LevelError {
+		t.Errorf("Error: level = %v, want %v", rec.Level, slog.LevelError)
+	}
+	if rec.Message != "error message" {
+		t.Errorf("Error: message = %q, want %q", rec.Message, "error message")
+	}
 }

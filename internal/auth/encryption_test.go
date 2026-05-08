@@ -116,3 +116,15 @@ func TestConstantTimeCompare(t *testing.T) {
 		t.Error("ConstantTimeCompare should return false for different strings")
 	}
 }
+
+func TestDeriveKey(t *testing.T) {
+	key := DeriveKey("test-master-key")
+	if len(key) == 0 {
+		t.Error("DeriveKey should return non-empty key")
+	}
+	// Same input should produce same output
+	key2 := DeriveKey("test-master-key")
+	if string(key) != string(key2) {
+		t.Error("DeriveKey should be deterministic")
+	}
+}
