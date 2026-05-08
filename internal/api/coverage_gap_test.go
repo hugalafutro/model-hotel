@@ -201,3 +201,414 @@ func TestGetProviderUsage_UnsupportedType(t *testing.T) {
 		t.Errorf("expected error about unsupported provider type, got: %s", w.Body.String())
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Admin Handler Tests - ListProviders
+// ---------------------------------------------------------------------------
+
+// TestListProviders_Integration tests the ListProviders handler with an empty database.
+func TestListProviders_Integration(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/providers", nil)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response []map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(response) != 0 {
+		t.Errorf("expected empty provider list, got %d providers", len(response))
+	}
+}
+
+// TestListProviders_WithProviders tests listing providers when database has entries.
+func TestListProviders_WithProviders(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create two providers
+	provider1 := `{"name": "test-list-1", "base_url": "https://api.openai.com", "api_key": "sk-test1"}`
+	provider2 := `{"name": "test-list-2", "base_url": "https://api.anthropic.com", "api_key": "sk-ant-test"}`
+
+	for _, body := range []string{provider1, provider2} {
+		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
+		}
+	}
+
+	// List all providers
+	req := httptest.NewRequest(http.MethodGet, "/providers", nil)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(response) != 2 {
+		t.Errorf("expected 2 providers, got %d", len(response))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Admin Handler Tests - CreateProvider
+// ---------------------------------------------------------------------------
+
+// TestCreateProvider_Integration_Success tests creating a provider with valid data.
+func TestCreateProvider_Integration_Success(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"name": "test-create-success", "base_url": "https://api.openai.com", "api_key": "sk-test123"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 Created, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		BaseURL string `json:"base_url"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response.Name != "test-create-success" {
+		t.Errorf("expected name 'test-create-success', got %s", response.Name)
+	}
+	if response.BaseURL != "https://api.openai.com" {
+		t.Errorf("expected base_url 'https://api.openai.com', got %s", response.BaseURL)
+	}
+	if response.ID == "" {
+		t.Error("expected non-empty ID")
+	}
+}
+
+
+
+// ---------------------------------------------------------------------------
+// Admin Handler Tests - UpdateProvider
+// ---------------------------------------------------------------------------
+
+// TestUpdateProvider_Integration_Success tests updating a provider's fields.
+func TestUpdateProvider_Integration_Success(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create provider first
+	createBody := `{"name": "test-update-original", "base_url": "https://api.openai.com", "api_key": "sk-test"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+
+	// Update the provider
+	updateBody := `{"name": "test-update-new", "base_url": "https://api.anthropic.com"}`
+	req = httptest.NewRequest(http.MethodPut, "/providers/"+createResp.ID, strings.NewReader(updateBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var updateResp struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		BaseURL string `json:"base_url"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&updateResp); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+
+	if updateResp.Name != "test-update-new" {
+		t.Errorf("expected name 'test-update-new', got %s", updateResp.Name)
+	}
+	if updateResp.BaseURL != "https://api.anthropic.com" {
+		t.Errorf("expected base_url 'https://api.anthropic.com', got %s", updateResp.BaseURL)
+	}
+}
+
+// TestUpdateProvider_NotFound tests updating a non-existent provider.
+func TestUpdateProvider_NotFound(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	unknownID := "00000000-0000-0000-0000-000000000000"
+	body := `{"name": "test-update-notfound"}`
+	req := httptest.NewRequest(http.MethodPut, "/providers/"+unknownID, strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404 Not Found, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+
+
+// ---------------------------------------------------------------------------
+// Admin Handler Tests - DeleteProvider
+// ---------------------------------------------------------------------------
+
+// TestDeleteProvider_Integration_Success tests deleting an existing provider.
+func TestDeleteProvider_Integration_Success(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create provider first
+	createBody := `{"name": "test-delete-success", "base_url": "https://api.openai.com", "api_key": "sk-test"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+
+	// Delete the provider
+	req = httptest.NewRequest(http.MethodDelete, "/providers/"+createResp.ID, nil)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204 No Content, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify it's gone
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID, nil)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 Not Found after delete, got %d", w.Code)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Failover Handler Tests - Sync
+// ---------------------------------------------------------------------------
+
+// TestFailoverSync_Integration tests the Sync endpoint.
+func TestFailoverSync_Integration(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
+
+	h.Sync(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Verify response has expected structure (DisabledGroups, SyncErrors)
+	if _, ok := response["disabled_groups"]; !ok {
+		t.Error("expected 'disabled_groups' field in sync response")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Settings Handler Tests - UpdateSettings
+// ---------------------------------------------------------------------------
+
+// TestUpdateSettings_Integration_MultipleKeys tests updating multiple settings at once.
+func TestUpdateSettings_Integration_MultipleKeys(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"rate_limit_enabled": "true", "rate_limit_rps": "50", "toast_duration": "3000"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response["rate_limit_enabled"] != "true" {
+		t.Errorf("expected rate_limit_enabled='true', got %s", response["rate_limit_enabled"])
+	}
+	if response["rate_limit_rps"] != "50" {
+		t.Errorf("expected rate_limit_rps='50', got %s", response["rate_limit_rps"])
+	}
+	if response["toast_duration"] != "3000" {
+		t.Errorf("expected toast_duration='3000', got %s", response["toast_duration"])
+	}
+}
+
+// TestUpdateSettings_FloatValue tests updating a float-type setting.
+func TestUpdateSettings_FloatValue(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"rate_limit_rps": "25.5"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response["rate_limit_rps"] != "25.5" {
+		t.Errorf("expected rate_limit_rps='25.5', got %s", response["rate_limit_rps"])
+	}
+}
+
+// TestUpdateSettings_OutOfRangeInt tests updating with an integer value out of range.
+func TestUpdateSettings_OutOfRangeInt(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// toast_duration max is 15000
+	body := `{"toast_duration": "99999"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be between") {
+		t.Errorf("expected error about range, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_OutOfRangeFloat tests updating with a float value out of range.
+func TestUpdateSettings_OutOfRangeFloat(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_rps max is 10000
+	body := `{"rate_limit_rps": "99999"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be between") {
+		t.Errorf("expected error about range, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_TooManyKeys tests the limit on number of settings in one request.
+func TestUpdateSettings_TooManyKeys(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Build a request with more than 50 unique keys
+	// The >50 check happens before key validation, so keys don't need to be valid
+	body := `{`
+	for i := 0; i < 55; i++ {
+		if i > 0 {
+			body += `,`
+		}
+		body += `"setting_key_` + string(rune('a'+(i/26))) + string(rune('a'+(i%26))) + `":"value"`
+	}
+	body += `}`
+
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "too many settings") {
+		t.Errorf("expected error about too many settings, got: %s", w.Body.String())
+	}
+}

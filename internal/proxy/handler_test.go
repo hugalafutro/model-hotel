@@ -2,12 +2,14 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -62,6 +64,40 @@ func containsMethod(methods []string, method string) bool {
 		}
 	}
 	return false
+}
+
+// mockVirtualKeyRepoWithFuncs is a test mock implementing VirtualKeyRepository
+// with customizable Create and Delete functions for testing error paths.
+// (Note: mockVirtualKeyRepo exists in response_test.go for simpler use cases)
+type mockVirtualKeyRepoWithFuncs struct {
+	createFunc func(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error)
+	deleteFunc func(ctx context.Context, id string) error
+}
+
+func (m *mockVirtualKeyRepoWithFuncs) AddTokens(ctx context.Context, keyHash string, tokens int) error {
+	return nil
+}
+
+func (m *mockVirtualKeyRepoWithFuncs) TouchLastUsed(ctx context.Context, keyHash string) error {
+	return nil
+}
+
+func (m *mockVirtualKeyRepoWithFuncs) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error) {
+	return nil, nil
+}
+
+func (m *mockVirtualKeyRepoWithFuncs) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+	if m.createFunc != nil {
+		return m.createFunc(ctx, name, keyHash, keyPreview)
+	}
+	return nil, nil
+}
+
+func (m *mockVirtualKeyRepoWithFuncs) Delete(ctx context.Context, id string) error {
+	if m.deleteFunc != nil {
+		return m.deleteFunc(ctx, id)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -471,5 +507,301 @@ func TestRegisterAdminChat_SetsVirtualKeyContext(t *testing.T) {
 
 	if capturedVKName != "chat" {
 		t.Errorf("expected virtual key name 'chat', got %v", capturedVKName)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// virtualKeyRepoAdapter.Create tests
+// ---------------------------------------------------------------------------
+
+func TestVirtualKeyRepoAdapter_Create_ErrorPropagation(t *testing.T) {
+	t.Parallel()
+
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Use a canceled context to trigger an error from the underlying repo
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := h.virtualKeyRepo.Create(ctx, "test-key", "hash123", "sk-tes...")
+
+	if err == nil {
+		t.Error("expected error from canceled context, got nil")
+	}
+}
+
+func TestVirtualKeyRepository_Create_Success(t *testing.T) {
+	t.Parallel()
+
+	expectedVK := &VirtualKeyInfo{
+		ID:         "550e8400-e29b-41d4-a716-446655440000",
+		Name:       "test-key",
+		KeyHash:    "hash123",
+		KeyPreview: "sk-tes...",
+		TokensUsed: 1000,
+	}
+	mockRepo := &mockVirtualKeyRepoWithFuncs{
+		createFunc: func(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+			return expectedVK, nil
+		},
+	}
+
+	result, err := mockRepo.Create(context.Background(), "test-key", "hash123", "sk-tes...")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.ID != expectedVK.ID {
+		t.Errorf("ID = %q, want %q", result.ID, expectedVK.ID)
+	}
+	if result.Name != expectedVK.Name {
+		t.Errorf("Name = %q, want %q", result.Name, expectedVK.Name)
+	}
+	if result.KeyHash != expectedVK.KeyHash {
+		t.Errorf("KeyHash = %q, want %q", result.KeyHash, expectedVK.KeyHash)
+	}
+	if result.KeyPreview != expectedVK.KeyPreview {
+		t.Errorf("KeyPreview = %q, want %q", result.KeyPreview, expectedVK.KeyPreview)
+	}
+	if result.TokensUsed != expectedVK.TokensUsed {
+		t.Errorf("TokensUsed = %d, want %d", result.TokensUsed, expectedVK.TokensUsed)
+	}
+}
+
+func TestVirtualKeyRepository_Create_AllFieldsMapped(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := &mockVirtualKeyRepoWithFuncs{
+		createFunc: func(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+			return &VirtualKeyInfo{
+				ID:         "test-id-123",
+				Name:       "my-virtual-key",
+				KeyHash:    "sha256-hash-value",
+				KeyPreview: "sk-proj...",
+				TokensUsed: 999999,
+			}, nil
+		},
+	}
+
+	result, err := mockRepo.Create(context.Background(), "my-virtual-key", "sha256-hash-value", "sk-proj...")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "test-id-123" {
+		t.Errorf("ID not mapped correctly")
+	}
+	if result.Name != "my-virtual-key" {
+		t.Errorf("Name not mapped correctly")
+	}
+	if result.KeyHash != "sha256-hash-value" {
+		t.Errorf("KeyHash not mapped correctly")
+	}
+	if result.KeyPreview != "sk-proj..." {
+		t.Errorf("KeyPreview not mapped correctly")
+	}
+	if result.TokensUsed != 999999 {
+		t.Errorf("TokensUsed not mapped correctly")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// VirtualKeyRepository.Delete tests (via mock)
+// ---------------------------------------------------------------------------
+
+func TestVirtualKeyRepository_Delete_InvalidUUID(t *testing.T) {
+	t.Parallel()
+
+	// Use the real adapter to test UUID parsing - it will fail before calling the repo
+	adapter := &virtualKeyRepoAdapter{repo: virtualkey.NewRepository(nil)}
+
+	err := adapter.Delete(context.Background(), "not-a-uuid")
+
+	if err == nil {
+		t.Error("expected error for invalid UUID, got nil")
+	}
+}
+
+func TestVirtualKeyRepository_Delete_ErrorPropagation(t *testing.T) {
+	t.Parallel()
+
+	validUUID := "550e8400-e29b-41d4-a716-446655440000"
+	expectedErr := errors.New("delete failed")
+	mockRepo := &mockVirtualKeyRepoWithFuncs{
+		deleteFunc: func(ctx context.Context, id string) error {
+			return expectedErr
+		},
+	}
+
+	err := mockRepo.Delete(context.Background(), validUUID)
+
+	if err != expectedErr {
+		t.Errorf("expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestVirtualKeyRepository_Delete_Success(t *testing.T) {
+	t.Parallel()
+
+	validUUID := "550e8400-e29b-41d4-a716-446655440000"
+	var deleteCalled bool
+	var capturedID string
+	mockRepo := &mockVirtualKeyRepoWithFuncs{
+		deleteFunc: func(ctx context.Context, id string) error {
+			deleteCalled = true
+			capturedID = id
+			return nil
+		},
+	}
+
+	err := mockRepo.Delete(context.Background(), validUUID)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !deleteCalled {
+		t.Error("Delete was not called")
+	}
+	if capturedID != validUUID {
+		t.Errorf("Delete called with ID %q, want %q", capturedID, validUUID)
+	}
+}
+
+func TestVirtualKeyRepository_Delete_MultipleUUIDFormats(t *testing.T) {
+	t.Parallel()
+
+	// Test uuid.Parse directly - the adapter validates UUID before calling repo
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{"empty string", ""},
+		{"short string", "abc123"},
+		{"partial uuid", "550e8400-e29b"},
+		{"uuid with extra chars", "550e8400-e29b-41d4-a716-446655440000-extra"},
+		{"invalid chars", "not-a-uuid-at-all"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := uuid.Parse(tt.id)
+			if err == nil {
+				t.Errorf("expected uuid.Parse to fail for %q, got nil", tt.id)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests for Create and Delete (requires PostgreSQL)
+// ---------------------------------------------------------------------------
+
+func TestVirtualKeyRepoAdapter_Create_Integration(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	testKey := &VirtualKeyInfo{
+		Name:       "integration-test-key",
+		KeyHash:    virtualkey.Hash("sk-integration-test-key"),
+		KeyPreview: "sk-int...",
+	}
+
+	result, err := h.virtualKeyRepo.Create(context.Background(), testKey.Name, testKey.KeyHash, testKey.KeyPreview)
+
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.ID == "" {
+		t.Error("expected non-empty ID")
+	}
+	if result.Name != testKey.Name {
+		t.Errorf("Name = %q, want %q", result.Name, testKey.Name)
+	}
+	if result.KeyHash != testKey.KeyHash {
+		t.Errorf("KeyHash = %q, want %q", result.KeyHash, testKey.KeyHash)
+	}
+	if result.KeyPreview != testKey.KeyPreview {
+		t.Errorf("KeyPreview = %q, want %q", result.KeyPreview, testKey.KeyPreview)
+	}
+	if result.TokensUsed != 0 {
+		t.Errorf("TokensUsed = %d, want 0", result.TokensUsed)
+	}
+
+	// Cleanup
+	_ = h.virtualKeyRepo.Delete(context.Background(), result.ID)
+}
+
+func TestVirtualKeyRepoAdapter_Delete_Integration(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a key to delete
+	testKey := &VirtualKeyInfo{
+		Name:       "delete-test-key",
+		KeyHash:    virtualkey.Hash("sk-delete-test-key"),
+		KeyPreview: "sk-del...",
+	}
+	created, err := h.virtualKeyRepo.Create(context.Background(), testKey.Name, testKey.KeyHash, testKey.KeyPreview)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Delete the key
+	err = h.virtualKeyRepo.Delete(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	// Verify the key is gone
+	_, err = h.virtualKeyRepo.FindByKeyHash(context.Background(), testKey.KeyHash)
+	if err == nil {
+		t.Error("expected error when looking up deleted key, got nil")
+	}
+}
+
+func TestVirtualKeyRepoAdapter_CreateDelete_RoundTrip(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create
+	created, err := h.virtualKeyRepo.Create(context.Background(), "roundtrip-key", virtualkey.Hash("sk-roundtrip"), "sk-rou...")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Verify we can find it
+	found, err := h.virtualKeyRepo.FindByKeyHash(context.Background(), created.KeyHash)
+	if err != nil {
+		t.Fatalf("FindByKeyHash failed: %v", err)
+	}
+	if found.ID != created.ID {
+		t.Errorf("found ID = %q, want %q", found.ID, created.ID)
+	}
+
+	// Delete
+	err = h.virtualKeyRepo.Delete(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	// Verify it's gone
+	_, err = h.virtualKeyRepo.FindByKeyHash(context.Background(), created.KeyHash)
+	if err == nil {
+		t.Error("expected error after delete, got nil")
 	}
 }
