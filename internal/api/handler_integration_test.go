@@ -33,7 +33,7 @@ const testMasterKey = "testmasterkey1234567890abcdef"
 
 func newTestHandler(t *testing.T) *Handler {
 	t.Helper()
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
 	}

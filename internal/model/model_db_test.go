@@ -15,10 +15,9 @@ import (
 var testPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
-		fmt.Println("skipping integration tests: DATABASE_URL not set")
-		os.Exit(0)
+		dbURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
 	}
 
 	ctx := context.Background()
