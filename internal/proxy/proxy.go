@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -51,15 +50,15 @@ var providerUnsupportedParams = map[string][]string{
 	},
 	"openai": {
 		"min_p", // not part of OpenAI API
-		"top_k",  // not part of OpenAI API
+		"top_k", // not part of OpenAI API
 	},
 	"deepseek": {
 		"min_p", // not supported by DeepSeek API
-		"top_k",  // not supported by DeepSeek API
+		"top_k", // not supported by DeepSeek API
 	},
 	"xai": {
 		"min_p", // not supported by xAI API
-		"top_k",  // not supported by xAI API
+		"top_k", // not supported by xAI API
 	},
 }
 

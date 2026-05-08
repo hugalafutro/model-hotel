@@ -496,5 +496,3 @@ func TestGetAppLogCounts_Cache(t *testing.T) {
 		t.Error("cache should NOT be populated when dbPool is nil")
 	}
 }
-
-
