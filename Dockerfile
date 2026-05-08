@@ -30,7 +30,7 @@ RUN go build -o server ./cmd/server/
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates postgresql-client
 
 WORKDIR /app
 
