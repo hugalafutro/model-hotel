@@ -1,5 +1,0 @@
-{
-  "build": {
-    "buildFlags": ["-tags=integration"]
-  }
-}
