@@ -33,8 +33,8 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 ![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800)</a>
 </div>
 <br>
-<details>
-<summary>📊 OpenCode Statistics</summary>
+
+📊 **`opencode stats`**
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -57,8 +57,12 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 │Cache Read                                       750.5M │
 │Cache Write                                        2.4M │
 └────────────────────────────────────────────────────────┘
+```
 
+<details>
+<summary>🔧 OpenCode Tool Usage</summary>
 
+```
 ┌────────────────────────────────────────────────────────┐
 │                      TOOL USAGE                        │
 ├────────────────────────────────────────────────────────┤
