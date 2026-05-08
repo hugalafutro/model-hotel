@@ -502,26 +502,6 @@ func TestGetOwnContainerID_Empty(t *testing.T) {
 	}
 }
 
-// TestGetOwnContainerID_HostnameFallback tests hostname fallback when cgroup doesn't have ID
-func TestGetOwnContainerID_HostnameFallback(t *testing.T) {
-	// When cgroup doesn't contain a container ID, getOwnContainerID falls back to hostname
-	// This test verifies the hostname path works when hostname is a valid hex container ID
-	// Note: In most test environments, hostname won't be a container ID, so this tests
-	// that it returns empty when hostname is not hex
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		t.Skip("cannot get hostname")
-	}
-
-	// If hostname is already hex (running in container), verify it would be detected
-	if len(hostname) >= 12 && isHex(hostname) {
-		t.Logf("Hostname %q is a valid container ID format", hostname)
-	} else {
-		t.Logf("Hostname %q is not in container ID format (expected in non-container env)", hostname)
-	}
-}
-
 // TestCloseDockerClient tests client cleanup
 func TestCloseDockerClient(t *testing.T) {
 	resetDockerState()

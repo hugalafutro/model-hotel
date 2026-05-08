@@ -326,13 +326,6 @@ func TestModelsDevCacheEnrichModel_EmptyModel(t *testing.T) {
 // LoadModelsDev error paths
 // ---------------------------------------------------------------------------
 
-func TestLoadModelsDev_GlobalFunction(t *testing.T) {
-	// Test that the global LoadModelsDev function exists and accepts the right parameters
-	// We can't easily test the real API call, but we can verify it compiles and is callable
-	// The actual HTTP call would go to models.dev which we don't want in tests
-	_ = LoadModelsDev
-}
-
 func TestLoadModelsDevWithClient_Non200Status(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
