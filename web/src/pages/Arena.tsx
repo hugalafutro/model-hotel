@@ -58,6 +58,7 @@ import {
 	providerFromModelID,
 	proxyModelID,
 } from "../utils/model";
+import { getParamIncompatibility, isParamDisabled } from "../utils/paramCompat";
 import { hasAnyParam } from "../utils/params";
 import { readSSEStream, type StreamChunk } from "../utils/sse";
 import { fetchWithRetry, staggerByProvider } from "../utils/stagger";
@@ -2481,6 +2482,10 @@ function ParamEditorModal({
 						min={0}
 						max={2}
 						step={0.01}
+						disabled={isParamDisabled(providerName, "temperature")}
+						disabledReason={
+							getParamIncompatibility(providerName, "temperature") ?? undefined
+						}
 						onChange={(v) => onChange({ ...params, temperature: v })}
 					/>
 					<ParamSlider
@@ -2489,6 +2494,10 @@ function ParamEditorModal({
 						min={1}
 						max={32768}
 						step={1}
+						disabled={isParamDisabled(providerName, "max_tokens")}
+						disabledReason={
+							getParamIncompatibility(providerName, "max_tokens") ?? undefined
+						}
 						onChange={(v) =>
 							onChange({
 								...params,
@@ -2502,6 +2511,10 @@ function ParamEditorModal({
 						min={0}
 						max={1}
 						step={0.01}
+						disabled={isParamDisabled(providerName, "top_p")}
+						disabledReason={
+							getParamIncompatibility(providerName, "top_p") ?? undefined
+						}
 						onChange={(v) => onChange({ ...params, top_p: v })}
 					/>
 					<ParamSlider
@@ -2510,6 +2523,10 @@ function ParamEditorModal({
 						min={0}
 						max={1}
 						step={0.01}
+						disabled={isParamDisabled(providerName, "min_p")}
+						disabledReason={
+							getParamIncompatibility(providerName, "min_p") ?? undefined
+						}
 						onChange={(v) => onChange({ ...params, min_p: v })}
 					/>
 					<ParamSlider
@@ -2518,6 +2535,10 @@ function ParamEditorModal({
 						min={1}
 						max={100}
 						step={1}
+						disabled={isParamDisabled(providerName, "top_k")}
+						disabledReason={
+							getParamIncompatibility(providerName, "top_k") ?? undefined
+						}
 						onChange={(v) =>
 							onChange({
 								...params,
@@ -2531,6 +2552,11 @@ function ParamEditorModal({
 						min={-2}
 						max={2}
 						step={0.01}
+						disabled={isParamDisabled(providerName, "frequency_penalty")}
+						disabledReason={
+							getParamIncompatibility(providerName, "frequency_penalty") ??
+							undefined
+						}
 						onChange={(v) => onChange({ ...params, frequency_penalty: v })}
 					/>
 					<ParamSlider
@@ -2539,6 +2565,11 @@ function ParamEditorModal({
 						min={-2}
 						max={2}
 						step={0.01}
+						disabled={isParamDisabled(providerName, "presence_penalty")}
+						disabledReason={
+							getParamIncompatibility(providerName, "presence_penalty") ??
+							undefined
+						}
 						onChange={(v) => onChange({ ...params, presence_penalty: v })}
 					/>
 				</div>

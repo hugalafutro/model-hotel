@@ -30,17 +30,36 @@ import (
 // Sources: official provider docs + empirical testing.
 var providerUnsupportedParams = map[string][]string{
 	"anthropic": {
-		"top_p", // deprecated on all current Anthropic models
+		"top_p",             // deprecated on all current Anthropic models
+		"frequency_penalty", // Anthropic uses a single penalties param, not separate freq/presence
+		"presence_penalty",  // Anthropic uses a single penalties param, not separate freq/presence
+		"min_p",             // not part of Anthropic API
 	},
 	"google": {
 		"frequency_penalty", // not supported on Gemini OpenAI-compat endpoint
 		"presence_penalty",  // not supported on Gemini OpenAI-compat endpoint
 		"logprobs",          // not supported
 		"top_logprobs",      // not supported
+		"min_p",             // not supported on Gemini API
+		"top_k",             // Gemini top_k ≠ OpenAI top_k; causes unexpected behavior
 	},
 	"cohere": {
 		"logprobs",     // not supported
 		"top_logprobs", // not supported
+		"min_p",        // not supported
+		"top_k",        // Cohere uses 'k' differently; not recommended
+	},
+	"openai": {
+		"min_p", // not part of OpenAI API
+		"top_k",  // not part of OpenAI API
+	},
+	"deepseek": {
+		"min_p", // not supported by DeepSeek API
+		"top_k",  // not supported by DeepSeek API
+	},
+	"xai": {
+		"min_p", // not supported by xAI API
+		"top_k",  // not supported by xAI API
 	},
 }
 

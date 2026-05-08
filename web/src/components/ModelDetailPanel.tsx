@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
+import { getParamIncompatibility, isParamDisabled } from "../utils/paramCompat";
 import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
 import { CAP_META } from "./capMeta";
 import { Modal } from "./Modal";
@@ -44,6 +45,7 @@ export function ModelDetailPanel({
 	const [collapsed, setCollapsed] = useState(false);
 
 	const editable = params !== undefined && onParamsChange !== undefined;
+	const provider = model.provider_name;
 
 	const hasCustom = editable
 		? params.temperature !== undefined ||
@@ -164,6 +166,11 @@ export function ModelDetailPanel({
 										min={0}
 										max={2}
 										step={0.01}
+										disabled={isParamDisabled(provider, "temperature")}
+										disabledReason={
+											getParamIncompatibility(provider, "temperature") ??
+											undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
@@ -177,6 +184,11 @@ export function ModelDetailPanel({
 										min={1}
 										max={32768}
 										step={1}
+										disabled={isParamDisabled(provider, "max_tokens")}
+										disabledReason={
+											getParamIncompatibility(provider, "max_tokens") ??
+											undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
@@ -190,6 +202,10 @@ export function ModelDetailPanel({
 										min={0}
 										max={1}
 										step={0.01}
+										disabled={isParamDisabled(provider, "top_p")}
+										disabledReason={
+											getParamIncompatibility(provider, "top_p") ?? undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
@@ -203,6 +219,10 @@ export function ModelDetailPanel({
 										min={0}
 										max={1}
 										step={0.01}
+										disabled={isParamDisabled(provider, "min_p")}
+										disabledReason={
+											getParamIncompatibility(provider, "min_p") ?? undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
@@ -216,6 +236,10 @@ export function ModelDetailPanel({
 										min={1}
 										max={100}
 										step={1}
+										disabled={isParamDisabled(provider, "top_k")}
+										disabledReason={
+											getParamIncompatibility(provider, "top_k") ?? undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
@@ -229,6 +253,11 @@ export function ModelDetailPanel({
 										min={-2}
 										max={2}
 										step={0.01}
+										disabled={isParamDisabled(provider, "frequency_penalty")}
+										disabledReason={
+											getParamIncompatibility(provider, "frequency_penalty") ??
+											undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
@@ -242,6 +271,11 @@ export function ModelDetailPanel({
 										min={-2}
 										max={2}
 										step={0.01}
+										disabled={isParamDisabled(provider, "presence_penalty")}
+										disabledReason={
+											getParamIncompatibility(provider, "presence_penalty") ??
+											undefined
+										}
 										onChange={(v) =>
 											onParamsChange?.({
 												...(params as GenerationParams),
