@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -332,5 +333,256 @@ func TestDiscoverXAILanguageModels_InvalidResponse(t *testing.T) {
 	_, err := service.discoverXAILanguageModels(context.Background(), provider, "test-api-key", server.URL)
 	if err == nil {
 		t.Error("Expected error for invalid JSON, got nil")
+	}
+}
+
+// Test discoverXAI main function - success with language models
+func TestDiscoverXAI_SuccessLanguageModels(t *testing.T) {
+	// Server that returns language models successfully
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" {
+			response := XAILanguageModelsResponse{
+				Models: []XAILanguageModel{
+					{
+						ID:                         "test-model",
+						Object:                     "model",
+						OwnedBy:                    "xai",
+						Version:                    "1.0",
+						InputModalities:            []string{"text"},
+						OutputModalities:           []string{"text"},
+						PromptTextTokenPrice:       50,
+						CachedPromptTextTokenPrice: 25,
+						CompletionTextTokenPrice:   150,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	models, err := svc.discoverXAI(ctx, provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverXAI failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Errorf("expected 1 model, got %d", len(models))
+	}
+}
+
+// Test discoverXAI fallback to minimal models when language models returns empty
+func TestDiscoverXAI_FallbackToMinimalModels(t *testing.T) {
+	// Server that returns empty language models but has minimal models
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" {
+			// Return empty list - should trigger fallback to /models
+			response := XAILanguageModelsResponse{Models: []XAILanguageModel{}}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		if r.URL.Path == "/models" {
+			response := XAIModelsResponse{
+				Object: "list",
+				Data: []XAIModel{
+					{ID: "minimal-model", Object: "model", OwnedBy: "xai"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	models, err := svc.discoverXAI(ctx, provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverXAI failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Errorf("expected 1 model from fallback, got %d", len(models))
+	}
+}
+
+// Test discoverXAI with 429 rate limit - should fallback to catalog
+func TestDiscoverXAI_RateLimitFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" || r.URL.Path == "/models" {
+			http.Error(w, "Rate Limited", http.StatusTooManyRequests)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
+	// 429 is not treated as a no-access error (only 403 is), so it returns an error
+	if err == nil {
+		t.Fatal("expected error for 429 status, got nil")
+	}
+}
+
+// Test discoverXAI with HTTP error (not 403/429) - should return error
+func TestDiscoverXAI_HttpError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" || r.URL.Path == "/models" {
+			http.Error(w, "Bad Gateway", http.StatusBadGateway)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
+	if err == nil {
+		t.Fatal("expected error for 502 status, got nil")
+	}
+}
+
+// Test discoverXAI with invalid JSON in language models
+func TestDiscoverXAI_InvalidJSONLanguageModels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{ invalid json }"))
+			return
+		}
+		if r.URL.Path == "/models" {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
+	if err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+}
+
+// Test discoverXAI with invalid JSON in minimal models
+func TestDiscoverXAI_InvalidJSONMinimalModels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		if r.URL.Path == "/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{ invalid json }"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
+	if err == nil {
+		t.Fatal("expected error for invalid JSON in minimal models, got nil")
+	}
+}
+
+// Test isNoAccessError helper function
+func TestIsNoAccessError(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantResult bool
+	}{
+		{
+			name:       "nil error",
+			err:        nil,
+			wantResult: false,
+		},
+		{
+			name:       "403 forbidden",
+			err:        &httpError{StatusCode: http.StatusForbidden},
+			wantResult: true,
+		},
+		{
+			name:       "429 too many requests",
+			err:        &httpError{StatusCode: http.StatusTooManyRequests},
+			wantResult: true,
+		},
+		{
+			name:       "500 internal server error",
+			err:        &httpError{StatusCode: http.StatusInternalServerError},
+			wantResult: false,
+		},
+		{
+			name:       "404 not found",
+			err:        &httpError{StatusCode: http.StatusNotFound},
+			wantResult: false,
+		},
+		{
+			name:       "generic error",
+			err:        fmt.Errorf("generic error"),
+			wantResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isNoAccessError(tt.err)
+			if got != tt.wantResult {
+				t.Errorf("isNoAccessError() = %v, want %v", got, tt.wantResult)
+			}
+		})
+	}
+}
+
+// Test httpError Error method
+func TestHttpError_Error(t *testing.T) {
+	err := &httpError{StatusCode: http.StatusForbidden, Body: "forbidden"}
+	expected := "unexpected status 403"
+	if err.Error() != expected {
+		t.Errorf("httpError.Error() = %q, want %q", err.Error(), expected)
 	}
 }

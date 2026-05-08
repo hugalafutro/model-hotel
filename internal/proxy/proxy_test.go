@@ -68,7 +68,7 @@ func newIntegrationHandler() *Handler {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: &virtualKeyRepoAdapter{repo: virtualKeyRepo},
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
@@ -499,3 +499,145 @@ func withAuthContext(r *http.Request) *http.Request {
 
 // backoffDuration and pow2 removed — backoff logic is now in production code
 // (failoverBackoff in proxy.go) with jitter.
+
+// TestChatCompletions_ModelWithNoSlash tests the error path for model names
+// that don't contain a slash (invalid format)
+func TestChatCompletions_ModelWithNoSlash(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	body := `{"model":"justmodel","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	rr := httptest.NewRecorder()
+	h.ChatCompletions(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for model without slash, got %d", rr.Code)
+	}
+}
+
+// TestChatCompletions_EmptyModel tests the error path for empty model field
+func TestChatCompletions_EmptyModel(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	body := `{"model":"","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	rr := httptest.NewRecorder()
+	h.ChatCompletions(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for empty model, got %d", rr.Code)
+	}
+}
+
+// TestHandleStreamingResponse_EmptyStream tests when upstream sends no data
+func TestHandleStreamingResponse_EmptyStream(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+
+	// Build an upstream SSE server that sends no data, just closes
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		// No data sent, body just closes
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete without error even with empty stream
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed for empty stream (no [DONE] sentinel), got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ErrorChunk tests when upstream sends error chunks
+func TestHandleStreamingResponse_ErrorChunk(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+
+	// Build an upstream SSE server that sends an error chunk
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+		// Send error chunk
+		fmt.Fprint(w, `data: {"error":{"message":"upstream error"}}`+"\n\n")
+		flusher.Flush()
+		// Send [DONE]
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete but track error chunks
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed (error chunk), got %q", logData.state)
+	}
+}

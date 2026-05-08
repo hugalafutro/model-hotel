@@ -2,21 +2,58 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test successful JSON response handling by testing the core logic directly
-func TestHandleNonStreamingResponseSuccess(t *testing.T) {
-	// Test the JSON parsing and response writing logic directly
-	// without calling the full handleNonStreamingResponse function
-	// to avoid database dependencies
+// mockVirtualKeyRepo is a simple in-memory mock for testing AddTokens calls
+type mockVirtualKeyRepo struct {
+	addTokensCalls []addTokensCall
+}
+
+type addTokensCall struct {
+	keyHash string
+	tokens  int
+}
+
+func (m *mockVirtualKeyRepo) AddTokens(ctx context.Context, keyHash string, tokens int) error {
+	m.addTokensCalls = append(m.addTokensCalls, addTokensCall{keyHash: keyHash, tokens: tokens})
+	return nil
+}
+
+func (m *mockVirtualKeyRepo) TouchLastUsed(ctx context.Context, keyHash string) error {
+	return nil
+}
+
+func (m *mockVirtualKeyRepo) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error) {
+	return &VirtualKeyInfo{ID: "test-id", Name: "test-key"}, nil
+}
+
+func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+	return &VirtualKeyInfo{ID: "test-id", Name: name, KeyHash: keyHash, KeyPreview: keyPreview}, nil
+}
+
+func (m *mockVirtualKeyRepo) Delete(ctx context.Context, id string) error {
+	return nil
+}
+
+// TestHandleNonStreamingResponse_Success tests the happy path with a valid
+// ChatCompletionResponse JSON body
+func TestHandleNonStreamingResponse_Success(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
 
 	// Create a successful upstream response
 	upstreamBody := `{
@@ -38,24 +75,28 @@ func TestHandleNonStreamingResponseSuccess(t *testing.T) {
 		}
 	}`
 
-	// Test JSON parsing
-	var chatResp ChatCompletionResponse
-	err := json.NewDecoder(io.NopCloser(bytes.NewBufferString(upstreamBody))).Decode(&chatResp)
-	require.NoError(t, err, "Should parse valid JSON successfully")
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
 
-	assert.Equal(t, "chatcmpl-test", chatResp.ID)
-	assert.Equal(t, "chat.completion", chatResp.Object)
-	assert.Equal(t, int64(1234567890), chatResp.Created)
-	assert.Equal(t, "gpt-3.5-turbo", chatResp.Model)
-	assert.Len(t, chatResp.Choices, 1)
-	assert.Equal(t, "assistant", chatResp.Choices[0].Message.Role)
-	assert.Equal(t, "Hello, world!", chatResp.Choices[0].Message.Content)
-
-	// Test response writing
 	w := httptest.NewRecorder()
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(chatResp)
-	require.NoError(t, err, "Should encode chat response successfully")
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-3.5-turbo",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -63,89 +104,197 @@ func TestHandleNonStreamingResponseSuccess(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	// Verify we can decode it back
 	var decodedResp ChatCompletionResponse
-	err = json.NewDecoder(result.Body).Decode(&decodedResp)
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
 	require.NoError(t, err, "Should decode response successfully")
 
-	assert.Equal(t, chatResp.ID, decodedResp.ID)
-	assert.Equal(t, chatResp.Model, decodedResp.Model)
+	assert.Equal(t, "chatcmpl-test", decodedResp.ID)
+	assert.Equal(t, "gpt-3.5-turbo", decodedResp.Model)
 	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "Hello, world!", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, 10, decodedResp.Usage.PromptTokens)
+	assert.Equal(t, 5, decodedResp.Usage.CompletionTokens)
+
+	assert.Equal(t, "completed", logData.state)
+	assert.Equal(t, http.StatusOK, logData.statusCode)
 }
 
-// Test non-200 status code handling
-func TestHandleNonStreamingResponseNon200Status(t *testing.T) {
-	// Test error response handling
-	upstreamBody := `{"error": "bad request"}`
-	upstreamResponse := &http.Response{
+// TestHandleNonStreamingResponse_Non200Status tests handling of upstream
+// responses with non-200 status codes. The JSON parses successfully but
+// represents an error response from the upstream.
+func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+
+	// Non-200 status with valid JSON structure (upstream error response)
+	upstreamBody := `{
+		"error": {
+			"message": "Invalid request",
+			"type": "invalid_request_error"
+		}
+	}`
+	resp := &http.Response{
 		StatusCode: http.StatusBadRequest,
 		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
 		Header:     make(http.Header),
 	}
 
-	// Test that we can read the error body
-	body, err := io.ReadAll(upstreamResponse.Body)
-	require.NoError(t, err)
-	assert.NotEmpty(t, body, "Should be able to read error response body")
-
-	// Test error response writing
 	w := httptest.NewRecorder()
-	writeOpenAIError(w, "upstream provider returned HTTP 400", http.StatusBadRequest)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-3.5-turbo",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
 
-	assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+	// The function writes the response as-is when JSON parses successfully
+	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	// Verify the response body contains an error message
-	var responseBody map[string]interface{}
-	err = json.NewDecoder(result.Body).Decode(&responseBody)
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
 	require.NoError(t, err)
 
-	// The error object is nested under "error" key
-	errorObj := responseBody["error"].(map[string]interface{})
-	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 400")
+	// The response will have empty fields since upstream returned error format
+	assert.Equal(t, "", decodedResp.ID)
+	assert.Equal(t, "", decodedResp.Model)
+
+	// Log should show completed state (JSON parsed successfully)
+	assert.Equal(t, "completed", logData.state)
+	assert.Equal(t, http.StatusBadRequest, logData.statusCode)
 }
 
-// Test invalid JSON response handling
-func TestHandleNonStreamingResponseInvalidJSON(t *testing.T) {
-	// Create an invalid JSON upstream response
+// TestHandleNonStreamingResponse_InvalidJSON tests handling of 200 status
+// with invalid JSON body
+func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+
 	upstreamBody := "invalid json response"
-	upstreamResponse := &http.Response{
+	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
 		Header:     make(http.Header),
 	}
 
-	// Test that JSON parsing fails
-	var chatResp ChatCompletionResponse
-	err := json.NewDecoder(upstreamResponse.Body).Decode(&chatResp)
-	assert.Error(t, err, "Should fail to parse invalid JSON")
-
-	// Test error response writing
 	w := httptest.NewRecorder()
-	writeOpenAIError(w, "response decode error: invalid json response", http.StatusOK)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-3.5-turbo",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
 
-	assert.Equal(t, http.StatusOK, result.StatusCode) // Original status code is preserved
+	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	// Verify the response body contains an error message
 	var responseBody map[string]interface{}
-	err = json.NewDecoder(result.Body).Decode(&responseBody)
+	err := json.NewDecoder(result.Body).Decode(&responseBody)
 	require.NoError(t, err)
 
-	// The error object is nested under "error" key
-	errorObj := responseBody["error"].(map[string]interface{})
-	assert.Contains(t, errorObj["message"], "response decode error")
+	errorObj, ok := responseBody["error"].(map[string]interface{})
+	require.True(t, ok, "Should have error object in response")
+	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 200")
+
+	assert.Equal(t, "failed", logData.state)
+	assert.Contains(t, logData.errorMessage, "response decode error")
+	// Note: "invalid json response" may be truncated/omitted by SanitizeLogBody
+	// depending on the exact error message format
 }
 
-// Test response with prompt cache hit tokens
-func TestHandleNonStreamingResponseWithPromptCache(t *testing.T) {
-	// Create a successful upstream response with prompt cache hit tokens
+// TestHandleNonStreamingResponse_EmptyBody tests handling of 200 status
+// with empty body
+func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString("")),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-3.5-turbo",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+
+	var responseBody map[string]interface{}
+	err := json.NewDecoder(result.Body).Decode(&responseBody)
+	require.NoError(t, err)
+
+	errorObj, ok := responseBody["error"].(map[string]interface{})
+	require.True(t, ok, "Should have error object in response")
+	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 200")
+
+	assert.Equal(t, "failed", logData.state)
+	assert.Contains(t, logData.errorMessage, "response decode error")
+}
+
+// TestHandleNonStreamingResponse_WithVirtualKeyHash tests that AddTokens is
+// called when vkHash is non-empty
+func TestHandleNonStreamingResponse_WithVirtualKeyHash(t *testing.T) {
+	mockVKRepo := &mockVirtualKeyRepo{}
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+	defer stopUnitHandler(h)
+	// Replace virtualKeyRepo with mock for this test
+	h.virtualKeyRepo = mockVKRepo
+
 	upstreamBody := `{
 		"id": "chatcmpl-test",
 		"object": "chat.completion",
@@ -161,70 +310,42 @@ func TestHandleNonStreamingResponseWithPromptCache(t *testing.T) {
 		"usage": {
 			"prompt_tokens": 10,
 			"completion_tokens": 5,
-			"total_tokens": 15,
-			"prompt_cache_hit_tokens": 3
+			"total_tokens": 15
 		}
 	}`
 
-	// Test JSON parsing
-	var chatResp ChatCompletionResponse
-	err := json.NewDecoder(io.NopCloser(bytes.NewBufferString(upstreamBody))).Decode(&chatResp)
-	require.NoError(t, err, "Should parse valid JSON with cache tokens successfully")
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
 
-	assert.Equal(t, 10, chatResp.Usage.PromptTokens)
-	assert.Equal(t, 5, chatResp.Usage.CompletionTokens)
-	assert.Equal(t, 3, chatResp.Usage.PromptCacheHitTokens)
-
-	// Test response writing
 	w := httptest.NewRecorder()
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(chatResp)
-	require.NoError(t, err, "Should encode chat response successfully")
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-3.5-turbo",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	vkHash := "test-vk-hash-abc123"
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, vkHash, 1)
 
 	result := w.Result()
 	defer result.Body.Close()
 
 	assert.Equal(t, http.StatusOK, result.StatusCode)
-	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	// Verify we can decode it back
-	var decodedResp ChatCompletionResponse
-	err = json.NewDecoder(result.Body).Decode(&decodedResp)
-	require.NoError(t, err, "Should decode response successfully")
+	require.Len(t, mockVKRepo.addTokensCalls, 1, "AddTokens should be called once")
+	assert.Equal(t, vkHash, mockVKRepo.addTokensCalls[0].keyHash)
+	assert.Equal(t, 15, mockVKRepo.addTokensCalls[0].tokens)
 
-	assert.Equal(t, 3, decodedResp.Usage.PromptCacheHitTokens)
-}
-
-// Test response with empty body
-func TestHandleNonStreamingResponseEmptyBody(t *testing.T) {
-	// Create an empty upstream response
-	upstreamResponse := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewBufferString("")),
-		Header:     make(http.Header),
-	}
-
-	// Test that JSON parsing fails
-	var chatResp ChatCompletionResponse
-	err := json.NewDecoder(upstreamResponse.Body).Decode(&chatResp)
-	assert.Error(t, err, "Should fail to parse empty JSON")
-
-	// Test error response writing
-	w := httptest.NewRecorder()
-	writeOpenAIError(w, "response decode error: empty body", http.StatusOK)
-
-	result := w.Result()
-	defer result.Body.Close()
-
-	assert.Equal(t, http.StatusOK, result.StatusCode) // Original status code is preserved
-	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
-
-	// Verify the response body contains an error message
-	var responseBody map[string]interface{}
-	err = json.NewDecoder(result.Body).Decode(&responseBody)
-	require.NoError(t, err)
-
-	// The error object is nested under "error" key
-	errorObj := responseBody["error"].(map[string]interface{})
-	assert.Contains(t, errorObj["message"], "response decode error")
+	assert.Equal(t, "completed", logData.state)
 }

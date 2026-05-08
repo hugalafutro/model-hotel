@@ -236,6 +236,141 @@ func TestDetectProviderType_Whitespace(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// DetectProviderType - Additional Provider Types
+// ---------------------------------------------------------------------------
+
+func TestDetectProviderType_Cohere(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"standard cohere.com", "https://api.cohere.com/v1"},
+		{"standard cohere.ai", "https://api.cohere.ai/v1"},
+		{"custom cohere.com subdomain", "https://custom.cohere.com/v1"},
+		{"custom cohere.ai subdomain", "https://custom.cohere.ai/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "cohere" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "cohere")
+			}
+		})
+	}
+}
+
+func TestDetectProviderType_XAI(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"standard x.ai", "https://api.x.ai/v1"},
+		{"custom x.ai subdomain", "https://custom.x.ai/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "xai" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "xai")
+			}
+		})
+	}
+}
+
+func TestDetectProviderType_Google(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"generativelanguage v1beta", "https://generativelanguage.googleapis.com/v1beta"},
+		{"aiplatform v1", "https://aiplatform.googleapis.com/v1"},
+		{"generativelanguage custom subdomain", "https://custom-generativelanguage.googleapis.com/v1"},
+		{"aiplatform custom subdomain", "https://custom-aiplatform.googleapis.com/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "google" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "google")
+			}
+		})
+	}
+}
+
+func TestDetectProviderType_DeepSeekSubdomain(t *testing.T) {
+	result := DetectProviderType("https://api.custom.deepseek.com/v1")
+	if result != "deepseek" {
+		t.Errorf("DetectProviderType('https://api.custom.deepseek.com/v1') = %q, want %q", result, "deepseek")
+	}
+}
+
+func TestDetectProviderType_NanoGPTSubdomain(t *testing.T) {
+	result := DetectProviderType("https://custom.nano-gpt.com/v1")
+	if result != "nanogpt" {
+		t.Errorf("DetectProviderType('https://custom.nano-gpt.com/v1') = %q, want %q", result, "nanogpt")
+	}
+}
+
+func TestDetectProviderType_OpenRouterSubdomain(t *testing.T) {
+	result := DetectProviderType("https://custom.openrouter.ai/v1")
+	if result != "openrouter" {
+		t.Errorf("DetectProviderType('https://custom.openrouter.ai/v1') = %q, want %q", result, "openrouter")
+	}
+}
+
+func TestDetectProviderType_OllamaSubdomain(t *testing.T) {
+	result := DetectProviderType("https://custom.ollama.com/v1")
+	if result != "ollama" {
+		t.Errorf("DetectProviderType('https://custom.ollama.com/v1') = %q, want %q", result, "ollama")
+	}
+}
+
+func TestDetectProviderType_OpenCodeZenSubdomain(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"zen path subdomain", "https://custom.opencode.ai/zen/v1"},
+		{"zen go path subdomain", "https://custom.opencode.ai/zen/go/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			expected := "opencode-zen"
+			if strings.Contains(tc.url, "/zen/go") {
+				expected = "opencode-go"
+			}
+			if result != expected {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, expected)
+			}
+		})
+	}
+}
+
+func TestDetectProviderType_LocalhostWithPorts(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{"localhost ollama", "http://localhost:11434/v1", "ollama"},
+		{"localhost koboldcpp", "http://localhost:5001/v1", "koboldcpp"},
+		{"localhost lmstudio", "http://localhost:1234/v1", "lmstudio"},
+		{"127.0.0.1 ollama", "http://127.0.0.1:11434/v1", "ollama"},
+		{"ipv6 ollama", "http://[::1]:11434/v1", "ollama"},
+		{"localhost unknown port", "http://localhost:9999/v1", "openai"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != tc.expected {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, tc.expected)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // NormalizeName
 // ---------------------------------------------------------------------------
 
@@ -607,6 +742,149 @@ func TestNormalizeName_RoundTripWithCache(t *testing.T) {
 	}
 	if found.ID != p.ID {
 		t.Errorf("wrong provider found via normalized name")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DiscoverModels
+// ---------------------------------------------------------------------------
+
+func TestDiscoverModels_EmptyBaseURL(t *testing.T) {
+	svc := NewDiscoveryService()
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "empty-url-provider",
+		BaseURL:      "",
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels with empty BaseURL should return error")
+	}
+}
+
+func TestDiscoverModels_InvalidBaseURL(t *testing.T) {
+	svc := NewDiscoveryService()
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "invalid-url-provider",
+		BaseURL:      "://not-a-valid-url",
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels with invalid BaseURL should return error")
+	}
+}
+
+func TestDiscoverModels_KeylessProviderWithEmptyKey(t *testing.T) {
+	// Test that keyless providers (like opencode-zen) with empty encrypted key succeed
+	mockResponse := `{
+		"data": [
+			{
+				"id": "test-model",
+				"object": "model",
+				"owned_by": "test",
+				"created": 1700000000
+			}
+		],
+		"object": "list"
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "keyless-provider",
+		BaseURL:      server.URL,
+		EncryptedKey: []byte{}, // Empty key for keyless provider
+	}
+
+	ctx := context.Background()
+	models, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels for keyless provider should succeed, got error: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	if models[0].ModelID != "test-model" {
+		t.Errorf("expected model ID 'test-model', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverModels_UnknownProviderType(t *testing.T) {
+	// Test with a provider type that doesn't match any special case - should fall back to OpenAI
+	mockResponse := `{
+		"data": [
+			{
+				"id": "fallback-model",
+				"object": "model",
+				"owned_by": "test"
+			}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "unknown-type-provider",
+		BaseURL:      server.URL + "/v1",
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	models, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels with unknown provider type should fall back to OpenAI, got error: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+}
+
+func TestDiscoverModels_DecryptionFailure(t *testing.T) {
+	// Test with invalid encrypted key data to trigger decryption failure
+	svc := NewDiscoveryService()
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "bad-key-provider",
+		BaseURL:      "https://api.openai.com/v1",
+		EncryptedKey: []byte("invalid-encrypted-data"),
+		KeyNonce:     make([]byte, 12),
+		KeySalt:      nil,
+	}
+
+	ctx := context.Background()
+	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels with invalid encrypted key should return decryption error")
+	}
+	if !strings.Contains(err.Error(), "failed to decrypt API key") {
+		t.Errorf("expected decryption error, got: %v", err)
 	}
 }
 

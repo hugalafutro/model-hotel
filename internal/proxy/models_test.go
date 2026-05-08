@@ -143,6 +143,419 @@ func TestListModels_WithProviderAndModel(t *testing.T) {
 	}
 }
 
+// TestListModels_WithOwnedBy tests that the OwnedBy field is used when set
+func TestListModels_WithOwnedBy(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider with an encrypted key
+	masterKey := h.cfg.MasterKey
+	kp, err := auth.Encrypt("sk-test-ownedby", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "test-ownedby-provider",
+		BaseURL: "https://api.example.com",
+		APIKey:  "sk-test-ownedby",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	// Create a model with OwnedBy set
+	modelID := uuid.New()
+	ctx := context.Background()
+	m := &model.Model{
+		ID:               modelID,
+		ProviderID:       prov.ID,
+		ModelID:          "model-with-ownedby",
+		Name:             "Model With OwnedBy",
+		OwnedBy:          "custom-owner",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+	if err := h.modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
+
+	req := httptest.NewRequest("GET", "/models", nil)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	found := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "test-ownedby-provider/model-with-ownedby" {
+			found = true
+			if ownedBy, _ := itemMap["owned_by"].(string); ownedBy != "custom-owner" {
+				t.Errorf("owned_by = %v, want 'custom-owner'", ownedBy)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected to find model in response")
+	}
+}
+
+// TestListModels_WithOptionalFields tests models with context_length, max_output_tokens, prices
+func TestListModels_WithOptionalFields(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	masterKey := h.cfg.MasterKey
+	kp, err := auth.Encrypt("sk-test-optional", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "test-optional-provider",
+		BaseURL: "https://api.example.com",
+		APIKey:  "sk-test-optional",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	modelID := uuid.New()
+	ctx := context.Background()
+	contextLength := 128000
+	maxOutputTokens := 4096
+	inputPrice := 5.0
+	outputPrice := 15.0
+	m := &model.Model{
+		ID:                    modelID,
+		ProviderID:            prov.ID,
+		ModelID:               "model-with-fields",
+		Name:                  "Model With Fields",
+		ContextLength:         &contextLength,
+		MaxOutputTokens:       &maxOutputTokens,
+		InputPricePerMillion:  &inputPrice,
+		OutputPricePerMillion: &outputPrice,
+		Capabilities:          "{}",
+		Params:                "{}",
+		Modality:              "text",
+		InputModalities:       "[]",
+		OutputModalities:      "[]",
+		Enabled:               true,
+		CreatedAt:             time.Now(),
+		LastSeenAt:            time.Now(),
+	}
+	if err := h.modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
+
+	req := httptest.NewRequest("GET", "/models", nil)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	found := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "test-optional-provider/model-with-fields" {
+			found = true
+			if cl, _ := itemMap["context_length"].(float64); cl != 128000 {
+				t.Errorf("context_length = %v, want 128000", cl)
+			}
+			if mot, _ := itemMap["max_output_tokens"].(float64); mot != 4096 {
+				t.Errorf("max_output_tokens = %v, want 4096", mot)
+			}
+			if ip, _ := itemMap["input_price_per_million"].(float64); ip != 5.0 {
+				t.Errorf("input_price_per_million = %v, want 5.0", ip)
+			}
+			if op, _ := itemMap["output_price_per_million"].(float64); op != 15.0 {
+				t.Errorf("output_price_per_million = %v, want 15.0", op)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected to find model in response")
+	}
+}
+
+// TestListModels_FailoverGroupWithDisabledEntry tests failover groups with disabled entries
+func TestListModels_FailoverGroupWithDisabledEntry(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	pool := testDB.Pool()
+	// Clean up any existing test data
+	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE provider_name LIKE 'test-fg-disabled%'"); err != nil {
+		t.Logf("Failed to clean up test models: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-fg-disabled%'"); err != nil {
+		t.Logf("Failed to clean up test providers: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM failover_groups WHERE display_model LIKE 'fg-disabled-entry'"); err != nil {
+		t.Logf("Failed to clean up test failover groups: %v", err)
+	}
+
+	masterKey := h.cfg.MasterKey
+	kp, err := auth.Encrypt("sk-test-fg-disabled", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "test-fg-disabled-provider",
+		BaseURL: "https://api.example.com",
+		APIKey:  "sk-test-fg-disabled",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	modelID1 := uuid.New()
+	modelID2 := uuid.New()
+	ctx := context.Background()
+
+	m1 := &model.Model{
+		ID:               modelID1,
+		ProviderID:       prov.ID,
+		ModelID:          "model-1",
+		Name:             "Model 1",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+	m2 := &model.Model{
+		ID:               modelID2,
+		ProviderID:       prov.ID,
+		ModelID:          "model-2",
+		Name:             "Model 2",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+
+	if err := h.modelRepo.Upsert(ctx, m1); err != nil {
+		t.Fatalf("failed to upsert model 1: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID1) }()
+
+	if err := h.modelRepo.Upsert(ctx, m2); err != nil {
+		t.Fatalf("failed to upsert model 2: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID2) }()
+
+	// Create failover group with first entry disabled
+	entryEnabled := map[string]bool{
+		modelID1.String(): false, // disabled
+		modelID2.String(): true,  // enabled
+	}
+	if _, err := h.failoverRepo.UpsertWithConfig(ctx, "fg-disabled-entry", []uuid.UUID{modelID1, modelID2}, entryEnabled, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-disabled-entry") }()
+
+	req := httptest.NewRequest("GET", "/models", nil)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	// Should have 2 regular models + 1 failover model (only the enabled one)
+	if len(data) != 3 {
+		t.Errorf("expected 3 models (2 regular + 1 failover), got %d", len(data))
+	}
+
+	// Verify the failover model points to the enabled entry (model-2)
+	foundFailover := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "hotel/fg-disabled-entry" {
+			foundFailover = true
+		}
+	}
+	if !foundFailover {
+		t.Error("expected to find failover model in response")
+	}
+}
+
+// TestListModels_FailoverGroupEntryNotFound tests when a model in failover group is not found
+func TestListModels_FailoverGroupEntryNotFound(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	pool := testDB.Pool()
+	// Clean up any existing test data
+	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE provider_name LIKE 'test-fg-notfound%'"); err != nil {
+		t.Logf("Failed to clean up test models: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-fg-notfound%'"); err != nil {
+		t.Logf("Failed to clean up test providers: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM failover_groups WHERE display_model LIKE 'fg-notfound'"); err != nil {
+		t.Logf("Failed to clean up test failover groups: %v", err)
+	}
+
+	masterKey := h.cfg.MasterKey
+	kp, err := auth.Encrypt("sk-test-fg-notfound", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "test-fg-notfound-provider",
+		BaseURL: "https://api.example.com",
+		APIKey:  "sk-test-fg-notfound",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	modelID := uuid.New()
+	ctx := context.Background()
+
+	m := &model.Model{
+		ID:               modelID,
+		ProviderID:       prov.ID,
+		ModelID:          "model-found",
+		Name:             "Model Found",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+
+	if err := h.modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
+
+	// Create failover group with a non-existent model UUID first
+	fakeUUID := uuid.New()
+	if _, err := h.failoverRepo.UpsertWithConfig(ctx, "fg-notfound", []uuid.UUID{fakeUUID, modelID}, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-notfound") }()
+
+	req := httptest.NewRequest("GET", "/models", nil)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	// Should have 1 regular model + 1 failover model (skipped the fake UUID)
+	if len(data) != 2 {
+		t.Errorf("expected 2 models (1 regular + 1 failover), got %d", len(data))
+	}
+
+	// Verify the failover model is present
+	foundFailover := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "hotel/fg-notfound" {
+			foundFailover = true
+		}
+	}
+	if !foundFailover {
+		t.Error("expected to find failover model in response")
+	}
+}
+
 func TestListModels_ResponseFormat(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {

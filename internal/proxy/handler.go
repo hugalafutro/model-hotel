@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
@@ -26,7 +27,7 @@ type Handler struct {
 	providerRepo   *provider.Repository
 	modelRepo      *model.Repository
 	dbPool         *pgxpool.Pool
-	virtualKeyRepo *virtualkey.Repository
+	virtualKeyRepo VirtualKeyRepository
 	failoverRepo   *failover.Repository
 	settingsRepo   *settings.Repository
 	rateLimiter    *ratelimit.Limiter
@@ -40,6 +41,55 @@ type Handler struct {
 	// deprecationCache caches rejected parameters learned from HTTP 400 responses,
 	// keyed by "providerType:modelID". Value: map[string]bool of rejected param names.
 	deprecationCache sync.Map
+}
+
+// virtualKeyRepoAdapter wraps *virtualkey.Repository to implement VirtualKeyRepository.
+type virtualKeyRepoAdapter struct {
+	repo *virtualkey.Repository
+}
+
+func (a *virtualKeyRepoAdapter) AddTokens(ctx context.Context, keyHash string, tokens int) error {
+	return a.repo.AddTokens(ctx, keyHash, tokens)
+}
+
+func (a *virtualKeyRepoAdapter) TouchLastUsed(ctx context.Context, keyHash string) error {
+	return a.repo.TouchLastUsed(ctx, keyHash)
+}
+
+func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error) {
+	vk, err := a.repo.FindByKeyHash(ctx, keyHash)
+	if err != nil {
+		return nil, err
+	}
+	return &VirtualKeyInfo{
+		ID:         vk.ID.String(),
+		Name:       vk.Name,
+		KeyHash:    vk.KeyHash,
+		KeyPreview: vk.KeyPreview,
+		TokensUsed: vk.TokensUsed,
+	}, nil
+}
+
+func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview)
+	if err != nil {
+		return nil, err
+	}
+	return &VirtualKeyInfo{
+		ID:         vk.ID.String(),
+		Name:       vk.Name,
+		KeyHash:    vk.KeyHash,
+		KeyPreview: vk.KeyPreview,
+		TokensUsed: vk.TokensUsed,
+	}, nil
+}
+
+func (a *virtualKeyRepoAdapter) Delete(ctx context.Context, id string) error {
+	vid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	return a.repo.Delete(ctx, vid)
 }
 
 func NewHandler(
@@ -59,7 +109,7 @@ func NewHandler(
 		providerRepo:   providerRepo,
 		modelRepo:      modelRepo,
 		dbPool:         dbPool,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: &virtualKeyRepoAdapter{repo: virtualKeyRepo},
 		failoverRepo:   failoverRepo,
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
@@ -137,7 +187,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		}
 		debuglog.Info("auth: authenticated", "key", vk.Name)
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
-		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID.String())
+		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID)
 		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.

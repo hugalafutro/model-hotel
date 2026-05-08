@@ -431,6 +431,377 @@ func TestResolveSpecificProvider_Success(t *testing.T) {
 	}
 }
 
+// TestResolveHotelModel_MultipleEntriesWithDisabled tests failover group with multiple entries where some are disabled
+func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-multi-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create two models
+	modelID1 := uuid.New()
+	modelID2 := uuid.New()
+	testModel1 := &model.Model{
+		ID:               modelID1,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "model-1",
+		Name:             "Model 1",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	testModel2 := &model.Model{
+		ID:               modelID2,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "model-2",
+		Name:             "Model 2",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel1); err != nil {
+		t.Fatalf("failed to create model 1: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID1) }()
+	if err := h.modelRepo.Upsert(context.Background(), testModel2); err != nil {
+		t.Fatalf("failed to create model 2: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID2) }()
+
+	// Create a failover group with first entry disabled
+	entryEnabled := map[string]bool{
+		modelID1.String(): false, // disabled
+		modelID2.String(): true,  // enabled
+	}
+	if _, err := h.failoverRepo.UpsertWithConfig(context.Background(), "multi-entry-model", []uuid.UUID{modelID1, modelID2}, entryEnabled, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(context.Background(), "multi-entry-model") }()
+
+	candidates, timings, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate (second entry), got %d", len(candidates))
+	}
+
+	if candidates[0].model.ID != modelID2 {
+		t.Errorf("expected model ID %v (second entry), got %v", modelID2, candidates[0].model.ID)
+	}
+
+	// Verify timings were recorded
+	if timings.modelLookupMs < 0 {
+		t.Errorf("expected modelLookupMs > 0, got %f", timings.modelLookupMs)
+	}
+}
+
+// TestResolveHotelModel_ModelDisabled tests when the only model in failover group is disabled
+func TestResolveHotelModel_ModelDisabled(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-disabled-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "disabled-model",
+		Name:             "Disabled Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	// Create a failover group
+	if _, err := h.failoverRepo.Upsert(context.Background(), "disabled-model-fg", []uuid.UUID{modelID}); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(context.Background(), "disabled-model-fg") }()
+
+	// Disable the model via direct SQL
+	pool := testDB.Pool()
+	if _, err := pool.Exec(context.Background(), "UPDATE models SET enabled = false WHERE id = $1", modelID); err != nil {
+		t.Fatalf("failed to disable model: %v", err)
+	}
+	// Invalidate the model cache so the handler reads fresh data from DB
+	model.InvalidateModelCache()
+
+	candidates, _, err := h.resolveHotelModel(context.Background(), "disabled-model-fg")
+
+	// When all candidates are disabled, returns empty candidates with no error
+	// (the error is returned later when trying to route the request)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(candidates))
+	}
+}
+
+// TestResolveHotelModel_ProviderDisabled tests when the provider is disabled
+func TestResolveHotelModel_ProviderDisabled(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-disabled-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "provider-disabled-model",
+		Name:             "Provider Disabled Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	// Create a failover group
+	if _, err := h.failoverRepo.Upsert(context.Background(), "provider-disabled-fg", []uuid.UUID{modelID}); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(context.Background(), "provider-disabled-fg") }()
+
+	// Disable the provider
+	disabled := false
+	if _, err := h.providerRepo.Update(context.Background(), createdProvider.ID, provider.UpdateProviderRequest{Enabled: &disabled}, createdProvider.EncryptedKey, createdProvider.KeyNonce, createdProvider.KeySalt); err != nil {
+		t.Fatalf("failed to disable provider: %v", err)
+	}
+
+	candidates, _, err := h.resolveHotelModel(context.Background(), "provider-disabled-fg")
+
+	// When all candidates are filtered out, returns empty candidates with no error
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(candidates))
+	}
+}
+
+// TestResolveHotelModel_CircuitBreakerOpen tests when circuit breaker is open for provider
+func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt API key: %v", err)
+	}
+
+	providerName := "test-provider-cb-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "cb-model",
+		Name:             "CB Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	// Create a failover group
+	if _, err := h.failoverRepo.Upsert(context.Background(), "cb-fg", []uuid.UUID{modelID}); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(context.Background(), "cb-fg") }()
+
+	// Open the circuit breaker for the provider (threshold=5 by default)
+	for i := 0; i < 5; i++ {
+		h.circuitBreaker.RecordFailure(createdProvider.ID)
+	}
+
+	candidates, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
+
+	// When circuit breaker is open, returns empty candidates with no error
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(candidates))
+	}
+}
+
+// TestResolveHotelModel_EmptyAPIKey tests resolution with a provider that has empty encrypted key
+func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
+	h := newIntegrationHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	// Create a provider with empty API key (keyless-like behavior)
+	providerName := "test-provider-emptykey-" + uuid.New().String()[:8]
+	createdProvider, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: "https://api.test.com",
+		APIKey:  "",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to create provider with empty key: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), createdProvider.ID) }()
+
+	// Create a model
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "empty-key-model",
+		Name:             "Empty Key Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	if err := h.modelRepo.Upsert(context.Background(), testModel); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
+
+	// Create a failover group
+	if _, err := h.failoverRepo.Upsert(context.Background(), "empty-key-fg", []uuid.UUID{modelID}); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(context.Background(), "empty-key-fg") }()
+
+	candidates, timings, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(candidates))
+	}
+
+	if candidates[0].model.ID != modelID {
+		t.Errorf("expected model ID %v, got %v", modelID, candidates[0].model.ID)
+	}
+	if candidates[0].provider.ID != createdProvider.ID {
+		t.Errorf("expected provider ID %v, got %v", createdProvider.ID, candidates[0].provider.ID)
+	}
+	// Empty key providers should have empty API key
+	if candidates[0].apiKey != "" {
+		t.Errorf("expected empty API key, got %q", candidates[0].apiKey)
+	}
+
+	// Verify timings were recorded
+	if timings.modelLookupMs < 0 {
+		t.Errorf("expected modelLookupMs > 0, got %f", timings.modelLookupMs)
+	}
+}
+
 func TestResolveSpecificProvider_WrongMasterKey(t *testing.T) {
 	h := newIntegrationHandler()
 	if h == nil {

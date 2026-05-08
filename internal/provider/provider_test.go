@@ -710,6 +710,126 @@ func TestRepository_GetByName_NotFound(t *testing.T) {
 	}
 }
 
+func TestRepository_GetByName_NormalizedName(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create provider with hyphenated name
+	name := "test-provider-with-hyphens"
+	created, err := repo.Create(ctx, CreateProviderRequest{
+		Name: name, BaseURL: "https://hyphen-test.example.com", APIKey: "sk-hyphen",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Try to get with space-separated name (should normalize to hyphens)
+	spaceName := "test provider with hyphens"
+	found, err := repo.GetByName(ctx, spaceName)
+	if err != nil {
+		t.Fatalf("GetByName with normalized name: %v", err)
+	}
+	if found.ID != created.ID {
+		t.Errorf("GetByName normalized ID = %v, want %v", found.ID, created.ID)
+	}
+}
+
+func TestRepository_GetByIDs_WithCache(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create a provider
+	p1, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://cache-test.example.com", APIKey: "sk-cache",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// First call populates cache
+	_, err = repo.Get(ctx, p1.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	// Second call with GetByIDs should use cache
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{p1.ID})
+	if err != nil {
+		t.Fatalf("GetByIDs: %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("expected 1 result, got %d", len(result))
+	}
+	if _, ok := result[p1.ID]; !ok {
+		t.Error("cached provider not found in result")
+	}
+}
+
+func TestRepository_GetByIDs_MixedCachedAndUncached(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create two providers
+	p1, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://mixed1.example.com", APIKey: "sk-mixed1",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create p1: %v", err)
+	}
+
+	p2, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://mixed2.example.com", APIKey: "sk-mixed2",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create p2: %v", err)
+	}
+
+	// Cache only p1
+	_, err = repo.Get(ctx, p1.ID)
+	if err != nil {
+		t.Fatalf("Get p1: %v", err)
+	}
+
+	// GetByIDs should return both (one from cache, one from DB)
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{p1.ID, p2.ID})
+	if err != nil {
+		t.Fatalf("GetByIDs: %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("expected 2 results, got %d", len(result))
+	}
+}
+
+func TestRepository_GetByIDs_SomeNotFound(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create one provider
+	p1, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://somefound.example.com", APIKey: "sk-found",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Request existing + non-existing ID
+	nonExistentID := uuid.New()
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{p1.ID, nonExistentID})
+	if err != nil {
+		t.Fatalf("GetByIDs: %v", err)
+	}
+	// Should only return the existing one
+	if len(result) != 1 {
+		t.Errorf("expected 1 result (only existing), got %d", len(result))
+	}
+	if _, ok := result[p1.ID]; !ok {
+		t.Error("existing provider not found in result")
+	}
+	if _, ok := result[nonExistentID]; ok {
+		t.Error("non-existent provider should not be in result")
+	}
+}
+
 func TestRepository_Update(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

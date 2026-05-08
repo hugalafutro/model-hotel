@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -148,6 +149,98 @@ func TestDiscoverGoogleAIStudio_Unauthorized(t *testing.T) {
 	_, err := service.discoverGoogleAIStudio(context.Background(), provider, "wrong-api-key")
 	if err == nil {
 		t.Error("Expected error for unauthorized request, got nil")
+	}
+}
+
+func TestDiscoverGoogleAIStudio_EmptyModelList(t *testing.T) {
+	// Create test server with empty models response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := GoogleModelsResponse{
+			Models: []GoogleModel{},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+
+	if len(models) != 0 {
+		t.Errorf("Expected 0 models, got %d", len(models))
+	}
+}
+
+func TestDiscoverGoogleAIStudio_ContextCancelled(t *testing.T) {
+	// Create test server that delays response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		response := GoogleModelsResponse{
+			Models: []GoogleModel{
+				{
+					Name:                       "models/gemini-1.5-flash",
+					DisplayName:                "Gemini 1.5 Flash",
+					Description:                "Lightweight multimodal model",
+					InputTokenLimit:            1000000,
+					OutputTokenLimit:           8192,
+					SupportedGenerationMethods: []string{"generateContent"},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	// Create cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err := service.discoverGoogleAIStudio(ctx, provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for cancelled context, got nil")
+	}
+}
+
+func TestDiscoverGoogleAIStudio_Non200Status(t *testing.T) {
+	// Create test server that returns 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+	}
+
+	_, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for non-200 status, got nil")
 	}
 }
 

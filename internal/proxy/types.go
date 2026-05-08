@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"sync"
 
 	"github.com/google/uuid"
@@ -9,6 +10,26 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
+
+// VirtualKeyRepository defines the interface for virtual key operations.
+// Used to enable mocking in tests while allowing the real *virtualkey.Repository
+// to be used in production.
+type VirtualKeyRepository interface {
+	AddTokens(ctx context.Context, keyHash string, tokens int) error
+	TouchLastUsed(ctx context.Context, keyHash string) error
+	FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error)
+	Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error)
+	Delete(ctx context.Context, id string) error
+}
+
+// VirtualKeyInfo holds the subset of virtual key data needed by the proxy.
+type VirtualKeyInfo struct {
+	ID         string
+	Name       string
+	KeyHash    string
+	KeyPreview string
+	TokensUsed int64
+}
 
 type contextKey string
 

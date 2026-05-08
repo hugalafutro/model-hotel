@@ -128,3 +128,36 @@ func TestDeriveKey(t *testing.T) {
 		t.Error("DeriveKey should be deterministic")
 	}
 }
+func TestEncryptWithKey_InvalidKey(t *testing.T) {
+	// AES requires exactly 16, 24, or 32 byte keys
+	_, err := encryptWithKey("test", []byte{1, 2, 3}) // 3 bytes - invalid
+	if err == nil {
+		t.Error("expected error with invalid key size")
+	}
+}
+
+func TestEncryptWithKey_ShortKey(t *testing.T) {
+	// 16-byte key should work for AES-128
+	kp, err := encryptWithKey("hello", make([]byte, 16))
+	if err != nil {
+		t.Errorf("expected no error with 16-byte key, got: %v", err)
+	}
+	if kp == nil {
+		t.Error("expected non-nil KeyPair")
+	}
+}
+func TestDecryptWithKey_InvalidKeySize(t *testing.T) {
+	// AES requires exactly 16, 24, or 32 byte keys
+	_, err := decryptWithKey([]byte("ciphertext"), []byte("123456789012"), []byte{1, 2, 3})
+	if err == nil {
+		t.Error("expected error with invalid key size")
+	}
+}
+
+func TestDecryptWithKey_WrongCiphertext(t *testing.T) {
+	// Valid key size but wrong ciphertext should fail GCM authentication
+	_, err := decryptWithKey([]byte("wrong-ciphertext"), make([]byte, 12), make([]byte, 32))
+	if err == nil {
+		t.Error("expected error with wrong ciphertext")
+	}
+}

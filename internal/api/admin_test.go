@@ -712,6 +712,14 @@ func TestProviderTypeAllowsEmptyKey(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// ListProviders tests with integration (see handler_integration_test.go)
+// The ListProviders handler requires real DB connection for model/token count queries.
+// Integration tests cover: TestListProviders_Empty, TestListProviders_AfterCreate,
+// TestListProviders_WithPagination, TestListProviders_WithSearchFilter,
+// TestListProviders_WithPaginationAndModelCounts, TestListProviders_SearchFilter_Integration
+// ---------------------------------------------------------------------------
+
 // setChiURLParam sets a chi URL parameter on the request context.
 func setChiURLParam(r *http.Request, key, value string) *http.Request {
 	rctx := chi.NewRouteContext()

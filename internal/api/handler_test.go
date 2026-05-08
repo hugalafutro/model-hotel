@@ -2,8 +2,10 @@ package api
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,11 +133,6 @@ func TestUpdateSettings_UnknownSetting(t *testing.T) {
 
 // TestUpdateSettings_InvalidValue tests UpdateSettings with invalid value type
 func TestUpdateSettings_InvalidValue(t *testing.T) {
-	t.Skip("UpdateSettings requires real database - integration test needed")
-}
-
-// TestUpdateSettings_ValueTooLong tests UpdateSettings with too long value
-func TestUpdateSettings_ValueTooLong(t *testing.T) {
 	t.Skip("UpdateSettings requires real database - integration test needed")
 }
 
@@ -579,5 +576,264 @@ func TestStatsHandler_ParseExcludeDeleted(t *testing.T) {
 				t.Errorf("parseExcludeDeleted(%q) = %v, want %v", tt.exclude, got, tt.want)
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Helper function tests (helpers.go)
+// ---------------------------------------------------------------------------
+
+// failingResponseWriter is a mock ResponseWriter that always fails on Write
+type failingResponseWriter struct {
+	header http.Header
+}
+
+func (f *failingResponseWriter) Header() http.Header {
+	if f.header == nil {
+		f.header = make(http.Header)
+	}
+	return f.header
+}
+
+func (f *failingResponseWriter) WriteHeader(statusCode int) {
+	// no-op
+}
+
+func (f *failingResponseWriter) Write([]byte) (int, error) {
+	return 0, &mockWriteError{"write failed"}
+}
+
+type mockWriteError struct {
+	msg string
+}
+
+func (e *mockWriteError) Error() string {
+	return e.msg
+}
+
+// TestWriteJSON_ErrorBranch tests the error path when JSON encoding fails
+func TestWriteJSON_ErrorBranch(t *testing.T) {
+	fw := &failingResponseWriter{}
+	data := map[string]string{"key": "value"}
+
+	// This should not panic and should log the error
+	writeJSON(fw, data)
+}
+
+// TestWriteJSON_Success tests the success path
+func TestWriteJSON_Success(t *testing.T) {
+	rec := httptest.NewRecorder()
+	data := map[string]string{"key": "value"}
+
+	writeJSON(rec, data)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+	}
+	if rec.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
+	}
+}
+
+// TestWriteJSONCreated_Success tests the success path
+func TestWriteJSONCreated_Success(t *testing.T) {
+	rec := httptest.NewRecorder()
+	data := map[string]string{"key": "value"}
+
+	writeJSONCreated(rec, data)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected status 201, got %d", rec.Code)
+	}
+	if rec.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
+	}
+}
+
+// TestWriteJSONCreated_ErrorBranch tests the error path when JSON encoding fails
+func TestWriteJSONCreated_ErrorBranch(t *testing.T) {
+	fw := &failingResponseWriter{}
+	data := map[string]string{"key": "value"}
+
+	// This should not panic and should log the error
+	writeJSONCreated(fw, data)
+}
+
+// ---------------------------------------------------------------------------
+// parseUUIDParam tests
+// ---------------------------------------------------------------------------
+
+func TestParseUUIDParam_ValidUUID(t *testing.T) {
+	id := uuid.New()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r = setChiURLParam(r, "id", id.String())
+
+	got, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		t.Error("expected ok=true for valid UUID")
+	}
+	if got != id {
+		t.Errorf("got %q, want %q", got, id)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected no error written, got status %d", w.Code)
+	}
+}
+
+func TestParseUUIDParam_InvalidUUID(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r = setChiURLParam(r, "id", "not-a-uuid")
+
+	_, ok := parseUUIDParam(w, r, "id")
+	if ok {
+		t.Error("expected ok=false for invalid UUID")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	body := w.Body.String()
+	if body == "" {
+		t.Error("expected error body for invalid UUID")
+	}
+}
+
+func TestParseUUIDParam_MissingParam(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	_, ok := parseUUIDParam(w, r, "id")
+	if ok {
+		t.Error("expected ok=false for missing param")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestParseUUIDParam_CustomLabel(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r = setChiURLParam(r, "id", "bad-uuid")
+
+	_, ok := parseUUIDParam(w, r, "id", "virtual key ID")
+	if ok {
+		t.Error("expected ok=false for invalid UUID with custom label")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "virtual key ID") {
+		t.Errorf("expected custom label 'virtual key ID' in body, got %q", body)
+	}
+}
+
+func TestParseUUIDParam_DefaultLabel(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r = setChiURLParam(r, "id", "bad-uuid")
+
+	_, ok := parseUUIDParam(w, r, "id")
+	if ok {
+		t.Error("expected ok=false for invalid UUID with default label")
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "id") {
+		t.Errorf("expected default label 'id' in body, got %q", body)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// respondError tests
+// ---------------------------------------------------------------------------
+
+func TestRespondError_WithErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "something failed", fmt.Errorf("db connection lost"), http.StatusInternalServerError)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+	body := w.Body.String()
+	if body != "something failed\n" {
+		t.Errorf("expected body %q, got %q", "something failed\n", body)
+	}
+}
+
+func TestRespondError_5xxWithoutErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "internal error", nil, http.StatusInternalServerError)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestRespondError_4xxWithoutErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "not found", nil, http.StatusNotFound)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestRespondError_BodyIsMessageNotErrorDetails(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "user message", fmt.Errorf("internal details"), http.StatusBadRequest)
+	body := w.Body.String()
+	if strings.Contains(body, "internal details") {
+		t.Error("response body should not contain internal error details")
+	}
+	if body != "user message\n" {
+		t.Errorf("expected body %q, got %q", "user message\n", body)
+	}
+}
+
+func TestRespondError_ContentTypeIsTextPlain(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondError(w, "error msg", nil, http.StatusBadRequest)
+	ct := w.Header().Get("Content-Type")
+	if ct != "text/plain; charset=utf-8" {
+		t.Errorf("expected text/plain content type, got %q", ct)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// respondBadRequest tests
+// ---------------------------------------------------------------------------
+
+func TestRespondBadRequest_WithErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "invalid input", fmt.Errorf("name too short"))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestRespondBadRequest_WithoutErr(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "bad request", nil)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestRespondBadRequest_BodyIsMessage(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "invalid parameter", fmt.Errorf("internal: name too long"))
+	body := w.Body.String()
+	if body != "invalid parameter\n" {
+		t.Errorf("expected body %q, got %q", "invalid parameter\n", body)
+	}
+	if strings.Contains(body, "internal") {
+		t.Error("response body should not contain internal error details")
+	}
+}
+
+func TestRespondBadRequest_StatusCode(t *testing.T) {
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "bad", nil)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 }

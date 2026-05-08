@@ -37,7 +37,7 @@ func newUnitHandler() *Handler {
 		cfg:            cfg,
 		providerRepo:   provider.NewRepository(nil),
 		modelRepo:      model.NewRepository(nil),
-		virtualKeyRepo: virtualkey.NewRepository(nil),
+		virtualKeyRepo: &virtualKeyRepoAdapter{repo: virtualkey.NewRepository(nil)},
 		failoverRepo:   failover.NewRepository(nil),
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
@@ -91,8 +91,9 @@ func TestNewHandler_SetsAllFields(t *testing.T) {
 	if h.modelRepo != modelRepo {
 		t.Error("modelRepo not set correctly")
 	}
-	if h.virtualKeyRepo != virtualKeyRepo {
-		t.Error("virtualKeyRepo not set correctly")
+	// virtualKeyRepo is wrapped in adapter, so we can't compare directly
+	if h.virtualKeyRepo == nil {
+		t.Error("virtualKeyRepo should not be nil")
 	}
 	if h.failoverRepo != failoverRepo {
 		t.Error("failoverRepo not set correctly")
@@ -237,8 +238,8 @@ func TestProxyKeyMiddleware_ValidKey_Integration(t *testing.T) {
 	if capturedVKName != vk.Name {
 		t.Errorf("virtual key name = %v, want %q", capturedVKName, vk.Name)
 	}
-	if capturedVKID != vk.ID.String() {
-		t.Errorf("virtual key ID = %v, want %s", capturedVKID, vk.ID.String())
+	if capturedVKID != vk.ID {
+		t.Errorf("virtual key ID = %v, want %s", capturedVKID, vk.ID)
 	}
 	if capturedVKHash != keyHash {
 		t.Errorf("virtual key hash = %v, want %s", capturedVKHash, keyHash)

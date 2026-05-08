@@ -1134,3 +1134,443 @@ func TestRepository_Update(t *testing.T) {
 		t.Errorf("GetByID GroupEnabled = %v, want false", found.GroupEnabled)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Integration tests — Sync coverage improvements
+// ---------------------------------------------------------------------------
+
+func TestRepository_SyncAllModels_WithSyncErrors(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create unique identifiers for this test
+	baseModel := "test-sync-error-" + uuid.New().String()[:8]
+
+	// Insert test data - two providers with same model
+	provider1ID := uuid.New()
+	provider2ID := uuid.New()
+	model1ID := uuid.New()
+	model2ID := uuid.New()
+
+	_, err := testDB.Pool().Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+	`, provider1ID, "test-provider-1-"+uuid.New().String()[:8])
+	if err != nil {
+		t.Fatalf("Failed to insert provider1: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider1ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+	`, provider2ID, "test-provider-2-"+uuid.New().String()[:8])
+	if err != nil {
+		t.Fatalf("Failed to insert provider2: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider2ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+		VALUES ($1, $2, $3, true, now())
+	`, model1ID, baseModel, provider1ID)
+	if err != nil {
+		t.Fatalf("Failed to insert model1: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model1ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+		VALUES ($1, $2, $3, true, now())
+	`, model2ID, baseModel, provider2ID)
+	if err != nil {
+		t.Fatalf("Failed to insert model2: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model2ID)
+	}()
+
+	// Call SyncAllModels - should succeed without errors
+	result, err := repo.SyncAllModels(ctx)
+	if err != nil {
+		t.Fatalf("SyncAllModels failed: %v", err)
+	}
+
+	// Verify no sync errors
+	if len(result.SyncErrors) != 0 {
+		t.Errorf("Expected 0 sync errors, got %d: %v", len(result.SyncErrors), result.SyncErrors)
+	}
+
+	// Verify auto-group was created
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("Failed to get auto-group: %v", err)
+	}
+	if group == nil {
+		t.Fatal("Expected auto-group to be created")
+	}
+	if len(group.PriorityOrder) != 2 {
+		t.Errorf("Expected 2 providers in priority order, got %d", len(group.PriorityOrder))
+	}
+
+	// Cleanup
+	if err := repo.Delete(ctx, baseModel); err != nil {
+		t.Logf("cleanup Delete failed: %v", err)
+	}
+}
+
+func TestRepository_SyncForModel_WithPrefixVariants(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Test with various prefix variants
+	baseModel := "test-prefix-variant-" + uuid.New().String()[:8]
+	prefixedModel := "openai/" + baseModel
+
+	provider1ID := uuid.New()
+	provider2ID := uuid.New()
+	model1ID := uuid.New()
+	model2ID := uuid.New()
+
+	_, err := testDB.Pool().Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+	`, provider1ID, "test-provider-1-"+uuid.New().String()[:8])
+	if err != nil {
+		t.Fatalf("Failed to insert provider1: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider1ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+	`, provider2ID, "test-provider-2-"+uuid.New().String()[:8])
+	if err != nil {
+		t.Fatalf("Failed to insert provider2: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider2ID)
+	}()
+
+	// Insert models with different prefixes for the same base model
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+		VALUES ($1, $2, $3, true, now())
+	`, model1ID, prefixedModel, provider1ID)
+	if err != nil {
+		t.Fatalf("Failed to insert model1: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model1ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+		VALUES ($1, $2, $3, true, now())
+	`, model2ID, "anthropic/"+baseModel, provider2ID)
+	if err != nil {
+		t.Fatalf("Failed to insert model2: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model2ID)
+	}()
+
+	// Call SyncForModel with the prefixed model ID
+	err = repo.SyncForModel(ctx, prefixedModel)
+	if err != nil {
+		t.Fatalf("SyncForModel failed: %v", err)
+	}
+
+	// Verify auto-group was created with stripped prefix
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("Failed to get auto-group: %v", err)
+	}
+	if group == nil {
+		t.Fatal("Expected auto-group to be created with stripped prefix")
+	}
+	if group.DisplayModel != baseModel {
+		t.Errorf("Expected DisplayModel %q, got %q", baseModel, group.DisplayModel)
+	}
+
+	// Cleanup
+	if err := repo.Delete(ctx, baseModel); err != nil {
+		t.Logf("cleanup Delete failed: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — Delete with cascade coverage
+// ---------------------------------------------------------------------------
+
+func TestRepository_DeleteByID_WithModels(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create a failover group
+	displayModel := "test-delete-cascade-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New(), uuid.New()}
+
+	fg, err := repo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+
+	// Verify it exists
+	InvalidateFailoverCache()
+	_, err = repo.GetByID(ctx, fg.ID)
+	if err != nil {
+		t.Fatalf("GetByID failed before delete: %v", err)
+	}
+
+	// Delete by ID
+	err = repo.DeleteByID(ctx, fg.ID)
+	if err != nil {
+		t.Fatalf("DeleteByID failed: %v", err)
+	}
+
+	// Verify it's gone
+	InvalidateFailoverCache()
+	_, err = repo.GetByID(ctx, fg.ID)
+	if err == nil {
+		t.Error("GetByID should return error after DeleteByID")
+	}
+
+	// Verify delete is idempotent (doesn't error on already-deleted)
+	err = repo.DeleteByID(ctx, fg.ID)
+	if err != nil {
+		t.Errorf("DeleteByID on already-deleted group should not error: %v", err)
+	}
+}
+
+func TestRepository_Delete_WithNonExistentGroup(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Delete a non-existent group - should not error
+	err := repo.Delete(ctx, "non-existent-model-"+uuid.New().String())
+	if err != nil {
+		t.Errorf("Delete on non-existent group should not error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — Update edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_Update_WithNilValues(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	displayModel := "test-update-nil-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New(), uuid.New()}
+
+	fg, err := repo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = repo.Delete(ctx, displayModel)
+	}()
+
+	// Update with nil values - should preserve existing values
+	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Update with nil values failed: %v", err)
+	}
+
+	// Verify values are preserved
+	if updated.GroupEnabled != fg.GroupEnabled {
+		t.Errorf("GroupEnabled changed from %v to %v", fg.GroupEnabled, updated.GroupEnabled)
+	}
+	if updated.DisplayName == nil && fg.DisplayName != nil {
+		t.Error("DisplayName should be preserved when nil passed")
+	}
+	if updated.Description != fg.Description {
+		t.Errorf("Description changed from %q to %q", fg.Description, updated.Description)
+	}
+}
+
+func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	displayModel := "test-update-display-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New()}
+
+	fg, err := repo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = repo.Delete(ctx, displayModel)
+	}()
+
+	displayName := "Updated Display Name"
+	description := "Updated description for testing"
+
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, &displayName, &description)
+	if err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	if updated.DisplayName == nil || *updated.DisplayName != displayName {
+		t.Errorf("DisplayName = %v, want %q", updated.DisplayName, displayName)
+	}
+	if updated.Description != description {
+		t.Errorf("Description = %q, want %q", updated.Description, description)
+	}
+
+	// Verify via GetByID
+	InvalidateFailoverCache()
+	found, err := repo.GetByID(ctx, fg.ID)
+	if err != nil {
+		t.Fatalf("GetByID failed: %v", err)
+	}
+	if found.DisplayName == nil || *found.DisplayName != displayName {
+		t.Errorf("GetByID DisplayName = %v, want %q", found.DisplayName, displayName)
+	}
+	if found.Description != description {
+		t.Errorf("GetByID Description = %q, want %q", found.Description, description)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — GetEnabled edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_GetEnabled_ExcludesDisabledGroups(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	displayModel := "test-getenabled-disabled-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New()}
+
+	// Create a disabled group
+	groupEnabled := false
+	fg, err := repo.UpsertWithConfig(ctx, displayModel, po, nil, &groupEnabled, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("UpsertWithConfig failed: %v", err)
+	}
+	defer func() {
+		_ = repo.Delete(ctx, displayModel)
+	}()
+
+	// GetEnabled should not include disabled groups
+	groups, err := repo.GetEnabled(ctx)
+	if err != nil {
+		t.Fatalf("GetEnabled failed: %v", err)
+	}
+
+	for _, g := range groups {
+		if g.ID == fg.ID {
+			t.Error("GetEnabled should not include disabled groups")
+		}
+	}
+}
+
+func TestRepository_GetEnabled_EmptyList(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// GetEnabled with no groups should return empty list or nil, not error
+	groups, err := repo.GetEnabled(ctx)
+	if err != nil {
+		t.Fatalf("GetEnabled failed: %v", err)
+	}
+	// Accept either nil or empty slice
+	if len(groups) != 0 {
+		t.Errorf("GetEnabled should return empty slice or nil, got %d items", len(groups))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — GetByID edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_GetByID_NotFound(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	InvalidateFailoverCache()
+	_, err := repo.GetByID(ctx, uuid.New())
+	if err == nil {
+		t.Error("GetByID should return error for nonexistent ID")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — List ordering
+// ---------------------------------------------------------------------------
+
+func TestRepository_List_OrderedByDisplayModel(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create multiple groups with different display models
+	models := []string{
+		"z-test-model",
+		"a-test-model",
+		"m-test-model",
+	}
+	createdIDs := make([]uuid.UUID, len(models))
+
+	for i, model := range models {
+		po := []uuid.UUID{uuid.New()}
+		fg, err := repo.Upsert(ctx, model, po)
+		if err != nil {
+			t.Fatalf("Upsert failed for %s: %v", model, err)
+		}
+		createdIDs[i] = fg.ID
+		defer func() {
+			_ = repo.Delete(ctx, model)
+		}()
+	}
+
+	// List should be ordered by display_model
+	groups, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	// Verify ordering (a < m < z)
+	if len(groups) < 3 {
+		t.Fatalf("Expected at least 3 groups, got %d", len(groups))
+	}
+
+	// Find our groups and verify order
+	var foundModels []string
+	for _, g := range groups {
+		for _, model := range models {
+			if g.DisplayModel == model {
+				foundModels = append(foundModels, model)
+				break
+			}
+		}
+	}
+
+	if len(foundModels) != 3 {
+		t.Fatalf("Expected to find all 3 test groups, got %d", len(foundModels))
+	}
+
+	// Verify alphabetical order
+	if foundModels[0] != "a-test-model" {
+		t.Errorf("Expected first model 'a-test-model', got %q", foundModels[0])
+	}
+	if foundModels[1] != "m-test-model" {
+		t.Errorf("Expected second model 'm-test-model', got %q", foundModels[1])
+	}
+	if foundModels[2] != "z-test-model" {
+		t.Errorf("Expected third model 'z-test-model', got %q", foundModels[2])
+	}
+}

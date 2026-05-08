@@ -266,3 +266,47 @@ func TestSafeDialer_DNSErrorFallback(t *testing.T) {
 		t.Errorf("expected DNS/connection error, got blocked-IP error: %v", err)
 	}
 }
+
+// TestSafeDialer_InvalidAddressFormat tests DialContext with an address
+// that cannot be split into host:port
+func TestSafeDialer_InvalidAddressFormat(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	// Address without port should still work (falls through to dial)
+	_, err := sd.DialContext(ctx, "tcp", "not-a-valid-addr")
+	if err == nil {
+		t.Error("expected error for invalid address format")
+	}
+	// Should not be a blocked-IP error
+	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("expected connection error, got blocked-IP error: %v", err)
+	}
+}
+
+// TestSafeDialer_CanceledContext tests DialContext with a canceled context
+func TestSafeDialer_CanceledContext(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := sd.DialContext(ctx, "tcp", "example.com:80")
+	if err == nil {
+		t.Error("expected error for canceled context")
+	}
+}
+
+// TestSafeDialer_AllResolvedIPsBlocked tests when all resolved IPs are blocked
+func TestSafeDialer_AllResolvedIPsBlocked(t *testing.T) {
+	sd := NewSafeDialer(nil)
+	ctx := context.Background()
+
+	// localhost resolves to loopback which is blocked
+	_, err := sd.DialContext(ctx, "tcp", "localhost:80")
+	if err == nil {
+		t.Error("expected error when all IPs are blocked")
+	}
+	if !strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("expected blocked-IP error, got: %v", err)
+	}
+}

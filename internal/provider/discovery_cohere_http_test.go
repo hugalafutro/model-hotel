@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -135,6 +136,95 @@ func TestDiscoverCohere_Unauthorized(t *testing.T) {
 	_, err := service.discoverCohere(context.Background(), provider, "wrong-api-key")
 	if err == nil {
 		t.Error("Expected error for unauthorized request, got nil")
+	}
+}
+
+func TestDiscoverCohere_EmptyModelList(t *testing.T) {
+	// Create test server with empty models response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := CohereModelsResponse{
+			Models: []CohereNativeModel{},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverCohere(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverCohere failed: %v", err)
+	}
+
+	if len(models) != 0 {
+		t.Errorf("Expected 0 models, got %d", len(models))
+	}
+}
+
+func TestDiscoverCohere_ContextCancelled(t *testing.T) {
+	// Create test server that delays response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		response := CohereModelsResponse{
+			Models: []CohereNativeModel{
+				{
+					Name:          "command-r",
+					Endpoints:     []string{"chat"},
+					ContextLength: 128000,
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	// Create cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err := service.discoverCohere(ctx, provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for cancelled context, got nil")
+	}
+}
+
+func TestDiscoverCohere_Non200Status(t *testing.T) {
+	// Create test server that returns 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverCohere(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for non-200 status, got nil")
 	}
 }
 
