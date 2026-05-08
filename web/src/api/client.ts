@@ -1,4 +1,5 @@
 import type {
+	BackupEntry,
 	CandidateModel,
 	CreateFailoverGroupRequest,
 	CreateProviderRequest,
@@ -125,7 +126,7 @@ export const api = {
 				method: "DELETE",
 				headers: getAuthHeaders(),
 			});
-			if (!response.ok && response.status !== 204) {
+			if (!response.ok) {
 				throw new Error("Failed to delete provider");
 			}
 		},
@@ -305,7 +306,7 @@ export const api = {
 				method: "DELETE",
 				headers: getAuthHeaders(),
 			});
-			if (!response.ok && response.status !== 204) {
+			if (!response.ok) {
 				throw new Error("Failed to delete model");
 			}
 		},
@@ -347,7 +348,7 @@ export const api = {
 				headers: getAuthHeaders(),
 				body: JSON.stringify({ older_than: olderThan }),
 			});
-			if (!response.ok && response.status !== 204) {
+			if (!response.ok) {
 				const text = await response.text();
 				throw new Error(`Failed to purge logs: ${response.status} ${text}`);
 			}
@@ -528,7 +529,7 @@ export const api = {
 				method: "DELETE",
 				headers: getAuthHeaders(),
 			});
-			if (!response.ok && response.status !== 204) {
+			if (!response.ok) {
 				throw new Error("Failed to delete virtual key");
 			}
 		},
@@ -679,7 +680,7 @@ export const api = {
 				method: "DELETE",
 				headers: getAuthHeaders(),
 			});
-			if (!response.ok && response.status !== 204) {
+			if (!response.ok) {
 				throw new Error("Failed to delete failover group");
 			}
 		},
@@ -701,6 +702,43 @@ export const api = {
 				},
 				"Failed to fetch candidates",
 			);
+		},
+	},
+
+	backups: {
+		list: async (): Promise<BackupEntry[]> => {
+			return fetchJSON<BackupEntry[]>(
+				`${API_BASE}/api/backups`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch backups",
+			);
+		},
+		create: async (): Promise<BackupEntry> => {
+			return fetchJSON<BackupEntry>(
+				`${API_BASE}/api/backups`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to create backup",
+			);
+		},
+		downloadUrl: (filename: string): string => {
+			return `${API_BASE}/api/backups/${encodeURIComponent(filename)}`;
+		},
+		delete: async (filename: string): Promise<void> => {
+			const response = await fetch(
+				`${API_BASE}/api/backups/${encodeURIComponent(filename)}`,
+				{
+					method: "DELETE",
+					headers: getAuthHeaders(),
+				},
+			);
+			if (!response.ok) {
+				throw new Error("Failed to delete backup");
+			}
 		},
 	},
 };

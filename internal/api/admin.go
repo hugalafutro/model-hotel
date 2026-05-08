@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -104,6 +105,7 @@ func (h *Handler) Register(r chi.Router) {
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 	NewSystemHandler(h.dbPool.Pool()).Register(r)
+	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups")).Register(r)
 }
 
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {

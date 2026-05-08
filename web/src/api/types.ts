@@ -343,6 +343,12 @@ export interface SyncResult {
 	disabled_groups: DisabledGroupInfo[];
 }
 
+export interface BackupEntry {
+	filename: string;
+	size_bytes: number;
+	created_at: string;
+}
+
 export interface ZAICodingQuotaUsageDetail {
 	modelCode: string;
 	usage: number;
