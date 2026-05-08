@@ -1,5 +1,3 @@
-//go:build integration
-
 package model
 
 import (
@@ -30,15 +28,15 @@ func TestUpsert_InsertNewModel(t *testing.T) {
 
 	modelID := uuid.New()
 	model := &Model{
-		ID:             modelID,
-		ProviderID:     providerID,
-		ModelID:        "test-model-new",
-		Name:           "Test Model New",
-		Enabled:        true,
-		DisplayName:    "Test Model",
-		Capabilities:   "{}",
-		Params:         "{}",
-		Modality:       "",
+		ID:               modelID,
+		ProviderID:       providerID,
+		ModelID:          "test-model-new",
+		Name:             "Test Model New",
+		Enabled:          true,
+		DisplayName:      "Test Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
 		InputModalities:  "[]",
 		OutputModalities: "[]",
 	}
@@ -83,14 +81,14 @@ func TestUpsert_UpdateExistingModel(t *testing.T) {
 
 	// Update the model with same provider_id and model_id
 	model := &Model{
-		ProviderID:      providerID,
-		ModelID:         "test-model-update",
-		Name:            "Updated Name",
-		Enabled:         true,
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "",
-		InputModalities: "[]",
+		ProviderID:       providerID,
+		ModelID:          "test-model-update",
+		Name:             "Updated Name",
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
 		OutputModalities: "[]",
 	}
 
@@ -124,15 +122,15 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 
 	// Insert second version with same model_id (overwrites)
 	model2 := &Model{
-		ProviderID:      providerID,
-		ModelID:         "overwrite-model",
-		Name:            "Second Version",
-		Enabled:         false,
-		DisplayName:     "Overwritten",
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "",
-		InputModalities: "[]",
+		ProviderID:       providerID,
+		ModelID:          "overwrite-model",
+		Name:             "Second Version",
+		Enabled:          false,
+		DisplayName:      "Overwritten",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
 		OutputModalities: "[]",
 	}
 	err = repo.Upsert(ctx, model2)
@@ -158,6 +156,7 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 
 func TestList_EmptyDatabase(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	// No cleanup needed - list should return empty with no providers/models
@@ -273,6 +272,7 @@ func TestList_ByProviderID(t *testing.T) {
 
 func TestListEnabled_EmptyDatabase(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	models, err := repo.ListEnabled(ctx)
@@ -328,6 +328,7 @@ func TestListEnabled_OnlyEnabledModels(t *testing.T) {
 
 func TestGet_NotFound(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	id := uuid.New()
@@ -388,6 +389,7 @@ func TestGet_CacheHit(t *testing.T) {
 
 func TestGetByIDs_EmptyIDs(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	result, err := repo.GetByIDs(ctx, []uuid.UUID{})
@@ -401,6 +403,7 @@ func TestGetByIDs_EmptyIDs(t *testing.T) {
 
 func TestGetByIDs_NotFound(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	id1 := uuid.New()
@@ -478,6 +481,7 @@ func TestGetByIDs_CacheHit(t *testing.T) {
 
 func TestGetByModelID_NotFound(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	models, err := repo.GetByModelID(ctx, "non-existent-model")
@@ -751,6 +755,7 @@ func TestUpdate_EnabledFalse(t *testing.T) {
 
 func TestUpdate_NotFound(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	// Try to update non-existent model
@@ -767,10 +772,12 @@ func TestUpdate_NotFound(t *testing.T) {
 		t.Errorf("expected nil model, got %v", updated)
 	}
 }
+
 // ---------------------------------------------------------------------------
 
 func TestGetByProviderAndModelID_NotFound(t *testing.T) {
 	ctx := context.Background()
+	skipIfNoDB(t)
 	repo := NewRepository(testPool)
 
 	providerID := uuid.New()
@@ -1044,6 +1051,3 @@ func TestGetByIDs(t *testing.T) {
 		t.Errorf("expected 0 models for nil input, got %d", len(empty))
 	}
 }
-
-
-

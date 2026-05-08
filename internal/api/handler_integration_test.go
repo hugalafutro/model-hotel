@@ -1,11 +1,10 @@
-//go:build integration
-
 package api
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,17 +12,16 @@ import (
 	"testing"
 	"time"
 
-	"log/slog"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -33,6 +31,7 @@ const testMasterKey = "testmasterkey1234567890abcdef"
 
 func newTestHandler(t *testing.T) *Handler {
 	t.Helper()
+
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
@@ -40,7 +39,7 @@ func newTestHandler(t *testing.T) *Handler {
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Fatalf("failed to create connection pool: %v", err)
+		t.Skip("skipping: test database not available")
 	}
 
 	// Clean test data (best effort, may fail due to concurrent tests)
@@ -52,14 +51,14 @@ func newTestHandler(t *testing.T) *Handler {
 	// Create database instance
 	database, err := db.New(context.Background(), dbURL, 5, 1)
 	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
+		t.Skip("skipping: test database not available")
 	}
 
 	cfg := &config.Config{
-		MasterKey:           testMasterKey,
-		AllowHTTPProviders:  true,
-		RateLimitEnabled:    false,
-		DataDir:             t.TempDir(),
+		MasterKey:          testMasterKey,
+		AllowHTTPProviders: true,
+		RateLimitEnabled:   false,
+		DataDir:            t.TempDir(),
 	}
 
 	providerRepo := provider.NewRepository(pool)
@@ -98,7 +97,7 @@ func newTestHandlerWithRouter(t *testing.T) (*Handler, chi.Router) {
 }
 
 func TestNewHandler(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	if h == nil {
 		t.Fatal("handler is nil")
@@ -109,7 +108,7 @@ func TestNewHandler(t *testing.T) {
 }
 
 func TestHandlerRegister(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -126,7 +125,7 @@ func TestHandlerRegister(t *testing.T) {
 }
 
 func TestPool(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	pool := h.Pool()
 	if pool == nil {
@@ -148,7 +147,7 @@ func TestPool(t *testing.T) {
 // Provider Tests
 
 func TestListProviders_Empty(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -174,7 +173,7 @@ func TestListProviders_Empty(t *testing.T) {
 }
 
 func TestCreateAndGetProvider(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -209,9 +208,9 @@ func TestCreateAndGetProvider(t *testing.T) {
 	}
 
 	var getResp struct {
-		ID         string `json:"id"`
-		Name       string `json:"name"`
-		BaseURL    string `json:"base_url"`
+		ID           string `json:"id"`
+		Name         string `json:"name"`
+		BaseURL      string `json:"base_url"`
 		ProviderType string `json:"provider_type"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &getResp); err != nil {
@@ -226,7 +225,7 @@ func TestCreateAndGetProvider(t *testing.T) {
 }
 
 func TestListProviders_AfterCreate(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -269,7 +268,7 @@ func TestListProviders_AfterCreate(t *testing.T) {
 }
 
 func TestDeleteProvider(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -315,7 +314,7 @@ func TestDeleteProvider(t *testing.T) {
 }
 
 func TestDeleteProvider_InvalidUUID(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -332,7 +331,7 @@ func TestDeleteProvider_InvalidUUID(t *testing.T) {
 }
 
 func TestDeleteProvider_NonExistent(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -350,7 +349,7 @@ func TestDeleteProvider_NonExistent(t *testing.T) {
 }
 
 func TestGetProvider_InvalidUUID(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -367,7 +366,7 @@ func TestGetProvider_InvalidUUID(t *testing.T) {
 }
 
 func TestGetProvider_NonExistent(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -385,7 +384,7 @@ func TestGetProvider_NonExistent(t *testing.T) {
 }
 
 func TestUpdateProvider_NonExistent(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -405,7 +404,7 @@ func TestUpdateProvider_NonExistent(t *testing.T) {
 }
 
 func TestUpdateProvider_InvalidData(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -443,7 +442,7 @@ func TestUpdateProvider_InvalidData(t *testing.T) {
 }
 
 func TestCreateProvider_EmptyName(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -462,7 +461,7 @@ func TestCreateProvider_EmptyName(t *testing.T) {
 }
 
 func TestCreateProvider_Duplicate(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -632,7 +631,7 @@ func TestListProviders_WithPagination(t *testing.T) {
 	}
 }
 func TestCreateProvider_VariousTypes(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -648,11 +647,11 @@ func TestCreateProvider_VariousTypes(t *testing.T) {
 		{"Mistral", "https://api.mistral.ai", "test-api-key", true},
 	}
 
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				providerData := fmt.Sprintf(`{"name": "test-%s", "base_url": "%s", "api_key": "%s"}`, tc.name, tc.baseURL, tc.apiKey)
-				rec := httptest.NewRecorder()
-				req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			providerData := fmt.Sprintf(`{"name": "test-%s-%s", "base_url": "%s", "api_key": "%s"}`, tc.name, uuid.New().String()[:8], tc.baseURL, tc.apiKey)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 			req.Header.Set("Authorization", "Bearer test-admin-token")
 			req.Header.Set("Content-Type", "application/json")
 			r.ServeHTTP(rec, req)
@@ -665,7 +664,7 @@ func TestCreateProvider_VariousTypes(t *testing.T) {
 }
 
 func TestPurgeLogs(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -683,11 +682,11 @@ func TestPurgeLogs(t *testing.T) {
 		{"All logs", "all", http.StatusNoContent},
 	}
 
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				purgeData := fmt.Sprintf(`{"older_than": "%s"}`, tc.olderThan)
-				rec := httptest.NewRecorder()
-				req := httptest.NewRequest("DELETE", "/logs/purge", strings.NewReader(purgeData))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			purgeData := fmt.Sprintf(`{"older_than": "%s"}`, tc.olderThan)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("DELETE", "/logs/purge", strings.NewReader(purgeData))
 			req.Header.Set("Authorization", "Bearer test-admin-token")
 			req.Header.Set("Content-Type", "application/json")
 			r.ServeHTTP(rec, req)
@@ -700,7 +699,7 @@ func TestPurgeLogs(t *testing.T) {
 }
 
 func TestGetVirtualKey_NonExistent(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -718,7 +717,7 @@ func TestGetVirtualKey_NonExistent(t *testing.T) {
 }
 
 func TestListFailoverGroups(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -762,7 +761,7 @@ func TestListFailoverGroups(t *testing.T) {
 }
 
 func TestDeleteFailoverGroup(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -781,7 +780,7 @@ func TestDeleteFailoverGroup(t *testing.T) {
 }
 
 func TestSyncFailoverGroups(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -804,7 +803,7 @@ func TestSyncFailoverGroups(t *testing.T) {
 }
 
 func TestFailoverCandidates(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -830,7 +829,7 @@ func TestFailoverCandidates(t *testing.T) {
 }
 
 func TestUpdateProvider(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -894,7 +893,7 @@ func TestUpdateProvider(t *testing.T) {
 // Model Tests
 
 func TestListModels(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1100,7 +1099,7 @@ func TestUpdateModel(t *testing.T) {
 	h.Register(r)
 
 	// Create a provider
-	providerData := `{"name": "test-model-provider", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
+	providerData := fmt.Sprintf(`{"name": "test-model-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -1108,7 +1107,7 @@ func TestUpdateModel(t *testing.T) {
 	r.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d", rec.Code)
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var providerResp struct {
@@ -1144,7 +1143,7 @@ func TestUpdateModel(t *testing.T) {
 // Stats Tests
 
 func TestGetStats(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1166,7 +1165,7 @@ func TestGetStats(t *testing.T) {
 }
 
 func TestGetTimeSeries(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1188,7 +1187,7 @@ func TestGetTimeSeries(t *testing.T) {
 }
 
 func TestGetProviderDistribution(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1212,7 +1211,7 @@ func TestGetProviderDistribution(t *testing.T) {
 // System Tests
 
 func TestGetSystem(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1238,7 +1237,7 @@ func TestGetSystem(t *testing.T) {
 // Settings Tests
 
 func TestGetSettings(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1260,7 +1259,7 @@ func TestGetSettings(t *testing.T) {
 }
 
 func TestUpdateSettingsIntegration(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1298,7 +1297,7 @@ func TestUpdateSettingsIntegration(t *testing.T) {
 // App Logs Tests
 
 func TestGetAppLogsIntegration(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1320,7 +1319,7 @@ func TestGetAppLogsIntegration(t *testing.T) {
 }
 
 func TestClearAppLogsIntegration(t *testing.T) {
-	
+
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -1334,8 +1333,6 @@ func TestClearAppLogsIntegration(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
-
-
 
 // Model Tests
 
@@ -1651,8 +1648,6 @@ func TestRefreshAllQuotasIntegration(t *testing.T) {
 	}
 }
 
-
-
 // Events Handler Tests
 
 func TestStreamEvents(t *testing.T) {
@@ -1720,9 +1715,9 @@ func TestListLogs(t *testing.T) {
 
 	var response struct {
 		Entries []map[string]interface{} `json:"entries"`
-		Total   int                       `json:"total"`
-		Page    int                       `json:"page"`
-		PerPage int                       `json:"per_page"`
+		Total   int                      `json:"total"`
+		Page    int                      `json:"page"`
+		PerPage int                      `json:"per_page"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -2117,9 +2112,22 @@ func TestUpdateModel_Validation(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
-		// Will get 500 because modelRepo.Update is broken, but covers all validation code
-		if w.Code != 500 {
-			t.Errorf("expected 500 due to broken Update, got %d", w.Code)
+		if w.Code != 200 {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+		// Verify update took effect
+		var updated struct {
+			DisplayName   string `json:"display_name"`
+			ContextLength int    `json:"context_length"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
+			t.Fatalf("Failed to parse update response: %v", err)
+		}
+		if updated.DisplayName != "Updated Model" {
+			t.Errorf("expected display_name 'Updated Model', got %q", updated.DisplayName)
+		}
+		if updated.ContextLength != 131072 {
+			t.Errorf("expected context_length 131072, got %d", updated.ContextLength)
 		}
 	})
 }
@@ -2136,7 +2144,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 		($1, $2, $3, $4),
 		($5, $6, $7, $8),
 		($9, $10, $11, $12)
-	`, 
+	`,
 		now, "info", "proxy", "test info message",
 		now, "warning", "auth", "test warning message",
 		now, "error", "proxy", "test error message",
@@ -2446,7 +2454,7 @@ func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 
 func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider
 	body := `{"name":"test-disc-disabled","base_url":"https://api.openai.com","api_key":"sk-test123"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2454,12 +2462,12 @@ func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Check response status
 	if w.Code != http.StatusCreated {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
-	
+
 	// Parse response to get provider ID
 	var resp map[string]interface{}
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
@@ -2469,16 +2477,16 @@ func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
 	if !ok {
 		t.Fatalf("Provider ID not found in response or not a string: %+v", resp)
 	}
-	
+
 	// Disable the provider via SQL
 	h.dbPool.Pool().Exec(context.Background(), "UPDATE providers SET enabled = false WHERE id = $1", providerID)
-	
+
 	// Try to discover
 	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should get error (400 for disabled provider, or 500 for API key failure)
 	if w2.Code != 400 && w2.Code != 500 {
 		t.Errorf("expected 400 or 500, got %d", w2.Code)
@@ -2487,13 +2495,13 @@ func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
 
 func TestDiscoverProviderModels_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Call with invalid UUID
 	req := httptest.NewRequest("POST", "/providers/not-a-uuid/discover", nil)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Should get 400
 	if w.Code != 400 {
 		t.Errorf("expected 400, got %d", w.Code)
@@ -2502,14 +2510,14 @@ func TestDiscoverProviderModels_InvalidUUID(t *testing.T) {
 
 func TestDiscoverProviderModels_NotFound(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Call with non-existent UUID
 	nonExistentID := uuid.New().String()
 	req := httptest.NewRequest("POST", "/providers/"+nonExistentID+"/discover", nil)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Should get 404
 	if w.Code != 404 {
 		t.Errorf("expected 404, got %d", w.Code)
@@ -2518,7 +2526,7 @@ func TestDiscoverProviderModels_NotFound(t *testing.T) {
 
 func TestGetProviderUsage_NanoGPT(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with NanoGPT base URL
 	body := `{"name":"test-nanogpt","base_url":"https://ngc.nanogpt.com/v1","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2526,17 +2534,17 @@ func TestGetProviderUsage_NanoGPT(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
-	
+
 	// Try to get usage
 	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should get 400 - NanoGPT usage not supported
 	if w2.Code != 400 {
 		t.Errorf("expected 400, got %d", w2.Code)
@@ -2545,7 +2553,7 @@ func TestGetProviderUsage_NanoGPT(t *testing.T) {
 
 func TestGetProviderUsage_OpenRouter(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with OpenRouter base URL
 	body := `{"name":"test-openrouter","base_url":"https://openrouter.ai/api/v1","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2553,17 +2561,17 @@ func TestGetProviderUsage_OpenRouter(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
-	
+
 	// Try to get usage
 	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should get 500 - OpenRouter API call fails with invalid key
 	if w2.Code != 500 {
 		t.Errorf("expected 500, got %d", w2.Code)
@@ -2572,7 +2580,7 @@ func TestGetProviderUsage_OpenRouter(t *testing.T) {
 
 func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with non-DeepSeek URL
 	body := `{"name":"test-balance-unsupported","base_url":"https://api.openai.com","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2580,17 +2588,17 @@ func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
-	
+
 	// Try to get balance
 	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should get 400 - balance not supported
 	if w2.Code != 400 {
 		t.Errorf("expected 400, got %d", w2.Code)
@@ -2599,7 +2607,7 @@ func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 
 func TestGetProviderBalance_DeepSeek(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with DeepSeek base URL
 	body := `{"name":"test-deepseek","base_url":"https://api.deepseek.com","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2607,17 +2615,17 @@ func TestGetProviderBalance_DeepSeek(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
-	
+
 	// Try to get balance
 	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should get 500 - DeepSeek API call fails with invalid key
 	if w2.Code != 500 {
 		t.Errorf("expected 500, got %d", w2.Code)
@@ -2626,7 +2634,7 @@ func TestGetProviderBalance_DeepSeek(t *testing.T) {
 
 func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with NanoGPT base URL
 	body := `{"name":"test-nanogpt-quotas","base_url":"https://ngc.nanogpt.com/v1","api_key":"test-api-key","enabled":true}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2634,23 +2642,23 @@ func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Verify provider was created successfully
 	if w.Code != 201 {
 		t.Fatalf("Failed to create provider: %d - %s", w.Code, w.Body.String())
 	}
-	
+
 	// Refresh all quotas
 	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should succeed
 	if w2.Code != 200 {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
-	
+
 	var resp2 map[string]interface{}
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
@@ -2663,7 +2671,7 @@ func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 		return
 	}
 	results := resultsInterface.([]interface{})
-	
+
 	// Should have one result
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
@@ -2672,7 +2680,7 @@ func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 
 func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with ZAICoding base URL
 	body := `{"name":"test-zai-quotas","base_url":"https://api.zai.chat/api/v1","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2680,18 +2688,18 @@ func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Refresh all quotas
 	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should succeed
 	if w2.Code != 200 {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
-	
+
 	var resp2 map[string]interface{}
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
@@ -2704,7 +2712,7 @@ func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 		return
 	}
 	results := resultsInterface.([]interface{})
-	
+
 	// Should have one result
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
@@ -2713,7 +2721,7 @@ func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 
 func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with DeepSeek base URL
 	body := `{"name":"test-deepseek-quotas","base_url":"https://api.deepseek.com","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2721,18 +2729,18 @@ func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Refresh all quotas
 	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should succeed
 	if w2.Code != 200 {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
-	
+
 	var resp2 map[string]interface{}
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
@@ -2745,7 +2753,7 @@ func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 		return
 	}
 	results := resultsInterface.([]interface{})
-	
+
 	// Should have one result
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
@@ -2754,7 +2762,7 @@ func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 
 func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with OpenRouter base URL
 	body := `{"name":"test-openrouter-quotas","base_url":"https://openrouter.ai/api/v1","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2762,18 +2770,18 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Refresh all quotas
 	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should succeed
 	if w2.Code != 200 {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
-	
+
 	var resp2 map[string]interface{}
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
@@ -2784,7 +2792,7 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 		t.Fatal("results field is nil")
 	}
 	results := resultsInterface.([]interface{})
-	
+
 	// Should have one result
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
@@ -2793,7 +2801,7 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 
 func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider with unknown URL
 	body := `{"name":"test-unknown-quotas","base_url":"https://api.anthropic.com","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2801,18 +2809,18 @@ func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	// Refresh all quotas
 	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should succeed
 	if w2.Code != 200 {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
-	
+
 	var resp2 map[string]interface{}
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
@@ -2825,12 +2833,12 @@ func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 		return
 	}
 	results := resultsInterface.([]interface{})
-	
+
 	// Should have one result with refreshed=false
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
 	}
-	
+
 	result := results[0].(map[string]interface{})
 	if result["refreshed"].(bool) != false {
 		t.Errorf("expected refreshed=false, got %v", result["refreshed"])
@@ -2839,7 +2847,7 @@ func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 
 func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
-	
+
 	// Create provider
 	body := `{"name":"test-disabled-quotas","base_url":"https://api.openai.com","api_key":"test-api-key"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -2847,25 +2855,25 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
-	
+
 	// Disable the provider
 	h.dbPool.Pool().Exec(context.Background(), "UPDATE providers SET enabled = false WHERE id = $1", providerID)
-	
+
 	// Refresh all quotas
 	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
-	
+
 	// Should succeed
 	if w2.Code != 200 {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
-	
+
 	var resp2 map[string]interface{}
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
@@ -2878,19 +2886,20 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 		return
 	}
 	results := resultsInterface.([]interface{})
-	
+
 	// Should have no results since disabled provider is skipped
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for disabled provider, got %d", len(results))
 	}
 }
+
 // Test for settings.go - UpdateSettings_RateLimit
 // Test for admin.go - CreateProvider_KeylessProvider
 func TestCreateProvider_KeylessProvider(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Test creating a keyless provider (should work)
-	providerData := `{"name": "test-keyless", "base_url": "http://localhost:11434"}`
+	providerData := `{"name": "test-keyless", "base_url": "https://opencode.ai/zen/v1"}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -2917,7 +2926,7 @@ func TestCreateProvider_EmptyAPIKey(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Test creating a provider with empty API key (should work for local Ollama)
-	providerData := `{"name": "test-empty-key", "base_url": "http://localhost:11434", "api_key": ""}`
+	providerData := `{"name": "test-empty-key", "base_url": "https://opencode.ai/zen/v1", "api_key": ""}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -3027,7 +3036,7 @@ func TestDiscoverProviderModels_InvalidProvider(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with invalid URL
-	providerData := `{"name": "test-discover-invalid", "base_url": "invalid-url", "api_key": "test-api-key"}`
+	providerData := `{"name": "test-discover-invalid", "base_url": "https://httpbin.org", "api_key": "test-api-key"}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -3289,7 +3298,7 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
-	
+
 	// Should return sync result
 	if _, ok := response["disabled_groups"]; !ok {
 		t.Error("Expected 'disabled_groups' field in sync response")
@@ -3311,11 +3320,11 @@ func TestGetAppLogsHistory(t *testing.T) {
 
 	var response struct {
 		Entries      []map[string]interface{} `json:"entries"`
-		Total        int                       `json:"total"`
-		Page         int                       `json:"page"`
-		PerPage      int                       `json:"per_page"`
-		LevelCounts  map[string]int            `json:"level_counts"`
-		SourceCounts map[string]int            `json:"source_counts"`
+		Total        int                      `json:"total"`
+		Page         int                      `json:"page"`
+		PerPage      int                      `json:"per_page"`
+		LevelCounts  map[string]int           `json:"level_counts"`
+		SourceCounts map[string]int           `json:"source_counts"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -3523,4 +3532,3 @@ func TestGetAppLogsHistory_MultipleFilters(t *testing.T) {
 		t.Error("Expected to find entries containing 'warning'")
 	}
 }
-

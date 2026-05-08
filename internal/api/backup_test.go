@@ -205,7 +205,6 @@ func TestBackupHandler_DeleteBackup(t *testing.T) {
 	}
 }
 
-
 func TestBackupHandler_DeleteBackup_PathTraversal(t *testing.T) {
 	r, _ := setupBackupRouter(t)
 
@@ -230,7 +229,6 @@ func TestBackupHandler_DeleteBackup_PathTraversal(t *testing.T) {
 		})
 	}
 }
-
 
 func TestBackupHandler_DeleteBackup_NotFound(t *testing.T) {
 	r, _ := setupBackupRouter(t)
