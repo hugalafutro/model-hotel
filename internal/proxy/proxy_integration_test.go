@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/config"
 )
 
@@ -150,9 +151,9 @@ func TestHandleNonStreamingResponse_Success(t *testing.T) {
 				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 			},
 			"usage": map[string]interface{}{
-				"prompt_tokens":      5,
+				"prompt_tokens":     5,
 				"completion_tokens": 7,
-				"total_tokens":       12,
+				"total_tokens":      12,
 			},
 		}
 		json.NewEncoder(w).Encode(response)
@@ -356,9 +357,9 @@ func TestChatCompletions_FailoverWithTimeout(t *testing.T) {
 					{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 				},
 				"usage": map[string]interface{}{
-					"prompt_tokens":      5,
+					"prompt_tokens":     5,
 					"completion_tokens": 7,
-					"total_tokens":       12,
+					"total_tokens":      12,
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -549,9 +550,9 @@ func TestChatCompletions_ParamStripping(t *testing.T) {
 				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 			},
 			"usage": map[string]interface{}{
-				"prompt_tokens":      5,
+				"prompt_tokens":     5,
 				"completion_tokens": 7,
-				"total_tokens":       12,
+				"total_tokens":      12,
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")

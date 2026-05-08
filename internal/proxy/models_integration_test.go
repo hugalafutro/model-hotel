@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -89,19 +90,19 @@ func TestListModels_MultipleProviders(t *testing.T) {
 	// Create models for both providers
 	modelID1 := uuid.New()
 	testModel1 := &model.Model{
-		ID:              modelID1,
-		ProviderID:      createdProvider1.ID,
-		ModelID:         "model-1",
-		Name:            "Model 1",
-		Description:     "Test model 1",
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "chat",
-		InputModalities: "[\"text\"]",
+		ID:               modelID1,
+		ProviderID:       createdProvider1.ID,
+		ModelID:          "model-1",
+		Name:             "Model 1",
+		Description:      "Test model 1",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
 		OutputModalities: "[\"text\"]",
-		Enabled:         true,
-		ProviderName:    providerName1,
-		ProviderEnabled: true,
+		Enabled:          true,
+		ProviderName:     providerName1,
+		ProviderEnabled:  true,
 	}
 
 	if err := modelRepo.Upsert(context.Background(), testModel1); err != nil {
@@ -110,19 +111,19 @@ func TestListModels_MultipleProviders(t *testing.T) {
 
 	modelID2 := uuid.New()
 	testModel2 := &model.Model{
-		ID:              modelID2,
-		ProviderID:      createdProvider2.ID,
-		ModelID:         "model-2",
-		Name:            "Model 2",
-		Description:     "Test model 2",
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "chat",
-		InputModalities: "[\"text\"]",
+		ID:               modelID2,
+		ProviderID:       createdProvider2.ID,
+		ModelID:          "model-2",
+		Name:             "Model 2",
+		Description:      "Test model 2",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
 		OutputModalities: "[\"text\"]",
-		Enabled:         true,
-		ProviderName:    providerName2,
-		ProviderEnabled: true,
+		Enabled:          true,
+		ProviderName:     providerName2,
+		ProviderEnabled:  true,
 	}
 
 	if err := modelRepo.Upsert(context.Background(), testModel2); err != nil {
@@ -301,19 +302,19 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	// Create an enabled model
 	modelID1 := uuid.New()
 	enabledModel := &model.Model{
-		ID:              modelID1,
-		ProviderID:      createdProvider.ID,
-		ModelID:         "enabled-model",
-		Name:            "Enabled Model",
-		Description:     "Enabled test model",
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "chat",
-		InputModalities: "[\"text\"]",
+		ID:               modelID1,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "enabled-model",
+		Name:             "Enabled Model",
+		Description:      "Enabled test model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
 		OutputModalities: "[\"text\"]",
-		Enabled:         true,
-		ProviderName:    providerName,
-		ProviderEnabled: true,
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
 	}
 
 	if err := modelRepo.Upsert(context.Background(), enabledModel); err != nil {
@@ -323,19 +324,19 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	// Create a disabled model
 	modelID2 := uuid.New()
 	disabledModel := &model.Model{
-		ID:              modelID2,
-		ProviderID:      createdProvider.ID,
-		ModelID:         "disabled-model",
-		Name:            "Disabled Model",
-		Description:     "Disabled test model",
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "chat",
-		InputModalities: "[\"text\"]",
+		ID:               modelID2,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "disabled-model",
+		Name:             "Disabled Model",
+		Description:      "Disabled test model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
 		OutputModalities: "[\"text\"]",
-		Enabled:         false,
-		ProviderName:    providerName,
-		ProviderEnabled: true,
+		Enabled:          false,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
 	}
 
 	if err := modelRepo.Upsert(context.Background(), disabledModel); err != nil {
@@ -432,19 +433,19 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	// Create a model
 	modelID := uuid.New()
 	testModel := &model.Model{
-		ID:              modelID,
-		ProviderID:      createdProvider.ID,
-		ModelID:         "test-model",
-		Name:            "Test Model",
-		Description:     "Test model for failover",
-		Capabilities:    "{}",
-		Params:          "{}",
-		Modality:        "chat",
-		InputModalities: "[\"text\"]",
+		ID:               modelID,
+		ProviderID:       createdProvider.ID,
+		ModelID:          "test-model",
+		Name:             "Test Model",
+		Description:      "Test model for failover",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
 		OutputModalities: "[\"text\"]",
-		Enabled:         true,
-		ProviderName:    providerName,
-		ProviderEnabled: true,
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
 	}
 
 	if err := modelRepo.Upsert(context.Background(), testModel); err != nil {

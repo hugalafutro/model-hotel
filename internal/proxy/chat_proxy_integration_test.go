@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -85,19 +86,19 @@ func TestListModels_FilterByProvider(t *testing.T) {
 	for _, tc := range modelsToCreate {
 		modelID := uuid.New()
 		testModel := &model.Model{
-			ID:              modelID,
-			ProviderID:      createdProvider.ID,
-			ModelID:         tc.modelID,
-			Name:            tc.modelID,
-			Description:     "Test model " + tc.modelID,
-			Capabilities:    "{}",
-			Params:          "{}",
-			Modality:        "chat",
-			InputModalities: `["text"]`,
+			ID:               modelID,
+			ProviderID:       createdProvider.ID,
+			ModelID:          tc.modelID,
+			Name:             tc.modelID,
+			Description:      "Test model " + tc.modelID,
+			Capabilities:     "{}",
+			Params:           "{}",
+			Modality:         "chat",
+			InputModalities:  `["text"]`,
 			OutputModalities: `["text"]`,
-			Enabled:         tc.enabled,
-			ProviderName:    providerName,
-			ProviderEnabled: true,
+			Enabled:          tc.enabled,
+			ProviderName:     providerName,
+			ProviderEnabled:  true,
 		}
 
 		if err := modelRepo.Upsert(context.Background(), testModel); err != nil {

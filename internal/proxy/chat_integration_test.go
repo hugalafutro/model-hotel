@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -74,9 +75,9 @@ func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, u
 					{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 				},
 				"usage": map[string]interface{}{
-					"prompt_tokens":      5,
+					"prompt_tokens":     5,
 					"completion_tokens": 7,
-					"total_tokens":       12,
+					"total_tokens":      12,
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -105,19 +106,19 @@ func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, u
 	modelID := uuid.New()
 	modelName := "test-model-" + uuid.New().String()[:8]
 	testModel := &model.Model{
-		ID:           modelID,
-		ProviderID:   providerID,
-		ModelID:      modelName,
-		Name:         "Test Model",
-		Description:  "Test model for integration tests",
-		Capabilities: "{}",
-		Params:       "{}",
-		Modality:     "",
+		ID:               modelID,
+		ProviderID:       providerID,
+		ModelID:          modelName,
+		Name:             "Test Model",
+		Description:      "Test model for integration tests",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
 		InputModalities:  "[]",
 		OutputModalities: "[]",
-		Enabled:      true,
-		ProviderName: providerName,
-		ProviderEnabled: true,
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
 	}
 
 	if err := modelRepo.Upsert(context.Background(), testModel); err != nil {
@@ -584,7 +585,7 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 		dbPool:         pool,
 	}
 
-	body := `{"model": "`+providerName+`/error-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	body := `{"model": "` + providerName + `/error-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
 	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
@@ -690,7 +691,7 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		dbPool:         pool,
 	}
 
-	body := `{"model": "`+providerName+`/error-model-5xx", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	body := `{"model": "` + providerName + `/error-model-5xx", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
 	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
@@ -714,4 +715,3 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		t.Error("expected error in response")
 	}
 }
-
