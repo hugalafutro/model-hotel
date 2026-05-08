@@ -35,32 +35,8 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 <br>
 
 📊 **`opencode stats`**
-
-```
-┌────────────────────────────────────────────────────────┐
-│                       OVERVIEW                         │
-├────────────────────────────────────────────────────────┤
-│Sessions                                          1,003 │
-│Messages                                         30,769 │
-│Days                                                 23 │
-└────────────────────────────────────────────────────────┘
-
-┌────────────────────────────────────────────────────────┐
-│                    COST & TOKENS                       │
-├────────────────────────────────────────────────────────┤
-│Total Cost                                       $79.85 │
-│Avg Cost/Day                                      $3.47 │
-│Avg Tokens/Session                                 2.0M │
-│Median Tokens/Session                            393.7K │
-│Input                                           1222.2M │
-│Output                                             8.0M │
-│Cache Read                                       750.5M │
-│Cache Write                                        2.4M │
-└────────────────────────────────────────────────────────┘
-```
-
 <details>
-<summary>🔧 OpenCode Tool Usage</summary>
+<summary>🔧 Tool Usage</summary>
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -169,6 +145,30 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 ```
 </details>
 
+```
+┌────────────────────────────────────────────────────────┐
+│                       OVERVIEW                         │
+├────────────────────────────────────────────────────────┤
+│Sessions                                          1,003 │
+│Messages                                         30,769 │
+│Days                                                 23 │
+└────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────┐
+│                    COST & TOKENS                       │
+├────────────────────────────────────────────────────────┤
+│Total Cost                                       $79.85 │
+│Avg Cost/Day                                      $3.47 │
+│Avg Tokens/Session                                 2.0M │
+│Median Tokens/Session                            393.7K │
+│Input                                           1222.2M │
+│Output                                             8.0M │
+│Cache Read                                       750.5M │
+│Cache Write                                        2.4M │
+└────────────────────────────────────────────────────────┘
+```
+
+## Model Hotel
 ---
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Route requests to the cheapest or fastest model, fail over automatically when a provider goes down, and see exactly where your tokens are going.
