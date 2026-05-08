@@ -315,8 +315,6 @@ func TestCreateProvider_Integration_Success(t *testing.T) {
 	}
 }
 
-
-
 // ---------------------------------------------------------------------------
 // Admin Handler Tests - UpdateProvider
 // ---------------------------------------------------------------------------
@@ -392,8 +390,6 @@ func TestUpdateProvider_NotFound(t *testing.T) {
 		t.Fatalf("expected status 404 Not Found, got %d: %s", w.Code, w.Body.String())
 	}
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Admin Handler Tests - DeleteProvider
