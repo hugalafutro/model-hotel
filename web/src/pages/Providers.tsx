@@ -28,7 +28,7 @@ import { formatTimestamp, formatTokens } from "../utils/format";
 
 const baseUrls: Record<string, string> = {
 	nanogpt: "https://nano-gpt.com/api/subscription/v1",
-	"z-ai-coding": "https://api.z.ai/api/paas/v4",
+	"zai-coding": "https://api.z.ai/api/paas/v4",
 	openai: "https://api.openai.com/v1",
 	anthropic: "https://api.anthropic.com",
 	deepseek: "https://api.deepseek.com/v1",
@@ -57,7 +57,7 @@ function getProviderType(baseUrl: string): string {
 const providerTypeDisplayNames: Record<string, string> = {
 	custom: "Custom",
 	nanogpt: "NanoGPT",
-	"z-ai-coding": "Z.ai Coding Plan",
+	"zai-coding": "Z.ai Coding Plan",
 	openai: "OpenAI",
 	anthropic: "Anthropic",
 	deepseek: "DeepSeek",
@@ -494,7 +494,7 @@ export function Providers() {
 						toast("NanoGPT quota detected", "info");
 						queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 						break;
-					case "z-ai-coding":
+					case "zai-coding":
 						await api.providers.getUsage(newProvider.id);
 						toast("Z.ai Coding quota detected", "info");
 						queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
@@ -930,7 +930,7 @@ export function Providers() {
 								<option value="opencode-zen">OpenCode Zen</option>
 								<option value="openrouter">OpenRouter</option>
 								<option value="xai">xAI (Grok)</option>
-								<option value="z-ai-coding">Z.ai Coding Plan</option>
+								<option value="zai-coding">Z.ai Coding Plan</option>
 							</select>
 						</div>
 
