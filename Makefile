@@ -1,4 +1,4 @@
-.PHONY: build run clean test deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
 
 build:
 	go build -o server ./cmd/server/
@@ -12,6 +12,13 @@ clean:
 
 test:
 	go test -v ./...
+
+lint:
+	golangci-lint run ./...
+
+fmt:
+	find ./internal ./cmd -name '*.go' -type f | xargs gci write -s standard -s default -s "Prefix(github.com/hugalafutro/model-hotel)"
+	go fmt ./...
 
 deps:
 	go mod tidy
