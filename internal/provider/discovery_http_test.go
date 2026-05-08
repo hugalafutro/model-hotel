@@ -773,41 +773,6 @@ func TestGetNanoGPTUsage(t *testing.T) {
 
 // Test GetZAICodingQuota - requires live API call since the function uses hardcoded URL
 // Test GetZAICodingQuota - success path with mocked server
-func TestGetZAICodingQuota_Success(t *testing.T) {
-	// Mock quota response
-	quotaResponse := `{
-		"code": 200,
-		"msg": "success",
-		"data": {
-			"limits": [
-				{
-					"modelId": "glm-5",
-					"quotaType": "daily",
-					"total": 1000000,
-					"used": 50000,
-					"remaining": 950000,
-					"nextResetTime": 1735689600
-				}
-			],
-			"level": "premium"
-		},
-		"success": true
-	}`
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The function uses hardcoded URL, so we can't intercept it directly
-		// This test will be skipped - see TestGetZAICodingQuota_Live for actual testing
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(quotaResponse))
-	}))
-	defer server.Close()
-
-	// Note: GetZAICodingQuota uses hardcoded URL https://api.z.ai/api/monitor/usage/quota/limit
-	// We cannot mock it with httptest because the URL is not configurable
-	// The live API test below is the only way to test this function
-	_ = server // silence unused variable
-}
-
 // Test GetZAICodingQuota_DecryptionFailure tests the decryption error path
 func TestGetZAICodingQuota_DecryptionFailure(t *testing.T) {
 	svc := &DiscoveryService{httpClient: http.DefaultClient}
