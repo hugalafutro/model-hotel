@@ -6,7 +6,7 @@ services:
             - "8081:8080"
         environment:
             - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
-            - DATABASE_URL=postgres://${POSTGRES_USER:-llmproxy}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@db:5432/${POSTGRES_DB:-llmproxy}
+            - DATABASE_URL=postgres://${POSTGRES_USER:-modelhotel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@db:5432/${POSTGRES_DB:-modelhotel}
             - ADMIN_TOKEN=${ADMIN_TOKEN:-}
             - ALLOW_HTTP_PROVIDERS=false
             - DATA_DIR=/data
@@ -25,15 +25,15 @@ services:
     db:
         image: postgres:16-alpine
         environment:
-            - POSTGRES_USER=${POSTGRES_USER:-llmproxy}
+            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_DB=${POSTGRES_DB:-llmproxy}
+            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
         volumes:
             - ./.data/pgdata:/var/lib/postgresql/data
         ports:
             - "5432:5432"
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-llmproxy}"]
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
             interval: 5s
             timeout: 5s
             retries: 5

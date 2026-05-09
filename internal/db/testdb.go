@@ -22,7 +22,7 @@ import (
 func SetupTestDB(pkgName string) (string, error) {
 	baseURL := os.Getenv("TEST_DATABASE_URL")
 	if baseURL == "" {
-		baseURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		baseURL = "postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable"
 	}
 
 	parsed, err := url.Parse(baseURL)
@@ -72,7 +72,7 @@ func SetupTestDB(pkgName string) (string, error) {
 func CleanupTestDB(pkgName string) {
 	baseURL := os.Getenv("TEST_DATABASE_URL")
 	if baseURL == "" {
-		baseURL = "postgres://llmproxy:changeme@localhost:5433/testdb?sslmode=disable"
+		baseURL = "postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable"
 	}
 
 	parsed, err := url.Parse(baseURL)

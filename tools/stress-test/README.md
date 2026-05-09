@@ -21,7 +21,7 @@ RATE_LIMIT_ENABLED=true \
 RATE_LIMIT_IP_RPS=30 \
 RATE_LIMIT_IP_BURST=60 \
 MASTER_KEY=your-master-key \
-DATABASE_URL=postgres://llmproxy:changeme@localhost:5432/llmproxy \
+DATABASE_URL=postgres://modelhotel:changeme@localhost:5432/modelhotel \
   ./server
 ```
 
