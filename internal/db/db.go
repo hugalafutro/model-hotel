@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"time"
 
@@ -115,7 +116,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 		)
 	`).Scan(&exists)
 
-	if err != nil && err != pgx.ErrNoRows {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("failed to check schema_migrations table: %w", err)
 	}
 
@@ -139,7 +140,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 		)
 	`, name).Scan(&applied)
 
-	if err != nil && err != pgx.ErrNoRows {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("failed to check migration status: %w", err)
 	}
 

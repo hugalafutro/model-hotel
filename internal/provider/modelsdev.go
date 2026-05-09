@@ -128,7 +128,7 @@ func GetModelsDevCache() *ModelsDevCache {
 }
 
 func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", modelsDevAPIURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", modelsDevAPIURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("models.dev: failed to create request: %w", err)
 	}

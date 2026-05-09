@@ -138,7 +138,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 
 	// Fetch credits (actual account balance) from /api/v1/credits
 	creditsURL := baseURL + "/credits"
-	creditsReq, err := http.NewRequestWithContext(ctx, "GET", creditsURL, nil)
+	creditsReq, err := http.NewRequestWithContext(ctx, "GET", creditsURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create credits request: %w", err)
 	}
@@ -164,7 +164,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 
 	// Fetch key info (limits, usage) from /api/v1/key
 	keyURL := baseURL + "/key"
-	keyReq, err := http.NewRequestWithContext(ctx, "GET", keyURL, nil)
+	keyReq, err := http.NewRequestWithContext(ctx, "GET", keyURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key request: %w", err)
 	}

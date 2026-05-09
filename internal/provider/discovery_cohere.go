@@ -34,7 +34,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 			url += "&page_token=" + pageToken
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}

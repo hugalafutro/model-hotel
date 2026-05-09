@@ -99,7 +99,7 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 	baseURL := util.SanitizeAPIURL(provider.BaseURL)
 	balanceURL := baseURL + "/user/balance"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", balanceURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", balanceURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

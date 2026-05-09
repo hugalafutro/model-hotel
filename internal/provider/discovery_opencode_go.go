@@ -16,7 +16,7 @@ import (
 
 func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -51,7 +51,7 @@ func TestParsePeriod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/api/stats?period="+tt.period, nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/stats?period="+tt.period, http.NoBody)
 			got := parsePeriod(req)
 			if got != tt.want {
 				t.Errorf("parsePeriod(%q) = %v, want %v", tt.period, got, tt.want)
@@ -61,7 +61,7 @@ func TestParsePeriod(t *testing.T) {
 }
 
 func TestParsePeriod_NoQueryString(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/stats", http.NoBody)
 	got := parsePeriod(req)
 	want := 24 * time.Hour
 	if got != want {
@@ -71,7 +71,7 @@ func TestParsePeriod_NoQueryString(t *testing.T) {
 
 func TestParsePeriod_MultipleParams(t *testing.T) {
 	// When multiple "period" params are given, first one is used.
-	req := httptest.NewRequest(http.MethodGet, "/api/stats?period=1h&period=7d", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/stats?period=1h&period=7d", http.NoBody)
 	got := parsePeriod(req)
 	want := 1 * time.Hour
 	if got != want {
@@ -118,7 +118,7 @@ func TestParseMetric(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/api/stats?metric="+tt.metric, nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/stats?metric="+tt.metric, http.NoBody)
 			got := parseMetric(req)
 			if got != tt.want {
 				t.Errorf("parseMetric(%q) = %q, want %q", tt.metric, got, tt.want)
@@ -128,7 +128,7 @@ func TestParseMetric(t *testing.T) {
 }
 
 func TestParseMetric_NoQueryString(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/stats", http.NoBody)
 	got := parseMetric(req)
 	want := "requests"
 	if got != want {
@@ -180,7 +180,7 @@ func TestParseExcludeDeleted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/api/stats?exclude_deleted="+tt.excludeDeleted, nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/stats?exclude_deleted="+tt.excludeDeleted, http.NoBody)
 			got := parseExcludeDeleted(req)
 			if got != tt.want {
 				t.Errorf("parseExcludeDeleted(%q) = %v, want %v", tt.excludeDeleted, got, tt.want)
@@ -190,7 +190,7 @@ func TestParseExcludeDeleted(t *testing.T) {
 }
 
 func TestParseExcludeDeleted_NoQueryString(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/stats", http.NoBody)
 	got := parseExcludeDeleted(req)
 	if got {
 		t.Error("parseExcludeDeleted() with no query string = true, want false")

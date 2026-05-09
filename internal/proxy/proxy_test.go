@@ -339,7 +339,7 @@ func TestProxyKeyMiddleware_MissingHeader(t *testing.T) {
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -359,7 +359,7 @@ func TestProxyKeyMiddleware_InvalidScheme(t *testing.T) {
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

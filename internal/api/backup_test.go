@@ -62,7 +62,7 @@ func TestBackupHandler_Register(t *testing.T) {
 func TestBackupHandler_ListBackups_Empty(t *testing.T) {
 	r, _ := setupBackupRouter(t)
 
-	req := httptest.NewRequest("GET", "/backups", nil)
+	req := httptest.NewRequest("GET", "/backups", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -93,7 +93,7 @@ func TestBackupHandler_ListBackups_WithFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("GET", "/backups", nil)
+	req := httptest.NewRequest("GET", "/backups", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -126,7 +126,7 @@ func TestBackupHandler_DownloadBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("GET", "/backups/backup_test.dump", nil)
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -144,7 +144,7 @@ func TestBackupHandler_DownloadBackup(t *testing.T) {
 func TestBackupHandler_DownloadBackup_NotFound(t *testing.T) {
 	r, _ := setupBackupRouter(t)
 
-	req := httptest.NewRequest("GET", "/backups/nonexistent.dump", nil)
+	req := httptest.NewRequest("GET", "/backups/nonexistent.dump", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -175,7 +175,7 @@ func TestBackupHandler_DownloadBackup_PathTraversal(t *testing.T) {
 
 	for _, tc := range traversalCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tc.path, nil)
+			req := httptest.NewRequest("GET", tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 			if w.Code != tc.expect {
@@ -193,7 +193,7 @@ func TestBackupHandler_DeleteBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("DELETE", "/backups/backup_delete.dump", nil)
+	req := httptest.NewRequest("DELETE", "/backups/backup_delete.dump", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -220,7 +220,7 @@ func TestBackupHandler_DeleteBackup_PathTraversal(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest("DELETE", tc.path, nil)
+			req := httptest.NewRequest("DELETE", tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 			if w.Code != tc.expect {
@@ -233,7 +233,7 @@ func TestBackupHandler_DeleteBackup_PathTraversal(t *testing.T) {
 func TestBackupHandler_DeleteBackup_NotFound(t *testing.T) {
 	r, _ := setupBackupRouter(t)
 
-	req := httptest.NewRequest("DELETE", "/backups/nonexistent.dump", nil)
+	req := httptest.NewRequest("DELETE", "/backups/nonexistent.dump", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -251,7 +251,7 @@ func TestBackupHandler_CreateBackup_NoPgDump(t *testing.T) {
 		t.Skip("pg_dump is installed, cannot test missing binary")
 	}
 
-	req := httptest.NewRequest("POST", "/backups", nil)
+	req := httptest.NewRequest("POST", "/backups", http.NoBody)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

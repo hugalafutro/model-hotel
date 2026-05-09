@@ -78,7 +78,7 @@ func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
 // ---------------------------------------------------------------------------
 
 func requestWithKey(key string) *http.Request {
-	r := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, key)
 	return r.WithContext(ctx)
 }
@@ -308,7 +308,7 @@ func TestMiddleware_NoKeyContext_PassesThrough(t *testing.T) {
 	handler := lim.Middleware(true)(next)
 
 	// Request without virtual key hash in context falls back to RemoteAddr
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -554,7 +554,7 @@ func TestMiddleware_PerKeyOverrides(t *testing.T) {
 	handler := lim.Middleware(true)(next)
 
 	// Request with per-key override in context
-	r := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, "key-override")
 	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitRPSKey, &customRPS)
 	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, &customBurst)

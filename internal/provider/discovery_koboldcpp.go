@@ -100,7 +100,7 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 
 func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase string) (string, error) {
 	url := apiBase + "/api/extra/version"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -129,7 +129,7 @@ func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase string)
 
 func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, apiKey string) (string, error) {
 	url := baseURL + "/models"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -162,7 +162,7 @@ func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, ap
 
 func (d *DiscoveryService) koboldcppPerf(ctx context.Context, apiBase string) (*KoboldCPPPerfResponse, error) {
 	url := apiBase + "/api/extra/perf"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}

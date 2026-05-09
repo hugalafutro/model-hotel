@@ -27,7 +27,7 @@ func TestListModels_EmptyDB(t *testing.T) {
 
 	// ListModels returns all enabled models; with no specific test data
 	// we just verify the endpoint works and returns valid JSON.
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
@@ -102,7 +102,7 @@ func TestListModels_WithProviderAndModel(t *testing.T) {
 	}
 
 	// Now call ListModels
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
@@ -190,7 +190,7 @@ func TestListModels_WithOwnedBy(t *testing.T) {
 	}
 	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
 
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
@@ -279,7 +279,7 @@ func TestListModels_WithOptionalFields(t *testing.T) {
 	}
 	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
 
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
@@ -413,7 +413,7 @@ func TestListModels_FailoverGroupWithDisabledEntry(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-disabled-entry") }()
 
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
@@ -517,7 +517,7 @@ func TestListModels_FailoverGroupEntryNotFound(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-notfound") }()
 
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
@@ -562,7 +562,7 @@ func TestListModels_ResponseFormat(t *testing.T) {
 		t.Skip("database not available")
 	}
 
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 

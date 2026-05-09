@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -73,7 +74,7 @@ func TestDifferentMasterKeys(t *testing.T) {
 		t.Fatalf("Encrypt with key 2 failed: %v", err)
 	}
 
-	if string(encrypted1.Ciphertext) == string(encrypted2.Ciphertext) {
+	if bytes.Equal(encrypted1.Ciphertext, encrypted2.Ciphertext) {
 		t.Error("Different master keys should produce different ciphertexts")
 	}
 
@@ -124,7 +125,7 @@ func TestDeriveKey(t *testing.T) {
 	}
 	// Same input should produce same output
 	key2 := DeriveKey("test-master-key")
-	if string(key) != string(key2) {
+	if !bytes.Equal(key, key2) {
 		t.Error("DeriveKey should be deterministic")
 	}
 }

@@ -117,7 +117,7 @@ func TestHandlerRegister(t *testing.T) {
 
 	// Test that routes are registered
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/providers", nil)
+	req := httptest.NewRequest("GET", "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -155,7 +155,7 @@ func TestListProviders_Empty(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/providers", nil)
+	req := httptest.NewRequest("GET", "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -201,7 +201,7 @@ func TestCreateAndGetProvider(t *testing.T) {
 
 	// Get the provider
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -246,7 +246,7 @@ func TestListProviders_AfterCreate(t *testing.T) {
 
 	// List providers
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers", nil)
+	req = httptest.NewRequest("GET", "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -296,7 +296,7 @@ func TestDeleteProvider(t *testing.T) {
 
 	// Delete the provider
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("DELETE", "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest("DELETE", "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -306,7 +306,7 @@ func TestDeleteProvider(t *testing.T) {
 
 	// Verify it's gone
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -323,7 +323,7 @@ func TestDeleteProvider_InvalidUUID(t *testing.T) {
 
 	// Delete with invalid UUID
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/providers/invalid-uuid", nil)
+	req := httptest.NewRequest("DELETE", "/providers/invalid-uuid", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -341,7 +341,7 @@ func TestDeleteProvider_NonExistent(t *testing.T) {
 	// Delete non-existent provider
 	nonExistentID := uuid.New().String()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/providers/"+nonExistentID, nil)
+	req := httptest.NewRequest("DELETE", "/providers/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -358,7 +358,7 @@ func TestGetProvider_InvalidUUID(t *testing.T) {
 
 	// Get with invalid UUID
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/providers/invalid-uuid", nil)
+	req := httptest.NewRequest("GET", "/providers/invalid-uuid", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -376,7 +376,7 @@ func TestGetProvider_NonExistent(t *testing.T) {
 	// Get non-existent provider
 	nonExistentID := uuid.New().String()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/providers/"+nonExistentID, nil)
+	req := httptest.NewRequest("GET", "/providers/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -529,7 +529,7 @@ func TestUpdateProvider_ChangeURL(t *testing.T) {
 
 	// Verify the update took effect
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -613,7 +613,7 @@ func TestListProviders_WithPagination(t *testing.T) {
 
 	// List providers (pagination not supported by endpoint)
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers", nil)
+	req = httptest.NewRequest("GET", "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -709,7 +709,7 @@ func TestGetVirtualKey_NonExistent(t *testing.T) {
 	// Get non-existent virtual key
 	nonExistentID := uuid.New().String()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/virtual-keys/"+nonExistentID, nil)
+	req := httptest.NewRequest("GET", "/virtual-keys/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -745,7 +745,7 @@ func TestListFailoverGroups(t *testing.T) {
 
 	// List failover groups (should be empty initially)
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/failover-groups", nil)
+	req = httptest.NewRequest("GET", "/failover-groups", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -771,7 +771,7 @@ func TestDeleteFailoverGroup(t *testing.T) {
 	// Delete non-existent failover group - should succeed with 204
 	nonExistentID := uuid.New().String()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/failover-groups/"+nonExistentID, nil)
+	req := httptest.NewRequest("DELETE", "/failover-groups/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -844,7 +844,7 @@ func TestDeleteFailoverGroup_WithModels(t *testing.T) {
 
 	// Now delete the failover group
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("DELETE", "/failover-groups/"+groupResp.ID, nil)
+	req = httptest.NewRequest("DELETE", "/failover-groups/"+groupResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -854,7 +854,7 @@ func TestDeleteFailoverGroup_WithModels(t *testing.T) {
 
 	// Verify the group is gone
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/failover-groups/"+groupResp.ID, nil)
+	req = httptest.NewRequest("GET", "/failover-groups/"+groupResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -871,7 +871,7 @@ func TestSyncFailoverGroups(t *testing.T) {
 
 	// Sync failover groups (should work even with no models)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/failover-groups/sync", nil)
+	req := httptest.NewRequest("POST", "/failover-groups/sync", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -894,7 +894,7 @@ func TestFailoverCandidates(t *testing.T) {
 
 	// Get candidates (should be empty without providers/models)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/failover-groups/candidates", nil)
+	req := httptest.NewRequest("GET", "/failover-groups/candidates", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -951,7 +951,7 @@ func TestUpdateProvider(t *testing.T) {
 
 	// Verify the update
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -983,7 +983,7 @@ func TestListModels(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1107,7 +1107,7 @@ func TestListModels_WithPagination(t *testing.T) {
 
 	// List models (pagination not supported by endpoint)
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/models", nil)
+	req = httptest.NewRequest("GET", "/models", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1159,7 +1159,7 @@ func TestTestModel_Success(t *testing.T) {
 
 	// Test the model - will fail because we're using a test API key, but tests the endpoint path
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", nil)
+	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1233,7 +1233,7 @@ func TestGetStats(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/stats", nil)
+	req := httptest.NewRequest("GET", "/stats", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1255,7 +1255,7 @@ func TestGetTimeSeries(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/stats/timeseries", nil)
+	req := httptest.NewRequest("GET", "/stats/timeseries", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1277,7 +1277,7 @@ func TestGetProviderDistribution(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/stats/provider-distribution", nil)
+	req := httptest.NewRequest("GET", "/stats/provider-distribution", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1301,7 +1301,7 @@ func TestGetSystem(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/system", nil)
+	req := httptest.NewRequest("GET", "/system", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1327,7 +1327,7 @@ func TestGetSettings(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/settings", nil)
+	req := httptest.NewRequest("GET", "/settings", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1361,7 +1361,7 @@ func TestUpdateSettingsIntegration(t *testing.T) {
 
 	// Verify the update
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/settings", nil)
+	req = httptest.NewRequest("GET", "/settings", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1495,7 +1495,7 @@ func TestGetAppLogsIntegration(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app", nil)
+	req := httptest.NewRequest("GET", "/logs/app", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1517,7 +1517,7 @@ func TestClearAppLogsIntegration(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/logs/app", nil)
+	req := httptest.NewRequest("DELETE", "/logs/app", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1535,7 +1535,7 @@ func TestGetAppLogs_WithSeverityFilter(t *testing.T) {
 
 	// Get logs with severity filter (level parameter)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app?history=true&level=error", nil)
+	req := httptest.NewRequest("GET", "/logs/app?history=true&level=error", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1559,7 +1559,7 @@ func TestGetAppLogs_WithSearchFilter(t *testing.T) {
 
 	// Get logs with search filter
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app?history=true&search=test", nil)
+	req := httptest.NewRequest("GET", "/logs/app?history=true&search=test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1583,7 +1583,7 @@ func TestGetAppLogs_WithTimeRangeFilter(t *testing.T) {
 
 	// Get logs with time range filter (last 24 hours)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app?history=true&from=2024-01-01T00:00:00Z", nil)
+	req := httptest.NewRequest("GET", "/logs/app?history=true&from=2024-01-01T00:00:00Z", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1638,7 +1638,7 @@ func TestDeleteModel(t *testing.T) {
 
 	// Delete the model
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("DELETE", "/models/"+modelID, nil)
+	req = httptest.NewRequest("DELETE", "/models/"+modelID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1683,7 +1683,7 @@ func TestTestModel(t *testing.T) {
 
 	// Test the model - will fail because we're using a test API key
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", nil)
+	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1731,7 +1731,7 @@ func TestDiscoverProviderModelsIntegration(t *testing.T) {
 
 	// Test discovery - will fail with test API key but should return proper error structure
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/providers/"+providerResp.ID+"/discover", nil)
+	req = httptest.NewRequest("POST", "/providers/"+providerResp.ID+"/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1757,7 +1757,7 @@ func TestDiscoverProviderModels_NonExistentProvider(t *testing.T) {
 	// Try to discover models for non-existent provider
 	nonExistentID := uuid.New().String()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/providers/"+nonExistentID+"/discover", nil)
+	req := httptest.NewRequest("POST", "/providers/"+nonExistentID+"/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1792,7 +1792,7 @@ func TestGetProviderUsageIntegration(t *testing.T) {
 
 	// Test usage endpoint - should return error for unsupported provider
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/usage", nil)
+	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1828,7 +1828,7 @@ func TestGetProviderBalanceIntegration(t *testing.T) {
 
 	// Test balance endpoint - should return error for unsupported provider
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/balance", nil)
+	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/balance", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1857,7 +1857,7 @@ func TestDiscoverAllModelsIntegration(t *testing.T) {
 
 	// Test discover all models
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/providers/discover-all", nil)
+	req = httptest.NewRequest("POST", "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1905,7 +1905,7 @@ func TestRefreshAllQuotasIntegration(t *testing.T) {
 
 	// Test refresh all quotas
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req = httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1942,7 +1942,7 @@ func TestStreamEvents(t *testing.T) {
 	h.RegisterEvents(r) // Use RegisterEvents instead of Register for SSE endpoint
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/events", nil)
+	req := httptest.NewRequest("GET", "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	// Use a context with cancellation to avoid hanging
@@ -1991,7 +1991,7 @@ func TestListLogs(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs", nil)
+	req := httptest.NewRequest("GET", "/logs", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2060,7 +2060,7 @@ func TestGetStats_WithLogs(t *testing.T) {
 
 	// Test stats endpoint
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/stats", nil)
+	req = httptest.NewRequest("GET", "/stats", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2138,7 +2138,7 @@ func TestGetTimeSeries_DifferentPeriods(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/stats/timeseries?period="+tc.period, nil)
+			req := httptest.NewRequest("GET", "/stats/timeseries?period="+tc.period, http.NoBody)
 			req.Header.Set("Authorization", "Bearer test-admin-token")
 			r.ServeHTTP(rec, req)
 
@@ -2212,7 +2212,7 @@ func TestGetProviderDistribution_WithLogs(t *testing.T) {
 
 	// Test provider distribution
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/stats/provider-distribution", nil)
+	req = httptest.NewRequest("GET", "/stats/provider-distribution", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2248,7 +2248,7 @@ func TestCalculateStats_Empty(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/stats", nil)
+	req := httptest.NewRequest("GET", "/stats", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2284,7 +2284,7 @@ func TestGetAppLogs(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app", nil)
+	req := httptest.NewRequest("GET", "/logs/app", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2441,7 +2441,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 
 	t.Run("SourceFilter", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/logs/app?history=true&source=proxy", nil)
+		req := httptest.NewRequest("GET", "/logs/app?history=true&source=proxy", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -2466,7 +2466,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 
 	t.Run("LevelFilter", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/logs/app?history=true&level=error", nil)
+		req := httptest.NewRequest("GET", "/logs/app?history=true&level=error", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -2491,7 +2491,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 
 	t.Run("SearchFilter", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/logs/app?history=true&search=warning", nil)
+		req := httptest.NewRequest("GET", "/logs/app?history=true&search=warning", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -2522,7 +2522,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 
 	t.Run("LimitFilter", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/logs/app?history=true&per_page=2", nil)
+		req := httptest.NewRequest("GET", "/logs/app?history=true&per_page=2", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -2551,7 +2551,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 		// Use a time in the past to filter
 		pastTime := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/logs/app?history=true&from="+pastTime, nil)
+		req := httptest.NewRequest("GET", "/logs/app?history=true&from="+pastTime, http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -2574,7 +2574,7 @@ func TestGetAppLogs_QueryParams(t *testing.T) {
 
 	t.Run("CombinedFilters", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/logs/app?history=true&source=proxy&level=error", nil)
+		req := httptest.NewRequest("GET", "/logs/app?history=true&source=proxy&level=error", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -2624,7 +2624,7 @@ func TestDiscoverProviderModels_Success(t *testing.T) {
 
 	// Test discovery - will fail with test API key but should return proper error structure
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/providers/"+providerResp.ID+"/discover", nil)
+	req = httptest.NewRequest("POST", "/providers/"+providerResp.ID+"/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2666,7 +2666,7 @@ func TestGetProviderUsage_Success(t *testing.T) {
 
 	// Test usage endpoint - will fail with test API key but should return proper error
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/usage", nil)
+	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2707,7 +2707,7 @@ func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 
 	// Test discover all models - will fail with test API keys but should return proper structure
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/providers/discover-all", nil)
+	req = httptest.NewRequest("POST", "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -2768,7 +2768,7 @@ func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
 	h.dbPool.Pool().Exec(context.Background(), "UPDATE providers SET enabled = false WHERE id = $1", providerID)
 
 	// Try to discover
-	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", nil)
+	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -2783,7 +2783,7 @@ func TestDiscoverProviderModels_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Call with invalid UUID
-	req := httptest.NewRequest("POST", "/providers/not-a-uuid/discover", nil)
+	req := httptest.NewRequest("POST", "/providers/not-a-uuid/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -2799,7 +2799,7 @@ func TestDiscoverProviderModels_NotFound(t *testing.T) {
 
 	// Call with non-existent UUID
 	nonExistentID := uuid.New().String()
-	req := httptest.NewRequest("POST", "/providers/"+nonExistentID+"/discover", nil)
+	req := httptest.NewRequest("POST", "/providers/"+nonExistentID+"/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -2826,7 +2826,7 @@ func TestGetProviderUsage_NanoGPT(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get usage
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -2853,7 +2853,7 @@ func TestGetProviderUsage_OpenRouter(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get usage
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -2880,7 +2880,7 @@ func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get balance
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -2907,7 +2907,7 @@ func TestGetProviderBalance_DeepSeek(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get balance
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -2935,7 +2935,7 @@ func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 	}
 
 	// Refresh all quotas
-	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -2976,7 +2976,7 @@ func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	// Refresh all quotas
-	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -3017,7 +3017,7 @@ func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	// Refresh all quotas
-	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -3058,7 +3058,7 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	// Refresh all quotas
-	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -3097,7 +3097,7 @@ func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	// Refresh all quotas
-	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -3150,7 +3150,7 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 	h.dbPool.Pool().Exec(context.Background(), "UPDATE providers SET enabled = false WHERE id = $1", providerID)
 
 	// Refresh all quotas
-	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", nil)
+	req2 := httptest.NewRequest("POST", "/providers/refresh-quotas", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -3261,7 +3261,7 @@ func TestUpdateProvider_ChangeName(t *testing.T) {
 
 	// Verify the update took effect
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest("GET", "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3342,7 +3342,7 @@ func TestDiscoverProviderModels_InvalidProvider(t *testing.T) {
 
 	// Try to discover models - should return error
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/providers/"+providerResp.ID+"/discover", nil)
+	req = httptest.NewRequest("POST", "/providers/"+providerResp.ID+"/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3377,7 +3377,7 @@ func TestGetProviderUsage_UnsupportedProvider(t *testing.T) {
 
 	// Try to get usage - should return 400 for unsupported provider
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/usage", nil)
+	req = httptest.NewRequest("GET", "/providers/"+providerResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3392,7 +3392,7 @@ func TestDiscoverAllModels_NoProviders(t *testing.T) {
 
 	// Test discover all models with no providers
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/providers/discover-all", nil)
+	req := httptest.NewRequest("POST", "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3431,7 +3431,7 @@ func TestGetAppLogs_Empty(t *testing.T) {
 
 	// Get logs when empty
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app", nil)
+	req := httptest.NewRequest("GET", "/logs/app", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3472,7 +3472,7 @@ func TestGetAppLogs_WithLimit(t *testing.T) {
 
 	// Get logs with limit
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app?limit=5", nil)
+	req := httptest.NewRequest("GET", "/logs/app?limit=5", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3507,7 +3507,7 @@ func TestUpdateSettings_RateLimit(t *testing.T) {
 
 	// Verify the update
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/settings", nil)
+	req = httptest.NewRequest("GET", "/settings", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3572,7 +3572,7 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 
 	// Call the sync endpoint
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/failover-groups/sync", nil)
+	req = httptest.NewRequest("POST", "/failover-groups/sync", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3596,7 +3596,7 @@ func TestGetAppLogsHistory(t *testing.T) {
 	h.Register(r)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app?history=true", nil)
+	req := httptest.NewRequest("GET", "/logs/app?history=true", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3653,7 +3653,7 @@ func TestAppSlogHandler_Handle(t *testing.T) {
 
 	// Get the logs from the ring buffer
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app", nil)
+	req := httptest.NewRequest("GET", "/logs/app", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3748,7 +3748,7 @@ func TestGetAppLogsHistory_MultipleFilters(t *testing.T) {
 
 	// Test with level filter
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/logs/app?history=true&level=error", nil)
+	req := httptest.NewRequest("GET", "/logs/app?history=true&level=error", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3772,7 +3772,7 @@ func TestGetAppLogsHistory_MultipleFilters(t *testing.T) {
 
 	// Test with source filter
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/logs/app?history=true&source=proxy", nil)
+	req = httptest.NewRequest("GET", "/logs/app?history=true&source=proxy", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -3793,7 +3793,7 @@ func TestGetAppLogsHistory_MultipleFilters(t *testing.T) {
 
 	// Test with search filter
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/logs/app?history=true&search=warning", nil)
+	req = httptest.NewRequest("GET", "/logs/app?history=true&search=warning", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -4048,7 +4048,7 @@ func TestDeleteModel_NonExistent(t *testing.T) {
 	// Try to delete non-existent model
 	nonExistentID := uuid.New().String()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/models/"+nonExistentID, nil)
+	req := httptest.NewRequest("DELETE", "/models/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -4080,7 +4080,7 @@ func TestCreateBackup_AlreadyInProgress(t *testing.T) {
 	backupRouter := chi.NewRouter()
 	bh.Register(backupRouter)
 
-	req := httptest.NewRequest("POST", "/backups", nil)
+	req := httptest.NewRequest("POST", "/backups", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	backupRouter.ServeHTTP(w, req)
@@ -4108,7 +4108,7 @@ func TestCreateBackup_NoPgDump(t *testing.T) {
 		t.Skip("pg_dump is installed, cannot test missing binary path")
 	}
 
-	req := httptest.NewRequest("POST", "/backups", nil)
+	req := httptest.NewRequest("POST", "/backups", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	backupRouter.ServeHTTP(w, req)
@@ -4155,7 +4155,7 @@ func TestDiscoverProviderModels_DisabledProviderExplicit(t *testing.T) {
 	}
 
 	// Try to discover models on disabled provider
-	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", nil)
+	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4194,7 +4194,7 @@ func TestListProviders_WithSearchFilter(t *testing.T) {
 
 	// Test search filter - note: current implementation doesn't support search query param
 	// This test documents the current behavior (search is ignored)
-	req := httptest.NewRequest("GET", "/providers?search=openai", nil)
+	req := httptest.NewRequest("GET", "/providers?search=openai", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -4316,7 +4316,7 @@ func TestListLogs_WithProviderIDFilter(t *testing.T) {
 	}
 
 	// Filter by provider_id
-	req := httptest.NewRequest("GET", "/logs?provider_id="+providerID1, nil)
+	req := httptest.NewRequest("GET", "/logs?provider_id="+providerID1, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -4368,7 +4368,7 @@ func TestListLogs_WithModelIDFilter(t *testing.T) {
 	}
 
 	// Filter by model_id (partial match)
-	req2 := httptest.NewRequest("GET", "/logs?model_id=gpt-4", nil)
+	req2 := httptest.NewRequest("GET", "/logs?model_id=gpt-4", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4425,7 +4425,7 @@ func TestListLogs_WithVirtualKeyFilter(t *testing.T) {
 	}
 
 	// Test logs endpoint (should include virtual key info)
-	req3 := httptest.NewRequest("GET", "/logs", nil)
+	req3 := httptest.NewRequest("GET", "/logs", http.NoBody)
 	req3.Header.Set("Authorization", "Bearer test-admin-token")
 	w3 := httptest.NewRecorder()
 	r.ServeHTTP(w3, req3)
@@ -4463,7 +4463,7 @@ func TestGetProviderUsage_Error(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get usage - this will fail because the API key is invalid
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4495,7 +4495,7 @@ func TestGetProviderBalance_Error(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get balance - this will fail because the API key is invalid
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4541,7 +4541,7 @@ func TestListProviders_WithPaginationAndModelCounts(t *testing.T) {
 	}
 
 	// Test list providers - should include model counts
-	req2 := httptest.NewRequest("GET", "/providers", nil)
+	req2 := httptest.NewRequest("GET", "/providers", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4649,7 +4649,7 @@ func TestListLogs_WithStatusCodeFilter(t *testing.T) {
 	}
 
 	// Filter by 5xx status codes
-	req2 := httptest.NewRequest("GET", "/logs?status_code=5xx", nil)
+	req2 := httptest.NewRequest("GET", "/logs?status_code=5xx", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4707,7 +4707,7 @@ func TestListLogs_WithDateRangeFilter(t *testing.T) {
 
 	// Filter by date range - only logs from 1 hour ago onwards (should get only newTime log)
 	fromTime := now.Add(-1 * time.Hour)
-	req2 := httptest.NewRequest("GET", "/logs?from="+fromTime.Format(time.RFC3339), nil)
+	req2 := httptest.NewRequest("GET", "/logs?from="+fromTime.Format(time.RFC3339), http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4746,7 +4746,7 @@ func TestDiscoverProviderModels_WithInvalidProviderType(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to discover - this will likely fail with an API error
-	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", nil)
+	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4780,7 +4780,7 @@ func TestGetProviderBalance_UnsupportedProvider(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get balance - OpenAI is not supported
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4820,7 +4820,7 @@ func TestListLogs_WithPagination(t *testing.T) {
 	}
 
 	// Test with page=2, per_page=2
-	req2 := httptest.NewRequest("GET", "/logs?page=2&per_page=2", nil)
+	req2 := httptest.NewRequest("GET", "/logs?page=2&per_page=2", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4886,7 +4886,7 @@ func TestListLogs_With4xxStatusCodeFilter(t *testing.T) {
 	}
 
 	// Filter by 4xx status codes
-	req2 := httptest.NewRequest("GET", "/logs?status_code=4xx", nil)
+	req2 := httptest.NewRequest("GET", "/logs?status_code=4xx", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4924,7 +4924,7 @@ func TestDiscoverProviderModels_SuccessPath(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to discover - this will fail because the API key is fake, but it tests the code path
-	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", nil)
+	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4957,7 +4957,7 @@ func TestGetProviderUsage_ZAICoding(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get usage - will fail because URL is fake, but tests the code path
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/usage", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -4973,7 +4973,7 @@ func TestGetProviderUsage_ZAICoding(t *testing.T) {
 func TestFailoverCandidates_Empty(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	req := httptest.NewRequest("GET", "/failover-groups/candidates", nil)
+	req := httptest.NewRequest("GET", "/failover-groups/candidates", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -5030,7 +5030,7 @@ func TestFailoverCandidates_WithModels(t *testing.T) {
 	}
 
 	// Get candidates
-	req2 := httptest.NewRequest("GET", "/failover-groups/candidates", nil)
+	req2 := httptest.NewRequest("GET", "/failover-groups/candidates", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -5087,7 +5087,7 @@ func TestFailoverCandidates_DisabledModels(t *testing.T) {
 	}
 
 	// Get candidates - should only return enabled model
-	req2 := httptest.NewRequest("GET", "/failover-groups/candidates", nil)
+	req2 := httptest.NewRequest("GET", "/failover-groups/candidates", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -5161,7 +5161,7 @@ func TestFailoverSync_Success(t *testing.T) {
 	}
 
 	// Sync all failover groups
-	req3 := httptest.NewRequest("POST", "/failover-groups/sync", nil)
+	req3 := httptest.NewRequest("POST", "/failover-groups/sync", http.NoBody)
 	req3.Header.Set("Authorization", "Bearer test-admin-token")
 	w3 := httptest.NewRecorder()
 	r.ServeHTTP(w3, req3)
@@ -5176,7 +5176,7 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	nonExistentID := uuid.New().String()
-	req := httptest.NewRequest("DELETE", "/failover-groups/"+nonExistentID, nil)
+	req := httptest.NewRequest("DELETE", "/failover-groups/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -5191,7 +5191,7 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 func TestGetSystem_NoCache(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	req := httptest.NewRequest("GET", "/system", nil)
+	req := httptest.NewRequest("GET", "/system", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -5221,7 +5221,7 @@ func TestGetSystem_NoCache(t *testing.T) {
 func TestGetAppLogs_EmptyResult(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	req := httptest.NewRequest("GET", "/logs/app", nil)
+	req := httptest.NewRequest("GET", "/logs/app", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -5242,7 +5242,7 @@ func TestGetAppLogs_EmptyResult(t *testing.T) {
 func TestGetStats_Empty(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	req := httptest.NewRequest("GET", "/stats", nil)
+	req := httptest.NewRequest("GET", "/stats", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -5296,7 +5296,7 @@ func TestListProviders_SearchFilter_Integration(t *testing.T) {
 	}
 
 	// List all providers - returns all providers (search filter not implemented in handler)
-	req3 := httptest.NewRequest("GET", "/providers", nil)
+	req3 := httptest.NewRequest("GET", "/providers", http.NoBody)
 	req3.Header.Set("Authorization", "Bearer test-admin-token")
 	w3 := httptest.NewRecorder()
 	r.ServeHTTP(w3, req3)
@@ -5350,7 +5350,7 @@ func TestDeleteProvider_NonExistent_Integration(t *testing.T) {
 
 	// Try to delete a non-existent UUID
 	nonExistentID := "00000000-0000-0000-0000-000000000000"
-	req := httptest.NewRequest("DELETE", "/providers/"+nonExistentID, nil)
+	req := httptest.NewRequest("DELETE", "/providers/"+nonExistentID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -5377,7 +5377,7 @@ func TestStreamEvents_Connected(t *testing.T) {
 	h.RegisterEvents(r) // Use RegisterEvents for SSE endpoint
 
 	// Create a request to the events endpoint
-	req := httptest.NewRequest("GET", "/events", nil)
+	req := httptest.NewRequest("GET", "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	// Use custom ResponseWriter that implements http.Flusher
@@ -5512,7 +5512,7 @@ func TestGetProviderBalance_UnsupportedType_Integration(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get balance - should return 400 for unsupported provider type
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -5544,7 +5544,7 @@ func TestGetProviderBalance_OpenRouterError_Integration(t *testing.T) {
 	providerID := resp["id"].(string)
 
 	// Try to get balance - returns 400 since only DeepSeek is supported
-	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", nil)
+	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
@@ -5591,7 +5591,7 @@ func TestListModels_WithModels(t *testing.T) {
 
 	t.Run("FilterByProviderID", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/models?provider_id="+providerResp.ID, nil)
+		req := httptest.NewRequest("GET", "/models?provider_id="+providerResp.ID, http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -5615,7 +5615,7 @@ func TestGetSystem_Details(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/system", nil)
+	req := httptest.NewRequest("GET", "/system", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -5710,7 +5710,7 @@ func TestDeleteModel_WithFailoverGroup(t *testing.T) {
 
 	// Delete model1 (referenced by failover group) - should succeed with cascade
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("DELETE", "/models/"+modelID1, nil)
+	req = httptest.NewRequest("DELETE", "/models/"+modelID1, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -5724,7 +5724,7 @@ func TestDeleteModel_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/models/invalid-uuid", nil)
+	req := httptest.NewRequest("DELETE", "/models/invalid-uuid", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -5965,7 +5965,7 @@ func TestUpdateProvider_PartialUpdate_WithGet(t *testing.T) {
 
 		// Verify the name was updated
 		rec = httptest.NewRecorder()
-		req = httptest.NewRequest("GET", "/providers/"+providerResp.ID, nil)
+		req = httptest.NewRequest("GET", "/providers/"+providerResp.ID, http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -5993,7 +5993,7 @@ func TestUpdateProvider_PartialUpdate_WithGet(t *testing.T) {
 
 		// Verify the base_url was updated
 		rec = httptest.NewRecorder()
-		req = httptest.NewRequest("GET", "/providers/"+providerResp.ID, nil)
+		req = httptest.NewRequest("GET", "/providers/"+providerResp.ID, http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -6016,7 +6016,7 @@ func TestStreamEvents_InitialConnection(t *testing.T) {
 	h.RegisterEvents(r)
 
 	// Create request with admin auth
-	req := httptest.NewRequest("GET", "/events", nil)
+	req := httptest.NewRequest("GET", "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	// Use flushing response writer
@@ -6066,7 +6066,7 @@ func TestStreamEvents_Unauthorized(t *testing.T) {
 	r.Use(h.AuthMiddleware)
 	h.RegisterEvents(r)
 
-	req := httptest.NewRequest("GET", "/events", nil)
+	req := httptest.NewRequest("GET", "/events", http.NoBody)
 	// No Authorization header
 	fw := &flushingResponseWriter{ResponseRecorder: httptest.NewRecorder()}
 
@@ -6126,7 +6126,7 @@ func TestGetStats_WithQueryParams_Integration(t *testing.T) {
 	// Test with period=7d&metric=tokens&exclude_deleted=true
 	t.Run("period_7d_metric_tokens", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/stats?period=7d&metric=tokens&exclude_deleted=true", nil)
+		req := httptest.NewRequest("GET", "/stats?period=7d&metric=tokens&exclude_deleted=true", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -6151,7 +6151,7 @@ func TestGetStats_WithQueryParams_Integration(t *testing.T) {
 	// Test with period=1h
 	t.Run("period_1h", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/stats?period=1h", nil)
+		req := httptest.NewRequest("GET", "/stats?period=1h", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -6173,7 +6173,7 @@ func TestGetStats_WithQueryParams_Integration(t *testing.T) {
 	// Test with metric=requests (default)
 	t.Run("metric_requests", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/stats?metric=requests", nil)
+		req := httptest.NewRequest("GET", "/stats?metric=requests", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -6195,7 +6195,7 @@ func TestGetStats_WithQueryParams_Integration(t *testing.T) {
 	// Test with exclude_deleted=false
 	t.Run("exclude_deleted_false", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/stats?exclude_deleted=false", nil)
+		req := httptest.NewRequest("GET", "/stats?exclude_deleted=false", http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
@@ -6223,7 +6223,7 @@ func TestStreamEvents_WithTypeFilter_Integration(t *testing.T) {
 	h.RegisterEvents(r)
 
 	// Create request with admin auth and type filter
-	req := httptest.NewRequest("GET", "/events?type=model.discovered", nil)
+	req := httptest.NewRequest("GET", "/events?type=model.discovered", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	// Use custom ResponseWriter that implements http.Flusher
@@ -6380,7 +6380,7 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 	}
 
 	// List providers - should include token counts
-	req = httptest.NewRequest("GET", "/providers", nil)
+	req = httptest.NewRequest("GET", "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -6440,7 +6440,7 @@ func TestListBackups_EmptyDirectory_Integration(t *testing.T) {
 	h, router := newTestHandlerWithRouter(t)
 	_ = h
 
-	req := httptest.NewRequest("GET", "/backups", nil)
+	req := httptest.NewRequest("GET", "/backups", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -6481,7 +6481,7 @@ func TestGetStats_WithFilters_Integration(t *testing.T) {
 		uuid.New(), provUUID)
 
 	// Get stats with metric filter
-	req = httptest.NewRequest("GET", "/stats?period=30d&metric=tokens", nil)
+	req = httptest.NewRequest("GET", "/stats?period=30d&metric=tokens", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)

@@ -71,7 +71,7 @@ func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Prov
 
 	quotaURL := "https://api.z.ai/api/monitor/usage/quota/limit"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -223,7 +223,7 @@ func TestAuthMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -231,7 +231,7 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Errorf("expected status %d (no token), got %d", http.StatusUnauthorized, w.Code)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -666,7 +666,7 @@ func TestWriteJSONCreated_ErrorBranch(t *testing.T) {
 func TestParseUUIDParam_ValidUUID(t *testing.T) {
 	id := uuid.New()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	r = setChiURLParam(r, "id", id.String())
 
 	got, ok := parseUUIDParam(w, r, "id")
@@ -683,7 +683,7 @@ func TestParseUUIDParam_ValidUUID(t *testing.T) {
 
 func TestParseUUIDParam_InvalidUUID(t *testing.T) {
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	r = setChiURLParam(r, "id", "not-a-uuid")
 
 	_, ok := parseUUIDParam(w, r, "id")
@@ -701,7 +701,7 @@ func TestParseUUIDParam_InvalidUUID(t *testing.T) {
 
 func TestParseUUIDParam_MissingParam(t *testing.T) {
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 
 	_, ok := parseUUIDParam(w, r, "id")
 	if ok {
@@ -714,7 +714,7 @@ func TestParseUUIDParam_MissingParam(t *testing.T) {
 
 func TestParseUUIDParam_CustomLabel(t *testing.T) {
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	r = setChiURLParam(r, "id", "bad-uuid")
 
 	_, ok := parseUUIDParam(w, r, "id", "virtual key ID")
@@ -732,7 +732,7 @@ func TestParseUUIDParam_CustomLabel(t *testing.T) {
 
 func TestParseUUIDParam_DefaultLabel(t *testing.T) {
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	r = setChiURLParam(r, "id", "bad-uuid")
 
 	_, ok := parseUUIDParam(w, r, "id")

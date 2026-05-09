@@ -1,6 +1,7 @@
 package ctxkeys
 
 import (
+	"bytes"
 	"context"
 	"testing"
 )
@@ -22,7 +23,7 @@ func TestRequestBodyKey(t *testing.T) {
 	val := ctx.Value(RequestBodyKey)
 	if val == nil {
 		t.Error("expected non-nil value")
-	} else if string(val.([]byte)) != string(body) {
+	} else if !bytes.Equal(val.([]byte), body) {
 		t.Errorf("expected %s, got %s", body, val.([]byte))
 	}
 }

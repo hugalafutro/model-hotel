@@ -33,7 +33,7 @@ func IsDockerAvailable() bool {
 		client := dockerHTTPClient()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/info", nil)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/info", http.NoBody)
 		resp, err := client.Do(req)
 		if err != nil {
 			debuglog.Info("docker: failed to connect to Docker API", "error", err)
@@ -152,7 +152,7 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 	defer cancel()
 
 	url := "http://localhost/containers/json?all=true"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 	defer cancel()
 
 	url := fmt.Sprintf("http://localhost/containers/%s/stats?stream=false", containerID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +419,7 @@ func DetectComposeProject() string {
 	if containerID != "" && IsDockerAvailable() {
 		client := dockerHTTPClient()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/containers/"+containerID+"/json", nil)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/containers/"+containerID+"/json", http.NoBody)
 		resp, err := client.Do(req)
 		if err == nil && resp.StatusCode == 200 {
 			body, _ := io.ReadAll(resp.Body)

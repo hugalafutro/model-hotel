@@ -110,7 +110,7 @@ func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provid
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	usageURL := baseURL + "/usage"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", usageURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", usageURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

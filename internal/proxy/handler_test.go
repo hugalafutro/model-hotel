@@ -191,7 +191,7 @@ func TestProxyKeyMiddleware_EmptyBearerToken(t *testing.T) {
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	req.Header.Set("Authorization", "Bearer ")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -218,7 +218,7 @@ func TestProxyKeyMiddleware_BearerPrefixOnly(t *testing.T) {
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	req.Header.Set("Authorization", "Bearer")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -263,7 +263,7 @@ func TestProxyKeyMiddleware_ValidKey_Integration(t *testing.T) {
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+testKey)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -294,7 +294,7 @@ func TestProxyKeyMiddleware_KeyNotFound_Integration(t *testing.T) {
 	})
 	handler := h.ProxyKeyMiddleware(next)
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	req.Header.Set("Authorization", "Bearer sk-nonexistent-key-12345")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -324,7 +324,7 @@ func TestProxyKeyMiddleware_ContextCanceledDBError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	req := httptest.NewRequest("POST", "/chat/completions", nil).WithContext(ctx)
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody).WithContext(ctx)
 	req.Header.Set("Authorization", "Bearer sk-some-key")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -413,7 +413,7 @@ func TestRegister_RequiresAuth(t *testing.T) {
 	r := chi.NewRouter()
 	h.Register(r)
 
-	req := httptest.NewRequest("GET", "/models", nil)
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -501,7 +501,7 @@ func TestRegisterAdminChat_SetsVirtualKeyContext(t *testing.T) {
 		next.ServeHTTP(w, r)
 	})
 
-	req := httptest.NewRequest("POST", "/chat", nil)
+	req := httptest.NewRequest("POST", "/chat", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -641,7 +641,7 @@ func TestVirtualKeyRepository_Delete_ErrorPropagation(t *testing.T) {
 
 	err := mockRepo.Delete(context.Background(), validUUID)
 
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error %v, got %v", expectedErr, err)
 	}
 }

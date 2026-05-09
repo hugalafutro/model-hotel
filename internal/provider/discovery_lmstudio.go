@@ -29,7 +29,7 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
 	url := baseURL + "/models"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

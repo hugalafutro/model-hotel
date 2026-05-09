@@ -67,7 +67,7 @@ func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	for i := 0; i < 5; i++ {
-		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "1.2.3.4:1234"
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -87,7 +87,7 @@ func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	for i := 0; i < 3; i++ {
-		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "5.6.7.8:5678"
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -96,7 +96,7 @@ func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "5.6.7.8:5678"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -116,12 +116,12 @@ func TestIPLimiter_PerIPIsolation(t *testing.T) {
 
 	// Exhaust IP-A
 	for i := 0; i < 2; i++ {
-		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.0.0.1:1000"
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 	}
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "10.0.0.1:1000"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -130,7 +130,7 @@ func TestIPLimiter_PerIPIsolation(t *testing.T) {
 	}
 
 	// IP-B should still succeed
-	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "10.0.0.2:2000"
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -148,7 +148,7 @@ func TestIPLimiter_HeadersOnSuccess(t *testing.T) {
 	})
 	handler := lim.Middleware(next)
 
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "1.2.3.4:1234"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -176,12 +176,12 @@ func TestIPLimiter_RetryAfterOn429(t *testing.T) {
 	})
 	handler := lim.Middleware(next)
 
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "9.8.7.6:4321"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "9.8.7.6:4321"
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -236,7 +236,7 @@ func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExtractClientIP_RemoteAddr(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "192.168.1.1:54321"
 	ip := extractClientIP(r, nil)
 	if ip != "192.168.1.1" {
@@ -245,7 +245,7 @@ func TestExtractClientIP_RemoteAddr(t *testing.T) {
 }
 
 func TestExtractClientIP_RemoteAddrNoPort(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "192.168.1.1"
 	ip := extractClientIP(r, nil)
 	if ip != "192.168.1.1" {
@@ -254,7 +254,7 @@ func TestExtractClientIP_RemoteAddrNoPort(t *testing.T) {
 }
 
 func TestExtractClientIP_XFFIgnoredWhenUntrusted(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2, 3.3.3.3")
 	// nil trustedProxies means header is ignored
@@ -265,7 +265,7 @@ func TestExtractClientIP_XFFIgnoredWhenUntrusted(t *testing.T) {
 }
 
 func TestExtractClientIP_XRealIPIgnoredWhenUntrusted(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Real-IP", "8.8.8.8")
 	ip := extractClientIP(r, nil)
@@ -278,7 +278,7 @@ func TestExtractClientIP_XFFHonoredWhenTrusted(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	trusted := []*net.IPNet{cidr}
 
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2")
 	ip := extractClientIP(r, trusted)
@@ -291,7 +291,7 @@ func TestExtractClientIP_XRealIPHonoredWhenTrusted(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	trusted := []*net.IPNet{cidr}
 
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Real-IP", "8.8.8.8")
 	ip := extractClientIP(r, trusted)
@@ -304,7 +304,7 @@ func TestExtractClientIP_XFFPriorityWhenTrusted(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	trusted := []*net.IPNet{cidr}
 
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "4.4.4.4")
 	r.Header.Set("X-Real-IP", "5.5.5.5")
@@ -318,7 +318,7 @@ func TestExtractClientIP_HeadersIgnoredWhenRemoteNotTrusted(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	trusted := []*net.IPNet{cidr}
 
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "192.168.1.1:1234" // not in trusted CIDR
 	r.Header.Set("X-Forwarded-For", "1.1.1.1")
 	r.Header.Set("X-Real-IP", "2.2.2.2")
@@ -332,7 +332,7 @@ func TestExtractClientIP_EmptyXFFWhenTrusted(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	trusted := []*net.IPNet{cidr}
 
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "")
 	r.Header.Set("X-Real-IP", "9.9.9.9")
@@ -343,7 +343,7 @@ func TestExtractClientIP_EmptyXFFWhenTrusted(t *testing.T) {
 }
 
 func TestExtractClientIP_IPv6(t *testing.T) {
-	r := httptest.NewRequest("POST", "/", nil)
+	r := httptest.NewRequest("POST", "/", http.NoBody)
 	r.RemoteAddr = "[::1]:12345"
 	ip := extractClientIP(r, nil)
 	if ip != "::1" {
@@ -384,7 +384,7 @@ func TestIPLimiter_DisabledViaSettings(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// Exhaust the burst
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "1.2.3.4:1234"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -393,7 +393,7 @@ func TestIPLimiter_DisabledViaSettings(t *testing.T) {
 	}
 
 	// Second request would normally get 429, but limiter is disabled
-	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "1.2.3.4:1234"
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -414,7 +414,7 @@ func TestIPLimiter_BackpressureWithinMaxWait(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// First request consumes the burst
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "5.5.5.5:1234"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -423,7 +423,7 @@ func TestIPLimiter_BackpressureWithinMaxWait(t *testing.T) {
 	}
 
 	// Second request should wait (within maxWait) and succeed
-	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "5.5.5.5:1234"
 	rr = httptest.NewRecorder()
 	start := time.Now()
@@ -451,7 +451,7 @@ func TestIPLimiter_BackpressureExceedsMaxWait(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// First request consumes the burst
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "6.6.6.6:1234"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -460,7 +460,7 @@ func TestIPLimiter_BackpressureExceedsMaxWait(t *testing.T) {
 	}
 
 	// Second request should get 429 (wait would exceed maxWait of 10ms)
-	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "6.6.6.6:1234"
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -488,7 +488,7 @@ func TestIPLimiter_RuntimeSettingsOverrideRPS(t *testing.T) {
 
 	// With RPS=1000 and burst=1000, 50 rapid requests should all succeed
 	for i := 0; i < 50; i++ {
-		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.0.0.1:1234"
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -513,7 +513,7 @@ func TestIPLimiter_SettingsFallbackToDefaults(t *testing.T) {
 	// Constructor defaults: RPS=0.1, burst=2
 	// Both burst requests should succeed
 	for i := 0; i < 2; i++ {
-		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.0.0.2:1234"
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -523,7 +523,7 @@ func TestIPLimiter_SettingsFallbackToDefaults(t *testing.T) {
 	}
 
 	// 3rd should be rejected (burst exhausted, RPS=0.1 means 10s wait, max_wait=200ms)
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req.RemoteAddr = "10.0.0.2:1234"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -548,7 +548,7 @@ func TestIPLimiter_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			req := httptest.NewRequest("POST", "/", nil)
+			req := httptest.NewRequest("POST", "/", http.NoBody)
 			// Use a few different IPs
 			switch idx % 3 {
 			case 0:

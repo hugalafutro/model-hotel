@@ -53,7 +53,7 @@ func TestDiscoverAllModels_AllDisabled(t *testing.T) {
 
 	// Run discover-all
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers/discover-all", nil)
+	req := httptest.NewRequest(http.MethodPost, "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -92,7 +92,7 @@ func TestGetProviderUsage_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/providers/invalid-uuid/usage", nil)
+	req := httptest.NewRequest(http.MethodGet, "/providers/invalid-uuid/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -107,7 +107,7 @@ func TestGetProviderBalance_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/providers/invalid-uuid/balance", nil)
+	req := httptest.NewRequest(http.MethodGet, "/providers/invalid-uuid/balance", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -137,7 +137,7 @@ func TestRefreshAllQuotas_AllDisabled(t *testing.T) {
 
 	// Run refresh-quotas
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", nil)
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 

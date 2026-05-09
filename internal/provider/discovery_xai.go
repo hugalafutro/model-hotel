@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,7 +47,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 }
 
 func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey string, baseURL string) ([]*model.Model, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/language-models", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/language-models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -164,7 +165,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 }
 
 func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provider *Provider, apiKey string, baseURL string) ([]*model.Model, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -253,7 +254,8 @@ func isNoAccessError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if httpErr, ok := err.(*httpError); ok {
+	httpErr := &httpError{}
+	if errors.As(err, &httpErr) {
 		return httpErr.StatusCode == http.StatusForbidden || httpErr.StatusCode == http.StatusTooManyRequests
 	}
 	return false
@@ -261,7 +263,8 @@ func isNoAccessError(err error) bool {
 
 // errorStatusCode extracts the HTTP status code from an httpError, or 0.
 func errorStatusCode(err error) int {
-	if httpErr, ok := err.(*httpError); ok {
+	httpErr := &httpError{}
+	if errors.As(err, &httpErr) {
 		return httpErr.StatusCode
 	}
 	return 0

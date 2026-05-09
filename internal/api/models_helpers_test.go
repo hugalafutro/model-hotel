@@ -100,7 +100,7 @@ func TestBuildProviderTargetURL(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetProviderAuthHeaders_EmptyKey(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
 	setProviderAuthHeaders(req, "anthropic", "")
 	if req.Header.Get("x-api-key") != "" {
 		t.Error("expected no x-api-key header for empty key")
@@ -114,7 +114,7 @@ func TestSetProviderAuthHeaders_EmptyKey(t *testing.T) {
 }
 
 func TestSetProviderAuthHeaders_Anthropic(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
 	setProviderAuthHeaders(req, "anthropic", "sk-test-key")
 	if v := req.Header.Get("x-api-key"); v != "sk-test-key" {
 		t.Errorf("x-api-key = %q, want %q", v, "sk-test-key")
@@ -128,7 +128,7 @@ func TestSetProviderAuthHeaders_Anthropic(t *testing.T) {
 }
 
 func TestSetProviderAuthHeaders_OpenAI(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
 	setProviderAuthHeaders(req, "openai", "sk-test-key")
 	if v := req.Header.Get("Authorization"); v != "Bearer sk-test-key" {
 		t.Errorf("Authorization = %q, want %q", v, "Bearer sk-test-key")
@@ -139,7 +139,7 @@ func TestSetProviderAuthHeaders_OpenAI(t *testing.T) {
 }
 
 func TestSetProviderAuthHeaders_Google(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
 	setProviderAuthHeaders(req, "google", "test-key")
 	if v := req.Header.Get("Authorization"); v != "Bearer test-key" {
 		t.Errorf("Authorization = %q, want %q", v, "Bearer test-key")
@@ -147,7 +147,7 @@ func TestSetProviderAuthHeaders_Google(t *testing.T) {
 }
 
 func TestSetProviderAuthHeaders_EmptyProvider(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
 	setProviderAuthHeaders(req, "", "key")
 	if v := req.Header.Get("Authorization"); v != "Bearer key" {
 		t.Errorf("Authorization = %q, want %q", v, "Bearer key")

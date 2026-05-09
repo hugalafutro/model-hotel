@@ -21,7 +21,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	apiBase := util.SanitizeAPIURL(provider.BaseURL)
 
 	tagsURL := apiBase + "/api/tags"
-	req, err := http.NewRequestWithContext(ctx, "GET", tagsURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", tagsURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

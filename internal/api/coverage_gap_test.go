@@ -115,7 +115,7 @@ func TestCreateBackup_Success(t *testing.T) {
 	r := chi.NewRouter()
 	bh.Register(r)
 
-	req := httptest.NewRequest(http.MethodPost, "/backups", nil)
+	req := httptest.NewRequest(http.MethodPost, "/backups", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	w := httptest.NewRecorder()
@@ -187,7 +187,7 @@ func TestGetProviderUsage_UnsupportedType(t *testing.T) {
 	}
 
 	// Now request usage for this provider
-	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", nil)
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	w = httptest.NewRecorder()
@@ -210,7 +210,7 @@ func TestGetProviderUsage_UnsupportedType(t *testing.T) {
 func TestListProviders_Integration(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/providers", nil)
+	req := httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	w := httptest.NewRecorder()
@@ -252,7 +252,7 @@ func TestListProviders_WithProviders(t *testing.T) {
 	}
 
 	// List all providers
-	req := httptest.NewRequest(http.MethodGet, "/providers", nil)
+	req := httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	w := httptest.NewRecorder()
@@ -420,7 +420,7 @@ func TestDeleteProvider_Integration_Success(t *testing.T) {
 	}
 
 	// Delete the provider
-	req = httptest.NewRequest(http.MethodDelete, "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest(http.MethodDelete, "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	w = httptest.NewRecorder()
@@ -431,7 +431,7 @@ func TestDeleteProvider_Integration_Success(t *testing.T) {
 	}
 
 	// Verify it's gone
-	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	w = httptest.NewRecorder()

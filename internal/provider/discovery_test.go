@@ -1138,7 +1138,7 @@ func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
 		circuit.recordFailure()
 	}
 
-	req, _ := http.NewRequest("GET", "http://example.com/quota", nil)
+	req, _ := http.NewRequest("GET", "http://example.com/quota", http.NoBody)
 	ctx := context.Background()
 	_, err := svc.doQuotaRequestWithRetry(ctx, req, providerID, "zai-coding")
 	if err == nil {
@@ -1166,7 +1166,7 @@ func TestDoQuotaRequestWithRetry_Retries429(t *testing.T) {
 
 	svc := NewDiscoveryService()
 	svc.httpClient = server.Client()
-	req, _ := http.NewRequest("GET", server.URL+"/quota", nil)
+	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
 	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-429", "zai-coding")
 	if err != nil {
@@ -1194,7 +1194,7 @@ func TestDoQuotaRequestWithRetry_Retries5xx(t *testing.T) {
 
 	svc := NewDiscoveryService()
 	svc.httpClient = server.Client()
-	req, _ := http.NewRequest("GET", server.URL+"/quota", nil)
+	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
 	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-5xx", "zai-coding")
 	if err != nil {
@@ -1216,7 +1216,7 @@ func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
 
 	svc := NewDiscoveryService()
 	svc.httpClient = server.Client()
-	req, _ := http.NewRequest("GET", server.URL+"/quota", nil)
+	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
 	resp, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-403", "zai-coding")
 	if err != nil {

@@ -28,7 +28,7 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 			url += "&after_id=" + afterID
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}

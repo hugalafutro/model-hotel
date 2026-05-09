@@ -25,7 +25,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	// Use ?key= auth for native API
 	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, apiKey)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

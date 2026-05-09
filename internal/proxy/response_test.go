@@ -82,7 +82,7 @@ func TestHandleNonStreamingResponse_Success(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req = withAuthContext(req)
 
 	logData := &requestLogData{
@@ -144,7 +144,7 @@ func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req = withAuthContext(req)
 
 	logData := &requestLogData{
@@ -197,7 +197,7 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req = withAuthContext(req)
 
 	logData := &requestLogData{
@@ -249,7 +249,7 @@ func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req = withAuthContext(req)
 
 	logData := &requestLogData{
@@ -321,7 +321,7 @@ func TestHandleNonStreamingResponse_WithVirtualKeyHash(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	req = withAuthContext(req)
 
 	logData := &requestLogData{

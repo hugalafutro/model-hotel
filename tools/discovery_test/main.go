@@ -26,7 +26,7 @@ func parseArgs() (string, string, int, error) {
 	if len(os.Args) >= 4 {
 		_, err := fmt.Sscanf(os.Args[3], "%d", &concurrency)
 		if err != nil {
-			return "", "", 0, fmt.Errorf("invalid concurrency: %v", err)
+			return "", "", 0, fmt.Errorf("invalid concurrency: %w", err)
 		}
 	}
 	return base, providerID, concurrency, nil

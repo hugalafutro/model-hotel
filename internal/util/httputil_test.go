@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"unicode/utf8"
@@ -16,7 +17,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestParseBearerToken_Valid(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Bearer my-secret-token")
 	token, ok := ParseBearerToken(r)
 	if !ok {
@@ -28,7 +29,7 @@ func TestParseBearerToken_Valid(t *testing.T) {
 }
 
 func TestParseBearerToken_ValidWithSkPrefix(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Bearer sk-abc123def456")
 	token, ok := ParseBearerToken(r)
 	if !ok {
@@ -40,7 +41,7 @@ func TestParseBearerToken_ValidWithSkPrefix(t *testing.T) {
 }
 
 func TestParseBearerToken_MissingHeader(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	token, ok := ParseBearerToken(r)
 	if ok {
 		t.Error("ParseBearerToken should return false when Authorization header is missing")
@@ -51,7 +52,7 @@ func TestParseBearerToken_MissingHeader(t *testing.T) {
 }
 
 func TestParseBearerToken_EmptyHeader(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "")
 	token, ok := ParseBearerToken(r)
 	if ok {
@@ -63,7 +64,7 @@ func TestParseBearerToken_EmptyHeader(t *testing.T) {
 }
 
 func TestParseBearerToken_WrongScheme(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
 	token, ok := ParseBearerToken(r)
 	if ok {
@@ -75,7 +76,7 @@ func TestParseBearerToken_WrongScheme(t *testing.T) {
 }
 
 func TestParseBearerToken_BearerWithoutSpace(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Bearer")
 	token, ok := ParseBearerToken(r)
 	if ok {
@@ -87,7 +88,7 @@ func TestParseBearerToken_BearerWithoutSpace(t *testing.T) {
 }
 
 func TestParseBearerToken_BearerWithEmptyToken(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Bearer ")
 	token, ok := ParseBearerToken(r)
 	if ok {
@@ -99,7 +100,7 @@ func TestParseBearerToken_BearerWithEmptyToken(t *testing.T) {
 }
 
 func TestParseBearerToken_LowercaseBearer(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "bearer my-token")
 	token, ok := ParseBearerToken(r)
 	if ok {
@@ -112,7 +113,7 @@ func TestParseBearerToken_LowercaseBearer(t *testing.T) {
 
 func TestParseBearerToken_TokenWithSpaces(t *testing.T) {
 	// Tokens with spaces after the first word are technically part of the token value
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Bearer token with spaces")
 	token, ok := ParseBearerToken(r)
 	if !ok {
@@ -128,7 +129,7 @@ func TestParseBearerToken_TokenWithSpaces(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGetIntQueryParam_Present(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?page=5", nil)
+	r := httptest.NewRequest("GET", "/?page=5", http.NoBody)
 	result := GetIntQueryParam(r, "page", 0)
 	if result != 5 {
 		t.Errorf("expected 5, got %d", result)
@@ -136,7 +137,7 @@ func TestGetIntQueryParam_Present(t *testing.T) {
 }
 
 func TestGetIntQueryParam_Absent(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	result := GetIntQueryParam(r, "page", 1)
 	if result != 1 {
 		t.Errorf("expected default 1, got %d", result)
@@ -144,7 +145,7 @@ func TestGetIntQueryParam_Absent(t *testing.T) {
 }
 
 func TestGetIntQueryParam_InvalidValue(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?page=abc", nil)
+	r := httptest.NewRequest("GET", "/?page=abc", http.NoBody)
 	result := GetIntQueryParam(r, "page", 42)
 	if result != 42 {
 		t.Errorf("expected default 42 for unparseable value, got %d", result)
@@ -152,7 +153,7 @@ func TestGetIntQueryParam_InvalidValue(t *testing.T) {
 }
 
 func TestGetIntQueryParam_NegativeValue(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?offset=-10", nil)
+	r := httptest.NewRequest("GET", "/?offset=-10", http.NoBody)
 	result := GetIntQueryParam(r, "offset", 0)
 	if result != -10 {
 		t.Errorf("expected -10, got %d", result)
@@ -160,7 +161,7 @@ func TestGetIntQueryParam_NegativeValue(t *testing.T) {
 }
 
 func TestGetIntQueryParam_ZeroValue(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?limit=0", nil)
+	r := httptest.NewRequest("GET", "/?limit=0", http.NoBody)
 	result := GetIntQueryParam(r, "limit", 100)
 	if result != 0 {
 		t.Errorf("expected 0, got %d", result)
@@ -168,7 +169,7 @@ func TestGetIntQueryParam_ZeroValue(t *testing.T) {
 }
 
 func TestGetIntQueryParam_EmptyValue(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?page=", nil)
+	r := httptest.NewRequest("GET", "/?page=", http.NoBody)
 	result := GetIntQueryParam(r, "page", 1)
 	if result != 1 {
 		t.Errorf("expected default 1 for empty query value, got %d", result)
@@ -176,7 +177,7 @@ func TestGetIntQueryParam_EmptyValue(t *testing.T) {
 }
 
 func TestGetIntQueryParam_MultipleParams(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?a=1&b=2", nil)
+	r := httptest.NewRequest("GET", "/?a=1&b=2", http.NoBody)
 	resultA := GetIntQueryParam(r, "a", 0)
 	resultB := GetIntQueryParam(r, "b", 0)
 	if resultA != 1 {
@@ -188,7 +189,7 @@ func TestGetIntQueryParam_MultipleParams(t *testing.T) {
 }
 
 func TestGetIntQueryParam_LargeValue(t *testing.T) {
-	r := httptest.NewRequest("GET", "/?n=9999999", nil)
+	r := httptest.NewRequest("GET", "/?n=9999999", http.NoBody)
 	result := GetIntQueryParam(r, "n", 0)
 	if result != 9999999 {
 		t.Errorf("expected 9999999, got %d", result)
@@ -615,7 +616,7 @@ func TestSanitizeLogBody_EmptyBody(t *testing.T) {
 
 func TestParseUUIDParam_Valid(t *testing.T) {
 	testUUID := uuid.Must(uuid.Parse("793ac38b-0211-43e6-baa7-aa7054c39931"))
-	r := httptest.NewRequest("GET", "/test/"+testUUID.String(), nil)
+	r := httptest.NewRequest("GET", "/test/"+testUUID.String(), http.NoBody)
 
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", testUUID.String())
@@ -631,7 +632,7 @@ func TestParseUUIDParam_Valid(t *testing.T) {
 }
 
 func TestParseUUIDParam_Invalid(t *testing.T) {
-	r := httptest.NewRequest("GET", "/test/not-a-uuid", nil)
+	r := httptest.NewRequest("GET", "/test/not-a-uuid", http.NoBody)
 
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", "not-a-uuid")

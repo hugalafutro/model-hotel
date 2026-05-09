@@ -38,7 +38,7 @@ func NewDiscoveryService() *DiscoveryService {
 // response body, and checks for a 200 OK status. Returns the response body
 // bytes on success. The caller is responsible for unmarshaling the result.
 func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, headers http.Header) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
