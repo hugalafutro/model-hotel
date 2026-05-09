@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -466,6 +467,35 @@ func TestConfig_String_AdminTokenEmpty(t *testing.T) {
 // Helper
 // ---------------------------------------------------------------------------
 
+func TestConfig_String_CORSOriginsMultiLine(t *testing.T) {
+	cfg := &Config{
+		Port:        ":8080",
+		MasterKey:   "test-key",
+		CORSOrigins: []string{"http://localhost:5173", "http://localhost:8081"},
+	}
+	s := cfg.String()
+
+	// Both origins must appear on separate lines
+	if !contains(s, "http://localhost:5173") {
+		t.Error("first CORS origin should appear in output")
+	}
+	if !contains(s, "http://localhost:8081") {
+		t.Error("second CORS origin should appear in output")
+	}
+
+	// They must appear on separate lines, not comma-separated on one line
+	lines := strings.Split(s, "\n")
+	corsLines := 0
+	for _, line := range lines {
+		if contains(line, "http://localhost:5173") || contains(line, "http://localhost:8081") {
+			corsLines++
+		}
+	}
+	if corsLines != 2 {
+		t.Errorf("expected each CORS origin on its own line, got %d CORS lines", corsLines)
+	}
+}
+
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
@@ -758,33 +788,65 @@ func TestGetFloatEnvWithDefault_InvalidString(t *testing.T) {
 // formatCORSOrigins
 // ---------------------------------------------------------------------------
 
-func TestFormatCORSOrigins_EmptyList(t *testing.T) {
-	result := formatCORSOrigins([]string{}, 80)
-	if result != "(none)" {
-		t.Errorf("expected (none) for empty list, got %q", result)
+func TestFormatCORSOriginRows_EmptyList(t *testing.T) {
+	result := formatCORSOriginRows([]string{}, 16, 3, 2)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 row for empty list, got %d", len(result))
+	}
+	if result[0].label != "CORS Origins" || result[0].value != "(none)" {
+		t.Errorf("expected (none), got label=%q value=%q", result[0].label, result[0].value)
 	}
 }
 
-func TestFormatCORSOrigins_SingleOrigin(t *testing.T) {
-	result := formatCORSOrigins([]string{"http://localhost:5173"}, 80)
-	if result != "http://localhost:5173" {
-		t.Errorf("expected single origin, got %q", result)
+func TestFormatCORSOriginRows_SingleOrigin(t *testing.T) {
+	result := formatCORSOriginRows([]string{"http://localhost:5173"}, 16, 3, 2)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(result))
+	}
+	if result[0].label != "CORS Origins" {
+		t.Errorf("expected label 'CORS Origins', got %q", result[0].label)
+	}
+	if result[0].value != "http://localhost:5173" {
+		t.Errorf("expected 'http://localhost:5173', got %q", result[0].value)
 	}
 }
 
-func TestFormatCORSOrigins_MultipleFitInMax(t *testing.T) {
+func TestFormatCORSOriginRows_MultipleOrigins(t *testing.T) {
 	origins := []string{"http://a.com", "http://b.com", "http://c.com"}
-	result := formatCORSOrigins(origins, 80)
-	if result != "http://a.com, http://b.com, http://c.com" {
-		t.Errorf("expected all origins joined, got %q", result)
+	result := formatCORSOriginRows(origins, 16, 3, 2)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(result))
+	}
+	if result[0].label != "CORS Origins" {
+		t.Errorf("first row label should be 'CORS Origins', got %q", result[0].label)
+	}
+	if result[0].value != "http://a.com" {
+		t.Errorf("first row value should be 'http://a.com', got %q", result[0].value)
+	}
+	for i, r := range result[1:] {
+		if r.label != "" {
+			t.Errorf("continuation row %d label should be empty, got %q", i, r.label)
+		}
+	}
+	if result[1].value != "http://b.com" {
+		t.Errorf("second row value should be 'http://b.com', got %q", result[1].value)
+	}
+	if result[2].value != "http://c.com" {
+		t.Errorf("third row value should be 'http://c.com', got %q", result[2].value)
 	}
 }
 
-func TestFormatCORSOrigins_Truncation(t *testing.T) {
-	origins := []string{"http://a.com", "http://b.com", "http://c.com"}
-	result := formatCORSOrigins(origins, 30)
-	if !contains(result, "... and") {
-		t.Errorf("expected truncation with suffix, got %q", result)
+func TestFormatCORSOriginRows_Truncation(t *testing.T) {
+	longOrigin := "http://example.com/very/long/path/that/exceeds/the/max/value/width/by/quite/a/lot"
+	origins := []string{longOrigin, "http://b.com"}
+	// maxValW = 80 - 3 - 16 - 2 = 59
+	result := formatCORSOriginRows(origins, 16, 3, 2)
+	if len(result) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(result))
+	}
+	// The first origin should be truncated since it's > 59 chars
+	if !contains(result[0].value, "...") {
+		t.Errorf("expected truncation for long origin, got %q", result[0].value)
 	}
 }
 

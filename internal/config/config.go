@@ -113,6 +113,8 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+type configRow struct{ label, value string }
+
 func (c *Config) String() string {
 	var adminTokenDisplay string
 	if c.AdminToken != "" {
@@ -124,8 +126,7 @@ func (c *Config) String() string {
 	// Build label-value rows.
 	// Database URL and Master Key are omitted: a technical user can find
 	// them in .env or docker-compose.yml, a layman user does not need them.
-	type row struct{ label, value string }
-	rows := []row{
+	rows := []configRow{
 		{"Port", c.Port},
 		{"Data Dir", c.DataDir},
 		{"Admin Token", adminTokenDisplay},
@@ -135,8 +136,9 @@ func (c *Config) String() string {
 		{"Debug Log", fmt.Sprintf("%t", c.DebugLog)},
 	}
 
-	// Calculate label column width
-	labelW := 0
+	// Calculate label column width (include "CORS Origins" to avoid
+	// misalignment if other labels are shorter)
+	labelW := len("CORS Origins")
 	for _, r := range rows {
 		if len(r.label) > labelW {
 			labelW = len(r.label)
@@ -149,8 +151,9 @@ func (c *Config) String() string {
 	const gap = "  "
 	maxValW := maxFrameW - len(indent) - labelW - len(gap)
 
-	// Add CORS origins with truncation for long lists
-	rows = append(rows, row{"CORS Origins", formatCORSOrigins(c.CORSOrigins, maxValW)})
+	// Add CORS origins as multi-line rows
+	corsRows := formatCORSOriginRows(c.CORSOrigins, labelW, len(indent), len(gap))
+	rows = append(rows, corsRows...)
 
 	// Build content lines, truncating values that exceed maxValW
 	contentLines := []string{
@@ -173,7 +176,7 @@ func (c *Config) String() string {
 			contentW = len(l)
 		}
 	}
-	contentW++ // ensure at least 1 space of right margin
+	contentW += len(indent) // right margin matches left indent
 	if contentW > maxFrameW {
 		contentW = maxFrameW
 	}
@@ -215,26 +218,30 @@ func formatBytes(b int64) string {
 	}
 }
 
-func formatCORSOrigins(origins []string, maxLen int) string {
+func formatCORSOriginRows(origins []string, labelW, indentLen, gapLen int) []configRow {
 	if len(origins) == 0 {
-		return "(none)"
+		return []configRow{{"CORS Origins", "(none)"}}
 	}
 
-	all := strings.Join(origins, ", ")
-	if len(all) <= maxLen {
-		return all
-	}
+	// Calculate max value width from the same logic used for other rows.
+	const maxFrameW = 80
+	maxValW := maxFrameW - indentLen - labelW - gapLen
 
-	// Show as many as fit with "... and N more" suffix
-	for keep := len(origins) - 1; keep >= 1; keep-- {
-		partial := strings.Join(origins[:keep], ", ")
-		suffix := fmt.Sprintf(", ... and %d more", len(origins)-keep)
-		if len(partial)+len(suffix) <= maxLen {
-			return partial + suffix
+	// First origin gets the "CORS Origins" label; others use a blank label
+	// so the padRight(label, labelW) + gap alignment keeps values stacked.
+	result := make([]configRow, 0, len(origins))
+	for i, o := range origins {
+		v := o
+		if len(v) > maxValW {
+			v = v[:maxValW-3] + "..."
+		}
+		if i == 0 {
+			result = append(result, configRow{"CORS Origins", v})
+		} else {
+			result = append(result, configRow{"", v})
 		}
 	}
-
-	return fmt.Sprintf("%d origins configured", len(origins))
+	return result
 }
 
 // ValidateProviderURL checks that a provider base_url is not a loopback address
