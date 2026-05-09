@@ -10,10 +10,32 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+    # Added per code review (Point 19):
+    - gosec        # Security issues (hardcoded credentials, SQL injection, weak crypto)
+    - gocritic     # Style and performance checks (unchecked range values, sloppy realloc)
+    - revive       # Drop-in golint replacement with extra rules
+    - gocyclo      # Cyclomatic complexity
+    - errorlint    # Proper error wrapping/inspection (errors.Is, errors.As)
+    - nilerr       # Checks for returning nil even if err != nil
+    - bodyclose    # HTTP response body must be closed
 
   settings:
     errcheck:
       check-type-assertions: false
+
+    gocyclo:
+      min-complexity: 15
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+
+    gosec:
+      excludes:
+        - G101 # Hardcoded credentials (many false positives on config keys)
+        - G404 # Weak random (InsecureRandRead — we only use crypto/rand)
 
   exclusions:
     rules:
@@ -21,11 +43,17 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+          - bodyclose
 
       # The recover() return value is intentionally discarded in panic-safety guards
       - linters:
           - errcheck
         source: "defer func\\(\\) \\{ recover\\(\\) \\}\\(\\)"
+
+      # Generated migration files have long functions
+      - path: internal/db/migrations/
+        linters:
+          - gocyclo
 
 formatters:
   enable:
