@@ -447,6 +447,10 @@ func main() {
 	// When discovery_on_startup is true, the startup go runDiscovery() above already
 	// handles immediate discovery; when false, we must not discover on startup either.
 	//
+	// TODO: Extract the three inline goroutines below (discovery loop, stale log
+	// cleanup, log retention) into internal/scheduler/ for maintainability. main.go
+	// is ~800 lines; each goroutine body should be a named function in its own file.
+	//
 	// Bug fixes applied:
 	//   1. Timer now reacts immediately to discovery_interval changes via the
 	//      settings subscription channel, instead of waiting for the current
