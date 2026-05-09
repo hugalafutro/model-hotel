@@ -37,7 +37,11 @@ type Config struct {
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
 // regardless of the ALLOWED_PROVIDER_HOSTS env var. These correspond to the
-// built-in provider types (OpenAI, Nano-GPT, Z.AI Coding Plan, DeepSeek, Ollama).
+// Known provider hosts used for ALLOWED_PROVIDER_HOSTS validation.
+// Keep in sync with provider types detected by DetectProviderType in
+// internal/provider/discovery.go. New providers added there should be
+// listed here too. The canonical source is DetectProviderType's switch cases;
+// this list is a flat extraction for config validation.
 var defaultKnownProviderHosts = []string{
 	"api.openai.com",
 	"api.nano-gpt.com",
