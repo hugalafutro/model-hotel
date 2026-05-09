@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -344,6 +345,15 @@ func parseCORSOrigins(value string) []string {
 	result := util.SplitAndTrim(value)
 	if result == nil {
 		return []string{}
+	}
+	// Reject "*" wildcard — it is incompatible with credentials=true (CORS spec
+	// forbids it) and would silently break auth. Force users to list explicit origins.
+	for i, o := range result {
+		if o == "*" {
+			log.Printf("warning: CORS_ORIGINS contains \"*\", which is incompatible with credentials=true; removing it")
+			result = append(result[:i], result[i+1:]...)
+			return parseCORSOrigins(strings.Join(result, ","))
+		}
 	}
 	return result
 }
