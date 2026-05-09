@@ -21,6 +21,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// ModelResponse is the JSON response format for model API endpoints.
 type ModelResponse struct {
 	ID                           string   `json:"id"`
 	ModelID                      string   `json:"model_id"`
@@ -71,6 +72,7 @@ func modelToResponse(m model.Model) ModelResponse {
 	}
 }
 
+// RegisterModels mounts model management routes.
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
 		r.Get("/", h.ListModels)
@@ -80,6 +82,7 @@ func (h *Handler) RegisterModels(r chi.Router) {
 	})
 }
 
+// ListModels returns all models with optional provider filtering.
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 
@@ -109,6 +112,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, responses)
 }
 
+// UpdateModel updates model configuration (enabled status, pricing overrides).
 func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "model ID")
 	if !ok {
@@ -130,12 +134,12 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate field bounds
-	if dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128); dnErr != nil {
+	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
+	if dnErr != nil {
 		respondBadRequest(w, "invalid display name", dnErr)
 		return
-	} else {
-		req.DisplayName = dn
 	}
+	req.DisplayName = dn
 
 	if err := validateIntPtrRange("context_length", req.ContextLength, 256, 2000000); err != nil {
 		respondBadRequest(w, "invalid context length", err)
@@ -167,6 +171,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+// DeleteModel removes a model from the database.
 func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "model ID")
 	if !ok {
@@ -182,6 +187,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// TestModelResponse is the JSON response for model test requests.
 type TestModelResponse struct {
 	Success    bool   `json:"success"`
 	TTFTMs     *int64 `json:"ttft_ms,omitempty"`
@@ -190,6 +196,7 @@ type TestModelResponse struct {
 	Error      string `json:"error,omitempty"`
 }
 
+// TestModel tests a model by making a test request and returning latency metrics.
 func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "model ID")
 	if !ok {
@@ -243,6 +250,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	providerType := provider.DetectProviderType(prov.BaseURL)
 	targetURL := buildProviderTargetURL(prov.BaseURL, providerType)
+	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 	proxyReq, _ := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(bodyBytes))
 	setProviderAuthHeaders(proxyReq, providerType, apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
@@ -253,6 +261,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	startRequest := time.Now()
 	testClient := &http.Client{Timeout: 30 * time.Second}
+	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 	resp, err := testClient.Do(proxyReq)
 	if err != nil {
 		logQuery := `

@@ -16,7 +16,8 @@ import (
 func TestDiscoverOllama_HTTP(t *testing.T) {
 	// Create test server with mock Ollama tags response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/tags" && r.Method == "GET" {
+		switch {
+		case r.URL.Path == "/api/tags" && r.Method == "GET":
 			response := OllamaTagsResponse{
 				Models: []OllamaTagsModel{
 					{Name: "llama3.2"},
@@ -25,7 +26,7 @@ func TestDiscoverOllama_HTTP(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
-		} else if r.URL.Path == "/api/show" && r.Method == "POST" {
+		case r.URL.Path == "/api/show" && r.Method == "POST":
 			// Mock show response
 			response := OllamaShowResponse{
 				Capabilities: []string{"tools"},
@@ -38,7 +39,7 @@ func TestDiscoverOllama_HTTP(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	}))

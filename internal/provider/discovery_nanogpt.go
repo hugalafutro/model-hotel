@@ -101,6 +101,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 	return models, nil
 }
 
+// GetNanoGPTUsage retrieves usage information from a NanoGPT provider.
 func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provider, masterKey string) (*NanoGPTUsageResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {

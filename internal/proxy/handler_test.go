@@ -74,7 +74,7 @@ type mockVirtualKeyRepoWithFuncs struct {
 	deleteFunc func(ctx context.Context, id string) error
 }
 
-func (m *mockVirtualKeyRepoWithFuncs) AddTokens(ctx context.Context, keyHash string, tokens int) error {
+func (m *mockVirtualKeyRepoWithFuncs) AddTokens(_ context.Context, keyHash string, tokens int) error {
 	return nil
 }
 

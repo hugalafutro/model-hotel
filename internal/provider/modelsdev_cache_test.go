@@ -43,7 +43,7 @@ func TestLoadModelsDev_Success(t *testing.T) {
 		}
 	}`
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(responseJSON))
 	}))
@@ -85,6 +85,7 @@ func (t *modelsDevTestTransport) RoundTrip(req *http.Request) (*http.Response, e
 	// Simple approach: if the request is for models.dev API, redirect to our test server
 	if req.URL.String() == modelsDevAPIURL {
 		// Create a new request to our test server
+		//nolint:gosec // test-only: test server URL
 		testReq, err := http.NewRequest(req.Method, t.url, req.Body)
 		if err != nil {
 			return nil, err
@@ -145,7 +146,7 @@ func TestGetModelsDevCache_AfterLoad(t *testing.T) {
 		}
 	}`
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(responseJSON))
 	}))
@@ -327,7 +328,7 @@ func TestModelsDevCacheEnrichModel_EmptyModel(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestLoadModelsDevWithClient_Non200Status(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("not found"))
 	}))

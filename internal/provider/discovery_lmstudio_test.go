@@ -75,7 +75,7 @@ func TestDiscoverLMStudio_SuccessMultiple(t *testing.T) {
 }
 
 func TestDiscoverLMStudio_EmptyModels(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
 	}))
@@ -97,7 +97,7 @@ func TestDiscoverLMStudio_EmptyModels(t *testing.T) {
 }
 
 func TestDiscoverLMStudio_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte(`bad gateway`))
 	}))
@@ -116,7 +116,7 @@ func TestDiscoverLMStudio_HTTPError(t *testing.T) {
 }
 
 func TestDiscoverLMStudio_InvalidJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`not json`))
 	}))

@@ -35,6 +35,7 @@ func decryptionCacheKey(ciphertext, nonce, salt []byte) string {
 	return hex.EncodeToString(ciphertext) + ":" + hex.EncodeToString(nonce) + ":" + hex.EncodeToString(salt)
 }
 
+// DecryptCached attempts to decrypt a provider key using the cached Argon2id key.
 func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
 	ck := decryptionCacheKey(ciphertext, nonce, salt)
 
@@ -78,6 +79,7 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 	return string(plaintext), nil
 }
 
+// WarmKeyCache pre-computes Argon2id keys for active providers.
 func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 	_, err := DecryptCached(encryptedKey, keyNonce, keySalt, masterKey)
 	if err != nil {
@@ -114,6 +116,7 @@ func evictExpiredKeyCacheEntries() {
 	}
 }
 
+// StopKeyCacheEviction stops the periodic key cache eviction goroutine.
 func StopKeyCacheEviction() {
 	if keyCacheEvictionStop != nil {
 		close(keyCacheEvictionStop)

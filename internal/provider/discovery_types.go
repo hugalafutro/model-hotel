@@ -1,5 +1,6 @@
 package provider
 
+// OpenAIModel represents a model from the OpenAI API.
 type OpenAIModel struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
@@ -7,17 +8,20 @@ type OpenAIModel struct {
 	OwnedBy string `json:"owned_by"`
 }
 
+// OpenAIModelsResponse is the response from the OpenAI models endpoint.
 type OpenAIModelsResponse struct {
 	Object string        `json:"object"`
 	Data   []OpenAIModel `json:"data"`
 }
 
+// NanoGPTArchitecture describes the architecture of a NanoGPT model.
 type NanoGPTArchitecture struct {
 	Modality         string   `json:"modality"`
 	InputModalities  []string `json:"input_modalities"`
 	OutputModalities []string `json:"output_modalities"`
 }
 
+// NanoGPTCapabilities lists the capabilities of a NanoGPT model.
 type NanoGPTCapabilities struct {
 	Vision            bool `json:"vision"`
 	VideoInput        bool `json:"video_input"`
@@ -29,6 +33,7 @@ type NanoGPTCapabilities struct {
 	PDFUpload         bool `json:"pdf_upload"`
 }
 
+// NanoGPTPricing contains pricing information for a NanoGPT model.
 type NanoGPTPricing struct {
 	Prompt     float64 `json:"prompt"`
 	Completion float64 `json:"completion"`
@@ -36,11 +41,13 @@ type NanoGPTPricing struct {
 	Unit       string  `json:"unit"`
 }
 
+// NanoGPTSubscription describes subscription details for a NanoGPT model.
 type NanoGPTSubscription struct {
 	Included bool   `json:"included"`
 	Note     string `json:"note"`
 }
 
+// NanoGPTModel represents a model from the NanoGPT API.
 type NanoGPTModel struct {
 	ID              string               `json:"id"`
 	Name            string               `json:"name"`
@@ -54,17 +61,20 @@ type NanoGPTModel struct {
 	Subscription    *NanoGPTSubscription `json:"subscription"`
 }
 
+// NanoGPTDetailedResponse is the detailed response from the NanoGPT models endpoint.
 type NanoGPTDetailedResponse struct {
 	Object string         `json:"object"`
 	Data   []NanoGPTModel `json:"data"`
 }
 
+// NanoGPTUsageLimits describes usage limits for a NanoGPT account.
 type NanoGPTUsageLimits struct {
 	WeeklyInputTokens *int64 `json:"weeklyInputTokens"`
 	DailyInputTokens  *int64 `json:"dailyInputTokens"`
 	DailyImages       *int64 `json:"dailyImages"`
 }
 
+// NanoGPTUsageTokenInfo contains token usage information.
 type NanoGPTUsageTokenInfo struct {
 	Used        int64   `json:"used"`
 	Remaining   int64   `json:"remaining"`
@@ -72,6 +82,7 @@ type NanoGPTUsageTokenInfo struct {
 	ResetAt     int64   `json:"resetAt"`
 }
 
+// NanoGPTUsageDailyImages contains daily image generation usage information.
 type NanoGPTUsageDailyImages struct {
 	Used        int64   `json:"used"`
 	Remaining   int64   `json:"remaining"`
@@ -79,10 +90,12 @@ type NanoGPTUsageDailyImages struct {
 	ResetAt     int64   `json:"resetAt"`
 }
 
+// NanoGPTUsagePeriod describes the current billing period.
 type NanoGPTUsagePeriod struct {
 	CurrentPeriodEnd string `json:"currentPeriodEnd"`
 }
 
+// NanoGPTUsageResponse is the response from the NanoGPT usage endpoint.
 type NanoGPTUsageResponse struct {
 	Active             bool                     `json:"active"`
 	Provider           string                   `json:"provider"`
@@ -104,6 +117,7 @@ type NanoGPTUsageResponse struct {
 	GraceUntil         *string                  `json:"graceUntil"`
 }
 
+// DeepSeekBalanceInfo contains balance information for a DeepSeek account.
 type DeepSeekBalanceInfo struct {
 	Currency        string `json:"currency"`
 	TotalBalance    string `json:"total_balance"`
@@ -111,11 +125,13 @@ type DeepSeekBalanceInfo struct {
 	ToppedUpBalance string `json:"topped_up_balance"`
 }
 
+// DeepSeekBalanceResponse is the response from the DeepSeek balance endpoint.
 type DeepSeekBalanceResponse struct {
 	IsAvailable  bool                  `json:"is_available"`
 	BalanceInfos []DeepSeekBalanceInfo `json:"balance_infos"`
 }
 
+// OllamaTagsModelDetails contains details about an Ollama model.
 type OllamaTagsModelDetails struct {
 	ParentModel       string   `json:"parent_model"`
 	Format            string   `json:"format"`
@@ -125,6 +141,7 @@ type OllamaTagsModelDetails struct {
 	QuantizationLevel string   `json:"quantization_level"`
 }
 
+// OllamaTagsModel represents a model from the Ollama tags endpoint.
 type OllamaTagsModel struct {
 	Name       string                 `json:"name"`
 	Model      string                 `json:"model"`
@@ -134,10 +151,12 @@ type OllamaTagsModel struct {
 	Details    OllamaTagsModelDetails `json:"details"`
 }
 
+// OllamaTagsResponse is the response from the Ollama tags endpoint.
 type OllamaTagsResponse struct {
 	Models []OllamaTagsModel `json:"models"`
 }
 
+// OllamaShowDetails contains detailed information about an Ollama model.
 type OllamaShowDetails struct {
 	ParentModel       string   `json:"parent_model"`
 	Format            string   `json:"format"`
@@ -147,6 +166,7 @@ type OllamaShowDetails struct {
 	QuantizationLevel string   `json:"quantization_level"`
 }
 
+// OllamaShowResponse is the response from the Ollama show endpoint.
 type OllamaShowResponse struct {
 	Details      OllamaShowDetails `json:"details"`
 	ModelInfo    map[string]any    `json:"model_info"`
@@ -154,11 +174,13 @@ type OllamaShowResponse struct {
 	ModifiedAt   string            `json:"modified_at"`
 }
 
+// ZAICodingQuotaUsageDetail contains usage details for a ZAI Coding model.
 type ZAICodingQuotaUsageDetail struct {
 	ModelCode string `json:"modelCode"`
 	Usage     int64  `json:"usage"`
 }
 
+// ZAICodingQuotaLimit contains quota limit information for ZAI Coding.
 type ZAICodingQuotaLimit struct {
 	Type          string                      `json:"type"`
 	Unit          int                         `json:"unit"`
@@ -171,11 +193,13 @@ type ZAICodingQuotaLimit struct {
 	UsageDetails  []ZAICodingQuotaUsageDetail `json:"usageDetails,omitempty"`
 }
 
+// ZAICodingQuotaData contains quota data for ZAI Coding provider.
 type ZAICodingQuotaData struct {
 	Limits []ZAICodingQuotaLimit `json:"limits"`
 	Level  string                `json:"level"`
 }
 
+// ZAICodingQuotaResponse is the API response from ZAI Coding quota endpoint.
 type ZAICodingQuotaResponse struct {
 	Code    int                `json:"code"`
 	Msg     string             `json:"msg"`
@@ -183,10 +207,12 @@ type ZAICodingQuotaResponse struct {
 	Success bool               `json:"success"`
 }
 
+// AnthropicCapSupport indicates whether an Anthropic capability is supported.
 type AnthropicCapSupport struct {
 	Supported bool `json:"supported"`
 }
 
+// AnthropicCapabilities lists supported capabilities for Anthropic models.
 type AnthropicCapabilities struct {
 	Batch             AnthropicCapSupport `json:"batch"`
 	Citations         AnthropicCapSupport `json:"citations"`
@@ -196,6 +222,7 @@ type AnthropicCapabilities struct {
 	StructuredOutputs AnthropicCapSupport `json:"structured_outputs"`
 }
 
+// AnthropicModelInfo represents an Anthropic model from the models endpoint.
 type AnthropicModelInfo struct {
 	ID             string                 `json:"id"`
 	Type           string                 `json:"type"`
@@ -206,6 +233,7 @@ type AnthropicModelInfo struct {
 	Capabilities   *AnthropicCapabilities `json:"capabilities"`
 }
 
+// AnthropicModelsResponse is the response from the Anthropic models endpoint.
 type AnthropicModelsResponse struct {
 	Data    []AnthropicModelInfo `json:"data"`
 	HasMore bool                 `json:"has_more"`

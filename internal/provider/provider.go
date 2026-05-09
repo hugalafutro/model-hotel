@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Provider represents an LLM provider configuration.
 type Provider struct {
 	ID               uuid.UUID  `json:"id"`
 	Name             string     `json:"name"`
@@ -24,12 +25,14 @@ type Provider struct {
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
+// CreateProviderRequest is the request body for creating a provider.
 type CreateProviderRequest struct {
 	Name    string `json:"name"`
 	BaseURL string `json:"base_url"`
 	APIKey  string `json:"api_key"`
 }
 
+// UpdateProviderRequest is the request body for updating a provider.
 type UpdateProviderRequest struct {
 	Name    *string `json:"name"`
 	BaseURL *string `json:"base_url"`
@@ -37,6 +40,9 @@ type UpdateProviderRequest struct {
 	Enabled *bool   `json:"enabled"`
 }
 
+// ProviderResponse is the response body for provider operations.
+//
+//nolint:revive // stutter is acceptable: ProviderResponse is a domain concept
 type ProviderResponse struct {
 	ID               uuid.UUID  `json:"id"`
 	Name             string     `json:"name"`
@@ -51,14 +57,19 @@ type ProviderResponse struct {
 	TotalTokens      int        `json:"total_tokens"`
 }
 
+// Repository manages provider CRUD operations.
 type Repository struct {
 	pool *pgxpool.Pool
 }
 
+// NewRepository creates a new provider repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// Create creates a new provider with the given request and encrypted key material.
+//
+//nolint:gocritic // same-type params are clearer with separate names
 func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	mk := MaskAPIKey(req.APIKey)
 	query := `
@@ -82,6 +93,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 
 const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, last_discovered_at, last_used_at, created_at, updated_at`
 
+// List returns all providers ordered by creation date.
 func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 	query := `SELECT ` + providerColumns + ` FROM providers ORDER BY created_at DESC`
 
@@ -107,6 +119,7 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 	return providers, nil
 }
 
+// Get retrieves a provider by ID.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	if p, ok := GetCachedByID(id); ok {
 		return p, nil
@@ -127,6 +140,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	return &p, nil
 }
 
+// GetByIDs retrieves multiple providers by their IDs.
 func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*Provider, error) {
 	result := make(map[uuid.UUID]*Provider, len(ids))
 
@@ -170,6 +184,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	return result, rows.Err()
 }
 
+// GetByName retrieves a provider by name (with normalization fallback).
 func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, error) {
 	if p, ok := GetCachedByName(name); ok {
 		return p, nil
@@ -201,6 +216,9 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 	return &p, nil
 }
 
+// Update updates a provider's fields.
+//
+//nolint:gocritic // same-type params are clearer with separate names
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	var maskedKey *string
 	if req.APIKey != nil {
@@ -235,6 +253,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	return &p, nil
 }
 
+// Delete removes a provider by ID.
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM providers WHERE id = $1`
 	result, err := r.pool.Exec(ctx, query, id)
@@ -250,6 +269,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// ToResponse converts a Provider to a ProviderResponse.
 func ToResponse(p *Provider) ProviderResponse {
 	maskedKey := "N/A"
 	if len(p.EncryptedKey) > 0 {
@@ -273,6 +293,7 @@ func ToResponse(p *Provider) ProviderResponse {
 	}
 }
 
+// MaskAPIKey returns a masked version of an API key for display.
 func MaskAPIKey(apiKey string) string {
 	if len(apiKey) <= 4 {
 		return "***"
@@ -280,6 +301,7 @@ func MaskAPIKey(apiKey string) string {
 	return apiKey[:2] + "..." + apiKey[len(apiKey)-2:]
 }
 
+// TouchLastUsed updates the last_used_at timestamp for a provider.
 func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE providers SET last_used_at = now() WHERE id = $1

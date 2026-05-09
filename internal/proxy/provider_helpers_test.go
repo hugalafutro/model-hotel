@@ -191,7 +191,7 @@ func TestGetCachedRejectedParams_WrongType(t *testing.T) {
 	}
 }
 
-func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
+func TestGetCachedRejectedParams_NilMapValue(_ *testing.T) {
 	var cache sync.Map
 	cache.Store("key", map[string]bool(nil))
 

@@ -565,7 +565,7 @@ func TestCreateProvider_DifferentTypes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			providerData := fmt.Sprintf(`{"name": "test-%s", "base_url": "%s", "api_key": "test-api-key"}`, tc.name, tc.baseURL)
+			providerData := fmt.Sprintf(`{"name": "test-%s", "base_url": %q, "api_key": "test-api-key"}`, tc.name, tc.baseURL)
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 			req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -651,7 +651,7 @@ func TestCreateProvider_VariousTypes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			providerData := fmt.Sprintf(`{"name": "test-%s-%s", "base_url": "%s", "api_key": "%s"}`, tc.name, uuid.New().String()[:8], tc.baseURL, tc.apiKey)
+			providerData := fmt.Sprintf(`{"name": "test-%s-%s", "base_url": %q, "api_key": %q}`, tc.name, uuid.New().String()[:8], tc.baseURL, tc.apiKey)
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 			req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -686,7 +686,7 @@ func TestPurgeLogs(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			purgeData := fmt.Sprintf(`{"older_than": "%s"}`, tc.olderThan)
+			purgeData := fmt.Sprintf(`{"older_than": %q}`, tc.olderThan)
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/logs/purge", strings.NewReader(purgeData))
 			req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -2171,7 +2171,7 @@ func TestGetProviderDistribution_WithLogs(t *testing.T) {
 	providerIDs := make(map[string]string)
 
 	for _, name := range providers {
-		providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, name)
+		providerData := fmt.Sprintf(`{"name": %q, "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, name)
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -2371,7 +2371,7 @@ func TestUpdateModel_Validation(t *testing.T) {
 
 	t.Run("InvalidDisplayName", func(t *testing.T) {
 		longName := strings.Repeat("x", 129) // Too long
-		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(fmt.Sprintf(`{"display_name":"%s"}`, longName)))
+		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(fmt.Sprintf(`{"display_name":%q}`, longName)))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -3305,7 +3305,7 @@ func TestUpdateProvider_InvalidName(t *testing.T) {
 
 	// Update with invalid name (too long)
 	longName := strings.Repeat("x", 129) // Too long
-	updateData := fmt.Sprintf(`{"name": "%s"}`, longName)
+	updateData := fmt.Sprintf(`{"name": %q}`, longName)
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("PUT", "/providers/"+createResp.ID, strings.NewReader(updateData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")

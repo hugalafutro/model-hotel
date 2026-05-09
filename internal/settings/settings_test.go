@@ -27,11 +27,11 @@ func TestMain(m *testing.M) {
 	testDB, err := db.New(ctx, testURL, 25, 5)
 	if err != nil {
 		fmt.Printf("failed to initialize test DB: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
 	testPool = testDB.Pool()
 	defer testDB.Close()
-	os.Exit(m.Run())
+	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 }
 
 func clearSettings(t *testing.T) {

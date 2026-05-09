@@ -1,3 +1,4 @@
+// Package util provides helper functions for system utilities and Docker integration.
 package util
 
 import (
@@ -24,6 +25,7 @@ var (
 	sharedDockerCli  *http.Client
 )
 
+// IsDockerAvailable checks if Docker socket is accessible and responsive.
 func IsDockerAvailable() bool {
 	dockerCheckMu.Do(func() {
 		if _, err := os.Stat(dockerSocketPath); err != nil {
@@ -78,6 +80,7 @@ func CloseDockerClient() {
 	}
 }
 
+// DockerContainer represents a Docker container with basic metadata.
 type DockerContainer struct {
 	ID     string `json:"Id"`
 	Name   string
@@ -85,6 +88,7 @@ type DockerContainer struct {
 	State  string
 }
 
+// ContainerStats holds resource usage statistics for a container.
 type ContainerStats struct {
 	Name        string
 	CPUPercent  float64
@@ -146,6 +150,7 @@ type dockerStatsResponse struct {
 	} `json:"pids_stats"`
 }
 
+// ListComposeContainers lists containers filtered by Docker Compose project.
 func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 	client := dockerHTTPClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -189,6 +194,7 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 	return result, nil
 }
 
+// GetContainerStats retrieves CPU and memory stats for a Docker container.
 func GetContainerStats(containerID string) (*ContainerStats, error) {
 	client := dockerHTTPClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -259,6 +265,7 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 	return stats, nil
 }
 
+// AggregatedDockerStats holds combined metrics from all containers in a project.
 type AggregatedDockerStats struct {
 	Available         bool    `json:"available"`
 	CPUPercent        float64 `json:"cpu_percent"`
@@ -281,6 +288,7 @@ var (
 	prevDockerMu       sync.Mutex
 )
 
+// CollectDockerStats aggregates resource usage across all containers in a project.
 func CollectDockerStats(composeProject string) AggregatedDockerStats {
 	result := AggregatedDockerStats{}
 
@@ -411,9 +419,10 @@ func isHex(s string) bool {
 			return false
 		}
 	}
-	return len(s) > 0
+	return s != ""
 }
 
+// DetectComposeProject detects the Docker Compose project name for the current container.
 func DetectComposeProject() string {
 	containerID := getOwnContainerID()
 	if containerID != "" && IsDockerAvailable() {

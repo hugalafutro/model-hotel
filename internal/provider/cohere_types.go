@@ -13,6 +13,7 @@ type CohereNativeModel struct {
 	SamplingDefaults *CohereSamplingDefaults `json:"sampling_defaults,omitempty"`
 }
 
+// CohereSamplingDefaults contains default sampling parameters for Cohere models.
 type CohereSamplingDefaults struct {
 	Temperature      float64 `json:"temperature,omitempty"`
 	K                int     `json:"k,omitempty"`

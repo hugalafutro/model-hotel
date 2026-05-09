@@ -19,6 +19,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// DiscoveryService handles model discovery across different LLM providers.
 type DiscoveryService struct {
 	httpClient *http.Client
 	// quotaBreaker tracks per-provider circuit breaker state for quota fetches.
@@ -26,6 +27,7 @@ type DiscoveryService struct {
 	quotaBreaker sync.Map
 }
 
+// NewDiscoveryService creates a new discovery service instance.
 func NewDiscoveryService() *DiscoveryService {
 	return &DiscoveryService{
 		httpClient: &http.Client{
@@ -38,6 +40,7 @@ func NewDiscoveryService() *DiscoveryService {
 // response body, and checks for a 200 OK status. Returns the response body
 // bytes on success. The caller is responsible for unmarshaling the result.
 func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, headers http.Header) ([]byte, error) {
+	//nolint:gocritic // url variable shadows import but context makes it clear
 	req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -170,6 +173,7 @@ func DetectProviderType(baseURL string) string {
 	return "openai"
 }
 
+// DiscoverModels discovers available models from a provider.
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
 	providerType := DetectProviderType(provider.BaseURL)
 	debuglog.Info("discovery: starting discovery", "provider", provider.ID, "type", providerType)
@@ -365,6 +369,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 			case <-time.After(backoff):
 			}
 		}
+		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
 			if isTransientNetworkError(err) {

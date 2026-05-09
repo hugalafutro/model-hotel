@@ -79,11 +79,13 @@ type modelCandidate struct {
 	apiKey   string
 }
 
+// ChatCompletionRequest is the request body for /v1/chat/completions.
 type ChatCompletionRequest struct {
 	Model  string `json:"model"`
 	Stream bool   `json:"stream,omitempty"`
 }
 
+// ChatCompletionResponse is the OpenAI-compatible response format.
 type ChatCompletionResponse struct {
 	ID      string   `json:"id"`
 	Object  string   `json:"object"`
@@ -93,6 +95,7 @@ type ChatCompletionResponse struct {
 	Usage   Usage    `json:"usage"`
 }
 
+// Choice represents a single completion choice in the response.
 type Choice struct {
 	Index        int     `json:"index"`
 	Message      Message `json:"message,omitempty"`
@@ -100,11 +103,13 @@ type Choice struct {
 	FinishReason *string `json:"finish_reason,omitempty"`
 }
 
+// Message represents a chat message with role and content.
 type Message struct {
 	Role    string      `json:"role"`
 	Content interface{} `json:"content"`
 }
 
+// Usage contains token usage statistics for a request.
 type Usage struct {
 	PromptTokens          int `json:"prompt_tokens"`
 	CompletionTokens      int `json:"completion_tokens"`

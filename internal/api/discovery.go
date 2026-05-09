@@ -15,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
+// RegisterProviderDiscovery mounts provider discovery and usage routes.
 func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	r.Post("/providers/discover-all", h.DiscoverAllModels)
 	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
@@ -29,6 +30,7 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	})
 }
 
+// DiscoverProviderModels discovers and imports models from a specific provider.
 func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -123,6 +125,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, response)
 }
 
+// GetProviderUsage fetches usage/quota information for a provider.
 func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -168,6 +171,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetProviderBalance fetches balance information for a provider.
 func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -197,12 +201,14 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DiscoverAllResult holds the result of discovering models from a single provider.
 type DiscoverAllResult struct {
 	ProviderName string `json:"provider_name"`
 	Discovered   int    `json:"discovered"`
 	Error        string `json:"error,omitempty"`
 }
 
+// DiscoverAllModels discovers and imports models from all enabled providers.
 func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
@@ -317,6 +323,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// QuotaRefreshResult holds the result of refreshing quotas for a single provider.
 type QuotaRefreshResult struct {
 	ProviderName string `json:"provider_name"`
 	ProviderType string `json:"provider_type"`
@@ -324,6 +331,7 @@ type QuotaRefreshResult struct {
 	Error        string `json:"error,omitempty"`
 }
 
+// RefreshAllQuotas refreshes quota information for all providers that support it.
 func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {

@@ -1,3 +1,4 @@
+// Package settings provides database-backed settings with caching and change subscriptions.
 package settings
 
 import (
@@ -105,6 +106,7 @@ func (s *Subscription) Unsubscribe() {
 	s.once.Do(s.clean)
 }
 
+// NewRepository creates a new settings repository with caching.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:     pool,
@@ -144,6 +146,8 @@ func (r *Repository) unsubscribe(id uint64) {
 			// Drain and close in a goroutine in case a publisher is
 			// currently blocked on this channel.
 			go func(c chan ChangeEvent) {
+				// Drain any remaining events from the channel before closing.
+				//nolint:revive,gosec // intentional: empty block for channel drain
 				for range c {
 				}
 				close(c)
@@ -193,6 +197,7 @@ func (r *Repository) notifyChange(key, value string) {
 	}
 }
 
+// Get retrieves a setting value directly from the database.
 func (r *Repository) Get(ctx context.Context, key string) (string, error) {
 	var value string
 	err := r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&value)
@@ -202,7 +207,8 @@ func (r *Repository) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
-func (r *Repository) GetWithDefault(ctx context.Context, key string, defaultValue string) string {
+// GetWithDefault retrieves a setting from cache or database, returning defaultValue if not found.
+func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	r.mu.RLock()
 	if entry, ok := r.cache[key]; ok && time.Now().Before(entry.expiresAt) {
 		r.mu.RUnlock()
@@ -223,7 +229,8 @@ func (r *Repository) GetWithDefault(ctx context.Context, key string, defaultValu
 	return value
 }
 
-func (r *Repository) Set(ctx context.Context, key string, value string) error {
+// Set updates a setting and invalidates the cache.
+func (r *Repository) Set(ctx context.Context, key, value string) error {
 	r.mu.Lock()
 	delete(r.cache, key)
 	r.mu.Unlock()
@@ -239,7 +246,8 @@ func (r *Repository) Set(ctx context.Context, key string, value string) error {
 	return nil
 }
 
-func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
+// SetTx updates a setting within an existing transaction.
+func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error {
 	if !AllowedSettings[key] {
 		debuglog.Warn("settings: rejected setting not in allowlist", "key", key)
 		return fmt.Errorf("setting %q is not in allowlist", key)
@@ -251,6 +259,7 @@ func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key string, value str
 	return err
 }
 
+// InvalidateCache removes a key from the cache and notifies subscribers.
 func (r *Repository) InvalidateCache(key string) {
 	r.mu.Lock()
 	delete(r.cache, key)
@@ -263,6 +272,7 @@ func (r *Repository) InvalidateCache(key string) {
 	r.notifyChange(key, val)
 }
 
+// GetAll retrieves all settings as a key-value map.
 func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {
 	rows, err := r.pool.Query(ctx, "SELECT key, value FROM settings")
 	if err != nil {
@@ -281,6 +291,7 @@ func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {
 	return result, nil
 }
 
+// GetBool retrieves a setting and parses it as a boolean.
 func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool) bool {
 	val := r.GetWithDefault(ctx, key, strconv.FormatBool(defaultValue))
 	b, err := strconv.ParseBool(val)
@@ -291,6 +302,7 @@ func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool)
 	return b
 }
 
+// GetDuration retrieves a setting and parses it as a time.Duration.
 func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration {
 	val := r.GetWithDefault(ctx, key, defaultValue.String())
 	d, err := time.ParseDuration(val)
@@ -301,6 +313,7 @@ func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue t
 	return d
 }
 
+// GetFloat retrieves a setting and parses it as a float64.
 func (r *Repository) GetFloat(ctx context.Context, key string, defaultValue float64) float64 {
 	val := r.GetWithDefault(ctx, key, strconv.FormatFloat(defaultValue, 'f', -1, 64))
 	f, err := strconv.ParseFloat(val, 64)
@@ -311,6 +324,7 @@ func (r *Repository) GetFloat(ctx context.Context, key string, defaultValue floa
 	return f
 }
 
+// GetInt retrieves a setting and parses it as an int.
 func (r *Repository) GetInt(ctx context.Context, key string, defaultValue int) int {
 	val := r.GetWithDefault(ctx, key, strconv.Itoa(defaultValue))
 	i, err := strconv.Atoi(val)

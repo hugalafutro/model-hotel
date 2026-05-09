@@ -15,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
+// FailoverHandler handles failover group API endpoints.
 type FailoverHandler struct {
 	failoverRepo *failover.Repository
 	modelRepo    *model.Repository
@@ -22,6 +23,7 @@ type FailoverHandler struct {
 	settingsRepo SettingsStore
 }
 
+// NewFailoverHandler creates a new failover group handler.
 func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
@@ -31,6 +33,7 @@ func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository,
 	}
 }
 
+// FailoverEntryResponse represents a failover group entry in API responses.
 type FailoverEntryResponse struct {
 	ModelUUID     string `json:"model_uuid"`
 	ModelID       string `json:"model_id"`
@@ -42,6 +45,7 @@ type FailoverEntryResponse struct {
 	OwnedBy       string `json:"owned_by"`
 }
 
+// FailoverGroupResponse represents a failover group in API responses.
 type FailoverGroupResponse struct {
 	ID           string                  `json:"id"`
 	DisplayModel string                  `json:"display_model"`
@@ -55,11 +59,13 @@ type FailoverGroupResponse struct {
 	UpdatedAt    string                  `json:"updated_at"`
 }
 
+// FailoverListResponse is the response for listing failover groups.
 type FailoverListResponse struct {
 	Groups       []FailoverGroupResponse `json:"groups"`
 	LastSyncedAt *string                 `json:"last_synced_at"`
 }
 
+// FailoverGroupBrief contains brief failover group info for list views.
 type FailoverGroupBrief struct {
 	ID           string `json:"id"`
 	DisplayModel string `json:"display_model"`
@@ -67,6 +73,7 @@ type FailoverGroupBrief struct {
 	TotalEntries int    `json:"total_entries"`
 }
 
+// Register mounts failover group routes on the given router.
 func (h *FailoverHandler) Register(r chi.Router) {
 	r.Route("/failover-groups", func(r chi.Router) {
 		r.Get("/", h.List)
@@ -80,6 +87,7 @@ func (h *FailoverHandler) Register(r chi.Router) {
 	})
 }
 
+// List returns all failover groups.
 func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 	groups, err := h.failoverRepo.List(r.Context())
 	if err != nil {
@@ -140,6 +148,7 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, e
 	return counts, nil
 }
 
+// Get retrieves a failover group by ID.
 func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
 	if !ok {
@@ -167,6 +176,7 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+// CreateFailoverGroupRequest is the request body for creating a failover group.
 type CreateFailoverGroupRequest struct {
 	DisplayModel string   `json:"display_model"`
 	DisplayName  *string  `json:"display_name"`
@@ -174,6 +184,7 @@ type CreateFailoverGroupRequest struct {
 	EntryIDs     []string `json:"entry_ids"`
 }
 
+// Create creates a new failover group.
 func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateFailoverGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -188,12 +199,12 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	req.DisplayModel = trimmedModel
 
-	if dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128); dnErr != nil {
+	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
+	if dnErr != nil {
 		respondBadRequest(w, "invalid display name", dnErr)
 		return
-	} else {
-		req.DisplayName = dn
 	}
+	req.DisplayName = dn
 
 	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
 		respondBadRequest(w, "invalid description", err)
@@ -243,6 +254,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSONCreated(w, resp)
 }
 
+// UpdateFailoverGroupRequest is the request body for updating a failover group.
 type UpdateFailoverGroupRequest struct {
 	DisplayName   *string         `json:"display_name"`
 	Description   *string         `json:"description"`
@@ -251,6 +263,7 @@ type UpdateFailoverGroupRequest struct {
 	EntryEnabled  map[string]bool `json:"entry_enabled"`
 }
 
+// Update updates an existing failover group by ID.
 func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
 	if !ok {
@@ -270,12 +283,12 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate field lengths
-	if dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128); dnErr != nil {
+	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
+	if dnErr != nil {
 		respondBadRequest(w, "invalid display name", dnErr)
 		return
-	} else {
-		req.DisplayName = dn
 	}
+	req.DisplayName = dn
 
 	if err := validateStringPtrLength("description", req.Description, 0, 500); err != nil {
 		respondBadRequest(w, "invalid description", err)
@@ -345,6 +358,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+// Delete deletes a failover group by ID.
 func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
 	if !ok {
@@ -359,6 +373,7 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Sync synchronizes failover groups with model database.
 func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	result, err := h.failoverRepo.SyncAllModels(r.Context())
 	if err != nil {
@@ -373,6 +388,7 @@ func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// CandidateModelResponse represents a model candidate for failover groups.
 type CandidateModelResponse struct {
 	ModelUUID     string `json:"model_uuid"`
 	ModelID       string `json:"model_id"`
@@ -383,6 +399,7 @@ type CandidateModelResponse struct {
 	OwnedBy       string `json:"owned_by"`
 }
 
+// Candidates returns available models that can be added to failover groups.
 func (h *FailoverHandler) Candidates(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.List(r.Context(), nil)
 	if err != nil {
@@ -409,6 +426,7 @@ func (h *FailoverHandler) Candidates(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, candidates)
 }
 
+// GetByModelUUID retrieves a failover group by model UUID.
 func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request) {
 	modelUUID, ok := parseUUIDParam(w, r, "model_uuid", "model UUID")
 	if !ok {

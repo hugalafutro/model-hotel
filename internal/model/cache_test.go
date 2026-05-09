@@ -339,7 +339,7 @@ func TestInvalidateModelCache_RemovesAll(t *testing.T) {
 	}
 }
 
-func TestInvalidateModelCache_EmptyCache(t *testing.T) {
+func TestInvalidateModelCache_EmptyCache(_ *testing.T) {
 	// Should not panic on empty cache
 	InvalidateModelCache()
 	InvalidateModelCache()
@@ -401,14 +401,14 @@ func TestWarmModelCache_MultipleModels(t *testing.T) {
 	}
 }
 
-func TestWarmModelCache_EmptySlice(t *testing.T) {
+func TestWarmModelCache_EmptySlice(_ *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic
 	WarmModelCache([]*Model{})
 }
 
-func TestWarmModelCache_NilSlice(t *testing.T) {
+func TestWarmModelCache_NilSlice(_ *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic

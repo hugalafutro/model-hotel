@@ -10,6 +10,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// NormalizeName normalizes a provider name by replacing spaces with hyphens.
 func NormalizeName(name string) string {
 	s := strings.ReplaceAll(name, " ", "-")
 	return s
@@ -44,6 +45,7 @@ func cacheProvider(p *Provider) {
 	providerCacheMu.Unlock()
 }
 
+// GetCachedByID returns a cached provider by ID if not expired.
 func GetCachedByID(id uuid.UUID) (*Provider, bool) {
 	providerCacheMu.RLock()
 	entry, ok := providerByIDCache[id]
@@ -54,6 +56,7 @@ func GetCachedByID(id uuid.UUID) (*Provider, bool) {
 	return entry.provider, true
 }
 
+// GetCachedByName returns a cached provider by name (exact or normalized) if not expired.
 func GetCachedByName(name string) (*Provider, bool) {
 	providerCacheMu.RLock()
 	entry, ok := providerByNameCache[name]
@@ -67,6 +70,7 @@ func GetCachedByName(name string) (*Provider, bool) {
 	return entry.provider, true
 }
 
+// InvalidateProviderCache clears all provider cache entries.
 func InvalidateProviderCache() {
 	providerCacheMu.Lock()
 	providerByIDCache = make(map[uuid.UUID]providerCacheEntry)
@@ -75,6 +79,7 @@ func InvalidateProviderCache() {
 	providerCacheMu.Unlock()
 }
 
+// WarmProviderCache populates the provider cache with the given providers.
 func WarmProviderCache(providers []*Provider) {
 	for _, p := range providers {
 		cacheProvider(p)

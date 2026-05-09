@@ -14,6 +14,7 @@ type OpenRouterModel struct {
 	PerRequestLimits    *OpenRouterPerRequestLimits `json:"per_request_limits,omitempty"`
 }
 
+// OpenRouterArchitecture describes the architecture of an OpenRouter model.
 type OpenRouterArchitecture struct {
 	Modality         string   `json:"modality"`
 	InputModalities  []string `json:"input_modalities"`
@@ -33,12 +34,14 @@ type OpenRouterPricing struct {
 	Reasoning       string `json:"reasoning,omitempty"`
 }
 
+// OpenRouterTopProvider contains information about the top provider for an OpenRouter model.
 type OpenRouterTopProvider struct {
 	ContextLength       int  `json:"context_length"`
 	MaxCompletionTokens int  `json:"max_completion_tokens"`
 	IsModerated         bool `json:"is_moderated"`
 }
 
+// OpenRouterPerRequestLimits contains per-request limits for an OpenRouter model.
 type OpenRouterPerRequestLimits struct {
 	MaxTokens *int `json:"max_tokens,omitempty"`
 }

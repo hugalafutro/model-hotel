@@ -15,13 +15,13 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// KoboldCPP /api/extra/version response
+// KoboldCPPVersionResponse is the response from /api/extra/version.
 type KoboldCPPVersionResponse struct {
 	Result  string `json:"result"`
 	Version string `json:"version"`
 }
 
-// KoboldCPP /v1/models response (OpenAI-compatible)
+// KoboldCPPModelsResponse is the OpenAI-compatible models response from KoboldCPP.
 type KoboldCPPModelsResponse struct {
 	Object string `json:"object"`
 	Data   []struct {
@@ -32,7 +32,7 @@ type KoboldCPPModelsResponse struct {
 	} `json:"data"`
 }
 
-// KoboldCPP /api/extra/perf response (for context size info)
+// KoboldCPPPerfResponse contains performance info from KoboldCPP.
 type KoboldCPPPerfResponse struct {
 	LastProcessTime    float64 `json:"last_process"`
 	LastGenerationTime float64 `json:"last_gen"`

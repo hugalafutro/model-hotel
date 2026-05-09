@@ -10,6 +10,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// StreamEvents handles server-sent events for real-time dashboard updates.
 func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {

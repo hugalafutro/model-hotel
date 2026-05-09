@@ -43,6 +43,7 @@ var googlePricingCatalog = []GoogleModelPricing{
 	{ModelID: "models/gemini-embedding-001", DisplayName: "Gemini Embedding 001", InputPricePerMillion: 0.15, FreeTier: true},
 }
 
+// LookupGooglePricing finds pricing for a model in the Google catalog.
 func LookupGooglePricing(catalog []GoogleModelPricing, modelID string) *GoogleModelPricing {
 	for i := range catalog {
 		if catalog[i].ModelID == modelID {
@@ -52,6 +53,7 @@ func LookupGooglePricing(catalog []GoogleModelPricing, modelID string) *GoogleMo
 	return nil
 }
 
+// GetGooglePricingCatalog returns the Google model pricing catalog.
 func GetGooglePricingCatalog() []GoogleModelPricing {
 	return googlePricingCatalog
 }

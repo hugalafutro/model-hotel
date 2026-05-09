@@ -298,7 +298,7 @@ func TestChatCompletions_StreamOptionsInjection(t *testing.T) {
 
 func TestFailoverBackoff_Sequence(t *testing.T) {
 	base := 100 * time.Millisecond
-	cap_ := 2 * time.Second
+	capacity := 2 * time.Second
 
 	// Each attempt's backoff should be in [exponential, exponential+base)
 	// because jitter is [0, base).
@@ -318,7 +318,7 @@ func TestFailoverBackoff_Sequence(t *testing.T) {
 
 	for _, tc := range cases {
 		for i := 0; i < 100; i++ {
-			got := failoverBackoff(base, cap_, tc.attempt)
+			got := failoverBackoff(base, capacity, tc.attempt)
 			if got < tc.minBackoff || got >= tc.maxBackoff {
 				t.Errorf("attempt %d (sample %d): backoff = %v, want in [%v, %v)", tc.attempt, i, got, tc.minBackoff, tc.maxBackoff)
 				break // one failure per case is enough
@@ -334,7 +334,7 @@ func TestFailoverBackoff_Sequence(t *testing.T) {
 func TestProxyKeyMiddleware_MissingHeader(t *testing.T) {
 	h := &Handler{cfg: &config.Config{MasterKey: "test"}, ipLimiter: ratelimit.NewIPLimiter(30, 60, nil, nil)}
 	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		called = true
 	})
 	handler := h.ProxyKeyMiddleware(next)
@@ -354,7 +354,7 @@ func TestProxyKeyMiddleware_MissingHeader(t *testing.T) {
 func TestProxyKeyMiddleware_InvalidScheme(t *testing.T) {
 	h := &Handler{cfg: &config.Config{MasterKey: "test"}, ipLimiter: ratelimit.NewIPLimiter(30, 60, nil, nil)}
 	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		called = true
 	})
 	handler := h.ProxyKeyMiddleware(next)

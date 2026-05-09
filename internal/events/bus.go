@@ -1,3 +1,4 @@
+// Package events provides a simple event bus for SSE subscriptions.
 package events
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// Event represents a publishable event for SSE distribution.
 type Event struct {
 	ID        string                 `json:"id"`
 	Type      string                 `json:"type"`
@@ -18,13 +20,16 @@ type Event struct {
 	Timestamp time.Time              `json:"timestamp"`
 }
 
+// Bus is an event bus for distributing events to SSE subscribers.
 type Bus struct {
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}
 }
 
+// DefaultBus is the global default event bus.
 var DefaultBus = NewBus()
 
+// NewBus creates a new event bus instance.
 func NewBus() *Bus {
 	return &Bus{
 		subscribers: make(map[chan Event]struct{}),
@@ -79,6 +84,8 @@ func (b *Bus) Unsubscribe(ch chan Event) {
 	b.mu.Unlock()
 	close(ch)
 	go func() {
+		// Drain any remaining events from the channel before closing.
+		//nolint:revive,gosec // intentional: empty block for channel drain
 		for range ch {
 		}
 	}()

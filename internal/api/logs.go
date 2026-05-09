@@ -12,6 +12,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// LogEntry represents a single request log entry.
 type LogEntry struct {
 	ID                string    `json:"id"`
 	ProviderID        string    `json:"provider_id"`
@@ -43,6 +44,7 @@ type LogEntry struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+// LogsResponse is the paginated response for request logs.
 type LogsResponse struct {
 	Entries []LogEntry `json:"entries"`
 	Total   int        `json:"total"`
@@ -50,6 +52,7 @@ type LogsResponse struct {
 	PerPage int        `json:"per_page"`
 }
 
+// RegisterLogs mounts log management routes.
 func (h *Handler) RegisterLogs(r chi.Router) {
 	r.Route("/logs", func(r chi.Router) {
 		r.Get("/", h.ListLogs)
@@ -57,10 +60,12 @@ func (h *Handler) RegisterLogs(r chi.Router) {
 	})
 }
 
+// PurgeLogsRequest is the request body for purging logs.
 type PurgeLogsRequest struct {
 	OlderThan string `json:"older_than"`
 }
 
+// PurgeLogs deletes old request logs based on the specified time range.
 func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	var req PurgeLogsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -101,6 +106,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ListLogs returns paginated request logs with filtering and sorting.
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	page := util.GetIntQueryParam(r, "page", 1)
 	if page < 1 {

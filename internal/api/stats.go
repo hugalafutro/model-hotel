@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// StatsHandler provides statistics and analytics API endpoints.
 type StatsHandler struct {
 	dbPool   *pgxpool.Pool
 	adminMgr interface {
@@ -18,6 +19,7 @@ type StatsHandler struct {
 	}
 }
 
+// NewStatsHandler creates a new statistics handler.
 func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
 	Validate(token string) bool
 }) *StatsHandler {
@@ -27,6 +29,7 @@ func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
 	}
 }
 
+// StatsResponse contains aggregated statistics for the dashboard.
 type StatsResponse struct {
 	TotalRequestsLast24h  int              `json:"total_requests_last_24h"`
 	TotalRequestsLast7d   int              `json:"total_requests_last_7d"`
@@ -75,6 +78,7 @@ type ProviderDistributionStats struct {
 	Items []ProviderDistributionItem `json:"items"`
 }
 
+// Register mounts statistics API routes.
 func (h *StatsHandler) Register(r chi.Router) {
 	r.Route("/stats", func(r chi.Router) {
 		r.Get("/", h.GetStats)
@@ -107,6 +111,7 @@ func parseMetric(r *http.Request) string {
 	return "requests"
 }
 
+// GetStats returns aggregated statistics for the specified period.
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
@@ -435,6 +440,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	return stats, nil
 }
 
+// GetTimeSeries returns time-series statistics with hourly or daily buckets.
 func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
@@ -530,6 +536,7 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 	return filled
 }
 
+// GetProviderDistribution returns request/token distribution by provider.
 func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)

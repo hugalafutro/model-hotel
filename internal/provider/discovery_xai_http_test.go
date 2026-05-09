@@ -134,10 +134,8 @@ func TestDiscoverXAILanguageModels(t *testing.T) {
 
 	if err := json.Unmarshal([]byte(models[1].Capabilities), &caps); err != nil {
 		t.Errorf("Failed to unmarshal capabilities for grogu-2: %v", err)
-	} else {
-		if !caps.Vision {
-			t.Error("Expected vision capability to be true for multimodal model")
-		}
+	} else if !caps.Vision {
+		t.Error("Expected vision capability to be true for multimodal model")
 	}
 }
 
@@ -213,10 +211,8 @@ func TestDiscoverXAIMinimalModels(t *testing.T) {
 	var caps model.Capability
 	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
 		t.Errorf("Failed to unmarshal capabilities: %v", err)
-	} else {
-		if !caps.Streaming {
-			t.Error("Expected streaming capability to be true")
-		}
+	} else if !caps.Streaming {
+		t.Error("Expected streaming capability to be true")
 	}
 }
 
@@ -293,7 +289,7 @@ func TestDiscoverXAI_FallbackLogic(t *testing.T) {
 
 func TestDiscoverXAILanguageModels_Unauthorized(t *testing.T) {
 	// Create test server that returns unauthorized
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -315,7 +311,7 @@ func TestDiscoverXAILanguageModels_Unauthorized(t *testing.T) {
 
 func TestDiscoverXAILanguageModels_InvalidResponse(t *testing.T) {
 	// Create test server with invalid JSON response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{ invalid json "))
 	}))

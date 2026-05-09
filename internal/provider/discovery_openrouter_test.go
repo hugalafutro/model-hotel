@@ -279,7 +279,7 @@ func TestGetOpenRouterBalance_DecryptionError(t *testing.T) {
 
 func TestGetOpenRouterBalance_ContextCancellation(t *testing.T) {
 	// Create a slow test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(500 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(OpenRouterCreditsResponse{

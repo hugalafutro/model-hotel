@@ -58,10 +58,8 @@ func TestReadCgroupMemory_NoContainer(t *testing.T) {
 	// When not in container, should return (0, 0, false) or actual values if in container
 	if inContainer {
 		t.Logf("Running in container: current=%d, limit=%d", current, limit)
-	} else {
-		if current != 0 || limit != 0 {
-			t.Errorf("Expected (0, 0, false) when not in container, got (%d, %d, %v)", current, limit, inContainer)
-		}
+	} else if current != 0 || limit != 0 {
+		t.Errorf("Expected (0, 0, false) when not in container, got (%d, %d, %v)", current, limit, inContainer)
 	}
 }
 
@@ -122,10 +120,8 @@ func TestReadCgroupMemory_WithFile(t *testing.T) {
 			t.Errorf("Expected limit >= 0, got %d", limit)
 		}
 		t.Logf("In container: current=%d bytes, limit=%d bytes", current, limit)
-	} else {
-		if current != 0 || limit != 0 {
-			t.Errorf("Expected (0, 0, false) when not in container, got (%d, %d, %v)", current, limit, inContainer)
-		}
+	} else if current != 0 || limit != 0 {
+		t.Errorf("Expected (0, 0, false) when not in container, got (%d, %d, %v)", current, limit, inContainer)
 	}
 }
 

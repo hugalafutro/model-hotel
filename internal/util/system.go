@@ -102,13 +102,19 @@ func ReadCgroupCPU() float64 {
 	return percent
 }
 
-var (
-	NetPrevRxBytes int64
-	NetPrevTxBytes int64
-	NetPrevTime    time.Time
-	NetPrevMu      sync.Mutex
-)
+// NetPrevRxBytes tracks previous network receive bytes for rate calculation.
+var NetPrevRxBytes int64
 
+// NetPrevTxBytes tracks previous network transmit bytes for rate calculation.
+var NetPrevTxBytes int64
+
+// NetPrevTime tracks the previous network stats read time.
+var NetPrevTime time.Time
+
+// NetPrevMu protects network stats delta variables.
+var NetPrevMu sync.Mutex
+
+// ReadNetworkStats calculates network I/O rates from /proc/net/dev.
 func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
 	f, err := os.Open("/proc/net/dev")
 	if err != nil {
@@ -173,13 +179,19 @@ func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
 	return rxBytesPerSec, txBytesPerSec
 }
 
-var (
-	DiskPrevReadBytes  int64
-	DiskPrevWriteBytes int64
-	DiskPrevTime       time.Time
-	DiskPrevMu         sync.Mutex
-)
+// DiskPrevReadBytes tracks previous disk read bytes for rate calculation.
+var DiskPrevReadBytes int64
 
+// DiskPrevWriteBytes tracks previous disk write bytes for rate calculation.
+var DiskPrevWriteBytes int64
+
+// DiskPrevTime tracks the previous disk stats read time.
+var DiskPrevTime time.Time
+
+// DiskPrevMu protects disk stats delta variables.
+var DiskPrevMu sync.Mutex
+
+// ReadCgroupDiskIO calculates disk I/O rates from cgroup io.stat.
 func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
 	f, err := os.Open("/sys/fs/cgroup/io.stat")
 	if err != nil {
@@ -237,6 +249,7 @@ func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
 	return readBytesPerSec, writeBytesPerSec
 }
 
+// ReadCgroupProcs counts processes in the current cgroup.
 func ReadCgroupProcs() int {
 	f, err := os.Open("/sys/fs/cgroup/cgroup.procs")
 	if err != nil {

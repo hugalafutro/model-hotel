@@ -15,7 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+func (d *DiscoveryService) discoverZAICoding(_ context.Context, provider *Provider, _ string) ([]*model.Model, error) {
 	catalog := GetZAICodingModels()
 
 	models := make([]*model.Model, 0, len(catalog))
@@ -63,6 +63,7 @@ func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Prov
 	return models, nil
 }
 
+// GetZAICodingQuota retrieves quota information for a ZAI Coding provider.
 func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Provider, masterKey string) (*ZAICodingQuotaResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {

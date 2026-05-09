@@ -46,7 +46,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 	return nil, fmt.Errorf("failed to discover xAI models: both endpoints returned errors")
 }
 
-func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey string, baseURL string) ([]*model.Model, error) {
+func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/language-models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -164,7 +164,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	return models, nil
 }
 
-func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provider *Provider, apiKey string, baseURL string) ([]*model.Model, error) {
+func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

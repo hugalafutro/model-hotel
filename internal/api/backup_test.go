@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+//nolint:gosec,revive // test-only: error not critical, unnamedResult is test helper
 func setupBackupRouter(t *testing.T) (chi.Router, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -33,7 +34,8 @@ func TestBackupHandler_Register(t *testing.T) {
 	h.Register(r)
 
 	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+	//nolint:gosec // test-only: error handling not critical
+	chi.Walk(r, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		routes = append(routes, method+" "+path)
 		return nil
 	})
@@ -84,11 +86,13 @@ func TestBackupHandler_ListBackups_WithFiles(t *testing.T) {
 
 	// Create fake backup files - names encode timestamps so sort is deterministic
 	for _, name := range []string{"backup_20250101_120000.dump", "backup_20250102_120000.dump"} {
+		//nolint:gosec // test-only: permissive perms acceptable
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("test"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// Create a non-dump file that should be ignored
+	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("test"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -122,6 +126,7 @@ func TestBackupHandler_DownloadBackup(t *testing.T) {
 	r, dir := setupBackupRouter(t)
 
 	content := []byte("fake backup content")
+	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), content, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -189,6 +194,7 @@ func TestBackupHandler_DeleteBackup(t *testing.T) {
 	r, dir := setupBackupRouter(t)
 
 	path := filepath.Join(dir, "backup_delete.dump")
+	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
 		t.Fatal(err)
 	}

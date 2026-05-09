@@ -15,6 +15,7 @@ import (
 // State represents the health state of a single provider endpoint.
 type State int
 
+// Circuit breaker states.
 const (
 	StateClosed   State = iota // Normal operation — requests pass through
 	StateOpen                  // Provider is failing — requests are skipped
@@ -55,18 +56,6 @@ type ProviderStatus struct {
 	OpenedAt         string `json:"opened_at,omitempty"`
 }
 
-// CircuitBreaker tracks per-provider health and prevents requests to
-// consistently failing providers.
-//
-// States:
-//   - Closed: normal operation. Consecutive failures increment a counter.
-//     Once the counter reaches the threshold, the circuit opens.
-//   - Open: all requests to this provider are skipped. After a cooldown
-//     period, the circuit transitions to half-open.
-//   - Half-open: a limited number of probe requests are allowed through.
-//     If they succeed, the circuit closes. If any fails, the circuit
-//     re-opens with a fresh cooldown.
-//
 // SettingsReader provides dynamic configuration for the circuit breaker.
 // This decouples the breaker from the settings package — callers inject
 // a thin shim that reads from their settings repository.
@@ -75,6 +64,8 @@ type SettingsReader interface {
 	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
 }
 
+// CircuitBreaker tracks per-provider health and prevents requests to
+// consistently failing providers.
 type CircuitBreaker struct {
 	mu       sync.RWMutex
 	circuits map[string]*circuit // keyed by provider UUID string

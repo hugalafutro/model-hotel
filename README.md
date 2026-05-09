@@ -174,212 +174,49 @@ You can also set a fixed admin token via the `ADMIN_TOKEN` environment variable.
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
 
-## [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Configuration](#-configuration)
+> **Tip:** The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
 
-### Environment Variables
+## Features at a Glance
 
-> **Single-Instance Deployment:** Rate limits, circuit breakers, and caches are in-process. Not horizontally scalable without Redis/equivalent shared state.
->
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `MASTER_KEY` | Yes | - | Master encryption key for provider API keys |
-| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
-| `PORT` | No | `:8080` | Server listen address |
-| `DATA_DIR` | No | `./data` | Directory for admin token file |
-| `ADMIN_TOKEN` | No | *(auto)* | Fixed admin token (auto-generated if empty) |
-| `ALLOW_HTTP_PROVIDERS` | No | `false` | Allow HTTP provider URLs |
-| `RATE_LIMIT_ENABLED` | No | `true` | Hard kill-switch for per-key rate limiting (env var only; when `false`, rate-limit middleware is a complete no-op) |
-| `RATE_LIMIT_IP_RPS` | No | `30` | Per-IP requests per second (DoS safety net; always-on, not DB-configurable) |
-| `RATE_LIMIT_IP_BURST` | No | `60` | Per-IP burst size for DoS protection token bucket |
-| `MAX_REQUEST_SIZE` | No | `10485760` | Max request body in bytes (10MB) |
-| `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Allowed CORS origins (comma-separated) |
-| `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Additional allowed provider hosts (comma-separated; built-in provider hosts are always allowed) |
-| `TRUSTED_PROXIES` | No | *(empty)* | Trusted proxy CIDRs (comma-separated). When set, `X-Forwarded-For` and `X-Real-IP` headers are only honored from these IPs. When empty, forwarded headers are ignored and only `RemoteAddr` is used. |
-| `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size |
-| `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size |
-| `MODELSDEV_ENABLED` | No | `true` | Enable enrichment from [models.dev](https://models.dev/) catalogue (pricing, capabilities, context limits) |
-| `DEBUG_LOG` | No | `false` | Enable structured debug logging (see `internal/debuglog`) |
+- **One endpoint for all providers** — OpenAI-compatible `/v1/chat/completions` proxy with automatic model discovery
+- **Transparent failover** — Retries on 5xx, 429 (configurable), 401/403, and timeouts with exponential backoff
+- **Hotel routing** — Prefix any model with `hotel/` to route through a failover group (e.g. `hotel/gpt-4o`)
+- **Per-client virtual keys** — Issue separate `sk-` keys with independent rate limiting and usage tracking
+- **Privacy by design** — Prompt content is never logged, read, or stored
+- **Real-time observability** — Request logging with latency decomposition, SSE events, and circuit breaker status
+- **Multi-modal support** — Vision and audio input attachments via OpenAI-compatible content parts
 
-### DB-Backed Settings
-
-| Setting | Default | Description |
-|---|---|---|
-| `rate_limit_enabled` | `true` | Runtime toggle for rate limiting (overridden by `RATE_LIMIT_ENABLED` env kill-switch) |
-| `rate_limit_rps` | `10` | Requests per second per virtual key (`0` for unlimited) |
-| `rate_limit_burst` | `20` | Burst size for rate limiter token bucket |
-| `discovery_interval` | `6h` | Interval between automatic model discovery runs |
-| `discovery_on_startup` | `true` | Run model discovery on server startup |
-| `discovery_on_provider_create` | `true` | Run discovery when a new provider is created |
-| `log_retention` | *(none)* | Log retention period |
-| `stale_request_timeout` | *(none)* | Timeout for stale/in-flight requests |
-| `failover_on_rate_limit` | `true` | Enable failover to another provider on 429 rate-limit errors |
-| `circuit_breaker_enabled` | `true` | Enable per-provider circuit breaker for hotel/ failover routes |
-| `circuit_breaker_threshold` | `5` | Consecutive failures before a provider's circuit opens |
-| `circuit_breaker_cooldown` | `60s` | Duration before an open circuit transitions to half-open |
-| `theme` | *(none)* | UI theme preference |
-| `ui_style` | *(none)* | UI style preference |
-| `accent_color` | *(none)* | UI accent color |
-| `dashboard_refresh` | *(none)* | Dashboard auto-refresh interval |
-| `quota_refresh` | *(none)* | Provider quota refresh interval |
-| `history_limit` | *(none)* | History display limit |
-| `toast_duration` | *(none)* | Toast notification duration (ms, 1000–15000) |
-| `request_timeout` | *(none)* | Per-request timeout (e.g. `30s`, `5m`) |
-| `rate_limit_ip_enabled` | `true` | Runtime toggle for per-IP rate limiting (env vars `RATE_LIMIT_IP_RPS`/`RATE_LIMIT_IP_BURST` set the ceiling) |
-| `rate_limit_ip_rps` | `30` | Per-IP requests per second |
-| `rate_limit_ip_burst` | `60` | Per-IP burst size for token bucket |
-| `rate_limit_max_wait_ms` | `5000` | Maximum wait time (ms) for rate-limiter queue before rejecting with 429 |
-
-> **Rate Limiting:** Two layers of protection run on every request:
->
-> 1. **Per-IP limiter** (always-on): Env-var-only ceiling (`RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST`) that blocks floods before they reach auth. Mounts first in the middleware chain so it catches unauthenticated brute-force attempts. Not exposed in the UI; this is a safety rail, not a tuning knob.
-> 2. **Per-key limiter** (runtime-configurable): When `RATE_LIMIT_ENABLED=true` (the default), rate limiting can be toggled on/off at runtime via the **Settings** UI and the DB-backed settings above. Each virtual key gets its own independent token bucket. Setting `RATE_LIMIT_ENABLED=false` in the environment completely disables per-key limiting regardless of DB settings.
->
-> 429 responses from both layers include `Retry-After` and `X-RateLimit-*` headers. The `X-RateLimit-Scope` header (`ip` or absent) distinguishes which layer triggered the rejection.
-
-## [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints](#-api-endpoints)
-
-### Proxy API (`/v1/*`): OpenAI-compatible, requires a virtual key
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/v1/models` | GET | List available models (OpenAI format) |
-| `/v1/chat/completions` | POST | Chat completions (supports `"stream": true` for SSE streaming) |
+## API Example
 
 ```bash
-export PROXY_KEY="your-proxy-key"
-
+# List available models
 curl http://localhost:8081/v1/models \
   -H "Authorization: Bearer $PROXY_KEY"
 
+# Chat completion (with hotel routing for automatic failover)
 curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $PROXY_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "model": "hotel/gpt-4o",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-
-# Streaming example
-curl -X POST http://localhost:8081/v1/chat/completions \
-  -H "Authorization: Bearer $PROXY_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "hotel/gpt-4o",
-    "messages": [{"role": "user", "content": "Hello!"}],
-    "stream": true
-  }'
+  -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
-### Admin API (`/api/*`): requires the admin token
+See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint listing.
 
-**Providers**
+## Full Documentation
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/providers` | POST | Create provider |
-| `/api/providers` | GET | List providers |
-| `/api/providers/{id}` | GET | Get provider |
-| `/api/providers/{id}` | PUT | Update provider |
-| `/api/providers/{id}` | DELETE | Delete provider |
-| `/api/providers/discover-all` | POST | Discover models for all providers |
-| `/api/providers/refresh-quotas` | POST | Refresh quotas for all providers |
-| `/api/providers/{id}/discover` | POST | Discover models for a provider |
-| `/api/providers/{id}/usage` | GET | Get provider usage (Z.AI, NanoGPT) |
-| `/api/providers/{id}/balance` | GET | Get provider balance (DeepSeek) |
-
-**Models**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/models` | GET | List models (optional `?provider_id=` filter) |
-| `/api/models/{id}` | PATCH | Update model |
-| `/api/models/{id}` | DELETE | Delete model |
-| `/api/models/{id}/test` | POST | Test model connectivity |
-
-**Virtual Keys**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/virtual-keys` | POST | Create virtual key |
-| `/api/virtual-keys` | GET | List virtual keys |
-| `/api/virtual-keys/{id}` | GET | Get virtual key |
-| `/api/virtual-keys/{id}` | PUT | Update virtual key |
-| `/api/virtual-keys/{id}` | DELETE | Delete virtual key |
-
-**Request Logs**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/logs` | GET | List request logs (paginated, filterable) |
-| `/api/logs/purge` | DELETE | Purge logs (`1h`, `1d`, `1w`, `1m`, `all`) |
-
-**App Logs**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/logs/app` | GET | Get app logs (ring buffer or `?history=true` DB query) |
-| `/api/logs/app` | DELETE | Clear app logs |
-
-**Backups**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/backups` | GET | List backups |
-| `/api/backups` | POST | Create backup |
-| `/api/backups/{filename}` | GET | Download backup |
-| `/api/backups/{filename}` | DELETE | Delete backup |
-
-**Settings**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/settings` | GET | Get all settings |
-| `/api/settings` | PUT | Update settings |
-
-**System & Stats**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/system` | GET | System stats (memory, DB, Docker) |
-| `/api/stats` | GET | Aggregate request stats |
-| `/api/stats/timeseries` | GET | Time series stats |
-| `/api/stats/provider-distribution` | GET | Provider distribution stats |
-
-**Failover Groups**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/failover-groups` | GET | List failover groups |
-| `/api/failover-groups` | POST | Create failover group |
-| `/api/failover-groups/sync` | POST | Sync all failover groups |
-| `/api/failover-groups/candidates` | GET | List candidate models for failover |
-| `/api/failover-groups/by-model/{model_uuid}` | GET | Get failover group by model UUID |
-| `/api/failover-groups/{id}` | GET | Get failover group |
-| `/api/failover-groups/{id}` | PUT | Update failover group |
-| `/api/failover-groups/{id}` | DELETE | Delete failover group |
-
-**Events (SSE)**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/events` | GET | Server-sent event stream |
-
-**Admin Chat Proxy**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/chat/chat` | POST | Chat completions (admin-authenticated) |
-| `/api/chat/arena` | POST | Arena completions (admin-authenticated) |
-| `/api/chat/completions` | POST | Completions (admin-authenticated) |
-
-### Health Check
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Returns `OK` (no auth required) |
+- [Configuration](model-hotel.wiki/Configuration.md) — Environment variables, runtime settings, Docker Compose
+- [API Reference](model-hotel.wiki/API-Reference.md) — Proxy and admin endpoints
+- [Security](model-hotel.wiki/Security.md) — AES-256-GCM encryption, Argon2id key derivation, hashing, URL validation
+- [Privacy](model-hotel.wiki/Privacy.md) — What is and isn't captured, data retention, local deployment
+- [Failover & Hotel Routing](model-hotel.wiki/Failover-and-Hotel-Routing.md) — Failover groups, circuit breaker, backoff
+- [Model Discovery](model-hotel.wiki/Model-Discovery.md) — Automatic sync, provider-specific metadata, enrichment
+- [Virtual Keys](model-hotel.wiki/Virtual-Keys.md) — Creating, using, and deleting client keys
+- [Request Logging](model-hotel.wiki/Request-Logging.md) — Log fields, overhead breakdown, retention
+- [Development](model-hotel.wiki/Development.md) — Local setup, build commands, contributing
 
 ## Known Limitations
 
+- **Single-instance only** — Caches and rate limiters are in-memory, not horizontally scalable
 - **Large page components:** Arena.tsx, Chat.tsx, Settings.tsx, and Dashboard.tsx are single-file mega-components (1,500+ lines each). This was an intentional trade-off for rapid iteration. Refactoring into smaller components is on the roadmap.
 
 ## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)

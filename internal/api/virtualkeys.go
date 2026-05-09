@@ -13,18 +13,21 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
+// CreateVirtualKeyRequest is the request body for creating a virtual key.
 type CreateVirtualKeyRequest struct {
 	Name           string   `json:"name"`
 	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
 }
 
+// UpdateVirtualKeyRequest is the request body for updating a virtual key.
 type UpdateVirtualKeyRequest struct {
 	Name           string   `json:"name"`
 	RateLimitRPS   *float64 `json:"rate_limit_rps"`
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 }
 
+// RegisterVirtualKeys mounts virtual key management routes.
 func (h *Handler) RegisterVirtualKeys(r chi.Router) {
 	r.Route("/virtual-keys", func(r chi.Router) {
 		r.Post("/", h.CreateVirtualKey)
@@ -62,6 +65,7 @@ func cond(val string, condition bool) string {
 	return ""
 }
 
+// CreateVirtualKey creates a new virtual API key.
 func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	var req CreateVirtualKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -106,6 +110,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	writeJSONCreated(w, resp)
 }
 
+// ListVirtualKeys returns all virtual API keys.
 func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
 	keys, err := h.virtualKeyRepo.List(r.Context())
 	if err != nil {
@@ -121,6 +126,7 @@ func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, responses)
 }
 
+// GetVirtualKey retrieves a virtual API key by ID.
 func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "virtual key ID")
 	if !ok {
@@ -137,6 +143,7 @@ func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+// UpdateVirtualKey updates a virtual API key.
 func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "virtual key ID")
 	if !ok {
@@ -181,6 +188,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+// DeleteVirtualKey deletes a virtual API key by ID.
 func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "virtual key ID")
 	if !ok {

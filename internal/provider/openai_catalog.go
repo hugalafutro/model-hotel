@@ -1,5 +1,6 @@
 package provider
 
+// OpenAIModelSpec defines pricing and capabilities for an OpenAI model.
 type OpenAIModelSpec struct {
 	ModelID                      string
 	DisplayName                  string
@@ -129,10 +130,12 @@ var openaiCatalog = []OpenAIModelSpec{
 	},
 }
 
+// GetOpenAIModels returns the OpenAI model catalog.
 func GetOpenAIModels() []OpenAIModelSpec {
 	return openaiCatalog
 }
 
+// LookupOpenAICatalog finds a model spec in the OpenAI catalog.
 func LookupOpenAICatalog(catalog []OpenAIModelSpec, modelID string) *OpenAIModelSpec {
 	for i := range catalog {
 		if catalog[i].ModelID == modelID {

@@ -14,6 +14,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// FailoverGroup represents a configured failover group for a model.
+//
+//nolint:revive // stutter and exported are acceptable: FailoverGroup is a domain concept
 type FailoverGroup struct {
 	ID            uuid.UUID       `json:"id"`
 	DisplayModel  string          `json:"display_model"`
@@ -27,14 +30,17 @@ type FailoverGroup struct {
 	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
+// Repository provides persistence for failover groups.
 type Repository struct {
 	pool *pgxpool.Pool
 }
 
+// NewRepository creates a new failover group repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// GetByModel retrieves a failover group by its display model name.
 func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverGroup, error) {
 	if fg, ok := GetCachedFailoverByModel(modelID); ok {
 		return fg, nil
@@ -68,10 +74,12 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 	return &fg, nil
 }
 
+// Upsert creates or updates a failover group with the given priority order.
 func (r *Repository) Upsert(ctx context.Context, displayModel string, priorityOrder []uuid.UUID) (*FailoverGroup, error) {
 	return r.UpsertWithConfig(ctx, displayModel, priorityOrder, nil, nil, nil, nil, nil)
 }
 
+// UpsertWithConfig creates or updates a failover group with full configuration options.
 func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string, autoCreated *bool) (*FailoverGroup, error) {
 	priorityJSON, err := json.Marshal(priorityOrder)
@@ -111,8 +119,7 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	if description != nil {
 		doSetClauses = append(doSetClauses, "description = $6")
 	}
-	doSetClauses = append(doSetClauses, "auto_created = $7")
-	doSetClauses = append(doSetClauses, "updated_at = now()")
+	doSetClauses = append(doSetClauses, "auto_created = $7", "updated_at = now()")
 
 	query := fmt.Sprintf(`INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, display_name, description, auto_created)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -144,18 +151,21 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	return &fg, nil
 }
 
+// Delete removes a failover group by its display model name.
 func (r *Repository) Delete(ctx context.Context, displayModel string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM model_failover_groups WHERE display_model = $1`, displayModel)
 	InvalidateFailoverCache()
 	return err
 }
 
+// DeleteByID removes a failover group by its ID.
 func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM model_failover_groups WHERE id = $1`, id)
 	InvalidateFailoverCache()
 	return err
 }
 
+// GetByID retrieves a failover group by its ID.
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup, error) {
 	var fg FailoverGroup
 	var priorityJSON []byte
@@ -185,6 +195,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 	return &fg, nil
 }
 
+// GetEnabled returns all enabled failover groups.
 func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
@@ -202,6 +213,7 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 	return scanFailoverGroups(rows)
 }
 
+// Update modifies an existing failover group by ID.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string) (*FailoverGroup, error) {
 	priorityJSON, err := json.Marshal(priorityOrder)
@@ -277,6 +289,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	return &fg, nil
 }
 
+// List returns all failover groups.
 func (r *Repository) List(ctx context.Context) ([]*FailoverGroup, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
@@ -315,6 +328,7 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 	return groups, nil
 }
 
+// DisabledGroupInfo describes a failover group that was disabled during sync.
 type DisabledGroupInfo struct {
 	DisplayModel  string   `json:"display_model"`
 	Reason        string   `json:"reason"`
@@ -322,6 +336,7 @@ type DisabledGroupInfo struct {
 	ProviderNames []string `json:"provider_names"`
 }
 
+// SyncResult describes the outcome of a failover group sync operation.
 type SyncResult struct {
 	DisabledGroups []DisabledGroupInfo `json:"disabled_groups"`
 	SyncErrors     []string            `json:"sync_errors,omitempty"`
@@ -357,6 +372,7 @@ func stripPrefix(modelID string) string {
 	return modelID
 }
 
+// SyncAllModels synchronizes all enabled models with providers and updates failover groups.
 func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{}
 
@@ -471,6 +487,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	return result, nil
 }
 
+// SyncForModel syncs the failover group for a specific model.
 func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	base := stripPrefix(modelID)
 

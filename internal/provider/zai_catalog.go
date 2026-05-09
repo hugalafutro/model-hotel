@@ -1,5 +1,6 @@
 package provider
 
+// ZAICodingModelSpec describes a ZAI Coding model specification.
 type ZAICodingModelSpec struct {
 	ModelID          string
 	ContextLength    int
@@ -31,6 +32,7 @@ var zaiCodingCatalog = []ZAICodingModelSpec{
 	{"glm-4.5v", 128000, 16384, "vision", true, false, false},
 }
 
+// GetZAICodingModels returns the ZAI Coding model catalog.
 func GetZAICodingModels() []ZAICodingModelSpec {
 	return zaiCodingCatalog
 }

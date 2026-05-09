@@ -205,6 +205,7 @@ var xaiCatalog = []OpenCodeModelSpec{
 	},
 }
 
+// GetXAICatalog returns the XAI model catalog.
 func GetXAICatalog() []OpenCodeModelSpec {
 	return xaiCatalog
 }

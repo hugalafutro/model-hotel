@@ -12,6 +12,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// VirtualKey represents a virtual API key entity.
 type VirtualKey struct {
 	ID             uuid.UUID  `json:"id"`
 	Name           string     `json:"name"`
@@ -24,12 +25,16 @@ type VirtualKey struct {
 	RateLimitBurst *int       `json:"rate_limit_burst"`
 }
 
+// CreateVirtualKeyRequest is the request body for creating a virtual key.
 type CreateVirtualKeyRequest struct {
 	Name           string   `json:"name"`
 	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
 }
 
+// VirtualKeyResponse is the API response for a virtual key.
+//
+//nolint:revive // stutter is acceptable: VirtualKeyResponse is a domain concept
 type VirtualKeyResponse struct {
 	ID             string   `json:"id"`
 	Name           string   `json:"name"`
@@ -42,14 +47,17 @@ type VirtualKeyResponse struct {
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 }
 
+// Repository provides database access for virtual keys.
 type Repository struct {
 	pool *pgxpool.Pool
 }
 
+// NewRepository creates a new virtual key repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// Create inserts a new virtual key.
 func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
@@ -62,6 +70,7 @@ func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview strin
 	return &vk, nil
 }
 
+// List returns all virtual keys.
 func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst FROM virtual_keys ORDER BY created_at DESC`)
@@ -81,6 +90,7 @@ func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 	return keys, nil
 }
 
+// Get retrieves a virtual key by ID.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
@@ -92,6 +102,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*VirtualKey, error)
 	return &vk, nil
 }
 
+// Delete removes a virtual key by ID.
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM virtual_keys WHERE id = $1`, id)
 	if err != nil {
@@ -103,6 +114,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// AddTokens increments the token usage counters for a virtual key.
 func (r *Repository) AddTokens(ctx context.Context, keyHash string, tokens int) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE virtual_keys SET tokens_used = tokens_used + $1, last_used_at = now() WHERE key_hash = $2`,
@@ -110,6 +122,7 @@ func (r *Repository) AddTokens(ctx context.Context, keyHash string, tokens int) 
 	return err
 }
 
+// TouchLastUsed updates the last used timestamp.
 func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE virtual_keys SET last_used_at = now() WHERE key_hash = $1`,
@@ -120,6 +133,7 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 	return err
 }
 
+// Update modifies virtual key fields.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
@@ -135,6 +149,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps 
 	return &vk, nil
 }
 
+// FindByKeyHash looks up a virtual key by its SHA-256 hash.
 func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := r.pool.QueryRow(ctx,
@@ -146,6 +161,7 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 	return &vk, nil
 }
 
+// ErrNotFound is returned when a virtual key is not found.
 var ErrNotFound = &notFoundError{}
 
 type notFoundError struct{}

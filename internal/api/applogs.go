@@ -212,6 +212,7 @@ func (w *dbLogWriter) stop() {
 	<-w.done
 }
 
+// InitAppLogBuffer initializes the application log ring buffer and optional DB writer.
 func InitAppLogBuffer(pool *pgxpool.Pool) {
 	appLogBuffer = &ringBuffer{
 		entries: make([]AppLogEntry, appLogBufferSize),
@@ -337,6 +338,7 @@ func (rb *ringBuffer) writeEntry(entry AppLogEntry) {
 	rb.mu.Unlock()
 }
 
+// StopAppLogWriter stops the database log writer goroutine.
 func StopAppLogWriter() {
 	if dbWriter != nil {
 		w := dbWriter
@@ -399,7 +401,7 @@ func stripLogTimestamp(line string) string {
 // If no source prefix is found, returns ("", line).
 func extractSource(line string) (string, string) {
 	// Bracketed format: [source] message
-	if len(line) > 0 && line[0] == '[' {
+	if line != "" && line[0] == '[' {
 		end := strings.Index(line, "]")
 		if end > 0 && end < len(line)-1 && line[end+1] == ' ' {
 			return line[1:end], line[end+2:]
@@ -589,6 +591,8 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 // getAppLogCounts returns cached unfiltered level and source counts.
 // The cache refreshes every appLogCountCacheTTL to avoid running GROUP BY
 // queries on every paginated history request (which polls every 2s in live mode).
+//
+//nolint:revive // result names not needed for internal API types
 func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[string]int) {
 	appLogCountCache.RLock()
 	if time.Since(appLogCountCache.fetchedAt) < appLogCountCacheTTL && appLogCountCache.levelCounts != nil {

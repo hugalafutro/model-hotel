@@ -1,3 +1,4 @@
+// Package ratelimit provides token-bucket rate limiting middleware.
 package ratelimit
 
 import (
@@ -97,7 +98,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		}
 
 		ip := extractClientIP(r, l.trustedProxies)
-		entry := l.getLimiter(ip, r.Context())
+		entry := l.getLimiter(r.Context(), ip)
 
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
@@ -134,7 +135,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (l *IPLimiter) getLimiter(ip string, ctx context.Context) *ipEntry {
+func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *ipEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

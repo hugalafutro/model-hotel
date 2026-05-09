@@ -10,6 +10,8 @@ import (
 // value constructs a metrics.Value with the given kind and scalar.
 // The fields of metrics.Value are unexported, so we use unsafe to build
 // test values matching the internal layout: {kind ValueKind, scalar uint64}.
+//
+//nolint:gosec // test-only: unsafe for reflective struct access
 func value(kind metrics.ValueKind, scalar uint64) metrics.Value {
 	return *(*metrics.Value)(unsafe.Pointer(&struct {
 		kind   metrics.ValueKind

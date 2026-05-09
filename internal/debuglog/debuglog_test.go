@@ -19,8 +19,8 @@ func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
 	h.records = append(h.records, r)
 	return nil
 }
-func (h *captureHandler) WithAttrs(attrs []slog.Attr) slog.Handler { return h }
-func (h *captureHandler) WithGroup(name string) slog.Handler       { return h }
+func (h *captureHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+func (h *captureHandler) WithGroup(_ string) slog.Handler      { return h }
 
 func newCaptureHandler(level slog.Level) *captureHandler {
 	return &captureHandler{level: level}

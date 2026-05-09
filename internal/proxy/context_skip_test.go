@@ -1,3 +1,4 @@
+// Package proxy provides the LLM proxy endpoint and request handling.
 package proxy
 
 import (

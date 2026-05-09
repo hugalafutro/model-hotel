@@ -135,7 +135,7 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 					_, size := utf8.DecodeLastRuneInString(msg)
 					msg = msg[:len(msg)-size]
 				}
-				msg = msg + "…"
+				msg += "…"
 			}
 		}
 		events.Publish(events.Event{

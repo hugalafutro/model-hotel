@@ -214,7 +214,7 @@ func TestRegisterEvents_Routes(t *testing.T) {
 
 // TestAuthMiddleware tests auth middleware
 func TestAuthMiddleware(t *testing.T) {
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	mockAuth := &mockAdminAuth{validateFn: func(_ string) bool { return true }}
 	h := &Handler{
 		adminMgr: mockAuth,
 	}
@@ -595,7 +595,7 @@ func (f *failingResponseWriter) Header() http.Header {
 	return f.header
 }
 
-func (f *failingResponseWriter) WriteHeader(statusCode int) {
+func (f *failingResponseWriter) WriteHeader(_ int) {
 	// no-op
 }
 
@@ -612,7 +612,7 @@ func (e *mockWriteError) Error() string {
 }
 
 // TestWriteJSON_ErrorBranch tests the error path when JSON encoding fails
-func TestWriteJSON_ErrorBranch(t *testing.T) {
+func TestWriteJSON_ErrorBranch(_ *testing.T) {
 	fw := &failingResponseWriter{}
 	data := map[string]string{"key": "value"}
 
@@ -651,7 +651,7 @@ func TestWriteJSONCreated_Success(t *testing.T) {
 }
 
 // TestWriteJSONCreated_ErrorBranch tests the error path when JSON encoding fails
-func TestWriteJSONCreated_ErrorBranch(t *testing.T) {
+func TestWriteJSONCreated_ErrorBranch(_ *testing.T) {
 	fw := &failingResponseWriter{}
 	data := map[string]string{"key": "value"}
 

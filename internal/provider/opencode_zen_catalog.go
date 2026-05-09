@@ -360,6 +360,7 @@ var opencodeZenCatalog = []OpenCodeModelSpec{
 	},
 }
 
+// GetOpenCodeZenCatalog returns the OpenCode Zen model catalog.
 func GetOpenCodeZenCatalog() []OpenCodeModelSpec {
 	return opencodeZenCatalog
 }

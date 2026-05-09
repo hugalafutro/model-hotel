@@ -165,7 +165,7 @@ func TestDiscoverOpenRouter(t *testing.T) {
 
 func TestDiscoverOpenRouter_Unauthorized(t *testing.T) {
 	// Create test server that returns unauthorized
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -187,7 +187,7 @@ func TestDiscoverOpenRouter_Unauthorized(t *testing.T) {
 
 func TestDiscoverOpenRouter_InvalidResponse(t *testing.T) {
 	// Create test server with invalid JSON response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{ invalid json "))
 	}))

@@ -1,3 +1,4 @@
+// Package api provides HTTP handlers and routing for the admin API.
 package api
 
 import (
@@ -58,6 +59,7 @@ type AdminAuthenticator interface {
 	Validate(token string) bool
 }
 
+// Handler manages admin API operations for providers, models, and virtual keys.
 type Handler struct {
 	cfg            *config.Config
 	providerRepo   ProviderStore
@@ -67,6 +69,7 @@ type Handler struct {
 	settingsRepo   SettingsStore
 }
 
+// NewHandler creates a new admin API handler with the given dependencies.
 func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore) *Handler {
 	return &Handler{
 		cfg:            cfg,
@@ -78,10 +81,12 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 	}
 }
 
+// Pool returns the database connection pool.
 func (h *Handler) Pool() *db.DB {
 	return h.dbPool
 }
 
+// Register mounts all admin API routes on the given router.
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.AuthMiddleware)
 
@@ -109,6 +114,7 @@ func (h *Handler) Register(r chi.Router) {
 	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups")).Register(r)
 }
 
+// AuthMiddleware validates admin token authentication for all admin API requests.
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
@@ -135,6 +141,7 @@ func (h *Handler) RegisterEvents(r chi.Router) {
 	r.Get("/events", h.StreamEvents)
 }
 
+// CreateProvider creates a new provider.
 func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var req provider.CreateProviderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -227,6 +234,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	writeJSONCreated(w, response)
 }
 
+// ListProviders returns all configured providers.
 func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
@@ -280,6 +288,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, responses)
 }
 
+// GetProvider returns a single provider by ID.
 func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -306,6 +315,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, response)
 }
 
+// UpdateProvider updates an existing provider by ID.
 func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -401,6 +411,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, response)
 }
 
+// DeleteProvider removes a provider by ID and cleans up associated data.
 func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {

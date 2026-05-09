@@ -2,6 +2,7 @@ package util
 
 import "strings"
 
+// SanitizeBaseURL removes trailing slashes from a base URL.
 func SanitizeBaseURL(raw string) string {
 	return strings.TrimSuffix(raw, "/")
 }

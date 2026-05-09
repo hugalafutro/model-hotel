@@ -215,29 +215,29 @@ func TestList_ByProviderID(t *testing.T) {
 	})
 
 	// Create models for both providers
-	modelID_A := uuid.New()
+	modelIDA := uuid.New()
 	_, err := testPool.Exec(ctx, `
 		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
 		VALUES ($1, $2, $3, $4, true, now())
-	`, modelID_A, providerA, "provider-a-model", "Provider A Model")
+	`, modelIDA, providerA, "provider-a-model", "Provider A Model")
 	if err != nil {
 		t.Fatalf("insert model A failed: %v", err)
 	}
 
-	modelID_A2 := uuid.New()
+	modelIDA2 := uuid.New()
 	_, err = testPool.Exec(ctx, `
 		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
 		VALUES ($1, $2, $3, $4, true, now())
-	`, modelID_A2, providerA, "provider-a-model-2", "Provider A Model 2")
+	`, modelIDA2, providerA, "provider-a-model-2", "Provider A Model 2")
 	if err != nil {
 		t.Fatalf("insert model A2 failed: %v", err)
 	}
 
-	modelID_B := uuid.New()
+	modelIDB := uuid.New()
 	_, err = testPool.Exec(ctx, `
 		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
 		VALUES ($1, $2, $3, $4, true, now())
-	`, modelID_B, providerB, "provider-b-model", "Provider B Model")
+	`, modelIDB, providerB, "provider-b-model", "Provider B Model")
 	if err != nil {
 		t.Fatalf("insert model B failed: %v", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// RegisterSettings mounts settings API routes.
 func (h *Handler) RegisterSettings(r chi.Router) {
 	r.Route("/settings", func(r chi.Router) {
 		r.Get("/", h.GetSettings)
@@ -16,6 +17,7 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 	})
 }
 
+// GetSettings returns all settings as a key-value map.
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	all, err := h.settingsRepo.GetAll(r.Context())
 	if err != nil {
@@ -63,6 +65,7 @@ var allowedSettings = map[string]struct {
 
 const maxSettingValueLen = 500
 
+// UpdateSettings updates user settings in the database.
 func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var req map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

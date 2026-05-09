@@ -105,7 +105,7 @@ func TestMiddleware_DisabledViaConfig(t *testing.T) {
 	defer lim.Stop()
 
 	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 	})
@@ -129,7 +129,7 @@ func TestMiddleware_DisabledViaSettings(t *testing.T) {
 	repo.set("rate_limit_enabled", "false")
 
 	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 	})
@@ -154,7 +154,7 @@ func TestMiddleware_AllowsWithinBurst(t *testing.T) {
 	repo.set(settingsKeyRPS, "10")
 	repo.set(settingsKeyBurst, "5")
 
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	handler := lim.Middleware(true)(next)

@@ -32,7 +32,7 @@ func SetupTestDB(pkgName string) (string, error) {
 
 	// Derive the per-package database name from the original DB name.
 	origDBName := parsed.Path
-	if len(origDBName) > 0 && origDBName[0] == '/' {
+	if origDBName != "" && origDBName[0] == '/' {
 		origDBName = origDBName[1:]
 	}
 	newDBName := origDBName + "_" + pkgName
@@ -81,7 +81,7 @@ func CleanupTestDB(pkgName string) {
 	}
 
 	origDBName := parsed.Path
-	if len(origDBName) > 0 && origDBName[0] == '/' {
+	if origDBName != "" && origDBName[0] == '/' {
 		origDBName = origDBName[1:]
 	}
 	newDBName := origDBName + "_" + pkgName

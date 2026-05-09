@@ -1,3 +1,4 @@
+// Package failover provides failover group management and caching.
 package failover
 
 import (
@@ -27,6 +28,7 @@ func cacheFailoverGroup(fg *FailoverGroup) {
 	failoverCacheMu.Unlock()
 }
 
+// GetCachedFailoverByModel returns a cached failover group by display model name.
 func GetCachedFailoverByModel(displayModel string) (*FailoverGroup, bool) {
 	failoverCacheMu.RLock()
 	entry, ok := failoverByModelCache[displayModel]
@@ -34,16 +36,18 @@ func GetCachedFailoverByModel(displayModel string) (*FailoverGroup, bool) {
 	if !ok || time.Now().After(entry.expiresAt) {
 		return nil, false
 	}
-	copy := entry.group
-	return &copy, true
+	cachedGroup := entry.group
+	return &cachedGroup, true
 }
 
+// InvalidateFailoverCache clears all cached failover groups.
 func InvalidateFailoverCache() {
 	failoverCacheMu.Lock()
 	failoverByModelCache = make(map[string]failoverCacheEntry)
 	failoverCacheMu.Unlock()
 }
 
+// WarmFailoverCache populates the cache with the provided failover groups.
 func WarmFailoverCache(groups []*FailoverGroup) {
 	for _, fg := range groups {
 		cacheFailoverGroup(fg)

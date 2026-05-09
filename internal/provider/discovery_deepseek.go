@@ -90,6 +90,7 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	return models, nil
 }
 
+// GetDeepSeekBalance retrieves the account balance from DeepSeek.
 func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Provider, masterKey string) (*DeepSeekBalanceResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {

@@ -115,6 +115,7 @@ var opencodeGoCatalog = []OpenCodeModelSpec{
 	},
 }
 
+// GetOpenCodeGoCatalog returns the OpenCode Go model catalog.
 func GetOpenCodeGoCatalog() []OpenCodeModelSpec {
 	return opencodeGoCatalog
 }

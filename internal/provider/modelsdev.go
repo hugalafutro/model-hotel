@@ -54,11 +54,13 @@ type ModelsDevModelSpec struct {
 	Interleaved      ModelsDevInterleaved `json:"interleaved,omitempty"`
 }
 
+// ModelsDevModalities describes input and output modalities for a models.dev model.
 type ModelsDevModalities struct {
 	Input  []string `json:"input"`
 	Output []string `json:"output"`
 }
 
+// ModelsDevCost contains pricing information for a models.dev model.
 type ModelsDevCost struct {
 	Input       float64  `json:"input"`
 	Output      float64  `json:"output"`
@@ -69,6 +71,7 @@ type ModelsDevCost struct {
 	Reasoning   *float64 `json:"reasoning,omitempty"`
 }
 
+// ModelsDevLimit describes token limits for a models.dev model.
 type ModelsDevLimit struct {
 	Context int  `json:"context"`
 	Output  int  `json:"output"`
@@ -82,6 +85,7 @@ type ModelsDevInterleaved struct {
 	Bool  bool
 }
 
+// UnmarshalJSON implements json.Unmarshaler for ModelsDevInterleaved (bool or object).
 func (i *ModelsDevInterleaved) UnmarshalJSON(data []byte) error {
 	// Try bool first
 	var b bool

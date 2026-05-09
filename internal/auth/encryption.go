@@ -1,3 +1,4 @@
+// Package auth provides encryption and decryption for API keys.
 package auth
 
 import (
@@ -41,6 +42,7 @@ const (
 	v2Thr  = 4
 )
 
+// KeyPair holds an encrypted key and its Argon2id parameters.
 type KeyPair struct {
 	Ciphertext []byte
 	Nonce      []byte
@@ -79,7 +81,7 @@ func encryptWithKey(plaintext string, key []byte) (*KeyPair, error) {
 	}, nil
 }
 
-func decryptWithKey(ciphertext, nonce []byte, key []byte) (string, error) {
+func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", fmt.Errorf("failed to create cipher: %w", err)
@@ -133,6 +135,7 @@ func Decrypt(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
 	return decryptWithKey(ciphertext, nonce, key)
 }
 
+// GenerateRandomKey creates a cryptographically secure random key of the specified length.
 func GenerateRandomKey() (string, error) {
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(cryptoRand.Reader, key); err != nil {
@@ -141,6 +144,7 @@ func GenerateRandomKey() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(key), nil
 }
 
+// ConstantTimeCompare compares two byte slices in constant time to prevent timing attacks.
 func ConstantTimeCompare(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }

@@ -617,7 +617,7 @@ func TestGetNanoGPTUsage(t *testing.T) {
 	block, _ := aes.NewCipher(keyV1)
 	gcm, _ := cipher.NewGCM(block)
 	nonce := make([]byte, 12)
-	copy(nonce, []byte("test-nonce-12")) // Fixed nonce for test
+	copy(nonce, "test-nonce-12") // Fixed nonce for test
 
 	ciphertext := gcm.Seal(nil, nonce, []byte(apiKey), nil)
 

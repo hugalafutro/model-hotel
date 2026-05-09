@@ -62,24 +62,24 @@ func (m *mockFailoverSettingsStore) GetAll(ctx context.Context) (map[string]stri
 	return m.data, nil
 }
 
-func (m *mockFailoverSettingsStore) GetWithDefault(ctx context.Context, key string, defaultValue string) string {
+func (m *mockFailoverSettingsStore) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	if v, ok := m.data[key]; ok {
 		return v
 	}
 	return defaultValue
 }
 
-func (m *mockFailoverSettingsStore) Set(ctx context.Context, key string, value string) error {
+func (m *mockFailoverSettingsStore) Set(ctx context.Context, key, value string) error {
 	m.data[key] = value
 	return nil
 }
 
-func (m *mockFailoverSettingsStore) SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error {
+func (m *mockFailoverSettingsStore) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error {
 	m.data[key] = value
 	return nil
 }
 
-func (m *mockFailoverSettingsStore) InvalidateCache(key string) {}
+func (m *mockFailoverSettingsStore) InvalidateCache(_ string) {}
 
 // newIntegrationFailoverHandler creates a FailoverHandler backed by the test database.
 // Returns nil if the database is unavailable.
@@ -748,7 +748,8 @@ func TestFailoverHandler_Register(t *testing.T) {
 	h.Register(r)
 
 	routes := make(map[string]bool)
-	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+	//nolint:gosec // test-only: error handling not critical
+	chi.Walk(r, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		key := method + " " + route
 		routes[key] = true
 		return nil

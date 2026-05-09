@@ -1,5 +1,7 @@
+// Package provider provides LLM provider discovery and management.
 package provider
 
+// AnthropicPricingSpec contains pricing information for an Anthropic model.
 type AnthropicPricingSpec struct {
 	ModelID                      string
 	InputPricePerMillion         float64
@@ -19,10 +21,12 @@ var anthropicPricing = []AnthropicPricingSpec{
 	{ModelID: "claude-haiku-4-5", InputPricePerMillion: 1.00, InputPricePerMillionCacheHit: 0.10, OutputPricePerMillion: 5.00},
 }
 
+// GetAnthropicPricing returns the full Anthropic pricing catalog.
 func GetAnthropicPricing() []AnthropicPricingSpec {
 	return anthropicPricing
 }
 
+// LookupAnthropicPricing finds pricing for a model ID, stripping date suffixes if needed.
 func LookupAnthropicPricing(catalog []AnthropicPricingSpec, modelID string) *AnthropicPricingSpec {
 	for i := range catalog {
 		if catalog[i].ModelID == modelID {

@@ -90,7 +90,7 @@ func TestGenerateRandomKey(t *testing.T) {
 		t.Fatalf("GenerateRandomKey failed: %v", err)
 	}
 
-	if len(key1) == 0 {
+	if key1 == "" {
 		t.Fatal("Generated key is empty")
 	}
 

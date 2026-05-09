@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Model represents a discovered or configured LLM model.
 type Model struct {
 	ID                           uuid.UUID `json:"id"`
 	ProviderID                   uuid.UUID `json:"provider_id"`
@@ -37,6 +38,7 @@ type Model struct {
 	ProviderEnabled              bool      `json:"provider_enabled"`
 }
 
+// Capability represents the feature capabilities of a model.
 type Capability struct {
 	Streaming         bool `json:"streaming"`
 	Vision            bool `json:"vision"`
@@ -49,10 +51,12 @@ type Capability struct {
 	PDFUpload         bool `json:"pdf_upload"`
 }
 
+// Repository provides database operations for models.
 type Repository struct {
 	pool *pgxpool.Pool
 }
 
+// NewRepository creates a new model repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
@@ -61,6 +65,7 @@ const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COA
 
 const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, created_at, COALESCE(last_seen_at, created_at)`
 
+// Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	query := `
 		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, owned_by, enabled, last_seen_at)
@@ -117,6 +122,7 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 	return models, nil
 }
 
+// List returns all models, optionally filtered by provider ID.
 func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model, error) {
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id`
 
@@ -143,6 +149,7 @@ func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model,
 	return scanModels(rows)
 }
 
+// ListEnabled returns all enabled models from enabled providers.
 func (r *Repository) ListEnabled(ctx context.Context) ([]*Model, error) {
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.enabled = true AND p.enabled = true ORDER BY m.model_id ASC`
 
@@ -155,6 +162,7 @@ func (r *Repository) ListEnabled(ctx context.Context) ([]*Model, error) {
 	return scanModels(rows)
 }
 
+// Get retrieves a model by its UUID.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	if m, ok := GetCachedByUUID(id); ok {
 		return m, nil
@@ -178,6 +186,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	return &m, nil
 }
 
+// GetByIDs retrieves multiple models by their UUIDs.
 func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*Model, error) {
 	if len(ids) == 0 {
 		return make(map[uuid.UUID]*Model), nil
@@ -220,6 +229,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	return result, nil
 }
 
+// GetByModelID returns all enabled models matching the given model ID string.
 func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model, error) {
 	if models, ok := GetCachedByModelID(modelID); ok {
 		return models, nil
@@ -242,6 +252,7 @@ func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model
 	return models, nil
 }
 
+// GetByProviderAndModelID retrieves a model by provider ID and model ID.
 func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*Model, error) {
 	if m, ok := GetCachedByCompositeKey(providerID, modelID); ok {
 		return m, nil
@@ -266,6 +277,7 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 	return &m, nil
 }
 
+// DisableMissingModels disables models not present in the current discovery result.
 func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, existingModelIDs []string) (int64, error) {
 	if len(existingModelIDs) == 0 {
 		return 0, nil
@@ -284,6 +296,7 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 	return tag.RowsAffected(), nil
 }
 
+// SetEnabled enables or disables a model by its UUID.
 func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {
 	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, enabled, id)
@@ -294,6 +307,7 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	return r.Get(ctx, id)
 }
 
+// DeleteByID removes a model by its UUID.
 func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM models WHERE id = $1`, id)
 	if err != nil {
@@ -303,6 +317,7 @@ func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// UpdateModelRequest contains optional fields for updating a model.
 type UpdateModelRequest struct {
 	DisplayName           *string  `json:"display_name"`
 	ContextLength         *int     `json:"context_length"`
@@ -312,6 +327,7 @@ type UpdateModelRequest struct {
 	Enabled               *bool    `json:"enabled"`
 }
 
+// Update applies partial updates to a model.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRequest) (*Model, error) {
 	var setClauses []string
 	var args []interface{}

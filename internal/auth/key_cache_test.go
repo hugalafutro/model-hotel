@@ -306,11 +306,11 @@ func TestEvictExpiredKeyCacheEntries_AllExpired(t *testing.T) {
 	evictExpiredKeyCacheEntries()
 
 	keyCacheMu.RLock()
-	len := len(keyCache)
+	cacheLen := len(keyCache)
 	keyCacheMu.RUnlock()
 
-	if len != 0 {
-		t.Errorf("expected all entries evicted, got %d remaining", len)
+	if cacheLen != 0 {
+		t.Errorf("expected all entries evicted, got %d remaining", cacheLen)
 	}
 }
 
@@ -330,11 +330,11 @@ func TestEvictExpiredKeyCacheEntries_NoneExpired(t *testing.T) {
 	evictExpiredKeyCacheEntries()
 
 	keyCacheMu.RLock()
-	len := len(keyCache)
+	cacheLen := len(keyCache)
 	keyCacheMu.RUnlock()
 
-	if len != 2 {
-		t.Errorf("expected 2 entries (none expired), got %d", len)
+	if cacheLen != 2 {
+		t.Errorf("expected 2 entries (none expired), got %d", cacheLen)
 	}
 }
 
@@ -413,7 +413,7 @@ func TestDecryptCached_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestStopKeyCacheEviction(t *testing.T) {
+func TestStopKeyCacheEviction(_ *testing.T) {
 	// Calling Stop should not panic even if called multiple times
 	// (the init() goroutine is already running from package init)
 	StopKeyCacheEviction()
@@ -454,6 +454,7 @@ func TestDecryptCached_ShortNonce_Panics(t *testing.T) {
 
 	// Use a short (5-byte) nonce which is invalid for AES-GCM
 	shortNonce := []byte("short")
+	//nolint:gosec // test-only: error handling not critical
 	DecryptCached(kp.Ciphertext, shortNonce, kp.Salt, masterKey)
 }
 

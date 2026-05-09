@@ -1,3 +1,4 @@
+// Package config provides configuration loading and management from environment variables.
 package config
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// Config holds the application configuration.
 type Config struct {
 	Port        string
 	DatabaseURL string
@@ -62,6 +64,7 @@ func KnownProviderHosts() []string {
 	return append([]string{}, defaultKnownProviderHosts...)
 }
 
+// Load reads configuration from environment variables and applies defaults.
 func Load() (*Config, error) {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("error loading .env file: %w", err)
@@ -81,11 +84,13 @@ func Load() (*Config, error) {
 		MaxRequestSize:       clampInt64(getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), 1024, 100*1024*1024), // 1KB–100MB
 		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
-		DBMaxConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25), 1, 1000)),
-		DBMinConns:           int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
-		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
-		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
-		TrustedProxies:       LoadTrustedProxies(),
+		//nolint:gosec // port value validated to be within uint16 range
+		DBMaxConns: int32(clampInt64(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25), 1, 1000)),
+		//nolint:gosec // port value validated to be within uint16 range
+		DBMinConns:       int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
+		ModelsDevEnabled: getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
+		DebugLog:         getBoolEnvWithDefault("DEBUG_LOG", false),
+		TrustedProxies:   LoadTrustedProxies(),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -366,22 +371,22 @@ func parseProviderHosts(value string) []string {
 	return util.SplitAndTrim(value)
 }
 
-func clampInt64(value, min, max int64) int64 {
-	if value < min {
-		return min
+func clampInt64(value, minVal, maxVal int64) int64 {
+	if value < minVal {
+		return minVal
 	}
-	if value > max {
-		return max
+	if value > maxVal {
+		return maxVal
 	}
 	return value
 }
 
-func clampFloat(value, min, max float64) float64 {
-	if value < min {
-		return min
+func clampFloat(value, minVal, maxVal float64) float64 {
+	if value < minVal {
+		return minVal
 	}
-	if value > max {
-		return max
+	if value > maxVal {
+		return maxVal
 	}
 	return value
 }

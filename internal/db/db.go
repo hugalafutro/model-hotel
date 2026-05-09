@@ -1,3 +1,4 @@
+// Package db provides database connection and migration management.
 package db
 
 import (
@@ -16,10 +17,12 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
+// DB manages the PostgreSQL connection pool and migrations.
 type DB struct {
 	pool *pgxpool.Pool
 }
 
+// New creates a new DB instance, runs migrations, and returns the database connection.
 func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
@@ -52,16 +55,19 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB
 	return db, nil
 }
 
+// Close closes the database connection pool.
 func (db *DB) Close() {
 	if db.pool != nil {
 		db.pool.Close()
 	}
 }
 
+// Pool returns the underlying pgx connection pool.
 func (db *DB) Pool() *pgxpool.Pool {
 	return db.pool
 }
 
+// Begin starts a new database transaction.
 func (db *DB) Begin(ctx context.Context) (pgx.Tx, error) {
 	return db.pool.Begin(ctx)
 }
@@ -170,6 +176,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	return nil
 }
 
+// WaitForReady polls the database until it responds or maxAttempts is reached.
 func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 	for i := 0; i < maxAttempts; i++ {
 		err := db.pool.Ping(ctx)

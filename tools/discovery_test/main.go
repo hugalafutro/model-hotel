@@ -1,3 +1,4 @@
+// Package main provides a discovery test tool for benchmarking provider discovery.
 package main
 
 import (
@@ -16,6 +17,7 @@ type Result struct {
 	Err     string `json:"error,omitempty"`
 }
 
+//nolint:revive // CLI tool
 func parseArgs() (string, string, int, error) {
 	if len(os.Args) < 3 {
 		return "", "", 0, fmt.Errorf("usage: discovery_test <base_url> <provider_id> [concurrency]")
@@ -49,7 +51,7 @@ func main() {
 	for i := 0; i < concurrency*5; i++ {
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(i int) {
+		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
 			start := time.Now()
@@ -65,7 +67,7 @@ func main() {
 			res.Status = resp.StatusCode
 			_ = resp.Body.Close()
 			results = append(results, res)
-		}(i)
+		}()
 	}
 	wg.Wait()
 	// print results

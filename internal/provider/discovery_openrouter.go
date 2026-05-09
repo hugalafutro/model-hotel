@@ -128,6 +128,7 @@ func parseOpenRouterPricing(pricing OpenRouterPricing) (float64, float64) {
 	return inPrice * 1_000_000, outPrice * 1_000_000
 }
 
+// GetOpenRouterBalance retrieves credits and usage info from OpenRouter.
 func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterBalance, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {

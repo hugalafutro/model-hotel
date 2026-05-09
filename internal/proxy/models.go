@@ -8,6 +8,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
+// ListModels returns all available models in OpenAI-compatible format.
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {

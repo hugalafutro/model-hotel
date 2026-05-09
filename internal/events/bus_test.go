@@ -120,7 +120,7 @@ func TestPublishWithIDAndTimestamp(t *testing.T) {
 	b.Unsubscribe(ch)
 }
 
-func TestConcurrentSubscribePublish(t *testing.T) {
+func TestConcurrentSubscribePublish(_ *testing.T) {
 	b := NewBus()
 	var wg sync.WaitGroup
 
@@ -162,7 +162,7 @@ func TestConcurrentSubscribePublish(t *testing.T) {
 // Publish after Unsubscribe (panic recovery)
 // ---------------------------------------------------------------------------
 
-func TestPublishAfterUnsubscribe_NoPanic(t *testing.T) {
+func TestPublishAfterUnsubscribe_NoPanic(_ *testing.T) {
 	// This tests the recover() path in Publish — sending to a closed channel
 	// should not panic.
 	b := NewBus()
@@ -170,6 +170,8 @@ func TestPublishAfterUnsubscribe_NoPanic(t *testing.T) {
 
 	// Drain the channel in a goroutine so Unsubscribe can close it
 	go func() {
+		// Drain the channel to prevent blocking.
+		//nolint:revive // intentional: empty block for channel drain in test
 		for range ch {
 		}
 	}()

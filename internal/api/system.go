@@ -20,26 +20,31 @@ import (
 // Server start time — used for uptime calculation.
 var startedAt = time.Now()
 
+// SystemHandler provides system health and stats API endpoints.
 type SystemHandler struct {
 	pool *pgxpool.Pool
 }
 
+// NewSystemHandler creates a new system handler.
 func NewSystemHandler(pool *pgxpool.Pool) *SystemHandler {
 	return &SystemHandler{pool: pool}
 }
 
+// Register mounts system API routes.
 func (h *SystemHandler) Register(r chi.Router) {
 	r.Route("/system", func(r chi.Router) {
 		r.Get("/", h.GetSystem)
 	})
 }
 
+// SystemStats contains system-wide health metrics.
 type SystemStats struct {
 	App    AppStats                   `json:"app"`
 	DB     DBStats                    `json:"db"`
 	Docker util.AggregatedDockerStats `json:"docker"`
 }
 
+// AppStats contains application-level metrics (memory, CPU, network, disk).
 type AppStats struct {
 	HeapAllocMB       float64 `json:"heap_alloc_mb"`
 	SysMemoryMB       float64 `json:"sys_memory_mb"`
@@ -49,7 +54,7 @@ type AppStats struct {
 	MemoryLimit       int64   `json:"memory_limit_bytes"`
 	InContainer       bool    `json:"in_container"`
 	UptimeSeconds     int64   `json:"uptime_seconds"`
-	CpuPercent        float64 `json:"cpu_percent"`
+	CPUPercent        float64 `json:"cpu_percent"`
 	RequestsToday     int64   `json:"requests_today"`
 	NetRxBytesSec     float64 `json:"net_rx_bytes_sec"`
 	NetTxBytesSec     float64 `json:"net_tx_bytes_sec"`
@@ -58,6 +63,7 @@ type AppStats struct {
 	Procs             int     `json:"procs"`
 }
 
+// DBStats contains PostgreSQL database metrics.
 type DBStats struct {
 	SizeMB        float64 `json:"size_mb"`
 	Connections   int     `json:"connections"`
@@ -81,6 +87,7 @@ var (
 
 const systemCacheTTL = 3 * time.Second
 
+// GetSystem returns system health metrics (app, database, Docker).
 func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	since := r.URL.Query().Get("since")
 
@@ -159,7 +166,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		MemoryLimit:       memLimit,
 		InContainer:       inContainer,
 		UptimeSeconds:     int64(time.Since(startedAt).Seconds()),
-		CpuPercent:        cpuPercent,
+		CPUPercent:        cpuPercent,
 		RequestsToday:     requestsToday,
 		NetRxBytesSec:     netRxPerSec,
 		NetTxBytesSec:     netTxPerSec,
@@ -252,6 +259,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 func getInt64(s metrics.Sample) int64 {
 	switch s.Value.Kind() {
 	case metrics.KindUint64:
+		//nolint:gosec // value is memory size, always fits in int64 range
 		return int64(s.Value.Uint64())
 	case metrics.KindFloat64:
 		return int64(s.Value.Float64())

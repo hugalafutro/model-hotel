@@ -90,6 +90,7 @@ func TestListComposeContainers(t *testing.T) {
 		if r.URL.Path == "/containers/json" && r.URL.Query().Get("all") == "true" {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(containers)
+			//nolint:gosec // test-only: error handling not critical
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -129,6 +130,7 @@ func TestGetContainerStats(t *testing.T) {
 
 	// Use the production dockerStatsResponse type directly
 	var statsResp dockerStatsResponse
+	//nolint:gosec // test-only: error handling not critical
 	json.Unmarshal([]byte(`{
 		"cpu_stats": {
 			"cpu_usage": {"total_usage": 500, "percpu_usage": [250, 250]},
@@ -166,6 +168,7 @@ func TestGetContainerStats(t *testing.T) {
 		if r.URL.Path != "/containers/abc123def4567/stats" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
+		//nolint:gosec // test-only: error handling not critical
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(statsResp)
 	}))
@@ -269,7 +272,7 @@ func TestCollectDockerStats(t *testing.T) {
 }
 
 // TestDetectComposeProject tests compose project detection
-func TestDetectComposeProject(t *testing.T) {
+func TestDetectComposeProject(_ *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -390,11 +393,13 @@ func TestGetOwnContainerID_CgroupV1(t *testing.T) {
 11:cpu:/docker/abc123def4567890
 10:blkio:/docker/abc123def4567890`
 	cgroupFile := tmpDir + "/cgroup"
-	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0644); err != nil {
+	//nolint:gosec // test-only: permissive perms acceptable
+	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
 		t.Fatalf("failed to write temp cgroup file: %v", err)
 	}
 
 	// Read the file manually to verify the logic (since we can't override the path)
+	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(cgroupFile)
 	if err != nil {
 		t.Fatalf("failed to read temp file: %v", err)
@@ -432,10 +437,12 @@ func TestGetOwnContainerID_CgroupV2(t *testing.T) {
 	tmpDir := t.TempDir()
 	cgroupContent := `0::/abc123def4567890`
 	cgroupFile := tmpDir + "/cgroup"
-	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0644); err != nil {
+	//nolint:gosec // test-only: permissive perms acceptable
+	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
 		t.Fatalf("failed to write temp cgroup file: %v", err)
 	}
 
+	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(cgroupFile)
 	if err != nil {
 		t.Fatalf("failed to read temp file: %v", err)
@@ -469,10 +476,12 @@ func TestGetOwnContainerID_CgroupV2(t *testing.T) {
 func TestGetOwnContainerID_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 	cgroupFile := tmpDir + "/cgroup"
-	if err := os.WriteFile(cgroupFile, []byte(""), 0644); err != nil {
+	//nolint:gosec // test-only: permissive perms acceptable
+	if err := os.WriteFile(cgroupFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("failed to write temp cgroup file: %v", err)
 	}
 
+	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(cgroupFile)
 	if err != nil {
 		t.Fatalf("failed to read temp file: %v", err)
@@ -503,10 +512,10 @@ func TestGetOwnContainerID_Empty(t *testing.T) {
 }
 
 // TestCloseDockerClient tests client cleanup
-func TestCloseDockerClient(t *testing.T) {
+func TestCloseDockerClient(_ *testing.T) {
 	resetDockerState()
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -529,7 +538,7 @@ func TestCloseDockerClient(t *testing.T) {
 }
 
 // TestCloseDockerClient_NilClient tests CloseDockerClient when client is nil
-func TestCloseDockerClient_NilClient(t *testing.T) {
+func TestCloseDockerClient_NilClient(_ *testing.T) {
 	resetDockerState()
 
 	// Ensure sharedDockerCli is nil
@@ -540,7 +549,7 @@ func TestCloseDockerClient_NilClient(t *testing.T) {
 }
 
 // TestCloseDockerClient_NonTransport tests CloseDockerClient when transport is not *http.Transport
-func TestCloseDockerClient_NonTransport(t *testing.T) {
+func TestCloseDockerClient_NonTransport(_ *testing.T) {
 	resetDockerState()
 
 	// Create client with non-Transport roundtripper

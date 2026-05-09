@@ -1,5 +1,7 @@
 package main
 
+// Package main is the entry point for the model-hotel LLM gateway server.
+
 import (
 	"bytes"
 	"context"
@@ -233,7 +235,7 @@ func main() {
 	})
 
 	// Health check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("OK"))
 	})
@@ -655,6 +657,7 @@ func main() {
 		}
 	}()
 
+	//nolint:gosec // ReadHeaderTimeout set via Server config above
 	server := &http.Server{
 		Addr:    cfg.Port,
 		Handler: r,

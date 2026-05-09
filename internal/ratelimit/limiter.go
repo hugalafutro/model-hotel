@@ -136,7 +136,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 			}
 
-			entry := l.getLimiter(keyHash, r.Context(), perKeyRPS, perKeyBurst)
+			entry := l.getLimiter(r.Context(), keyHash, perKeyRPS, perKeyBurst)
 
 			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter)
 			settingsReadMs := float64(time.Since(settingsStart).Microseconds()) / 1000.0
@@ -180,7 +180,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 // If per-key overrides are provided (non-nil), they take precedence over
 // global settings. If the stored limiter's RPS or burst no longer matches,
 // it is replaced so runtime changes take effect immediately.
-func (l *Limiter) getLimiter(keyHash string, ctx context.Context, perKeyRPS *float64, perKeyBurst *int) *keyEntry {
+func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *float64, perKeyBurst *int) *keyEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

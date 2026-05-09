@@ -61,7 +61,7 @@ func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
 	lim := NewIPLimiter(10, 5, nil, nil)
 	defer lim.Stop()
 
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	handler := lim.Middleware(next)

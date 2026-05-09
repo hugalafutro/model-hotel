@@ -70,24 +70,24 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		default:
 		}
 
-		if n, err := w.Write(line); err != nil {
+		var n int
+		var err error
+		if n, err = w.Write(line); err != nil {
 			clientDisconnected = true
 			debuglog.Warn("proxy: client write failed during stream",
 				"error", err, "model", logData.modelID, "provider", logData.providerID,
 				"chunks", chunkCount, "bytes_written", bytesWritten)
 			goto logUpdate
-		} else {
-			bytesWritten += int64(n)
 		}
-		if n, err := w.Write([]byte("\n")); err != nil {
+		bytesWritten += int64(n)
+		if n, err = w.Write([]byte("\n")); err != nil {
 			clientDisconnected = true
 			debuglog.Warn("proxy: client write failed during stream (newline)",
 				"error", err, "model", logData.modelID, "provider", logData.providerID,
 				"chunks", chunkCount, "bytes_written", bytesWritten)
 			goto logUpdate
-		} else {
-			bytesWritten += int64(n)
 		}
+		bytesWritten += int64(n)
 		if canFlush {
 			flusher.Flush()
 		}
@@ -279,6 +279,7 @@ func (h *Handler) failRequest(ctx context.Context, logData *requestLogData, stat
 	h.updateRequestLog(ctx, logData)
 }
 
+// ChatCompletions handles OpenAI-compatible chat completion requests with failover support.
 func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
@@ -347,7 +348,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if strings.HasPrefix(req.Model, "hotel/") {
+	switch {
+	case strings.HasPrefix(req.Model, "hotel/"):
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", req.Model)
 		displayModel := strings.TrimPrefix(req.Model, "hotel/")
 		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
@@ -361,7 +363,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
 			return
 		}
-	} else if strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/") {
+	case strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/"):
 		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", req.Model)
 		parts := strings.SplitN(req.Model, "/", 2)
 		if len(parts) != 2 {
@@ -376,7 +378,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return
 		}
-	} else {
+	default:
 		h.failRequest(r.Context(), logData, 400, "invalid model format: "+req.Model, 0, startTime, parseMs, timings, 0)
 		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
 		return
@@ -452,6 +454,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
 		}
 		debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider_name", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", len(candidates))
+		//nolint:gosec // intentional: failover goroutine needs independent lifecycle
 		go func(pid uuid.UUID) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -524,6 +527,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		upstreamClient := &http.Client{
 			Transport: h.upstreamTransport,
 		}
+		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err := upstreamClient.Do(proxyReq)
 		timings.safeDialMs = safeDialMs
 		if err != nil {
@@ -746,12 +750,12 @@ func setProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
 
 // mapKeys returns the keys of a map[string]bool for logging.
 // failoverBackoff calculates exponential backoff with jitter between failover attempts.
-// base is the starting delay, cap is the maximum delay, attempt is the 1-indexed attempt number.
+// base is the starting delay, capacity is the maximum delay, attempt is the 1-indexed attempt number.
 // Jitter of [0, base) is added to spread retries from concurrent requests hitting the same cascade.
-func failoverBackoff(base, cap_ time.Duration, attempt int) time.Duration {
+func failoverBackoff(base, capacity time.Duration, attempt int) time.Duration {
 	exp := time.Duration(float64(base) * math.Pow(2, float64(attempt-1)))
-	if exp > cap_ {
-		exp = cap_
+	if exp > capacity {
+		exp = capacity
 	}
 	jitter := time.Duration(rand.Int64N(int64(base)))
 	return exp + jitter

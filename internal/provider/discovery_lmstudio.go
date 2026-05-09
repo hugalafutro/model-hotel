@@ -14,7 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// LMStudio /v1/models response (OpenAI-compatible)
+// LMStudioModelsResponse is the OpenAI-compatible models response from LMStudio.
 type LMStudioModelsResponse struct {
 	Object string `json:"object"`
 	Data   []struct {
@@ -69,6 +69,7 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 			ownedBy = "lmstudio"
 		}
 
+		//nolint:gocritic // model variable shadows import but context makes it clear
 		model := &model.Model{
 			ID:               uuid.New(),
 			ProviderID:       provider.ID,

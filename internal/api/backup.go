@@ -87,6 +87,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	// by the chi request timeout middleware (~60s).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
 	cmd := exec.CommandContext(ctx, pgDumpPath,
 		"--format=custom",
 		"--no-password",
@@ -202,8 +203,7 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 
 	debuglog.Info("backup downloaded", "filename", filename)
 
-	escaped := strings.ReplaceAll(filename, `"`, `\"`)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, escaped))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeFile(w, r, absPath)
 }

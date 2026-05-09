@@ -92,7 +92,7 @@ func TestDiscoverDeepSeek(t *testing.T) {
 
 func TestDiscoverDeepSeek_Unauthorized(t *testing.T) {
 	// Create test server that returns unauthorized
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}))
 	defer server.Close()

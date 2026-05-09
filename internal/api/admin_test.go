@@ -118,13 +118,13 @@ type mockSettingsStore struct {
 	invalidateCacheFn func(key string)
 }
 
-func (m *mockSettingsStore) GetWithDefault(ctx context.Context, key string, defaultValue string) string {
+func (m *mockSettingsStore) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	if m.getWithDefaultFn != nil {
 		return m.getWithDefaultFn(ctx, key, defaultValue)
 	}
 	return defaultValue
 }
-func (m *mockSettingsStore) Set(ctx context.Context, key string, value string) error {
+func (m *mockSettingsStore) Set(ctx context.Context, key, value string) error {
 	if m.setFn != nil {
 		return m.setFn(ctx, key, value)
 	}
@@ -160,15 +160,15 @@ func (m *mockAdminAuth) Validate(token string) bool {
 }
 
 // testHandler creates a Handler with mock dependencies.
-func testHandler(provStore *mockProviderStore, vkStore *mockVirtualKeyStore, setsStore *mockSettingsStore, auth_ *mockAdminAuth, dbPool_ *db.DB) *Handler {
+func testHandler(provStore *mockProviderStore, vkStore *mockVirtualKeyStore, setsStore *mockSettingsStore, auth *mockAdminAuth, dbPool *db.DB) *Handler {
 	return &Handler{
 		cfg: &config.Config{
 			AllowHTTPProviders:   true,
 			AllowedProviderHosts: []string{"api.example.com", "localhost"},
 		},
 		providerRepo:   provStore,
-		dbPool:         dbPool_,
-		adminMgr:       auth_,
+		dbPool:         dbPool,
+		adminMgr:       auth,
 		virtualKeyRepo: vkStore,
 		settingsRepo:   setsStore,
 	}
@@ -191,7 +191,7 @@ func parseJSON(t *testing.T, w *httptest.ResponseRecorder, v interface{}) {
 
 func TestCreateProvider_Success(t *testing.T) {
 	mockProv := &mockProviderStore{
-		createFn: func(ctx context.Context, req provider.CreateProviderRequest, ek, kn, ks []byte) (*provider.Provider, error) {
+		createFn: func(_ context.Context, req provider.CreateProviderRequest, _, _, _ []byte) (*provider.Provider, error) {
 			if req.Name != "test-provider" {
 				t.Errorf("expected name 'test-provider', got %q", req.Name)
 			}
@@ -208,7 +208,7 @@ func TestCreateProvider_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	mockAuth := &mockAdminAuth{validateFn: func(_ string) bool { return true }}
 
 	h := testHandler(mockProv, nil, nil, mockAuth, nil)
 	body := bytes.NewReader([]byte(`{"name":"test-provider","base_url":"https://api.example.com/v1","api_key":"sk-test-key"}`))
@@ -270,7 +270,7 @@ func TestCreateProvider_MissingBaseURL(t *testing.T) {
 
 func TestCreateProvider_DuplicateName(t *testing.T) {
 	mockProv := &mockProviderStore{
-		getByNameFn: func(ctx context.Context, name string) (*provider.Provider, error) {
+		getByNameFn: func(_ context.Context, name string) (*provider.Provider, error) {
 			return &provider.Provider{ID: uuid.New(), Name: name}, nil // existing provider
 		},
 	}
@@ -287,7 +287,7 @@ func TestCreateProvider_DuplicateName(t *testing.T) {
 
 func TestListProviders_RepoError(t *testing.T) {
 	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+		listFn: func(_ context.Context) ([]*provider.Provider, error) {
 			return nil, errors.New("db error")
 		},
 	}
@@ -585,11 +585,11 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 }
 
@@ -602,11 +602,11 @@ func TestAuthMiddleware_BearerToken(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Authorization", "Bearer valid-token")
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 }
 
@@ -619,11 +619,11 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Authorization", "Bearer wrong-token")
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, w.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 }
 

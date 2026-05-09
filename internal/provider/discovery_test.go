@@ -601,7 +601,7 @@ func TestToResponse_EmptyStringMaskedKey(t *testing.T) {
 // Provider Cache
 // ---------------------------------------------------------------------------
 
-func TestCacheProvider_NilProvider(t *testing.T) {
+func TestCacheProvider_NilProvider(_ *testing.T) {
 	// Should not panic
 	cacheProvider(nil)
 }

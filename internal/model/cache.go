@@ -1,3 +1,4 @@
+// Package model provides model discovery and caching functionality.
 package model
 
 import (
@@ -56,6 +57,7 @@ func cacheModelByCompositeKey(providerID uuid.UUID, modelID string, m *Model) {
 	modelCacheMu.Unlock()
 }
 
+// GetCachedByModelID returns cached models by model ID string if not expired.
 func GetCachedByModelID(modelID string) ([]*Model, bool) {
 	modelCacheMu.RLock()
 	entry, ok := modelByModelIDCache[modelID]
@@ -66,6 +68,7 @@ func GetCachedByModelID(modelID string) ([]*Model, bool) {
 	return entry.models, true
 }
 
+// GetCachedByUUID returns a cached model by UUID if not expired.
 func GetCachedByUUID(id uuid.UUID) (*Model, bool) {
 	modelCacheMu.RLock()
 	entry, ok := modelByUUIDCache[id]
@@ -76,6 +79,7 @@ func GetCachedByUUID(id uuid.UUID) (*Model, bool) {
 	return entry.model, true
 }
 
+// GetCachedByCompositeKey returns a cached model by provider ID and model ID composite key if not expired.
 func GetCachedByCompositeKey(providerID uuid.UUID, modelID string) (*Model, bool) {
 	key := providerID.String() + ":" + modelID
 	modelCacheMu.RLock()
@@ -87,6 +91,7 @@ func GetCachedByCompositeKey(providerID uuid.UUID, modelID string) (*Model, bool
 	return entry.model, true
 }
 
+// InvalidateModelCache clears all model cache entries.
 func InvalidateModelCache() {
 	modelCacheMu.Lock()
 	modelByModelIDCache = make(map[string]modelCacheEntry)
@@ -95,6 +100,7 @@ func InvalidateModelCache() {
 	modelCacheMu.Unlock()
 }
 
+// WarmModelCache populates the model cache with the given models.
 func WarmModelCache(models []*Model) {
 	modelCacheMu.Lock()
 	for _, m := range models {

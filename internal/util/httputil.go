@@ -21,6 +21,7 @@ import (
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
+// SanitizeLogBody truncates and redacts UUIDs from log body strings.
 func SanitizeLogBody(body string, maxLen int) string {
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters
@@ -28,7 +29,7 @@ func SanitizeLogBody(body string, maxLen int) string {
 			_, size := utf8.DecodeLastRuneInString(body)
 			body = body[:len(body)-size]
 		}
-		body = body + "…"
+		body += "…"
 	}
 	return uuidPattern.ReplaceAllString(body, "[REDACTED]")
 }

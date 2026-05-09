@@ -55,6 +55,7 @@ func TestDiscoverCohere(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
+		//nolint:gosec // test-only
 		json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
@@ -119,7 +120,7 @@ func TestDiscoverCohere(t *testing.T) {
 
 func TestDiscoverCohere_Unauthorized(t *testing.T) {
 	// Create test server that returns unauthorized
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -141,7 +142,7 @@ func TestDiscoverCohere_Unauthorized(t *testing.T) {
 
 func TestDiscoverCohere_EmptyModelList(t *testing.T) {
 	// Create test server with empty models response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := CohereModelsResponse{
 			Models: []CohereNativeModel{},
 		}
@@ -172,7 +173,7 @@ func TestDiscoverCohere_EmptyModelList(t *testing.T) {
 
 func TestDiscoverCohere_ContextCancelled(t *testing.T) {
 	// Create test server that delays response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		response := CohereModelsResponse{
 			Models: []CohereNativeModel{

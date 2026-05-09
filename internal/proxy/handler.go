@@ -23,6 +23,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
+// Handler manages proxy routes and middleware.
 type Handler struct {
 	cfg            *config.Config
 	providerRepo   *provider.Repository
@@ -97,6 +98,7 @@ func (a *virtualKeyRepoAdapter) Delete(ctx context.Context, id string) error {
 	return a.repo.Delete(ctx, vid)
 }
 
+// NewHandler creates a new proxy Handler.
 func NewHandler(
 	cfg *config.Config,
 	providerRepo *provider.Repository,
@@ -138,6 +140,7 @@ func (h *Handler) Close() {
 	}
 }
 
+// Register sets up the proxy routes on the given mux.
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
@@ -147,6 +150,7 @@ func (h *Handler) Register(r chi.Router) {
 	r.Post("/chat/completions", h.ChatCompletions)
 }
 
+// RegisterAdminChat adds the admin chat endpoint.
 func (h *Handler) RegisterAdminChat(r chi.Router) {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +173,7 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	r.Post("/completions", h.ChatCompletions)
 }
 
+// ProxyKeyMiddleware validates the virtual API key in the request header.
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
@@ -198,6 +203,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, vk.RateLimitBurst)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.
+		//nolint:gosec // intentional: periodic cache refresh is not request-scoped
 		go func(hash string) {
 			defer func() {
 				if r := recover(); r != nil {

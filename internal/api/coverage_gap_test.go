@@ -144,6 +144,7 @@ func TestCreateBackup_Success(t *testing.T) {
 	// Verify the backup file actually exists on disk
 	backupPath := backupDir + "/" + resp.Filename
 	if _, err := exec.LookPath("stat"); err == nil {
+		//nolint:gosec // test-only subprocess
 		if _, err := exec.Command("stat", backupPath).CombinedOutput(); err != nil {
 			t.Errorf("backup file should exist at %s", backupPath)
 		}

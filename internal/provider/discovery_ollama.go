@@ -97,7 +97,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 
 func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey, modelName string) (*OllamaShowResponse, error) {
 	showURL := apiBase + "/api/show"
-	body := fmt.Sprintf(`{"model":"%s"}`, modelName)
+	body := fmt.Sprintf(`{"model":%q}`, modelName)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", showURL, strings.NewReader(body))
 	if err != nil {

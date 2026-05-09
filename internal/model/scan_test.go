@@ -75,7 +75,7 @@ func (m *mockModelRows) Conn() *pgx.Conn {
 	return nil
 }
 
-func assignToDest(dest any, val any) {
+func assignToDest(dest, val any) {
 	switch d := dest.(type) {
 	case *uuid.UUID:
 		if v, ok := val.(uuid.UUID); ok {

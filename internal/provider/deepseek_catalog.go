@@ -1,5 +1,6 @@
 package provider
 
+// DeepSeekModelSpec contains specification and pricing for a DeepSeek model.
 type DeepSeekModelSpec struct {
 	ModelID                       string
 	ContextLength                 int
@@ -31,10 +32,12 @@ var deepseekCatalog = []DeepSeekModelSpec{
 	},
 }
 
+// GetDeepSeekModels returns the full DeepSeek model catalog.
 func GetDeepSeekModels() []DeepSeekModelSpec {
 	return deepseekCatalog
 }
 
+// GetDeepSeekModelSpec returns the spec for a specific DeepSeek model ID.
 func GetDeepSeekModelSpec(modelID string) *DeepSeekModelSpec {
 	for _, spec := range deepseekCatalog {
 		if spec.ModelID == modelID {

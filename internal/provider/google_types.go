@@ -1,6 +1,6 @@
 package provider
 
-// Google AI Studio native /v1beta/models response
+// GoogleModel represents a model from Google AI Studio native /v1beta/models response.
 type GoogleModel struct {
 	Name                       string   `json:"name"`
 	Version                    string   `json:"version,omitempty"`
@@ -16,6 +16,7 @@ type GoogleModel struct {
 	Thinking                   bool     `json:"thinking,omitempty"`
 }
 
+// GoogleModelsResponse is the response from Google AI Studio models endpoint.
 type GoogleModelsResponse struct {
 	Models []GoogleModel `json:"models"`
 }
@@ -28,6 +29,7 @@ type GoogleOpenAIModel struct {
 	DisplayName string `json:"display_name"`
 }
 
+// GoogleOpenAIModelsResponse is the response from Google OpenAI-compatible models endpoint.
 type GoogleOpenAIModelsResponse struct {
 	Object string              `json:"object"`
 	Data   []GoogleOpenAIModel `json:"data"`

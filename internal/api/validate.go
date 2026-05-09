@@ -6,80 +6,80 @@ import (
 	"unicode"
 )
 
-// validateStringLength checks that a string value is within [min, max] after trimming.
-func validateStringLength(field, value string, min, max int) error {
+// validateStringLength checks that a string value is within [minLen, maxLen] after trimming.
+func validateStringLength(field, value string, minLen, maxLen int) error {
 	trimmed := strings.TrimSpace(value)
-	if len(trimmed) < min {
-		return fmt.Errorf("%s must be at least %d characters", field, min)
+	if len(trimmed) < minLen {
+		return fmt.Errorf("%s must be at least %d characters", field, minLen)
 	}
-	if len(trimmed) > max {
-		return fmt.Errorf("%s must be at most %d characters", field, max)
-	}
-	return nil
-}
-
-// validateStringPtrLength checks that a non-nil *string is within [min, max] after trimming.
-// Returns nil if the pointer is nil.
-func validateStringPtrLength(field string, value *string, min, max int) error {
-	if value == nil {
-		return nil
-	}
-	return validateStringLength(field, *value, min, max)
-}
-
-// validateIntRange checks that an int value is within [min, max].
-func validateIntRange(field string, value, min, max int) error {
-	if value < min {
-		return fmt.Errorf("%s must be at least %d", field, min)
-	}
-	if value > max {
-		return fmt.Errorf("%s must be at most %d", field, max)
+	if len(trimmed) > maxLen {
+		return fmt.Errorf("%s must be at most %d characters", field, maxLen)
 	}
 	return nil
 }
 
-// validateIntPtrRange checks that a non-nil *int is within [min, max].
+// validateStringPtrLength checks that a non-nil *string is within [minLen, maxLen] after trimming.
 // Returns nil if the pointer is nil.
-func validateIntPtrRange(field string, value *int, min, max int) error {
+func validateStringPtrLength(field string, value *string, minLen, maxLen int) error {
 	if value == nil {
 		return nil
 	}
-	return validateIntRange(field, *value, min, max)
+	return validateStringLength(field, *value, minLen, maxLen)
 }
 
-// validateFloatRange checks that a float64 value is within [min, max].
-func validateFloatRange(field string, value, min, max float64) error {
-	if value < min {
-		return fmt.Errorf("%s must be at least %g", field, min)
+// validateIntRange checks that an int value is within [minVal, maxVal].
+func validateIntRange(field string, value, minVal, maxVal int) error {
+	if value < minVal {
+		return fmt.Errorf("%s must be at least %d", field, minVal)
 	}
-	if value > max {
-		return fmt.Errorf("%s must be at most %g", field, max)
+	if value > maxVal {
+		return fmt.Errorf("%s must be at most %d", field, maxVal)
 	}
 	return nil
 }
 
-// validateFloatPtrRange checks that a non-nil *float64 is within [min, max].
+// validateIntPtrRange checks that a non-nil *int is within [minVal, maxVal].
 // Returns nil if the pointer is nil.
-func validateFloatPtrRange(field string, value *float64, min, max float64) error {
+func validateIntPtrRange(field string, value *int, minVal, maxVal int) error {
 	if value == nil {
 		return nil
 	}
-	return validateFloatRange(field, *value, min, max)
+	return validateIntRange(field, *value, minVal, maxVal)
 }
 
-// validateMapSize checks that a map has at most max entries.
-func validateMapSize(field string, m map[string]bool, max int) error {
-	if len(m) > max {
-		return fmt.Errorf("%s must have at most %d entries", field, max)
+// validateFloatRange checks that a float64 value is within [minVal, maxVal].
+func validateFloatRange(field string, value, minVal, maxVal float64) error {
+	if value < minVal {
+		return fmt.Errorf("%s must be at least %g", field, minVal)
+	}
+	if value > maxVal {
+		return fmt.Errorf("%s must be at most %g", field, maxVal)
+	}
+	return nil
+}
+
+// validateFloatPtrRange checks that a non-nil *float64 is within [minVal, maxVal].
+// Returns nil if the pointer is nil.
+func validateFloatPtrRange(field string, value *float64, minVal, maxVal float64) error {
+	if value == nil {
+		return nil
+	}
+	return validateFloatRange(field, *value, minVal, maxVal)
+}
+
+// validateMapSize checks that a map has at most maxEntries entries.
+func validateMapSize(field string, m map[string]bool, maxEntries int) error {
+	if len(m) > maxEntries {
+		return fmt.Errorf("%s must have at most %d entries", field, maxEntries)
 	}
 	return nil
 }
 
 // validateNameString trims, checks length, and rejects control/invisible characters.
 // Returns the trimmed value and an error if validation fails.
-func validateNameString(field, value string, min, max int) (string, error) {
+func validateNameString(field, value string, minLen, maxLen int) (string, error) {
 	trimmed := strings.TrimSpace(value)
-	if err := validateStringLength(field, trimmed, min, max); err != nil {
+	if err := validateStringLength(field, trimmed, minLen, maxLen); err != nil {
 		return trimmed, err
 	}
 	if err := validatePrintable(field, trimmed); err != nil {
@@ -91,11 +91,11 @@ func validateNameString(field, value string, min, max int) (string, error) {
 // validateNamePtr trims, checks length, and rejects control/invisible characters
 // for a *string field. Returns the trimmed pointer and an error if validation fails.
 // Returns (nil, nil) if the pointer is nil.
-func validateNamePtr(field string, value *string, min, max int) (*string, error) {
+func validateNamePtr(field string, value *string, minLen, maxLen int) (*string, error) {
 	if value == nil {
 		return nil, nil
 	}
-	trimmed, err := validateNameString(field, *value, min, max)
+	trimmed, err := validateNameString(field, *value, minLen, maxLen)
 	if err != nil {
 		return nil, err
 	}

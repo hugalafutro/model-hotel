@@ -1,3 +1,4 @@
+// Package admin provides admin token authentication and management.
 package admin
 
 import (
@@ -15,6 +16,7 @@ import (
 const tokenLength = 32
 const sha256Prefix = "sha256:"
 
+// Manager handles admin token authentication and management.
 type Manager struct {
 	dataDir    string
 	tokenHash  string
@@ -26,10 +28,10 @@ type Manager struct {
 // admin token on first boot (when no admin-token file exists) instead of
 // generating a random one. If the admin-token file already exists, initialToken
 // is ignored — the stored hash takes precedence.
-func New(dataDir string, initialToken string) (*Manager, bool, error) {
+func New(dataDir, initialToken string) (*Manager, bool, error) {
 	m := &Manager{dataDir: dataDir}
 
-	if err := os.MkdirAll(dataDir, 0700); err != nil {
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, false, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -45,14 +47,17 @@ func New(dataDir string, initialToken string) (*Manager, bool, error) {
 	return m, isNew, nil
 }
 
+// Token returns the plain admin token.
 func (m *Manager) Token() string {
 	return m.plainToken
 }
 
+// IsNew reports whether a new admin token was generated on this boot.
 func (m *Manager) IsNew() bool {
 	return m.isNew
 }
 
+// Validate checks if the provided token matches the stored admin token hash.
 func (m *Manager) Validate(token string) bool {
 	if token == "" || m.tokenHash == "" {
 		return false
@@ -64,9 +69,10 @@ func (m *Manager) Validate(token string) bool {
 	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(m.tokenHash)) == 1
 }
 
-func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash string, plainToken string, isNew bool, err error) {
+func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken string, isNew bool, err error) {
 	tokenPath := filepath.Join(m.dataDir, "admin-token")
 
+	//nolint:gosec // tokenPath is constructed from dataDir constant
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -95,14 +101,15 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash string, plai
 	hash := sha256.Sum256([]byte(content))
 	hashHex := hex.EncodeToString(hash[:])
 	prefixed := sha256Prefix + hashHex
-	if err := os.WriteFile(tokenPath, []byte(prefixed), 0600); err != nil {
+	//nolint:gosec // tokenPath is constructed from dataDir constant, not user input
+	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
 		return "", "", false, fmt.Errorf("failed to migrate token file: %w", err)
 	}
 
 	return hashHex, "", false, nil
 }
 
-func (m *Manager) createAndSaveToken(tokenPath string, initialToken string) (tokenHash string, plainToken string, isNew bool, err error) {
+func (m *Manager) createAndSaveToken(tokenPath, initialToken string) (tokenHash, plainToken string, isNew bool, err error) {
 	var plain string
 	if initialToken != "" {
 		plain = initialToken
@@ -118,7 +125,7 @@ func (m *Manager) createAndSaveToken(tokenPath string, initialToken string) (tok
 	hashHex := hex.EncodeToString(hash[:])
 	prefixed := sha256Prefix + hashHex
 
-	if err := os.WriteFile(tokenPath, []byte(prefixed), 0600); err != nil {
+	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
 		return "", "", false, fmt.Errorf("failed to write token file: %w", err)
 	}
 

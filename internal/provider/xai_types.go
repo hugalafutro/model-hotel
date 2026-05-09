@@ -1,6 +1,6 @@
 package provider
 
-// XAI /v1/models (minimal OpenAI-compatible)
+// XAIModel represents a model from the XAI /v1/models endpoint.
 type XAIModel struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
@@ -8,12 +8,13 @@ type XAIModel struct {
 	OwnedBy string `json:"owned_by"`
 }
 
+// XAIModelsResponse is the response from the XAI /v1/models endpoint.
 type XAIModelsResponse struct {
 	Object string     `json:"object"`
 	Data   []XAIModel `json:"data"`
 }
 
-// XAI /v1/language-models (rich)
+// XAILanguageModel represents a language model from the XAI /v1/language-models endpoint.
 type XAILanguageModel struct {
 	ID                         string   `json:"id"`
 	Fingerprint                string   `json:"fingerprint"`
@@ -31,11 +32,12 @@ type XAILanguageModel struct {
 	Aliases                    []string `json:"aliases"`
 }
 
+// XAILanguageModelsResponse is the response from the XAI /v1/language-models endpoint.
 type XAILanguageModelsResponse struct {
 	Models []XAILanguageModel `json:"models"`
 }
 
-// XAI /v1/image-generation-models
+// XAIImageGenerationModel represents an image generation model from the XAI /v1/image-generation-models endpoint.
 type XAIImageGenerationModel struct {
 	ID               string   `json:"id"`
 	Fingerprint      string   `json:"fingerprint"`
@@ -50,11 +52,12 @@ type XAIImageGenerationModel struct {
 	Aliases          []string `json:"aliases"`
 }
 
+// XAIImageGenerationModelsResponse is the response from the XAI /v1/image-generation-models endpoint.
 type XAIImageGenerationModelsResponse struct {
 	Models []XAIImageGenerationModel `json:"models"`
 }
 
-// XAI /v1/video-generation-models
+// XAIVideoGenerationModel represents a video generation model from the XAI /v1/video-generation-models endpoint.
 type XAIVideoGenerationModel struct {
 	ID               string   `json:"id"`
 	Fingerprint      string   `json:"fingerprint"`
@@ -67,6 +70,7 @@ type XAIVideoGenerationModel struct {
 	Aliases          []string `json:"aliases"`
 }
 
+// XAIVideoGenerationModelsResponse is the response from the XAI /v1/video-generation-models endpoint.
 type XAIVideoGenerationModelsResponse struct {
 	Models []XAIVideoGenerationModel `json:"models"`
 }

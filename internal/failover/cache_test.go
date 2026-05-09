@@ -147,7 +147,7 @@ func TestInvalidateFailoverCache_RemovesAll(t *testing.T) {
 	}
 }
 
-func TestInvalidateFailoverCache_EmptyCache(t *testing.T) {
+func TestInvalidateFailoverCache_EmptyCache(_ *testing.T) {
 	// Should not panic on empty cache
 	InvalidateFailoverCache()
 	InvalidateFailoverCache()
@@ -228,14 +228,14 @@ func TestWarmFailoverCache_MultipleGroups(t *testing.T) {
 	}
 }
 
-func TestWarmFailoverCache_EmptySlice(t *testing.T) {
+func TestWarmFailoverCache_EmptySlice(_ *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
 	WarmFailoverCache([]*FailoverGroup{})
 }
 
-func TestWarmFailoverCache_NilSlice(t *testing.T) {
+func TestWarmFailoverCache_NilSlice(_ *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
@@ -406,7 +406,7 @@ func TestCacheFailoverGroup_ConcurrentAccess(t *testing.T) {
 	// Concurrent writes
 	for i := 0; i < 25; i++ {
 		wg.Add(1)
-		go func(idx int) {
+		go func(_ int) {
 			defer wg.Done()
 			fg := &FailoverGroup{
 				ID:            uuid.New(),
