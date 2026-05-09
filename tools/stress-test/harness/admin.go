@@ -96,8 +96,14 @@ type CreateVirtualKeyResponse struct {
 }
 
 // CreateVirtualKey creates a new virtual key and returns the raw key value.
-func (a *AdminClient) CreateVirtualKey(name string) (*CreateVirtualKeyResponse, error) {
-	body := map[string]string{"name": name}
+func (a *AdminClient) CreateVirtualKey(name string, rateLimitRPS, rateLimitBurst *float64) (*CreateVirtualKeyResponse, error) {
+	body := map[string]interface{}{"name": name}
+	if rateLimitRPS != nil {
+		body["rate_limit_rps"] = *rateLimitRPS
+	}
+	if rateLimitBurst != nil {
+		body["rate_limit_burst"] = *rateLimitBurst
+	}
 	b, _ := json.Marshal(body)
 
 	resp, err := a.do("POST", "/api/virtual-keys", b)
@@ -129,6 +135,28 @@ func (a *AdminClient) DeleteVirtualKey(id string) error {
 	if resp.StatusCode != http.StatusNoContent {
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("delete virtual key returned %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+// UpdateVirtualKeyRateLimits updates per-key rate limits on a virtual key.
+func (a *AdminClient) UpdateVirtualKeyRateLimits(id, name string, rps *float64, burst *int) error {
+	body := map[string]interface{}{
+		"name":             name,
+		"rate_limit_rps":   rps,
+		"rate_limit_burst": burst,
+	}
+	b, _ := json.Marshal(body)
+
+	resp, err := a.do("PUT", "/api/virtual-keys/"+id, b)
+	if err != nil {
+		return fmt.Errorf("update virtual key: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("update virtual key returned %d: %s", resp.StatusCode, string(respBody))
 	}
 	return nil
 }

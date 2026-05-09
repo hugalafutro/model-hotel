@@ -40,7 +40,7 @@ func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, u
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	// Create a mock upstream server that returns a simple chat completion
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -518,7 +518,7 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	// Create upstream that returns 400 error
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -624,7 +624,7 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	// Create upstream that returns 503 error
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -20,6 +20,12 @@ type ScenarioConfig struct {
 	Streaming   bool
 	// TotalRequests is the total number of requests to send. If 0, defaults to Concurrency * 10.
 	TotalRequests int
+	// IPRateLimitOn toggles the IP rate limiter. nil means "do not change".
+	IPRateLimitOn *bool
+	// PerKeyRPS and PerKeyBurst override per-key rate limits for each key.
+	// nil means "use global setting" (no override).
+	PerKeyRPS   *float64
+	PerKeyBurst *int
 }
 
 // ScenarioResult holds the outcome of a scenario run.
@@ -34,6 +40,7 @@ type Runner struct {
 	admin       *AdminClient
 	keys        []string // raw virtual key values
 	keyIDs      []string // virtual key UUIDs (for cleanup)
+	keyNames    []string // virtual key names (for update API)
 	providerID  string   // provider UUID (for cleanup)
 	model       string   // model ID to use (e.g. "stress-mock/mock-model")
 }
@@ -75,9 +82,10 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 	// Create virtual keys
 	r.keys = make([]string, numKeys)
 	r.keyIDs = make([]string, numKeys)
+	r.keyNames = make([]string, numKeys)
 
 	for i := 0; i < numKeys; i++ {
-		vk, err := r.admin.CreateVirtualKey(fmt.Sprintf("stress-key-%d", i))
+		vk, err := r.admin.CreateVirtualKey(fmt.Sprintf("stress-key-%d", i), nil, nil)
 		if err != nil {
 			// Cleanup partial keys
 			for j := 0; j < i; j++ {
@@ -88,6 +96,7 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 		}
 		r.keys[i] = vk.Key
 		r.keyIDs[i] = vk.ID
+		r.keyNames[i] = vk.Name
 	}
 
 	debuglog.Info("runner: setup complete", "provider", prov.ID, "keys", numKeys, "model", r.model)
@@ -118,20 +127,46 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 
 	label := fmt.Sprintf("%d-conc, RL=%v, %d-key, stream=%v",
 		cfg.Concurrency, cfg.RateLimitOn, cfg.NumKeys, cfg.Streaming)
+	if cfg.PerKeyRPS != nil || cfg.PerKeyBurst != nil {
+		burstVal := 0
+		if cfg.PerKeyBurst != nil {
+			burstVal = *cfg.PerKeyBurst
+		}
+		label += fmt.Sprintf(", key-limits=%.0f/%d", floatPtrOr(cfg.PerKeyRPS, 0), burstVal)
+	}
 	debuglog.Info("runner: starting scenario", "label", label, "requests", totalReqs)
 
 	// Configure rate limiting
-	if err := r.admin.UpdateSettings(map[string]string{
+	settings := map[string]string{
 		"rate_limit_enabled": fmt.Sprintf("%v", cfg.RateLimitOn),
 		"rate_limit_rps":     fmt.Sprintf("%.0f", cfg.RPS),
 		"rate_limit_burst":   fmt.Sprintf("%d", cfg.Burst),
-	}); err != nil {
+	}
+	if cfg.IPRateLimitOn != nil {
+		settings["rate_limit_ip_enabled"] = fmt.Sprintf("%v", *cfg.IPRateLimitOn)
+	}
+	if err := r.admin.UpdateSettings(settings); err != nil {
 		debuglog.Warn("runner: failed to update rate limit settings", "error", err)
 	}
 
 	// Brief pause for settings to propagate (the settings API is synchronous
 	// but the rate limiter reads from cache on each request)
 	time.Sleep(100 * time.Millisecond)
+
+	// Apply per-key rate limit overrides if specified
+	if cfg.PerKeyRPS != nil || cfg.PerKeyBurst != nil {
+		numKeys := cfg.NumKeys
+		if numKeys > len(r.keys) {
+			numKeys = len(r.keys)
+		}
+		for i := 0; i < numKeys; i++ {
+			if err := r.admin.UpdateVirtualKeyRateLimits(r.keyIDs[i], r.keyNames[i], cfg.PerKeyRPS, cfg.PerKeyBurst); err != nil {
+				debuglog.Warn("runner: failed to update per-key rate limits", "keyID", r.keyIDs[i], "error", err)
+			}
+		}
+		// Brief pause for per-key settings to propagate
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	collector := metrics.NewCollector(totalReqs)
 
@@ -189,4 +224,11 @@ func (r *Runner) Keys() []string {
 // Model returns the model ID to use for requests.
 func (r *Runner) Model() string {
 	return r.model
+}
+
+func floatPtrOr(p *float64, def float64) float64 {
+	if p == nil {
+		return def
+	}
+	return *p
 }

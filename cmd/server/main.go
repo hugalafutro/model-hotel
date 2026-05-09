@@ -163,7 +163,7 @@ func main() {
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
 	defer rateLimiter.Stop()
 
-	ipLimiter := ratelimit.NewIPLimiter(cfg.RateLimitIPRPS, cfg.RateLimitIPBurst, cfg.TrustedProxies)
+	ipLimiter := ratelimit.NewIPLimiter(cfg.RateLimitIPRPS, cfg.RateLimitIPBurst, cfg.TrustedProxies, settingsRepo)
 	defer ipLimiter.Stop()
 
 	r := chi.NewRouter()

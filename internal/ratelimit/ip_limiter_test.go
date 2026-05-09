@@ -1,10 +1,12 @@
 package ratelimit
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -12,12 +14,46 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// stubIPSettings is a minimal SettingsReader for IP limiter tests.
+type stubIPSettings struct {
+	values map[string]string
+}
+
+func (s *stubIPSettings) GetBool(_ context.Context, key string, def bool) bool {
+	if v, ok := s.values[key]; ok {
+		return v == "true"
+	}
+	return def
+}
+
+func (s *stubIPSettings) GetFloat(_ context.Context, key string, def float64) float64 {
+	return def
+}
+
+func (s *stubIPSettings) GetInt(_ context.Context, key string, def int) int {
+	if v, ok := s.values[key]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return def
+}
+
+// ipSettingsNoBackpressure returns settings with IP limiting enabled but zero
+// backpressure, so requests beyond burst get immediate 429s.
+func ipSettingsNoBackpressure() *stubIPSettings {
+	return &stubIPSettings{values: map[string]string{
+		settingsKeyIPEnabled:   "true",
+		settingsKeyIPMaxWaitMs: "0",
+	}}
+}
+
 // ---------------------------------------------------------------------------
 // IPLimiter tests
 // ---------------------------------------------------------------------------
 
 func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
-	lim := NewIPLimiter(10, 5, nil)
+	lim := NewIPLimiter(10, 5, nil, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +73,7 @@ func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
 }
 
 func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
-	lim := NewIPLimiter(10, 3, nil)
+	lim := NewIPLimiter(10, 3, nil, ipSettingsNoBackpressure())
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +101,7 @@ func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
 }
 
 func TestIPLimiter_PerIPIsolation(t *testing.T) {
-	lim := NewIPLimiter(10, 2, nil)
+	lim := NewIPLimiter(10, 2, nil, ipSettingsNoBackpressure())
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +135,7 @@ func TestIPLimiter_PerIPIsolation(t *testing.T) {
 }
 
 func TestIPLimiter_HeadersOnSuccess(t *testing.T) {
-	lim := NewIPLimiter(10, 20, nil)
+	lim := NewIPLimiter(10, 20, nil, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +163,7 @@ func TestIPLimiter_HeadersOnSuccess(t *testing.T) {
 }
 
 func TestIPLimiter_RetryAfterOn429(t *testing.T) {
-	lim := NewIPLimiter(1, 1, nil)
+	lim := NewIPLimiter(1, 1, nil, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +189,7 @@ func TestIPLimiter_RetryAfterOn429(t *testing.T) {
 }
 
 func TestIPLimiter_DefaultsWhenZero(t *testing.T) {
-	lim := NewIPLimiter(0, 0, nil)
+	lim := NewIPLimiter(0, 0, nil, nil)
 	defer lim.Stop()
 	if lim.rps != defaultIPRPS {
 		t.Errorf("rps = %v, want %v", lim.rps, defaultIPRPS)
@@ -164,7 +200,7 @@ func TestIPLimiter_DefaultsWhenZero(t *testing.T) {
 }
 
 func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
-	lim := NewIPLimiter(10, 20, nil)
+	lim := NewIPLimiter(10, 20, nil, nil)
 	defer lim.Stop()
 
 	lim.mu.Lock()
@@ -314,8 +350,122 @@ func TestExtractClientIP_IPv6(t *testing.T) {
 // Concurrent access test
 // ---------------------------------------------------------------------------
 
+// ipSettingsDisabled returns settings with IP limiting disabled.
+func ipSettingsDisabled() *stubIPSettings {
+	return &stubIPSettings{values: map[string]string{
+		settingsKeyIPEnabled:   "false",
+		settingsKeyIPMaxWaitMs: "200",
+	}}
+}
+
+// ipSettingsWithBackpressure returns settings with IP limiting enabled and
+// a configurable max wait time for backpressure.
+func ipSettingsWithBackpressure(maxWaitMs int) *stubIPSettings {
+	return &stubIPSettings{values: map[string]string{
+		settingsKeyIPEnabled:   "true",
+		settingsKeyIPMaxWaitMs: strconv.Itoa(maxWaitMs),
+	}}
+}
+
+func TestIPLimiter_DisabledViaSettings(t *testing.T) {
+	// With rate_limit_ip_enabled=false, all requests should pass through
+	// regardless of rate limit state.
+	lim := NewIPLimiter(1, 1, nil, ipSettingsDisabled())
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	// Exhaust the burst
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "1.2.3.4:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// Second request would normally get 429, but limiter is disabled
+	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "1.2.3.4:1234"
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("second request with limiter disabled: expected 200, got %d", rr.Code)
+	}
+}
+
+func TestIPLimiter_BackpressureWithinMaxWait(t *testing.T) {
+	// With RPS=10 and burst=1, second request requires ~100ms wait (1/10 = 0.1s).
+	// If max_wait_ms is 500ms, the request should sleep and succeed.
+	lim := NewIPLimiter(10, 1, nil, ipSettingsWithBackpressure(500))
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	// First request consumes the burst
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "5.5.5.5:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// Second request should wait (within maxWait) and succeed
+	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "5.5.5.5:1234"
+	rr = httptest.NewRecorder()
+	start := time.Now()
+	handler.ServeHTTP(rr, req)
+	elapsed := time.Since(start)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("backpressure request: expected 200, got %d", rr.Code)
+	}
+	// Should have slept for ~100ms (1/10 RPS = 100ms per token)
+	if elapsed < 50*time.Millisecond {
+		t.Errorf("expected backpressure sleep, but elapsed time was only %v", elapsed)
+	}
+}
+
+func TestIPLimiter_BackpressureExceedsMaxWait(t *testing.T) {
+	// With very low RPS and burst=1, second request requires waiting.
+	// If max_wait_ms is very low, request should get 429 immediately.
+	lim := NewIPLimiter(0.1, 1, nil, ipSettingsWithBackpressure(10))
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	// First request consumes the burst
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "6.6.6.6:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// Second request should get 429 (wait would exceed maxWait of 10ms)
+	req = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "6.6.6.6:1234"
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("backpressure exceeded: expected 429, got %d", rr.Code)
+	}
+}
+
 func TestIPLimiter_ConcurrentAccess(t *testing.T) {
-	lim := NewIPLimiter(1000, 1000, nil)
+	lim := NewIPLimiter(1000, 1000, nil, nil)
 	defer lim.Stop()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

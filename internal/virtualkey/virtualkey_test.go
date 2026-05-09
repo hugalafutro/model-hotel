@@ -161,7 +161,7 @@ func TestRepository_Create(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	vk, err := repo.Create(ctx, "integration-create-"+suffix, "hash-create-"+suffix, "sk-...cr")
+	vk, err := repo.Create(ctx, "integration-create-"+suffix, "hash-create-"+suffix, "sk-...cr", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestRepository_List(t *testing.T) {
 	suffix := uuid.New().String()[:8]
 
 	// Create at least one key so the list isn't empty
-	_, err := repo.Create(ctx, "integration-list-"+suffix, "hash-list-"+suffix, "sk-...li")
+	_, err := repo.Create(ctx, "integration-list-"+suffix, "hash-list-"+suffix, "sk-...li", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestRepository_Get(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-get-"+suffix, "hash-get-"+suffix, "sk-...ge")
+	created, err := repo.Create(ctx, "integration-get-"+suffix, "hash-get-"+suffix, "sk-...ge", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestRepository_Delete(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-delete-"+suffix, "hash-delete-"+suffix, "sk-...de")
+	created, err := repo.Create(ctx, "integration-delete-"+suffix, "hash-delete-"+suffix, "sk-...de", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestRepository_AddTokens(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-addtokens-"+suffix, "hash-addtokens-"+suffix, "sk-...at")
+	created, err := repo.Create(ctx, "integration-addtokens-"+suffix, "hash-addtokens-"+suffix, "sk-...at", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestRepository_TouchLastUsed(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-touch-"+suffix, "hash-touch-"+suffix, "sk-...to")
+	created, err := repo.Create(ctx, "integration-touch-"+suffix, "hash-touch-"+suffix, "sk-...to", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestRepository_FindByKeyHash(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-findbyhash-"+suffix, "hash-findbyhash-"+suffix, "sk-...fh")
+	created, err := repo.Create(ctx, "integration-findbyhash-"+suffix, "hash-findbyhash-"+suffix, "sk-...fh", nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}

@@ -29,9 +29,9 @@ DATABASE_URL=postgres://llmproxy:changeme@localhost:5432/llmproxy \
 
 ### IP Rate Limiter
 
-The proxy has an **always-on IP rate limiter** (separate from per-key rate limiting) that acts as a DoS safety net. It is configured via environment variables only (`RATE_LIMIT_IP_RPS` and `RATE_LIMIT_IP_BURST`, defaults: 30 RPS / 60 burst) and **cannot be toggled through the settings API**.
+The proxy has an **IP rate limiter** (separate from per-key rate limiting) that acts as a DoS safety net. It is configured via environment variables (`RATE_LIMIT_IP_RPS` and `RATE_LIMIT_IP_BURST`, defaults: 30 RPS / 60 burst) and can now be toggled at runtime via the settings API (setting key: `rate_limit_ip_enabled`, default: `true`). The IP limiter also implements graceful backpressure, sleeping up to `rate_limit_max_wait_ms` instead of immediately returning 429.
 
-The stress test controls **per-key rate limiting** via the `/api/settings` endpoint (the `-rate-limit`, `-rps`, and `-burst` flags). If you see unexpected 429 responses at high concurrency, the IP rate limiter may be the cause. Increase `RATE_LIMIT_IP_RPS`/`RATE_LIMIT_IP_BURST` above your expected aggregate request rate.
+The stress test controls **per-key rate limiting** via the `/api/settings` endpoint (the `-rate-limit`, `-rps`, and `-burst` flags) and can override the IP limiter via the `-ip-ratelimit` flag. If you see unexpected 429 responses at high concurrency, the IP rate limiter may be the cause. Increase `RATE_LIMIT_IP_RPS`/`RATE_LIMIT_IP_BURST` above your expected aggregate request rate, or disable IP rate limiting during tests using `-ip-ratelimit false`.
 
 ## Quick-Start Checklist
 
@@ -71,6 +71,12 @@ go run . -admin-token abc123 -streaming false
 
 # Test proxy's param-rejection auto-retry (mock rejects top_p, proxy should strip and retry)
 go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concurrency 10
+
+# Floodgates test: high concurrency, all rate limiting off
+go run . -admin-token abc123 -concurrency 200,500,1000,2000 -keys 10 -requests 10000 -rate-limit false -key-rps 1000000 -key-burst 1000000 -ip-ratelimit false
+
+# Test with per-key rate limits (10 RPS / 20 burst per key)
+go run . -admin-token abc123 -key-rps 10 -key-burst 20 -concurrency 50,100 -keys 10 -rate-limit true
 ```
 
 ### CLI Flags
@@ -93,6 +99,9 @@ go run . -admin-token abc123 -reject-params top_p -extra-params top_p=0.5 -concu
 | `-extra-params` | `""` | Comma-separated params to include in requests, with optional values (e.g. `top_p=0.5,frequency_penalty=1.0`) |
 | `-rps` | `10` | Rate limit RPS when enabled |
 | `-burst` | `20` | Rate limit burst when enabled |
+| `-key-rps` | `0` | Per-key rate limit RPS override (0 = use global setting, no override) |
+| `-key-burst` | `0` | Per-key rate limit burst override (0 = use global setting, no override) |
+| `-ip-ratelimit` | `""` | Override IP rate limiter: `"true"` or `"false"` (empty = do not change setting) |
 | `-output` | `markdown` | Output format: text, markdown, json |
 
 ## Test Matrix
@@ -165,8 +174,8 @@ The proxy has **two independent rate limiting layers**:
 
 | Layer | Scope | Config | Controls |
 |-------|-------|--------|----------|
-| **IP Rate Limiter** | Per IP address | `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars | Always-on DoS safety net. Cannot be toggled via API. |
-| **Per-Key Rate Limiter** | Per virtual key | `rate_limit_rps` / `rate_limit_burst` via `PUT /api/settings` | Can be toggled on/off via `rate_limit_enabled`. Stress test controls this. |
+| **IP Rate Limiter** | Per IP address | `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars; `rate_limit_ip_enabled` via settings API | DoS safety net. Can be toggled via `rate_limit_ip_enabled` setting. Implements graceful backpressure (sleeps up to `rate_limit_max_wait_ms`). |
+| **Per-Key Rate Limiter** | Per virtual key | `rate_limit_rps` / `rate_limit_burst` via `PUT /api/settings` | Can be toggled on/off via `rate_limit_enabled`. Stress test controls this with `-rate-limit`, `-rps`, `-burst`, `-key-rps`, `-key-burst`. |
 
 At high concurrency, the IP limiter may trigger before the per-key limiter. If running scenarios with >30 RPS aggregate, increase `RATE_LIMIT_IP_RPS` and `RATE_LIMIT_IP_BURST` accordingly.
 
@@ -220,7 +229,7 @@ tools/stress-test/
 |---------|-------|-----|
 | `Failed to set up test fixtures: create provider: 500` | Proxy can't reach mock or `ALLOW_HTTP_PROVIDERS` not set | Set `ALLOW_HTTP_PROVIDERS=true` and `ALLOWED_PROVIDER_HOSTS=localhost` |
 | `Failed to start mock server: listen tcp :9090: bind: address already in use` | Another process on port 9090 | Use `-mock-port 9091` or kill the process |
-| All requests return 429 at high concurrency | IP rate limiter is throttling | Increase `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars on the proxy |
+| All requests return 429 at high concurrency | IP rate limiter is throttling | Increase `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars on the proxy. Or disable IP rate limiting during tests using `-ip-ratelimit false`, or via the settings API (`rate_limit_ip_enabled`). |
 | Discovery fails (`discovery failed`) | Mock server not ready or unreachable | Check mock server logs; ensure it started before the proxy call |
 | `Error: -admin-token is required` | Missing required flag | Pass `-admin-token <TOKEN>` (find it in `data/admin-token` or startup logs) |
 | Stale `stress-mock` provider / `stress-key-*` keys after Ctrl-C | Cleanup defer didn't run | Delete manually via dashboard or API |

@@ -34,3 +34,15 @@ const SettingsReadMsKey contextKey = "settings_read_ms"
 // so the handler can read it after the upstream request completes,
 // avoiding cross-request race conditions from a shared atomic.
 const SafeDialMsKey contextKey = "safe_dial_ms"
+
+// VirtualKeyRateLimitRPSKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the per-key RPS override (float64 pointer,
+// nil when unset). The ratelimit middleware reads this to apply
+// per-key rate limits that take precedence over global settings.
+const VirtualKeyRateLimitRPSKey contextKey = "virtual_key_rate_limit_rps"
+
+// VirtualKeyRateLimitBurstKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the per-key burst override (int pointer,
+// nil when unset). The ratelimit middleware reads this alongside
+// VirtualKeyRateLimitRPSKey.
+const VirtualKeyRateLimitBurstKey contextKey = "virtual_key_rate_limit_burst"

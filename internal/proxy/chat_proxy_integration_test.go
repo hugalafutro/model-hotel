@@ -43,7 +43,7 @@ func TestListModels_FilterByProvider(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},
@@ -165,7 +165,7 @@ func TestChatCompletions_ErrorHandling(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},
@@ -223,7 +223,7 @@ func TestChatCompletions_InvalidRequestBody(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},

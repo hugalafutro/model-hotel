@@ -42,7 +42,7 @@ func TestListModels_MultipleProviders(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},
@@ -205,7 +205,7 @@ func TestListModels_NoModels(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},
@@ -269,7 +269,7 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},
@@ -400,7 +400,7 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	providerRepo := provider.NewRepository(pool)
 	virtualKeyRepo := virtualkey.NewRepository(pool)
 	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	handler := &Handler{
 		cfg:            &config.Config{MasterKey: "test-master-key"},

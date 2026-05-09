@@ -24,11 +24,13 @@ type VirtualKeyRepository interface {
 
 // VirtualKeyInfo holds the subset of virtual key data needed by the proxy.
 type VirtualKeyInfo struct {
-	ID         string
-	Name       string
-	KeyHash    string
-	KeyPreview string
-	TokensUsed int64
+	ID             string
+	Name           string
+	KeyHash        string
+	KeyPreview     string
+	TokensUsed     int64
+	RateLimitRPS   *float64
+	RateLimitBurst *int
 }
 
 type contextKey string

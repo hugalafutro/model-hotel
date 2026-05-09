@@ -164,6 +164,8 @@ export interface VirtualKey {
 	tokens_used: number;
 	last_used_at: string | null;
 	created_at: string;
+	rate_limit_rps?: number | null;
+	rate_limit_burst?: number | null;
 }
 
 export interface SystemStats {

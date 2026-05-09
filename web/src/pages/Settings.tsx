@@ -1225,6 +1225,27 @@ function RateLimitSettings({
 						</div>
 					</>
 				)}
+
+				<div className="border-t border-gray-700/50 pt-4 mt-2">
+					<div className="flex items-center justify-between">
+						<div>
+							<p className="text-sm font-medium text-gray-300">
+								IP Rate Limiting
+							</p>
+							<p className="text-gray-500 text-xs mt-0.5">
+								Per-IP rate limiter (DoS protection, runs before auth)
+							</p>
+						</div>
+						<Toggle
+							checked={settings?.rate_limit_ip_enabled !== "false"}
+							onChange={(v) =>
+								updateMutation.mutate({
+									rate_limit_ip_enabled: v ? "true" : "false",
+								})
+							}
+						/>
+					</div>
+				</div>
 			</div>
 		</SettingsSection>
 	);

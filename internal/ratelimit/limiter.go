@@ -26,15 +26,17 @@ type SettingsReader interface {
 
 // settings keys stored in the database
 const (
-	settingsKeyEnabled = "rate_limit_enabled"
-	settingsKeyRPS     = "rate_limit_rps"
-	settingsKeyBurst   = "rate_limit_burst"
+	settingsKeyEnabled   = "rate_limit_enabled"
+	settingsKeyRPS       = "rate_limit_rps"
+	settingsKeyBurst     = "rate_limit_burst"
+	settingsKeyMaxWaitMs = "rate_limit_max_wait_ms"
 )
 
 // default values when no DB setting is present
 const (
-	defaultRPS   = 10.0
-	defaultBurst = 20
+	defaultRPS       = 10.0
+	defaultBurst     = 20
+	defaultMaxWaitMs = 200
 )
 
 // Limiter manages per-key rate limiting using token buckets.
@@ -120,11 +122,27 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			entry := l.getLimiter(keyHash, r.Context())
+			// Read per-key rate limit overrides from context (set by ProxyKeyMiddleware).
+			var perKeyRPS *float64
+			var perKeyBurst *int
+			if v := r.Context().Value(ctxkeys.VirtualKeyRateLimitRPSKey); v != nil {
+				if p, ok := v.(*float64); ok {
+					perKeyRPS = p
+				}
+			}
+			if v := r.Context().Value(ctxkeys.VirtualKeyRateLimitBurstKey); v != nil {
+				if p, ok := v.(*int); ok {
+					perKeyBurst = p
+				}
+			}
+
+			entry := l.getLimiter(keyHash, r.Context(), perKeyRPS, perKeyBurst)
 
 			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter)
 			settingsReadMs := float64(time.Since(settingsStart).Microseconds()) / 1000.0
 			ctx := context.WithValue(r.Context(), ctxkeys.SettingsReadMsKey, settingsReadMs)
+
+			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
@@ -136,7 +154,15 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			delay := reservation.Delay()
 			if delay > 0 {
-				// Bucket exhausted — cancel the reservation and reject.
+				// Graceful backpressure: if the wait is within the configured max_wait,
+				// sleep and proceed instead of rejecting immediately.
+				if delay <= maxWait {
+					time.Sleep(delay)
+					l.writeRateLimitHeaders(w, entry.limiter, 0)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+				// Wait exceeds max_wait — cancel the reservation and reject.
 				reservation.Cancel()
 				l.writeRateLimitHeaders(w, entry.limiter, delay)
 				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
@@ -151,14 +177,23 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 }
 
 // getLimiter returns (or creates) the rate.Limiter for the given key.
-// If the stored limiter's RPS or burst no longer matches the current
-// settings, it is replaced so runtime changes take effect immediately.
-func (l *Limiter) getLimiter(keyHash string, ctx context.Context) *keyEntry {
+// If per-key overrides are provided (non-nil), they take precedence over
+// global settings. If the stored limiter's RPS or burst no longer matches,
+// it is replaced so runtime changes take effect immediately.
+func (l *Limiter) getLimiter(keyHash string, ctx context.Context, perKeyRPS *float64, perKeyBurst *int) *keyEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	rps := l.settings.GetFloat(ctx, settingsKeyRPS, defaultRPS)
 	burst := l.settings.GetInt(ctx, settingsKeyBurst, defaultBurst)
+
+	// Per-key overrides take precedence over global settings.
+	if perKeyRPS != nil {
+		rps = *perKeyRPS
+	}
+	if perKeyBurst != nil {
+		burst = *perKeyBurst
+	}
 
 	// Unlimited (RPS=0) — use an extremely high rate that never blocks.
 	if rps <= 0 {

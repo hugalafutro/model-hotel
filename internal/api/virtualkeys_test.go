@@ -42,7 +42,7 @@ func TestCreateVirtualKey_InvalidJSON(t *testing.T) {
 
 func TestCreateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}

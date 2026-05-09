@@ -27,10 +27,15 @@ type ipEntry struct {
 	lastUsed time.Time
 }
 
+// settings keys for IP rate limiter (stored in DB)
+const (
+	settingsKeyIPEnabled   = "rate_limit_ip_enabled"
+	settingsKeyIPMaxWaitMs = "rate_limit_max_wait_ms" // shared with per-key limiter
+)
+
 // IPLimiter provides per-IP rate limiting as a DoS safety net.
-// Unlike the per-key Limiter, this uses fixed limits from constructor
-// arguments (no DB settings) so it always enforces a hard ceiling
-// regardless of per-key configuration.
+// Uses fixed RPS/burst limits from constructor arguments with runtime
+// enable/disable and backpressure controlled via DB settings.
 //
 // It should be mounted BEFORE the auth middleware so it catches
 // unauthenticated floods (brute-force key guessing, etc.).
@@ -41,12 +46,13 @@ type IPLimiter struct {
 	burst          int
 	stopCh         chan struct{}
 	trustedProxies []*net.IPNet
+	settings       SettingsReader
 }
 
 // NewIPLimiter creates an IP rate limiter. If rps <= 0, the limiter
 // is effectively unlimited (extremely high rate). A background goroutine
 // cleans up entries idle for 10 minutes.
-func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet) *IPLimiter {
+func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet, settings SettingsReader) *IPLimiter {
 	if rps <= 0 {
 		rps = defaultIPRPS
 	}
@@ -59,6 +65,7 @@ func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet) *IPLimite
 		burst:          burst,
 		stopCh:         make(chan struct{}),
 		trustedProxies: trustedProxies,
+		settings:       settings,
 	}
 	go l.cleanupLoop()
 	return l
@@ -74,6 +81,14 @@ func (l *IPLimiter) Stop() {
 // and sets Retry-After and X-RateLimit-* headers.
 func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Runtime toggle from DB settings; default true for safety.
+		if l.settings != nil {
+			if !l.settings.GetBool(r.Context(), settingsKeyIPEnabled, true) {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
 		ip := extractClientIP(r, l.trustedProxies)
 		entry := l.getLimiter(ip)
 
@@ -87,6 +102,19 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 
 		delay := reservation.Delay()
 		if delay > 0 {
+			// Graceful backpressure: if the wait is within the configured max_wait,
+			// sleep and proceed instead of rejecting immediately.
+			maxWait := time.Duration(defaultMaxWaitMs) * time.Millisecond
+			if l.settings != nil {
+				maxWait = time.Duration(l.settings.GetInt(r.Context(), settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
+			}
+			if delay <= maxWait {
+				time.Sleep(delay)
+				l.writeHeaders(w, entry.limiter, 0)
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Wait exceeds max_wait - cancel the reservation and reject.
 			reservation.Cancel()
 			l.writeHeaders(w, entry.limiter, delay)
 			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)

@@ -32,7 +32,7 @@ func newUnitHandler() *Handler {
 		MasterKey:        "test-master-key",
 		RateLimitEnabled: false,
 	}
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	settingsRepo := settings.NewRepository(nil)
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
 	return &Handler{
@@ -112,7 +112,7 @@ func TestNewHandler_SetsAllFields(t *testing.T) {
 	failoverRepo := failover.NewRepository(nil)
 	settingsRepo := settings.NewRepository(nil)
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	defer rateLimiter.Stop()
 	defer ipLimiter.Stop()
 
@@ -151,7 +151,7 @@ func TestNewHandler_SetsAllFields(t *testing.T) {
 func TestNewHandler_CreatesTransport(t *testing.T) {
 	settingsRepo := settings.NewRepository(nil)
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	defer rateLimiter.Stop()
 	defer ipLimiter.Stop()
 
@@ -178,7 +178,7 @@ func TestNewHandler_CreatesTransport(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestProxyKeyMiddleware_EmptyBearerToken(t *testing.T) {
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	defer ipLimiter.Stop()
 
 	h := &Handler{
@@ -205,7 +205,7 @@ func TestProxyKeyMiddleware_EmptyBearerToken(t *testing.T) {
 }
 
 func TestProxyKeyMiddleware_BearerPrefixOnly(t *testing.T) {
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	defer ipLimiter.Stop()
 
 	h := &Handler{
@@ -358,7 +358,7 @@ func TestClose_Idempotent(t *testing.T) {
 }
 
 func TestClose_NilTransport(t *testing.T) {
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	defer ipLimiter.Stop()
 
 	h := &Handler{

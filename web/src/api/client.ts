@@ -504,13 +504,17 @@ export const api = {
 				"Failed to fetch virtual keys",
 			);
 		},
-		create: async (name: string): Promise<VirtualKey> => {
+		create: async (
+			name: string,
+			rate_limit_rps?: number | null,
+			rate_limit_burst?: number | null,
+		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(
 				`${API_BASE}/api/virtual-keys`,
 				{
 					method: "POST",
 					headers: getAuthHeaders(),
-					body: JSON.stringify({ name }),
+					body: JSON.stringify({ name, rate_limit_rps, rate_limit_burst }),
 				},
 				"Failed to create virtual key",
 			);
@@ -522,6 +526,24 @@ export const api = {
 					headers: getAuthHeaders(),
 				},
 				"Failed to fetch virtual key",
+			);
+		},
+		update: async (
+			id: string,
+			data: {
+				name: string;
+				rate_limit_rps?: number | null;
+				rate_limit_burst?: number | null;
+			},
+		): Promise<VirtualKey> => {
+			return fetchJSON<VirtualKey>(
+				`${API_BASE}/api/virtual-keys/${id}`,
+				{
+					method: "PUT",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(data),
+				},
+				"Failed to update virtual key",
 			);
 		},
 		delete: async (id: string): Promise<void> => {

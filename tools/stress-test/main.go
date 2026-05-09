@@ -40,6 +40,13 @@ func main() {
 	rps := flag.Float64("rps", 10, "Rate limit RPS when enabled")
 	burst := flag.Int("burst", 20, "Rate limit burst when enabled")
 
+	// Per-key rate limit overrides
+	keyRPS := flag.Float64("key-rps", 0, "Per-key rate limit RPS override (0 = use global setting, no override)")
+	keyBurst := flag.Int("key-burst", 0, "Per-key rate limit burst override (0 = use global setting, no override)")
+
+	// IP rate limiter override
+	ipRateLimit := flag.String("ip-ratelimit", "", "Override IP rate limiter: true or false (empty = do not change)")
+
 	// Output
 	outputFormat := flag.String("output", "markdown", "Output format: text, markdown, json")
 
@@ -55,6 +62,26 @@ func main() {
 	concurrencyLevels := parseIntList(*concurrencyStr)
 	keyCounts := parseIntList(*keysStr)
 	rlModes := parseBoolList(*rateLimitModes)
+
+	// Build per-key rate limit overrides
+	var perKeyRPS *float64
+	var perKeyBurst *int
+	if *keyRPS > 0 {
+		perKeyRPS = keyRPS
+	}
+	if *keyBurst > 0 {
+		perKeyBurst = keyBurst
+	}
+
+	var ipRateLimitOn *bool
+	if *ipRateLimit != "" {
+		v, err := strconv.ParseBool(*ipRateLimit)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: invalid -ip-ratelimit value %q (use true or false)\n", *ipRateLimit)
+			os.Exit(1)
+		}
+		ipRateLimitOn = &v
+	}
 
 	if len(concurrencyLevels) == 0 {
 		concurrencyLevels = []int{10, 50, 100, 1000}
@@ -83,6 +110,13 @@ func main() {
 	debuglog.Info("main: Concurrency levels", "levels", concurrencyLevels)
 	debuglog.Info("main: Key counts", "counts", keyCounts)
 	debuglog.Info("main: Rate limit modes", "modes", rlModes)
+	if perKeyRPS != nil || perKeyBurst != nil {
+		burstVal := 0
+		if perKeyBurst != nil {
+			burstVal = *perKeyBurst
+		}
+		debuglog.Info("main: Per-key rate limits", "rps", floatPtrVal(perKeyRPS), "burst", burstVal)
+	}
 	debuglog.Info("main: Streaming", "enabled", *streaming)
 	debuglog.Info("main: Chunk config", "chunkDelay", *chunkDelay, "chunkCount", *chunkCount, "tokensPerChunk", *tokensPerChunk)
 
@@ -189,6 +223,9 @@ func main() {
 					Burst:         *burst,
 					Streaming:     *streaming,
 					TotalRequests: *requestsPerScenario,
+					PerKeyRPS:     perKeyRPS,
+					PerKeyBurst:   perKeyBurst,
+					IPRateLimitOn: ipRateLimitOn,
 				}
 				scenarios = append(scenarios, scenario)
 			}
@@ -272,6 +309,13 @@ func parseBoolList(s string) []bool {
 		result = append(result, b)
 	}
 	return result
+}
+
+func floatPtrVal(p *float64) string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("%.0f", *p)
 }
 
 func maxInt(vals []int) int {

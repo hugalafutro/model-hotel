@@ -85,6 +85,9 @@ func requestWithKey(key string) *http.Request {
 
 func newTestLimiter() (*Limiter, *stubSettings) {
 	repo := newStubSettings()
+	// Disable backpressure by default so tests that expect immediate 429
+	// rejection still pass. Individual tests can override this.
+	repo.set(settingsKeyMaxWaitMs, "0")
 	lim := &Limiter{
 		limiters: make(map[string]*keyEntry),
 		settings: repo,
@@ -499,5 +502,77 @@ func TestNewLimiter(t *testing.T) {
 	}
 	if lim.stopCh == nil {
 		t.Error("stopCh should be initialized")
+	}
+}
+
+func TestMiddleware_BackpressureAcceptsShortWait(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "100")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "500") // allow waits up to 500ms
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(true)(next)
+
+	// Use up the single burst slot
+	req := requestWithKey("key-bp")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// Next request would need to wait ~10ms (100 RPS), which is within max_wait.
+	// It should be accepted after a brief sleep, not rejected with 429.
+	req = requestWithKey("key-bp")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("backpressure: expected 200 (short wait within max_wait), got %d", rr.Code)
+	}
+}
+
+func TestMiddleware_PerKeyOverrides(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "10")
+	repo.set(settingsKeyBurst, "5")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Per-key override: burst=1 instead of global 5
+	customRPS := 10.0
+	customBurst := 1
+	handler := lim.Middleware(true)(next)
+
+	// Request with per-key override in context
+	r := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, "key-override")
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitRPSKey, &customRPS)
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, &customBurst)
+	r = r.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, r)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+	if h := rr.Header().Get("X-RateLimit-Burst"); h != "1" {
+		t.Errorf("expected burst=1 from per-key override, got %q", h)
+	}
+
+	// Second request should be rejected (burst=1)
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, r)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 after exhausting per-key burst of 1, got %d", rr.Code)
 	}
 }

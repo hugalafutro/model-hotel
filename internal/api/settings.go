@@ -36,6 +36,8 @@ var allowedSettings = map[string]struct {
 	max      float64
 }{
 	"rate_limit_enabled":           {typeName: "string"}, // bool as string
+	"rate_limit_ip_enabled":        {typeName: "string"}, // bool as string
+	"rate_limit_max_wait_ms":       {typeName: "int", min: 0, max: 10000},
 	"rate_limit_rps":               {typeName: "float", min: 0, max: 10000},
 	"rate_limit_burst":             {typeName: "int", min: 1, max: 10000},
 	"request_timeout":              {typeName: "string"}, // duration (e.g. "1m0s")

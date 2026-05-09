@@ -511,7 +511,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-anthropic {
 	background-color: rgba(217, 119, 87, 0.15);
-	color: #D97757;
+	color: #d97757;
 	border-color: rgba(217, 119, 87, 0.4);
 }
 .sidebar-quota-pill-anthropic:hover {
@@ -531,7 +531,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-google {
 	background-color: rgba(66, 133, 244, 0.15);
-	color: #4285F4;
+	color: #4285f4;
 	border-color: rgba(66, 133, 244, 0.4);
 }
 .sidebar-quota-pill-google:hover {
@@ -541,7 +541,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-deepseek {
 	background-color: rgba(77, 107, 254, 0.15);
-	color: #4D6BFE;
+	color: #4d6bfe;
 	border-color: rgba(77, 107, 254, 0.4);
 }
 .sidebar-quota-pill-deepseek:hover {
@@ -571,7 +571,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-openrouter {
 	background-color: rgba(99, 102, 241, 0.15);
-	color: #6366F1;
+	color: #6366f1;
 	border-color: rgba(99, 102, 241, 0.4);
 }
 .sidebar-quota-pill-openrouter:hover {
@@ -581,7 +581,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-cohere {
 	background-color: rgba(212, 231, 197, 0.15);
-	color: #7BAF50;
+	color: #7baf50;
 	border-color: rgba(212, 231, 197, 0.4);
 }
 .sidebar-quota-pill-cohere:hover {
@@ -591,7 +591,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-zai-coding {
 	background-color: rgba(124, 58, 237, 0.15);
-	color: #7C3AED;
+	color: #7c3aed;
 	border-color: rgba(124, 58, 237, 0.4);
 }
 .sidebar-quota-pill-zai-coding:hover {
@@ -601,7 +601,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-nanogpt {
 	background-color: rgba(14, 165, 176, 0.15);
-	color: #0EA5B0;
+	color: #0ea5b0;
 	border-color: rgba(14, 165, 176, 0.4);
 }
 .sidebar-quota-pill-nanogpt:hover {
@@ -611,7 +611,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-lmstudio {
 	background-color: rgba(232, 121, 249, 0.15);
-	color: #E879F9;
+	color: #e879f9;
 	border-color: rgba(232, 121, 249, 0.4);
 }
 .sidebar-quota-pill-lmstudio:hover {
@@ -621,7 +621,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 
 .sidebar-quota-pill-koboldcpp {
 	background-color: rgba(220, 38, 38, 0.15);
-	color: #DC2626;
+	color: #dc2626;
 	border-color: rgba(220, 38, 38, 0.4);
 }
 .sidebar-quota-pill-koboldcpp:hover {

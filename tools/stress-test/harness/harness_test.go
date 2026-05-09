@@ -130,7 +130,7 @@ func TestAdminClient_CreateVirtualKey(t *testing.T) {
 			t.Errorf("expected /api/virtual-keys, got %s", r.URL.Path)
 		}
 
-		var body map[string]string
+		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("failed to decode request: %v", err)
 		}
@@ -152,7 +152,7 @@ func TestAdminClient_CreateVirtualKey(t *testing.T) {
 	defer srv.Close()
 
 	admin := NewAdminClient(srv.URL, "test-admin-token")
-	resp, err := admin.CreateVirtualKey("test-key")
+	resp, err := admin.CreateVirtualKey("test-key", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateVirtualKey() error: %v", err)
 	}
@@ -164,6 +164,85 @@ func TestAdminClient_CreateVirtualKey(t *testing.T) {
 	}
 	if resp.TokensUsed != 0 {
 		t.Errorf("TokensUsed = %d, want 0", resp.TokensUsed)
+	}
+}
+
+func TestAdminClient_UpdateVirtualKeyRateLimits(t *testing.T) {
+	keyID := "44444444-4444-4444-4444-444444444444"
+	keyName := "test-key-updated"
+	var rps = 50.0
+	var burst = 100
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		expectedPath := "/api/virtual-keys/" + keyID
+		if r.URL.Path != expectedPath {
+			t.Errorf("expected %s, got %s", expectedPath, r.URL.Path)
+		}
+
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("failed to decode request: %v", err)
+		}
+		if body["name"] != keyName {
+			t.Errorf("expected name=%s, got %s", keyName, body["name"])
+		}
+		if body["rate_limit_rps"] != rps {
+			t.Errorf("expected rate_limit_rps=%.0f, got %v", rps, body["rate_limit_rps"])
+		}
+		if body["rate_limit_burst"] != float64(burst) {
+			t.Errorf("expected rate_limit_burst=%d, got %v", burst, body["rate_limit_burst"])
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	admin := NewAdminClient(srv.URL, "test-admin-token")
+	err := admin.UpdateVirtualKeyRateLimits(keyID, keyName, &rps, &burst)
+	if err != nil {
+		t.Fatalf("UpdateVirtualKeyRateLimits() error: %v", err)
+	}
+}
+
+func TestAdminClient_UpdateVirtualKeyRateLimits_NullValues(t *testing.T) {
+	keyID := "55555555-5555-5555-5555-555555555555"
+	keyName := "test-key-null"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		expectedPath := "/api/virtual-keys/" + keyID
+		if r.URL.Path != expectedPath {
+			t.Errorf("expected %s, got %s", expectedPath, r.URL.Path)
+		}
+
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("failed to decode request: %v", err)
+		}
+		if body["name"] != keyName {
+			t.Errorf("expected name=%s, got %s", keyName, body["name"])
+		}
+		// null values should be present in JSON as null
+		if _, ok := body["rate_limit_rps"]; !ok {
+			t.Error("expected rate_limit_rps to be present (null)")
+		}
+		if _, ok := body["rate_limit_burst"]; !ok {
+			t.Error("expected rate_limit_burst to be present (null)")
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	admin := NewAdminClient(srv.URL, "test-admin-token")
+	err := admin.UpdateVirtualKeyRateLimits(keyID, keyName, nil, nil)
+	if err != nil {
+		t.Fatalf("UpdateVirtualKeyRateLimits() error: %v", err)
 	}
 }
 

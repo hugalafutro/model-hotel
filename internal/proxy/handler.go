@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -62,25 +63,29 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 		return nil, err
 	}
 	return &VirtualKeyInfo{
-		ID:         vk.ID.String(),
-		Name:       vk.Name,
-		KeyHash:    vk.KeyHash,
-		KeyPreview: vk.KeyPreview,
-		TokensUsed: vk.TokensUsed,
+		ID:             vk.ID.String(),
+		Name:           vk.Name,
+		KeyHash:        vk.KeyHash,
+		KeyPreview:     vk.KeyPreview,
+		TokensUsed:     vk.TokensUsed,
+		RateLimitRPS:   vk.RateLimitRPS,
+		RateLimitBurst: vk.RateLimitBurst,
 	}, nil
 }
 
 func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
-	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview)
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	return &VirtualKeyInfo{
-		ID:         vk.ID.String(),
-		Name:       vk.Name,
-		KeyHash:    vk.KeyHash,
-		KeyPreview: vk.KeyPreview,
-		TokensUsed: vk.TokensUsed,
+		ID:             vk.ID.String(),
+		Name:           vk.Name,
+		KeyHash:        vk.KeyHash,
+		KeyPreview:     vk.KeyPreview,
+		TokensUsed:     vk.TokensUsed,
+		RateLimitRPS:   vk.RateLimitRPS,
+		RateLimitBurst: vk.RateLimitBurst,
 	}, nil
 }
 
@@ -189,6 +194,8 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
 		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID)
 		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitRPSKey, vk.RateLimitRPS)
+		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, vk.RateLimitBurst)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.
 		go func(hash string) {
