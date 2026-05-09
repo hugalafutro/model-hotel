@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS models (
     params        JSONB,
     enabled       BOOLEAN DEFAULT true,
     created_at    TIMESTAMPTZ DEFAULT now(),
+    -- The UNIQUE constraint below implicitly creates an index on (provider_id, model_id),
+    -- which also covers queries filtering by provider_id alone. No separate index needed.
     UNIQUE(provider_id, model_id)
 );
 
