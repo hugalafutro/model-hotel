@@ -1,5 +1,6 @@
 # Binaries
 /bin/
+/server
 /llm-proxy
 /discovery_test
 /tools/stress-test/stress-test
