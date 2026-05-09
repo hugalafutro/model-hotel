@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strconv"
@@ -15,7 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// default IP-based rate limit values
+// default IP-based rate limit values (used when no DB setting is present)
 const (
 	defaultIPRPS   = 30.0
 	defaultIPBurst = 60
@@ -24,34 +25,40 @@ const (
 // ipEntry tracks a single IP address's rate limiter.
 type ipEntry struct {
 	limiter  *rate.Limiter
+	rps      float64
+	burst    int
 	lastUsed time.Time
 }
 
 // settings keys for IP rate limiter (stored in DB)
 const (
 	settingsKeyIPEnabled   = "rate_limit_ip_enabled"
+	settingsKeyIPRPS       = "rate_limit_ip_rps"
+	settingsKeyIPBurst     = "rate_limit_ip_burst"
 	settingsKeyIPMaxWaitMs = "rate_limit_max_wait_ms" // shared with per-key limiter
 )
 
 // IPLimiter provides per-IP rate limiting as a DoS safety net.
-// Uses fixed RPS/burst limits from constructor arguments with runtime
-// enable/disable and backpressure controlled via DB settings.
+// RPS and burst are read from DB settings on every request so changes
+// take effect at runtime without a restart. Constructor arguments serve
+// as fallback defaults when no DB setting exists.
 //
 // It should be mounted BEFORE the auth middleware so it catches
 // unauthenticated floods (brute-force key guessing, etc.).
 type IPLimiter struct {
 	mu             sync.Mutex
 	limiters       map[string]*ipEntry
-	rps            float64
-	burst          int
+	defaultRPS     float64 // fallback when no DB setting
+	defaultBurst   int     // fallback when no DB setting
 	stopCh         chan struct{}
 	trustedProxies []*net.IPNet
 	settings       SettingsReader
 }
 
-// NewIPLimiter creates an IP rate limiter. If rps <= 0, the limiter
-// is effectively unlimited (extremely high rate). A background goroutine
-// cleans up entries idle for 10 minutes.
+// NewIPLimiter creates an IP rate limiter. The rps and burst parameters
+// serve as default values when no DB setting is present. If rps <= 0 or
+// burst <= 0, built-in defaults (30/60) are used instead. A background
+// goroutine cleans up entries idle for 10 minutes.
 func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet, settings SettingsReader) *IPLimiter {
 	if rps <= 0 {
 		rps = defaultIPRPS
@@ -61,8 +68,8 @@ func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet, settings 
 	}
 	l := &IPLimiter{
 		limiters:       make(map[string]*ipEntry),
-		rps:            rps,
-		burst:          burst,
+		defaultRPS:     rps,
+		defaultBurst:   burst,
 		stopCh:         make(chan struct{}),
 		trustedProxies: trustedProxies,
 		settings:       settings,
@@ -90,7 +97,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		}
 
 		ip := extractClientIP(r, l.trustedProxies)
-		entry := l.getLimiter(ip)
+		entry := l.getLimiter(ip, r.Context())
 
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
@@ -127,14 +134,30 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (l *IPLimiter) getLimiter(ip string) *ipEntry {
+func (l *IPLimiter) getLimiter(ip string, ctx context.Context) *ipEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Read RPS/burst from DB settings, falling back to constructor defaults.
+	rps := l.defaultRPS
+	burst := l.defaultBurst
+	if l.settings != nil {
+		rps = l.settings.GetFloat(ctx, settingsKeyIPRPS, l.defaultRPS)
+		burst = l.settings.GetInt(ctx, settingsKeyIPBurst, l.defaultBurst)
+	}
+
+	// Unlimited (RPS=0) — use an extremely high rate that never blocks.
+	if rps <= 0 {
+		rps = 1e6
+		burst = 1e6
+	}
+
 	entry, ok := l.limiters[ip]
-	if !ok {
+	if !ok || entry.rps != rps || entry.burst != burst {
 		entry = &ipEntry{
-			limiter:  rate.NewLimiter(rate.Limit(l.rps), l.burst),
+			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
+			rps:      rps,
+			burst:    burst,
 			lastUsed: time.Now(),
 		}
 		l.limiters[ip] = entry

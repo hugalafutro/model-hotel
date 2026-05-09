@@ -27,6 +27,11 @@ func (s *stubIPSettings) GetBool(_ context.Context, key string, def bool) bool {
 }
 
 func (s *stubIPSettings) GetFloat(_ context.Context, key string, def float64) float64 {
+	if v, ok := s.values[key]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
 	return def
 }
 
@@ -191,11 +196,11 @@ func TestIPLimiter_RetryAfterOn429(t *testing.T) {
 func TestIPLimiter_DefaultsWhenZero(t *testing.T) {
 	lim := NewIPLimiter(0, 0, nil, nil)
 	defer lim.Stop()
-	if lim.rps != defaultIPRPS {
-		t.Errorf("rps = %v, want %v", lim.rps, defaultIPRPS)
+	if lim.defaultRPS != defaultIPRPS {
+		t.Errorf("rps = %v, want %v", lim.defaultRPS, defaultIPRPS)
 	}
-	if lim.burst != defaultIPBurst {
-		t.Errorf("burst = %d, want %d", lim.burst, defaultIPBurst)
+	if lim.defaultBurst != defaultIPBurst {
+		t.Errorf("burst = %d, want %d", lim.defaultBurst, defaultIPBurst)
 	}
 }
 
@@ -461,6 +466,69 @@ func TestIPLimiter_BackpressureExceedsMaxWait(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusTooManyRequests {
 		t.Errorf("backpressure exceeded: expected 429, got %d", rr.Code)
+	}
+}
+
+func TestIPLimiter_RuntimeSettingsOverrideRPS(t *testing.T) {
+	// Constructor defaults: RPS=1, burst=1 (very restrictive).
+	// Override via settings: RPS=1000, burst=1000 (effectively unlimited).
+	settings := &stubIPSettings{values: map[string]string{
+		settingsKeyIPEnabled:   "true",
+		settingsKeyIPRPS:       "1000",
+		settingsKeyIPBurst:     "1000",
+		settingsKeyIPMaxWaitMs: "200",
+	}}
+	lim := NewIPLimiter(1, 1, nil, settings)
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	// With RPS=1000 and burst=1000, 50 rapid requests should all succeed
+	for i := 0; i < 50; i++ {
+		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req.RemoteAddr = "10.0.0.1:1234"
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Errorf("request %d: expected 200 with settings override, got %d", i, rr.Code)
+		}
+	}
+}
+
+func TestIPLimiter_SettingsFallbackToDefaults(t *testing.T) {
+	// When settings reader is nil, constructor defaults should be used.
+	// Use RPS=0.1 (1 request per 10s) so backpressure can't help within
+	// the 200ms default max_wait (wait would be ~10s, well above 200ms).
+	lim := NewIPLimiter(0.1, 2, nil, nil)
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	// Constructor defaults: RPS=0.1, burst=2
+	// Both burst requests should succeed
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+		req.RemoteAddr = "10.0.0.2:1234"
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Errorf("burst request %d: expected 200, got %d", i, rr.Code)
+		}
+	}
+
+	// 3rd should be rejected (burst exhausted, RPS=0.1 means 10s wait, max_wait=200ms)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("post-burst request: expected 429, got %d", rr.Code)
 	}
 }
 

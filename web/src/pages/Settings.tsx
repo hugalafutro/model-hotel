@@ -1133,6 +1133,10 @@ function RateLimitSettings({
 	const rateLimitEnabled = settings?.rate_limit_enabled !== "false";
 	const rateLimitRPS = settings?.rate_limit_rps || "10";
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
+	const rateLimitIpEnabled = settings?.rate_limit_ip_enabled !== "false";
+	const rateLimitIpRPS = settings?.rate_limit_ip_rps || "30";
+	const rateLimitIpBurst = settings?.rate_limit_ip_burst || "60";
+	const rateLimitMaxWaitMs = settings?.rate_limit_max_wait_ms || "200";
 
 	return (
 		<SettingsSection
@@ -1237,7 +1241,7 @@ function RateLimitSettings({
 							</p>
 						</div>
 						<Toggle
-							checked={settings?.rate_limit_ip_enabled !== "false"}
+							checked={rateLimitIpEnabled}
 							onChange={(v) =>
 								updateMutation.mutate({
 									rate_limit_ip_enabled: v ? "true" : "false",
@@ -1245,7 +1249,105 @@ function RateLimitSettings({
 							}
 						/>
 					</div>
+
+					{rateLimitIpEnabled && (
+						<>
+							<div className="mt-4">
+								<label
+									htmlFor="rate-limit-ip-rps"
+									className="block text-sm font-medium text-gray-300 mb-2"
+								>
+									IP Requests per Second
+								</label>
+								<select
+									id="rate-limit-ip-rps"
+									value={rateLimitIpRPS}
+									onChange={(e) =>
+										updateMutation.mutate({
+											rate_limit_ip_rps: e.target.value,
+										})
+									}
+									className="ui-input"
+								>
+									{RATE_LIMIT_RPS_OPTIONS.map((opt) => (
+										<option key={opt.value} value={opt.value}>
+											{opt.label}
+										</option>
+									))}
+								</select>
+								<p className="text-gray-500 text-xs mt-1">
+									Sustained request rate per IP address (0 = unlimited)
+								</p>
+							</div>
+
+							<div className="mt-4">
+								<label
+									htmlFor="rate-limit-ip-burst"
+									className="block text-sm font-medium text-gray-300 mb-2"
+								>
+									IP Burst Size
+								</label>
+								<select
+									id="rate-limit-ip-burst"
+									value={rateLimitIpBurst}
+									onChange={(e) =>
+										updateMutation.mutate({
+											rate_limit_ip_burst: e.target.value,
+										})
+									}
+									className="ui-input"
+								>
+									{RATE_LIMIT_BURST_OPTIONS.map((opt) => (
+										<option key={opt.value} value={opt.value}>
+											{opt.label}
+										</option>
+									))}
+								</select>
+								<p className="text-gray-500 text-xs mt-1">
+									Maximum simultaneous requests per IP before throttling kicks
+									in
+								</p>
+							</div>
+						</>
+					)}
 				</div>
+
+				{(rateLimitEnabled || rateLimitIpEnabled) && (
+					<div className="border-t border-gray-700/50 pt-4 mt-2">
+						<p className="text-sm font-medium text-gray-300 mb-1">
+							Rate Limit Backpressure
+						</p>
+						<p className="text-gray-500 text-xs mb-3">
+							Shared wait behavior for both per-key and IP rate limiters
+						</p>
+						<div>
+							<label
+								htmlFor="rate-limit-max-wait"
+								className="block text-sm font-medium text-gray-300 mb-2"
+							>
+								Max Wait (ms)
+							</label>
+							<input
+								id="rate-limit-max-wait"
+								type="number"
+								min="0"
+								max="10000"
+								value={rateLimitMaxWaitMs}
+								onChange={(e) =>
+									updateMutation.mutate({
+										rate_limit_max_wait_ms: e.target.value,
+									})
+								}
+								className="ui-input"
+							/>
+							<p className="text-gray-500 text-xs mt-1">
+								Maximum time to wait before rejecting a rate-limited request. If
+								a token becomes available within this window, the request
+								proceeds; otherwise 429 is returned.
+							</p>
+						</div>
+					</div>
+				)}
 			</div>
 		</SettingsSection>
 	);
