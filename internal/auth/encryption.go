@@ -16,13 +16,26 @@ const (
 	keyLength   = 32
 	nonceLength = 12
 
-	// v1: fixed salt, 64MB memory (backward compatible)
+	// v1: LEGACY — fixed salt, 64MB memory.
+	//
+	// This scheme is DECRYPT-ONLY. All newly encrypted provider keys use v2
+	// (per-provider random salt). The v1 path exists solely to decrypt keys
+	// that were encrypted before the v2 migration. A future one-shot migration
+	// should re-encrypt all v1 entries to v2 on startup, after which v1 code
+	// and this constant can be removed entirely.
 	v1Salt = "llm-proxy-fixed-salt-v1"
 	v1Time = 1
 	v1Mem  = 64 * 1024
 	v1Thr  = 4
 
-	// v2: per-provider salt, 8MB memory (fast, secure for high-entropy keys)
+	// v2: per-provider random salt, 8MB memory.
+	//
+	// The parameters (t=1, m=8MB, p=4) are intentionally below the RFC 9106
+	// minimum (t=3, m=64MB). This is deliberate: MASTER_KEY is a high-entropy
+	// random value (32+ bytes), not a user-chosen password. Argon2id's primary
+	// defense is against low-entropy brute-force, which does not apply here.
+	// Increasing parameters would add latency to every provider key decrypt
+	// (including per-request) for no meaningful security gain.
 	v2Time = 1
 	v2Mem  = 8 * 1024
 	v2Thr  = 4
