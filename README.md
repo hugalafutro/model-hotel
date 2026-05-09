@@ -25,15 +25,6 @@
 
 Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>
 
-Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian,%20explorer-10B981?style=flat" alt="MiniMax M2.7"> <img src="https://img.shields.io/badge/Qwen3_VL_235B-observer-F59E0B?style=flat" alt="Qwen3 VL"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4-code_review-FF4500?style=flat" alt="Grok 4"><br>
-
-<i>Thanks <a href="https://ollama.com">Ollama Cloud</a> for generous limits. I have nothing nice to say about <a href="https://z.ai">Z.AI</a> or <a href="https://opencode.ai">OpenCode Go</a> in that regard.</i><br><br>
-
-Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
-![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800)</a>
-</div>
-<br>
-
 <details>
 <summary>📊 opencode stats</summary>
 
@@ -165,7 +156,16 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 │ tokensave_tokens.. █                      1 ( 0.0%)    │
 └────────────────────────────────────────────────────────┘
 ```
-</details>
+</details><br>
+
+Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/MiniMax_M2.7-librarian,%20explorer-10B981?style=flat" alt="MiniMax M2.7"> <img src="https://img.shields.io/badge/Qwen3_VL_235B-observer-F59E0B?style=flat" alt="Qwen3 VL"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4-code_review-FF4500?style=flat" alt="Grok 4"><br>
+
+<i>Thanks <a href="https://ollama.com">Ollama Cloud</a> for generous limits. I have nothing nice to say about <a href="https://z.ai">Z.AI</a> or <a href="https://opencode.ai">OpenCode Go</a> in that regard.</i><br><br>
+
+Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
+![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800)</a>
+</div>
+<br>
 
 ## Model Hotel
 
