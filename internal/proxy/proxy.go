@@ -669,8 +669,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			errMsg := util.SanitizeLogBody(string(body), 2000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
-			h.failRequest(r.Context(), logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			logData.ttftMs = ttft
+			h.failRequest(r.Context(), logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			// Forward the upstream error to the client. If the upstream returned
 			// valid JSON (most OpenAI-compatible providers do), pass it through
 			// as-is. If it's not JSON (e.g. plain text, HTML error page), wrap it
