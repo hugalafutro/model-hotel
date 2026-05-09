@@ -37,6 +37,7 @@ jobs:
 
       - name: Run tests
         env:
+          POSTGRES_PASSWORD: changeme
           TEST_DATABASE_URL: postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable
         run: go test -timeout 5m ./...
 

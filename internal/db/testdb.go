@@ -19,11 +19,32 @@ import (
 //
 // The caller should defer a call to CleanupTestDB to drop the database after
 // tests complete, though the next test run will DROP+CREATE anyway.
-func SetupTestDB(pkgName string) (string, error) {
-	baseURL := os.Getenv("TEST_DATABASE_URL")
-	if baseURL == "" {
-		baseURL = "postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable"
+func buildTestDBURL() string {
+	if u := os.Getenv("TEST_DATABASE_URL"); u != "" {
+		return u
 	}
+	// Fall back to constructed URL from POSTGRES_* vars.
+	// The test database name is always "testdb" (created by docker-compose.test.yml),
+	// not POSTGRES_DB (which is the app database).
+	user := os.Getenv("POSTGRES_USER")
+	pass := os.Getenv("POSTGRES_PASSWORD")
+	host := os.Getenv("POSTGRES_HOST")
+	if user == "" {
+		user = "modelhotel"
+	}
+	if pass == "" {
+		pass = "changeme"
+	}
+	switch host {
+	case "", "db":
+		host = "localhost" // test runs outside Docker
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:5433/testdb?sslmode=disable", user, pass, host)
+}
+
+// SetupTestDB creates an isolated test database for a specific package.
+func SetupTestDB(pkgName string) (string, error) {
+	baseURL := buildTestDBURL()
 
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
@@ -70,10 +91,7 @@ func SetupTestDB(pkgName string) (string, error) {
 // CleanupTestDB drops the per-package test database. Call this in a defer
 // from TestMain after tests finish.
 func CleanupTestDB(pkgName string) {
-	baseURL := os.Getenv("TEST_DATABASE_URL")
-	if baseURL == "" {
-		baseURL = "postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable"
-	}
+	baseURL := buildTestDBURL()
 
 	parsed, err := url.Parse(baseURL)
 	if err != nil {

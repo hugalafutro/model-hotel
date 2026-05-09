@@ -93,8 +93,17 @@ func Load() (*Config, error) {
 		TrustedProxies:   LoadTrustedProxies(),
 	}
 
+	// If DATABASE_URL is not set, construct it from POSTGRES_* components.
+	// This eliminates duplication: the password only needs to be set once.
 	if cfg.DatabaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL is required")
+		pgUser := getEnvWithDefault("POSTGRES_USER", "modelhotel")
+		pgPass := getEnv("POSTGRES_PASSWORD")
+		pgHost := getEnvWithDefault("POSTGRES_HOST", "db")
+		pgDB := getEnvWithDefault("POSTGRES_DB", "modelhotel")
+		if pgPass == "" {
+			return nil, fmt.Errorf("DATABASE_URL or POSTGRES_PASSWORD is required")
+		}
+		cfg.DatabaseURL = fmt.Sprintf("postgres://%s:%s@%s:5432/%s", pgUser, pgPass, pgHost, pgDB)
 	}
 
 	if cfg.MasterKey == "" {
@@ -105,13 +114,6 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) String() string {
-	var maskedKey string
-	if len(c.MasterKey) > 4 {
-		maskedKey = "***" + c.MasterKey[len(c.MasterKey)-4:]
-	} else {
-		maskedKey = "***"
-	}
-
 	var adminTokenDisplay string
 	if c.AdminToken != "" {
 		adminTokenDisplay = "***set***"
@@ -119,25 +121,12 @@ func (c *Config) String() string {
 		adminTokenDisplay = "(auto-generated)"
 	}
 
-	var maskedURL string
-	u, err := url.Parse(c.DatabaseURL)
-	if err != nil {
-		maskedURL = "***"
-	} else {
-		if u.User != nil {
-			u.User = nil
-			maskedURL = fmt.Sprintf("%s://***@%s%s", u.Scheme, u.Host, u.Path)
-		} else {
-			maskedURL = u.String()
-		}
-	}
-
-	// Build label-value rows
+	// Build label-value rows.
+	// Database URL and Master Key are omitted: a technical user can find
+	// them in .env or docker-compose.yml, a layman user does not need them.
 	type row struct{ label, value string }
 	rows := []row{
 		{"Port", c.Port},
-		{"Database URL", maskedURL},
-		{"Master Key", maskedKey},
 		{"Data Dir", c.DataDir},
 		{"Admin Token", adminTokenDisplay},
 		{"HTTP Providers", fmt.Sprintf("%t", c.AllowHTTPProviders)},

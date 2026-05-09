@@ -21,7 +21,7 @@ RATE_LIMIT_ENABLED=true \
 RATE_LIMIT_IP_RPS=30 \
 RATE_LIMIT_IP_BURST=60 \
 MASTER_KEY=your-master-key \
-DATABASE_URL=postgres://modelhotel:changeme@localhost:5432/modelhotel \
+POSTGRES_PASSWORD=changeme \
   ./server
 ```
 
@@ -39,7 +39,7 @@ Before running, verify each item:
 
 1. **Proxy is running** - `curl http://localhost:8080/api/settings -H "Authorization: Bearer <ADMIN_TOKEN>"` returns settings
 2. **PostgreSQL is up** - `pg_isready -h localhost -p 5432`
-3. **Environment vars set** - `MASTER_KEY`, `DATABASE_URL`, `ALLOW_HTTP_PROVIDERS=true`, `ALLOWED_PROVIDER_HOSTS=localhost`
+3. **Environment vars set** - `MASTER_KEY`, `POSTGRES_PASSWORD`, `ALLOW_HTTP_PROVIDERS=true`, `ALLOWED_PROVIDER_HOSTS=localhost`
 4. **IP rate limiter is high enough** - `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` exceed your max aggregate RPS (default 30/60 is fine for ≤100 concurrency)
 5. **Port 9090 is free** - the mock server binds to `:9090` by default
 6. **Admin token** - check `data/admin-token` file or server startup logs

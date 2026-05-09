@@ -215,11 +215,12 @@ func TestValidateProviderURL_IPv6LoopbackBlockedWithoutAllowList(t *testing.T) {
 
 func TestLoad_RequiredDatabaseURL(t *testing.T) {
 	os.Unsetenv("DATABASE_URL")
+	os.Unsetenv("POSTGRES_PASSWORD")
 	os.Unsetenv("MASTER_KEY")
 
 	_, err := Load()
 	if err == nil {
-		t.Error("expected error when DATABASE_URL is missing, got nil")
+		t.Error("expected error when DATABASE_URL and POSTGRES_PASSWORD are missing, got nil")
 	}
 }
 
@@ -231,6 +232,47 @@ func TestLoad_RequiredMasterKey(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Error("expected error when MASTER_KEY is missing, got nil")
+	}
+}
+
+func TestLoad_ConstructsDatabaseURL(t *testing.T) {
+	os.Unsetenv("DATABASE_URL")
+	os.Setenv("MASTER_KEY", "test-master-key-12345")
+	os.Setenv("POSTGRES_USER", "myuser")
+	os.Setenv("POSTGRES_PASSWORD", "mypass")
+	os.Setenv("POSTGRES_HOST", "myhost")
+	os.Setenv("POSTGRES_DB", "mydb")
+	defer os.Unsetenv("DATABASE_URL")
+	defer os.Unsetenv("MASTER_KEY")
+	defer os.Unsetenv("POSTGRES_USER")
+	defer os.Unsetenv("POSTGRES_PASSWORD")
+	defer os.Unsetenv("POSTGRES_HOST")
+	defer os.Unsetenv("POSTGRES_DB")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	expected := "postgres://myuser:mypass@myhost:5432/mydb"
+	if cfg.DatabaseURL != expected {
+		t.Errorf("expected constructed DATABASE_URL %q, got %q", expected, cfg.DatabaseURL)
+	}
+}
+
+func TestLoad_DatabaseURLOverride(t *testing.T) {
+	os.Setenv("DATABASE_URL", "postgres://override:pass@custom:5433/db")
+	os.Setenv("MASTER_KEY", "test-master-key-12345")
+	os.Setenv("POSTGRES_PASSWORD", "ignored")
+	defer os.Unsetenv("DATABASE_URL")
+	defer os.Unsetenv("MASTER_KEY")
+	defer os.Unsetenv("POSTGRES_PASSWORD")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.DatabaseURL != "postgres://override:pass@custom:5433/db" {
+		t.Errorf("DATABASE_URL should take precedence over POSTGRES_* components, got %q", cfg.DatabaseURL)
 	}
 }
 
@@ -352,23 +394,35 @@ func TestConfig_String_MasksMasterKey(t *testing.T) {
 		MasterKey:   "super-secret-master-key-12345",
 	}
 	s := cfg.String()
+	// Master key and database URL are intentionally omitted from the banner.
+	// Verify they don't appear in the output at all.
 	if contains(s, "super-secret-master-key-12345") {
-		t.Error("Config.String() should mask the master key")
+		t.Error("Config.String() must not leak the master key")
 	}
-	if !contains(s, "***") {
-		t.Error("Config.String() should contain masked key indicator")
+	if contains(s, "secret") {
+		t.Error("Config.String() must not leak the database password")
 	}
 }
 
-func TestConfig_String_MasksDatabaseURL(t *testing.T) {
+func TestConfig_String_OmitsSensitiveURLs(t *testing.T) {
 	cfg := &Config{
 		Port:        ":8080",
 		DatabaseURL: "postgres://admin:MyS3cret!@localhost:5432/mydb",
 		MasterKey:   "test-key",
 	}
 	s := cfg.String()
+	// Neither the database URL nor the master key should appear.
 	if contains(s, "MyS3cret!") {
-		t.Error("Config.String() should mask the database password")
+		t.Error("Config.String() must not leak the database password")
+	}
+	if contains(s, "test-key") {
+		t.Error("Config.String() must not leak the master key")
+	}
+	if contains(s, "Database URL") {
+		t.Error("Config.String() should not contain 'Database URL' row")
+	}
+	if contains(s, "Master Key") {
+		t.Error("Config.String() should not contain 'Master Key' row")
 	}
 }
 
@@ -378,7 +432,10 @@ func TestConfig_String_ShortMasterKey(t *testing.T) {
 	}
 	s := cfg.String()
 	if contains(s, "abc") {
-		t.Error("Config.String() should not leak short master key")
+		t.Error("Config.String() must not leak the master key")
+	}
+	if contains(s, "Master Key") {
+		t.Error("Config.String() should not contain 'Master Key' row")
 	}
 }
 
