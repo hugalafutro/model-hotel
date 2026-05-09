@@ -22,21 +22,22 @@ cmd/server/           # Main application entry point
   └── spa.go          # SPA static file handler
 
 internal/
-  ├── api/            # Admin API handlers
-  │   ├── admin.go    # Provider CRUD
-  │   ├── models.go   # Model management
-  │   ├── virtualkeys.go
-  │   ├── logs.go     # Request logs
-  │   ├── applogs.go  # Application logs
-  │   ├── logscache.go # Logs cache
-  │   ├── settings.go
-  │   ├── discovery.go # Model discovery triggers
-  │   ├── events.go   # SSE events
-  │   ├── failover.go # Failover group management
-  │   ├── stats.go    # Statistics
-  │   ├── system.go   # System stats
-  │   ├── helpers.go  # Test helpers
-  │   └── validate.go # Validation helpers
+   ├── api/            # Admin API handlers
+   │   ├── admin.go    # Provider CRUD
+   │   ├── models.go   # Model management
+   │   ├── virtualkeys.go
+   │   ├── backup.go   # Database backup download/restore
+   │   ├── logs.go     # Request logs
+   │   ├── applogs.go  # Application logs
+   │   ├── logscache.go # Logs cache
+   │   ├── settings.go
+   │   ├── discovery.go # Model discovery triggers
+   │   ├── events.go   # SSE events
+   │   ├── failover.go # Failover group management
+   │   ├── stats.go    # Statistics
+   │   ├── system.go   # System stats
+   │   ├── helpers.go  # Test helpers
+   │   └── validate.go # Validation helpers
   ├── proxy/          # OpenAI-compatible proxy endpoints
   │   ├── handler.go  # /v1 routes, rate limiting, auth
   │   ├── proxy.go    # Chat completions with failover
@@ -63,9 +64,9 @@ internal/
   ├── failover/       # Failover group repository
   │   ├── failover.go # Failover group management
   │   └── cache.go    # Failover caching
-  ├── ratelimit/      # Rate limiting implementation
-  │   ├── limiter.go  # Per-key token bucket limiter
-  │   └── ip_limiter.go # Per-IP DoS protection
+   ├── ratelimit/      # Rate limiting implementation
+   │   ├── limiter.go  # Per-key token bucket limiter (configurable RPS/burst)
+   │   └── ip_limiter.go # Per-IP DoS protection (configurable via DB settings)
   ├── auth/           # Encryption/decryption (AES-256-GCM)
   ├── db/             # Database migrations
   ├── settings/       # Runtime settings

@@ -304,6 +304,7 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size |
 | `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size |
 | `MODELSDEV_ENABLED` | No | `true` | Enable enrichment from [models.dev](https://models.dev/) catalogue (pricing, capabilities, context limits) |
+| `DEBUG_LOG` | No | `false` | Enable structured debug logging (see `internal/debuglog`) |
 
 ### DB-Backed Settings
 
@@ -328,6 +329,11 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 | `quota_refresh` | *(none)* | Provider quota refresh interval |
 | `history_limit` | *(none)* | History display limit |
 | `toast_duration` | *(none)* | Toast notification duration (ms, 1000–15000) |
+| `request_timeout` | *(none)* | Per-request timeout (e.g. `30s`, `5m`) |
+| `rate_limit_ip_enabled` | `true` | Runtime toggle for per-IP rate limiting (env vars `RATE_LIMIT_IP_RPS`/`RATE_LIMIT_IP_BURST` set the ceiling) |
+| `rate_limit_ip_rps` | `30` | Per-IP requests per second |
+| `rate_limit_ip_burst` | `60` | Per-IP burst size for token bucket |
+| `rate_limit_max_wait_ms` | `5000` | Maximum wait time (ms) for rate-limiter queue before rejecting with 429 |
 
 > **Rate Limiting:** Two layers of protection run on every request:
 >
@@ -403,6 +409,7 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 | `/api/virtual-keys` | POST | Create virtual key |
 | `/api/virtual-keys` | GET | List virtual keys |
 | `/api/virtual-keys/{id}` | GET | Get virtual key |
+| `/api/virtual-keys/{id}` | PUT | Update virtual key |
 | `/api/virtual-keys/{id}` | DELETE | Delete virtual key |
 
 **Request Logs**
@@ -418,6 +425,15 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 |---|---|---|
 | `/api/logs/app` | GET | Get app logs (ring buffer or `?history=true` DB query) |
 | `/api/logs/app` | DELETE | Clear app logs |
+
+**Backups**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/backups` | GET | List backups |
+| `/api/backups` | POST | Create backup |
+| `/api/backups/{filename}` | GET | Download backup |
+| `/api/backups/{filename}` | DELETE | Delete backup |
 
 **Settings**
 
