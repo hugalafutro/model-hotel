@@ -484,6 +484,10 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 |---|---|---|
 | `/health` | GET | Returns `OK` (no auth required) |
 
+## Known Limitations
+
+- **Large page components:** Arena.tsx, Chat.tsx, Settings.tsx, and Dashboard.tsx are single-file mega-components (1,500+ lines each). This was an intentional trade-off for rapid iteration. Refactoring into smaller components is on the roadmap.
+
 ## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
