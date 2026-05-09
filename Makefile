@@ -1,13 +1,13 @@
 .PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
 
 build:
-	go build -o server ./cmd/server/
+	go build -o bin/server ./cmd/server/
 
 run: build
-	./server
+	./bin/server
 
 clean:
-	rm -f server
+	rm -rf bin/
 	rm -rf data/
 
 test:
