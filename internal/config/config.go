@@ -322,8 +322,8 @@ func getIntEnvWithDefault(key string, defaultValue int64) int64 {
 		return defaultValue
 	}
 
-	var result int64
-	if _, err := fmt.Sscanf(value, "%d", &result); err != nil {
+	result, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
 		return defaultValue
 	}
 	return result
