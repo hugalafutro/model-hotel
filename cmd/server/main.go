@@ -184,7 +184,10 @@ func main() {
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			// HSTS only over TLS. Plain HTTP (e.g. behind a reverse proxy that
 			// terminates TLS) must not set HSTS or browsers will cache a broken
-			// redirect to a non-existent HTTPS listener.
+			// redirect to a non-existent HTTPS listener. Currently the server
+			// only serves plain HTTP (ListenAndServe), so this guard is a
+			// forward-compatible placeholder: it will activate automatically if
+			// TLS is added later via ListenAndServeTLS.
 			if r.TLS != nil {
 				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 			}
