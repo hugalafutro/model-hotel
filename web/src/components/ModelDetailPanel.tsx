@@ -149,7 +149,7 @@ export function ModelDetailPanel({
 					collapsed && collapsible ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
 				}`}
 			>
-				<div className="overflow-hidden px-2 pb-2">
+				<div className="overflow-hidden px-2 py-2">
 					<div className="space-y-3 pt-3">
 						{editable && (
 							<div

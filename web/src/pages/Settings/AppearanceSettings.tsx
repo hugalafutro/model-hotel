@@ -120,16 +120,16 @@ export function AppearanceSettings({
 				{/* Accent Color */}
 				<div>
 					<p className="text-sm font-medium text-gray-300 mb-2">Accent Color</p>
-					<div className="flex flex-wrap gap-2">
+					<div className="flex flex-wrap gap-2 py-1">
 						{accentPresets.map((preset) => (
 							<button
 								key={preset.name}
 								type="button"
 								onClick={() => setAccentColor(preset.color)}
-								className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
+								className={`w-8 h-8 rounded-full border-2 border-transparent transition-transform hover:scale-110 ${
 									accentColor === preset.color
-										? "border-white scale-110"
-										: "border-transparent"
+										? "ring-2 ring-white scale-110"
+										: ""
 								}`}
 								style={{
 									backgroundColor: preset.color,
