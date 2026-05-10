@@ -120,7 +120,7 @@ export function AppearanceSettings({
 				{/* Accent Color */}
 				<div>
 					<p className="text-sm font-medium text-gray-300 mb-2">Accent Color</p>
-					<div className="flex flex-wrap gap-2 py-1">
+					<div className="flex flex-wrap gap-2 py-1 px-1">
 						{accentPresets.map((preset) => (
 							<button
 								key={preset.name}
