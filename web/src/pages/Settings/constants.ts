@@ -34,6 +34,7 @@ const PROVIDER_CACHE_KEYS = [
 	"model-hotel:nanogpt-usage",
 	"model-hotel:zai-coding-usage",
 	"model-hotel:deepseek-balance",
+	"model-hotel:ollama-cloud-account",
 ];
 
 export function getProviderCacheCount(): number {

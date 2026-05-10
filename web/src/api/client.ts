@@ -9,6 +9,7 @@ import type {
 	LogsResponse,
 	Model,
 	NanoGPTUsage,
+	OllamaCloudAccount,
 	OpenRouterBalance,
 	Provider,
 	ProviderDistributionStats,
@@ -246,6 +247,15 @@ export const api = {
 					headers: getAuthHeaders(),
 				},
 				"Failed to fetch OpenRouter balance",
+			);
+		},
+		getOllamaCloudAccount: async (id: string): Promise<OllamaCloudAccount> => {
+			return fetchJSON<OllamaCloudAccount>(
+				`${API_BASE}/api/providers/${id}/account`,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch Ollama Cloud account",
 			);
 		},
 	},

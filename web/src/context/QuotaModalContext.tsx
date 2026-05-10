@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext, useState } from "react";
 import type {
 	NanoGPTUsage,
+	OllamaCloudAccount,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -12,6 +13,8 @@ interface QuotaModalContextType {
 	setZaiCodingUsage: (v: ZAICodingQuotaResponse | null) => void;
 	openrouterBalance: OpenRouterBalance | null;
 	setOpenrouterBalance: (v: OpenRouterBalance | null) => void;
+	ollamaCloudAccount: OllamaCloudAccount | null;
+	setOllamaCloudAccount: (v: OllamaCloudAccount | null) => void;
 }
 
 const QuotaModalContext = createContext<QuotaModalContextType | null>(null);
@@ -22,6 +25,8 @@ export function QuotaModalProvider({ children }: { children: ReactNode }) {
 		useState<ZAICodingQuotaResponse | null>(null);
 	const [openrouterBalance, setOpenrouterBalance] =
 		useState<OpenRouterBalance | null>(null);
+	const [ollamaCloudAccount, setOllamaCloudAccount] =
+		useState<OllamaCloudAccount | null>(null);
 	return (
 		<QuotaModalContext.Provider
 			value={{
@@ -31,6 +36,8 @@ export function QuotaModalProvider({ children }: { children: ReactNode }) {
 				setZaiCodingUsage,
 				openrouterBalance,
 				setOpenrouterBalance,
+				ollamaCloudAccount,
+				setOllamaCloudAccount,
 			}}
 		>
 			{children}

@@ -114,7 +114,7 @@ export function ProviderCard({
 				)}
 			</div>
 
-			<div className="mt-auto pt-4 flex items-center justify-between gap-2">
+			<div className="mt-auto pt-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-3">
 				<div className="flex items-center gap-2 min-h-7">
 					<QuotaBadges
 						quotaData={quotaData}
@@ -139,6 +139,14 @@ export function ProviderCard({
 							quotaData.openrouterBalance &&
 							onSetModalOpenRouter(quotaData.openrouterBalance)
 						}
+						onOllamaCloudClick={async () => {
+							try {
+								await quotaData.refetchOllamaCloud();
+								toast("Account info refreshed", "success");
+							} catch {
+								toast("Failed to refresh account info", "error");
+							}
+						}}
 					/>
 				</div>
 				<div className="flex gap-2">

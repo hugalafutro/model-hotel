@@ -2,6 +2,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
+	OllamaCloudAccount,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -30,6 +31,7 @@ const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	"zai-coding": PROVIDER_PREFIXES["zai-coding"],
 	deepseek: PROVIDER_PREFIXES.deepseek,
 	openrouter: PROVIDER_PREFIXES.openrouter,
+	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
 };
 
 const TYPE_STYLES: Record<
@@ -42,7 +44,7 @@ const TYPE_STYLES: Record<
 	},
 	"zai-coding": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-zai-coding",
-		card: "bg-[#7C3AED]/20 text-[#7C3AED] border border-[#7C3AED]/50 hover:bg-[#7C3AED]/30",
+		card: "bg-white/10 text-gray-300 border border-gray-500/50 hover:bg-white/15",
 	},
 	deepseek: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-deepseek",
@@ -51,6 +53,10 @@ const TYPE_STYLES: Record<
 	openrouter: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-openrouter",
 		card: "bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/50 hover:bg-[#6366F1]/30",
+	},
+	"ollama-cloud": {
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-ollama-cloud",
+		card: "bg-white/10 text-gray-300 border border-gray-500/50 hover:bg-white/15",
 	},
 };
 
@@ -80,12 +86,19 @@ function zaiCodingBadgeContent(
 function deepseekBadgeContent(
 	balance: DeepSeekBalance,
 	variant: QuotaBadgeVariant,
+	dataUpdatedAt?: number,
 ): BadgeContent {
 	const usd = balance.balance_infos.find(
 		(b: DeepSeekBalanceInfo) => b.currency === "USD",
 	)?.total_balance;
 	const label = variant === "sidebar" ? `$ ${usd ?? "-"}` : `${usd ?? "-"} USD`;
-	return { label, title: "DeepSeek balance - click for details" };
+	const refreshed = dataUpdatedAt
+		? ` - updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
+		: "";
+	return {
+		label,
+		title: `DeepSeek balance: $${usd ?? "?"} USD${refreshed} - click to refresh`,
+	};
 }
 
 function openRouterBadgeContent(balance: OpenRouterBalance): BadgeContent {
@@ -93,6 +106,21 @@ function openRouterBadgeContent(balance: OpenRouterBalance): BadgeContent {
 		label: `$${balance.credits_remaining?.toFixed(2) ?? "-"}`,
 		title: "OpenRouter key balance - click for details",
 	};
+}
+
+function ollamaCloudBadgeContent(
+	account: OllamaCloudAccount,
+	dataUpdatedAt?: number,
+): BadgeContent {
+	const plan = account.plan || "unknown";
+	const refreshed = dataUpdatedAt
+		? ` - updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
+		: "";
+	let title = `Ollama Cloud ${plan} plan${refreshed} - click to update`;
+	if (account.subscription_period_end?.valid) {
+		title = `Ollama Cloud ${plan} plan (ends ${new Date(account.subscription_period_end.time).toLocaleDateString()})${refreshed} - click to update`;
+	}
+	return { label: plan, title };
 }
 
 // ── QuotaBadge component ────────────────────────────────────────────────
@@ -112,6 +140,8 @@ export interface QuotaBadgeProps {
 	deepseekBalance?: DeepSeekBalance;
 	/** OpenRouter props */
 	openrouterBalance?: OpenRouterBalance;
+	/** Ollama Cloud props */
+	ollamaCloudAccount?: OllamaCloudAccount;
 }
 
 export function QuotaBadge({
@@ -124,6 +154,7 @@ export function QuotaBadge({
 	zaiCodingUsage,
 	deepseekBalance,
 	openrouterBalance,
+	ollamaCloudAccount,
 }: QuotaBadgeProps) {
 	const { label, title: defaultTitle } = (() => {
 		switch (type) {
@@ -140,6 +171,11 @@ export function QuotaBadge({
 				if (!openrouterBalance)
 					return { label: "-", title: "OpenRouter balance unavailable" };
 				return openRouterBadgeContent(openrouterBalance);
+			}
+			case "ollama-cloud": {
+				if (!ollamaCloudAccount)
+					return { label: "-", title: "Ollama Cloud account unavailable" };
+				return ollamaCloudBadgeContent(ollamaCloudAccount);
 			}
 		}
 	})();
@@ -176,6 +212,7 @@ interface QuotaBadgesProps {
 	onZaiCodingClick?: () => void;
 	onDeepseekClick?: () => void;
 	onOpenRouterClick?: () => void;
+	onOllamaCloudClick?: () => void;
 }
 
 /**
@@ -192,6 +229,7 @@ export function QuotaBadges({
 	onZaiCodingClick,
 	onDeepseekClick,
 	onOpenRouterClick,
+	onOllamaCloudClick,
 }: QuotaBadgesProps) {
 	const scope = providerBaseUrl
 		? detectQuotaProviderType(providerBaseUrl)
@@ -228,6 +266,13 @@ export function QuotaBadges({
 						variant={variant}
 						deepseekBalance={quotaData.deepseekBalance}
 						onClick={onDeepseekClick}
+						title={
+							deepseekBadgeContent(
+								quotaData.deepseekBalance,
+								variant,
+								quotaData.deepseekDataUpdatedAt,
+							).title
+						}
 					/>
 				)}
 			{quotaData.showOrBadge &&
@@ -238,6 +283,22 @@ export function QuotaBadges({
 						variant={variant}
 						openrouterBalance={quotaData.openrouterBalance}
 						onClick={onOpenRouterClick}
+					/>
+				)}
+			{quotaData.showOllamaCloudBadge &&
+				quotaData.ollamaCloudAccount &&
+				(scope === undefined || scope === "ollama-cloud") && (
+					<QuotaBadge
+						type="ollama-cloud"
+						variant={variant}
+						ollamaCloudAccount={quotaData.ollamaCloudAccount}
+						onClick={onOllamaCloudClick}
+						title={
+							ollamaCloudBadgeContent(
+								quotaData.ollamaCloudAccount,
+								quotaData.ollamaCloudDataUpdatedAt,
+							).title
+						}
 					/>
 				)}
 		</>

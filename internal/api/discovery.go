@@ -28,6 +28,9 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	r.Route("/providers/{id}/balance", func(r chi.Router) {
 		r.Get("/", h.GetProviderBalance)
 	})
+	r.Route("/providers/{id}/account", func(r chi.Router) {
+		r.Get("/", h.GetOllamaCloudAccount)
+	})
 }
 
 // DiscoverProviderModels discovers and imports models from a specific provider.
@@ -199,6 +202,34 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "balance information not supported for this provider type", http.StatusBadRequest)
 		return
 	}
+}
+
+// GetOllamaCloudAccount fetches account info from Ollama Cloud.
+func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) {
+	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
+		return
+	}
+
+	prov, err := h.providerRepo.Get(r.Context(), providerID)
+	if err != nil {
+		http.Error(w, "provider not found", http.StatusNotFound)
+		return
+	}
+
+	if provider.DetectProviderType(prov.BaseURL) != "ollama-cloud" {
+		http.Error(w, "account information not supported for this provider type", http.StatusBadRequest)
+		return
+	}
+
+	discovery := provider.NewDiscoveryService()
+
+	account, err := discovery.GetOllamaCloudAccount(r.Context(), prov, h.cfg.MasterKey)
+	if err != nil {
+		respondError(w, "failed to fetch ollama cloud account", err, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, account)
 }
 
 // DiscoverAllResult holds the result of discovering models from a single provider.
@@ -389,6 +420,15 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			}
 		case "deepseek":
 			_, err := discovery.GetDeepSeekBalance(provCtx, prov, h.cfg.MasterKey)
+			if err != nil {
+				result.Error = err.Error()
+				failed++
+			} else {
+				result.Refreshed = true
+				refreshed++
+			}
+		case "ollama-cloud":
+			_, err := discovery.GetOllamaCloudAccount(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++

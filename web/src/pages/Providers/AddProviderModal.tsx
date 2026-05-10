@@ -126,6 +126,16 @@ export function AddProviderModal({
 						queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 						break;
 					}
+					case "ollama-cloud": {
+						const account = await api.providers.getOllamaCloudAccount(
+							newProvider.id,
+						);
+						onToast(`Ollama Cloud ${account.plan} plan detected`, "info");
+						queryClient.invalidateQueries({
+							queryKey: ["ollama-cloud-account"],
+						});
+						break;
+					}
 				}
 			} catch {
 				// Quota/balance detection is non-critical; silently skip on failure

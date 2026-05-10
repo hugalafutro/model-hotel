@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -175,4 +176,45 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		OwnedBy:          ownedBy,
 		Enabled:          true,
 	}
+}
+
+// GetOllamaCloudAccount fetches the account info from the Ollama Cloud /api/me endpoint.
+func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *Provider, masterKey string) (*OllamaCloudAccount, error) {
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+	}
+
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	// Remove /v1 suffix for the account endpoint
+	baseURL = strings.TrimSuffix(baseURL, "/v1")
+	accountURL := baseURL + "/api/me"
+
+	req, err := http.NewRequestWithContext(ctx, "POST", accountURL, http.NoBody)
+	// Ollama Cloud requires POST for /api/me despite being a read operation.
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "ollama-cloud")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch ollama cloud account: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("unexpected status code %d from ollama cloud account endpoint", resp.StatusCode)
+	}
+
+	var account OllamaCloudAccount
+	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
+		return nil, fmt.Errorf("failed to decode ollama cloud account response: %w", err)
+	}
+
+	debuglog.Info("discovery: ollama cloud account fetched", "provider", provider.ID, "plan", account.Plan)
+	return &account, nil
 }

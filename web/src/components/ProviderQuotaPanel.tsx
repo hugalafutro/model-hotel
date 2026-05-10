@@ -189,6 +189,7 @@ export function ProviderQuotaPanel() {
 							onOpenRouterClick={() =>
 								setModalOpenRouter(quotaData.openrouterBalance ?? null)
 							}
+							onOllamaCloudClick={handleRefresh}
 						/>
 					</div>
 				</div>

@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type {
 	DeepSeekBalance,
 	NanoGPTUsage,
+	OllamaCloudAccount,
 	OpenRouterBalance,
 	Provider,
 	ZAICodingQuotaLimit,
@@ -38,7 +39,8 @@ export type QuotaProviderType =
 	| "nanogpt"
 	| "zai-coding"
 	| "deepseek"
-	| "openrouter";
+	| "openrouter"
+	| "ollama-cloud";
 
 function hostnameMatches(url: string, suffix: string, exact?: string): boolean {
 	try {
@@ -57,6 +59,7 @@ export function detectQuotaProviderType(
 	if (hostnameMatches(baseUrl, ".z.ai", "z.ai")) return "zai-coding";
 	if (hostnameMatches(baseUrl, "deepseek.com")) return "deepseek";
 	if (hostnameMatches(baseUrl, "openrouter.ai")) return "openrouter";
+	if (hostnameMatches(baseUrl, "ollama.com")) return "ollama-cloud";
 	return null;
 }
 
@@ -106,12 +109,14 @@ export interface QuotaDataResult {
 	zaiCodingProviderId: string | undefined;
 	deepseekProviderId: string | undefined;
 	openrouterProviderId: string | undefined;
+	ollamaCloudProviderId: string | undefined;
 
 	/** Raw query data. */
 	nanogptUsage: NanoGPTUsage | undefined;
 	zaiCodingUsage: ZAICodingQuotaResponse | undefined;
 	deepseekBalance: DeepSeekBalance | undefined;
 	openrouterBalance: OpenRouterBalance | undefined;
+	ollamaCloudAccount: OllamaCloudAccount | undefined;
 
 	/** Derived Z.ai limits. */
 	zaiCodingFiveHour: ZAICodingQuotaLimit | undefined;
@@ -126,6 +131,7 @@ export interface QuotaDataResult {
 	showZaiCodingBadge: boolean;
 	showDsBadge: boolean;
 	showOrBadge: boolean;
+	showOllamaCloudBadge: boolean;
 
 	/** Whether any quota-supporting provider exists. */
 	hasAnyProvider: boolean;
@@ -135,17 +141,21 @@ export interface QuotaDataResult {
 	refetchZaiCoding: () => Promise<void>;
 	refetchDeepseek: () => Promise<void>;
 	refetchOpenRouter: () => Promise<void>;
+	refetchOllamaCloud: () => Promise<void>;
 
 	/** Individual isRefetching flags. */
 	isNanoRefetching: boolean;
 	isZaiCodingRefetching: boolean;
 	isDsRefetching: boolean;
 	isOrRefetching: boolean;
+	isOllamaCloudRefetching: boolean;
 
 	/** dataUpdatedAt for modals. */
 	openrouterDataUpdatedAt: number;
 	nanogptDataUpdatedAt: number;
 	zaiCodingDataUpdatedAt: number;
+	deepseekDataUpdatedAt: number;
+	ollamaCloudDataUpdatedAt: number;
 
 	/** Invalidate all quota query keys. */
 	invalidateAll: () => void;
@@ -175,6 +185,10 @@ export function useQuotaData(
 	);
 	const openrouterProviderId = useMemo(
 		() => findProviderId(providers, "openrouter"),
+		[providers],
+	);
+	const ollamaCloudProviderId = useMemo(
+		() => findProviderId(providers, "ollama-cloud"),
 		[providers],
 	);
 
@@ -235,6 +249,7 @@ export function useQuotaData(
 	// ── DeepSeek query ──
 	const {
 		data: deepseekBalance,
+		dataUpdatedAt: deepseekDataUpdatedAt,
 		isRefetching: isDsRefetching,
 		isError: isDeepseekError,
 		refetch: refetchDsRaw,
@@ -270,6 +285,28 @@ export function useQuotaData(
 		if (openrouterBalance !== undefined)
 			setCachedData("openrouter-balance", openrouterBalance);
 	}, [openrouterBalance]);
+
+	// ── Ollama Cloud query ──
+	const {
+		data: ollamaCloudAccount,
+		dataUpdatedAt: ollamaCloudDataUpdatedAt,
+		isRefetching: isOllamaCloudRefetching,
+		isError: isOllamaCloudError,
+		refetch: refetchOcRaw,
+	} = useQuery<OllamaCloudAccount>({
+		queryKey: ["ollama-cloud-account", ollamaCloudProviderId],
+		queryFn: () =>
+			api.providers.getOllamaCloudAccount(ollamaCloudProviderId as string),
+		enabled: Boolean(ollamaCloudProviderId),
+		refetchInterval: effectiveRefetchInterval,
+		initialData: () =>
+			getCachedData<OllamaCloudAccount>("ollama-cloud-account"),
+	});
+
+	useEffect(() => {
+		if (ollamaCloudAccount)
+			setCachedData("ollama-cloud-account", ollamaCloudAccount);
+	}, [ollamaCloudAccount]);
 
 	// ── Error toasting ──
 	const nanoErrorToasted = useRef(false);
@@ -312,6 +349,16 @@ export function useQuotaData(
 		if (!isOpenRouterError) orErrorToasted.current = false;
 	}, [isOpenRouterError, toastErrors]);
 
+	const ocErrorToasted = useRef(false);
+	useEffect(() => {
+		if (!toastErrors) return;
+		if (isOllamaCloudError && !ocErrorToasted.current) {
+			toastErrors("Failed to fetch Ollama Cloud account", "warning");
+			ocErrorToasted.current = true;
+		}
+		if (!isOllamaCloudError) ocErrorToasted.current = false;
+	}, [isOllamaCloudError, toastErrors]);
+
 	// ── Derived values ──
 	const zaiCodingFiveHour = getZaiCodingFiveHourLimit(zaiCodingUsage);
 	const zaiCodingWeekly = getZaiCodingWeeklyLimit(zaiCodingUsage);
@@ -337,11 +384,15 @@ export function useQuotaData(
 		Boolean(openrouterBalance) &&
 		openrouterBalance?.credits_remaining != null;
 
+	const showOllamaCloudBadge =
+		Boolean(ollamaCloudProviderId) && Boolean(ollamaCloudAccount);
+
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||
 			zaiCodingProviderId ||
 			deepseekProviderId ||
-			openrouterProviderId,
+			openrouterProviderId ||
+			ollamaCloudProviderId,
 	);
 
 	// ── Refetch helpers ──
@@ -361,11 +412,16 @@ export function useQuotaData(
 		await refetchOrRaw();
 	}, [refetchOrRaw]);
 
+	const refetchOllamaCloud = useCallback(async () => {
+		await refetchOcRaw();
+	}, [refetchOcRaw]);
+
 	const invalidateAll = useCallback(() => {
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
+		queryClient.invalidateQueries({ queryKey: ["ollama-cloud-account"] });
 	}, [queryClient]);
 
 	return {
@@ -373,10 +429,12 @@ export function useQuotaData(
 		zaiCodingProviderId,
 		deepseekProviderId,
 		openrouterProviderId,
+		ollamaCloudProviderId,
 		nanogptUsage,
 		zaiCodingUsage,
 		deepseekBalance,
 		openrouterBalance,
+		ollamaCloudAccount,
 		zaiCodingFiveHour,
 		zaiCodingWeekly,
 		nanoWeeklyUsed,
@@ -385,18 +443,23 @@ export function useQuotaData(
 		showZaiCodingBadge,
 		showDsBadge,
 		showOrBadge,
+		showOllamaCloudBadge,
 		hasAnyProvider,
 		refetchNano,
 		refetchZaiCoding,
 		refetchDeepseek,
 		refetchOpenRouter,
+		refetchOllamaCloud,
 		isNanoRefetching,
 		isZaiCodingRefetching,
 		isDsRefetching,
 		isOrRefetching,
+		isOllamaCloudRefetching,
 		nanogptDataUpdatedAt,
 		zaiCodingDataUpdatedAt,
+		deepseekDataUpdatedAt,
 		openrouterDataUpdatedAt,
+		ollamaCloudDataUpdatedAt,
 		invalidateAll,
 	};
 }

@@ -34,7 +34,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	"ollama-cloud": "#3D3D3D",
 	openrouter: "#6366F1",
 	cohere: "#D4E7C5",
-	"zai-coding": "#7C3AED",
+	"zai-coding": "#2D2D2D",
 	nanogpt: "#0EA5B0",
 	lmstudio: "#E879F9",
 	koboldcpp: "#DC2626",

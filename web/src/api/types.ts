@@ -280,6 +280,18 @@ export interface OpenRouterBalance {
 	is_free_tier: boolean;
 }
 
+export interface OllamaCloudAccount {
+	id: string;
+	email: string;
+	name: string;
+	plan: string;
+	customer_id: { string: string; valid: boolean };
+	subscription_id: { string: string; valid: boolean };
+	subscription_period_start: { time: string; valid: boolean };
+	subscription_period_end: { time: string; valid: boolean };
+	suspended_at: { time: string; valid: boolean };
+}
+
 export interface FailoverEntry {
 	model_uuid: string;
 	model_id: string;
