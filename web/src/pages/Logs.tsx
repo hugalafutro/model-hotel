@@ -314,14 +314,14 @@ function RequestLogs() {
 								"info",
 							);
 						}}
-						className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+						className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
 							liveEnabled
 								? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 								: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 						}`}
 					>
 						<span
-							className={`w-2 h-2 rounded-full transition-colors ${
+							className={`w-1.5 h-1.5 rounded-full transition-colors ${
 								liveEnabled ? "bg-green-400" : "bg-gray-500"
 							}`}
 						/>
