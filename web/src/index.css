@@ -758,6 +758,86 @@ html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 	border-radius: 9999px;
 }
 
+/* Light-mode readability fix: providers with dark/gray brand colors
+   need darker text on light sidebar backgrounds */
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-openai,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-openai,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-openai {
+	color: #404040;
+	background-color: rgba(100, 100, 100, 0.12);
+	border-color: rgba(100, 100, 100, 0.35);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-xai,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-xai,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-xai {
+	color: #404040;
+	background-color: rgba(100, 100, 100, 0.12);
+	border-color: rgba(100, 100, 100, 0.35);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-ollama,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-ollama,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-ollama {
+	color: #3d3d3d;
+	background-color: rgba(61, 61, 61, 0.12);
+	border-color: rgba(61, 61, 61, 0.35);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-ollama-cloud,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-ollama-cloud,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-ollama-cloud {
+	color: #3d3d3d;
+	background-color: rgba(61, 61, 61, 0.12);
+	border-color: rgba(61, 61, 61, 0.35);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-zai-coding,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-zai-coding,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-zai-coding {
+	color: #2d2d2d;
+	background-color: rgba(45, 45, 45, 0.12);
+	border-color: rgba(45, 45, 45, 0.3);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-opencode,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-opencode,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-opencode {
+	color: #2d2d2d;
+	background-color: rgba(45, 45, 45, 0.12);
+	border-color: rgba(45, 45, 45, 0.3);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-cohere,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-cohere,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-cohere {
+	color: #5a8a2a;
+	background-color: rgba(123, 175, 80, 0.12);
+	border-color: rgba(123, 175, 80, 0.35);
+}
+
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-openai:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-openai:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-openai:hover { background-color: rgba(100, 100, 100, 0.2); }
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-xai:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-xai:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-xai:hover { background-color: rgba(100, 100, 100, 0.2); }
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-ollama:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-ollama:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-ollama:hover { background-color: rgba(61, 61, 61, 0.2); }
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-ollama-cloud:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-ollama-cloud:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-ollama-cloud:hover { background-color: rgba(61, 61, 61, 0.2); }
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-zai-coding:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-zai-coding:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-zai-coding:hover { background-color: rgba(45, 45, 45, 0.2); }
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-opencode:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-opencode:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-opencode:hover { background-color: rgba(45, 45, 45, 0.2); }
+html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill-cohere:hover,
+html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill-cohere:hover,
+html[data-ui-style="clean-saas"] .sidebar-quota-pill-cohere:hover { background-color: rgba(123, 175, 80, 0.2); }
+
 /* ============================================= */
 /*   SIDEBAR STATS PILL                          */
 /* ============================================= */
