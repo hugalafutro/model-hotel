@@ -66,28 +66,43 @@ export function Dashboard() {
 
 	// Per-section local states: synced from global header toggles,
 	// but each component's own toggles only affect that section.
-	const [chartRange, setChartRange] = useState<Range>(globalRange);
+	// Per-section local states: synced from global header toggles,
+	// but each component's own toggles only affect that section.
+	const [requestsChartRange, setRequestsChartRange] =
+		useState<Range>(globalRange);
+	const [tokensChartRange, setTokensChartRange] = useState<Range>(globalRange);
 	const [doughnutRange, setDoughnutRange] = useState<Range>(globalRange);
 	const [doughnutMetric, setDoughnutMetric] =
 		useState<MetricType>(globalMetric);
 	const [tokenRange, setTokenRange] = useState<Range>(globalRange);
-	const [usageRange, setUsageRange] = useState<Range>(globalRange);
-	const [usageMetric, setUsageMetric] = useState<MetricType>(globalMetric);
+	const [modelsRange, setModelsRange] = useState<Range>(globalRange);
+	const [modelsMetric, setModelsMetric] = useState<MetricType>(globalMetric);
+	const [providersRange, setProvidersRange] = useState<Range>(globalRange);
+	const [providersMetric, setProvidersMetric] =
+		useState<MetricType>(globalMetric);
+	const [virtualKeysRange, setVirtualKeysRange] = useState<Range>(globalRange);
+	const [virtualKeysMetric, setVirtualKeysMetric] =
+		useState<MetricType>(globalMetric);
 
 	// Sync locals when global header toggles change (render-time pattern per React docs)
 	const [prevGlobalRange, setPrevGlobalRange] = useState(globalRange);
 	const [prevGlobalMetric, setPrevGlobalMetric] = useState(globalMetric);
 	if (prevGlobalRange !== globalRange) {
 		setPrevGlobalRange(globalRange);
-		setChartRange(globalRange);
+		setRequestsChartRange(globalRange);
+		setTokensChartRange(globalRange);
 		setDoughnutRange(globalRange);
 		setTokenRange(globalRange);
-		setUsageRange(globalRange);
+		setModelsRange(globalRange);
+		setProvidersRange(globalRange);
+		setVirtualKeysRange(globalRange);
 	}
 	if (prevGlobalMetric !== globalMetric) {
 		setPrevGlobalMetric(globalMetric);
 		setDoughnutMetric(globalMetric);
-		setUsageMetric(globalMetric);
+		setModelsMetric(globalMetric);
+		setProvidersMetric(globalMetric);
+		setVirtualKeysMetric(globalMetric);
 	}
 
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);
@@ -146,7 +161,9 @@ export function Dashboard() {
 		queryClient.invalidateQueries({
 			queryKey: ["stats-provider-distribution"],
 		});
-		queryClient.invalidateQueries({ queryKey: ["stats-usage"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-usage-models"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-usage-providers"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-usage-vkeys"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-tokens"] });
 		toast("Refreshing dashboard…", "info");
 		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
@@ -205,17 +222,17 @@ export function Dashboard() {
 	});
 
 	const { data: tsData, isLoading: tsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries", chartRange, excludeDeleted],
+		queryKey: ["stats-timeseries", requestsChartRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: chartRange, excludeDeleted }),
+			api.stats.getTimeSeries({ period: requestsChartRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries-tokens", chartRange, excludeDeleted],
+		queryKey: ["stats-timeseries-tokens", tokensChartRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: chartRange, excludeDeleted }),
+			api.stats.getTimeSeries({ period: tokensChartRange, excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -237,13 +254,48 @@ export function Dashboard() {
 		refetchInterval: dashboardRefreshMs,
 	});
 
-	// Single query for all usage bar panels (by model, provider, virtual key)
-	const { data: usageStats, isLoading: usageStatsLoading } = useQuery({
-		queryKey: ["stats-usage", usageRange, usageMetric, excludeDeleted],
+	// Three separate queries for usage bar panels - each has its own range/metric
+	const { data: modelsUsageStats, isLoading: modelsUsageLoading } = useQuery({
+		queryKey: ["stats-usage-models", modelsRange, modelsMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
-				period: usageRange,
-				metric: usageMetric,
+				period: modelsRange,
+				metric: modelsMetric,
+				excludeDeleted,
+			}),
+		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
+	});
+
+	const { data: providersUsageStats, isLoading: providersUsageLoading } =
+		useQuery({
+			queryKey: [
+				"stats-usage-providers",
+				providersRange,
+				providersMetric,
+				excludeDeleted,
+			],
+			queryFn: () =>
+				api.stats.get({
+					period: providersRange,
+					metric: providersMetric,
+					excludeDeleted,
+				}),
+			placeholderData: (prev) => prev,
+			refetchInterval: dashboardRefreshMs,
+		});
+
+	const { data: vkeysUsageStats, isLoading: vkeysUsageLoading } = useQuery({
+		queryKey: [
+			"stats-usage-vkeys",
+			virtualKeysRange,
+			virtualKeysMetric,
+			excludeDeleted,
+		],
+		queryFn: () =>
+			api.stats.get({
+				period: virtualKeysRange,
+				metric: virtualKeysMetric,
 				excludeDeleted,
 			}),
 		placeholderData: (prev) => prev,
@@ -320,7 +372,7 @@ export function Dashboard() {
 		return tsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				chartRange === "7d"
+				requestsChartRange === "7d"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -345,7 +397,7 @@ export function Dashboard() {
 		return tokenTsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				chartRange === "7d"
+				tokensChartRange === "7d"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -367,37 +419,37 @@ export function Dashboard() {
 
 	// Format usage panels from their respective range queries.
 	// Filter out zero-value entries so NULL/empty aggregates don't clutter the UI.
-	const byModel = usageStats
-		? Object.entries(usageStats.by_model)
+	const byModel = modelsUsageStats
+		? Object.entries(modelsUsageStats.by_model)
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: usageMetric === "tokens" ? " tokens" : " requests",
+					suffix: modelsMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
-	const byProvider = usageStats
-		? Object.entries(usageStats.by_provider)
+	const byProvider = providersUsageStats
+		? Object.entries(providersUsageStats.by_provider)
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: usageMetric === "tokens" ? " tokens" : " requests",
+					suffix: providersMetric === "tokens" ? " tokens" : " requests",
 				}))
 		: [];
-	const byVK = usageStats
-		? Object.entries(usageStats.by_virtual_key)
+	const byVK = vkeysUsageStats
+		? Object.entries(vkeysUsageStats.by_virtual_key)
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: usageMetric === "tokens" ? " tokens" : " requests",
+					suffix: virtualKeysMetric === "tokens" ? " tokens" : " requests",
 					deleted: k === "Deleted",
 				}))
 		: [];
@@ -622,8 +674,8 @@ export function Dashboard() {
 					<>
 						<TimeSeriesChart
 							data={acData}
-							range={chartRange}
-							onRangeChange={setChartRange}
+							range={requestsChartRange}
+							onRangeChange={setRequestsChartRange}
 							metric="Requests"
 							icon={Activity}
 							color={accents.requests}
@@ -633,8 +685,8 @@ export function Dashboard() {
 						/>
 						<TimeSeriesChart
 							data={tokenAcData}
-							range={chartRange}
-							onRangeChange={setChartRange}
+							range={tokensChartRange}
+							onRangeChange={setTokensChartRange}
 							metric="Tokens"
 							icon={Zap}
 							color={accents.tokens}
@@ -648,8 +700,8 @@ export function Dashboard() {
 					<>
 						<TimeSeriesChart
 							data={tokenAcData}
-							range={chartRange}
-							onRangeChange={setChartRange}
+							range={tokensChartRange}
+							onRangeChange={setTokensChartRange}
 							metric="Tokens"
 							icon={Zap}
 							color={accents.tokens}
@@ -660,8 +712,8 @@ export function Dashboard() {
 						/>
 						<TimeSeriesChart
 							data={acData}
-							range={chartRange}
-							onRangeChange={setChartRange}
+							range={requestsChartRange}
+							onRangeChange={setRequestsChartRange}
 							metric="Requests"
 							icon={Activity}
 							color={accents.requests}
@@ -702,32 +754,32 @@ export function Dashboard() {
 					title="Top Models"
 					icon={ArrowUpRight}
 					entries={byModel}
-					range={usageRange}
-					onRangeChange={setUsageRange}
-					metric={usageMetric}
-					onMetricChange={setUsageMetric}
-					loading={usageStatsLoading}
+					range={modelsRange}
+					onRangeChange={setModelsRange}
+					metric={modelsMetric}
+					onMetricChange={setModelsMetric}
+					loading={modelsUsageLoading}
 					onEntryClick={handleModelClick}
 				/>
 				<UsageBarPanel
 					title="Top Providers"
 					icon={ArrowUpRight}
 					entries={byProvider}
-					range={usageRange}
-					onRangeChange={setUsageRange}
-					metric={usageMetric}
-					onMetricChange={setUsageMetric}
-					loading={usageStatsLoading}
+					range={providersRange}
+					onRangeChange={setProvidersRange}
+					metric={providersMetric}
+					onMetricChange={setProvidersMetric}
+					loading={providersUsageLoading}
 				/>
 				<UsageBarPanel
 					title="Top Virtual Keys"
 					icon={ArrowUpRight}
 					entries={byVK}
-					range={usageRange}
-					onRangeChange={setUsageRange}
-					metric={usageMetric}
-					onMetricChange={setUsageMetric}
-					loading={usageStatsLoading}
+					range={virtualKeysRange}
+					onRangeChange={setVirtualKeysRange}
+					metric={virtualKeysMetric}
+					onMetricChange={setVirtualKeysMetric}
+					loading={vkeysUsageLoading}
 				/>
 			</div>
 
