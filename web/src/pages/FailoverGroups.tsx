@@ -21,6 +21,7 @@ export function FailoverGroups() {
 	const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [providerFilter, setProviderFilter] = useState("");
+	const [enabledFilter, setEnabledFilter] = useState<string>("");
 	const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -62,7 +63,11 @@ export function FailoverGroups() {
 			g.entries.some((e) =>
 				e.provider_name.toLowerCase().includes(providerFilter.toLowerCase()),
 			);
-		return matchesModel && matchesProvider;
+		const matchesEnabled =
+			enabledFilter === "" ||
+			(enabledFilter === "enabled" && g.group_enabled) ||
+			(enabledFilter === "disabled" && !g.group_enabled);
+		return matchesModel && matchesProvider && matchesEnabled;
 	});
 	const lastSyncedAt = listData?.last_synced_at;
 
@@ -285,7 +290,7 @@ export function FailoverGroups() {
 		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
 			<PageHeader
 				icon={Shuffle}
-				title="Failover Groups"
+				title={`Failover Groups (${allGroups?.length ?? 0})`}
 				description={
 					<>
 						Route requests through multiple providers in priority order via{" "}
@@ -359,6 +364,15 @@ export function FailoverGroups() {
 						</option>
 					))}
 				</select>
+				<select
+					value={enabledFilter}
+					onChange={(e) => setEnabledFilter(e.target.value)}
+					className="ui-input w-auto max-w-[160px] shrink-0"
+				>
+					<option value="">All states</option>
+					<option value="enabled">Enabled</option>
+					<option value="disabled">Disabled</option>
+				</select>
 				{selectedGroupIds.size > 0 && (
 					<>
 						<span className="text-sm text-gray-400 ml-auto">
@@ -424,7 +438,7 @@ export function FailoverGroups() {
 			)}
 
 			{groups && groups.length === 0 ? (
-				searchQuery || providerFilter ? (
+				searchQuery || providerFilter || enabledFilter ? (
 					<EmptyState
 						message="No groups matching filters"
 						action={{
@@ -432,6 +446,7 @@ export function FailoverGroups() {
 							onClick: () => {
 								setSearchQuery("");
 								setProviderFilter("");
+								setEnabledFilter("");
 							},
 						}}
 					/>
