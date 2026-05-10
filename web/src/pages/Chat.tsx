@@ -1,26 +1,20 @@
 import {
 	Bot,
-	CircleStop,
 	Eraser,
 	Gauge,
 	Image as ImageIcon,
 	MessageSquare,
 	MessagesSquare,
 	Mic,
-	RefreshCw,
 	RotateCcw,
 	Send,
-	Settings,
 	Timer,
-	Trash2,
 	Users,
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE, getAuthHeaders } from "../api/client";
 import type {
 	ChatMessage,
-	ContentPart,
 	GenerationParams,
 	MessageContent,
 } from "../api/types";
@@ -28,11 +22,8 @@ import { ActionIconButton } from "../components/ActionIconButton";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ConversationConfig } from "../components/ConversationConfig";
-import { CopyButton } from "../components/CopyButton";
-import { MarkdownContent } from "../components/MarkdownContent";
 import { ModelDetailPanel } from "../components/ModelDetailPanel";
 import { ModelPicker } from "../components/ModelPicker";
-import { ModelReplyCard } from "../components/ModelReplyCard";
 import { PageHeader } from "../components/PageHeader";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { SubModeToggle } from "../components/SubModeToggle";
@@ -44,212 +35,12 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useEnabledModels } from "../hooks/useModels";
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { hasAnyParam } from "../utils/params";
-import { readSSEStream, type StreamChunk } from "../utils/sse";
-import { fetchWithRetry } from "../utils/stagger";
-import { extractThinking, sanitizeDelta } from "../utils/thinking";
-
-function formatTime(ts: number): string {
-	const d = new Date(ts);
-	return d.toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-	});
-}
-
-type ConversationState = "idle" | "running" | "paused" | "completed" | "error";
-
-/**
- * Build the messages array for the API. When a message has attachments
- * (image or audio), produces an OpenAI-compatible content-parts array;
- * otherwise uses a plain string for backward compatibility.
- */
-function buildMessageContent(msg: ChatMessage): MessageContent {
-	if (msg.imageUrl || msg.audioAttachment) {
-		const parts: ContentPart[] = [];
-		if (msg.imageUrl) {
-			parts.push({ type: "image_url", image_url: { url: msg.imageUrl } });
-		}
-		if (msg.audioAttachment) {
-			parts.push({
-				type: "input_audio",
-				input_audio: {
-					data: msg.audioAttachment.data,
-					format: msg.audioAttachment.format,
-				},
-			});
-		}
-		// Always include the text part last (most providers expect text after media)
-		if (msg.content) {
-			parts.push({ type: "text", text: msg.content });
-		}
-		return parts;
-	}
-	return msg.content;
-}
-
-function getApiMessagesForModel(
-	allMessages: ChatMessage[],
-	targetModelId: string,
-	persona: string,
-): Array<{ role: string; content: MessageContent }> {
-	const apiMessages: Array<{ role: string; content: MessageContent }> = [];
-	if (persona.trim()) {
-		apiMessages.push({ role: "system", content: persona.trim() });
-	}
-	for (const msg of allMessages) {
-		if (msg.role === "user") {
-			apiMessages.push({
-				role: "user",
-				content: buildMessageContent(msg),
-			});
-		} else if (msg.role === "assistant") {
-			if (msg.model === targetModelId) {
-				apiMessages.push({
-					role: "assistant",
-					content: msg.content,
-				});
-			} else {
-				apiMessages.push({
-					role: "user",
-					content: msg.content,
-				});
-			}
-		}
-	}
-	return apiMessages;
-}
-
-interface StreamResult {
-	rawContent: string;
-	content: string;
-	thinkingContent: string;
-	error: string | null;
-	durationMs: number;
-	charsPerSecond: number | null;
-	promptTokens: number;
-	completionTokens: number;
-}
-
-async function streamModelResponse(
-	modelId: string,
-	apiMessages: Array<{ role: string; content: MessageContent }>,
-	params: GenerationParams,
-	abortCtrl: AbortController,
-	onDelta: (raw: string, content: string, thinking: string) => void,
-): Promise<StreamResult> {
-	const startTime = performance.now();
-	let charCount = 0;
-	let promptTokens = 0;
-	let completionTokens = 0;
-	let rawContent = "";
-	let content = "";
-	let thinkingContent = "";
-
-	try {
-		const resp = await fetchWithRetry(
-			`${API_BASE}/api/chat/chat`,
-			{
-				method: "POST",
-				headers: getAuthHeaders(),
-				body: JSON.stringify({
-					model: modelId,
-					stream: true,
-					messages: apiMessages,
-					...(hasAnyParam(params) ? params : {}),
-				}),
-				signal: abortCtrl.signal,
-			},
-			{
-				maxRetries: 2,
-			},
-		);
-
-		if (!resp.ok) {
-			const text = await resp.text();
-			throw new Error(`Chat failed: ${resp.status} ${text}`);
-		}
-
-		const reader = resp.body?.getReader();
-		if (!reader) throw new Error("No readable stream");
-
-		const completion = await readSSEStream<StreamChunk>({
-			reader,
-			signal: abortCtrl.signal,
-			onChunk: (chunk) => {
-				const delta = chunk.choices?.[0]?.delta?.content;
-				if (delta) {
-					const clean = sanitizeDelta(delta);
-					charCount += clean.length;
-					rawContent += clean;
-					const extracted = extractThinking(rawContent);
-					content = extracted.content;
-					thinkingContent = extracted.thinking || thinkingContent;
-					onDelta(rawContent, content, thinkingContent);
-				}
-				const thinkingDelta =
-					chunk.choices?.[0]?.delta?.reasoning_content ??
-					chunk.choices?.[0]?.delta?.reasoning;
-				if (thinkingDelta) {
-					thinkingContent += thinkingDelta;
-					onDelta(rawContent, content, thinkingContent);
-				}
-				if (chunk.usage) {
-					promptTokens = chunk.usage.prompt_tokens ?? 0;
-					completionTokens = chunk.usage.completion_tokens ?? 0;
-				}
-			},
-		});
-		if (!completion.sawDone && !completion.aborted) {
-			const durationMs = Math.round(performance.now() - startTime);
-			const charsPerSecond =
-				durationMs > 0 ? charCount / (durationMs / 1000) : null;
-			return {
-				rawContent,
-				content,
-				thinkingContent,
-				error: completion.idleTimeout
-					? "Stream stalled - no data received within the timeout period."
-					: content
-						? "Stream was cut off - the response may be incomplete."
-						: "Stream ended unexpectedly with no content.",
-				durationMs,
-				charsPerSecond,
-				promptTokens,
-				completionTokens,
-			};
-		}
-	} catch (err) {
-		const errorMsg = err instanceof Error ? err.message : "Unknown error";
-		return {
-			rawContent,
-			content,
-			thinkingContent,
-			error: errorMsg,
-			durationMs: Math.round(performance.now() - startTime),
-			charsPerSecond:
-				performance.now() - startTime > 0
-					? charCount / ((performance.now() - startTime) / 1000)
-					: null,
-			promptTokens,
-			completionTokens,
-		};
-	}
-
-	const durationMs = performance.now() - startTime;
-	const charsPerSecond =
-		durationMs > 0 ? charCount / (durationMs / 1000) : null;
-
-	return {
-		rawContent,
-		content,
-		thinkingContent,
-		error: null,
-		durationMs: Math.round(durationMs),
-		charsPerSecond,
-		promptTokens,
-		completionTokens,
-	};
-}
+import { ChatMessageList } from "./Chat/ChatMessageList";
+import {
+	type ConversationState,
+	getApiMessagesForModel,
+	streamModelResponse,
+} from "./Chat/chatStreaming";
 
 export function Chat() {
 	const { data: enabledModels } = useEnabledModels();
@@ -1532,257 +1323,20 @@ export function Chat() {
 						</div>
 					)}
 
-					{(() => {
-						const lastAssistantIdx = messages.findLastIndex(
-							(m) => m.role === "assistant",
-						);
-						return messages.map((msg, i) => {
-							if (msg.role === "system") return null;
-							const isUser = msg.role === "user";
-							const isStreamingThis = isStreaming && i === messages.length - 1;
-							const isModelB =
-								msg.role === "assistant" && msg.model === selectedModelB;
-							const isLastAssistant = i === lastAssistantIdx;
-							// In conversation mode, only show delete on last assistant (or currently streaming)
-							const canDelete =
-								chatSubMode === "chat" ||
-								(isLastAssistant && !isStreaming) ||
-								(isStreamingThis && isLastAssistant);
-
-							// Turn number: only in conversation mode - counts assistant messages up to and including this one
-							const turnNumber =
-								chatSubMode === "conversation" && msg.role === "assistant"
-									? messages.filter(
-											(m, mi) => m.role === "assistant" && mi <= i,
-										).length
-									: undefined;
-
-							// Persona lookup for conversation mode
-							const personaForModel = isModelB
-								? CHAT_PERSONAS.find((p) => p.id === activePersonaIdB)
-								: chatSubMode === "conversation"
-									? CHAT_PERSONAS.find(
-											(p) => p.id === conversationActivePersonaIdA,
-										)
-									: CHAT_PERSONAS.find((p) => p.id === chatActivePersonaId);
-							const personaName =
-								chatSubMode === "conversation" &&
-								msg.role === "assistant" &&
-								personaForModel
-									? `${personaForModel.icon} ${personaForModel.label}`
-									: chatSubMode === "chat" &&
-											msg.role === "assistant" &&
-											personaForModel
-										? `${personaForModel.icon} ${personaForModel.label}`
-										: undefined;
-							const personaTooltip = personaForModel?.systemPrompt || undefined;
-
-							/* ── User message ── */
-							if (isUser) {
-								// In conversation mode, user message is centered and gray
-								const isConversationMode = chatSubMode === "conversation";
-								return (
-									<div
-										key={`user-${msg.timestamp}`}
-										className={`flex ${isConversationMode ? "justify-center" : "justify-end"}`}
-									>
-										<div
-											className={`max-w-[80%] p-2.5 ${isConversationMode ? "bg-gray-500/20 text-(--text-primary) border border-gray-500/30" : "bg-(--accent) text-white"}`}
-											style={{
-												borderRadius: "var(--radius-card)",
-											}}
-										>
-											{msg.imageUrl && (
-												<img
-													src={msg.imageUrl}
-													alt="User attachment"
-													className="max-h-48 rounded mb-1.5"
-												/>
-											)}
-											{msg.audioAttachment && (
-												<div
-													className={`flex items-center gap-1.5 mb-1.5 text-xs ${isConversationMode ? "text-(--text-secondary)" : "text-white/80"}`}
-												>
-													<Mic size={12} />
-													<span>
-														{msg.audioAttachment.format.toUpperCase()} audio
-													</span>
-												</div>
-											)}
-											{(msg.content ||
-												(!msg.imageUrl && !msg.audioAttachment)) && (
-												<MarkdownContent
-													className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
-												>
-													{msg.content}
-												</MarkdownContent>
-											)}
-											<div
-												className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
-											>
-												<span>{formatTime(msg.timestamp)}</span>
-												<CopyButton
-													text={msg.content}
-													size={10}
-													className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[var(--glow-white)]"}`}
-												/>
-											</div>
-										</div>
-									</div>
-								);
-							}
-
-							/* ── Model B message (conversation mode, right side) ── */
-							if (chatSubMode === "conversation" && isModelB) {
-								return (
-									<div
-										key={`modelb-${msg.timestamp}`}
-										className="flex justify-end"
-									>
-										<div className="max-w-[80%]">
-											<ModelReplyCard
-												model={msg.model || ""}
-												content={msg.content}
-												thinkingContent={msg.thinkingContent}
-												error={msg.error}
-												metrics={msg.metrics}
-												isStreaming={isStreamingThis}
-												shortenModelName={false}
-												isReasoningModel={enabledModels.some(
-													(m) =>
-														proxyModelID(m.provider_name, m.model_id) ===
-															msg.model &&
-														parseCapabilities(m.capabilities).reasoning,
-												)}
-												tint="blue"
-												personaName={personaName}
-												personaTooltip={personaTooltip}
-												turnNumber={turnNumber}
-												headerEnd={
-													isStreamingThis ? (
-														<button
-															type="button"
-															onClick={handleStopConversation}
-															className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
-															title="Cancel"
-														>
-															<CircleStop size={14} />
-														</button>
-													) : null
-												}
-												footerStart={<span>{formatTime(msg.timestamp)}</span>}
-												footerEnd={
-													<div className="flex items-center gap-2">
-														<CopyButton text={msg.content} size={10} />
-														{canDelete && (
-															<button
-																type="button"
-																className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
-																onClick={() => handleDeleteMessage(i)}
-																title="Delete message"
-															>
-																<Trash2 size={10} />
-															</button>
-														)}
-													</div>
-												}
-												className="rounded-xl rounded-br-sm p-4"
-												headerClassName="mb-2"
-												footerClassName="mt-2"
-											/>
-										</div>
-									</div>
-								);
-							}
-
-							/* ── Assistant message (Model A or chat mode) ── */
-							return (
-								<div
-									key={`assistant-${msg.timestamp}`}
-									className="flex justify-start"
-								>
-									<div className="max-w-[80%]">
-										<ModelReplyCard
-											model={msg.model || ""}
-											content={msg.content}
-											thinkingContent={msg.thinkingContent}
-											error={msg.error}
-											metrics={msg.metrics}
-											isStreaming={isStreamingThis}
-											shortenModelName={false}
-											isReasoningModel={enabledModels.some(
-												(m) =>
-													proxyModelID(m.provider_name, m.model_id) ===
-														msg.model &&
-													parseCapabilities(m.capabilities).reasoning,
-											)}
-											personaName={personaName}
-											personaTooltip={personaTooltip}
-											turnNumber={turnNumber}
-											headerEnd={
-												isStreamingThis ? (
-													<button
-														type="button"
-														onClick={
-															chatSubMode === "conversation"
-																? handleStopConversation
-																: handleStop
-														}
-														className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
-														title="Cancel"
-													>
-														<CircleStop size={14} />
-													</button>
-												) : (
-													i === lastAssistantIdx &&
-													chatSubMode === "chat" && (
-														<button
-															type="button"
-															onClick={handleRegenerate}
-															className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer ml-1"
-															title="Regenerate"
-														>
-															<RefreshCw size={14} />
-														</button>
-													)
-												)
-											}
-											footerStart={<span>{formatTime(msg.timestamp)}</span>}
-											footerEnd={
-												<div className="flex items-center gap-2">
-													<CopyButton text={msg.content} size={10} />
-													{canDelete && (
-														<button
-															type="button"
-															className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
-															onClick={() => handleDeleteMessage(i)}
-															title="Delete message"
-														>
-															<Trash2 size={10} />
-														</button>
-													)}
-													{msg.params && (
-														<span
-															className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
-															title={`Settings: ${Object.entries(msg.params)
-																.filter(([, v]) => v !== undefined)
-																.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
-																.join(", ")}`}
-														>
-															<Settings size={10} />
-														</span>
-													)}
-												</div>
-											}
-											className="rounded-xl rounded-bl-sm p-4"
-											headerClassName="mb-2"
-											footerClassName="mt-2"
-										/>
-									</div>
-								</div>
-							);
-						});
-					})()}
+					<ChatMessageList
+						messages={messages}
+						chatSubMode={chatSubMode}
+						isStreaming={isStreaming}
+						selectedModelB={selectedModelB}
+						enabledModels={enabledModels}
+						onStopConversation={handleStopConversation}
+						onStop={handleStop}
+						onRegenerate={handleRegenerate}
+						onDeleteMessage={handleDeleteMessage}
+						activePersonaIdB={activePersonaIdB}
+						conversationActivePersonaIdA={conversationActivePersonaIdA}
+						chatActivePersonaId={chatActivePersonaId}
+					/>
 				</div>
 			</div>
 
