@@ -23,7 +23,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { AppLogs } from "./AppLogs";
 import { AccentCalendar } from "./Logs/AccentCalendar";
-import { type OverheadBreakdown, OverheadModal } from "./Logs/OverheadModal";
+
 import {
 	formatDateRangeShort,
 	formatMs,
@@ -80,8 +80,6 @@ function RequestLogs() {
 	const [pendingTo, setPendingTo] = useState("");
 
 	const datePickerRef = useRef<HTMLDivElement>(null);
-	const [overheadBreakdown, setOverheadBreakdown] =
-		useState<OverheadBreakdown | null>(null);
 	const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 	const [liveEnabled, setLiveEnabled] = useState(true);
 	const [isVisible, setIsVisible] = useState(!document.hidden);
@@ -294,13 +292,6 @@ function RequestLogs() {
 
 	return (
 		<div className="space-y-4">
-			{overheadBreakdown && (
-				<OverheadModal
-					breakdown={overheadBreakdown}
-					onClose={() => setOverheadBreakdown(null)}
-				/>
-			)}
-
 			{selectedLog && (
 				<LogDetailModal
 					log={selectedLog}
@@ -727,26 +718,13 @@ function RequestLogs() {
 											<td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
 												{log.proxy_overhead_ms != null &&
 												log.proxy_overhead_ms > 0 ? (
-													<button
-														type="button"
-														className={`${hasOverhead ? "text-(--accent) hover:text-(--accent-hover) cursor-pointer" : "text-gray-400"}`}
-														onClick={() =>
-															hasOverhead
-																? setOverheadBreakdown({
-																		proxy_overhead_ms: log.proxy_overhead_ms,
-																		parse_ms: log.parse_ms || 0,
-																		model_lookup_ms: log.model_lookup_ms || 0,
-																		provider_lookup_ms:
-																			log.provider_lookup_ms || 0,
-																		key_decrypt_ms: log.key_decrypt_ms || 0,
-																		safe_dial_ms: log.safe_dial_ms || 0,
-																		settings_read_ms: log.settings_read_ms || 0,
-																	})
-																: undefined
+													<span
+														className={
+															hasOverhead ? "text-(--accent)" : "text-gray-400"
 														}
 													>
 														{formatMs(log.proxy_overhead_ms)}
-													</button>
+													</span>
 												) : (
 													<span className="text-gray-400">-</span>
 												)}

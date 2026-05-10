@@ -15,6 +15,7 @@ import {
 	Zap,
 } from "lucide-react";
 import type { AppLogEntry, LogEntry } from "../api/types";
+import { formatMs } from "../pages/Logs/utils";
 import { CopyButton } from "./CopyButton";
 import { Modal } from "./Modal";
 
@@ -359,7 +360,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 										<div key={label} className="flex justify-between text-sm">
 											<span className="text-(--text-secondary)">{label}</span>
 											<span className="font-mono text-(--text-primary)">
-												{formatDuration(value)}
+												{formatMs(value)}
 											</span>
 										</div>
 									),
@@ -368,7 +369,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<div className="flex justify-between text-sm font-semibold">
 								<span className="text-(--text-primary)">Total Overhead</span>
 								<span className="font-mono text-(--accent)">
-									{formatDuration(requestLog.proxy_overhead_ms)}
+									{formatMs(requestLog.proxy_overhead_ms)}
 								</span>
 							</div>
 						</div>
