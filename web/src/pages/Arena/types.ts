@@ -9,7 +9,7 @@ export interface ArenaResponse {
 	done: boolean;
 	error: string | null;
 	metrics: {
-		charsPerSecond: number | null;
+		tokensPerSecond: number | null;
 		durationMs: number;
 		promptTokens: number;
 		completionTokens: number;

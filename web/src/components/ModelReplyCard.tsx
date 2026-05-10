@@ -9,7 +9,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 export { MARKDOWN_PROSE_CLASSES };
 
 export interface ModelReplyMetrics {
-	charsPerSecond: number | null;
+	tokensPerSecond: number | null;
 	durationMs: number;
 	promptTokens: number;
 	completionTokens: number;
@@ -304,10 +304,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									<Clock size={10} />
 									{formatDuration(metrics.durationMs)}
 								</span>
-								{metrics.charsPerSecond !== null && (
+								{metrics.tokensPerSecond !== null && (
 									<span className="flex items-center gap-1">
 										<Zap size={10} />
-										{metrics.charsPerSecond.toFixed(1)} chars/s
+										{metrics.tokensPerSecond.toFixed(1)} tok/s
 									</span>
 								)}
 								{metrics.promptTokens + metrics.completionTokens > 0 && (
@@ -364,10 +364,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 										<Clock size={12} />
 										{formatDuration(metrics.durationMs)}
 									</span>
-									{metrics.charsPerSecond !== null && (
+									{metrics.tokensPerSecond !== null && (
 										<span className="text-xs text-(--text-tertiary) flex items-center gap-1">
 											<Zap size={12} />
-											{metrics.charsPerSecond.toFixed(1)} chars/s
+											{metrics.tokensPerSecond.toFixed(1)} tok/s
 										</span>
 									)}
 									{metrics.promptTokens + metrics.completionTokens > 0 && (

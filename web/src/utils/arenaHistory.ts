@@ -16,7 +16,7 @@ export interface HistoryResponse {
 	thinkingContent: string;
 	error: string | null;
 	metrics: {
-		charsPerSecond: number | null;
+		tokensPerSecond: number | null;
 		durationMs: number;
 		promptTokens: number;
 		completionTokens: number;
@@ -75,7 +75,7 @@ interface ArenaResponseInput {
 	thinkingContent: string;
 	error: string | null;
 	metrics: {
-		charsPerSecond: number | null;
+		tokensPerSecond: number | null;
 		durationMs: number;
 		promptTokens: number;
 		completionTokens: number;
@@ -175,7 +175,7 @@ function toHistoryResponse(
 		error: resp.error,
 		metrics: resp.metrics
 			? {
-					charsPerSecond: resp.metrics.charsPerSecond,
+					tokensPerSecond: resp.metrics.tokensPerSecond,
 					durationMs: resp.metrics.durationMs,
 					promptTokens: resp.metrics.promptTokens,
 					completionTokens: resp.metrics.completionTokens,

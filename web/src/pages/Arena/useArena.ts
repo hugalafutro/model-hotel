@@ -310,7 +310,7 @@ export function useArena() {
 					thinkingContent: string;
 					error: string | null;
 					metrics: {
-						charsPerSecond: number | null;
+						tokensPerSecond: number | null;
 						durationMs: number;
 						promptTokens: number;
 						completionTokens: number;
@@ -459,7 +459,6 @@ export function useArena() {
 				const extractKey = `${roundIdx}-${matchupIdx}-${slotKey}`;
 				lastExtractLenRef.current.delete(extractKey);
 				const startTime = performance.now();
-				let charCount = 0;
 				let promptTokens = 0;
 				let completionTokens = 0;
 
@@ -513,7 +512,6 @@ export function useArena() {
 							const delta = chunk.choices?.[0]?.delta?.content;
 							if (delta) {
 								const clean = sanitizeDelta(delta);
-								charCount += clean.length;
 								setRounds(
 									produce((draft) => {
 										const mu = draft[roundIdx]?.matchups[matchupIdx];
@@ -578,8 +576,10 @@ export function useArena() {
 					});
 
 					const durationMs = performance.now() - startTime;
-					const charsPerSecond =
-						durationMs > 0 ? charCount / (durationMs / 1000) : null;
+					const tokensPerSecond =
+						completionTokens > 0 && durationMs > 0
+							? completionTokens / (durationMs / 1000)
+							: null;
 
 					const truncationError: string | null =
 						!completion.sawDone && !completion.aborted
@@ -598,7 +598,7 @@ export function useArena() {
 									done: true,
 									error: truncationError,
 									metrics: {
-										charsPerSecond,
+										tokensPerSecond,
 										durationMs: Math.round(durationMs),
 										promptTokens,
 										completionTokens,
@@ -609,6 +609,7 @@ export function useArena() {
 					);
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : "Unknown error";
+					const errorDurationMs = Math.round(performance.now() - startTime);
 					setRounds(
 						produce((draft) => {
 							if (draft[roundIdx]?.matchups[matchupIdx]) {
@@ -619,11 +620,11 @@ export function useArena() {
 									done: true,
 									error: msg,
 									metrics: {
-										charsPerSecond:
-											charCount > 0
-												? charCount / ((performance.now() - startTime) / 1000)
+										tokensPerSecond:
+											completionTokens > 0 && errorDurationMs > 0
+												? completionTokens / (errorDurationMs / 1000)
 												: null,
-										durationMs: Math.round(performance.now() - startTime),
+										durationMs: errorDurationMs,
 										promptTokens,
 										completionTokens,
 									},

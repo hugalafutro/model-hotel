@@ -265,9 +265,9 @@ export function ArenaHistoryModal({
 										{resp.metrics.durationMs > 0
 											? `${(resp.metrics.durationMs / 1000).toFixed(1)}s`
 											: ""}
-										{resp.metrics.charsPerSecond !== null &&
-											resp.metrics.charsPerSecond > 0 &&
-											` · ${resp.metrics.charsPerSecond.toFixed(0)} ch/s`}
+										{resp.metrics.tokensPerSecond !== null &&
+											resp.metrics.tokensPerSecond > 0 &&
+											` · ${resp.metrics.tokensPerSecond.toFixed(0)} tok/s`}
 									</span>
 								)}
 							</div>

@@ -427,7 +427,7 @@ export interface ChatMessage {
 	model?: string;
 	timestamp: number;
 	metrics?: {
-		charsPerSecond: number | null;
+		tokensPerSecond: number | null;
 		durationMs: number;
 		promptTokens: number;
 		completionTokens: number;

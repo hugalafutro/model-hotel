@@ -92,7 +92,7 @@ export interface StreamResult {
 	thinkingContent: string;
 	error: string | null;
 	durationMs: number;
-	charsPerSecond: number | null;
+	tokensPerSecond: number | null;
 	promptTokens: number;
 	completionTokens: number;
 }
@@ -105,7 +105,6 @@ export async function streamModelResponse(
 	onDelta: (raw: string, content: string, thinking: string) => void,
 ): Promise<StreamResult> {
 	const startTime = performance.now();
-	let charCount = 0;
 	let promptTokens = 0;
 	let completionTokens = 0;
 	let rawContent = "";
@@ -146,7 +145,6 @@ export async function streamModelResponse(
 				const delta = chunk.choices?.[0]?.delta?.content;
 				if (delta) {
 					const clean = sanitizeDelta(delta);
-					charCount += clean.length;
 					rawContent += clean;
 					const extracted = extractThinking(rawContent);
 					content = extracted.content;
@@ -168,8 +166,10 @@ export async function streamModelResponse(
 		});
 		if (!completion.sawDone && !completion.aborted) {
 			const durationMs = Math.round(performance.now() - startTime);
-			const charsPerSecond =
-				durationMs > 0 ? charCount / (durationMs / 1000) : null;
+			const tokensPerSecond =
+				completionTokens > 0 && durationMs > 0
+					? completionTokens / (durationMs / 1000)
+					: null;
 			return {
 				rawContent,
 				content,
@@ -180,22 +180,23 @@ export async function streamModelResponse(
 						? "Stream ended without completion signal - the response may still be complete."
 						: "Stream ended unexpectedly with no content.",
 				durationMs,
-				charsPerSecond,
+				tokensPerSecond,
 				promptTokens,
 				completionTokens,
 			};
 		}
 	} catch (err) {
 		const errorMsg = err instanceof Error ? err.message : "Unknown error";
+		const errorDurationMs = Math.round(performance.now() - startTime);
 		return {
 			rawContent,
 			content,
 			thinkingContent,
 			error: errorMsg,
-			durationMs: Math.round(performance.now() - startTime),
-			charsPerSecond:
-				performance.now() - startTime > 0
-					? charCount / ((performance.now() - startTime) / 1000)
+			durationMs: errorDurationMs,
+			tokensPerSecond:
+				completionTokens > 0 && errorDurationMs > 0
+					? completionTokens / (errorDurationMs / 1000)
 					: null,
 			promptTokens,
 			completionTokens,
@@ -203,8 +204,10 @@ export async function streamModelResponse(
 	}
 
 	const durationMs = performance.now() - startTime;
-	const charsPerSecond =
-		durationMs > 0 ? charCount / (durationMs / 1000) : null;
+	const tokensPerSecond =
+		completionTokens > 0 && durationMs > 0
+			? completionTokens / (durationMs / 1000)
+			: null;
 
 	return {
 		rawContent,
@@ -212,7 +215,7 @@ export async function streamModelResponse(
 		thinkingContent,
 		error: null,
 		durationMs: Math.round(durationMs),
-		charsPerSecond,
+		tokensPerSecond,
 		promptTokens,
 		completionTokens,
 	};

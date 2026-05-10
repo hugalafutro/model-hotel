@@ -346,7 +346,7 @@ export function useChat() {
 					thinkingContent: result.thinkingContent,
 					error: result.error,
 					metrics: {
-						charsPerSecond: result.charsPerSecond,
+						tokensPerSecond: result.tokensPerSecond,
 						durationMs: result.durationMs,
 						promptTokens: result.promptTokens,
 						completionTokens: result.completionTokens,
@@ -714,7 +714,7 @@ export function useChat() {
 						thinkingContent: result.thinkingContent,
 						error: result.error,
 						metrics: {
-							charsPerSecond: result.charsPerSecond,
+							tokensPerSecond: result.tokensPerSecond,
 							durationMs: result.durationMs,
 							promptTokens: result.promptTokens,
 							completionTokens: result.completionTokens,
@@ -732,7 +732,7 @@ export function useChat() {
 								thinkingContent: result.thinkingContent,
 								error: result.error,
 								metrics: {
-									charsPerSecond: result.charsPerSecond,
+									tokensPerSecond: result.tokensPerSecond,
 									durationMs: result.durationMs,
 									promptTokens: result.promptTokens,
 									completionTokens: result.completionTokens,

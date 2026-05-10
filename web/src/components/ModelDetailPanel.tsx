@@ -81,14 +81,6 @@ export function ModelDetailPanel({
 					>
 						{model.display_name || model.model_id}
 					</h3>
-					{!collapsed && model.description && (
-						<p
-							className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px]"
-							title={model.description}
-						>
-							{model.description}
-						</p>
-					)}
 				</div>
 				<div className="flex items-start gap-0.5 shrink-0 ml-2">
 					{!collapsed && hasCustom && (
@@ -143,6 +135,14 @@ export function ModelDetailPanel({
 					)}
 				</div>
 			</div>
+			{!collapsed && model.description && (
+				<p
+					className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px]"
+					title={model.description}
+				>
+					{model.description}
+				</p>
+			)}
 
 			<div
 				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
