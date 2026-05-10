@@ -422,6 +422,59 @@ export function useChat() {
 	]);
 
 	// ── Multimodal attachment handlers ──
+	const handlePaste = useCallback(
+		(e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+			const items = e.clipboardData?.items;
+			if (!items) return;
+
+			// If clipboard has text content, let normal paste through
+			// (e.g. spreadsheet cells that produce both text/plain and image/png)
+			let hasText = false;
+			for (let i = 0; i < items.length; i++) {
+				if (items[i].type.startsWith("text/")) {
+					hasText = true;
+					break;
+				}
+			}
+			if (hasText) return;
+
+			for (const item of items) {
+				if (item.type.startsWith("image/")) {
+					if (!hasVision) {
+						toast("This model does not support image input", "warning");
+						e.preventDefault();
+						return;
+					}
+
+					const file = item.getAsFile();
+					if (!file) continue;
+
+					if (file.size > 20 * 1024 * 1024) {
+						toast("Image must be under 20 MB", "error");
+						e.preventDefault();
+						return;
+					}
+
+					const reader = new FileReader();
+					reader.onload = () => {
+						setPendingImage({
+							dataUrl: reader.result as string,
+							name: file.name || "pasted-image",
+						});
+						setPendingAudio(null);
+						toast("Image pasted from clipboard", "info");
+					};
+					reader.readAsDataURL(file);
+					e.preventDefault();
+					return;
+				}
+			}
+
+			// Allow normal text paste through — no image found
+		},
+		[hasVision, toast],
+	);
+
 	const handleImageSelect = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const file = e.target.files?.[0];
@@ -1071,6 +1124,7 @@ export function useChat() {
 		scrollToBottom,
 		streamAssistantReply,
 		handleSend,
+		handlePaste,
 		handleImageSelect,
 		handleAudioSelect,
 		handleStop,

@@ -485,6 +485,7 @@ export function Chat() {
 									});
 								}}
 								onKeyDown={chat.handleKeyDown}
+								onPaste={chat.handlePaste}
 								placeholder={
 									chat.selectedModel
 										? "Type a message…"
