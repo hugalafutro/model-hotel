@@ -333,7 +333,7 @@ export function ModelDetailModal({
 							</h2>
 							<CopyablePill
 								text={pMid}
-								textClassName="text-sm text-gray-500 font-mono leading-tight mt-1"
+								textClassName="text-sm text-gray-500 font-mono leading-tight"
 								tooltip="Click to copy model ID"
 							/>
 						</div>
