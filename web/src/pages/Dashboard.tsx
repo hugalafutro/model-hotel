@@ -66,8 +66,6 @@ export function Dashboard() {
 
 	// Per-section local states: synced from global header toggles,
 	// but each component's own toggles only affect that section.
-	// Per-section local states: synced from global header toggles,
-	// but each component's own toggles only affect that section.
 	const [requestsChartRange, setRequestsChartRange] =
 		useState<Range>(globalRange);
 	const [tokensChartRange, setTokensChartRange] = useState<Range>(globalRange);
@@ -161,9 +159,7 @@ export function Dashboard() {
 		queryClient.invalidateQueries({
 			queryKey: ["stats-provider-distribution"],
 		});
-		queryClient.invalidateQueries({ queryKey: ["stats-usage-models"] });
-		queryClient.invalidateQueries({ queryKey: ["stats-usage-providers"] });
-		queryClient.invalidateQueries({ queryKey: ["stats-usage-vkeys"] });
+		queryClient.invalidateQueries({ queryKey: ["stats-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-tokens"] });
 		toast("Refreshing dashboard…", "info");
 		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
@@ -254,9 +250,10 @@ export function Dashboard() {
 		refetchInterval: dashboardRefreshMs,
 	});
 
-	// Three separate queries for usage bar panels - each has its own range/metric
+	// Usage bar panels: each panel has independent range/metric controls.
+	// React Query de-dupes by query key, so when params match only 1 request is made.
 	const { data: modelsUsageStats, isLoading: modelsUsageLoading } = useQuery({
-		queryKey: ["stats-usage-models", modelsRange, modelsMetric, excludeDeleted],
+		queryKey: ["stats-usage", modelsRange, modelsMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
 				period: modelsRange,
@@ -270,7 +267,7 @@ export function Dashboard() {
 	const { data: providersUsageStats, isLoading: providersUsageLoading } =
 		useQuery({
 			queryKey: [
-				"stats-usage-providers",
+				"stats-usage",
 				providersRange,
 				providersMetric,
 				excludeDeleted,
@@ -287,7 +284,7 @@ export function Dashboard() {
 
 	const { data: vkeysUsageStats, isLoading: vkeysUsageLoading } = useQuery({
 		queryKey: [
-			"stats-usage-vkeys",
+			"stats-usage",
 			virtualKeysRange,
 			virtualKeysMetric,
 			excludeDeleted,
