@@ -51,7 +51,6 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	debuglog.Info("db: Database connected and migrations applied successfully")
 	return db, nil
 }
 

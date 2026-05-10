@@ -86,15 +86,6 @@ func main() {
 	// Must happen after config load so the env is available.
 	debuglog.Init(cfg.DebugLog)
 
-	fmt.Println()
-	fmt.Println(`███╗   ███╗ ██████╗ ██████╗ ███████╗██╗         ██╗  ██╗ ██████╗ ████████╗███████╗██╗
-████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║         ██║  ██║██╔═══██╗╚══██╔══╝██╔════╝██║
-██╔████╔██║██║   ██║██║  ██║█████╗  ██║         ███████║██║   ██║   ██║   █████╗  ██║
-██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║         ██╔══██║██║   ██║   ██║   ██╔══╝  ██║
-██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗    ██║  ██║╚██████╔╝   ██║   ███████╗███████╗
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`)
-	fmt.Println(cfg)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -113,6 +104,19 @@ func main() {
 	// Route slog output through the app log pipeline so debuglog calls
 	// reach the ring buffer and database (not just os.Stdout).
 	debuglog.SetHandler(api.NewAppSlogHandler(debuglog.Level()))
+
+	debuglog.Info("db: Database connected and migrations applied successfully")
+
+	// Startup banner
+	fmt.Println()
+	fmt.Println(`███╗   ███╗ ██████╗ ██████╗ ███████╗██╗         ██╗  ██╗ ██████╗ ████████╗███████╗██╗
+████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║         ██║  ██║██╔═══██╗╚══██╔══╝██╔════╝██║
+██╔████╔██║██║   ██║██║  ██║█████╗  ██║         ███████║██║   ██║   ██║   █████╗  ██║
+██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║         ██╔══██║██║   ██║   ██║   ██╔══╝  ██║
+██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗    ██║  ██║╚██████╔╝   ██║   ███████╗███████╗
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`)
+	fmt.Println(cfg)
+	fmt.Println("Model Hotel instance is up and running.")
 
 	// Clean up stale request logs left in "pending" or "streaming" state
 	// from a previous server crash, restart, or unhandled error.
