@@ -151,7 +151,7 @@ export function RateLimitSettings({
 					</>
 				)}
 
-				<div className="border-t border-gray-700/50 pt-4 mt-2">
+				<div className="pt-2">
 					<div className="flex items-center justify-between">
 						<div>
 							<p className="text-sm font-medium text-gray-300">
@@ -234,7 +234,7 @@ export function RateLimitSettings({
 				</div>
 
 				{(rateLimitEnabled || rateLimitIpEnabled) && (
-					<div className="border-t border-gray-700/50 pt-4 mt-2">
+					<div className="pt-2">
 						<p className="text-sm font-medium text-gray-300 mb-1">
 							Rate Limit Backpressure
 						</p>
