@@ -1,0 +1,177 @@
+import {
+	AlertCircle,
+	ArrowLeftRight,
+	CheckCircle2,
+	CircleStop,
+	RefreshCw,
+	Trophy,
+	X,
+} from "lucide-react";
+import { useState } from "react";
+import type { Model } from "../../api/types";
+import { CopyButton } from "../../components/CopyButton";
+import { ModelDetailModal } from "../../components/ModelDetailPanel";
+import { ModelReplyCard } from "../../components/ModelReplyCard";
+import { parseCapabilities, proxyModelID } from "../../utils/model";
+import { VoteThumb } from "./shared";
+import type { ResponseCardProps } from "./types";
+
+export function ResponseCard({
+	response,
+	vote,
+	slotKey,
+	roundIdx,
+	matchupIdx,
+	onVote,
+	onRetry,
+	onSwapModel,
+	onCancelSlot,
+	showVote,
+	enabledModels,
+	params,
+}: ResponseCardProps) {
+	const [detailModel, setDetailModel] = useState<Model | null>(null);
+	const isWinner = vote === slotKey;
+	const isLoser = vote !== null && vote !== slotKey;
+
+	const modelObj = enabledModels.find(
+		(m) => proxyModelID(m.provider_name, m.model_id) === response.model,
+	);
+
+	return (
+		<>
+			<ModelReplyCard
+				model={response.model}
+				content={response.content}
+				thinkingContent={response.thinkingContent}
+				error={response.error}
+				metrics={response.metrics}
+				isStreaming={!response.done}
+				startTimeMs={response.startTimeMs}
+				isWinner={isWinner}
+				isLoser={isLoser}
+				shortenModelName={true}
+				showInfoIcon={true}
+				params={params}
+				isReasoningModel={
+					!!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
+				}
+				onModelNameClick={modelObj ? () => setDetailModel(modelObj) : undefined}
+				afterModel={
+					response.error && response.done ? (
+						<button
+							type="button"
+							onClick={() =>
+								onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
+							}
+							className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+							title="Swap model"
+						>
+							<X size={14} />
+						</button>
+					) : null
+				}
+				headerEnd={
+					<>
+						{response.done && !response.error && (
+							<>
+								<span title="Completed">
+									<CheckCircle2 size={14} className="text-green-400" />
+								</span>
+								<button
+									type="button"
+									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
+									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
+									title="Re-roll"
+								>
+									<RefreshCw size={14} />
+								</button>
+								<button
+									type="button"
+									onClick={() =>
+										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
+									}
+									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
+									title="Swap model"
+								>
+									<ArrowLeftRight size={14} />
+								</button>
+							</>
+						)}
+						{response.error && (
+							<>
+								<span title="Error">
+									<AlertCircle size={14} className="text-red-400" />
+								</span>
+								<button
+									type="button"
+									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
+									className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
+									title="Retry"
+								>
+									<RefreshCw size={14} />
+								</button>
+							</>
+						)}
+						{!response.done && (
+							<button
+								type="button"
+								onClick={() =>
+									onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
+								}
+								className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
+								title="Cancel"
+							>
+								<CircleStop size={14} />
+							</button>
+						)}
+						{isWinner && (
+							<span title="Winner">
+								<Trophy size={14} className="text-amber-400" />
+							</span>
+						)}
+						{response.done && response.content && (
+							<CopyButton text={response.content} size={12} />
+						)}
+						{showVote && (
+							<button
+								type="button"
+								onClick={
+									vote === null
+										? () => onVote(roundIdx, matchupIdx, slotKey)
+										: undefined
+								}
+								disabled={vote !== null}
+								className={`flex items-center gap-1 transition-all ${
+									vote === null ? "cursor-pointer" : "cursor-default"
+								} ${
+									isWinner
+										? "text-green-400 hover:text-green-300"
+										: "text-(--text-tertiary) hover:text-(--text-secondary)"
+								}`}
+								title={vote === null ? "Vote for this response" : undefined}
+							>
+								<VoteThumb
+									size={18}
+									isWinner={isWinner}
+									animating={vote === null}
+								/>
+							</button>
+						)}
+					</>
+				}
+				footerEnd={null}
+				className="flex flex-col"
+				headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
+				bodyClassName="px-4 pb-4 pt-0 overflow-y-auto h-85"
+				footerClassName="px-4 py-2 border-t border-(--border-subtle)"
+			/>
+			{detailModel && (
+				<ModelDetailModal
+					model={detailModel}
+					onClose={() => setDetailModel(null)}
+				/>
+			)}
+		</>
+	);
+}
