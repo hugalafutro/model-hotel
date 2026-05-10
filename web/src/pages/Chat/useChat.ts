@@ -18,6 +18,7 @@ import {
 	getApiMessagesForModel,
 	streamModelResponse,
 } from "./chatStreaming";
+import { useChatPersistence } from "./useChatPersistence";
 
 export function useChat() {
 	const { data: enabledModels } = useEnabledModels();
@@ -38,6 +39,13 @@ export function useChat() {
 			/* ignore */
 		}
 		return [];
+	});
+
+	useChatPersistence({
+		messages,
+		chatSubMode,
+		persistChat,
+		persistConversation,
 	});
 	// ── Chat mode state ──
 	const [chatSelectedModel, setChatSelectedModel] = useLocalStorage<string>(
@@ -123,7 +131,6 @@ export function useChat() {
 	const lastPromptRef = useRef<string>("");
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
-	const quotaWarnedRef = useRef(false);
 
 	// ── Multimodal attachment state (chat mode only) ──
 	const [pendingImage, setPendingImage] = useState<{
@@ -279,35 +286,6 @@ export function useChat() {
 		const timer = setTimeout(scrollToBottom, 320);
 		return () => clearTimeout(timer);
 	}, [scrollToBottom]);
-
-	// ── Chat mode persistence effects ──
-	useEffect(() => {
-		if (!persistChat) return;
-		try {
-			localStorage.setItem("chatMessages", JSON.stringify(messages));
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full - chat history not saved", "warning");
-			}
-		}
-	}, [messages, persistChat, toast]);
-
-	// ── Conversation messages persistence effect ──
-	useEffect(() => {
-		if (!persistConversation) return;
-		if (chatSubMode !== "conversation") return;
-		try {
-			localStorage.setItem("conversationMessages", JSON.stringify(messages));
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full - chat history not saved", "warning");
-			}
-		}
-	}, [messages, persistConversation, chatSubMode, toast]);
 
 	// Shared streaming helper: creates abort controller, assistant placeholder,
 	// streams the response, applies progressive + final updates.

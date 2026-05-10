@@ -24,6 +24,12 @@ import {
 	sanitizeDelta,
 	shouldReExtract,
 } from "../../utils/thinking";
+import {
+	buildCompareRound,
+	buildInitialRounds,
+	getPreviewPairs,
+	getRoundLabel,
+} from "./builders";
 import type {
 	ArenaResponse,
 	BracketPhase,
@@ -32,6 +38,7 @@ import type {
 	MatchupSlot,
 	WinnerModal,
 } from "./types";
+import { useArenaPersistence } from "./useArenaPersistence";
 import { nextBracketSize } from "./utils";
 
 export function useArena() {
@@ -39,7 +46,6 @@ export function useArena() {
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
 	const { arenaSubMode, setArenaSubMode } = useSidebarMode();
-	const quotaWarnedRef = useRef(false);
 
 	const arenaMode = arenaSubMode;
 	const setArenaMode = setArenaSubMode;
@@ -237,31 +243,7 @@ export function useArena() {
 
 	const [paramEditorModel, setParamEditorModel] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (!persistArena) return;
-		try {
-			localStorage.setItem(
-				"arenaState",
-				JSON.stringify({
-					arenaMode,
-					compareModels,
-					bracketModels,
-					rounds,
-					currentRound,
-					phase,
-					arenaCollapsed,
-					savedPrompt,
-					modelParams,
-				}),
-			);
-		} catch {
-			/* quota exceeded */
-			if (!quotaWarnedRef.current) {
-				quotaWarnedRef.current = true;
-				toast("Storage full - arena state not saved", "warning");
-			}
-		}
-	}, [
+	useArenaPersistence({
 		arenaMode,
 		compareModels,
 		bracketModels,
@@ -271,9 +253,7 @@ export function useArena() {
 		arenaCollapsed,
 		savedPrompt,
 		modelParams,
-		persistArena,
-		toast,
-	]);
+	});
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
 	const lastExtractLenRef = useRef<Map<string, number>>(new Map());
@@ -408,72 +388,17 @@ export function useArena() {
 		return "";
 	}, [phase, arenaMode, compareModels, bracketModels, prompt]);
 
-	const buildCompareRound = useCallback(
+	const buildCompareRoundWithParams = useCallback(
 		(
 			modelIds: string[],
 			personaId: string | null = null,
 			personaPrompt: string = "",
-		): BracketRound[] => {
-			return [
-				{
-					matchups: modelIds.map((id) => ({
-						slotA: {
-							modelId: id,
-							personaId,
-							personaPrompt,
-							params: modelParams[id],
-						} as MatchupSlot,
-						slotB: null,
-						responseA: null,
-						responseB: null,
-						vote: null,
-					})),
-				},
-			];
-		},
+		) => buildCompareRound(modelIds, personaId, personaPrompt, modelParams),
 		[modelParams],
 	);
 
-	const buildInitialRounds = useCallback(
-		(models: string[]): BracketRound[] => {
-			const makeSlot = (id: string): MatchupSlot => ({
-				modelId: id,
-				personaId: null,
-				personaPrompt: "",
-				params: modelParams[id],
-			});
-
-			const emptyMatchup = (): Matchup => ({
-				slotA: null,
-				slotB: null,
-				responseA: null,
-				responseB: null,
-				vote: null,
-			});
-
-			const numRounds = Math.log2(models.length);
-			const firstRoundMatchups: Matchup[] = [];
-			for (let i = 0; i < models.length; i += 2) {
-				firstRoundMatchups.push({
-					slotA: makeSlot(models[i]),
-					slotB: makeSlot(models[i + 1]),
-					responseA: null,
-					responseB: null,
-					vote: null,
-				});
-			}
-
-			const bracketRounds: BracketRound[] = [{ matchups: firstRoundMatchups }];
-
-			for (let r = 1; r < numRounds; r++) {
-				const matchupCount = models.length / 2 ** (r + 1);
-				bracketRounds.push({
-					matchups: Array.from({ length: matchupCount }, () => emptyMatchup()),
-				});
-			}
-
-			return bracketRounds;
-		},
+	const buildInitialRoundsWithParams = useCallback(
+		(models: string[]) => buildInitialRounds(models, modelParams),
 		[modelParams],
 	);
 
@@ -514,14 +439,7 @@ export function useArena() {
 			bracketModels.length === 0
 		)
 			return null;
-		const target = nextBracketSize(bracketModels.length);
-		const items = [...bracketModels];
-		while (items.length < target) items.push("");
-		const pairs: { a: string; b: string }[] = [];
-		for (let i = 0; i < items.length; i += 2) {
-			pairs.push({ a: items[i], b: items[i + 1] ?? "" });
-		}
-		return pairs;
+		return getPreviewPairs(bracketModels);
 	}, [arenaMode, phase, bracketModels]);
 
 	const streamModel = useCallback(
@@ -866,12 +784,12 @@ export function useArena() {
 
 		const initialRounds =
 			arenaMode === "compare"
-				? buildCompareRound(
+				? buildCompareRoundWithParams(
 						compareModels,
 						comparePersonaId,
 						comparePersonaPrompt,
 					)
-				: buildInitialRounds(bracketModels);
+				: buildInitialRoundsWithParams(bracketModels);
 		setRounds(initialRounds);
 		currentRoundRef.current = 0;
 		roundsLengthRef.current = initialRounds.length;
@@ -993,8 +911,8 @@ export function useArena() {
 		comparePersonaId,
 		comparePersonaPrompt,
 		bracketModels,
-		buildInitialRounds,
-		buildCompareRound,
+		buildInitialRoundsWithParams,
+		buildCompareRoundWithParams,
 		streamModel,
 		enabledModels,
 	]);
@@ -1294,14 +1212,8 @@ export function useArena() {
 
 	const showResponseGrid = phase !== "setup";
 
-	const roundLabel = (roundIdx: number, totalRounds: number): string => {
-		if (arenaMode === "compare") return "Generation";
-		if (totalRounds === 1) return "Match";
-		if (roundIdx === totalRounds - 1) return "Final";
-		if (roundIdx === totalRounds - 2) return "Semifinals";
-		if (roundIdx === totalRounds - 3) return "Quarterfinals";
-		return `Round ${roundIdx + 1}`;
-	};
+	const roundLabel = (roundIdx: number, totalRounds: number): string =>
+		getRoundLabel(roundIdx, totalRounds, arenaMode);
 
 	return {
 		// State values
