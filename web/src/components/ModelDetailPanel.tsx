@@ -10,6 +10,7 @@ import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
 import { getParamIncompatibility, isParamDisabled } from "../utils/paramCompat";
 import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
+import { CapBadge } from "./CapBadge";
 import { CAP_META } from "./capMeta";
 import { Modal } from "./Modal";
 import { ParamSlider } from "./ParamSlider";
@@ -363,12 +364,7 @@ export function ModelDetailPanel({
 								</span>
 								<div className="flex flex-wrap gap-1 mt-1">
 									{CAP_META.filter((m) => caps[m.key]).map((m) => (
-										<span
-											key={m.key}
-											className={`px-1.5 py-0.5 text-[10px] rounded-full border ${m.style}`}
-										>
-											{m.label}
-										</span>
+										<CapBadge key={m.key} caps={caps} capKey={m.key} />
 									))}
 								</div>
 							</div>
