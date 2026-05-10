@@ -137,8 +137,25 @@ logUpdate:
 		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
 	}
 	if errMsg == "" && !sawDone {
-		errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
-		debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+		// Upstream closed without [DONE] sentinel. If we received content and
+		// the scanner didn't error, inject the sentinel for the downstream
+		// client so the frontend knows the stream completed normally.
+		if !clientDisconnected && scanner.Err() == nil && chunkCount > 0 {
+			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
+				debuglog.Warn("proxy: failed to write injected [DONE]", "error", err)
+			} else {
+				if canFlush {
+					flusher.Flush()
+				}
+			}
+			// Stream was complete; the missing sentinel is benign.
+			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+		} else {
+			// No content received or scanner error - genuinely truncated.
+			errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
+			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+		}
 	}
 
 	logData.statusCode = resp.StatusCode

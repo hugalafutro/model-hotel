@@ -177,7 +177,7 @@ export async function streamModelResponse(
 				error: completion.idleTimeout
 					? "Stream stalled - no data received within the timeout period."
 					: content
-						? "Stream was cut off - the response may be incomplete."
+						? "Stream ended without completion signal - the response may still be complete."
 						: "Stream ended unexpectedly with no content.",
 				durationMs,
 				charsPerSecond,
