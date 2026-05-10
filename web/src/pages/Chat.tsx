@@ -487,9 +487,11 @@ export function Chat() {
 								onKeyDown={chat.handleKeyDown}
 								onPaste={chat.handlePaste}
 								placeholder={
-									chat.selectedModel
-										? "Type a message…"
-										: "Select a model first"
+									!chat.selectedModel
+										? "Select a model first"
+										: chat.hasVision
+											? "Type a message (or paste an image)…"
+											: "Type a message…"
 								}
 								disabled={!chat.selectedModel || chat.isStreaming}
 								title={

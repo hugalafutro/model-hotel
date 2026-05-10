@@ -7,6 +7,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GenerationParams } from "../api/types";
+import { parseCapabilities } from "../utils/model";
+import type { CapKey } from "./capMeta";
+import { CAP_META, hasCap, matchesAllCaps } from "./capMeta";
 import { FilterInput } from "./FilterInput";
 import { ProviderFilter } from "./ProviderFilter";
 
@@ -14,6 +17,7 @@ interface ModelItem {
 	provider_name: string;
 	model_id: string;
 	display_name?: string;
+	capabilities?: string;
 }
 
 interface SingleProps {
@@ -84,6 +88,7 @@ export function ModelPicker({
 }: ModelPickerProps) {
 	const [search, setSearch] = useState("");
 	const [providerFilter, setProviderFilter] = useState<Set<string>>(new Set());
+	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
 	const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
 		new Set(),
 	);
@@ -107,10 +112,44 @@ export function ModelPicker({
 		[enabledModels],
 	);
 
+	// Which capabilities exist in the current dataset (for showing/hiding pills)
+	const existingCaps = useMemo(() => {
+		const caps = new Set<CapKey>();
+		for (const m of enabledModels) {
+			if (!m.capabilities) continue;
+			const parsed = parseCapabilities(m.capabilities);
+			for (const meta of CAP_META) {
+				if (hasCap(parsed, meta.key)) caps.add(meta.key);
+			}
+		}
+		return caps;
+	}, [enabledModels]);
+
+	// Whether adding a cap to the filter would still yield results
+	const capAvailability = useMemo(() => {
+		const availability = new Map<CapKey, boolean>();
+		for (const meta of CAP_META) {
+			const testFilter = new Set(capFilter);
+			testFilter.add(meta.key);
+			const hasMatch = enabledModels.some((m) => {
+				if (!m.capabilities) return false;
+				return matchesAllCaps(parseCapabilities(m.capabilities), testFilter);
+			});
+			availability.set(meta.key, hasMatch);
+		}
+		return availability;
+	}, [enabledModels, capFilter]);
+
 	const filteredModels = useMemo(() => {
 		let result = enabledModels;
 		if (providerFilter.size > 0) {
 			result = result.filter((m) => providerFilter.has(m.provider_name));
+		}
+		if (capFilter.size > 0) {
+			result = result.filter((m) => {
+				if (!m.capabilities) return false;
+				return matchesAllCaps(parseCapabilities(m.capabilities), capFilter);
+			});
 		}
 		if (search.trim()) {
 			const q = search.trim().toLowerCase();
@@ -133,7 +172,7 @@ export function ModelPicker({
 				b.display_name || b.model_id,
 			);
 		});
-	}, [enabledModels, providerFilter, search, selectedSet]);
+	}, [enabledModels, providerFilter, capFilter, search, selectedSet]);
 
 	const groupedModels = useMemo(() => {
 		const groups = new Map<string, ModelItem[]>();
@@ -208,6 +247,45 @@ export function ModelPicker({
 					/>
 				</div>
 			</div>
+
+			{existingCaps.size > 0 && (
+				<div className="flex flex-wrap gap-1">
+					{CAP_META.filter((m) => existingCaps.has(m.key)).map((m) => {
+						const isActive = capFilter.has(m.key);
+						const isAvailable = capAvailability.get(m.key) ?? false;
+						const isDisabled = !isActive && !isAvailable;
+						return (
+							<button
+								key={m.key}
+								type="button"
+								disabled={isDisabled}
+								onClick={() => {
+									setCapFilter((prev) => {
+										const next = new Set(prev);
+										if (next.has(m.key)) next.delete(m.key);
+										else next.add(m.key);
+										return next;
+									});
+								}}
+								className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+									isActive ? m.style : isDisabled ? m.disabled : m.muted
+								}`}
+							>
+								{m.label}
+							</button>
+						);
+					})}
+					{capFilter.size > 0 && (
+						<button
+							type="button"
+							onClick={() => setCapFilter(new Set())}
+							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+						>
+							✕
+						</button>
+					)}
+				</div>
+			)}
 
 			<div className="flex gap-1">
 				{(onRandom || groupedModels.size > 0) && (

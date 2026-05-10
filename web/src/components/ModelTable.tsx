@@ -1,11 +1,11 @@
 import { X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import type { Model, ModelCapabilities, Provider } from "../api/types";
+import type { Model, Provider } from "../api/types";
 import { formatRelativeTime, formatTokens } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { CapBadge } from "./CapBadge";
 import { CopyablePill } from "./CopyablePill";
-import { CAP_META, type CapKey, hasCap } from "./capMeta";
+import { CAP_META, type CapKey, hasCap, matchesAllCaps } from "./capMeta";
 import type { SortState } from "./DataTable";
 import { EmptyRow, PaginationBar, Row, SortableHeader } from "./DataTable";
 import { FilterInput } from "./FilterInput";
@@ -25,17 +25,6 @@ export interface ModelTableProps {
 	providers?: Provider[];
 	initialProviderFilter?: Set<string>;
 	onModelClick?: (model: Model) => void;
-}
-
-function matchesAllCaps(
-	caps: ModelCapabilities | null,
-	keys: Set<CapKey>,
-): boolean {
-	if (keys.size === 0) return true;
-	for (const k of keys) {
-		if (!hasCap(caps, k)) return false;
-	}
-	return true;
 }
 
 export function ModelTable({

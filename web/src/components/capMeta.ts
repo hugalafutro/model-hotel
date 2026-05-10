@@ -105,3 +105,14 @@ export function hasCap(caps: ModelCapabilities | null, key: CapKey): boolean {
 	if (!caps) return false;
 	return !!caps[key];
 }
+
+export function matchesAllCaps(
+	caps: ModelCapabilities | null,
+	keys: Set<CapKey>,
+): boolean {
+	if (keys.size === 0) return true;
+	for (const k of keys) {
+		if (!hasCap(caps, k)) return false;
+	}
+	return true;
+}
