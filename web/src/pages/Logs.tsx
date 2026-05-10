@@ -644,7 +644,7 @@ function RequestLogs() {
 													: "-"}
 											</td>
 											<td
-												className="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-400"
+												className="px-4 py-2 text-xs font-mono text-gray-400 truncate"
 												title={log.request_hash}
 											>
 												{log.request_hash ? log.request_hash.slice(0, 16) : "-"}

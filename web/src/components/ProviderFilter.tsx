@@ -73,7 +73,7 @@ export function ProviderFilter({
 
 	const triggerLabel =
 		selected.size === 0
-			? "All"
+			? "Filter Providers"
 			: selected.size === 1
 				? (providers?.find((p) => p.id === Array.from(selected)[0])?.name ??
 					"1 provider")
