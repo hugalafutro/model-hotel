@@ -102,7 +102,7 @@ func DetectProviderType(baseURL string) string {
 	case "generativelanguage.googleapis.com":
 		return "google"
 	case "ollama.com":
-		return "ollama"
+		return "ollama-cloud"
 	case "opencode.ai":
 		// Path-based detection: Go URL contains /zen/go/, Zen contains /zen/
 		// Must check Go before Zen since /zen/go/ is a subpath of /zen/
@@ -142,7 +142,7 @@ func DetectProviderType(baseURL string) string {
 		}
 	}
 	if strings.HasSuffix(host, ".ollama.com") {
-		return "ollama"
+		return "ollama-cloud"
 	}
 	if strings.HasSuffix(host, ".opencode.ai") {
 		// Path-based detection for custom opencode.ai subdomains
@@ -203,6 +203,11 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		case "anthropic":
 			return d.discoverAnthropic(ctx, provider, apiKey)
 		case "ollama":
+			return d.discoverOllama(ctx, provider, apiKey)
+		case "ollama-cloud":
+			// Ollama Cloud (ollama.com) reuses the same /api/tags + /api/show
+			// discovery endpoints as local Ollama. If the cloud API diverges
+			// in the future, this will need a dedicated discoverer.
 			return d.discoverOllama(ctx, provider, apiKey)
 		case "opencode-zen":
 			return d.discoverOpenCodeZen(ctx, provider, apiKey)

@@ -118,7 +118,7 @@ func TestDetectProviderType_Anthropic(t *testing.T) {
 	}
 }
 
-func TestDetectProviderType_Ollama(t *testing.T) {
+func TestDetectProviderType_OllamaCloud(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -129,8 +129,8 @@ func TestDetectProviderType_Ollama(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := DetectProviderType(tc.url)
-			if result != "ollama" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "ollama")
+			if result != "ollama-cloud" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "ollama-cloud")
 			}
 		})
 	}
@@ -318,10 +318,10 @@ func TestDetectProviderType_OpenRouterSubdomain(t *testing.T) {
 	}
 }
 
-func TestDetectProviderType_OllamaSubdomain(t *testing.T) {
+func TestDetectProviderType_OllamaCloudSubdomain(t *testing.T) {
 	result := DetectProviderType("https://custom.ollama.com/v1")
-	if result != "ollama" {
-		t.Errorf("DetectProviderType('https://custom.ollama.com/v1') = %q, want %q", result, "ollama")
+	if result != "ollama-cloud" {
+		t.Errorf("DetectProviderType('https://custom.ollama.com/v1') = %q, want %q", result, "ollama-cloud")
 	}
 }
 

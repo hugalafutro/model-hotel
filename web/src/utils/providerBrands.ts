@@ -6,6 +6,7 @@ export type ProviderBrand =
 	| "deepseek"
 	| "xai"
 	| "ollama"
+	| "ollama-cloud"
 	| "openrouter"
 	| "cohere"
 	| "zai-coding"
@@ -30,6 +31,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	deepseek: "#4D6BFE",
 	xai: "#1A1A1A",
 	ollama: "#3D3D3D",
+	"ollama-cloud": "#3D3D3D",
 	openrouter: "#6366F1",
 	cohere: "#D4E7C5",
 	"zai-coding": "#7C3AED",
@@ -50,6 +52,7 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	google: "GEM",
 	xai: "XAI",
 	ollama: "OLL",
+	"ollama-cloud": "OLC",
 	cohere: "COH",
 	lmstudio: "LM",
 	koboldcpp: "KC",

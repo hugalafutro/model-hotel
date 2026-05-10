@@ -172,13 +172,23 @@ func TestDiscoverModels(t *testing.T) {
 	})
 
 	t.Run("ollama", func(t *testing.T) {
-		// Test provider type detection
+		// Test provider type detection for local Ollama
+		provider := &Provider{
+			ID:      uuid.New(),
+			BaseURL: "http://localhost:11434",
+		}
+		providerType := DetectProviderType(provider.BaseURL)
+		assert.Equal(t, "ollama", providerType)
+	})
+
+	t.Run("ollama_cloud", func(t *testing.T) {
+		// Test provider type detection for Ollama Cloud
 		provider := &Provider{
 			ID:      uuid.New(),
 			BaseURL: "https://ollama.com",
 		}
 		providerType := DetectProviderType(provider.BaseURL)
-		assert.Equal(t, "ollama", providerType)
+		assert.Equal(t, "ollama-cloud", providerType)
 	})
 
 	t.Run("opencode_go", func(t *testing.T) {

@@ -206,6 +206,7 @@ export function AddProviderModal({
 						<option value="deepseek">DeepSeek</option>
 						<option value="google">Google AI Studio (Gemini)</option>
 						<option value="nanogpt">NanoGPT</option>
+						<option value="ollama-cloud">Ollama Cloud</option>
 						<option value="ollama">Ollama</option>
 						<option value="koboldcpp">KoboldCPP</option>
 						<option value="lmstudio">LM Studio</option>

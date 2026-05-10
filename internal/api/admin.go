@@ -448,6 +448,8 @@ func providerTypeAllowsEmptyKey(baseURL string) bool {
 	switch providerType {
 	case "opencode-zen":
 		return true
+	case "ollama":
+		return true
 	default:
 		return false
 	}
