@@ -290,7 +290,7 @@ export function FailoverGroups() {
 		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
 			<PageHeader
 				icon={Shuffle}
-				title={`Failover Groups (${allGroups?.length ?? 0})`}
+				title={`${allGroups?.length ?? 0} Failover Groups`}
 				description={
 					<>
 						Route requests through multiple providers in priority order via{" "}
