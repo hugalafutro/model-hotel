@@ -38,7 +38,7 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						}}
 						className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "top-left"
-								? "bg-(--accent) scale-125 ring-2 ring-white/40"
+								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
 						title="Top Left"
@@ -52,7 +52,7 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						}}
 						className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "top-center"
-								? "bg-(--accent) scale-125 ring-2 ring-white/40"
+								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
 						title="Top Center"
@@ -66,7 +66,7 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						}}
 						className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "top-right"
-								? "bg-(--accent) scale-125 ring-2 ring-white/40"
+								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
 						title="Top Right"
@@ -80,7 +80,7 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						}}
 						className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "bottom-left"
-								? "bg-(--accent) scale-125 ring-2 ring-white/40"
+								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
 						title="Bottom Left"
@@ -94,7 +94,7 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						}}
 						className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "bottom-center"
-								? "bg-(--accent) scale-125 ring-2 ring-white/40"
+								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
 						title="Bottom Center"
@@ -108,7 +108,7 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						}}
 						className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "bottom-right"
-								? "bg-(--accent) scale-125 ring-2 ring-white/40"
+								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
 						title="Bottom Right"
