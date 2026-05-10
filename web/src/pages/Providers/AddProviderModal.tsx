@@ -210,22 +210,17 @@ export function AddProviderModal({
 						onChange={(e) => handleProviderTypeChange(e.target.value)}
 						className="ui-input"
 					>
-						<option value="custom">Custom</option>
-						<option value="anthropic">Anthropic</option>
-						<option value="cohere">Cohere</option>
-						<option value="deepseek">DeepSeek</option>
-						<option value="google">Google AI Studio (Gemini)</option>
-						<option value="nanogpt">NanoGPT</option>
-						<option value="ollama-cloud">Ollama Cloud</option>
-						<option value="ollama">Ollama</option>
-						<option value="koboldcpp">KoboldCPP</option>
-						<option value="lmstudio">LM Studio</option>
-						<option value="openai">OpenAI</option>
-						<option value="opencode-go">OpenCode Go</option>
-						<option value="opencode-zen">OpenCode Zen</option>
-						<option value="openrouter">OpenRouter</option>
-						<option value="xai">xAI (Grok)</option>
-						<option value="zai-coding">Z.ai Coding Plan</option>
+						{Object.entries(providerTypeDisplayNames)
+							.sort(([aKey, aLabel], [bKey, bLabel]) => {
+								if (aKey === "custom") return -1;
+								if (bKey === "custom") return 1;
+								return aLabel.localeCompare(bLabel);
+							})
+							.map(([key, label]) => (
+								<option key={key} value={key}>
+									{label}
+								</option>
+							))}
 					</select>
 				</div>
 
