@@ -705,7 +705,7 @@ func TestProviderTypeAllowsEmptyKey(t *testing.T) {
 		{
 			name:    "ollama_localhost",
 			baseURL: "http://localhost:11434",
-			want:    false,
+			want:    true,
 		},
 	}
 

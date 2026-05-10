@@ -442,13 +442,11 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 // providerTypeAllowsEmptyKey returns true for provider types that support keyless
-// access (e.g. OpenCode Zen, which allows free models without an API key).
+// access (e.g. OpenCode Zen, Ollama, which allow free models without an API key).
 func providerTypeAllowsEmptyKey(baseURL string) bool {
 	providerType := provider.DetectProviderType(baseURL)
 	switch providerType {
-	case "opencode-zen":
-		return true
-	case "ollama":
+	case "opencode-zen", "ollama", "koboldcpp", "lmstudio", "custom":
 		return true
 	default:
 		return false
