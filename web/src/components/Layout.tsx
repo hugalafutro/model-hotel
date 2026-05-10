@@ -838,9 +838,9 @@ export function Layout({ children }: LayoutProps) {
 							}
 						>
 							{theme === "dark" ? (
-								<Moon size={14} strokeWidth={2} />
-							) : (
 								<Sun size={14} strokeWidth={2} />
+							) : (
+								<Moon size={14} strokeWidth={2} />
 							)}
 						</button>
 						<a
