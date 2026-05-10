@@ -459,8 +459,32 @@ func TestDecryptCached_ShortNonce_Panics(t *testing.T) {
 }
 
 func TestKeyCacheTTLValue(t *testing.T) {
-	// Verify the TTL constant hasn't been accidentally changed
-	if keyCacheTTL != 5*time.Minute {
-		t.Errorf("keyCacheTTL should be 5 minutes, got %v", keyCacheTTL)
+	// Verify the default TTL hasn't been accidentally changed
+	if DefaultKeyCacheTTL != 10*time.Minute {
+		t.Errorf("DefaultKeyCacheTTL should be 10 minutes, got %v", DefaultKeyCacheTTL)
+	}
+	if getKeyCacheTTL() != DefaultKeyCacheTTL {
+		t.Errorf("getKeyCacheTTL() should return default, got %v", getKeyCacheTTL())
+	}
+}
+
+func TestSetKeyCacheTTL(t *testing.T) {
+	orig := getKeyCacheTTL()
+	defer SetKeyCacheTTL(orig)
+
+	SetKeyCacheTTL(30 * time.Minute)
+	if getKeyCacheTTL() != 30*time.Minute {
+		t.Errorf("expected 30m TTL, got %v", getKeyCacheTTL())
+	}
+
+	// Zero or negative values should be rejected
+	SetKeyCacheTTL(0)
+	if getKeyCacheTTL() != 30*time.Minute {
+		t.Error("TTL should remain unchanged after SetKeyCacheTTL(0)")
+	}
+
+	SetKeyCacheTTL(-1 * time.Minute)
+	if getKeyCacheTTL() != 30*time.Minute {
+		t.Error("TTL should remain unchanged after SetKeyCacheTTL(-1m)")
 	}
 }

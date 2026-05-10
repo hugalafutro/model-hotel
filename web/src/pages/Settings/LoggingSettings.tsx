@@ -3,6 +3,7 @@ import { ScrollText } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSelect } from "../../components/SettingsSelect";
 import { useToast } from "../../context/ToastContext";
 
 const LOG_RETENTION_OPTIONS = [
@@ -104,78 +105,42 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
-				<div>
-					<label
-						htmlFor="log-retention"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Log Retention
-					</label>
-					<select
-						id="log-retention"
-						value={logRetention}
-						onChange={(e) =>
-							updateMutation.mutate({
-								log_retention: e.target.value,
-							})
-						}
-						className="ui-input"
-					>
-						{LOG_RETENTION_OPTIONS.map((opt) => (
-							<option key={opt.value} value={opt.value}>
-								{opt.label}
-							</option>
-						))}
-					</select>
-					{logRetention === "0" ? (
-						<p className="text-amber-400 text-xs mt-1">
-							Log retention is disabled. Logs will accumulate indefinitely until
-							manually purged.
-						</p>
-					) : (
-						<p className="text-gray-500 text-xs mt-1">
-							Automatically delete logs older than this period
-						</p>
-					)}
-				</div>
+				<SettingsSelect
+					id="log-retention"
+					label="Log Retention"
+					value={logRetention}
+					options={LOG_RETENTION_OPTIONS}
+					onChange={(v) => updateMutation.mutate({ log_retention: v })}
+					description={
+						logRetention === "0" ? (
+							<span className="text-amber-400">
+								Log retention is disabled. Logs will accumulate indefinitely
+								until manually purged.
+							</span>
+						) : (
+							"Automatically delete logs older than this period"
+						)
+					}
+				/>
 
-				<div>
-					<label
-						htmlFor="stale-request-timeout"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Stale Request Timeout
-					</label>
-					<select
-						id="stale-request-timeout"
-						value={staleRequestTimeout}
-						onChange={(e) =>
-							updateMutation.mutate({
-								stale_request_timeout: e.target.value,
-							})
-						}
-						className="ui-input"
-					>
-						{STALE_REQUEST_TIMEOUT_OPTIONS.map((opt) => (
-							<option key={opt.value} value={opt.value}>
-								{opt.label}
-							</option>
-						))}
-					</select>
-					{staleRequestTimeout === "0s" ? (
-						<p className="text-amber-400 text-xs mt-1">
-							Stale request detection is disabled. Orphaned requests from server
-							restarts will still be marked as failed, but age-based cleanup
-							will not run.
-						</p>
-					) : (
-						<p className="text-gray-500 text-xs mt-1">
-							Mark pending/streaming requests as &ldquo;interrupted&rdquo; if
-							they remain in-progress longer than this. Accounts for providers
-							with long time-to-first-token.
-						</p>
-					)}
-				</div>
+				<SettingsSelect
+					id="stale-request-timeout"
+					label="Stale Request Timeout"
+					value={staleRequestTimeout}
+					options={STALE_REQUEST_TIMEOUT_OPTIONS}
+					onChange={(v) => updateMutation.mutate({ stale_request_timeout: v })}
+					description={
+						staleRequestTimeout === "0s" ? (
+							<span className="text-amber-400">
+								Stale request detection is disabled. Orphaned requests from
+								server restarts will still be marked as failed, but age-based
+								cleanup will not run.
+							</span>
+						) : (
+							'Mark pending/streaming requests as "interrupted" if they remain in-progress longer than this. Accounts for providers with long time-to-first-token.'
+						)
+					}
+				/>
 
 				<div>
 					<div className="flex items-center justify-between">

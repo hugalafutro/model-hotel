@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Timer } from "lucide-react";
+import { KeyRound, Timer } from "lucide-react";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSelect } from "../../components/SettingsSelect";
 import { useToast } from "../../context/ToastContext";
 
 const REQUEST_TIMEOUT_OPTIONS = [
@@ -10,6 +11,14 @@ const REQUEST_TIMEOUT_OPTIONS = [
 	{ value: "2m0s", label: "2 minutes" },
 	{ value: "5m0s", label: "5 minutes" },
 	{ value: "10m0s", label: "10 minutes" },
+];
+
+const KEY_CACHE_TTL_OPTIONS = [
+	{ value: "1m0s", label: "1 minute" },
+	{ value: "5m0s", label: "5 minutes" },
+	{ value: "10m0s", label: "10 minutes (default)" },
+	{ value: "30m0s", label: "30 minutes" },
+	{ value: "1h0m0s", label: "1 hour" },
 ];
 
 interface ProxySettingsProps {
@@ -39,6 +48,7 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 	});
 
 	const requestTimeout = settings?.request_timeout || "1m0s";
+	const keyCacheTTL = settings?.key_cache_ttl || "10m0s";
 
 	return (
 		<SettingsSection
@@ -51,35 +61,23 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 				<p className="text-gray-400 text-sm">
 					Configure proxy request behavior and timeouts.
 				</p>
-				<div>
-					<label
-						htmlFor="request-timeout"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Request Timeout
-					</label>
-					<select
-						id="request-timeout"
-						value={requestTimeout}
-						onChange={(e) =>
-							updateMutation.mutate({
-								request_timeout: e.target.value,
-							})
-						}
-						className="ui-input"
-					>
-						{REQUEST_TIMEOUT_OPTIONS.map((opt) => (
-							<option key={opt.value} value={opt.value}>
-								{opt.label}
-							</option>
-						))}
-					</select>
-					<p className="text-gray-500 text-xs mt-1">
-						Maximum time for non-streaming requests before timing out. Streaming
-						requests automatically get 10× this duration to accommodate
-						thinking/reasoning models.
-					</p>
-				</div>
+				<SettingsSelect
+					id="request-timeout"
+					label="Request Timeout"
+					value={requestTimeout}
+					options={REQUEST_TIMEOUT_OPTIONS}
+					onChange={(v) => updateMutation.mutate({ request_timeout: v })}
+					description="Maximum time for non-streaming requests before timing out. Streaming requests automatically get 10× this duration to accommodate thinking/reasoning models."
+				/>
+				<SettingsSelect
+					id="key-cache-ttl"
+					label="Key Cache TTL"
+					value={keyCacheTTL}
+					options={KEY_CACHE_TTL_OPTIONS}
+					onChange={(v) => updateMutation.mutate({ key_cache_ttl: v })}
+					icon={KeyRound}
+					description="How long decrypted provider API keys are cached. Higher values reduce latency on the first request after cache expiry (Argon2id key derivation is ~12ms)."
+				/>
 			</div>
 		</SettingsSection>
 	);

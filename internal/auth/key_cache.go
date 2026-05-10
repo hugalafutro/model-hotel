@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -26,7 +27,32 @@ var (
 	keyCacheMu sync.RWMutex
 )
 
-const keyCacheTTL = 5 * time.Minute
+// keyCacheTTLNanos stores the current key cache TTL as nanoseconds.
+// It can be updated at runtime via SetKeyCacheTTL.
+var keyCacheTTLNanos atomic.Int64
+
+// DefaultKeyCacheTTL is the default cache TTL used when no setting is provided.
+const DefaultKeyCacheTTL = 10 * time.Minute
+
+func init() {
+	keyCacheTTLNanos.Store(int64(DefaultKeyCacheTTL))
+	startKeyCacheEviction()
+}
+
+// getKeyCacheTTL returns the current key cache TTL.
+func getKeyCacheTTL() time.Duration {
+	return time.Duration(keyCacheTTLNanos.Load())
+}
+
+// SetKeyCacheTTL updates the key cache TTL. Existing cache entries retain
+// their original expiry; only newly cached entries use the updated TTL.
+func SetKeyCacheTTL(d time.Duration) {
+	if d <= 0 {
+		debuglog.Warn("keycache: refusing to set TTL <= 0, keeping current value")
+		return
+	}
+	keyCacheTTLNanos.Store(int64(d))
+}
 
 func decryptionCacheKey(ciphertext, nonce, salt []byte) string {
 	if len(salt) == 0 {
@@ -69,10 +95,11 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
+	ttl := getKeyCacheTTL()
 	keyCacheMu.Lock()
 	keyCache[ck] = cacheEntry{
 		plaintext: string(plaintext),
-		expiresAt: time.Now().Add(keyCacheTTL),
+		expiresAt: time.Now().Add(ttl),
 	}
 	keyCacheMu.Unlock()
 
@@ -92,12 +119,14 @@ func startKeyCacheEviction() {
 	keyCacheEvictionDone = make(chan struct{})
 	go func() {
 		defer close(keyCacheEvictionDone)
-		ticker := time.NewTicker(keyCacheTTL)
+		ticker := time.NewTicker(getKeyCacheTTL())
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				evictExpiredKeyCacheEntries()
+				// Reset ticker to pick up any TTL changes.
+				ticker.Reset(getKeyCacheTTL())
 			case <-keyCacheEvictionStop:
 				return
 			}
@@ -124,8 +153,4 @@ func StopKeyCacheEviction() {
 		keyCacheEvictionStop = nil
 		keyCacheEvictionDone = nil
 	}
-}
-
-func init() {
-	startKeyCacheEviction()
 }

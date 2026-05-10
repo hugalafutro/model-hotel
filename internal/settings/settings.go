@@ -42,6 +42,7 @@ var AllowedSettings = map[string]bool{
 	"theme":                        true,
 	"ui_style":                     true,
 	"accent_color":                 true,
+	"key_cache_ttl":                true,
 }
 
 type cacheEntry struct {

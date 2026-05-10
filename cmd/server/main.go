@@ -458,6 +458,20 @@ func main() {
 		debuglog.Info("cache: key, provider, model, and failover caches warmed")
 	}()
 
+	// Initialize key cache TTL from settings and react to changes.
+	auth.SetKeyCacheTTL(settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL))
+	settingsRepo.RegisterOnChange(func(key, value string) {
+		if key == "key_cache_ttl" {
+			d, err := time.ParseDuration(value)
+			if err != nil || d <= 0 {
+				debuglog.Warn("keycache: invalid key_cache_ttl setting, keeping current value", "value", value, "error", err)
+				return
+			}
+			auth.SetKeyCacheTTL(d)
+			debuglog.Info("keycache: TTL updated", "ttl", d)
+		}
+	})
+
 	// Periodic discovery based on settings interval.
 	// Sleep before the first run so we don't bypass the discovery_on_startup setting.
 	// When discovery_on_startup is true, the startup go runDiscovery() above already

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { DISCOVERY_INTERVALS } from "./constants";
@@ -51,43 +52,25 @@ export function DiscoverySettings({
 				<p className="text-gray-400 text-sm">
 					Configure how and when models are auto-discovered from your providers.
 				</p>
-				<div>
-					<label
-						htmlFor="discovery-interval"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Discovery Interval
-					</label>
-					<select
-						id="discovery-interval"
-						value={discoveryInterval}
-						onChange={(e) =>
-							updateMutation.mutate({
-								discovery_interval: e.target.value,
-							})
-						}
-						className="ui-input"
-						disabled={isUpdating}
-					>
-						{DISCOVERY_INTERVALS.map((opt) => (
-							<option key={opt.value} value={opt.value}>
-								{opt.label}
-							</option>
-						))}
-					</select>
-					{discoveryInterval === "0" ? (
-						<p className="text-amber-400 text-xs mt-1">
-							Periodic discovery is disabled. Models will only be discovered
-							when you click "Discover Now" or "Discover All", or when a new
-							provider is created.
-						</p>
-					) : (
-						<p className="text-gray-500 text-xs mt-1">
-							How often to automatically re-discover models from all enabled
-							providers
-						</p>
-					)}
-				</div>
+				<SettingsSelect
+					id="discovery-interval"
+					label="Discovery Interval"
+					value={discoveryInterval}
+					options={DISCOVERY_INTERVALS}
+					onChange={(v) => updateMutation.mutate({ discovery_interval: v })}
+					disabled={isUpdating}
+					description={
+						discoveryInterval === "0" ? (
+							<span className="text-amber-400">
+								Periodic discovery is disabled. Models will only be discovered
+								when you click &quot;Discover Now&quot; or &quot;Discover
+								All&quot;, or when a new provider is created.
+							</span>
+						) : (
+							"How often to automatically re-discover models from all enabled providers"
+						)
+					}
+				/>
 
 				<div className="flex items-center justify-between">
 					<div>

@@ -360,7 +360,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 										<div key={label} className="flex justify-between text-sm">
 											<span className="text-(--text-secondary)">{label}</span>
 											<span className="font-mono text-(--text-primary)">
-												{formatMs(value)}
+												{formatMs(value, 3)}
 											</span>
 										</div>
 									),
@@ -369,7 +369,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<div className="flex justify-between text-sm font-semibold">
 								<span className="text-(--text-primary)">Total Overhead</span>
 								<span className="font-mono text-(--accent)">
-									{formatMs(requestLog.proxy_overhead_ms)}
+									{formatMs(requestLog.proxy_overhead_ms, 3)}
 								</span>
 							</div>
 						</div>
