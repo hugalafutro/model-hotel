@@ -1,0 +1,241 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { api } from "../../api/client";
+import type { Provider } from "../../api/types";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Modal } from "../../components/Modal";
+import { Toggle } from "../../components/Toggle";
+import { isKnownProviderUrl } from "./constants";
+
+export function EditProviderModal({
+	provider,
+	onClose,
+	onToast,
+}: {
+	provider: Provider;
+	onClose: () => void;
+	onToast: (msg: string, type: "success" | "error" | "info") => void;
+}) {
+	const queryClient = useQueryClient();
+	const [formData, setFormData] = useState({
+		name: provider.name,
+		base_url: provider.base_url,
+		api_key: "",
+		enabled: provider.enabled,
+	});
+	const [error, setError] = useState<string | null>(null);
+	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
+	const [showApiKey, setShowApiKey] = useState(false);
+
+	const updateMutation = useMutation({
+		mutationFn: (data: {
+			name?: string;
+			base_url?: string;
+			api_key?: string;
+			enabled?: boolean;
+		}) => api.providers.update(provider.id, data),
+		onSuccess: (updated: Provider) => {
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			onToast(`Provider "${updated.name}" updated`, "success");
+			onClose();
+		},
+		onError: (err: Error) => {
+			setError(err.message);
+			onToast(`Failed to update provider: ${err.message}`, "error");
+		},
+	});
+
+	const getChangedFields = (): string[] => {
+		const fields: string[] = [];
+		if (formData.name !== provider.name) fields.push("name");
+		if (formData.base_url !== provider.base_url) fields.push("base_url");
+		if (formData.api_key !== "") fields.push("api_key");
+		if (formData.enabled !== provider.enabled) fields.push("enabled");
+		return fields;
+	};
+
+	const handleClose = () => {
+		const changed = getChangedFields();
+		if (changed.length > 0) {
+			setConfirmFields(changed);
+		} else {
+			onClose();
+		}
+	};
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		setError(null);
+		const payload: {
+			name?: string;
+			base_url?: string;
+			api_key?: string;
+			enabled?: boolean;
+		} = {};
+		if (formData.name !== provider.name) payload.name = formData.name.trim();
+		if (formData.base_url !== provider.base_url)
+			payload.base_url = formData.base_url;
+		if (formData.api_key !== "") payload.api_key = formData.api_key;
+		if (formData.enabled !== provider.enabled)
+			payload.enabled = formData.enabled;
+		updateMutation.mutate(payload);
+	};
+
+	return (
+		<>
+			<Modal title="Edit Provider" onClose={handleClose}>
+				{error && (
+					<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+						{error}
+					</div>
+				)}
+
+				<form onSubmit={handleSubmit} className="space-y-4">
+					<div>
+						<label
+							htmlFor="edit-provider-name"
+							className="block text-sm font-medium text-gray-300 mb-1"
+						>
+							Name
+						</label>
+						<input
+							id="edit-provider-name"
+							type="text"
+							maxLength={100}
+							required
+							value={formData.name}
+							onChange={(e) =>
+								setFormData({
+									...formData,
+									name: e.target.value,
+								})
+							}
+							className="ui-input"
+							placeholder="e.g., OpenAI"
+						/>
+					</div>
+
+					<div>
+						<label
+							htmlFor="edit-provider-base-url"
+							className="block text-sm font-medium text-gray-300 mb-1"
+						>
+							Base URL
+						</label>
+						<input
+							id="edit-provider-base-url"
+							type="url"
+							required
+							readOnly={isKnownProviderUrl(provider.base_url)}
+							value={formData.base_url}
+							onChange={(e) =>
+								setFormData({
+									...formData,
+									base_url: e.target.value,
+								})
+							}
+							className={
+								isKnownProviderUrl(provider.base_url)
+									? "ui-input opacity-60 cursor-not-allowed"
+									: "ui-input"
+							}
+							placeholder="https://api.openai.com/v1"
+						/>
+						{isKnownProviderUrl(provider.base_url) && (
+							<p className="text-gray-500 text-xs mt-1">
+								Base URL is preset for this provider type
+							</p>
+						)}
+					</div>
+
+					<div>
+						<label
+							htmlFor="edit-provider-api-key"
+							className="block text-sm font-medium text-gray-300 mb-1"
+						>
+							API Key
+						</label>
+						<div className="relative">
+							<input
+								id="edit-provider-api-key"
+								type={showApiKey ? "text" : "password"}
+								maxLength={500}
+								value={formData.api_key}
+								onChange={(e) =>
+									setFormData({
+										...formData,
+										api_key: e.target.value,
+									})
+								}
+								className="ui-input pr-10! overflow-hidden"
+								placeholder="Leave blank to keep current key"
+							/>
+							<button
+								type="button"
+								onClick={() => setShowApiKey(!showApiKey)}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+								tabIndex={-1}
+								aria-label={showApiKey ? "Hide API key" : "Show API key"}
+							>
+								{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+							</button>
+						</div>
+						<p className="text-gray-500 text-xs mt-1">
+							Current: {provider.masked_key}
+						</p>
+					</div>
+
+					<div className="flex items-center gap-3">
+						<label
+							htmlFor="edit-provider-enabled"
+							className="text-sm font-medium text-gray-300"
+						>
+							Enabled
+						</label>
+						<Toggle
+							checked={formData.enabled}
+							onChange={(v) =>
+								setFormData({
+									...formData,
+									enabled: v,
+								})
+							}
+							showFocusRing
+							ariaLabel="Provider enabled"
+						/>
+					</div>
+
+					<div className="flex space-x-3 justify-end pt-4">
+						<button
+							type="button"
+							onClick={handleClose}
+							className="ui-btn ui-btn-secondary"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={updateMutation.isPending}
+							className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+								updateMutation.isPending
+									? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+									: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+							}`}
+						>
+							{updateMutation.isPending ? "Saving…" : "Save Changes"}
+						</button>
+					</div>
+				</form>
+			</Modal>
+			{confirmFields && (
+				<ConfirmDialog
+					title="Unsaved Changes"
+					fields={confirmFields}
+					onConfirm={onClose}
+					onCancel={() => setConfirmFields(null)}
+				/>
+			)}
+		</>
+	);
+}

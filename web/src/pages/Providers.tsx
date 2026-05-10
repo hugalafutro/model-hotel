@@ -1,16 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownAZ, ArrowUpZA, Eye, EyeOff, PlugZap } from "lucide-react";
+import { ArrowDownAZ, ArrowUpZA, PlugZap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Provider } from "../api/types";
-import { ConfirmDialog } from "../components/ConfirmDialog";
-import { CopyablePill } from "../components/CopyablePill";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import {
 	NanoGPTQuotaModal,
@@ -18,325 +15,28 @@ import {
 	ZAICodingQuotaModal,
 } from "../components/ProviderModals";
 import { ProviderModelsModal } from "../components/ProviderModelsModal";
-import { QuotaBadges } from "../components/QuotaBadge";
 import { Spinner } from "../components/Spinner";
-import { Toggle } from "../components/Toggle";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
-import { formatTimestamp, formatTokens } from "../utils/format";
-
-const baseUrls: Record<string, string> = {
-	nanogpt: "https://nano-gpt.com/api/subscription/v1",
-	"zai-coding": "https://api.z.ai/api/paas/v4",
-	openai: "https://api.openai.com/v1",
-	anthropic: "https://api.anthropic.com",
-	deepseek: "https://api.deepseek.com/v1",
-	ollama: "http://localhost:11434",
-	"opencode-zen": "https://opencode.ai/zen/v1",
-	"opencode-go": "https://opencode.ai/zen/go/v1",
-	xai: "https://api.x.ai/v1",
-	google: "https://generativelanguage.googleapis.com/v1beta/openai",
-	cohere: "https://api.cohere.ai/compatibility/v1",
-	openrouter: "https://openrouter.ai/api/v1",
-	koboldcpp: "http://localhost:5001/v1",
-	lmstudio: "http://localhost:1234/v1",
-};
-
-function isKnownProviderUrl(url: string): boolean {
-	return Object.values(baseUrls).includes(url);
-}
-
-function getProviderType(baseUrl: string): string {
-	for (const [type, url] of Object.entries(baseUrls)) {
-		if (baseUrl === url) return type;
-	}
-	return "custom";
-}
-
-const providerTypeDisplayNames: Record<string, string> = {
-	custom: "Custom",
-	nanogpt: "NanoGPT",
-	"zai-coding": "Z.ai Coding Plan",
-	openai: "OpenAI",
-	anthropic: "Anthropic",
-	deepseek: "DeepSeek",
-	ollama: "Ollama",
-	"opencode-zen": "OpenCode Zen",
-	"opencode-go": "OpenCode Go",
-	xai: "xAI (Grok)",
-	google: "Google AI Studio (Gemini)",
-	cohere: "Cohere",
-	openrouter: "OpenRouter",
-	koboldcpp: "KoboldCPP (Local)",
-	lmstudio: "LM Studio (Local)",
-};
-
-function providerTypeAllowsEmptyKey(type: string): boolean {
-	return (
-		type === "opencode-zen" ||
-		type === "ollama" ||
-		type === "custom" ||
-		type === "koboldcpp" ||
-		type === "lmstudio"
-	);
-}
-
-function EditProviderModal({
-	provider,
-	onClose,
-	onToast,
-}: {
-	provider: Provider;
-	onClose: () => void;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
-}) {
-	const queryClient = useQueryClient();
-	const [formData, setFormData] = useState({
-		name: provider.name,
-		base_url: provider.base_url,
-		api_key: "",
-		enabled: provider.enabled,
-	});
-	const [error, setError] = useState<string | null>(null);
-	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
-	const [showApiKey, setShowApiKey] = useState(false);
-
-	const updateMutation = useMutation({
-		mutationFn: (data: {
-			name?: string;
-			base_url?: string;
-			api_key?: string;
-			enabled?: boolean;
-		}) => api.providers.update(provider.id, data),
-		onSuccess: (updated: Provider) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			onToast(`Provider "${updated.name}" updated`, "success");
-			onClose();
-		},
-		onError: (err: Error) => {
-			setError(err.message);
-			onToast(`Failed to update provider: ${err.message}`, "error");
-		},
-	});
-
-	const getChangedFields = (): string[] => {
-		const fields: string[] = [];
-		if (formData.name !== provider.name) fields.push("name");
-		if (formData.base_url !== provider.base_url) fields.push("base_url");
-		if (formData.api_key !== "") fields.push("api_key");
-		if (formData.enabled !== provider.enabled) fields.push("enabled");
-		return fields;
-	};
-
-	const handleClose = () => {
-		const changed = getChangedFields();
-		if (changed.length > 0) {
-			setConfirmFields(changed);
-		} else {
-			onClose();
-		}
-	};
-
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		setError(null);
-		const payload: {
-			name?: string;
-			base_url?: string;
-			api_key?: string;
-			enabled?: boolean;
-		} = {};
-		if (formData.name !== provider.name) payload.name = formData.name.trim();
-		if (formData.base_url !== provider.base_url)
-			payload.base_url = formData.base_url;
-		if (formData.api_key !== "") payload.api_key = formData.api_key;
-		if (formData.enabled !== provider.enabled)
-			payload.enabled = formData.enabled;
-		updateMutation.mutate(payload);
-	};
-
-	return (
-		<>
-			<Modal title="Edit Provider" onClose={handleClose}>
-				{error && (
-					<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-						{error}
-					</div>
-				)}
-
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<div>
-						<label
-							htmlFor="edit-provider-name"
-							className="block text-sm font-medium text-gray-300 mb-1"
-						>
-							Name
-						</label>
-						<input
-							id="edit-provider-name"
-							type="text"
-							maxLength={100}
-							required
-							value={formData.name}
-							onChange={(e) =>
-								setFormData({
-									...formData,
-									name: e.target.value,
-								})
-							}
-							className="ui-input"
-							placeholder="e.g., OpenAI"
-						/>
-					</div>
-
-					<div>
-						<label
-							htmlFor="edit-provider-base-url"
-							className="block text-sm font-medium text-gray-300 mb-1"
-						>
-							Base URL
-						</label>
-						<input
-							id="edit-provider-base-url"
-							type="url"
-							required
-							readOnly={isKnownProviderUrl(provider.base_url)}
-							value={formData.base_url}
-							onChange={(e) =>
-								setFormData({
-									...formData,
-									base_url: e.target.value,
-								})
-							}
-							className={
-								isKnownProviderUrl(provider.base_url)
-									? "ui-input opacity-60 cursor-not-allowed"
-									: "ui-input"
-							}
-							placeholder="https://api.openai.com/v1"
-						/>
-						{isKnownProviderUrl(provider.base_url) && (
-							<p className="text-gray-500 text-xs mt-1">
-								Base URL is preset for this provider type
-							</p>
-						)}
-					</div>
-
-					<div>
-						<label
-							htmlFor="edit-provider-api-key"
-							className="block text-sm font-medium text-gray-300 mb-1"
-						>
-							API Key
-						</label>
-						<div className="relative">
-							<input
-								id="edit-provider-api-key"
-								type={showApiKey ? "text" : "password"}
-								maxLength={500}
-								value={formData.api_key}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										api_key: e.target.value,
-									})
-								}
-								className="ui-input pr-10! overflow-hidden"
-								placeholder="Leave blank to keep current key"
-							/>
-							<button
-								type="button"
-								onClick={() => setShowApiKey(!showApiKey)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
-								tabIndex={-1}
-								aria-label={showApiKey ? "Hide API key" : "Show API key"}
-							>
-								{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-							</button>
-						</div>
-						<p className="text-gray-500 text-xs mt-1">
-							Current: {provider.masked_key}
-						</p>
-					</div>
-
-					<div className="flex items-center gap-3">
-						<label
-							htmlFor="edit-provider-enabled"
-							className="text-sm font-medium text-gray-300"
-						>
-							Enabled
-						</label>
-						<Toggle
-							checked={formData.enabled}
-							onChange={(v) =>
-								setFormData({
-									...formData,
-									enabled: v,
-								})
-							}
-							showFocusRing
-							ariaLabel="Provider enabled"
-						/>
-					</div>
-
-					<div className="flex space-x-3 justify-end pt-4">
-						<button
-							type="button"
-							onClick={handleClose}
-							className="ui-btn ui-btn-secondary"
-						>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							disabled={updateMutation.isPending}
-							className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-								updateMutation.isPending
-									? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-									: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
-							}`}
-						>
-							{updateMutation.isPending ? "Saving…" : "Save Changes"}
-						</button>
-					</div>
-				</form>
-			</Modal>
-			{confirmFields && (
-				<ConfirmDialog
-					title="Unsaved Changes"
-					fields={confirmFields}
-					onConfirm={onClose}
-					onCancel={() => setConfirmFields(null)}
-				/>
-			)}
-		</>
-	);
-}
+import { AddProviderModal } from "./Providers/AddProviderModal";
+import {
+	getProviderType,
+	providerTypeDisplayNames,
+} from "./Providers/constants";
+import { EditProviderModal } from "./Providers/EditProviderModal";
+import { ProviderCard } from "./Providers/ProviderCard";
 
 export function Providers() {
 	const queryClient = useQueryClient();
 	const { toast } = useToast();
-	const [showModal, setShowModal] = useState(false);
 	const [editProvider, setEditProvider] = useState<Provider | null>(null);
 	const [deleteProvider, setDeleteProvider] = useState<Provider | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [showModal, setShowModal] = useState(false);
 	const [discoveringId, setDiscoveringId] = useState<string | null>(null);
 	const [discoverAllCurrentId, setDiscoverAllCurrentId] = useState<
 		string | null
 	>(null);
-	const [formData, setFormData] = useState<{
-		name: string;
-		base_url: string;
-		api_key: string;
-		provider_type: string;
-	}>({
-		name: "",
-		base_url: "",
-		api_key: "",
-		provider_type: "custom",
-	});
-	const [showApiKey, setShowApiKey] = useState(false);
 	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
 	const [typeFilter, setTypeFilter] = useState("");
 	const [nameFilter, setNameFilter] = useState("");
@@ -353,6 +53,11 @@ export function Providers() {
 		staleTime: 60_000,
 	});
 
+	const { data: settings } = useQuery({
+		queryKey: ["settings"],
+		queryFn: () => api.settings.get(),
+	});
+
 	const modelCounts = useMemo(() => {
 		const map = new Map<string, number>();
 		if (models) {
@@ -364,11 +69,6 @@ export function Providers() {
 		}
 		return map;
 	}, [models]);
-
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
 
 	const quotaData = useQuotaData(providers, { toastErrors: toast });
 
@@ -453,85 +153,6 @@ export function Providers() {
 		},
 	});
 
-	const createMutation = useMutation({
-		mutationFn: (data: { name: string; base_url: string; api_key: string }) =>
-			api.providers.create(data),
-		onSuccess: async (newProvider) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			setShowModal(false);
-			setFormData({
-				name: "",
-				base_url: "",
-				api_key: "",
-				provider_type: "custom",
-			});
-			setError(null);
-			toast(`Provider "${newProvider.name}" added`, "success");
-			const shouldDiscover = settings?.discovery_on_provider_create !== "false";
-			const providerType = getProviderType(newProvider.base_url);
-			if (shouldDiscover) {
-				try {
-					const result = await api.providers.discover(newProvider.id);
-					queryClient.invalidateQueries({ queryKey: ["models"] });
-					queryClient.invalidateQueries({ queryKey: ["providers"] });
-					toast(
-						`Discovered ${result.discovered} model${result.discovered === 1 ? "" : "s"} from ${newProvider.name}`,
-						"success",
-					);
-				} catch (e) {
-					toast(
-						`Auto-discovery failed: ${e instanceof Error ? e.message : "Unknown error"}`,
-						"warning",
-					);
-				}
-			}
-
-			// Try to detect quota/balance for providers that support it
-			try {
-				switch (providerType) {
-					case "nanogpt":
-						await api.providers.getUsage(newProvider.id);
-						toast("NanoGPT quota detected", "info");
-						queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
-						break;
-					case "zai-coding":
-						await api.providers.getUsage(newProvider.id);
-						toast("Z.ai Coding quota detected", "info");
-						queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
-						break;
-					case "deepseek": {
-						const balance = await api.providers.getBalance(newProvider.id);
-						const usd = balance.balance_infos.find((b) => b.currency === "USD");
-						if (usd) {
-							toast(`DeepSeek balance detected: $${usd.total_balance}`, "info");
-						} else {
-							toast("DeepSeek balance detected", "info");
-						}
-						queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
-						break;
-					}
-					case "openrouter": {
-						const orBalance = await api.providers.getOpenRouterBalance(
-							newProvider.id,
-						);
-						toast(
-							`OpenRouter balance detected: $${orBalance.credits_remaining?.toFixed(2) ?? "-"}`,
-							"info",
-						);
-						queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
-						break;
-					}
-				}
-			} catch {
-				// Quota/balance detection is non-critical; silently skip on failure
-			}
-		},
-		onError: (err: Error) => {
-			setError(err.message);
-			toast(`Failed to add provider: ${err.message}`, "error");
-		},
-	});
-
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => api.providers.delete(id),
 		onSuccess: () => {
@@ -551,45 +172,6 @@ export function Providers() {
 			setDeleteProvider(null);
 		},
 	});
-
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		setError(null);
-		createMutation.mutate({
-			name: formData.name.trim(),
-			base_url: formData.base_url,
-			api_key: formData.api_key,
-		});
-	};
-
-	const generateProviderName = (type: string): string => {
-		const baseName = providerTypeDisplayNames[type] || "Provider";
-		if (!providers) return baseName;
-		const existingNames = new Set(providers.map((p) => p.name));
-		if (!existingNames.has(baseName)) return baseName;
-		let n = 2;
-		while (existingNames.has(`${baseName} ${n}`)) n++;
-		return `${baseName} ${n}`;
-	};
-
-	const handleProviderTypeChange = (type: string) => {
-		if (type === "custom") {
-			setFormData((prev) => ({
-				...prev,
-				provider_type: type,
-				base_url: prev.base_url,
-				name: prev.name,
-			}));
-			return;
-		}
-		const newName = generateProviderName(type);
-		setFormData((prev) => ({
-			...prev,
-			provider_type: type,
-			base_url: baseUrls[type] || prev.base_url,
-			name: newName,
-		}));
-	};
 
 	const typeOptions = useMemo(() => {
 		if (!providers) return [];
@@ -714,158 +296,25 @@ export function Providers() {
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{filteredProviders?.map((provider) => {
-					return (
-						<div
-							key={provider.id}
-							className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""}`}
-						>
-							<div className="mb-4">
-								<div className="flex items-center justify-between">
-									<CopyablePill
-										text={provider.name}
-										displayText={provider.name}
-										textClassName="text-lg font-semibold text-white"
-										tooltip="Click to copy provider name"
-									/>
-								</div>
-								<div className="flex items-center gap-2 mt-1">
-									{!provider.enabled && (
-										<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
-											Disabled
-										</span>
-									)}
-									{provider.total_tokens > 0 && (
-										<span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30 whitespace-nowrap">
-											{formatTokens(provider.total_tokens)} tokens
-										</span>
-									)}
-									{(() => {
-										const count = modelCounts.get(provider.name) ?? 0;
-										return (
-											count > 0 && (
-												<button
-													type="button"
-													onClick={() => setModelsProvider(provider)}
-													className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors whitespace-nowrap"
-												>
-													{count} {count === 1 ? "model" : "models"}
-												</button>
-											)
-										);
-									})()}
-								</div>
-								<CopyablePill
-									text={provider.base_url}
-									textClassName="text-sm text-gray-400 font-mono"
-									tooltip="Click to copy API base URL"
-								/>
-							</div>
-
-							<div className="space-y-2 text-sm">
-								<div className="flex justify-between">
-									<span className="text-gray-500">Created</span>
-									<span className="text-gray-300">
-										{formatTimestamp(provider.created_at)}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-gray-500">API Key</span>
-									<span className="font-mono text-gray-300">
-										{provider.masked_key}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-gray-500">Last Used</span>
-									<span className="text-gray-300">
-										{provider.last_used_at
-											? formatTimestamp(provider.last_used_at)
-											: "N/A"}
-									</span>
-								</div>
-								{provider.last_discovered_at && (
-									<div className="flex justify-between">
-										<span className="text-gray-500">Last Discovery</span>
-										<span className="text-gray-300">
-											{formatTimestamp(provider.last_discovered_at)}
-										</span>
-									</div>
-								)}
-							</div>
-
-							<div className="mt-auto pt-4 flex items-center justify-between gap-2">
-								<div className="flex items-center gap-2 min-h-7">
-									<QuotaBadges
-										quotaData={quotaData}
-										variant="card"
-										providerBaseUrl={provider.base_url}
-										onNanoClick={() =>
-											quotaData.nanogptUsage &&
-											setModalNano(quotaData.nanogptUsage)
-										}
-										onZaiCodingClick={() =>
-											quotaData.zaiCodingUsage &&
-											setModalZaiCoding(quotaData.zaiCodingUsage)
-										}
-										onDeepseekClick={async () => {
-											try {
-												await quotaData.refetchDeepseek();
-												toast("Balance refreshed", "success");
-											} catch {
-												toast("Failed to refresh balance", "error");
-											}
-										}}
-										onOpenRouterClick={() =>
-											quotaData.openrouterBalance &&
-											setModalOpenRouter(quotaData.openrouterBalance)
-										}
-									/>
-								</div>
-								<div className="flex gap-2">
-									<button
-										type="button"
-										onClick={() => setEditProvider(provider)}
-										className="ui-btn ui-btn-secondary"
-									>
-										Edit
-									</button>
-									<button
-										type="button"
-										onClick={() => discoverMutation.mutate(provider.id)}
-										disabled={
-											discoveringId !== null || discoverAllMutation.isPending
-										}
-										className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-											discoveringId === provider.id ||
-											discoverAllCurrentId === provider.id
-												? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-												: discoveringId !== null ||
-														discoverAllMutation.isPending
-													? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-													: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
-										}`}
-									>
-										{discoveringId === provider.id ||
-										discoverAllCurrentId === provider.id ? (
-											<>
-												<Spinner /> Discovering...
-											</>
-										) : (
-											"Discover Models"
-										)}
-									</button>
-									<button
-										type="button"
-										onClick={() => setDeleteProvider(provider)}
-										className="ui-btn ui-btn-danger"
-									>
-										Delete
-									</button>
-								</div>
-							</div>
-						</div>
-					);
-				})}
+				{filteredProviders?.map((provider) => (
+					<ProviderCard
+						key={provider.id}
+						provider={provider}
+						modelCount={modelCounts.get(provider.name) ?? 0}
+						quotaData={quotaData}
+						discoveringId={discoveringId}
+						discoverAllCurrentId={discoverAllCurrentId}
+						discoverAllIsPending={discoverAllMutation.isPending}
+						onEdit={setEditProvider}
+						onDiscover={(id) => discoverMutation.mutate(id)}
+						onDelete={setDeleteProvider}
+						onSetModelsProvider={setModelsProvider}
+						onSetModalNano={(usage) => setModalNano(usage)}
+						onSetModalZaiCoding={(usage) => setModalZaiCoding(usage)}
+						onSetModalOpenRouter={(balance) => setModalOpenRouter(balance)}
+						toast={toast}
+					/>
+				))}
 
 				{filteredProviders?.length === 0 &&
 					providers &&
@@ -882,193 +331,12 @@ export function Providers() {
 			</div>
 
 			{showModal && (
-				<Modal
-					title="Add Provider"
-					onClose={() => {
-						setShowModal(false);
-						setFormData({
-							name: "",
-							base_url: "",
-							api_key: "",
-							provider_type: "custom",
-						});
-						setShowApiKey(false);
-						setError(null);
-					}}
-				>
-					{error && (
-						<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-							{error}
-						</div>
-					)}
-
-					<form onSubmit={handleSubmit} className="space-y-4">
-						<div>
-							<label
-								htmlFor="provider-type"
-								className="block text-sm font-medium text-gray-300 mb-1"
-							>
-								Type
-							</label>
-							<select
-								id="provider-type"
-								value={formData.provider_type}
-								onChange={(e) => handleProviderTypeChange(e.target.value)}
-								className="ui-input"
-							>
-								<option value="custom">Custom</option>
-								<option value="anthropic">Anthropic</option>
-								<option value="cohere">Cohere</option>
-								<option value="deepseek">DeepSeek</option>
-								<option value="google">Google AI Studio (Gemini)</option>
-								<option value="nanogpt">NanoGPT</option>
-								<option value="ollama">Ollama</option>
-								<option value="koboldcpp">KoboldCPP</option>
-								<option value="lmstudio">LM Studio</option>
-								<option value="openai">OpenAI</option>
-								<option value="opencode-go">OpenCode Go</option>
-								<option value="opencode-zen">OpenCode Zen</option>
-								<option value="openrouter">OpenRouter</option>
-								<option value="xai">xAI (Grok)</option>
-								<option value="zai-coding">Z.ai Coding Plan</option>
-							</select>
-						</div>
-
-						<div>
-							<label
-								htmlFor="provider-name"
-								className="block text-sm font-medium text-gray-300 mb-1"
-							>
-								Name
-							</label>
-							<input
-								id="provider-name"
-								type="text"
-								maxLength={100}
-								required
-								value={formData.name}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										name: e.target.value,
-									})
-								}
-								onFocus={(e) => e.target.select()}
-								className="ui-input"
-								placeholder="e.g., OpenAI"
-							/>
-							<p className="text-gray-500 text-xs mt-1">
-								Dots, spaces, and special characters are replaced with
-								&quot;-&quot; when routing.
-							</p>
-						</div>
-
-						<div>
-							<label
-								htmlFor="provider-base-url"
-								className="block text-sm font-medium text-gray-300 mb-1"
-							>
-								Base URL
-							</label>
-							<input
-								id="provider-base-url"
-								type="url"
-								required
-								value={formData.base_url}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										base_url: e.target.value,
-									})
-								}
-								readOnly={formData.provider_type !== "custom"}
-								className={
-									formData.provider_type !== "custom"
-										? "ui-input opacity-60 cursor-not-allowed"
-										: "ui-input"
-								}
-								placeholder="https://api.openai.com/v1"
-							/>
-							{formData.provider_type !== "custom" && (
-								<p className="text-gray-500 text-xs mt-1">
-									Base URL is preset for this provider type
-								</p>
-							)}
-							{formData.provider_type === "custom" && (
-								<p className="text-gray-500 text-xs mt-1">
-									Full API base URL including any path prefix. Models will be
-									discovered from {"<base_url>"}/models
-								</p>
-							)}
-						</div>
-
-						<div>
-							<label
-								htmlFor="provider-api-key"
-								className="block text-sm font-medium text-gray-300 mb-1"
-							>
-								API Key
-							</label>
-							<div className="relative">
-								<input
-									id="provider-api-key"
-									type={showApiKey ? "text" : "password"}
-									maxLength={500}
-									required={!providerTypeAllowsEmptyKey(formData.provider_type)}
-									value={formData.api_key}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											api_key: e.target.value,
-										})
-									}
-									className="ui-input pr-10! overflow-hidden"
-									placeholder={
-										providerTypeAllowsEmptyKey(formData.provider_type)
-											? "Optional - free models work without a key"
-											: "API key"
-									}
-								/>
-								<button
-									type="button"
-									onClick={() => setShowApiKey(!showApiKey)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
-									tabIndex={-1}
-									aria-label={showApiKey ? "Hide API key" : "Show API key"}
-								>
-									{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-								</button>
-							</div>
-						</div>
-
-						<div className="flex space-x-3 justify-end pt-4">
-							<button
-								type="button"
-								onClick={() => {
-									setShowModal(false);
-									setFormData({
-										name: "",
-										base_url: "",
-										api_key: "",
-										provider_type: "custom",
-									});
-									setShowApiKey(false);
-									setError(null);
-								}}
-								className="ui-btn ui-btn-secondary"
-							>
-								Cancel
-							</button>
-							<button
-								type="submit"
-								disabled={createMutation.isPending}
-								className="ui-btn ui-btn-primary disabled:opacity-50"
-							>
-								{createMutation.isPending ? "Adding…" : "Add Provider"}
-							</button>
-						</div>
-					</form>
-				</Modal>
+				<AddProviderModal
+					onClose={() => setShowModal(false)}
+					onToast={toast}
+					settings={settings}
+					providers={providers}
+				/>
 			)}
 
 			{modalNano && (
