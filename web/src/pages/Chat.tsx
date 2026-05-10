@@ -538,8 +538,8 @@ export function Chat() {
 						) : chat.lastChatError ? (
 							<p className="text-xs text-red-400">
 								{chat.lastChatError.model
-									? `${chat.lastChatError.model.split("/").pop()}: ${chat.lastChatError.error} - try Regenerate or pick a different model`
-									: `${chat.lastChatError.error} - try Regenerate or pick a different model`}
+									? `${chat.lastChatError.model.split("/").pop()}: ${chat.lastChatError.error} - try Regenerate`
+									: `${chat.lastChatError.error} - try Regenerate or pick a model`}
 							</p>
 						) : (
 							<p className="text-xs text-(--text-muted)">

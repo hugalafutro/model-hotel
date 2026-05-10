@@ -146,6 +146,7 @@ export function ChatMessageList({
 									error={msg.error}
 									metrics={msg.metrics}
 									isStreaming={isStreamingThis}
+									startTimeMs={isStreamingThis ? msg.timestamp : undefined}
 									shortenModelName={false}
 									isReasoningModel={enabledModels.some(
 										(m) =>
@@ -207,6 +208,7 @@ export function ChatMessageList({
 								error={msg.error}
 								metrics={msg.metrics}
 								isStreaming={isStreamingThis}
+								startTimeMs={isStreamingThis ? msg.timestamp : undefined}
 								shortenModelName={false}
 								isReasoningModel={enabledModels.some(
 									(m) =>

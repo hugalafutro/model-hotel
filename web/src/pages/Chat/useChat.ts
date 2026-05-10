@@ -293,19 +293,19 @@ export function useChat() {
 		async (
 			model: string,
 			chatMessages: Array<{ role: string; content: MessageContent }>,
-			messageIndex: number,
 		) => {
 			const abortCtrl = new AbortController();
 			abortRef.current = abortCtrl;
 			cleanupAbortRef.current = abortCtrl;
 
+			const createdAt = Date.now();
 			const assistantMessage: ChatMessage = {
 				role: "assistant",
 				content: "",
 				rawContent: "",
 				thinkingContent: "",
 				model,
-				timestamp: Date.now(),
+				timestamp: createdAt,
 				params: hasAnyParam(messageParams) ? messageParams : undefined,
 			};
 			setMessages((prev) => [...prev, assistantMessage]);
@@ -317,10 +317,13 @@ export function useChat() {
 				abortCtrl,
 				(raw, content, thinking) => {
 					setMessages((prev) => {
-						if (prev.length <= messageIndex) return prev;
+						const idx = prev.findIndex(
+							(m) => m.timestamp === createdAt && m.role === "assistant",
+						);
+						if (idx === -1) return prev;
 						const next = [...prev];
-						next[messageIndex] = {
-							...next[messageIndex],
+						next[idx] = {
+							...next[idx],
 							rawContent: raw,
 							content,
 							thinkingContent: thinking,
@@ -331,10 +334,13 @@ export function useChat() {
 			);
 
 			setMessages((prev) => {
-				if (prev.length <= messageIndex) return prev;
+				const idx = prev.findIndex(
+					(m) => m.timestamp === createdAt && m.role === "assistant",
+				);
+				if (idx === -1) return prev;
 				const next = [...prev];
-				next[messageIndex] = {
-					...next[messageIndex],
+				next[idx] = {
+					...next[idx],
 					rawContent: result.rawContent,
 					content: result.content,
 					thinkingContent: result.thinkingContent,
@@ -391,11 +397,7 @@ export function useChat() {
 		);
 
 		try {
-			const result = await streamAssistantReply(
-				selectedModel,
-				chatMessages,
-				updatedMessages.length,
-			);
+			const result = await streamAssistantReply(selectedModel, chatMessages);
 
 			if (result.error) toast(result.error, "error");
 		} catch (err) {
@@ -521,7 +523,6 @@ export function useChat() {
 			const result = await streamAssistantReply(
 				selectedModel || "",
 				chatMessages,
-				updatedMessages.length,
 			);
 
 			if (result.error) toast(result.error, "error");
@@ -622,7 +623,7 @@ export function useChat() {
 				};
 				currentMessages = [...currentMessages, assistantMessage];
 				setMessages(currentMessages);
-				const messageIndex = currentMessages.length - 1;
+				const msgTimestamp = assistantMessage.timestamp;
 
 				const result = await streamModelResponse(
 					modelId,
@@ -631,10 +632,13 @@ export function useChat() {
 					abortCtrl,
 					(raw, content, thinking) => {
 						setMessages((prev) => {
-							if (prev.length <= messageIndex) return prev;
+							const idx = prev.findIndex(
+								(m) => m.timestamp === msgTimestamp && m.role === "assistant",
+							);
+							if (idx === -1) return prev;
 							const next = [...prev];
-							next[messageIndex] = {
-								...next[messageIndex],
+							next[idx] = {
+								...next[idx],
 								rawContent: raw,
 								content,
 								thinkingContent: thinking,
@@ -645,10 +649,13 @@ export function useChat() {
 				);
 
 				setMessages((prev) => {
-					if (prev.length <= messageIndex) return prev;
+					const idx = prev.findIndex(
+						(m) => m.timestamp === msgTimestamp && m.role === "assistant",
+					);
+					if (idx === -1) return prev;
 					const next = [...prev];
-					next[messageIndex] = {
-						...next[messageIndex],
+					next[idx] = {
+						...next[idx],
 						rawContent: result.rawContent,
 						content: result.content,
 						thinkingContent: result.thinkingContent,
@@ -663,8 +670,8 @@ export function useChat() {
 					return next;
 				});
 
-				currentMessages = currentMessages.map((m, i) =>
-					i === messageIndex
+				currentMessages = currentMessages.map((m) =>
+					m.timestamp === msgTimestamp && m.role === "assistant"
 						? {
 								...m,
 								rawContent: result.rawContent,
@@ -922,7 +929,11 @@ export function useChat() {
 		if (chatSubMode !== "chat") return null;
 		for (let i = messages.length - 1; i >= 0; i--) {
 			if (messages[i].role === "assistant" && messages[i].error) {
-				return { error: messages[i].error, model: messages[i].model || "" };
+				const errModel = messages[i].model || "";
+				// Only show the error if it's from the currently selected model.
+				// After switching models the error is stale and misleading.
+				if (errModel !== selectedModel) return null;
+				return { error: messages[i].error, model: errModel };
 			}
 		}
 		return null;
