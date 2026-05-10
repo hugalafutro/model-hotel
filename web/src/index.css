@@ -74,10 +74,10 @@ html[data-ui-style="clean-saas"].dark {
 }
 
 html[data-ui-style="clean-saas"].light {
-	--surface-bg: #f8f9fb;
+	--surface-bg: #f9fafb;
 	--surface-elevated: #ffffff;
-	--surface-elevated-hover: #f4f5f7;
-	--surface-input: #f1f2f5;
+	--surface-elevated-hover: #f3f4f6;
+	--surface-input: #f3f4f6;
 	--surface-sidebar: #ffffff;
 	--surface-hover: rgba(0, 0, 0, 0.03);
 
@@ -130,16 +130,16 @@ html[data-ui-style="cyber-terminal"].dark {
 }
 
 html[data-ui-style="cyber-terminal"].light {
-	--surface-bg: #eff0f4;
+	--surface-bg: #f5f6f8;
 	--surface-elevated: #ffffff;
-	--surface-elevated-hover: rgba(0, 0, 0, 0.04);
-	--surface-input: #ffffff;
-	--surface-sidebar: #e6e8ee;
+	--surface-elevated-hover: rgba(0, 0, 0, 0.03);
+	--surface-input: #f8f9fa;
+	--surface-sidebar: #eef0f4;
 	--surface-hover: rgba(0, 0, 0, 0.03);
 
-	--border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.3);
+	--border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.2);
 	--border-subtle: rgba(0, 0, 0, 0.06);
-	--border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+	--border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.15);
 
 	--radius-card: 2px;
 	--radius-button: 2px;
@@ -188,12 +188,12 @@ html[data-ui-style="glassmorphism-lite"].dark {
 }
 
 html[data-ui-style="glassmorphism-lite"].light {
-	--surface-bg: #f0f1f7;
-	--surface-elevated: rgba(255, 255, 255, 0.32);
-	--surface-elevated-hover: rgba(255, 255, 255, 0.48);
-	--surface-input: rgba(255, 255, 255, 0.28);
-	--surface-sidebar: rgba(255, 255, 255, 0.22);
-	--surface-hover: rgba(0, 0, 0, 0.06);
+	--surface-bg: #f5f6fa;
+	--surface-elevated: rgba(255, 255, 255, 0.65);
+	--surface-elevated-hover: rgba(255, 255, 255, 0.8);
+	--surface-input: rgba(255, 255, 255, 0.6);
+	--surface-sidebar: rgba(255, 255, 255, 0.55);
+	--surface-hover: rgba(0, 0, 0, 0.04);
 
 	--border-default: rgba(0, 0, 0, 0.09);
 	--border-subtle: rgba(0, 0, 0, 0.03);
@@ -201,11 +201,11 @@ html[data-ui-style="glassmorphism-lite"].light {
 
 	--radius-card: 20px;
 	--radius-button: 12px;
-	--accent-lighter: rgba(99, 102, 241, 0.12);
+	--accent-lighter: rgba(99, 102, 241, 0.08);
 	--shadow-card:
-		0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+		0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 	--shadow-md:
-		0 12px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+		0 12px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 	--shadow-glow: 0 0 30px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
 
 	--nav-icon: var(--text-secondary);
@@ -968,10 +968,22 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	filter: brightness(1.25);
 }
 
+[data-ui-style].light .ui-btn-secondary {
+	background-color: rgba(0, 0, 0, 0.06);
+	color: var(--text-secondary);
+	border-color: var(--border-input);
+}
+
 [data-ui-style] .ui-btn-danger {
 	background-color: rgba(239, 68, 68, 0.2);
 	color: #f87171;
 	border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-ui-style].light .ui-btn-danger {
+	background-color: rgba(220, 38, 38, 0.1);
+	color: #dc2626;
+	border-color: rgba(220, 38, 38, 0.25);
 }
 
 [data-ui-style] .ui-btn-danger:hover:not(:disabled) {
@@ -1308,6 +1320,36 @@ html[data-ui-style="cyber-terminal"] .ui-badge {
 	border: 1px solid var(--accent-lighter);
 }
 
+[data-ui-style].light .ui-badge-neutral {
+	background-color: rgba(0, 0, 0, 0.06);
+	color: var(--text-secondary);
+	border-color: var(--border-input);
+}
+
+[data-ui-style].light .ui-badge-success {
+	background-color: rgba(34, 197, 94, 0.1);
+	color: #059669;
+	border-color: rgba(34, 197, 94, 0.25);
+}
+
+[data-ui-style].light .ui-badge-error {
+	background-color: rgba(220, 38, 38, 0.1);
+	color: #dc2626;
+	border-color: rgba(220, 38, 38, 0.25);
+}
+
+[data-ui-style].light .ui-badge-warning {
+	background-color: rgba(234, 179, 8, 0.1);
+	color: #b45309;
+	border-color: rgba(234, 179, 8, 0.25);
+}
+
+[data-ui-style].light .ui-badge-info {
+	background-color: rgba(37, 99, 235, 0.1);
+	color: #2563eb;
+	border-color: rgba(37, 99, 235, 0.25);
+}
+
 /* =============================================
    PAGE HEADERS
    ============================================= */
@@ -1424,7 +1466,7 @@ html.light {
 
 html.light body,
 html.light #root {
-	background-color: #f3f4f6;
+	background-color: #f9fafb;
 }
 
 html.light .bg-gray-900 {
