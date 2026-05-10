@@ -122,6 +122,7 @@ function CreateKeyModal({
 						? "Virtual Key Created"
 						: "Create Virtual Key"
 			}
+			closeOnBackdrop={!createdKey || !!existingKey}
 			onClose={onClose}
 		>
 			{createdKey && !existingKey ? (
@@ -133,10 +134,7 @@ function CreateKeyModal({
 						{createdKey.key && (
 							<CopyablePill
 								text={createdKey.key}
-								displayText={
-									createdKey.key_preview ||
-									`${createdKey.key.slice(0, 5)}...${createdKey.key.slice(-4)}`
-								}
+								displayText={createdKey.key}
 								textClassName="text-sm text-green-400 font-mono break-all"
 								tooltip="Click to copy key"
 							/>
