@@ -217,7 +217,6 @@ See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint
 ## Known Limitations
 
 - **Single-instance only** — Caches and rate limiters are in-memory, not horizontally scalable
-- **Large page components:** Arena.tsx, Chat.tsx, Settings.tsx, and Dashboard.tsx are single-file mega-components (1,500+ lines each). This was an intentional trade-off for rapid iteration. Refactoring into smaller components is on the roadmap.
 
 ## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
