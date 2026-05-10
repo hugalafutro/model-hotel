@@ -601,6 +601,121 @@ func TestModelsDevCacheLookupFuzzy_VersionSuffix(t *testing.T) {
 	}
 }
 
+func TestModelsDevCacheLookupFuzzy_PrefixMatchRejectsVariant(t *testing.T) {
+	// Regression test: "gpt-5-search-api" should NOT match "gpt-5"
+	// because "search-api" is a model variant, not a date/version suffix.
+	gpt5Spec := &ModelsDevModelSpec{
+		ID:   "gpt-5",
+		Name: "GPT 5",
+	}
+
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{
+		"gpt-5": gpt5Spec,
+	}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	tests := []struct {
+		name     string
+		modelID  string
+		wantNil  bool
+		wantName string // expected Name if not nil
+	}{
+		{
+			name:     "variant_suffix_rejected",
+			modelID:  "gpt-5-search-api",
+			wantNil:  true,
+			wantName: "",
+		},
+		{
+			name:     "variant_with_date_rejected",
+			modelID:  "gpt-5-search-api-2025-10-14",
+			wantNil:  true,
+			wantName: "",
+		},
+		{
+			name:     "date_suffix_accepted",
+			modelID:  "gpt-5-2025-08-07",
+			wantNil:  false,
+			wantName: "GPT 5",
+		},
+		{
+			name:     "compact_date_suffix_accepted",
+			modelID:  "gpt-5-20250807",
+			wantNil:  false,
+			wantName: "GPT 5",
+		},
+		{
+			name:     "year_suffix_accepted",
+			modelID:  "gpt-5-2025",
+			wantNil:  false,
+			wantName: "GPT 5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found := cache.LookupFuzzy(tt.modelID)
+			if tt.wantNil {
+				if found != nil {
+					t.Errorf("LookupFuzzy(%q) = %q, want nil (should not match variant)", tt.modelID, found.Name)
+				}
+			} else {
+				if found == nil {
+					t.Fatalf("LookupFuzzy(%q) = nil, want non-nil", tt.modelID)
+				}
+				if found.Name != tt.wantName {
+					t.Errorf("LookupFuzzy(%q) = %q, want %q", tt.modelID, found.Name, tt.wantName)
+				}
+			}
+		})
+	}
+}
+
+func TestLooksLikeDateOrVersion(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		// Date patterns - should match
+		{"2024-08-06", true},
+		{"20240806", true},
+		{"2025-10-14", true},
+		{"2025", true},    // year-only
+		{"2024-08", true}, // year-month
+
+		// Version-like patterns - should match
+		{"20250514", true}, // compact date as version
+
+		// Model variant patterns - should NOT match
+		{"search-api", false},
+		{"mini", false},
+		{"search-api-2025-10-14", false},
+		{"pro", false},
+		{"chat-latest", false},
+		{"nano", false},
+
+		// Edge cases
+		{"123", false},      // too short (< 4 digits)
+		{"abc", false},      // not numeric
+		{"2024-ab", false},  // month not numeric
+		{"2024-0", true},    // 1-digit month (valid short form)
+		{"2024-12", true},   // 2-digit month
+		{"2024-999", false}, // 3-digit "month" rejected (too long)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := looksLikeDateOrVersion(tt.input)
+			if got != tt.want {
+				t.Errorf("looksLikeDateOrVersion(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestModelsDevCacheEnrichModel_NotFound(t *testing.T) {
 	cache := &ModelsDevCache{}
 	cache.mu.Lock()

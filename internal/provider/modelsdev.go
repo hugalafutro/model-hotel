@@ -254,16 +254,31 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 		}
 	}
 
-	// 4. Prefix match: find the longest key that is a prefix of modelID.
-	//    This handles "claude-3-5-sonnet-20241022" matching "claude-3-5-sonnet".
-	//    Note: O(n) over the full index — acceptable for discovery-time batch
-	//    usage but not suitable for hot-path per-request lookups.
+	// 4. Prefix match with date/version suffix: find the longest catalog key
+	//    that is a prefix of modelID, AND the remainder looks like a date or
+	//    version suffix. This prevents "gpt-5-search-api" from matching "gpt-5".
+	//    e.g. "claude-3-5-sonnet-20241022" → "claude-3-5-sonnet" ✓
+	//    e.g. "gpt-5-search-api" → "gpt-5" ✗ (remainder is not a date/version)
 	var bestMatch *ModelsDevModelSpec
 	bestLen := 0
 	for key, spec := range c.byID {
 		if strings.HasPrefix(modelID, key) && len(key) > bestLen {
-			bestMatch = spec
-			bestLen = len(key)
+			// Check that the remainder after the prefix is just a date/version suffix.
+			// The key must either match exactly or be followed by a "-" then a
+			// date/version string (not a model variant like "-search-api").
+			remainder := modelID[len(key):]
+			if remainder == "" {
+				// Exact match (shouldn't reach here since step 1 catches these,
+				// but safe to include).
+				bestMatch = spec
+				bestLen = len(key)
+			} else if strings.HasPrefix(remainder, "-") {
+				suffix := remainder[1:] // strip leading "-"
+				if looksLikeDateOrVersion(suffix) {
+					bestMatch = spec
+					bestLen = len(key)
+				}
+			}
 		}
 	}
 
@@ -444,4 +459,37 @@ func looksLikeDate(s string) bool {
 	// Matches patterns like "2024-08-06" or "20240806"
 	cleaned := strings.ReplaceAll(s, "-", "")
 	return len(cleaned) == 8 && isNumeric(cleaned)
+}
+
+// looksLikeDateOrVersion checks whether a suffix looks like a date or version stamp.
+// It accepts patterns like "2024-08-06", "20240806", "2024", or long numeric strings
+// (4+ digits). It rejects strings that contain non-date-like segments such as
+// "search-api", "mini", or other model variant identifiers.
+func looksLikeDateOrVersion(suffix string) bool {
+	// Full date: "2024-08-06" or "20240806"
+	if looksLikeDate(suffix) {
+		return true
+	}
+
+	parts := strings.Split(suffix, "-")
+
+	// Single numeric segment: "2024" or "20240806" or "20250514"
+	if len(parts) == 1 {
+		return isNumeric(parts[0]) && len(parts[0]) >= 4
+	}
+
+	// Two segments: "2024-08" or similar year-month patterns
+	if len(parts) == 2 {
+		return isNumeric(parts[0]) && len(parts[0]) == 4 && isNumeric(parts[1]) && len(parts[1]) <= 2
+	}
+
+	// Three segments: "2024-08-06" already caught by looksLikeDate above.
+	// Also accepts compact numeric segments like "2024-8-6" (all numeric,
+	// first is 4-digit year). Non-numeric first segments (e.g. "v2024")
+	// are rejected by isNumeric.
+	if len(parts) == 3 && isNumeric(parts[0]) && len(parts[0]) == 4 {
+		return true
+	}
+
+	return false
 }
