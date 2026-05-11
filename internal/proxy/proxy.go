@@ -68,6 +68,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 	var emptyLines int
 	const emptyMessagesLimit = 1000
+	// P2-2: Track last finish_reason to suppress duplicate finish chunks.
+	// Some providers (notably OpenRouter routing to certain models) send
+	// two consecutive chunks with the same finish_reason, where the second
+	// has no content or usage — just a bare finish_reason repeat. Suppressing
+	// avoids downstream "empty response text" errors.
+	var lastFinishReason string
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -275,6 +281,54 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// equivalents so downstream clients see consistent values.
 			if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != nil {
 				normalized := normalizeFinishReason(*chunk.Choices[0].FinishReason)
+
+				// P2-2: Suppress duplicate finish_reason chunks. Some providers
+				// (notably OpenRouter routing to Gemini models) send two
+				// consecutive chunks with the same finish_reason, where the
+				// second has no content or usage. This causes downstream
+				// "Model stream ended with empty response text" errors.
+				// Only suppress if: same finish_reason as previous chunk,
+				// no content (delta is empty or absent), and no usage.
+				if normalized == lastFinishReason {
+					// Check if this chunk has no meaningful content beyond
+					// finish_reason — a bare repeat worth suppressing.
+					// We parse the delta/content fields to decide.
+					var bare struct {
+						Choices []struct {
+							Delta   json.RawMessage `json:"delta"`
+							Content *string         `json:"content"`
+						} `json:"choices"`
+					}
+					isBare := true
+					if json.Unmarshal([]byte(payload), &bare) == nil {
+						for _, c := range bare.Choices {
+							if c.Content != nil && *c.Content != "" {
+								isBare = false
+								break
+							}
+							// delta may contain content as a nested field.
+							if len(c.Delta) > 0 {
+								var delta map[string]json.RawMessage
+								if json.Unmarshal(c.Delta, &delta) == nil {
+									if contentRaw, ok := delta["content"]; ok && len(contentRaw) > 0 && string(contentRaw) != `""` && string(contentRaw) != "null" {
+										isBare = false
+										break
+									}
+									if reasoningRaw, ok := delta["reasoning_content"]; ok && len(reasoningRaw) > 0 && string(reasoningRaw) != `""` && string(reasoningRaw) != "null" {
+										isBare = false
+										break
+									}
+								}
+							}
+						}
+					}
+					if isBare && chunk.Usage == nil {
+						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+						// Skip writing this chunk — it's a bare duplicate.
+						continue
+					}
+				}
+				lastFinishReason = normalized
 				if normalized != *chunk.Choices[0].FinishReason {
 					// Rewrite the line with normalized finish_reason.
 					// Re-serialize the entire JSON payload with the fix.
