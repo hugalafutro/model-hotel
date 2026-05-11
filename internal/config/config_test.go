@@ -525,7 +525,7 @@ func TestValidateProviderURL_ResolvesLoopback(t *testing.T) {
 }
 
 func TestValidateProviderURL_AllowsNonLocalhostCustom(t *testing.T) {
-	cfg := &Config{}
+	cfg := &Config{AllowedProviderHosts: []string{"my-proxy.example.com"}}
 	err := cfg.ValidateProviderURL("https://my-proxy.example.com/v1")
 	if err != nil {
 		t.Errorf("non-localhost, known-provider-like URL should be allowed, got error: %v", err)
@@ -533,7 +533,7 @@ func TestValidateProviderURL_AllowsNonLocalhostCustom(t *testing.T) {
 }
 
 func TestValidateProviderURL_HTTPSchemes(t *testing.T) {
-	cfg := &Config{}
+	cfg := &Config{AllowedProviderHosts: []string{"my-proxy.example.com"}}
 	// Both http and https should pass ValidateProviderURL — scheme enforcement
 	// is a separate concern handled by the API handler
 	err := cfg.ValidateProviderURL("http://my-proxy.example.com/v1")

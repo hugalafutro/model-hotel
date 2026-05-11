@@ -45,11 +45,11 @@ func TestGetTokenCounts(t *testing.T) {
 	_, err = pool.Exec(ctx, `
 		INSERT INTO request_logs (provider_id, model_id, request_hash, status_code, tokens_prompt, tokens_completion, streaming, state, created_at)
 		VALUES
-			($1, 'hotel/gpt-4o', 'test-gtc-1', 'test-gtc-hash-1', 200, 100, 50, false, 'success', now()),
-			($1, 'hotel/gpt-4o', 'test-gtc-2', 'test-gtc-hash-2', 200, 200, 100, false, 'success', now()),
-			($1, 'hotel/claude-3', 'test-gtc-3', 'test-gtc-hash-3', 200, 150, 75, false, 'success', now()),
-			($1, 'openai/gpt-4', 'test-gtc-4', 'test-gtc-hash-4', 200, 500, 250, false, 'success', now()),
-			($1, 'hotel/gpt-4o', 'test-gtc-5', 'test-gtc-hash-5', 200, 0, 0, false, 'success', now())
+			($1, 'hotel/gpt-4o', 'test-gtc-hash-1', 200, 100, 50, false, 'success', now()),
+			($1, 'hotel/gpt-4o', 'test-gtc-hash-2', 200, 200, 100, false, 'success', now()),
+			($1, 'hotel/claude-3', 'test-gtc-hash-3', 200, 150, 75, false, 'success', now()),
+			($1, 'openai/gpt-4', 'test-gtc-hash-4', 200, 500, 250, false, 'success', now()),
+			($1, 'hotel/gpt-4o', 'test-gtc-hash-5', 200, 0, 0, false, 'success', now())
 	`, providerID)
 	if err != nil {
 		t.Fatalf("failed to insert test data: %v", err)

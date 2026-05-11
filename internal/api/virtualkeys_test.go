@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -257,6 +258,95 @@ func TestCond_EmptyStringTrue(t *testing.T) {
 	result := cond("", true)
 	if result != "" {
 		t.Errorf("cond(%q, true) = %q, want %q", "", result, "")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// validateRateLimits
+// ---------------------------------------------------------------------------
+
+func TestValidateRateLimits_NilBoth(t *testing.T) {
+	w := httptest.NewRecorder()
+	err := validateRateLimits(nil, nil, w)
+	if err != nil {
+		t.Errorf("nil rps and nil burst should return nil, got %v", err)
+	}
+}
+
+func TestValidateRateLimits_NegativeRPS(t *testing.T) {
+	w := httptest.NewRecorder()
+	rps := -1.0
+	err := validateRateLimits(&rps, nil, w)
+	if err == nil {
+		t.Error("negative rps should return error")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestValidateRateLimits_NegativeBurst(t *testing.T) {
+	w := httptest.NewRecorder()
+	burst := -1
+	err := validateRateLimits(nil, &burst, w)
+	if err == nil {
+		t.Error("negative burst should return error")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestValidateRateLimits_ZeroBurst(t *testing.T) {
+	w := httptest.NewRecorder()
+	burst := 0
+	err := validateRateLimits(nil, &burst, w)
+	if err == nil {
+		t.Error("burst=0 should return error")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestValidateRateLimits_ValidRPSAndBurst(t *testing.T) {
+	w := httptest.NewRecorder()
+	rps := 10.0
+	burst := 20
+	err := validateRateLimits(&rps, &burst, w)
+	if err != nil {
+		t.Errorf("valid rps and burst should return nil, got %v", err)
+	}
+	// w.Code defaults to 200, but we only write status on error, so check it wasn't changed from default
+	// For valid input, no status should be written - but NewRecorder() defaults to 200
+	// The key is that err is nil, which we already checked
+}
+
+func TestValidateRateLimits_ZeroRPS_ValidBurst(t *testing.T) {
+	w := httptest.NewRecorder()
+	rps := 0.0
+	burst := 1
+	err := validateRateLimits(&rps, &burst, w)
+	if err != nil {
+		t.Errorf("rps=0 with burst>=1 should return nil, got %v", err)
+	}
+}
+
+func TestValidateRateLimits_NilRPS_ValidBurst(t *testing.T) {
+	w := httptest.NewRecorder()
+	burst := 5
+	err := validateRateLimits(nil, &burst, w)
+	if err != nil {
+		t.Errorf("nil rps with valid burst should return nil, got %v", err)
+	}
+}
+
+func TestValidateRateLimits_ValidRPS_NilBurst(t *testing.T) {
+	w := httptest.NewRecorder()
+	rps := 5.0
+	err := validateRateLimits(&rps, nil, w)
+	if err != nil {
+		t.Errorf("valid rps with nil burst should return nil, got %v", err)
 	}
 }
 
