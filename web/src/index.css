@@ -697,14 +697,14 @@ html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 /* Light-mode readability: providers with dark/gray brand colors need darker text on light backgrounds */
 html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill,
 html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill,
-html[data-ui-style="clean-saas"] .sidebar-quota-pill {
+html[data-ui-style="clean-saas"].light .sidebar-quota-pill {
 	color: var(--pill-color-light, var(--pill-color));
 	background-color: var(--pill-bg-light);
 	border-color: var(--pill-border-light);
 }
 html[data-ui-style="cyber-terminal"].light .sidebar-quota-pill:hover,
 html[data-ui-style="glassmorphism-lite"].light .sidebar-quota-pill:hover,
-html[data-ui-style="clean-saas"] .sidebar-quota-pill:hover {
+html[data-ui-style="clean-saas"].light .sidebar-quota-pill:hover {
 	background-color: var(--pill-bg-light-hover);
 }
 
