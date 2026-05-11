@@ -44,7 +44,7 @@ const TYPE_STYLES: Record<
 	},
 	"zai-coding": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-zai-coding",
-		card: "bg-white/10 text-gray-300 border border-gray-500/50 hover:bg-white/15",
+		card: "bg-white/10 text-gray-200 border border-gray-400/50 hover:bg-white/15",
 	},
 	deepseek: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-deepseek",
@@ -56,7 +56,7 @@ const TYPE_STYLES: Record<
 	},
 	"ollama-cloud": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-ollama-cloud",
-		card: "bg-white/10 text-gray-300 border border-gray-500/50 hover:bg-white/15",
+		card: "bg-white/10 text-gray-200 border border-gray-400/50 hover:bg-white/15",
 	},
 };
 

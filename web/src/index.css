@@ -579,10 +579,10 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 }
 
 .sidebar-quota-pill-ollama-cloud {
-	--pill-r: 61;
-	--pill-g: 61;
-	--pill-b: 61;
-	--pill-color: #b0b0b0;
+	--pill-r: 180;
+	--pill-g: 180;
+	--pill-b: 180;
+	--pill-color: #e0e0e0;
 	--pill-color-light: #3d3d3d;
 	--pill-bg-light: rgba(61, 61, 61, 0.12);
 	--pill-border-light: rgba(61, 61, 61, 0.35);
@@ -608,10 +608,10 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 }
 
 .sidebar-quota-pill-zai-coding {
-	--pill-r: 45;
-	--pill-g: 45;
-	--pill-b: 45;
-	--pill-color: #b0b0b0;
+	--pill-r: 160;
+	--pill-g: 160;
+	--pill-b: 160;
+	--pill-color: #e0e0e0;
 	--pill-color-light: #2d2d2d;
 	--pill-bg-light: rgba(45, 45, 45, 0.12);
 	--pill-border-light: rgba(45, 45, 45, 0.3);
