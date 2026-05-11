@@ -108,8 +108,8 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken 
 	hash := sha256.Sum256([]byte(content))
 	hashHex := hex.EncodeToString(hash[:])
 	prefixed := sha256Prefix + hashHex
-	//nolint:gosec // tokenPath is constructed from dataDir constant, not user input
 	debuglog.Warn("admin: migrating plaintext token to hashed format")
+	//nolint:gosec // tokenPath is constructed from dataDir constant, not user input
 	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
 		return "", "", false, fmt.Errorf("failed to migrate token file: %w", err)
 	}

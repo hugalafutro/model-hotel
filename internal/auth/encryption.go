@@ -84,6 +84,8 @@ func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
 	return string(plaintext), nil
 }
 
+// Encrypt encrypts plaintext using the master key and returns a KeyPair containing
+// the salt, nonce, and ciphertext encoded as a single string.
 func Encrypt(plaintext, masterKey string) (*KeyPair, error) {
 	salt := make([]byte, 32)
 	if _, err := io.ReadFull(cryptoRand.Reader, salt); err != nil {
