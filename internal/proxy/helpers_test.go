@@ -240,6 +240,85 @@ func TestExtractStreamingUsage_DataNoSpaceWithTabAfter(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// normalizeFinishReason
+// ---------------------------------------------------------------------------
+
+func TestNormalizeFinishReason_Anthropic(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"end_turn", "stop"},
+		{"stop_sequence", "stop"},
+		{"tool_use", "tool_calls"},
+		{"refusal", "content_filter"},
+		{"max_tokens", "length"}, // Anthropic uses same name as OpenAI
+	}
+	for _, tt := range tests {
+		got := normalizeFinishReason(tt.in)
+		if got != tt.want {
+			t.Errorf("normalizeFinishReason(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeFinishReason_Gemini(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"STOP", "stop"},
+		{"MAX_TOKENS", "length"},
+		{"SAFETY", "content_filter"},
+		{"RECITATION", "content_filter"},
+		{"BLOCKED", "content_filter"},
+	}
+	for _, tt := range tests {
+		got := normalizeFinishReason(tt.in)
+		if got != tt.want {
+			t.Errorf("normalizeFinishReason(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeFinishReason_Cohere(t *testing.T) {
+	if got := normalizeFinishReason("COMPLETE"); got != "stop" {
+		t.Errorf("normalizeFinishReason(COMPLETE) = %q, want stop", got)
+	}
+	if got := normalizeFinishReason("ERROR_TOXIC"); got != "content_filter" {
+		t.Errorf("normalizeFinishReason(ERROR_TOXIC) = %q, want content_filter", got)
+	}
+}
+
+func TestNormalizeFinishReason_DeepSeek_xAI(t *testing.T) {
+	if got := normalizeFinishReason("insufficient_system_resource"); got != "length" {
+		t.Errorf("normalizeFinishReason(insufficient_system_resource) = %q, want length", got)
+	}
+}
+
+func TestNormalizeFinishReason_PassThrough(t *testing.T) {
+	// Standard OpenAI values should pass through unchanged.
+	for _, v := range []string{"stop", "length", "content_filter", "tool_calls"} {
+		if got := normalizeFinishReason(v); got != v {
+			t.Errorf("normalizeFinishReason(%q) = %q, want %q (passthrough)", v, got, v)
+		}
+	}
+	// Unknown values should also pass through unchanged.
+	if got := normalizeFinishReason("unknown_value"); got != "unknown_value" {
+		t.Errorf("normalizeFinishReason(unknown_value) = %q, want unknown_value", got)
+	}
+}
+
+func TestNormalizeFinishReason_HuggingFace(t *testing.T) {
+	if got := normalizeFinishReason("eos_token"); got != "stop" {
+		t.Errorf("normalizeFinishReason(eos_token) = %q, want stop", got)
+	}
+	if got := normalizeFinishReason("eos"); got != "stop" {
+		t.Errorf("normalizeFinishReason(eos) = %q, want stop", got)
+	}
+}
+
+func TestNormalizeFinishReason_Bedrock(t *testing.T) {
+	if got := normalizeFinishReason("guardrail_intervened"); got != "content_filter" {
+		t.Errorf("normalizeFinishReason(guardrail_intervened) = %q, want content_filter", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // generateRequestHash
 // ---------------------------------------------------------------------------
 

@@ -70,50 +70,72 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		default:
 		}
 
-		var n int
-		var err error
-		if n, err = w.Write(line); err != nil {
-			clientDisconnected = true
-			debuglog.Warn("proxy: client write failed during stream",
-				"error", err, "model", logData.modelID, "provider", logData.providerID,
-				"chunks", chunkCount, "bytes_written", bytesWritten)
-			goto logUpdate
-		}
-		bytesWritten += int64(n)
-		if n, err = w.Write([]byte("\n")); err != nil {
-			clientDisconnected = true
-			debuglog.Warn("proxy: client write failed during stream (newline)",
-				"error", err, "model", logData.modelID, "provider", logData.providerID,
-				"chunks", chunkCount, "bytes_written", bytesWritten)
-			goto logUpdate
-		}
-		bytesWritten += int64(n)
-		if canFlush {
-			flusher.Flush()
-		}
-
 		lineStr := string(line)
 		// Match "data: " (standard) or "data:" (LM Studio and some proxies
 		// send SSE without a space after the colon). Strip leading whitespace
 		// from the payload so both forms yield the same JSON.
 		var payload string
+		//nolint:gocritic // if-else chain is clearer than switch for SSE prefix matching
 		if strings.HasPrefix(lineStr, "data: ") {
-			payload = strings.TrimPrefix(lineStr, "data: ")
+			payload = lineStr[6:]
 		} else if strings.HasPrefix(lineStr, "data:") && len(lineStr) > 5 {
 			// "data:" with no space — LM Studio compatibility.
-			// Skip any trailing whitespace after the colon before the JSON.
+			// Find where the JSON starts after optional whitespace.
 			payload = strings.TrimLeft(lineStr[5:], " \t")
 		} else {
 			// Not a data line — could be an SSE comment (": ..."),
 			// an event line, or a blank line. Pass through without parsing.
+			var n int
+			var err error
+			if n, err = w.Write(line); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if n, err = w.Write([]byte("\n")); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if canFlush {
+				flusher.Flush()
+			}
 			continue
 		}
 		if payload == "[DONE]" {
 			sawDone = true
+			// Write [DONE] sentinel to the downstream client.
+			var n int
+			var err error
+			if n, err = w.Write(line); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if n, err = w.Write([]byte("\n")); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if canFlush {
+				flusher.Flush()
+			}
 			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 			break
 		}
+
+		// Parse the JSON payload to extract usage, errors, and finish_reason.
+		// If finish_reason needs normalization, rewrite the line; otherwise
+		// forward the original bytes to avoid unnecessary allocation.
+		var written bool
 		var chunk struct {
+			Choices []struct {
+				FinishReason *string `json:"finish_reason"`
+			} `json:"choices"`
 			Usage *Usage                    `json:"usage"`
 			Error *struct{ Message string } `json:"error"`
 		}
@@ -130,6 +152,85 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				lastErrMsg = chunk.Error.Message
 				errorChunkCount++
 				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerID, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
+			}
+			// Normalize provider-specific finish_reason values (e.g.,
+			// "STOP" from Gemini, "end_turn" from Anthropic) to OpenAI
+			// equivalents so downstream clients see consistent values.
+			if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != nil {
+				normalized := normalizeFinishReason(*chunk.Choices[0].FinishReason)
+				if normalized != *chunk.Choices[0].FinishReason {
+					// Rewrite the line with normalized finish_reason.
+					// Re-serialize the entire JSON payload with the fix.
+					// This is the uncommon path — most providers already
+					// send OpenAI-compatible values.
+					var raw map[string]json.RawMessage
+					if json.Unmarshal([]byte(payload), &raw) == nil {
+						if choicesRaw, ok := raw["choices"]; ok {
+							var choices []map[string]json.RawMessage
+							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
+								if frRaw, ok2 := choices[0]["finish_reason"]; ok2 {
+									// Replace the finish_reason value.
+									var newFR string
+									if json.Unmarshal(frRaw, &newFR) == nil {
+										choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+									}
+								}
+								// Re-serialize choices and patch into the payload map.
+								if newChoices, err2 := json.Marshal(choices); err2 == nil {
+									raw["choices"] = json.RawMessage(newChoices)
+									if newPayload, err3 := json.Marshal(raw); err3 == nil {
+										n, err := w.Write([]byte("data: "))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											goto logUpdate
+										}
+										n, err = w.Write(newPayload)
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											goto logUpdate
+										}
+										n, err = w.Write([]byte("\n"))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+											goto logUpdate
+										}
+										if canFlush {
+											flusher.Flush()
+										}
+										written = true
+										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerID)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		if !written {
+			// No normalization needed — forward the original line.
+			var n int
+			var err error
+			if n, err = w.Write(line); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if n, err = w.Write([]byte("\n")); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if canFlush {
+				flusher.Flush()
 			}
 		}
 	}
@@ -157,10 +258,8 @@ logUpdate:
 			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
 				debuglog.Warn("proxy: failed to write injected [DONE]", "error", err)
-			} else {
-				if canFlush {
-					flusher.Flush()
-				}
+			} else if canFlush {
+				flusher.Flush()
 			}
 			// Stream was complete; the missing sentinel is benign.
 			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
