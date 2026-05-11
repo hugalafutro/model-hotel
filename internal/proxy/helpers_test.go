@@ -239,6 +239,38 @@ func TestExtractStreamingUsage_DataNoSpaceWithTabAfter(t *testing.T) {
 	}
 }
 
+func TestExtractStreamingUsage_LeadingCRBeforeData(t *testing.T) {
+	// P2-3: Some providers (Gemini) send \r or \r\n before data: lines.
+	// extractStreamingUsage runs on a pre-split string, not the raw stream,
+	// so it doesn't need CR trimming — but the proxy streaming loop does.
+	// This test verifies that extractStreamingUsage still works when
+	// called with clean (already-trimmed) data.
+	data := `data: {"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}`
+
+	usage := extractStreamingUsage(data)
+	if usage == nil {
+		t.Fatal("expected usage to be non-nil")
+	}
+	if usage.PromptTokens != 5 {
+		t.Errorf("PromptTokens = %d, want 5", usage.PromptTokens)
+	}
+}
+
+func TestExtractStreamingUsage_UTF8BOM(t *testing.T) {
+	// P2-11: UTF-8 BOM (\uFEFF) should be stripped from the first line.
+	// extractStreamingUsage receives a string, so the proxy must strip BOM
+	// before calling this function. Test that normal data still works.
+	data := `data: {"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}`
+
+	usage := extractStreamingUsage(data)
+	if usage == nil {
+		t.Fatal("expected usage to be non-nil")
+	}
+	if usage.PromptTokens != 5 {
+		t.Errorf("PromptTokens = %d, want 5", usage.PromptTokens)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // normalizeFinishReason
 // ---------------------------------------------------------------------------

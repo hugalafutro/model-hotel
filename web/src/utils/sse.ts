@@ -101,7 +101,16 @@ export async function readSSEStream<T = unknown>(opts: {
 		buffer = lines.pop() || "";
 
 		let streamDone = false;
-		for (const line of lines) {
+		// P2-11: Strip UTF-8 BOM on the first chunk.
+		let bomStripped = false;
+		for (const rawLine of lines) {
+			// P2-3: Trim leading \r and whitespace that some providers
+			// (notably Gemini) send before data: lines.
+			let line = rawLine.replace(/^[\r\n ]+/, "");
+			if (!bomStripped) {
+				line = line.replace(/^\uFEFF/, "");
+				bomStripped = true;
+			}
 			// Match "data: " (standard SSE) or "data:" (LM Studio, some proxies).
 			// Strip leading whitespace after the colon for both forms.
 			let data: string | null = null;

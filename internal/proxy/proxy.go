@@ -66,6 +66,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// extract error messages from the subsequent data line.
 	var lastAnthropicEvent string
 
+	var emptyLines int
+	const emptyMessagesLimit = 1000
+
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		chunkCount++
@@ -78,6 +81,31 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 
 		lineStr := string(line)
+		// P2-11: Strip UTF-8 BOM (\uFEFF) that some providers send at the
+		// start of a stream. Only check on the first chunk.
+		if chunkCount == 1 {
+			lineStr = strings.TrimPrefix(lineStr, "\uFEFF")
+		}
+		// P2-3: Trim leading \r and \n that some providers (notably Gemini)
+		// send before data: lines. SSE spec allows CR, LF, or CRLF as line
+		// terminators, but bufio.Scanner may leave a stray \r if the
+		// provider uses \r\r or \r\n\r\n between events.
+		lineStr = strings.TrimLeft(lineStr, "\r\n ")
+
+		if lineStr == "" {
+			// P2-4: Safety valve against streams that send only empty lines.
+			// go-openai uses ErrTooManyEmptyStreamMessages for this.
+			emptyLines++
+			if emptyLines > emptyMessagesLimit {
+				debuglog.Warn("proxy: too many empty SSE lines, aborting stream", "model", logData.modelID, "provider", logData.providerID, "limit", emptyMessagesLimit, "chunks", chunkCount)
+				lastErrMsg = "stream interrupted: too many empty lines"
+				break
+			}
+			// Pass through empty lines — they're normal SSE event separators.
+			continue
+		}
+		emptyLines = 0
+
 		// Match "data: " (standard) or "data:" (LM Studio and some proxies
 		// send SSE without a space after the colon). Strip leading whitespace
 		// from the payload so both forms yield the same JSON.
