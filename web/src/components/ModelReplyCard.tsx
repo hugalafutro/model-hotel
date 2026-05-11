@@ -388,7 +388,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							)}
 							{afterModel}
 						</div>
-						<div className="flex items-center gap-3 shrink-0">
+						<div className="flex items-center gap-3 shrink-0 pr-8">
 							{personaName && (
 								<span
 									className="text-xs text-(--accent) cursor-help truncate max-w-40"
