@@ -368,7 +368,7 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 		t.Fatalf("discoverAnthropic failed: %v", err)
 	}
 
-	fmt.Printf("Discovered %d models from Anthropic\n", len(models))
+	t.Logf("Discovered %d models from Anthropic", len(models))
 
 	pricingMatched := 0
 	for _, m := range models {
@@ -376,7 +376,7 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 			pricingMatched++
 		}
 	}
-	fmt.Printf("  Pricing-matched: %d, No pricing: %d\n", pricingMatched, len(models)-pricingMatched)
+	t.Logf("  Pricing-matched: %d, No pricing: %d", pricingMatched, len(models)-pricingMatched)
 
 	if pricingMatched == 0 {
 		t.Error("expected at least some pricing-matched models")
@@ -406,7 +406,7 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 		if m.InputPricePerMillionCacheHit != nil {
 			cachePrice = fmt.Sprintf("$%.2f", *m.InputPricePerMillionCacheHit)
 		}
-		fmt.Printf("  %s display=%s ctx=%s max_out=%s in=%s out=%s cache=%s vision=%v struct=%v pdf=%v\n",
+		t.Logf("  %s display=%s ctx=%s max_out=%s in=%s out=%s cache=%s vision=%v struct=%v pdf=%v",
 			m.ModelID, m.DisplayName, ctxLen, maxOut,
 			inPrice, outPrice, cachePrice,
 			caps.Vision, caps.StructuredOutput, caps.PDFUpload)

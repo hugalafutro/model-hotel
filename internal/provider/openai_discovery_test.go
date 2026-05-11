@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -238,7 +237,7 @@ func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
 		t.Fatalf("discoverOpenAI failed: %v", err)
 	}
 
-	fmt.Printf("Discovered %d models from OpenAI\n", len(models))
+	t.Logf("Discovered %d models from OpenAI", len(models))
 
 	catalogMatches := 0
 	minimalEntries := 0
@@ -250,7 +249,7 @@ func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
 		}
 	}
 
-	fmt.Printf("  Catalog-matched: %d, Minimal entries: %d\n", catalogMatches, minimalEntries)
+	t.Logf("  Catalog-matched: %d, Minimal entries: %d", catalogMatches, minimalEntries)
 
 	if catalogMatches == 0 {
 		t.Error("expected at least some catalog-matched models")

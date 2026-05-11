@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -17,14 +17,14 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	testURL, err := SetupTestDB("db")
 	if err != nil {
-		fmt.Printf("failed to setup test DB: %v\n", err)
+		log.Printf("failed to setup test DB: %v", err)
 		os.Exit(1)
 	}
 	defer CleanupTestDB("db")
 
 	testDB, err = New(ctx, testURL, 25, 5)
 	if err != nil {
-		fmt.Printf("failed to initialize test DB: %v\n", err)
+		log.Printf("failed to initialize test DB: %v", err)
 		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
 	testPool = testDB.Pool()
