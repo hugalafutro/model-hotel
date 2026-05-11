@@ -11,6 +11,12 @@ dist
 dist-ssr
 *.local
 
+# Test coverage output
+coverage
+
+# MSW service worker (generated, not source)
+public/mockServiceWorker.js
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
