@@ -164,7 +164,7 @@ export function useChat() {
 			abortCtrl.current?.abort();
 			convAbortCtrl.current?.abort();
 		};
-	}, [cleanupAbortRef, cleanupConvAbortRef]);
+	}, []);
 
 	const selectedModelObj = enabledModels.find(
 		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
