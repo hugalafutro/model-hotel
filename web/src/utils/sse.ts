@@ -68,6 +68,9 @@ export async function readSSEStream<T = unknown>(opts: {
 	let buffer = "";
 	let sawDone = false;
 	let idleTimedOut = false;
+	// P2-11: Strip UTF-8 BOM (\uFEFF) from the first line of the stream.
+	// Declared outside the read loop so it persists across chunks.
+	let bomStripped = false;
 
 	while (true) {
 		let readResult: Awaited<
@@ -101,8 +104,6 @@ export async function readSSEStream<T = unknown>(opts: {
 		buffer = lines.pop() || "";
 
 		let streamDone = false;
-		// P2-11: Strip UTF-8 BOM on the first chunk.
-		let bomStripped = false;
 		for (const rawLine of lines) {
 			// P2-3: Trim leading \r and whitespace that some providers
 			// (notably Gemini) send before data: lines.

@@ -280,7 +280,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				completionTokens = chunk.Usage.CompletionTokens
 				if chunk.Usage.PromptCacheHitTokens > 0 {
 					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
-					promptCacheMissTokens = chunk.Usage.PromptCacheMissTokens
+					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
 				}
 			}
 			// P2-7: Log native_finish_reason from OpenRouter for debugging.
@@ -344,39 +344,17 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				// Only suppress if: same finish_reason as previous chunk,
 				// no content (delta is empty or absent), and no usage.
 				if normalized == lastFinishReason {
-					// Check if this chunk has no meaningful content beyond
-					// finish_reason — a bare repeat worth suppressing.
-					// We parse the delta/content fields to decide.
-					var bare struct {
-						Choices []struct {
-							Delta   json.RawMessage `json:"delta"`
-							Content *string         `json:"content"`
-						} `json:"choices"`
-					}
-					isBare := true
-					if json.Unmarshal([]byte(payload), &bare) == nil {
-						for _, c := range bare.Choices {
-							if c.Content != nil && *c.Content != "" {
-								isBare = false
-								break
-							}
-							// delta may contain content as a nested field.
-							if len(c.Delta) > 0 {
-								var delta map[string]json.RawMessage
-								if json.Unmarshal(c.Delta, &delta) == nil {
-									if contentRaw, ok := delta["content"]; ok && len(contentRaw) > 0 && string(contentRaw) != `""` && string(contentRaw) != "null" {
-										isBare = false
-										break
-									}
-									if reasoningRaw, ok := delta["reasoning_content"]; ok && len(reasoningRaw) > 0 && string(reasoningRaw) != `""` && string(reasoningRaw) != "null" {
-										isBare = false
-										break
-									}
-								}
-							}
+					hasContent := false
+					if chunk.Choices[0].Delta != nil {
+						delta := chunk.Choices[0].Delta
+						if delta.Content != nil && *delta.Content != "" {
+							hasContent = true
+						}
+						if delta.ReasoningContent != nil && *delta.ReasoningContent != "" {
+							hasContent = true
 						}
 					}
-					if isBare && chunk.Usage == nil {
+					if !hasContent && chunk.Usage == nil {
 						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
 						// Skip writing this chunk — it's a bare duplicate.
 						continue
