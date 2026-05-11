@@ -74,6 +74,18 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// has no content or usage — just a bare finish_reason repeat. Suppressing
 	// avoids downstream "empty response text" errors.
 	var lastFinishReason string
+	// P2-5: Detect repeated identical content chunks. Some models (notably
+	// xAI Grok reasoning) send the same reasoning text in consecutive deltas,
+	// causing infinite-style loops in downstream processors. We track
+	// consecutive identical content and log a warning when the threshold
+	// is exceeded.
+	var lastContent string
+	var repeatedCount int
+	const repeatedContentLimit = 10
+	// P2-7: Track native_finish_reason from OpenRouter for logging.
+	// OpenRouter includes this field alongside the normalized finish_reason,
+	// preserving the original provider's value for debugging.
+	var lastNativeFinishReason string
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -252,7 +264,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		var written bool
 		var chunk struct {
 			Choices []struct {
-				FinishReason *string `json:"finish_reason"`
+				Delta *struct {
+					Content          *string `json:"content"`
+					ReasoningContent *string `json:"reasoning_content"`
+				} `json:"delta"`
+				FinishReason       *string `json:"finish_reason"`
+				NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
 			} `json:"choices"`
 			Usage *Usage                    `json:"usage"`
 			Error *struct{ Message string } `json:"error"`
@@ -263,8 +280,45 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				completionTokens = chunk.Usage.CompletionTokens
 				if chunk.Usage.PromptCacheHitTokens > 0 {
 					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
-					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
+					promptCacheMissTokens = chunk.Usage.PromptCacheMissTokens
 				}
+			}
+			// P2-7: Log native_finish_reason from OpenRouter for debugging.
+			// OpenRouter includes this field alongside the normalized finish_reason,
+			// preserving the original provider's value (e.g. "STOP" instead of "stop").
+			if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
+				if *chunk.Choices[0].NativeFinishReason != lastNativeFinishReason {
+					lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
+					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerID)
+				}
+			}
+			// P2-5: Detect repeated identical content. Some models (notably
+			// xAI Grok reasoning) send the same reasoning text in consecutive
+			// deltas, causing "Thinking... Thinking... Thinking..." loops.
+			// We track consecutive identical content and log a warning when
+			// the threshold is exceeded.
+			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+				delta := chunk.Choices[0].Delta
+				currentContent := ""
+				if delta.Content != nil {
+					currentContent = *delta.Content
+				}
+				if delta.ReasoningContent != nil && currentContent == "" {
+					currentContent = *delta.ReasoningContent
+				}
+				if currentContent == lastContent && currentContent != "" {
+					repeatedCount++
+					if repeatedCount == repeatedContentLimit {
+						preview := currentContent
+						if len(preview) > 50 {
+							preview = preview[:50] + "..."
+						}
+						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+					}
+				} else {
+					repeatedCount = 0
+				}
+				lastContent = currentContent
 			}
 			if chunk.Error != nil && !anthropicErrorCounted {
 				// Only count if P1-C didn't already handle this as an
