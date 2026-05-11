@@ -1,5 +1,3 @@
-import type { LucideIcon } from "lucide-react";
-
 export interface SelectOption {
 	value: string;
 	label: string;
@@ -12,7 +10,6 @@ export interface SettingsSelectProps {
 	options: SelectOption[];
 	onChange: (value: string) => void;
 	description?: React.ReactNode;
-	icon?: LucideIcon;
 	disabled?: boolean;
 }
 
@@ -23,7 +20,6 @@ export function SettingsSelect({
 	options,
 	onChange,
 	description,
-	icon: Icon,
 	disabled = false,
 }: SettingsSelectProps) {
 	const isCustomValue =
@@ -35,7 +31,6 @@ export function SettingsSelect({
 				htmlFor={id}
 				className="block text-sm font-medium text-gray-300 mb-2"
 			>
-				{Icon && <Icon size={14} className="inline mr-1.5" />}
 				{label}
 			</label>
 			{isCustomValue ? (

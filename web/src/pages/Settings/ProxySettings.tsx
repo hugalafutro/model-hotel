@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Timer } from "lucide-react";
+import { Timer } from "lucide-react";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
@@ -75,7 +75,6 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 					value={keyCacheTTL}
 					options={KEY_CACHE_TTL_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ key_cache_ttl: v })}
-					icon={KeyRound}
 					description="How long decrypted provider API keys are cached. Higher values reduce latency on the first request after cache expiry (Argon2id key derivation is ~12ms)."
 				/>
 			</div>
