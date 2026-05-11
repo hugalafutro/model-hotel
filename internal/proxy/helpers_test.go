@@ -196,6 +196,49 @@ func TestExtractStreamingUsage_PartialUsageFields(t *testing.T) {
 	}
 }
 
+func TestExtractStreamingUsage_NoSpaceAfterData(t *testing.T) {
+	// LM Studio sends "data:" without a space after the colon.
+	data := `data:{"id":"chatcmpl-123","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`
+
+	usage := extractStreamingUsage(data)
+	if usage == nil {
+		t.Fatal("expected usage to be non-nil for data: without space")
+	}
+	if usage.PromptTokens != 10 {
+		t.Errorf("PromptTokens = %d, want 10", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 20 {
+		t.Errorf("CompletionTokens = %d, want 20", usage.CompletionTokens)
+	}
+}
+
+func TestExtractStreamingUsage_MixedDataFormats(t *testing.T) {
+	// Mix of "data: " (standard) and "data:" (no space) in same stream.
+	data := `data: {"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}
+data:{"id":"chatcmpl-2","choices":[],"usage":{"prompt_tokens":50,"completion_tokens":100,"total_tokens":150}}`
+
+	usage := extractStreamingUsage(data)
+	if usage == nil {
+		t.Fatal("expected usage to be non-nil")
+	}
+	if usage.PromptTokens != 50 {
+		t.Errorf("PromptTokens = %d, want 50 (last chunk, no-space format)", usage.PromptTokens)
+	}
+}
+
+func TestExtractStreamingUsage_DataNoSpaceWithTabAfter(t *testing.T) {
+	// "data:\t" (tab after colon) should also be handled.
+	data := "data:\t{\"id\":\"chatcmpl-1\",\"choices\":[],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3,\"total_tokens\":10}}"
+
+	usage := extractStreamingUsage(data)
+	if usage == nil {
+		t.Fatal("expected usage to be non-nil for data: with tab")
+	}
+	if usage.PromptTokens != 7 {
+		t.Errorf("PromptTokens = %d, want 7", usage.PromptTokens)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // generateRequestHash
 // ---------------------------------------------------------------------------

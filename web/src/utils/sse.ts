@@ -102,8 +102,15 @@ export async function readSSEStream<T = unknown>(opts: {
 
 		let streamDone = false;
 		for (const line of lines) {
-			if (!line.startsWith("data: ")) continue;
-			const data = line.slice(6);
+			// Match "data: " (standard SSE) or "data:" (LM Studio, some proxies).
+			// Strip leading whitespace after the colon for both forms.
+			let data: string | null = null;
+			if (line.startsWith("data: ")) {
+				data = line.slice(6);
+			} else if (line.startsWith("data:") && line.length > 5) {
+				data = line.slice(5).replace(/^[\t ]/, "");
+			}
+			if (data === null) continue;
 			if (doneSentinel !== null && data === doneSentinel) {
 				streamDone = true;
 				break;

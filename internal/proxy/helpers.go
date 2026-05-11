@@ -13,10 +13,15 @@ func extractStreamingUsage(data string) *Usage {
 	var lastUsage *Usage
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
+		var payload string
+		if strings.HasPrefix(line, "data: ") {
+			payload = strings.TrimPrefix(line, "data: ")
+		} else if strings.HasPrefix(line, "data:") && len(line) > 5 {
+			// "data:" with no space — LM Studio compatibility.
+			payload = strings.TrimLeft(line[5:], " \t")
+		} else {
 			continue
 		}
-		payload := strings.TrimPrefix(line, "data: ")
 		if payload == "[DONE]" {
 			break
 		}

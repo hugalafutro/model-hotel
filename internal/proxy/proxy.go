@@ -92,31 +92,44 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			flusher.Flush()
 		}
 
-		if strings.HasPrefix(string(line), "data: ") {
-			payload := strings.TrimPrefix(string(line), "data: ")
-			if payload == "[DONE]" {
-				sawDone = true
-				debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
-				break
-			}
-			var chunk struct {
-				Usage *Usage                    `json:"usage"`
-				Error *struct{ Message string } `json:"error"`
-			}
-			if json.Unmarshal([]byte(payload), &chunk) == nil {
-				if chunk.Usage != nil {
-					promptTokens = chunk.Usage.PromptTokens
-					completionTokens = chunk.Usage.CompletionTokens
-					if chunk.Usage.PromptCacheHitTokens > 0 {
-						promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
-						promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
-					}
+		lineStr := string(line)
+		// Match "data: " (standard) or "data:" (LM Studio and some proxies
+		// send SSE without a space after the colon). Strip leading whitespace
+		// from the payload so both forms yield the same JSON.
+		var payload string
+		if strings.HasPrefix(lineStr, "data: ") {
+			payload = strings.TrimPrefix(lineStr, "data: ")
+		} else if strings.HasPrefix(lineStr, "data:") && len(lineStr) > 5 {
+			// "data:" with no space — LM Studio compatibility.
+			// Skip any trailing whitespace after the colon before the JSON.
+			payload = strings.TrimLeft(lineStr[5:], " \t")
+		} else {
+			// Not a data line — could be an SSE comment (": ..."),
+			// an event line, or a blank line. Pass through without parsing.
+			continue
+		}
+		if payload == "[DONE]" {
+			sawDone = true
+			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			break
+		}
+		var chunk struct {
+			Usage *Usage                    `json:"usage"`
+			Error *struct{ Message string } `json:"error"`
+		}
+		if json.Unmarshal([]byte(payload), &chunk) == nil {
+			if chunk.Usage != nil {
+				promptTokens = chunk.Usage.PromptTokens
+				completionTokens = chunk.Usage.CompletionTokens
+				if chunk.Usage.PromptCacheHitTokens > 0 {
+					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
+					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
 				}
-				if chunk.Error != nil {
-					lastErrMsg = chunk.Error.Message
-					errorChunkCount++
-					debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerID, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
-				}
+			}
+			if chunk.Error != nil {
+				lastErrMsg = chunk.Error.Message
+				errorChunkCount++
+				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerID, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
 			}
 		}
 	}
