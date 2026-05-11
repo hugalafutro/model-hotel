@@ -170,14 +170,9 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 
 		return (
 			<Modal
-				title="Request Details"
-				onClose={onClose}
-				maxWidth="max-w-2xl"
-				scrollable
-			>
-				{/* Header Section */}
-				<div className="flex items-center justify-between mb-6">
-					<div className="flex items-center gap-3">
+				header={
+					<div className="flex items-center gap-3 flex-wrap mb-4">
+						<h2 className="text-xl font-bold text-white">Request Details</h2>
 						<StatusBadge
 							code={requestLog.status_code}
 							state={requestLog.state}
@@ -190,12 +185,11 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							</span>
 						)}
 					</div>
-					<div className="text-xs text-(--text-tertiary) font-mono flex items-center gap-1.5">
-						ID: {requestLog.id}
-						<CopyButton text={requestLog.id} />
-					</div>
-				</div>
-
+				}
+				onClose={onClose}
+				maxWidth="max-w-2xl"
+				scrollable
+			>
 				{/* Timing Overview */}
 				<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -252,11 +246,36 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						mono
 						truncate
 					/>
-					<DetailItem icon={Box} label="Model" value={requestLog.model_id} />
+					<DetailItem
+						icon={Box}
+						label="Model"
+						value={requestLog.model_id}
+						labelExtra={
+							<CopyButton
+								text={requestLog.model_id}
+								size={11}
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all cursor-pointer inline-flex items-center"
+							/>
+						}
+					/>
 					<DetailItem
 						icon={Server}
 						label="Provider"
 						value={requestLog.provider_name}
+					/>
+					<DetailItem
+						icon={Hash}
+						label="ID"
+						value={requestLog.id}
+						mono
+						truncate
+						labelExtra={
+							<CopyButton
+								text={requestLog.id}
+								size={11}
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all cursor-pointer inline-flex items-center"
+							/>
+						}
 					/>
 					<DetailItem
 						icon={Key}
