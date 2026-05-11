@@ -268,7 +268,6 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						label="ID"
 						value={requestLog.id}
 						mono
-						truncate
 						labelExtra={
 							<CopyButton
 								text={requestLog.id}
