@@ -3,12 +3,12 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // SafeDialer wraps a net.Dialer with IP-range checking on every dial.
@@ -67,7 +67,7 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		// Resolution failure: let the underlying dial proceed so the
 		// caller sees a normal connection error instead of a confusing
 		// "private IP" error for a non-existent host.
-		slog.Warn("proxy: SafeDialer DNS resolution failed, falling through to dial", "host", host, "error", err)
+		debuglog.Warn("proxy: SafeDialer DNS resolution failed, falling through to dial", "host", host, "error", err)
 		return s.d.DialContext(ctx, network, addr)
 	}
 

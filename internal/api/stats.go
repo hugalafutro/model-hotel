@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // StatsHandler provides statistics and analytics API endpoints.
@@ -160,6 +162,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	var count int
 	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
 		return nil, err
 	}
 
@@ -174,6 +177,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		_7dAgo := now.Add(-7 * 24 * time.Hour)
 		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
 		if err != nil {
+			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
 			return nil, err
 		}
 		stats.TotalRequestsLast7d = count
@@ -181,6 +185,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		_24hAgo := now.Add(-24 * time.Hour)
 		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
 		if err != nil {
+			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
 			return nil, err
 		}
 		stats.TotalRequestsLast24h = count
@@ -217,6 +222,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_model", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -250,6 +256,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	rows, err = h.dbPool.Query(ctx, query, since)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_provider", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -283,6 +290,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_virtual_key", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -347,6 +355,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "avg_latency", "error", err)
 		stats.AvgLatencyMs = 0
 	}
 
@@ -362,6 +371,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.ErrorRate)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "error_rate", "error", err)
 		stats.ErrorRate = 0
 	}
 
@@ -373,6 +383,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgOverheadMs)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "avg_overhead", "error", err)
 		stats.AvgOverheadMs = 0
 	}
 
@@ -384,6 +395,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "total_tokens", "error", err)
 		stats.TotalTokensPrompt = 0
 		stats.TotalTokensCompletion = 0
 	}
@@ -399,6 +411,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTokensPerRequest)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "avg_tokens_per_request", "error", err)
 		stats.AvgTokensPerRequest = 0
 	}
 
@@ -410,6 +423,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.RateLimitHits)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "rate_limit_hits", "error", err)
 		stats.RateLimitHits = 0
 	}
 
@@ -421,6 +435,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTTFTMs)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "avg_ttft", "error", err)
 		stats.AvgTTFTMs = 0
 	}
 
@@ -433,6 +448,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		FROM request_logs rl`+vkJoin+`
 		WHERE rl.created_at >= $1`+vkFilter, _1hAgo).Scan(&requests1h)
 	if err != nil {
+		debuglog.Error("stats: query failed", "query", "requests_last_1h", "error", err)
 		requests1h = 0
 	}
 	stats.RequestsLast1h = requests1h

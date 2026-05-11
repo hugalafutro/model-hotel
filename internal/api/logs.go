@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -88,6 +89,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 			respondError(w, "failed to purge logs", err, http.StatusInternalServerError)
 			return
 		}
+		debuglog.Info("logs: purged all logs")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	default:
@@ -101,6 +103,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to purge old logs", err, http.StatusInternalServerError)
 		return
 	}
+	debuglog.Info("logs: purged old logs", "cutoff", cutoff)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -260,6 +263,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 
 	rows, err := h.dbPool.Pool().Query(r.Context(), query, args...)
 	if err != nil {
+		debuglog.Error("logs: failed to query logs", "error", err)
 		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
 		return
 	}
@@ -284,6 +288,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 		)
 		if err != nil {
+			debuglog.Error("logs: row scan failed", "error", err)
 			continue
 		}
 		if total == 0 {

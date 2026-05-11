@@ -3,7 +3,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -355,7 +355,7 @@ func parseCORSOrigins(value string) []string {
 	// forbids it) and would silently break auth. Force users to list explicit origins.
 	for i, o := range result {
 		if o == "*" {
-			log.Printf("warning: CORS_ORIGINS contains \"*\", which is incompatible with credentials=true; removing it")
+			debuglog.Warn("CORS_ORIGINS contains '*' wildcard, which is incompatible with credentials=true; removing it")
 			result = append(result[:i], result[i+1:]...)
 			return parseCORSOrigins(strings.Join(result, ","))
 		}

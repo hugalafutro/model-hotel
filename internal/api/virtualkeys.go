@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -93,6 +94,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	rawKey, err := virtualkey.Generate()
 	if err != nil {
+		debuglog.Error("virtual-keys: failed to generate key", "error", err)
 		respondError(w, "failed to generate key", err, http.StatusInternalServerError)
 		return
 	}
@@ -102,9 +104,11 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst)
 	if err != nil {
+		debuglog.Error("virtual-keys: failed to create key", "name", req.Name, "error", err)
 		respondError(w, "failed to create virtual key", err, http.StatusInternalServerError)
 		return
 	}
+	debuglog.Info("virtual-keys: created", "name", vk.Name, "id", vk.ID)
 
 	resp := virtualKeyToResponse(vk, true, rawKey)
 	writeJSONCreated(w, resp)
@@ -180,6 +184,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)
 			return
 		}
+		debuglog.Error("virtual-keys: failed to update key", "id", id, "error", err)
 		respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
 		return
 	}
@@ -196,7 +201,12 @@ func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.virtualKeyRepo.Delete(r.Context(), id); err != nil {
-		http.Error(w, "virtual key not found", http.StatusNotFound)
+		if errors.Is(err, virtualkey.ErrNotFound) {
+			http.Error(w, "virtual key not found", http.StatusNotFound)
+			return
+		}
+		debuglog.Error("virtual-keys: failed to delete key", "id", id, "error", err)
+		respondError(w, "failed to delete virtual key", err, http.StatusInternalServerError)
 		return
 	}
 

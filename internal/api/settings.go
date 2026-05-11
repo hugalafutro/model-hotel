@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // RegisterSettings mounts settings API routes.
@@ -122,6 +125,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := h.dbPool.Begin(r.Context())
 	if err != nil {
+		debuglog.Error("settings: failed to begin transaction", "error", err)
 		respondError(w, "failed to begin transaction", err, http.StatusInternalServerError)
 		return
 	}
@@ -129,12 +133,14 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	for key, value := range req {
 		if err := h.settingsRepo.SetTx(r.Context(), tx, key, value); err != nil {
+			debuglog.Error("settings: failed to save setting", "key", key, "error", err)
 			respondError(w, "failed to save setting", err, http.StatusInternalServerError)
 			return
 		}
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
+		debuglog.Error("settings: failed to commit transaction", "error", err)
 		respondError(w, "failed to commit transaction", err, http.StatusInternalServerError)
 		return
 	}
@@ -143,6 +149,12 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	for key := range req {
 		h.settingsRepo.InvalidateCache(key)
 	}
+	keys := make([]string, 0, len(req))
+	for key := range req {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	debuglog.Info("settings: updated", "keys", keys)
 
 	all, _ := h.settingsRepo.GetAll(r.Context())
 

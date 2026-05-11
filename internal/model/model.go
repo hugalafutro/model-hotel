@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // Model represents a discovered or configured LLM model.
@@ -101,6 +103,9 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt,
 	)
 
+	if err != nil {
+		debuglog.Error("model: upsert failed", "model_id", m.ModelID, "provider_id", m.ProviderID, "error", err)
+	}
 	InvalidateModelCache()
 	return err
 }
@@ -290,10 +295,13 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 
 	tag, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
 	if err != nil {
+		debuglog.Error("model: disable missing failed", "provider_id", providerID, "error", err)
 		return 0, err
 	}
+	rowsAffected := tag.RowsAffected()
+	debuglog.Info("model: disabled missing models", "provider_id", providerID, "count", rowsAffected)
 	InvalidateModelCache()
-	return tag.RowsAffected(), nil
+	return rowsAffected, nil
 }
 
 // SetEnabled enables or disables a model by its UUID.
@@ -301,6 +309,7 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, enabled, id)
 	if err != nil {
+		debuglog.Error("model: set enabled failed", "id", id, "enabled", enabled, "error", err)
 		return nil, err
 	}
 	InvalidateModelCache()
@@ -311,6 +320,7 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM models WHERE id = $1`, id)
 	if err != nil {
+		debuglog.Error("model: delete failed", "id", id, "error", err)
 		return err
 	}
 	InvalidateModelCache()
@@ -376,6 +386,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 
 	_, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
+		debuglog.Error("model: update failed", "id", id, "error", err)
 		return nil, err
 	}
 	InvalidateModelCache()

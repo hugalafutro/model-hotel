@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 const tokenLength = 32
@@ -43,6 +45,10 @@ func New(dataDir, initialToken string) (*Manager, bool, error) {
 	m.tokenHash = tokenHash
 	m.plainToken = plainToken
 	m.isNew = isNew
+
+	if isNew {
+		debuglog.Info("admin: generated new admin token", "data_dir", dataDir)
+	}
 
 	return m, isNew, nil
 }
@@ -78,6 +84,7 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken 
 		if os.IsNotExist(err) {
 			return m.createAndSaveToken(tokenPath, initialToken)
 		}
+		debuglog.Error("admin: failed to read token file", "path", tokenPath, "error", err)
 		return "", "", false, fmt.Errorf("failed to read token file: %w", err)
 	}
 
@@ -102,6 +109,7 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken 
 	hashHex := hex.EncodeToString(hash[:])
 	prefixed := sha256Prefix + hashHex
 	//nolint:gosec // tokenPath is constructed from dataDir constant, not user input
+	debuglog.Warn("admin: migrating plaintext token to hashed format")
 	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
 		return "", "", false, fmt.Errorf("failed to migrate token file: %w", err)
 	}
@@ -126,6 +134,7 @@ func (m *Manager) createAndSaveToken(tokenPath, initialToken string) (tokenHash,
 	prefixed := sha256Prefix + hashHex
 
 	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
+		debuglog.Error("admin: failed to write token file", "path", tokenPath, "error", err)
 		return "", "", false, fmt.Errorf("failed to write token file: %w", err)
 	}
 

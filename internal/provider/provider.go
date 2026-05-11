@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // Provider represents an LLM provider configuration.
@@ -84,6 +86,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
+		debuglog.Error("provider: create failed", "name", req.Name, "error", err)
 		return nil, err
 	}
 
@@ -99,6 +102,7 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
+		debuglog.Error("provider: list query failed", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -111,6 +115,7 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 			&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 		)
 		if err != nil {
+			debuglog.Error("provider: list scan failed", "error", err)
 			return nil, err
 		}
 		providers = append(providers, &p)
@@ -245,6 +250,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
+		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err
 	}
 
@@ -258,6 +264,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM providers WHERE id = $1`
 	result, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
+		debuglog.Error("provider: delete failed", "id", id, "error", err)
 		return err
 	}
 
@@ -307,6 +314,7 @@ func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
 		UPDATE providers SET last_used_at = now() WHERE id = $1
 	`, id)
 	if err != nil {
+		debuglog.Error("provider: touch last_used failed", "id", id, "error", err)
 		return err
 	}
 	InvalidateProviderCache()

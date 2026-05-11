@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -154,6 +155,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 
 	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs WHERE created_at >= $1`, since).Scan(&requestsToday)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "requestsToday", "error", err)
 		requestsToday = 0
 	}
 
@@ -178,12 +180,14 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	var dbSize int64
 	err = h.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&dbSize)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "dbSize", "error", err)
 		dbSize = 0
 	}
 
 	var connCount int
 	err = h.pool.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity`).Scan(&connCount)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "connCount", "error", err)
 		connCount = 0
 	}
 
@@ -195,6 +199,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		FROM pg_stat_database WHERE datname = current_database()
 	`).Scan(&cacheHitRatio)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "cacheHitRatio", "error", err)
 		cacheHitRatio = 0
 	}
 
@@ -207,6 +212,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		"SELECT xact_commit + xact_rollback FROM pg_stat_database WHERE datname = current_database()",
 	).Scan(&totalTx)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "totalTx", "error", err)
 		totalTx = 0
 	}
 
@@ -230,6 +236,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		"SELECT COALESCE(sum(n_dead_tup), 0) FROM pg_stat_user_tables",
 	).Scan(&deadTuples)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "deadTuples", "error", err)
 		deadTuples = 0
 	}
 
@@ -239,6 +246,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		"SELECT count(*) FROM pg_locks WHERE NOT granted",
 	).Scan(&lockWaits)
 	if err != nil {
+		debuglog.Error("system: query failed", "query", "lockWaits", "error", err)
 		lockWaits = 0
 	}
 
