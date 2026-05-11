@@ -58,6 +58,13 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	chunkCount := 0
 	errorChunkCount := 0
 	var bytesWritten int64
+	// P1-B: Error accumulation buffer. Some providers (e.g. go-openai) split
+	// error JSON across multiple SSE data lines. We accumulate bytes until a
+	// non-error chunk arrives, then try to unmarshal the full accumulated error.
+	var errAccum []byte
+	// P1-C: Tracks the last Anthropic SSE event type (e.g. "error") so we can
+	// extract error messages from the subsequent data line.
+	var lastAnthropicEvent string
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -85,6 +92,30 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		} else {
 			// Not a data line — could be an SSE comment (": ..."),
 			// an event line, or a blank line. Pass through without parsing.
+			// P1-C: Detect Anthropic-style "event: error" lines for logging.
+			// Anthropic streams use typed events like:
+			//   event: error
+			//   data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}
+			// We track "event: error" so the next data line is known to be an
+			// error payload, allowing us to extract the message for logging.
+			if strings.HasPrefix(lineStr, "event:") {
+				evt := strings.TrimSpace(lineStr[6:])
+				if evt == "error" {
+					lastAnthropicEvent = "error"
+				} else {
+					lastAnthropicEvent = ""
+				}
+			}
+			// Flush any accumulated error when a non-data line arrives
+			// (the error payload has already been captured in the data line).
+			if len(errAccum) > 0 {
+				if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
+					lastErrMsg = accumulatedMsg
+					errorChunkCount++
+					debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+				}
+				errAccum = nil
+			}
 			var n int
 			var err error
 			if n, err = w.Write(line); err != nil {
@@ -131,6 +162,59 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		// Parse the JSON payload to extract usage, errors, and finish_reason.
 		// If finish_reason needs normalization, rewrite the line; otherwise
 		// forward the original bytes to avoid unnecessary allocation.
+		//
+		// P1-B: Error accumulation. Some providers split error JSON across
+		// multiple data lines (e.g. a network boundary splits
+		//   data: {"error":{"message":"Rate limit
+		// into two chunks). We detect lines starting with {"error" and
+		// accumulate them until a non-error line arrives, then try to parse
+		// the accumulated bytes as a complete error object.
+		//
+		// P1-C: Anthropic-style errors. When an "event: error" SSE line
+		// precedes a data line, the payload is an Anthropic error event:
+		//   {"type":"error","error":{"type":"overloaded_error","message":"..."}}
+		// We detect this and extract the error message for logging.
+		isErrorPrefix := strings.HasPrefix(payload, `{"error"`)
+		if isErrorPrefix {
+			// P1-B: Accumulate error JSON bytes. Some providers split error
+			// responses across multiple SSE data lines. We buffer bytes until
+			// a non-error chunk arrives, then try to parse the full object.
+			errAccum = append(errAccum, []byte(payload)...)
+		} else if len(errAccum) > 0 {
+			// Non-error line arrived — flush the accumulated error.
+			if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
+				lastErrMsg = accumulatedMsg
+				errorChunkCount++
+				debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+			}
+			errAccum = nil
+		}
+
+		// P1-C: If the preceding event was "event: error", this data line
+		// is an Anthropic error payload. Extract the message regardless of
+		// whether it starts with {"error" (Anthropic wraps it as
+		// {"type":"error","error":{...}}).
+		// Track whether P1-C already counted this error so we don't
+		// double-count when chunk.Error fires for the same line.
+		anthropicErrorCounted := false
+		if lastAnthropicEvent == "error" {
+			lastAnthropicEvent = ""
+			// Try Anthropic error format: {"type":"error","error":{"type":"...","message":"..."}}
+			var anthErr struct {
+				Type  string `json:"type"`
+				Error *struct {
+					Type    string `json:"type"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if json.Unmarshal([]byte(payload), &anthErr) == nil && anthErr.Error != nil {
+				lastErrMsg = anthErr.Error.Message
+				anthropicErrorCounted = true
+				errorChunkCount++
+				debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+			}
+		}
+
 		var written bool
 		var chunk struct {
 			Choices []struct {
@@ -148,10 +232,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
 				}
 			}
-			if chunk.Error != nil {
+			if chunk.Error != nil && !anthropicErrorCounted {
+				// Only count if P1-C didn't already handle this as an
+				// Anthropic error event (which shares the same data line).
 				lastErrMsg = chunk.Error.Message
 				errorChunkCount++
 				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerID, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
+				// Clear errAccum: chunk.Error already captured this error,
+				// so P1-B's next flush must not re-count it.
+				errAccum = nil
 			}
 			// Normalize provider-specific finish_reason values (e.g.,
 			// "STOP" from Gemini, "end_turn" from Anthropic) to OpenAI
@@ -232,6 +321,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if canFlush {
 				flusher.Flush()
 			}
+		}
+	}
+
+	// Flush any remaining accumulated error bytes at stream end.
+	if len(errAccum) > 0 {
+		if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
+			lastErrMsg = accumulatedMsg
+			errorChunkCount++
+			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 		}
 	}
 

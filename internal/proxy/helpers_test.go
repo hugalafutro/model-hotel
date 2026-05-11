@@ -319,6 +319,69 @@ func TestNormalizeFinishReason_Bedrock(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// parseAccumulatedError
+// ---------------------------------------------------------------------------
+
+func TestParseAccumulatedError_Empty(t *testing.T) {
+	got := parseAccumulatedError(nil)
+	if got != "" {
+		t.Errorf("parseAccumulatedError(nil) = %q, want empty string", got)
+	}
+	got = parseAccumulatedError([]byte{})
+	if got != "" {
+		t.Errorf("parseAccumulatedError([]) = %q, want empty string", got)
+	}
+}
+
+func TestParseAccumulatedError_OpenAIFormat(t *testing.T) {
+	data := []byte(`{"error":{"message":"Rate limit exceeded","type":"rate_limit_error","param":null,"code":"rate_limit_exceeded"}}`)
+	got := parseAccumulatedError(data)
+	if got != "Rate limit exceeded" {
+		t.Errorf("parseAccumulatedError(OpenAI format) = %q, want %q", got, "Rate limit exceeded")
+	}
+}
+
+func TestParseAccumulatedError_AnthropicFormat(t *testing.T) {
+	data := []byte(`{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`)
+	got := parseAccumulatedError(data)
+	if got != "Overloaded" {
+		t.Errorf("parseAccumulatedError(Anthropic format) = %q, want %q", got, "Overloaded")
+	}
+}
+
+func TestParseAccumulatedError_AnthropicOverloaded(t *testing.T) {
+	data := []byte(`{"type":"error","error":{"type":"overloaded_error","message":"API is temporarily overloaded"}}`)
+	got := parseAccumulatedError(data)
+	if got != "API is temporarily overloaded" {
+		t.Errorf("parseAccumulatedError() = %q, want %q", got, "API is temporarily overloaded")
+	}
+}
+
+func TestParseAccumulatedError_TruncatedJSON(t *testing.T) {
+	data := []byte(`{"error":{"message":"Rate limi`)
+	got := parseAccumulatedError(data)
+	if got != `{"error":{"message":"Rate limi` {
+		t.Errorf("parseAccumulatedError(truncated JSON) = %q, want raw string", got)
+	}
+}
+
+func TestParseAccumulatedError_NonJSONObject(t *testing.T) {
+	data := []byte(`not json at all`)
+	got := parseAccumulatedError(data)
+	if got != "" {
+		t.Errorf("parseAccumulatedError(non-JSON) = %q, want empty string", got)
+	}
+}
+
+func TestParseAccumulatedError_OpenAISimpleError(t *testing.T) {
+	data := []byte(`{"error":{"message":"Internal server error"}}`)
+	got := parseAccumulatedError(data)
+	if got != "Internal server error" {
+		t.Errorf("parseAccumulatedError(simple error) = %q, want %q", got, "Internal server error")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // generateRequestHash
 // ---------------------------------------------------------------------------
 

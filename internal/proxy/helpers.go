@@ -91,6 +91,42 @@ func normalizeFinishReason(reason string) string {
 	return reason
 }
 
+// parseAccumulatedError attempts to extract a human-readable error message
+// from accumulated SSE error bytes. Some providers (e.g. OpenAI, go-openai)
+// split error JSON across multiple SSE data lines. This function tries to
+// parse the accumulated bytes as a complete JSON error object, supporting
+// both the OpenAI format ({"error":{"message":"..."}}) and the Anthropic
+// format ({"type":"error","error":{"message":"..."}}).
+func parseAccumulatedError(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+	// Try OpenAI error format: {"error":{"message":"..."}}
+	var openaiErr struct {
+		Error *struct{ Message string } `json:"error"`
+	}
+	if json.Unmarshal(data, &openaiErr) == nil && openaiErr.Error != nil {
+		return openaiErr.Error.Message
+	}
+	// Try Anthropic error format: {"type":"error","error":{"type":"...","message":"..."}}
+	var anthErr struct {
+		Type  string `json:"type"`
+		Error *struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(data, &anthErr) == nil && anthErr.Error != nil {
+		return anthErr.Error.Message
+	}
+	// Can't parse as structured error — return raw bytes if they start with
+	// { (heuristic for truncated JSON).
+	if data[0] == '{' {
+		return string(data)
+	}
+	return ""
+}
+
 func generateRequestHash() string {
 	b := make([]byte, 8)
 	rand.Read(b)
