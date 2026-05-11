@@ -347,7 +347,7 @@ export function ModelPicker({
 									className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 								>
 									<div
-										className={`flex flex-wrap gap-1.5 pl-5 py-0.5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
+										className={`flex flex-wrap gap-1.5 pl-5 mt-0.5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
 									>
 										{providerModels.map((m) => {
 											const val = proxyModelID(m.provider_name, m.model_id);
