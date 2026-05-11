@@ -7,11 +7,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { GenerationParams, Model } from "../api/types";
-import { useToast } from "../context/ToastContext";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
 import { getParamIncompatibility, isParamDisabled } from "../utils/paramCompat";
 import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
 import { CapBadge } from "./CapBadge";
+import { CopyablePill } from "./CopyablePill";
 import { CAP_META } from "./capMeta";
 import { Modal } from "./Modal";
 import { ParamSlider } from "./ParamSlider";
@@ -47,9 +47,7 @@ export function ModelDetailPanel({
 	const [collapsed, setCollapsed] = useState(false);
 
 	const editable = params !== undefined && onParamsChange !== undefined;
-	const { toast } = useToast();
 	const provider = model.provider_name;
-	const proxyId = proxyModelID(model.provider_name, model.model_id);
 
 	const hasCustom = editable
 		? params.temperature !== undefined ||
@@ -377,19 +375,10 @@ export function ModelDetailPanel({
 							<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 								Proxy ID
 							</span>
-							<button
-								type="button"
-								onClick={() => {
-									navigator.clipboard
-										.writeText(proxyId)
-										.then(() => toast("Copied!", "info"))
-										.catch(() => toast("Copy failed", "error"));
-								}}
-								className="block mt-0.5 p-1.5 rounded bg-(--surface-input) text-[10px] text-(--text-secondary) break-all text-left cursor-pointer hover:bg-gray-700 transition-colors w-full"
-								title="Click to copy"
-							>
-								{proxyId}
-							</button>
+							<CopyablePill
+								text={proxyModelID(model.provider_name, model.model_id)}
+								textClassName="text-[10px] text-(--text-secondary) break-all whitespace-normal font-mono"
+							/>
 						</div>
 					</div>
 				</div>
