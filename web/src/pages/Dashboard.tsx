@@ -168,12 +168,12 @@ export function Dashboard() {
 							className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
 								excludeDeleted
 									? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-									: "bg-gray-700/60 text-gray-400 hover:bg-gray-600"
+									: "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 							}`}
 						>
 							<span
 								className={`w-1.5 h-1.5 rounded-full transition-colors ${
-									excludeDeleted ? "bg-amber-400" : "bg-gray-500"
+									excludeDeleted ? "bg-amber-400" : "bg-green-400"
 								}`}
 							/>
 							{excludeDeleted ? "Active Keys Only" : "All Keys"}

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { GenerationParams, Model } from "../api/types";
+import { useToast } from "../context/ToastContext";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
 import { getParamIncompatibility, isParamDisabled } from "../utils/paramCompat";
 import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
@@ -46,7 +47,9 @@ export function ModelDetailPanel({
 	const [collapsed, setCollapsed] = useState(false);
 
 	const editable = params !== undefined && onParamsChange !== undefined;
+	const { toast } = useToast();
 	const provider = model.provider_name;
+	const proxyId = proxyModelID(model.provider_name, model.model_id);
 
 	const hasCustom = editable
 		? params.temperature !== undefined ||
@@ -74,16 +77,16 @@ export function ModelDetailPanel({
 			className={`${embedded ? "" : "ui-card p-3 "}text-xs relative overflow-y-auto max-h-full ${tintClass} ${pulseClass}`}
 		>
 			{/* Header with collapse arrow + cog */}
-			<div className="flex items-start justify-between">
+			<div className="flex items-center justify-between">
 				<div className="min-w-0">
 					<h3
-						className="text-sm font-semibold text-(--text-primary) leading-tight truncate"
+						className="text-sm font-semibold text-(--accent) leading-tight truncate"
 						title={model.display_name || model.model_id}
 					>
 						{model.display_name || model.model_id}
 					</h3>
 				</div>
-				<div className="flex items-start gap-0.5 shrink-0 ml-2">
+				<div className="flex items-center gap-0.5 shrink-0 ml-2">
 					{!collapsed && hasCustom && (
 						<button
 							type="button"
@@ -138,7 +141,7 @@ export function ModelDetailPanel({
 			</div>
 			{!collapsed && model.description && (
 				<p
-					className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px]"
+					className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px] text-justify"
 					title={model.description}
 				>
 					{model.description}
@@ -374,9 +377,19 @@ export function ModelDetailPanel({
 							<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 								Proxy ID
 							</span>
-							<code className="block mt-0.5 p-1.5 rounded bg-(--surface-input) text-[10px] text-(--text-secondary) break-all">
-								{proxyModelID(model.provider_name, model.model_id)}
-							</code>
+							<button
+								type="button"
+								onClick={() => {
+									navigator.clipboard
+										.writeText(proxyId)
+										.then(() => toast("Copied!", "info"))
+										.catch(() => toast("Copy failed", "error"));
+								}}
+								className="block mt-0.5 p-1.5 rounded bg-(--surface-input) text-[10px] text-(--text-secondary) break-all text-left cursor-pointer hover:bg-gray-700 transition-colors w-full"
+								title="Click to copy"
+							>
+								{proxyId}
+							</button>
 						</div>
 					</div>
 				</div>
