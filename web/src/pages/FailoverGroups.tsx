@@ -9,7 +9,7 @@ import { FilterInput } from "../components/FilterInput";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
-import { formatTimestamp } from "../utils/format";
+import { countLabel, formatTimestamp } from "../utils/format";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
 
@@ -290,7 +290,11 @@ export function FailoverGroups() {
 		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
 			<PageHeader
 				icon={Shuffle}
-				title={`${allGroups?.length ?? 0} Failover Groups`}
+				title={countLabel(
+					allGroups?.length,
+					"Failover Group",
+					"Failover Groups",
+				)}
 				description={
 					<>
 						Route requests through multiple providers in priority order via{" "}

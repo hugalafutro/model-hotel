@@ -21,7 +21,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../context/ToastContext";
-import { formatNumber, formatRelativeTime } from "../utils/format";
+import { countLabel, formatNumber, formatRelativeTime } from "../utils/format";
 
 type VKSortField = "name" | "key" | "created" | "tokens" | "last_used";
 
@@ -377,7 +377,7 @@ export function VirtualKeys() {
 		<div className="space-y-6">
 			<PageHeader
 				icon={KeyRound}
-				title="Virtual Keys"
+				title={countLabel(keys?.length, "Virtual Key", "Virtual Keys")}
 				description="Issue keys for clients to access the proxy at /v1"
 				actions={
 					<button

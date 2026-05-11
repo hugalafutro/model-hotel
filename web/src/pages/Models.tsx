@@ -7,6 +7,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelTable } from "../components/ModelTable";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../context/ToastContext";
+import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 
 export function Models() {
@@ -124,7 +125,7 @@ export function Models() {
 		<div className="space-y-4">
 			<PageHeader
 				icon={Bot}
-				title={`${models?.length ?? 0} Models`}
+				title={countLabel(models?.length, "Model", "Models")}
 				description="Discovered models from your providers"
 				badge={modelBadge}
 			/>

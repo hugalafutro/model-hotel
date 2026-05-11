@@ -42,6 +42,23 @@ export function formatTimestamp(ts: number | string): string {
 	});
 }
 
+/**
+ * Returns a count-prefixed label with proper singular/plural.
+ * 0 → just the noun (e.g. "Models")
+ * 1 → "1 Model" (singular)
+ * 2+ → "5 Models" (plural)
+ */
+export function countLabel(
+	count: number | undefined,
+	singular: string,
+	plural: string,
+): string {
+	const n = count ?? 0;
+	if (n === 0) return plural;
+	if (n === 1) return `1 ${singular}`;
+	return `${n} ${plural}`;
+}
+
 export function formatDate(ts: number | string): string {
 	return new Date(ts).toLocaleDateString(undefined, {
 		day: "numeric",

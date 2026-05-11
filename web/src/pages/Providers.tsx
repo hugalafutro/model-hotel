@@ -19,6 +19,7 @@ import { Spinner } from "../components/Spinner";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
+import { countLabel } from "../utils/format";
 import { AddProviderModal } from "./Providers/AddProviderModal";
 import {
 	getProviderType,
@@ -220,7 +221,7 @@ export function Providers() {
 		<div className="space-y-6">
 			<PageHeader
 				icon={PlugZap}
-				title="Providers"
+				title={countLabel(allProvidersCount, "Provider", "Providers")}
 				description="Manage your provider configurations"
 				actions={
 					<>
