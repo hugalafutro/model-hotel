@@ -1,5 +1,5 @@
 import { render, renderHook, screen, waitFor } from "@testing-library/react";
-import { act, type ReactNode } from "react";
+import { act, type ReactNode, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider, useToast } from "../ToastContext";
 
@@ -276,9 +276,9 @@ describe("ToastItem", () => {
 function TestChild() {
 	const { toast } = useToast();
 
-	act(() => {
+	useEffect(() => {
 		toast("Auto-dismiss toast");
-	});
+	}, [toast]);
 
 	return <div data-testid="child" />;
 }
