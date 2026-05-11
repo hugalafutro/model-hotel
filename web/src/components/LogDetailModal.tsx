@@ -265,7 +265,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					/>
 					<DetailItem
 						icon={Hash}
-						label="ID"
+						label="DB Row ID"
 						value={requestLog.id}
 						mono
 						labelExtra={
