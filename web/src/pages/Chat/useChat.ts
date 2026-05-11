@@ -8,7 +8,6 @@ import type {
 import { useSidebarMode } from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
-import { CHAT_PERSONAS } from "../../data/presets";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useEnabledModels } from "../../hooks/useModels";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
@@ -16,6 +15,7 @@ import { hasAnyParam } from "../../utils/params";
 import { getApiMessagesForModel, streamModelResponse } from "./chatStreaming";
 import { useChatConversationState } from "./useChatConversationState";
 import { useChatPersistence } from "./useChatPersistence";
+import { useChatRandomActions } from "./useChatRandom";
 import { useConversationRunner } from "./useConversationRunner";
 import { useMultimodalAttachments } from "./useMultimodalAttachments";
 
@@ -136,54 +136,6 @@ export function useChat() {
 	const setMessageParams =
 		chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
-	const handleRandomPersona = useCallback(() => {
-		const currentId =
-			chatSubMode === "chat"
-				? chatActivePersonaId
-				: conversationActivePersonaIdA;
-		const available = CHAT_PERSONAS.filter((p) => p.id !== currentId);
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		setActivePersonaId(pick.id);
-		setSystemPrompt(pick.systemPrompt);
-	}, [
-		chatSubMode,
-		chatActivePersonaId,
-		conversationActivePersonaIdA,
-		setActivePersonaId,
-		setSystemPrompt,
-	]);
-
-	const handleRandomPersonaB = useCallback(() => {
-		const available = CHAT_PERSONAS.filter((p) => p.id !== activePersonaIdB);
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		setActivePersonaIdB(pick.id);
-		setSystemPromptB(pick.systemPrompt);
-	}, [activePersonaIdB, setActivePersonaIdB, setSystemPromptB]);
-
-	const handleRandomModel = useCallback(() => {
-		const available = enabledModels.filter((m) => {
-			const val = proxyModelID(m.provider_name, m.model_id);
-			return val !== selectedModel;
-		});
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		const val = proxyModelID(pick.provider_name, pick.model_id);
-		setSelectedModel(val);
-	}, [enabledModels, selectedModel, setSelectedModel]);
-
-	const handleRandomModelB = useCallback(() => {
-		const available = enabledModels.filter((m) => {
-			const val = proxyModelID(m.provider_name, m.model_id);
-			return val !== selectedModelB;
-		});
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		const val = proxyModelID(pick.provider_name, pick.model_id);
-		setSelectedModelB(val);
-	}, [enabledModels, selectedModelB, setSelectedModelB]);
-
 	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
 	// but skip the initial mount so we don't wipe persisted messages.
 	const prevChatSubModeRef = useRef(chatSubMode);
@@ -204,12 +156,15 @@ export function useChat() {
 	const cleanupAbortRef = useRef<AbortController | null>(null);
 	const cleanupConvAbortRef = useRef<AbortController | null>(null);
 
+	// Cleanup on unmount only: abort in-flight requests.
 	useEffect(() => {
+		const abortCtrl = cleanupAbortRef;
+		const convAbortCtrl = cleanupConvAbortRef;
 		return () => {
-			cleanupAbortRef.current?.abort();
-			cleanupConvAbortRef.current?.abort();
+			abortCtrl.current?.abort();
+			convAbortCtrl.current?.abort();
 		};
-	}, []);
+	}, [cleanupAbortRef, cleanupConvAbortRef]);
 
 	const selectedModelObj = enabledModels.find(
 		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
@@ -327,6 +282,27 @@ export function useChat() {
 		},
 		[messageParams],
 	);
+
+	const {
+		handleRandomPersona,
+		handleRandomPersonaB,
+		handleRandomModel,
+		handleRandomModelB,
+	} = useChatRandomActions({
+		chatSubMode,
+		chatActivePersonaId,
+		conversationActivePersonaIdA,
+		activePersonaIdB,
+		selectedModel,
+		selectedModelB,
+		enabledModels: enabledModels ?? [],
+		setActivePersonaId,
+		setSystemPrompt,
+		setActivePersonaIdB,
+		setSystemPromptB,
+		setSelectedModel,
+		setSelectedModelB,
+	});
 
 	const handleSend = useCallback(async () => {
 		const hasAttachment = pendingImage || pendingAudio;

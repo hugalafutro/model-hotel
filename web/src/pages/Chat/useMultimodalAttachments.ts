@@ -27,7 +27,10 @@ interface UseMultimodalAttachmentsReturn {
 
 export function useMultimodalAttachments(
 	hasVision: boolean,
-	toast: (msg: string, severity?: "success" | "error" | "info" | "warning") => void,
+	toast: (
+		msg: string,
+		severity?: "success" | "error" | "info" | "warning",
+	) => void,
 ): UseMultimodalAttachmentsReturn {
 	const [pendingImage, setPendingImage] = useState<{
 		dataUrl: string;
