@@ -24,6 +24,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -95,6 +96,11 @@ func newTestHandlerWithRouter(t *testing.T) (*Handler, chi.Router) {
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
 	h.Register(r)
+	// Mock Docker stats collector to avoid real Docker API calls which
+	// spawn persistent HTTP transport goroutines that hang the test process.
+	h.SetDockerStatsCollector(func(string) util.AggregatedDockerStats {
+		return util.AggregatedDockerStats{}
+	})
 	return h, r
 }
 
@@ -1299,6 +1305,9 @@ func TestGetSystem(t *testing.T) {
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
+	h.SetDockerStatsCollector(func(string) util.AggregatedDockerStats {
+		return util.AggregatedDockerStats{}
+	})
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/system", http.NoBody)

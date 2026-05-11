@@ -16,6 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ func TestMain(m *testing.M) {
 	if apiTestDB != nil {
 		apiTestDB.Close()
 	}
+	util.CloseDockerClient()
 	db.CleanupTestDB("api")
 	os.Exit(code)
 }

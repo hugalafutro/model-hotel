@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // getTestPool creates a pgxpool.Pool for testing, skipping if unavailable
@@ -52,6 +54,11 @@ func TestCollect_InvalidSince(t *testing.T) {
 func TestCollect_EmptySinceWithTimeout(t *testing.T) {
 	pool := getTestPool(t)
 	sysHandler := NewSystemHandler(pool)
+	// Mock Docker stats to avoid real Docker API calls that spawn persistent
+	// HTTP transport goroutines and hang the test process.
+	sysHandler.dockerStatsCollector = func(string) util.AggregatedDockerStats {
+		return util.AggregatedDockerStats{}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

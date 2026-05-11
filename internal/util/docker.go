@@ -425,33 +425,38 @@ func isHex(s string) bool {
 // DetectComposeProject detects the Docker Compose project name for the current container.
 func DetectComposeProject() string {
 	containerID := getOwnContainerID()
-	if containerID != "" && IsDockerAvailable() {
-		client := dockerHTTPClient()
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/containers/"+containerID+"/json", http.NoBody)
-		resp, err := client.Do(req)
-		if err == nil && resp.StatusCode == 200 {
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			var info struct {
-				Config struct {
-					Labels map[string]string `json:"Labels"`
-				} `json:"Config"`
-			}
-			if json.Unmarshal(body, &info) == nil {
-				if project, ok := info.Config.Labels["com.docker.compose.project"]; ok {
-					cancel()
-					return project
-				}
-			}
-		} else if err != nil {
-			debuglog.Info("docker: failed to inspect own container", "error", err)
-		}
-		if resp != nil {
-			_ = resp.Body.Close()
-		}
-		cancel()
+	if containerID == "" || !IsDockerAvailable() {
+		return ""
 	}
 
+	client := dockerHTTPClient()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/containers/"+containerID+"/json", http.NoBody)
+	resp, err := client.Do(req)
+	if err != nil {
+		debuglog.Info("docker: failed to inspect own container", "error", err)
+		return ""
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		return ""
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	var info struct {
+		Config struct {
+			Labels map[string]string `json:"Labels"`
+		} `json:"Config"`
+	}
+	if json.Unmarshal(body, &info) != nil {
+		return ""
+	}
+
+	if project, ok := info.Config.Labels["com.docker.compose.project"]; ok {
+		return project
+	}
 	return ""
 }

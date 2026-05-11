@@ -67,6 +67,7 @@ type Handler struct {
 	adminMgr       AdminAuthenticator
 	virtualKeyRepo VirtualKeyStore
 	settingsRepo   SettingsStore
+	systemHandler  *SystemHandler
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -84,6 +85,13 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 // Pool returns the database connection pool.
 func (h *Handler) Pool() *db.DB {
 	return h.dbPool
+}
+
+// SetDockerStatsCollector overrides the system Docker stats collector (for testing).
+func (h *Handler) SetDockerStatsCollector(fn dockerStatsCollector) {
+	if h.systemHandler != nil {
+		h.systemHandler.dockerStatsCollector = fn
+	}
 }
 
 // Register mounts all admin API routes on the given router.
@@ -110,7 +118,9 @@ func (h *Handler) Register(r chi.Router) {
 	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo).Register(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
-	NewSystemHandler(h.dbPool.Pool()).Register(r)
+	sh := NewSystemHandler(h.dbPool.Pool())
+	sh.Register(r)
+	h.systemHandler = sh
 	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups")).Register(r)
 }
 
