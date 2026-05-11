@@ -55,14 +55,15 @@ func SetKeyCacheTTL(d time.Duration) {
 }
 
 func decryptionCacheKey(ciphertext, nonce, salt []byte) string {
-	if len(salt) == 0 {
-		return hex.EncodeToString(ciphertext) + ":" + hex.EncodeToString(nonce)
-	}
 	return hex.EncodeToString(ciphertext) + ":" + hex.EncodeToString(nonce) + ":" + hex.EncodeToString(salt)
 }
 
 // DecryptCached attempts to decrypt a provider key using the cached Argon2id key.
 func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
+	if len(salt) == 0 {
+		return "", fmt.Errorf("cannot decrypt: salt is required")
+	}
+
 	ck := decryptionCacheKey(ciphertext, nonce, salt)
 
 	keyCacheMu.RLock()
@@ -72,12 +73,7 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 	}
 	keyCacheMu.RUnlock()
 
-	var key []byte
-	if len(salt) == 0 {
-		key = deriveKeyV1(masterKey)
-	} else {
-		key = deriveKeyV2(masterKey, salt)
-	}
+	key := deriveKey(masterKey, salt)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {

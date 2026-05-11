@@ -2,8 +2,6 @@ package provider
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -612,21 +610,17 @@ func TestGetNanoGPTUsage(t *testing.T) {
 	masterKey := "test-master-key"
 	apiKey := "test-api-key"
 
-	// Use v1 encryption (no salt) for simplicity in tests
-	keyV1 := auth.DeriveKey(masterKey)
-	block, _ := aes.NewCipher(keyV1)
-	gcm, _ := cipher.NewGCM(block)
-	nonce := make([]byte, 12)
-	copy(nonce, "test-nonce-12") // Fixed nonce for test
-
-	ciphertext := gcm.Seal(nil, nonce, []byte(apiKey), nil)
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
 
 	provider := &Provider{
 		ID:           uuid.New(),
 		BaseURL:      server.URL,
-		EncryptedKey: ciphertext,
-		KeyNonce:     nonce,
-		KeySalt:      nil, // Use v1 (no salt)
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
 	}
 
 	ctx := context.Background()

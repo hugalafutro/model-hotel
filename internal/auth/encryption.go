@@ -17,19 +17,7 @@ const (
 	keyLength   = 32
 	nonceLength = 12
 
-	// v1: LEGACY — fixed salt, 64MB memory.
-	//
-	// This scheme is DECRYPT-ONLY. All newly encrypted provider keys use v2
-	// (per-provider random salt). The v1 path exists solely to decrypt keys
-	// that were encrypted before the v2 migration. A future one-shot migration
-	// should re-encrypt all v1 entries to v2 on startup, after which v1 code
-	// and this constant can be removed entirely.
-	v1Salt = "llm-proxy-fixed-salt-v1"
-	v1Time = 1
-	v1Mem  = 64 * 1024
-	v1Thr  = 4
-
-	// v2: per-provider random salt, 8MB memory.
+	// Argon2id parameters for key derivation.
 	//
 	// The parameters (t=1, m=8MB, p=4) are intentionally below the RFC 9106
 	// minimum (t=3, m=64MB). This is deliberate: MASTER_KEY is a high-entropy
@@ -37,9 +25,9 @@ const (
 	// defense is against low-entropy brute-force, which does not apply here.
 	// Increasing parameters would add latency to every provider key decrypt
 	// (including per-request) for no meaningful security gain.
-	v2Time = 1
-	v2Mem  = 8 * 1024
-	v2Thr  = 4
+	argonTime = 1
+	argonMem  = 8 * 1024
+	argonThr  = 4
 )
 
 // KeyPair holds an encrypted key and its Argon2id parameters.
@@ -49,12 +37,8 @@ type KeyPair struct {
 	Salt       []byte
 }
 
-func deriveKeyV1(masterKey string) []byte {
-	return argon2.IDKey([]byte(masterKey), []byte(v1Salt), v1Time, v1Mem, v1Thr, keyLength)
-}
-
-func deriveKeyV2(masterKey string, salt []byte) []byte {
-	return argon2.IDKey([]byte(masterKey), salt, v2Time, v2Mem, v2Thr, keyLength)
+func deriveKey(masterKey string, salt []byte) []byte {
+	return argon2.IDKey([]byte(masterKey), salt, argonTime, argonMem, argonThr, keyLength)
 }
 
 func encryptWithKey(plaintext string, key []byte) (*KeyPair, error) {
@@ -100,21 +84,13 @@ func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
 	return string(plaintext), nil
 }
 
-// DeriveKey derives a key using v1 parameters (fixed salt, 64MB).
-// Kept for backward compatibility.
-func DeriveKey(masterKey string) []byte {
-	return deriveKeyV1(masterKey)
-}
-
-// Encrypt encrypts plaintext using v2 parameters (per-provider random salt, 8MB).
-// Generates a random 32-byte salt stored alongside the key.
 func Encrypt(plaintext, masterKey string) (*KeyPair, error) {
 	salt := make([]byte, 32)
 	if _, err := io.ReadFull(cryptoRand.Reader, salt); err != nil {
 		return nil, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	key := deriveKeyV2(masterKey, salt)
+	key := deriveKey(masterKey, salt)
 	kp, err := encryptWithKey(plaintext, key)
 	if err != nil {
 		return nil, err
@@ -123,15 +99,13 @@ func Encrypt(plaintext, masterKey string) (*KeyPair, error) {
 	return kp, nil
 }
 
-// Decrypt decrypts ciphertext. If salt is nil/empty, uses v1 (backward compatible).
-// If salt is provided, uses v2.
+// Decrypt decrypts ciphertext using the per-provider salt.
+// The salt parameter is required - nil/empty salt will return an error.
 func Decrypt(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
-	var key []byte
 	if len(salt) == 0 {
-		key = deriveKeyV1(masterKey)
-	} else {
-		key = deriveKeyV2(masterKey, salt)
+		return "", fmt.Errorf("cannot decrypt: salt is required")
 	}
+	key := deriveKey(masterKey, salt)
 	return decryptWithKey(ciphertext, nonce, key)
 }
 

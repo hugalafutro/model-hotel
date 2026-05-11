@@ -875,7 +875,7 @@ func TestDiscoverModels_DecryptionFailure(t *testing.T) {
 		BaseURL:      "https://api.openai.com/v1",
 		EncryptedKey: []byte("invalid-encrypted-data"),
 		KeyNonce:     make([]byte, 12),
-		KeySalt:      nil,
+		KeySalt:      make([]byte, 32), // Valid salt length, but garbage data
 	}
 
 	ctx := context.Background()

@@ -103,36 +103,6 @@ func TestDecryptCached_DifferentCiphertextsCachedSeparately(t *testing.T) {
 	}
 }
 
-func TestDecryptCached_V1BackwardCompatibility(t *testing.T) {
-	masterKey := "v1-cache-compat-key"
-	plaintext := "v1-encrypted-key"
-
-	// Encrypt using v1 (no salt)
-	v1Key := deriveKeyV1(masterKey)
-	kp, err := encryptWithKey(plaintext, v1Key)
-	if err != nil {
-		t.Fatalf("encryptWithKey failed: %v", err)
-	}
-
-	// DecryptCached with nil salt should use v1 path
-	result, err := DecryptCached(kp.Ciphertext, kp.Nonce, nil, masterKey)
-	if err != nil {
-		t.Fatalf("DecryptCached v1 failed: %v", err)
-	}
-	if result != plaintext {
-		t.Errorf("DecryptCached v1 returned %q, want %q", result, plaintext)
-	}
-
-	// Also test with empty salt
-	result2, err := DecryptCached(kp.Ciphertext, kp.Nonce, []byte{}, masterKey)
-	if err != nil {
-		t.Fatalf("DecryptCached v1 (empty salt) failed: %v", err)
-	}
-	if result2 != plaintext {
-		t.Errorf("DecryptCached v1 (empty salt) returned %q, want %q", result2, plaintext)
-	}
-}
-
 func TestDecryptCached_V2WithSalt(t *testing.T) {
 	masterKey := "v2-cache-test-key"
 	plaintext := "v2-encrypted-key"
@@ -368,7 +338,7 @@ func TestDecryptionCacheKey(t *testing.T) {
 		t.Error("same inputs should produce same cache key")
 	}
 
-	// nil salt and empty salt should produce the same key (both treated as v1)
+	// nil salt and empty salt both produce empty hex encoding
 	keyNilSalt := decryptionCacheKey(ct, nonce, nil)
 	keyEmptySalt := decryptionCacheKey(ct, nonce, []byte{})
 	if keyNilSalt != keyEmptySalt {

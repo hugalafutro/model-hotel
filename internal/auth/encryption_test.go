@@ -32,33 +32,6 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 }
 
-func TestV1BackwardCompatibility(t *testing.T) {
-	masterKey := "test-master-key-123"
-	plaintext := "my-v1-api-key"
-
-	v1Key := deriveKeyV1(masterKey)
-	kp, err := encryptWithKey(plaintext, v1Key)
-	if err != nil {
-		t.Fatalf("encryptWithKey failed: %v", err)
-	}
-
-	decrypted, err := Decrypt(kp.Ciphertext, kp.Nonce, nil, masterKey)
-	if err != nil {
-		t.Fatalf("Decrypt with nil salt failed: %v", err)
-	}
-	if decrypted != plaintext {
-		t.Errorf("v1 decrypt mismatch: expected %q, got %q", plaintext, decrypted)
-	}
-
-	decrypted2, err := Decrypt(kp.Ciphertext, kp.Nonce, []byte{}, masterKey)
-	if err != nil {
-		t.Fatalf("Decrypt with empty salt failed: %v", err)
-	}
-	if decrypted2 != plaintext {
-		t.Errorf("v1 decrypt (empty salt) mismatch: expected %q, got %q", plaintext, decrypted2)
-	}
-}
-
 func TestDifferentMasterKeys(t *testing.T) {
 	plaintext := "my-api-key"
 	masterKey1 := "master-key-1"
@@ -118,17 +91,6 @@ func TestConstantTimeCompare(t *testing.T) {
 	}
 }
 
-func TestDeriveKey(t *testing.T) {
-	key := DeriveKey("test-master-key")
-	if len(key) == 0 {
-		t.Error("DeriveKey should return non-empty key")
-	}
-	// Same input should produce same output
-	key2 := DeriveKey("test-master-key")
-	if !bytes.Equal(key, key2) {
-		t.Error("DeriveKey should be deterministic")
-	}
-}
 func TestEncryptWithKey_InvalidKey(t *testing.T) {
 	// AES requires exactly 16, 24, or 32 byte keys
 	_, err := encryptWithKey("test", []byte{1, 2, 3}) // 3 bytes - invalid
