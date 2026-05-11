@@ -552,7 +552,7 @@ function LastErrorPills() {
 	) => (
 		<div className="group relative rounded-md border border-red-500/30 bg-red-950/20 overflow-hidden">
 			{/* Header row with icon, label, and action buttons */}
-			<div className="flex items-center justify-between px-2 py-0.5 bg-red-900/20">
+			<div className="flex items-center justify-between px-2 py-px bg-red-900/20">
 				<div className="flex items-center gap-1.5">
 					<AlertTriangle size={10} className="shrink-0 text-red-400" />
 					<span
@@ -572,7 +572,7 @@ function LastErrorPills() {
 							navigator.clipboard.writeText(msg);
 							toast("Copied to clipboard", "info");
 						}}
-						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
 						title="Copy error"
 					>
 						<Copy size={10} />
@@ -588,7 +588,7 @@ function LastErrorPills() {
 								navigate("/logs");
 							}
 						}}
-						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
 						title="View details"
 					>
 						<ExternalLink size={10} />
@@ -600,7 +600,7 @@ function LastErrorPills() {
 							onAcknowledge();
 							toast(`${label} error acknowledged`, "info");
 						}}
-						className="p-1.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
 						title="Acknowledge (dismiss)"
 					>
 						<X size={10} />
