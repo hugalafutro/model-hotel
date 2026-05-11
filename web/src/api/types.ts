@@ -67,7 +67,6 @@ export interface LogEntry {
 	provider_id: string;
 	provider_name: string;
 	model_id: string;
-	request_id: string;
 	request_hash: string;
 	status_code: number;
 	latency_ms: number;

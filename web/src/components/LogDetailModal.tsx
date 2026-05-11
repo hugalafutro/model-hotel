@@ -26,7 +26,7 @@ interface LogDetailModalProps {
 }
 
 function isRequestLog(log: LogEntry | AppLogEntry): log is LogEntry {
-	return "request_id" in log;
+	return "request_hash" in log;
 }
 
 function formatDateTime(iso: string): string {
@@ -264,12 +264,6 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						value={
 							requestLog.virtual_key_name || requestLog.virtual_key_id || "-"
 						}
-					/>
-					<DetailItem
-						icon={Tag}
-						label="Request ID"
-						value={requestLog.request_id}
-						mono
 					/>
 				</div>
 

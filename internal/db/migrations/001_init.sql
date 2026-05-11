@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS request_logs (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     provider_id   UUID REFERENCES providers(id),
     model_id      TEXT,
-    request_id    TEXT,
     status_code   INT,
     latency_ms    INT,
     tokens_prompt INT,

@@ -18,7 +18,6 @@ type LogEntry struct {
 	ProviderID        string    `json:"provider_id"`
 	ProviderName      string    `json:"provider_name"`
 	ModelID           string    `json:"model_id"`
-	RequestID         string    `json:"request_id"`
 	RequestHash       string    `json:"request_hash"`
 	StatusCode        int       `json:"status_code"`
 	LatencyMs         float64   `json:"latency_ms"`
@@ -170,7 +169,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                    WHEN p.name IS NOT NULL THEN p.name
                    ELSE 'Deleted'
                END,
-               rl.model_id, COALESCE(rl.request_id, ''),
+               rl.model_id,
                COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
                COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
                COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
@@ -273,7 +272,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 		var totalCount int
 		err := rows.Scan(
 			&totalCount,
-			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID, &entry.RequestID,
+			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
 			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
