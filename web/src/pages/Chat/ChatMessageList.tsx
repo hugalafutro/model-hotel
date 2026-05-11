@@ -4,6 +4,7 @@ import { CopyButton } from "../../components/CopyButton";
 import { MarkdownContent } from "../../components/MarkdownContent";
 import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { CHAT_PERSONAS } from "../../data/presets";
+import { useDisableModel } from "../../hooks/useDisableModel";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
 import { formatTime } from "./chatStreaming";
 
@@ -36,6 +37,7 @@ export function ChatMessageList({
 	conversationActivePersonaIdA,
 	chatActivePersonaId,
 }: ChatMessageListProps) {
+	const disableModelMutation = useDisableModel(enabledModels);
 	const lastAssistantIdx = messages.findLastIndex(
 		(m) => m.role === "assistant",
 	);
@@ -157,6 +159,11 @@ export function ChatMessageList({
 									personaName={personaName}
 									personaTooltip={personaTooltip}
 									turnNumber={turnNumber}
+									onDisableModel={
+										msg.error && msg.model
+											? () => disableModelMutation.mutate(msg.model as string)
+											: undefined
+									}
 									headerEnd={
 										isStreamingThis ? (
 											<button
@@ -218,6 +225,11 @@ export function ChatMessageList({
 								personaName={personaName}
 								personaTooltip={personaTooltip}
 								turnNumber={turnNumber}
+								onDisableModel={
+									msg.error && msg.model
+										? () => disableModelMutation.mutate(msg.model as string)
+										: undefined
+								}
 								headerEnd={
 									isStreamingThis ? (
 										<button

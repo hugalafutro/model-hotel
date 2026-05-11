@@ -1,7 +1,17 @@
-import { Bot, Clock, Copy, Info, Maximize2, Settings, Zap } from "lucide-react";
+import {
+	Bot,
+	Clock,
+	Copy,
+	Info,
+	Maximize2,
+	PowerOff,
+	Settings,
+	Zap,
+} from "lucide-react";
 import { memo, type ReactNode, useEffect, useState } from "react";
 import type { GenerationParams } from "../api/types";
 import { formatDuration } from "../utils/format";
+import { is5xxError } from "../utils/model";
 import { MARKDOWN_PROSE_CLASSES, MarkdownContent } from "./MarkdownContent";
 import { Modal } from "./Modal";
 import { ThinkingBlock } from "./ThinkingBlock";
@@ -70,6 +80,8 @@ interface ModelReplyCardProps {
 	personaTooltip?: string;
 	/** Turn number to display in the header (e.g. "Turn 3") */
 	turnNumber?: number;
+	/** Called when user clicks "Disable model" on a 5XX error. If provided and error is 5XX, shows the button. */
+	onDisableModel?: () => void;
 }
 
 /** Larger prose classes used in the maximized modal view */
@@ -115,6 +127,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	personaName,
 	personaTooltip,
 	turnNumber,
+	onDisableModel,
 }: ModelReplyCardProps) {
 	const [elapsed, setElapsed] = useState(0);
 	const [maximized, setMaximized] = useState(false);
@@ -251,7 +264,20 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 				{/* ── Body ── */}
 				<div className={bodyClassName || ""}>
 					{error && !content ? (
-						<div className="text-red-400 text-xs">{error}</div>
+						<div className="flex flex-col gap-2">
+							<div className="text-red-400 text-xs">{error}</div>
+							{is5xxError(error) && onDisableModel && (
+								<button
+									type="button"
+									onClick={onDisableModel}
+									className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
+									title="Disable this model to prevent future errors"
+								>
+									<PowerOff size={12} />
+									Disable model
+								</button>
+							)}
+						</div>
 					) : (
 						<>
 							{hasThinking && (
@@ -272,7 +298,20 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							) : null}
 							{error && content && (
 								<div className="mt-3 px-3 py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
-									⚠ {error}
+									<div className="flex items-start justify-between gap-2">
+										<span>⚠ {error}</span>
+										{is5xxError(error) && onDisableModel && (
+											<button
+												type="button"
+												onClick={onDisableModel}
+												className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
+												title="Disable this model to prevent future errors"
+											>
+												<PowerOff size={10} />
+												Disable
+											</button>
+										)}
+									</div>
 								</div>
 							)}
 						</>

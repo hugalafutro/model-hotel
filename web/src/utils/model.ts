@@ -55,3 +55,16 @@ export function formatPriceInput(n: number | null | undefined): string {
 	const trimmed = decPart.replace(/0+$/, "");
 	return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
 }
+
+/**
+ * Check if an error string indicates a 5XX server error.
+ * Matches patterns like "Chat failed: 500 ..." or "Arena failed: 502 ..."
+ * where the status code is in the 500-599 range.
+ */
+export function is5xxError(error: string | null | undefined): boolean {
+	if (!error) return false;
+	const match = error.match(/\b(5\d{2})\b/);
+	if (!match) return false;
+	const code = Number.parseInt(match[1], 10);
+	return code >= 500 && code <= 599;
+}
