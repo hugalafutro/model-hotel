@@ -49,13 +49,13 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 	// Step 1: Verify it's KoboldCPP via /api/extra/version
 	version, err := d.koboldcppVersion(ctx, apiBase)
 	if err != nil {
-		return nil, fmt.Errorf("koboldcpp version check failed: %w", err)
+		return nil, fmt.Errorf("koboldcpp: version check failed for provider %s: %w", provider.ID, err)
 	}
 
 	// Step 2: Get currently loaded model
 	modelID, err := d.koboldcppLoadedModel(ctx, baseURL, apiKey)
 	if err != nil {
-		return nil, fmt.Errorf("koboldcpp model listing failed: %w", err)
+		return nil, fmt.Errorf("koboldcpp: model listing failed for provider %s: %w", provider.ID, err)
 	}
 
 	if modelID == "" {

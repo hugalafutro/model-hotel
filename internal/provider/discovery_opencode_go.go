@@ -18,7 +18,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("opencode-go: failed to create request for provider %s: %w", provider.ID, err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -27,7 +27,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
 		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("failed to fetch models: %w", err)
+		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.ID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -45,18 +45,18 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("opencode-go: failed to read response for provider %s: %w", provider.ID, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		debuglog.Error("discovery: opencode-go unexpected status", "provider", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		return nil, fmt.Errorf("opencode-go: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
 		debuglog.Error("discovery: opencode-go json decode failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("opencode-go: failed to decode response for provider %s: %w", provider.ID, err)
 	}
 
 	catalog := GetOpenCodeGoCatalog()

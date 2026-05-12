@@ -399,5 +399,5 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 	if opened := circuit.recordFailure(); opened {
 		debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerID, "threshold", quotaBreakerThreshold)
 	}
-	return nil, fmt.Errorf("quota fetch failed after %d attempts: %w", maxQuotaRetries, lastErr)
+	return nil, fmt.Errorf("quota fetch failed for provider %s (type=%s) after %d attempts: %w", providerID, providerType, maxQuotaRetries, lastErr)
 }

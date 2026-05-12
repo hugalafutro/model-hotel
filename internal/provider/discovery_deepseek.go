@@ -25,13 +25,13 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
 		debuglog.Error("discovery: deepseek fetch models failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("failed to fetch models: %w", err)
+		return nil, fmt.Errorf("deepseek: failed to fetch models for provider %s: %w", provider.ID, err)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
 		debuglog.Error("discovery: deepseek json decode failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("deepseek: failed to decode response for provider %s: %w", provider.ID, err)
 	}
 
 	catalog := GetDeepSeekModels()
@@ -94,7 +94,7 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Provider, masterKey string) (*DeepSeekBalanceResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt API key: %w", err)
+		return nil, fmt.Errorf("deepseek: failed to decrypt API key for provider %s: %w", provider.ID, err)
 	}
 
 	baseURL := util.SanitizeAPIURL(provider.BaseURL)
@@ -102,7 +102,7 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 
 	req, err := http.NewRequestWithContext(ctx, "GET", balanceURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("deepseek: failed to create request for provider %s: %w", provider.ID, err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -110,19 +110,19 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 
 	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "deepseek")
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch balance: %w", err)
+		return nil, fmt.Errorf("deepseek: failed to fetch balance for provider %s: %w", provider.ID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		debuglog.Error("discovery: deepseek balance non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		return nil, fmt.Errorf("deepseek: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
 	}
 
 	var balance DeepSeekBalanceResponse
 	if err := json.NewDecoder(resp.Body).Decode(&balance); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("deepseek: failed to decode balance response for provider %s: %w", provider.ID, err)
 	}
 
 	return &balance, nil

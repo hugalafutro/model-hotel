@@ -43,26 +43,26 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 	}
 
 	// Both failed with real errors
-	return nil, fmt.Errorf("failed to discover xAI models: both endpoints returned errors")
+	return nil, fmt.Errorf("xAI: failed to discover models for provider %s: both endpoints returned errors", provider.ID)
 }
 
 func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/language-models", http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("xAI: failed to create request for provider %s: %w", provider.ID, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http request failed: %w", err)
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.ID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("xAI: failed to read response for provider %s: %w", provider.ID, err)
 	}
 
 	if resp.StatusCode == http.StatusForbidden {
@@ -70,7 +70,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	}
 	if resp.StatusCode != http.StatusOK {
 		debuglog.Error("discovery: xai language-models non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("xAI: unexpected status %d for provider %s", resp.StatusCode, provider.ID)
 	}
 
 	var langResp XAILanguageModelsResponse
@@ -167,20 +167,20 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("xAI: failed to create request for provider %s: %w", provider.ID, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http request failed: %w", err)
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.ID, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("xAI: failed to read response for provider %s: %w", provider.ID, err)
 	}
 
 	if resp.StatusCode == http.StatusForbidden {
@@ -188,12 +188,12 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 	}
 	if resp.StatusCode != http.StatusOK {
 		debuglog.Error("discovery: xai minimal models non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("xAI: unexpected status %d for provider %s", resp.StatusCode, provider.ID)
 	}
 
 	var openAIResp XAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("xAI: failed to decode minimal models response for provider %s: %w", provider.ID, err)
 	}
 
 	catalog := GetXAICatalog()

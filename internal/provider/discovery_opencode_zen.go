@@ -23,13 +23,13 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
 		debuglog.Error("discovery: opencode-zen http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("failed to fetch models: %w", err)
+		return nil, fmt.Errorf("opencode-zen: failed to fetch models for provider %s: %w", provider.ID, err)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
 		debuglog.Error("discovery: opencode-zen failed to decode response", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("opencode-zen: failed to decode response for provider %s: %w", provider.ID, err)
 	}
 
 	catalog := GetOpenCodeZenCatalog()
