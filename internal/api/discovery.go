@@ -60,7 +60,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	models, err := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
 	if err != nil {
 		provCancel()
-		respondError(w, "failed to discover models", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to discover models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -90,14 +90,14 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	existingModelIDs := make([]string, 0, len(models))
 	for _, m := range models {
 		if err := modelRepo.Upsert(provCtx, m); err != nil {
-			respondError(w, "failed to upsert model", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to upsert model %s for provider %s", m.ModelID, prov.Name), err, http.StatusInternalServerError)
 			return
 		}
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
 	if _, err := modelRepo.DisableMissingModels(provCtx, providerID, existingModelIDs); err != nil {
-		respondError(w, "failed to disable missing models", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to disable missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	}
 	for modelID := range seenModelIDs {
 		if err := failoverRepo.SyncForModel(provCtx, modelID); err != nil {
-			respondError(w, "failed to sync failover group", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to sync failover group for model %s", modelID), err, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -116,7 +116,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	now := time.Now()
 	updateQuery := `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`
 	if _, err := h.dbPool.Pool().Exec(provCtx, updateQuery, now, providerID); err != nil {
-		respondError(w, "failed to update provider", nil, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to update provider %s", providerID), nil, http.StatusInternalServerError)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "zai-coding":
 		quota, err := discovery.GetZAICodingQuota(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, "failed to fetch usage", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to fetch usage for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, quota)
@@ -155,7 +155,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "nanogpt":
 		usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, "failed to fetch usage", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to fetch usage for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, usage)
@@ -163,7 +163,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "openrouter":
 		keyBalance, err := discovery.GetOpenRouterBalance(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, "failed to fetch key balance", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to fetch key balance for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, keyBalance)
@@ -193,7 +193,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 	case "deepseek":
 		balance, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, "failed to fetch balance", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to fetch balance for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, balance)
@@ -226,7 +226,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 	account, err := discovery.GetOllamaCloudAccount(r.Context(), prov, h.cfg.MasterKey)
 	if err != nil {
-		respondError(w, "failed to fetch ollama cloud account", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to fetch ollama cloud account for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, account)

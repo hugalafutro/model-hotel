@@ -469,7 +469,7 @@ logUpdate:
 		if !clientDisconnected && scanner.Err() == nil && chunkCount > 0 {
 			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
-				debuglog.Warn("proxy: failed to write injected [DONE]", "error", err)
+				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerID, "error", err)
 			} else if canFlush {
 				flusher.Flush()
 			}
@@ -577,7 +577,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
-			debuglog.Error("proxy: failed to encode response", "error", err)
+			debuglog.Error("proxy: failed to encode response", "model", logData.modelID, "provider", logData.providerID, "error", err)
 		}
 		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {

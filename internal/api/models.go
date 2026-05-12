@@ -163,7 +163,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	m, err := modelRepo.Update(r.Context(), id, req)
 	if err != nil {
-		respondError(w, "failed to update model", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to update model %s", id), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -180,7 +180,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 	if err := modelRepo.DeleteByID(r.Context(), id); err != nil {
-		respondError(w, "failed to delete model", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to delete model %s", id), err, http.StatusInternalServerError)
 		return
 	}
 

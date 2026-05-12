@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -213,7 +214,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		var encErr error
 		encryptedKey, encErr = auth.Encrypt(req.APIKey, h.cfg.MasterKey)
 		if encErr != nil {
-			respondError(w, "failed to encrypt API key", encErr, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to encrypt API key for provider %q", req.Name), encErr, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -231,7 +232,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
 			return
 		}
-		respondError(w, "failed to create provider", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to create provider %q", req.Name), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -311,7 +312,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
-		respondError(w, "failed to get provider", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to get provider %s", id), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -413,7 +414,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
-		respondError(w, "failed to update provider", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to update provider %s", id), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -433,7 +434,7 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "provider not found", http.StatusNotFound)
 			return
 		}
-		respondError(w, "failed to delete provider", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to delete provider %s", id), err, http.StatusInternalServerError)
 		return
 	}
 

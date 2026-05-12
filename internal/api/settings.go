@@ -134,7 +134,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	for key, value := range req {
 		if err := h.settingsRepo.SetTx(r.Context(), tx, key, value); err != nil {
 			debuglog.Error("settings: failed to save setting", "key", key, "error", err)
-			respondError(w, "failed to save setting", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to save setting %q", key), err, http.StatusInternalServerError)
 			return
 		}
 	}

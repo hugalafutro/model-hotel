@@ -26,7 +26,7 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		defer logEntry.insertWg.Done()
 		defer func() {
 			if r := recover(); r != nil {
-				debuglog.Error("proxy: panic in insertRequestLog", "error", r)
+				debuglog.Error("proxy: panic in insertRequestLog", "request_id", logEntry.id, "error", r)
 			}
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

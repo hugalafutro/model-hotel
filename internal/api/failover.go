@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -104,7 +105,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 	for i, g := range groups {
 		resp, err := h.buildGroupResponse(r.Context(), g)
 		if err != nil {
-			respondError(w, "failed to build failover group response", err, http.StatusInternalServerError)
+			respondError(w, fmt.Sprintf("failed to build response for failover group %s", g.DisplayModel), err, http.StatusInternalServerError)
 			return
 		}
 		resp.TotalTokens = tokenCounts["hotel/"+g.DisplayModel]
@@ -163,7 +164,7 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.buildGroupResponse(r.Context(), g)
 	if err != nil {
-		respondError(w, "failed to build failover group response", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to build response for failover group %s", id), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -241,7 +242,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	group, err := h.failoverRepo.UpsertWithConfig(r.Context(), req.DisplayModel, priorityOrder,
 		entryEnabled, nil, req.DisplayName, req.Description, &autoCreated)
 	if err != nil {
-		respondError(w, "failed to create failover group", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to create failover group %q", req.DisplayModel), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -345,7 +346,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
 		req.GroupEnabled, req.DisplayName, req.Description)
 	if err != nil {
-		respondError(w, "failed to update failover group", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to update failover group %s", id), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -366,7 +367,7 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.failoverRepo.DeleteByID(r.Context(), id); err != nil {
-		respondError(w, "failed to delete failover group", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to delete failover group %s", id), err, http.StatusInternalServerError)
 		return
 	}
 

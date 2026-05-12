@@ -114,7 +114,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	// Stat the file for the response
 	info, err := os.Stat(path)
 	if err != nil {
-		respondError(w, "backup created but failed to stat file", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("backup created but failed to stat file %q", filename), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -225,7 +225,7 @@ func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "backup not found", http.StatusNotFound)
 		return
 	} else if err != nil {
-		respondError(w, "failed to delete backup", err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to delete backup %q", filename), err, http.StatusInternalServerError)
 		return
 	}
 

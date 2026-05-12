@@ -128,7 +128,7 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 		`UPDATE virtual_keys SET last_used_at = now() WHERE key_hash = $1`,
 		keyHash)
 	if err != nil {
-		debuglog.Error("vkey: failed to touch last_used_at", "error", err)
+		debuglog.Error("vkey: failed to touch last_used_at", "key_hash", keyHash, "error", err)
 	}
 	return err
 }
