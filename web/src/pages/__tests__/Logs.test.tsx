@@ -119,7 +119,6 @@ describe("Logs", () => {
 				expect(screen.getByText("Time/Date")).toBeInTheDocument();
 			});
 			expect(screen.getByText("Hash")).toBeInTheDocument();
-			expect(screen.getByText("Hash")).toBeInTheDocument();
 			expect(screen.getByText("Model")).toBeInTheDocument();
 			expect(screen.getByText("Provider")).toBeInTheDocument();
 			expect(screen.getAllByText("Status").length).toBeGreaterThan(0);

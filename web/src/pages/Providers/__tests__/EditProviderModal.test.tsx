@@ -266,7 +266,7 @@ describe("EditProviderModal", () => {
 			const saveButton = screen.getByRole("button", { name: "Save Changes" });
 			await user.click(saveButton);
 			await waitFor(() => {
-				expect(saveButton).toHaveTextContent(/Saving|Save/);
+				expect(saveButton).toHaveTextContent(/Saving/);
 			});
 		});
 
