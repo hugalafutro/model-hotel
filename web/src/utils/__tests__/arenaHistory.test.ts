@@ -32,8 +32,8 @@ describe("arenaHistory", () => {
 
 		it("includes timestamp prefix", () => {
 			const id = generateHistoryId();
-			const timestamp = Date.now().toString();
-			expect(id.startsWith(timestamp)).toBe(true);
+			// ID format: timestamp-alphanumeric
+			expect(id).toMatch(/^\d+-[a-z0-9]+$/);
 		});
 
 		it("generates IDs with correct format", () => {

@@ -82,9 +82,10 @@ describe("NanoGPTQuotaModal", () => {
 			expect(screen.getByText("Active")).toBeInTheDocument();
 		});
 
-		it.skip("renders green status dot for active subscription", () => {
-			// Skip: requires testId that component doesn't have
+		it("renders green status dot for active subscription", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			const statusDot = screen.getByTestId("status-dot-active");
+			expect(statusDot).toHaveClass("bg-green-400");
 		});
 
 		it("renders inactive status when subscription is not active", () => {
@@ -95,12 +96,13 @@ describe("NanoGPTQuotaModal", () => {
 			expect(screen.getByText("Inactive")).toBeInTheDocument();
 		});
 
-		it.skip("renders red status dot for inactive subscription", () => {
-			// Skip: requires testId that component doesn't have
+		it("renders red status dot for inactive subscription", () => {
 			const inactiveUsage = { ...mockUsage, active: false };
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} usage={inactiveUsage} />,
 			);
+			const statusDot = screen.getByTestId("status-dot-inactive");
+			expect(statusDot).toHaveClass("bg-red-400");
 		});
 
 		it("renders weekly token quota section", () => {
@@ -246,11 +248,15 @@ describe("NanoGPTQuotaModal", () => {
 			});
 		});
 
-		it.skip("shows spinning icon while refreshing", () => {
-			// Skip: requires testId that Spinner component doesn't have
+		it("shows spinning icon while refreshing", () => {
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} isRefreshing={true} />,
 			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			expect(refreshButton).toBeDisabled();
+			const hasSpinner = screen.queryByTestId("spinner");
+			const hasSpinningIcon = refreshButton.querySelector(".animate-spin");
+			expect(hasSpinner || hasSpinningIcon).toBeTruthy();
 		});
 
 		it("disables refresh button while refreshing", () => {
@@ -263,39 +269,48 @@ describe("NanoGPTQuotaModal", () => {
 	});
 
 	describe("progress bar colors", () => {
-		it.skip("uses red color when remaining percentage is below 20%", () => {
-			// Skip: requires DOM querySelector
+		it("uses red color when remaining percentage is below 20%", () => {
 			const lowQuotaUsage = {
 				...mockUsage,
+				limits: {
+					...mockUsage.limits,
+					weeklyInputTokens: 1000000,
+				},
 				weeklyInputTokens: {
 					...mockUsage.weeklyInputTokens,
-					remaining: 100000,
-					percentUsed: 90,
+					used: 900000,
 				},
 			};
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} usage={lowQuotaUsage} />,
 			);
+			const progressBarFill = screen.getByTestId("weekly-progress-fill");
+			expect(progressBarFill).toHaveClass("bg-red-500");
 		});
 
-		it.skip("uses amber color when remaining percentage is between 20% and 60%", () => {
-			// Skip: requires DOM querySelector
+		it("uses amber color when remaining percentage is between 20% and 60%", () => {
 			const mediumQuotaUsage = {
 				...mockUsage,
+				limits: {
+					...mockUsage.limits,
+					weeklyInputTokens: 1000000,
+				},
 				weeklyInputTokens: {
 					...mockUsage.weeklyInputTokens,
-					remaining: 400000,
-					percentUsed: 60,
+					used: 500000,
 				},
 			};
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} usage={mediumQuotaUsage} />,
 			);
+			const progressBarFill = screen.getByTestId("weekly-progress-fill");
+			expect(progressBarFill).toHaveClass("bg-amber-500");
 		});
 
-		it.skip("uses indigo color when remaining percentage is above 60%", () => {
-			// Skip: requires DOM querySelector
+		it("uses indigo color when remaining percentage is above 60%", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			const progressBarFill = screen.getByTestId("weekly-progress-fill");
+			expect(progressBarFill).toHaveClass("bg-[#6366F1]");
 		});
 	});
 

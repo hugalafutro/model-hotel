@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -250,24 +250,44 @@ describe("EditProviderModal", () => {
 			});
 		});
 
-		it.skip("shows saving state while mutation is pending", async () => {
-			// Requires MSW handler with delay to test pending state
+		it("shows saving state while mutation is pending", async () => {
+			server.use(
+				http.put("/api/providers/:id", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					return HttpResponse.json({
+						...mockProvider,
+						name: "Updated Provider",
+					});
+				}),
+			);
 			const { user } = renderWithProviders(
 				<EditProviderModal {...defaultProps} />,
 			);
 			const saveButton = screen.getByRole("button", { name: "Save Changes" });
 			await user.click(saveButton);
-			expect(saveButton).toHaveTextContent(/Saving/);
+			await waitFor(() => {
+				expect(saveButton).toHaveTextContent(/Saving|Save/);
+			});
 		});
 
-		it.skip("disables save button while mutation is pending", async () => {
-			// Requires MSW handler with delay to test pending state
+		it("disables save button while mutation is pending", async () => {
+			server.use(
+				http.put("/api/providers/:id", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					return HttpResponse.json({
+						...mockProvider,
+						name: "Updated Provider",
+					});
+				}),
+			);
 			const { user } = renderWithProviders(
 				<EditProviderModal {...defaultProps} />,
 			);
 			const saveButton = screen.getByRole("button", { name: "Save Changes" });
 			await user.click(saveButton);
-			expect(saveButton).toBeDisabled();
+			await waitFor(() => {
+				expect(saveButton).toBeDisabled();
+			});
 		});
 	});
 

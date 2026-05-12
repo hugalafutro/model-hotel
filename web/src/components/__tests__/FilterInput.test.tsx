@@ -32,20 +32,24 @@ describe("FilterInput", () => {
 	it("shows clear button when value is present", () => {
 		render(<FilterInput value="existing value" onChange={vi.fn()} />);
 
-		expect(screen.getByTestId("x-icon")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Clear filter" }),
+		).toBeInTheDocument();
 	});
 
 	it("hides clear button when value is empty", () => {
 		render(<FilterInput value="" onChange={vi.fn()} />);
 
-		expect(screen.queryByTestId("x-icon")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Clear filter" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("clears value when clicking X button", () => {
 		const onChange = vi.fn();
 		render(<FilterInput value="test" onChange={onChange} />);
 
-		fireEvent.click(screen.getByTestId("x-icon"));
+		fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
 
 		expect(onChange).toHaveBeenCalledWith("");
 	});
