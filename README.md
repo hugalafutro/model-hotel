@@ -179,13 +179,13 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 
 ## Features at a Glance
 
-- **One endpoint for all providers** — OpenAI-compatible `/v1/chat/completions` proxy with automatic model discovery
-- **Transparent failover** — Retries on 5xx, 429 (configurable), 401/403, and timeouts with exponential backoff
-- **Hotel routing** — Prefix any model with `hotel/` to route through a failover group (e.g. `hotel/gpt-4o`)
-- **Per-client virtual keys** — Issue separate `sk-` keys with independent rate limiting and usage tracking
-- **Privacy by design** — Prompt content is never logged, read, or stored
-- **Real-time observability** — Request logging with latency decomposition, SSE events, and circuit breaker status
-- **Multi-modal support** — Vision and audio input attachments via OpenAI-compatible content parts
+- **One endpoint for all providers**: OpenAI-compatible `/v1/chat/completions` proxy with automatic model discovery
+- **Transparent failover**: Retries on 5xx, 429 (configurable), 401/403, and timeouts with exponential backoff
+- **Hotel routing**: Prefix any model with `hotel/` to route through a failover group (e.g. `hotel/gpt-4o`)
+- **Per-client virtual keys**: Issue separate `sk-` keys with independent rate limiting and usage tracking
+- **Privacy by design**: Prompt content is never logged, read, or stored
+- **Real-time observability**: Request logging with latency decomposition, SSE events, and circuit breaker status
+- **Multi-modal support**: Vision and audio input attachments via OpenAI-compatible content parts
 
 ## API Example
 
@@ -205,19 +205,19 @@ See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint
 
 ## Full Documentation
 
-- [Configuration](model-hotel.wiki/Configuration.md) — Environment variables, runtime settings, Docker Compose
-- [API Reference](model-hotel.wiki/API-Reference.md) — Proxy and admin endpoints
-- [Security](model-hotel.wiki/Security.md) — AES-256-GCM encryption, Argon2id key derivation, hashing, URL validation
-- [Privacy](model-hotel.wiki/Privacy.md) — What is and isn't captured, data retention, local deployment
-- [Failover & Hotel Routing](model-hotel.wiki/Failover-and-Hotel-Routing.md) — Failover groups, circuit breaker, backoff
-- [Model Discovery](model-hotel.wiki/Model-Discovery.md) — Automatic sync, provider-specific metadata, enrichment
-- [Virtual Keys](model-hotel.wiki/Virtual-Keys.md) — Creating, using, and deleting client keys
-- [Request Logging](model-hotel.wiki/Request-Logging.md) — Log fields, overhead breakdown, retention
-- [Development](model-hotel.wiki/Development.md) — Local setup, build commands, contributing
+- [Configuration](model-hotel.wiki/Configuration.md): Environment variables, runtime settings, Docker Compose
+- [API Reference](model-hotel.wiki/API-Reference.md): Proxy and admin endpoints
+- [Security](model-hotel.wiki/Security.md): AES-256-GCM encryption, Argon2id key derivation, hashing, URL validation
+- [Privacy](model-hotel.wiki/Privacy.md): What is and isn't captured, data retention, local deployment
+- [Failover & Hotel Routing](model-hotel.wiki/Failover-and-Hotel-Routing.md): Failover groups, circuit breaker, backoff
+- [Model Discovery](model-hotel.wiki/Model-Discovery.md): Automatic sync, provider-specific metadata, enrichment
+- [Virtual Keys](model-hotel.wiki/Virtual-Keys.md): Creating, using, and deleting client keys
+- [Request Logging](model-hotel.wiki/Request-Logging.md): Log fields, overhead breakdown, retention
+- [Development](model-hotel.wiki/Development.md): Local setup, build commands, contributing
 
 ## Known Limitations
 
-- **Single-instance only** — Caches and rate limiters are in-memory, not horizontally scalable
+- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable
 
 ## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 

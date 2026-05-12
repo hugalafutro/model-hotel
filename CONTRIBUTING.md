@@ -33,4 +33,4 @@ By submitting a pull request or otherwise contributing code, documentation, or o
 - Run `make test` before submitting.
 - Be excellent to each other.
 
-That's it — thanks for helping make ModelHotel better!
+That's it. Thanks for helping make ModelHotel better!
