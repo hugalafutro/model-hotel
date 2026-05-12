@@ -399,6 +399,7 @@ export function Chat() {
 											onClick={() => chat.setPendingImage(null)}
 											className="absolute -top-1.5 -right-1.5 bg-red-500/90 hover:bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none cursor-pointer"
 											title="Remove image"
+											aria-label="Remove image"
 										>
 											×
 										</button>
@@ -415,6 +416,7 @@ export function Chat() {
 											onClick={() => chat.setPendingAudio(null)}
 											className="text-red-400 hover:text-red-300 cursor-pointer ml-0.5"
 											title="Remove audio"
+											aria-label="Remove audio"
 										>
 											×
 										</button>
@@ -444,6 +446,7 @@ export function Chat() {
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
 												}`}
 												title="Attach image"
+												aria-label="Attach image"
 											>
 												<ImageIcon size={18} />
 											</button>
@@ -467,6 +470,7 @@ export function Chat() {
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
 												}`}
 												title="Attach audio"
+												aria-label="Attach audio"
 											>
 												<Mic size={18} />
 											</button>

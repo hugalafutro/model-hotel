@@ -171,6 +171,7 @@ export function ChatMessageList({
 												onClick={onStopConversation}
 												className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
 												title="Cancel"
+												aria-label="Cancel"
 											>
 												<CircleStop size={14} />
 											</button>
@@ -186,6 +187,7 @@ export function ChatMessageList({
 													className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 													onClick={() => onDeleteMessage(i)}
 													title="Delete message"
+													aria-label="Delete message"
 												>
 													<Trash2 size={10} />
 												</button>
@@ -241,6 +243,7 @@ export function ChatMessageList({
 											}
 											className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
 											title="Cancel"
+											aria-label="Cancel"
 										>
 											<CircleStop size={14} />
 										</button>
@@ -252,6 +255,7 @@ export function ChatMessageList({
 												onClick={onRegenerate}
 												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer ml-1"
 												title="Regenerate"
+												aria-label="Regenerate"
 											>
 												<RefreshCw size={14} />
 											</button>
@@ -268,20 +272,26 @@ export function ChatMessageList({
 												className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 												onClick={() => onDeleteMessage(i)}
 												title="Delete message"
+												aria-label="Delete message"
 											>
 												<Trash2 size={10} />
 											</button>
 										)}
 										{msg.params && (
-											<span
+											<button
+												type="button"
 												className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
 												title={`Settings: ${Object.entries(msg.params)
 													.filter(([, v]) => v !== undefined)
 													.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
 													.join(", ")}`}
+												aria-label={`Settings: ${Object.entries(msg.params)
+													.filter(([, v]) => v !== undefined)
+													.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
+													.join(", ")}`}
 											>
 												<Settings size={10} />
-											</span>
+											</button>
 										)}
 									</div>
 								}

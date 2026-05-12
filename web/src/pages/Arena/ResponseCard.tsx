@@ -90,6 +90,7 @@ export function ResponseCard({
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
 									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
 									title="Re-roll"
+									aria-label="Re-roll"
 								>
 									<RefreshCw size={14} />
 								</button>
@@ -100,6 +101,7 @@ export function ResponseCard({
 									}
 									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
 									title="Swap model"
+									aria-label="Swap model"
 								>
 									<ArrowLeftRight size={14} />
 								</button>
@@ -115,6 +117,7 @@ export function ResponseCard({
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
 									className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
 									title="Retry"
+									aria-label="Retry"
 								>
 									<RefreshCw size={14} />
 								</button>
@@ -128,6 +131,7 @@ export function ResponseCard({
 								}
 								className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
 								title="Cancel"
+								aria-label="Cancel"
 							>
 								<CircleStop size={14} />
 							</button>

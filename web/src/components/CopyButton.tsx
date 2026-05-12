@@ -26,6 +26,7 @@ export function CopyButton({
 					.catch(() => toast("Failed to copy", "error"));
 			}}
 			title={title}
+			aria-label={title}
 		>
 			<Copy size={size} />
 		</button>

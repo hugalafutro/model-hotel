@@ -427,6 +427,11 @@ function RequestLogs() {
 											? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
 											: "Filter by date range"
 									}
+									aria-label={
+										hasDateFilter
+											? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
+											: "Filter by date range"
+									}
 								>
 									<CalendarDays size={16} />
 								</button>
@@ -436,6 +441,7 @@ function RequestLogs() {
 										className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
 										onClick={clearDateFilter}
 										title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
+										aria-label={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
 									>
 										<X size={14} />
 									</button>
@@ -452,6 +458,8 @@ function RequestLogs() {
 											type="button"
 											onClick={() => setShowDatePicker(false)}
 											className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
+											title="Close date picker"
+											aria-label="Close date picker"
 										>
 											<X size={16} />
 										</button>

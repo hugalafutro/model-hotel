@@ -57,6 +57,7 @@ export function CollapsibleToggle({
 			onClick={onToggle}
 			className={className}
 			title={collapsed ? expandTitle : collapseTitle}
+			aria-label={collapsed ? expandTitle : collapseTitle}
 		>
 			{icons}
 		</button>

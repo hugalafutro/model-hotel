@@ -472,6 +472,7 @@ export function VirtualKeys() {
 												}}
 												className="text-gray-500 hover:text-(--accent) transition-colors"
 												title="Edit"
+												aria-label="Edit"
 											>
 												<Pencil className="w-3.5 h-3.5" />
 											</button>

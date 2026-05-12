@@ -189,6 +189,7 @@ export function DatabaseBackupSettings({
 												onClick={() => setConfirmDelete(backup.filename)}
 												className="ui-btn ui-btn-danger text-xs px-2 py-1"
 												title="Delete backup"
+												aria-label="Delete backup"
 											>
 												<Trash2 size={12} />
 											</button>

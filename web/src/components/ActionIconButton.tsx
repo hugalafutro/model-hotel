@@ -56,6 +56,7 @@ export function ActionIconButton({
 				pulse ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]" : glow
 			}`}
 			title={title}
+			aria-label={title}
 		>
 			<Icon size={size} />
 		</button>

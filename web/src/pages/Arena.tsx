@@ -66,6 +66,7 @@ export function Arena() {
 							onClick={() => arena.setShowHistoryModal(true)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							title="Match history"
+							aria-label="Match history"
 						>
 							<History size={14} />
 						</button>

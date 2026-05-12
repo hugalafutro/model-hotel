@@ -121,6 +121,8 @@ export function ConversationConfig({
 						type="button"
 						onClick={onToggleCollapsed}
 						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent)"
+						title={configCollapsed ? "Expand config" : "Collapse config"}
+						aria-label={configCollapsed ? "Expand config" : "Collapse config"}
 					>
 						{configCollapsed ? (
 							<ChevronsUpDown size={14} />
