@@ -441,101 +441,48 @@ describe("Layout", () => {
 	});
 
 	describe("Provider Quota Panel", () => {
-		it("renders quota panel container", () => {
+		it("renders quota panel section in sidebar", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const nav = document.querySelector("nav");
-			expect(nav).toBeInTheDocument();
-		});
-
-		it("renders QuotaBadges within quota panel", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const nav = document.querySelector("nav");
+			const nav = screen.getByRole("navigation");
 			expect(nav).toBeInTheDocument();
 		});
 	});
 
 	describe("Navigation Icons", () => {
-		it("renders Dashboard icon", () => {
+		const navItems = [
+			"Dashboard",
+			"Chat",
+			"Arena",
+			"Providers",
+			"Models",
+			"Failover",
+			"Virtual Keys",
+			"Logs",
+			"Settings",
+		];
+
+		it.each(navItems)("renders icon for %s", (label) => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const dashboardLink = screen.getByText("Dashboard").closest("li");
-			expect(dashboardLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Chat icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const chatLink = screen.getByText("Chat").closest("li");
-			expect(chatLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Arena icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const arenaLink = screen.getByText("Arena").closest("li");
-			expect(arenaLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Providers icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const providersLink = screen.getByText("Providers").closest("li");
-			expect(providersLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Models icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const modelsLink = screen.getByText("Models").closest("li");
-			expect(modelsLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Failover icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const failoverLink = screen.getByText("Failover").closest("li");
-			expect(failoverLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Virtual Keys icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const virtualKeysLink = screen.getByText("Virtual Keys").closest("li");
-			expect(virtualKeysLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Logs icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const logsLink = screen.getByText("Logs").closest("li");
-			expect(logsLink?.querySelector("svg")).toBeInTheDocument();
-		});
-
-		it("renders Settings icon", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			const settingsLink = screen.getByText("Settings").closest("li");
-			expect(settingsLink?.querySelector("svg")).toBeInTheDocument();
+			const link = screen.getByText(label).closest("li");
+			expect(link?.querySelector("svg")).toBeInTheDocument();
 		});
 	});
 
 	describe("Keyboard Navigation", () => {
-		it("supports keyboard navigation for links", async () => {
+		it("focuses navigation links via tab", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.tab();
-			await user.tab();
-
-			expect(document.activeElement).toBeInTheDocument();
+			// First tab should hit a focusable element in the sidebar
+			expect(document.activeElement?.tagName).toBe("A");
 		});
 
 		it("supports keyboard navigation for theme toggle", async () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			// Theme toggle exists and is focusable
 			const themeButton = screen.getByTitle(/Switch to (light|dark) mode/);
 			expect(themeButton).toBeInTheDocument();
 			themeButton.focus();

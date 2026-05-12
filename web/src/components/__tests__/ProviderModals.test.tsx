@@ -110,14 +110,12 @@ describe("NanoGPTQuotaModal", () => {
 
 		it("renders weekly token usage numbers", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
-			// formatTokens returns formatted strings like "200K" and "1M"
-			expect(screen.getByText(/Weekly Token Quota/)).toBeInTheDocument();
+			expect(screen.getByText("10 / 100")).toBeInTheDocument();
 		});
 
 		it("renders progress bar for weekly quota", () => {
-			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
-			// Progress bar is a div with background color and width style
-			expect(screen.getByText(/Weekly Token Quota/)).toBeInTheDocument();
+			const { container } = renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			expect(container.querySelector("[style*=width]")).toBeInTheDocument();
 		});
 
 		it("renders daily images section", () => {
@@ -137,8 +135,7 @@ describe("NanoGPTQuotaModal", () => {
 
 		it("renders daily input tokens usage", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
-			// Daily Input Tokens section exists
-			expect(screen.getByText("Daily Input Tokens")).toBeInTheDocument();
+			expect(screen.getByText("10 / 100")).toBeInTheDocument();
 		});
 
 		it("renders subscription details section", () => {
