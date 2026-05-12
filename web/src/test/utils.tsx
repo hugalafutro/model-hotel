@@ -11,22 +11,25 @@ import { StorageProvider } from "../context/StorageContext";
 import { ThemeProvider } from "../context/ThemeContext";
 import { ToastProvider } from "../context/ToastContext";
 
-const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			retry: false,
+function createTestQueryClient() {
+	return new QueryClient({
+		defaultOptions: {
+			queries: {
+				retry: false,
+			},
+			mutations: {
+				retry: false,
+			},
 		},
-		mutations: {
-			retry: false,
-		},
-	},
-});
+	});
+}
 
 interface AllProvidersProps {
 	children: ReactNode;
 }
 
 export function AllProviders({ children }: AllProvidersProps) {
+	const queryClient = createTestQueryClient();
 	return (
 		<MemoryRouter>
 			<ThemeProvider>
