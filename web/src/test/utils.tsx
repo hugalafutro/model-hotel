@@ -3,7 +3,7 @@ import { type RenderOptions, render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
 import { EventProvider } from "../context/EventContext";
 import { QuotaModalProvider } from "../context/QuotaModalContext";
 import { SidebarModeProvider } from "../context/SidebarModeContext";
@@ -26,12 +26,16 @@ function createTestQueryClient() {
 
 interface AllProvidersProps {
 	children: ReactNode;
+	initialEntries?: MemoryRouterProps["initialEntries"];
 }
 
-export function AllProviders({ children }: AllProvidersProps) {
+export function AllProviders({
+	children,
+	initialEntries,
+}: AllProvidersProps) {
 	const queryClient = createTestQueryClient();
 	return (
-		<MemoryRouter>
+		<MemoryRouter initialEntries={initialEntries}>
 			<ThemeProvider>
 				<StorageProvider>
 					<SidebarModeProvider>
@@ -53,13 +57,20 @@ export function AllProviders({ children }: AllProvidersProps) {
 
 export function renderWithProviders(
 	ui: ReactElement,
-	options?: Omit<RenderOptions, "wrapper">,
+	options?: Omit<RenderOptions, "wrapper"> & {
+		initialEntries?: MemoryRouterProps["initialEntries"];
+	},
 ) {
 	const user = userEvent.setup();
+	const { initialEntries, ...renderOptions } = options || {};
 	return {
 		...render(ui, {
-			wrapper: AllProviders,
-			...options,
+			wrapper: (props) => (
+				<AllProviders initialEntries={initialEntries}>
+					{props.children}
+				</AllProviders>
+			),
+			...renderOptions,
 		}),
 		user,
 	};
