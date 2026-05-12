@@ -1,0 +1,661 @@
+import { act, renderHook } from "@testing-library/react";
+import { HttpResponse, http } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import type { GenerationParams } from "../../../api/types";
+import type { ArenaSubMode } from "../../../context/SidebarModeContext";
+import type { useToast } from "../../../context/ToastContext";
+import { server } from "../../../test/mocks/server";
+import type { BracketRound } from "../types";
+import { useArenaRunner } from "../useArenaRunner";
+
+const createWrapper = () => {
+	return function Wrapper({ children }: { children: React.ReactNode }) {
+		return children;
+	};
+};
+
+const createMockDeps = (
+	overrides?: Partial<Parameters<typeof useArenaRunner>[0]>,
+) => {
+	const baseDeps: Parameters<typeof useArenaRunner>[0] = {
+		arenaModeRef: { current: "compare" as ArenaSubMode },
+		savedPrompt: "Test prompt",
+		prompt: "Test prompt",
+		setRounds: vi.fn(),
+		setPhase: vi.fn(),
+		setRunningModels: vi.fn(),
+		rounds: [],
+		roundsRef: { current: [] },
+		modelParams: {},
+		enabledModels: [],
+		toast: vi.fn() as ReturnType<typeof useToast>["toast"],
+		...overrides,
+	};
+	return baseDeps;
+};
+
+describe("useArenaRunner", () => {
+	it("returns all expected methods", () => {
+		const deps = createMockDeps();
+		const { result } = renderHook(() => useArenaRunner(deps), {
+			wrapper: createWrapper(),
+		});
+
+		expect(result.current.streamModel).toBeDefined();
+		expect(result.current.runRound).toBeDefined();
+		expect(result.current.handleStopAll).toBeDefined();
+		expect(result.current.handleRetry).toBeDefined();
+		expect(result.current.handleCancelSlot).toBeDefined();
+		expect(result.current.handleSwapComplete).toBeDefined();
+		expect(result.current.abortMapRef).toBeDefined();
+	});
+
+	it("initializes with empty abort map", () => {
+		const deps = createMockDeps();
+		const { result } = renderHook(() => useArenaRunner(deps), {
+			wrapper: createWrapper(),
+		});
+
+		expect(result.current.abortMapRef.current.size).toBe(0);
+	});
+
+	describe("streamModel", () => {
+		it("streams response and updates rounds", async () => {
+			server.use(
+				http.post("/api/chat/arena", async () => {
+					const encoder = new TextEncoder();
+					const stream = new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+								),
+							);
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":" world"}}]}\n\n',
+								),
+							);
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":10,"completion_tokens":5}}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					});
+					return new Response(stream, {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const arenaModeRef = { current: "compare" as ArenaSubMode };
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			// Mock setRunningModels to invoke the callback with empty set
+			const setRunningModelsMock = vi.fn((fn) => {
+				if (typeof fn === "function") {
+					fn(new Set());
+				}
+			});
+
+			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				setRunningModels: setRunningModelsMock,
+				setPhase: setPhaseMock,
+				arenaModeRef,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel(
+					"model-a",
+					"system prompt",
+					"user prompt",
+					0,
+					"A",
+					0,
+				);
+			});
+
+			expect(setRoundsMock).toHaveBeenCalled();
+			expect(setRunningModelsMock).toHaveBeenCalled();
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+		});
+
+		it("handles stream error and shows toast", async () => {
+			server.use(
+				http.post("/api/chat/arena", () => {
+					return HttpResponse.json({ error: "Failed" }, { status: 500 });
+				}),
+			);
+
+			const toastMock = vi.fn();
+			const setRoundsMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+
+			const deps = createMockDeps({
+				toast: toastMock as ReturnType<typeof useToast>["toast"],
+				setRounds: setRoundsMock,
+				setRunningModels: setRunningModelsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+			});
+
+			expect(toastMock).toHaveBeenCalled();
+			expect(setRoundsMock).toHaveBeenCalled();
+		});
+
+		it("aborts on signal abort", async () => {
+			const abortCtrl = new AbortController();
+			const deps = createMockDeps();
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.abortMapRef.current.set("model-a", abortCtrl);
+			});
+
+			act(() => {
+				result.current.handleStopAll();
+			});
+
+			expect(abortCtrl.signal.aborted).toBe(true);
+			expect(result.current.abortMapRef.current.size).toBe(0);
+		});
+
+		it("handles retry for a slot", () => {
+			const setRoundsMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "model-a",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: 0,
+								done: true,
+								error: "Error occurred",
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				setRunningModels: setRunningModelsMock,
+				setPhase: setPhaseMock,
+				savedPrompt: "retry prompt",
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleRetry(0, 0, "A");
+			});
+
+			expect(setRoundsMock).toHaveBeenCalled();
+			expect(setRunningModelsMock).toHaveBeenCalled();
+			expect(setPhaseMock).toHaveBeenCalledWith("running");
+		});
+
+		it("handles cancel for a slot", () => {
+			const abortCtrl = new AbortController();
+			const setRoundsMock = vi.fn();
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["model-a"])));
+
+			const deps = createMockDeps({
+				setRounds: setRoundsMock,
+				setRunningModels: setRunningModelsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.abortMapRef.current.set("model-a", abortCtrl);
+			});
+
+			act(() => {
+				result.current.handleCancelSlot(0, 0, "A", "model-a");
+			});
+
+			expect(abortCtrl.signal.aborted).toBe(true);
+			expect(setRoundsMock).toHaveBeenCalled();
+		});
+
+		it("handles swap complete for a slot", () => {
+			const setRoundsMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const modelParams: Record<string, GenerationParams> = {
+				"new-model": { temperature: 0.7 },
+			};
+
+			const deps = createMockDeps({
+				setRounds: setRoundsMock,
+				setRunningModels: setRunningModelsMock,
+				setPhase: setPhaseMock,
+				modelParams,
+				savedPrompt: "swap prompt",
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleSwapComplete(0, 0, "A", "new-model");
+			});
+
+			expect(setRoundsMock).toHaveBeenCalled();
+			expect(setRunningModelsMock).toHaveBeenCalled();
+			expect(setPhaseMock).toHaveBeenCalledWith("running");
+		});
+	});
+
+	describe("runRound", () => {
+		it("runs a round and streams all slots", () => {
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				setPhase: setPhaseMock,
+				setRunningModels: setRunningModelsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.runRound(0);
+			});
+
+			expect(setPhaseMock).toHaveBeenCalledWith("running");
+			expect(setRunningModelsMock).toHaveBeenCalled();
+			expect(setRoundsMock).toHaveBeenCalled();
+		});
+
+		it("does not run if round does not exist", () => {
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+
+			const deps = createMockDeps({
+				rounds: [],
+				roundsRef: { current: [] },
+				setRounds: setRoundsMock,
+				setPhase: setPhaseMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.runRound(0);
+			});
+
+			expect(setPhaseMock).not.toHaveBeenCalled();
+			expect(setRoundsMock).not.toHaveBeenCalled();
+		});
+
+		it("uses savedPrompt if available", () => {
+			const setRoundsMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				savedPrompt: "saved prompt",
+				prompt: "current prompt",
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.runRound(0);
+			});
+
+			expect(setRoundsMock).toHaveBeenCalled();
+		});
+	});
+
+	describe("handleStopAll", () => {
+		it("aborts all running models", () => {
+			const abortCtrlA = new AbortController();
+			const abortCtrlB = new AbortController();
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+
+			const deps = createMockDeps({
+				setRounds: setRoundsMock,
+				setPhase: setPhaseMock,
+				setRunningModels: setRunningModelsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.abortMapRef.current.set("model-a", abortCtrlA);
+				result.current.abortMapRef.current.set("model-b", abortCtrlB);
+			});
+
+			act(() => {
+				result.current.handleStopAll();
+			});
+
+			expect(abortCtrlA.signal.aborted).toBe(true);
+			expect(abortCtrlB.signal.aborted).toBe(true);
+			expect(result.current.abortMapRef.current.size).toBe(0);
+			expect(setRunningModelsMock).toHaveBeenCalledWith(new Set());
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+		});
+
+		it("marks partially streamed responses as done", () => {
+			const setRoundsMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "model-a",
+								rawContent: "partial",
+								content: "partial",
+								thinkingContent: "",
+								startTimeMs: 0,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleStopAll();
+			});
+
+			expect(setRoundsMock).toHaveBeenCalled();
+		});
+
+		it("sets phase to voting in competition mode", () => {
+			const setPhaseMock = vi.fn();
+			const deps = createMockDeps({
+				arenaModeRef: { current: "competition" as ArenaSubMode },
+				setPhase: setPhaseMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleStopAll();
+			});
+
+			expect(setPhaseMock).toHaveBeenCalledWith("voting");
+		});
+	});
+
+	describe("integration with API", () => {
+		it("handles successful arena streaming", async () => {
+			server.use(
+				http.post("/api/chat/arena", async () => {
+					const encoder = new TextEncoder();
+					const stream = new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"Response"}}]}\n\n',
+								),
+							);
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":5,"completion_tokens":3}}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					});
+					return new Response(stream, {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const setRoundsMock = vi.fn();
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set()));
+			const setPhaseMock = vi.fn();
+			const toastMock = vi.fn();
+
+			const deps = createMockDeps({
+				setRounds: setRoundsMock,
+				setRunningModels: setRunningModelsMock,
+				setPhase: setPhaseMock,
+				toast: toastMock as ReturnType<typeof useToast>["toast"],
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("model-a", "", "test prompt", 0, "A", 0);
+			});
+
+			expect(toastMock).not.toHaveBeenCalled();
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+		});
+
+		it("includes model params in API request", async () => {
+			let capturedBody: any = null;
+			server.use(
+				http.post("/api/chat/arena", async ({ request }) => {
+					capturedBody = await request.json();
+					const encoder = new TextEncoder();
+					const stream = new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								encoder.encode('data: {"choices":[{"delta":{}}]}\n\n'),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					});
+					return new Response(stream, {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const modelParams: Record<string, GenerationParams> = {
+				"model-a": { temperature: 0.8, max_tokens: 500 },
+			};
+			const deps = createMockDeps({
+				modelParams,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("model-a", "", "prompt", 0, "A", 0, {
+					temperature: 0.8,
+					max_tokens: 500,
+				});
+			});
+
+			expect(capturedBody?.temperature).toBe(0.8);
+			expect(capturedBody?.max_tokens).toBe(500);
+		});
+
+		it("handles thinking content in stream", async () => {
+			server.use(
+				http.post("/api/chat/arena", async () => {
+					const encoder = new TextEncoder();
+					const stream = new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"reasoning_content":"Thinking..."}}]}\n\n',
+								),
+							);
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"Response"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					});
+					return new Response(stream, {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const setRoundsMock = vi.fn();
+			const deps = createMockDeps({
+				setRounds: setRoundsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+			});
+
+			expect(setRoundsMock).toHaveBeenCalled();
+		});
+	});
+});
