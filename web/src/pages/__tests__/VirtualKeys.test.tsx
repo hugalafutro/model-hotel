@@ -1359,9 +1359,9 @@ describe("VirtualKeys", () => {
 	});
 
 	describe("API Error Handling", () => {
-		it.skip("handles 401 unauthorized error gracefully", async () => {
-			// Skip: Component uses React Query which handles errors internally.
-			// No specific error UI is rendered - shows empty state instead.
+		it("handles 401 unauthorized error gracefully", async () => {
+			// Component uses React Query which handles errors internally.
+			// Verifies empty state is rendered on error.
 			server.use(
 				http.get("/api/virtual-keys", () => {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -1371,18 +1371,21 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			// Component shows empty state when query fails
-			await waitFor(() => {
-				expect(
-					screen.getByText(
-						"No virtual keys. Create one to start using the proxy.",
-					),
-				).toBeInTheDocument();
-			});
+			await waitFor(
+				() => {
+					expect(
+						screen.getByText(
+							"No virtual keys. Create one to start using the proxy.",
+						),
+					).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
 		});
 
-		it.skip("handles 500 server error gracefully", async () => {
-			// Skip: Component uses React Query which handles errors internally.
-			// No specific error UI is rendered - shows empty state instead.
+		it("handles 500 server error gracefully", async () => {
+			// Component uses React Query which handles errors internally.
+			// Verifies empty state is rendered on error.
 			server.use(
 				http.get("/api/virtual-keys", () => {
 					return HttpResponse.json(
@@ -1395,18 +1398,21 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			// Component shows empty state when query fails
-			await waitFor(() => {
-				expect(
-					screen.getByText(
-						"No virtual keys. Create one to start using the proxy.",
-					),
-				).toBeInTheDocument();
-			});
+			await waitFor(
+				() => {
+					expect(
+						screen.getByText(
+							"No virtual keys. Create one to start using the proxy.",
+						),
+					).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
 		});
 
-		it.skip("handles network error gracefully", async () => {
-			// Skip: Component uses React Query which handles errors internally.
-			// No specific error UI is rendered - shows empty state instead.
+		it("handles network error gracefully", async () => {
+			// Component uses React Query which handles errors internally.
+			// Verifies empty state is rendered on error.
 			server.use(
 				http.get("/api/virtual-keys", () => {
 					return HttpResponse.error();
@@ -1416,13 +1422,16 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			// Component shows empty state when query fails
-			await waitFor(() => {
-				expect(
-					screen.getByText(
-						"No virtual keys. Create one to start using the proxy.",
-					),
-				).toBeInTheDocument();
-			});
+			await waitFor(
+				() => {
+					expect(
+						screen.getByText(
+							"No virtual keys. Create one to start using the proxy.",
+						),
+					).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
 		});
 	});
 

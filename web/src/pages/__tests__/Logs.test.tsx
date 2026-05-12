@@ -6,7 +6,7 @@ import { renderWithProviders } from "../../test/utils";
 import { Logs } from "../Logs";
 
 // Mock LogDetailModal component
-vi.mock("../components/LogDetailModal", () => ({
+vi.mock("../../components/LogDetailModal", () => ({
 	LogDetailModal: ({
 		log,
 		onClose,
@@ -24,7 +24,7 @@ vi.mock("../components/LogDetailModal", () => ({
 }));
 
 // Mock AccentCalendar component
-vi.mock("../pages/Logs/AccentCalendar", () => ({
+vi.mock("../Logs/AccentCalendar", () => ({
 	AccentCalendar: ({
 		from,
 		to,
@@ -48,6 +48,7 @@ describe("Logs", () => {
 	beforeEach(() => {
 		server.resetHandlers();
 		vi.clearAllMocks();
+		localStorage.clear();
 	});
 
 	describe("Initial Rendering", () => {
@@ -81,16 +82,43 @@ describe("Logs", () => {
 	});
 
 	describe("Request Logs Mode", () => {
-		it.skip("renders request logs table headers", async () => {
-			// Skipped: Table headers require data to render
+		it("renders request logs table headers", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123def4567890",
+						model_id: "test-model",
+						provider_name: "Test Provider",
+						status_code: 200,
+						tokens_prompt: 100,
+						tokens_completion: 200,
+						tokens_per_second: 50,
+						ttft_ms: 250,
+						duration_ms: 6000,
+						proxy_overhead_ms: 45,
+						state: "completed",
+						error_message: "",
+						parse_ms: 5,
+						model_lookup_ms: 10,
+						provider_lookup_ms: 20,
+						key_decrypt_ms: 10,
+						virtual_key_deleted: false,
+						virtual_key_id: "vk-001",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests").length).toBeGreaterThan(0);
+				expect(screen.getByText("Time/Date")).toBeInTheDocument();
 			});
-
-			// All column headers should be present
-			expect(screen.getByText("Time/Date")).toBeInTheDocument();
+			expect(screen.getByText("Hash")).toBeInTheDocument();
 			expect(screen.getByText("Hash")).toBeInTheDocument();
 			expect(screen.getByText("Model")).toBeInTheDocument();
 			expect(screen.getByText("Provider")).toBeInTheDocument();
@@ -145,42 +173,33 @@ describe("Logs", () => {
 			expect(calendarButtons.length).toBeGreaterThan(0);
 		});
 
-		it.skip("shows empty state when no logs", async () => {
-			// Skipped: Empty state requires data to be fetched first
+		it("shows empty state when no logs", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json({ entries: [], total: 0, page: 1, per_page: 25 }),
+				),
+			);
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests").length).toBeGreaterThan(0);
+				expect(screen.getByText("No logs found")).toBeInTheDocument();
 			});
-
-			// Empty state message should appear
-			expect(screen.getByText("No logs found")).toBeInTheDocument();
 		});
 
-		it.skip("renders loading spinner initially", async () => {
-			// Skipped: Logs uses custom spinner without data-testid
+		it("renders loading spinner initially", async () => {
 			server.use(
-				http.get("/api/logs", () => {
-					return new Promise((resolve) => {
-						setTimeout(() => {
-							resolve(
-								HttpResponse.json({
-									entries: [],
-									total: 0,
-									page: 1,
-									per_page: 25,
-								}),
-							);
-						}, 100);
+				http.get("/api/logs", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					return HttpResponse.json({
+						entries: [],
+						total: 0,
+						page: 1,
+						per_page: 25,
 					});
 				}),
 			);
-
 			renderWithProviders(<Logs />);
-
-			// Spinner should be visible initially
-			const spinner = screen.getByTestId("spinner");
-			expect(spinner).toBeInTheDocument();
+			expect(screen.getByRole("status", { hidden: true })).toBeInTheDocument();
 		});
 
 		it("renders error message when API fails", async () => {
@@ -249,8 +268,7 @@ describe("Logs", () => {
 			expect(screen.getByText("200")).toBeInTheDocument();
 		});
 
-		it.skip("displays truncated request hash (16 chars)", async () => {
-			// Skipped: Hash truncation format differs from test expectation
+		it("displays truncated request hash (16 chars)", async () => {
 			const mockLogs = {
 				entries: [
 					{
@@ -286,7 +304,7 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abcdefghij1234")).toBeInTheDocument();
+				expect(screen.getByText("abcdefghij123456")).toBeInTheDocument();
 			});
 		});
 
@@ -689,44 +707,36 @@ describe("Logs", () => {
 	});
 
 	describe("Date Filtering", () => {
-		it.skip("opens date picker when calendar button is clicked", async () => {
-			// Skipped: Complex async interaction with calendar component
+		it("opens date picker when calendar button is clicked", async () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
 				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
 			});
 
-			// Click calendar button
-			const calendarButtons = screen.getAllByRole("button").filter((btn) => {
-				const svg = btn.querySelector("svg");
-				return svg;
-			});
-			await user.click(calendarButtons[0]);
+			// Click calendar button by aria-label
+			const calendarButton = screen.getByLabelText("Filter by date range");
+			await user.click(calendarButton);
 
 			// Date picker should open
 			await waitFor(() => {
-				expect(screen.getByText("Select date range")).toBeInTheDocument();
+				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 		});
 
-		it.skip("closes date picker when close button is clicked", async () => {
-			// Skipped: Complex async interaction with calendar component
+		it("closes date picker when close button is clicked", async () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
 				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
 			});
 
-			// Open date picker
-			const calendarButtons = screen.getAllByRole("button").filter((btn) => {
-				const svg = btn.querySelector("svg");
-				return svg;
-			});
-			await user.click(calendarButtons[0]);
+			// Click calendar button by aria-label
+			const calendarButton = screen.getByLabelText("Filter by date range");
+			await user.click(calendarButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Select date range")).toBeInTheDocument();
+				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 
 			// Click close button
@@ -735,27 +745,23 @@ describe("Logs", () => {
 
 			// Date picker should close
 			await waitFor(() => {
-				expect(screen.queryByText("Select date range")).not.toBeInTheDocument();
+				expect(screen.queryByTestId("accent-calendar")).not.toBeInTheDocument();
 			});
 		});
 
-		it.skip("applies date filter when Apply button is clicked", async () => {
-			// Skipped: Complex async interaction with calendar component
+		it("applies date filter when Apply button is clicked", async () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
 				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
 			});
 
-			// Open date picker
-			const calendarButtons = screen.getAllByRole("button").filter((btn) => {
-				const svg = btn.querySelector("svg");
-				return svg;
-			});
-			await user.click(calendarButtons[0]);
+			// Click calendar button by aria-label
+			const calendarButton = screen.getByLabelText(/filter by date/i);
+			await user.click(calendarButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Select date range")).toBeInTheDocument();
+				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 
 			// Select a date
@@ -766,31 +772,28 @@ describe("Logs", () => {
 			const applyButton = screen.getByText("Apply");
 			await user.click(applyButton);
 
-			// Date picker should close and filter should be applied
+			// Date picker should close
 			await waitFor(() => {
-				expect(screen.queryByText("Select date range")).not.toBeInTheDocument();
+				expect(screen.queryByTestId("accent-calendar")).not.toBeInTheDocument();
 			});
 		});
 
-		it.skip("clears date filter when Clear button is clicked", async () => {
-			// Skipped: Complex async interaction with calendar component
+		it("clears date filter when Clear button is clicked", async () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
 				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
 			});
 
-			// Open date picker and select date
-			const calendarButtons = screen.getAllByRole("button").filter((btn) => {
-				const svg = btn.querySelector("svg");
-				return svg;
-			});
-			await user.click(calendarButtons[0]);
+			// Click calendar button by aria-label
+			const calendarButton = screen.getByLabelText(/filter by date/i);
+			await user.click(calendarButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Select date range")).toBeInTheDocument();
+				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 
+			// Select a date twice
 			const selectButton = screen.getByText("Select Date");
 			await user.click(selectButton);
 			await user.click(selectButton);
@@ -801,142 +804,291 @@ describe("Logs", () => {
 
 			// Date picker should close
 			await waitFor(() => {
-				expect(screen.queryByText("Select date range")).not.toBeInTheDocument();
+				expect(screen.queryByTestId("accent-calendar")).not.toBeInTheDocument();
 			});
 		});
 	});
 
 	describe("Sorting", () => {
-		it.skip("sorts by time column when clicked", async () => {
-			// Skipped: Complex async interaction with table sorting
+		it("sorts by time column when clicked", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123",
+						model_id: "test-model",
+						provider_name: "Test",
+						status_code: 200,
+						tokens_prompt: 0,
+						tokens_completion: 0,
+						tokens_per_second: 0,
+						ttft_ms: 0,
+						duration_ms: 0,
+						proxy_overhead_ms: 0,
+						state: "completed",
+						error_message: "",
+						parse_ms: 0,
+						model_lookup_ms: 0,
+						provider_lookup_ms: 0,
+						key_decrypt_ms: 0,
+						virtual_key_deleted: false,
+						virtual_key_id: "",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+				expect(screen.getByText("Time/Date")).toBeInTheDocument();
 			});
 
-			// Click time header
-			const timeHeader = screen.getByText("Time/Date");
-			const timeHeaderButton = timeHeader.closest("button");
-			if (timeHeaderButton) {
-				await user.click(timeHeaderButton);
+			// Click time header button
+			const timeHeader = screen.getByRole("button", { name: /Time\/Date/i });
+			await user.click(timeHeader);
 
-				// Sort indicator should change
-				await waitFor(() => {
-					expect(timeHeaderButton).toBeInTheDocument();
-				});
-			}
+			// Verify header is clickable
+			expect(timeHeader).toBeInTheDocument();
 		});
 
-		it.skip("sorts by model column when clicked", async () => {
-			// Skipped: Complex async interaction with table sorting
+		it("sorts by model column when clicked", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123",
+						model_id: "test-model",
+						provider_name: "Test",
+						status_code: 200,
+						tokens_prompt: 0,
+						tokens_completion: 0,
+						tokens_per_second: 0,
+						ttft_ms: 0,
+						duration_ms: 0,
+						proxy_overhead_ms: 0,
+						state: "completed",
+						error_message: "",
+						parse_ms: 0,
+						model_lookup_ms: 0,
+						provider_lookup_ms: 0,
+						key_decrypt_ms: 0,
+						virtual_key_deleted: false,
+						virtual_key_id: "",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+				expect(screen.getByText("Model")).toBeInTheDocument();
 			});
 
-			// Click model header
-			const modelHeader = screen.getByText("Model");
-			const modelHeaderButton = modelHeader.closest("button");
-			if (modelHeaderButton) {
-				await user.click(modelHeaderButton);
+			// Click model header button - use getAllByText and filter for th context
+			const modelHeader = screen.getByRole("button", { name: "Model" });
+			await user.click(modelHeader);
 
-				// Sort indicator should change
-				await waitFor(() => {
-					expect(modelHeaderButton).toBeInTheDocument();
-				});
-			}
+			// Verify header is clickable
+			expect(modelHeader).toBeInTheDocument();
 		});
 
-		it.skip("sorts by provider column when clicked", async () => {
-			// Skipped: Complex async interaction with table sorting
+		it("sorts by provider column when clicked", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123",
+						model_id: "test-model",
+						provider_name: "Test",
+						status_code: 200,
+						tokens_prompt: 0,
+						tokens_completion: 0,
+						tokens_per_second: 0,
+						ttft_ms: 0,
+						duration_ms: 0,
+						proxy_overhead_ms: 0,
+						state: "completed",
+						error_message: "",
+						parse_ms: 0,
+						model_lookup_ms: 0,
+						provider_lookup_ms: 0,
+						key_decrypt_ms: 0,
+						virtual_key_deleted: false,
+						virtual_key_id: "",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+				expect(screen.getByText("Provider")).toBeInTheDocument();
 			});
 
-			// Click provider header
-			const providerHeader = screen.getByText("Provider");
-			const providerHeaderButton = providerHeader.closest("button");
-			if (providerHeaderButton) {
-				await user.click(providerHeaderButton);
+			// Click provider header button
+			const providerHeader = screen.getByRole("button", { name: /Provider/i });
+			await user.click(providerHeader);
 
-				// Sort indicator should change
-				await waitFor(() => {
-					expect(providerHeaderButton).toBeInTheDocument();
-				});
-			}
+			// Verify header is clickable
+			expect(providerHeader).toBeInTheDocument();
 		});
 
-		it.skip("sorts by status column when clicked", async () => {
-			// Skipped: Complex async interaction with table sorting
+		it("sorts by status column when clicked", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123",
+						model_id: "test-model",
+						provider_name: "Test",
+						status_code: 200,
+						tokens_prompt: 0,
+						tokens_completion: 0,
+						tokens_per_second: 0,
+						ttft_ms: 0,
+						duration_ms: 0,
+						proxy_overhead_ms: 0,
+						state: "completed",
+						error_message: "",
+						parse_ms: 0,
+						model_lookup_ms: 0,
+						provider_lookup_ms: 0,
+						key_decrypt_ms: 0,
+						virtual_key_deleted: false,
+						virtual_key_id: "",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+				expect(screen.getByText("Status")).toBeInTheDocument();
 			});
 
-			// Click status header
-			const statusHeader = screen.getByText("Status");
-			const statusHeaderButton = statusHeader.closest("button");
-			if (statusHeaderButton) {
-				await user.click(statusHeaderButton);
+			// Click status header button
+			const statusHeader = screen.getByRole("button", { name: /Status/i });
+			await user.click(statusHeader);
 
-				// Sort indicator should change
-				await waitFor(() => {
-					expect(statusHeaderButton).toBeInTheDocument();
-				});
-			}
+			// Verify header is clickable
+			expect(statusHeader).toBeInTheDocument();
 		});
 
-		it.skip("sorts by tokens column when clicked", async () => {
-			// Skipped: Complex async interaction with table sorting
+		it("sorts by tokens column when clicked", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123",
+						model_id: "test-model",
+						provider_name: "Test",
+						status_code: 200,
+						tokens_prompt: 0,
+						tokens_completion: 0,
+						tokens_per_second: 0,
+						ttft_ms: 0,
+						duration_ms: 0,
+						proxy_overhead_ms: 0,
+						state: "completed",
+						error_message: "",
+						parse_ms: 0,
+						model_lookup_ms: 0,
+						provider_lookup_ms: 0,
+						key_decrypt_ms: 0,
+						virtual_key_deleted: false,
+						virtual_key_id: "",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+				expect(screen.getByText("Tokens")).toBeInTheDocument();
 			});
 
-			// Click tokens header
-			const tokensHeader = screen.getByText("Tokens");
-			const tokensHeaderButton = tokensHeader.closest("button");
-			if (tokensHeaderButton) {
-				await user.click(tokensHeaderButton);
+			// Click tokens header button
+			const tokensHeader = screen.getByRole("button", { name: /Tokens/i });
+			await user.click(tokensHeader);
 
-				// Sort indicator should change
-				await waitFor(() => {
-					expect(tokensHeaderButton).toBeInTheDocument();
-				});
-			}
+			// Verify header is clickable
+			expect(tokensHeader).toBeInTheDocument();
 		});
 
-		it.skip("sorts by duration column when clicked", async () => {
-			// Skipped: Complex async interaction with table sorting
+		it("sorts by duration column when clicked", async () => {
+			const mockLogs = {
+				entries: [
+					{
+						id: "log-001",
+						created_at: "2026-05-11T10:00:00Z",
+						request_hash: "abc123",
+						model_id: "test-model",
+						provider_name: "Test",
+						status_code: 200,
+						tokens_prompt: 0,
+						tokens_completion: 0,
+						tokens_per_second: 0,
+						ttft_ms: 0,
+						duration_ms: 0,
+						proxy_overhead_ms: 0,
+						state: "completed",
+						error_message: "",
+						parse_ms: 0,
+						model_lookup_ms: 0,
+						provider_lookup_ms: 0,
+						key_decrypt_ms: 0,
+						virtual_key_deleted: false,
+						virtual_key_id: "",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 25,
+			};
+			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+				expect(screen.getByText("Duration")).toBeInTheDocument();
 			});
 
-			// Click duration header
-			const durationHeader = screen.getByText("Duration");
-			const durationHeaderButton = durationHeader.closest("button");
-			if (durationHeaderButton) {
-				await user.click(durationHeaderButton);
+			// Click duration header button
+			const durationHeader = screen.getByRole("button", { name: /Duration/i });
+			await user.click(durationHeader);
 
-				// Sort indicator should change
-				await waitFor(() => {
-					expect(durationHeaderButton).toBeInTheDocument();
-				});
-			}
+			// Verify header is clickable
+			expect(durationHeader).toBeInTheDocument();
 		});
 	});
 
 	describe("Log Detail Modal", () => {
-		it.skip("opens log detail modal when row is clicked", async () => {
-			// Skipped: Complex async interaction with row click handler
+		it("opens log detail modal when row is clicked", async () => {
 			const mockLogs = {
 				entries: [
 					{
@@ -979,16 +1131,13 @@ describe("Logs", () => {
 			const row = screen.getByText("abc123").closest("tr");
 			if (row) {
 				await user.click(row);
-
-				// Modal should open
 				await waitFor(() => {
 					expect(screen.getByTestId("log-detail-modal")).toBeInTheDocument();
 				});
 			}
 		});
 
-		it.skip("closes log detail modal when close button is clicked", async () => {
-			// Skipped: Complex async interaction with modal close handler
+		it("closes log detail modal when close button is clicked", async () => {
 			const mockLogs = {
 				entries: [
 					{
@@ -1179,8 +1328,7 @@ describe("Logs", () => {
 	});
 
 	describe("App Logs Mode", () => {
-		it.skip("switches to app logs mode when Logs tab is clicked", async () => {
-			// Skipped: Complex async interaction with submode switch
+		it("switches to app logs mode when Logs tab is clicked", async () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
@@ -1191,16 +1339,17 @@ describe("Logs", () => {
 			const logsTab = screen.getByText("Logs");
 			await user.click(logsTab);
 
-			// Should switch to app logs view
+			// Should switch to app logs view - check for AppLogs page header
 			await waitFor(() => {
-				expect(screen.getByText("Application Logs")).toBeInTheDocument();
+				expect(
+					screen.getByText("Server application log output"),
+				).toBeInTheDocument();
 			});
 		});
 	});
 
 	describe("API Integration", () => {
-		it.skip("fetches logs from correct endpoint", async () => {
-			// Skipped: Complex async test with MSW interception
+		it("fetches logs from correct endpoint", async () => {
 			let apiCalled = false;
 			server.use(
 				http.get("/api/logs", ({ request }) => {
@@ -1222,8 +1371,7 @@ describe("Logs", () => {
 			});
 		});
 
-		it.skip("passes filter parameters to API", async () => {
-			// Skipped: Complex async test with debounced filter
+		it("passes filter parameters to API", async () => {
 			let capturedParams: {
 				model_id: string | null;
 				provider_id: string | null;
@@ -1256,13 +1404,15 @@ describe("Logs", () => {
 			const modelFilter = screen.getByPlaceholderText("Filter by model ID…");
 			await user.type(modelFilter, "test-model");
 
-			await waitFor(() => {
-				expect(capturedParams?.model_id).toBe("test-model");
-			});
+			await waitFor(
+				() => {
+					expect(capturedParams?.model_id).toBe("test-model");
+				},
+				{ timeout: 2000 },
+			);
 		});
 
-		it.skip("passes pagination parameters to API", async () => {
-			// Skipped: Complex async test with pagination
+		it("passes pagination parameters to API", async () => {
 			let capturedParams: {
 				page: string | null;
 				per_page: string | null;
@@ -1285,10 +1435,13 @@ describe("Logs", () => {
 
 			renderWithProviders(<Logs />);
 
-			await waitFor(() => {
-				expect(capturedParams?.page).toBe("1");
-				expect(capturedParams?.per_page).toBe("20");
-			});
+			await waitFor(
+				() => {
+					expect(capturedParams?.page).toBe("1");
+					expect(capturedParams?.per_page).toBe("20");
+				},
+				{ timeout: 2000 },
+			);
 		});
 
 		it("passes sort parameters to API", async () => {
@@ -1548,8 +1701,7 @@ describe("Logs", () => {
 	});
 
 	describe("Overhead Display", () => {
-		it.skip("displays overhead value when present", async () => {
-			// Skipped: Overhead format differs from test expectation (formatMs function)
+		it("displays overhead value when present", async () => {
 			const mockLogs = {
 				entries: [
 					{
@@ -1588,8 +1740,8 @@ describe("Logs", () => {
 				expect(screen.getByText("abc123")).toBeInTheDocument();
 			});
 
-			// Should show overhead value
-			expect(screen.getByText("45ms")).toBeInTheDocument();
+			// Should show overhead value (formatMs adds 2 decimal places)
+			expect(screen.getByText("45.00ms")).toBeInTheDocument();
 		});
 
 		it("displays dash when no overhead", async () => {

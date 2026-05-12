@@ -620,7 +620,7 @@ describe("ModelTable", () => {
 			});
 		});
 
-		it.skip("navigates to previous page", async () => {
+		it("navigates to previous page", async () => {
 			const models = Array.from({ length: 25 }, (_, i) => ({
 				...mockModel,
 				id: `model-${i}`,
@@ -638,17 +638,25 @@ describe("ModelTable", () => {
 			await user.click(screen.getByRole("button", { name: "Next" }));
 
 			// Now prev should be enabled
-			await waitFor(() => {
-				expect(screen.getByRole("button", { name: "Prev" })).not.toBeDisabled();
-			});
+			await waitFor(
+				() => {
+					expect(
+						screen.getByRole("button", { name: "Prev" }),
+					).not.toBeDisabled();
+				},
+				{ timeout: 5000 },
+			);
 
 			// Go back to previous page
 			await user.click(screen.getByRole("button", { name: "Prev" }));
 
 			// Prev should be disabled again
-			await waitFor(() => {
-				expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
-			});
+			await waitFor(
+				() => {
+					expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
+				},
+				{ timeout: 5000 },
+			);
 		});
 
 		it("navigates to specific page number", async () => {

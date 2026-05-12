@@ -512,7 +512,12 @@ function RequestLogs() {
 			{/* Initial loading state - show spinner when first fetch hasn't arrived */}
 			{isLoading && !logsData && (
 				<div className="flex items-center justify-center py-20">
-					<div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
+					<div
+						className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin"
+						data-testid="spinner"
+						role="status"
+						aria-label="Loading"
+					/>
 				</div>
 			)}
 

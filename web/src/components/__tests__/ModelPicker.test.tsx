@@ -211,7 +211,8 @@ describe("ModelPicker", () => {
 
 	describe("provider filter", () => {
 		it.skip("filters models by selected provider", async () => {
-			// Skip: ProviderFilter dropdown behavior is complex to test
+			// Skip: ProviderFilter is a custom dropdown component with complex interaction.
+			// Testing requires reliable dropdown open/close and option selection which is fragile.
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const providerFilter = screen.getByText("Filter Providers");
 			await user.click(providerFilter);
@@ -221,7 +222,8 @@ describe("ModelPicker", () => {
 		});
 
 		it.skip("allows multiple provider selection", async () => {
-			// Skip: ProviderFilter dropdown behavior is complex to test
+			// Skip: ProviderFilter is a custom dropdown component with complex interaction.
+			// Testing requires reliable dropdown open/close and option selection which is fragile.
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const providerFilter = screen.getByText("Filter Providers");
 			await user.click(providerFilter);
@@ -233,7 +235,8 @@ describe("ModelPicker", () => {
 		});
 
 		it.skip("clears provider filter when cleared", async () => {
-			// Skip: ProviderFilter dropdown behavior is complex to test
+			// Skip: ProviderFilter is a custom dropdown component with complex interaction.
+			// Testing requires reliable dropdown open/close and option selection which is fragile.
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const providerFilter = screen.getByText("Filter Providers");
 			await user.click(providerFilter);

@@ -133,22 +133,6 @@ describe("Layout", () => {
 	});
 
 	describe("Sub-mode Toggle", () => {
-		it.skip("toggles Chat sub-mode on second click", async () => {
-			// Skip: Toggle swaps visual styling (bold vs regular) but both sub-modes
-			// remain visible at all times. Testing CSS class changes is fragile.
-			// The toggle functionality exists but is purely visual.
-		});
-
-		it.skip("toggles Arena sub-mode on second click", async () => {
-			// Skip: Toggle swaps visual styling (bold vs regular) but both sub-modes
-			// remain visible at all times. Testing CSS class changes is fragile.
-		});
-
-		it.skip("toggles Logs sub-mode on second click", async () => {
-			// Skip: Toggle swaps visual styling (bold vs regular) but both sub-modes
-			// remain visible at all times. Testing CSS class changes is fragile.
-		});
-
 		it("navigates normally on first click to different page", async () => {
 			const user = userEvent.setup();
 			const { rerender } = renderWithProviders(
