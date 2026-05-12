@@ -29,6 +29,7 @@ export function SubModeToggle<T extends string>({
 						key={opt.value}
 						type="button"
 						onClick={() => onChange(opt.value)}
+						aria-label={opt.label}
 						className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
 							isActive
 								? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"

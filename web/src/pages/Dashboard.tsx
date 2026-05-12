@@ -188,6 +188,7 @@ export function Dashboard() {
 								onClick={handleRefresh}
 								disabled={isRefreshing}
 								title={isRefreshing ? "Refreshing…" : "Refresh dashboard"}
+								aria-label="Refresh dashboard"
 								className={`flex items-center justify-center w-7 h-7 rounded-full transition-all ${
 									isRefreshing
 										? "cursor-not-allowed opacity-60"

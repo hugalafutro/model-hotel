@@ -58,6 +58,7 @@ export function StatCard({
 				</span>
 			</div>
 			<p
+				data-testid="stat-value"
 				className="font-bold text-(--text-primary)"
 				style={{ fontSize: "clamp(14px, 1.2vw, 20px)", textTransform: "none" }}
 			>

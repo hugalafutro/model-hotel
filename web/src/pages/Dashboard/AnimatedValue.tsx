@@ -46,7 +46,7 @@ export function AnimatedValue({
 		? formatter(display)
 		: dropTrailingZero(display, decimals);
 	return (
-		<span style={{ textTransform: "none" }}>
+		<span data-testid="animated-value" style={{ textTransform: "none" }}>
 			{formatted}
 			{suffix && (
 				<span
