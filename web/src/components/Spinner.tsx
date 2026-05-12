@@ -18,7 +18,10 @@ export const Spinner = memo(function Spinner({
 
 	if (uiStyle === "cyber-terminal") {
 		return (
-			<span className={`inline-block w-[1ch] text-center ${className}`}>
+			<span
+				data-testid="spinner"
+				className={`inline-block w-[1ch] text-center ${className}`}
+			>
 				{BRAILLE[frame]}
 			</span>
 		);
@@ -26,6 +29,7 @@ export const Spinner = memo(function Spinner({
 
 	return (
 		<span
+			data-testid="spinner"
 			className={`inline-block w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin ${className}`}
 		/>
 	);

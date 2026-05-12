@@ -1,0 +1,74 @@
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "../../test/utils";
+import { CopyablePill } from "../CopyablePill";
+
+// Stub Lucide icons
+vi.mock("lucide-react", () => ({
+	Briefcase: ({ className }: { className?: string }) => (
+		<svg className={className} data-testid="stub-icon" />
+	),
+}));
+
+describe("CopyablePill", () => {
+	beforeEach(() => {
+		Object.assign(globalThis, {
+			navigator: {
+				...globalThis.navigator,
+				clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+			},
+		});
+	});
+
+	it("renders text", () => {
+		renderWithProviders(<CopyablePill text="test@example.com" />);
+
+		expect(screen.getByText("test@example.com")).toBeInTheDocument();
+	});
+
+	it("renders displayText when provided", () => {
+		renderWithProviders(
+			<CopyablePill text="long-text@example.com" displayText="Short" />,
+		);
+
+		expect(screen.getByText("Short")).toBeInTheDocument();
+		expect(screen.queryByText("long-text@example.com")).not.toBeInTheDocument();
+	});
+
+	it("shows toast on successful copy", async () => {
+		renderWithProviders(<CopyablePill text="api-key" />);
+
+		fireEvent.click(screen.getByText("api-key"));
+
+		await waitFor(() => {
+			expect(screen.getByText("Copied!")).toBeInTheDocument();
+		});
+	});
+
+	it("renders suffix when provided", () => {
+		renderWithProviders(
+			<CopyablePill
+				text="key"
+				suffix={<span data-testid="suffix">Extra</span>}
+			/>,
+		);
+
+		expect(screen.getByTestId("suffix")).toBeInTheDocument();
+		expect(screen.getByText("Extra")).toBeInTheDocument();
+	});
+
+	it("shows tooltip on hover via title attribute", () => {
+		renderWithProviders(
+			<CopyablePill text="key" tooltip="Custom tooltip text" />,
+		);
+
+		const button = screen.getByText("key").closest("button");
+		expect(button).toHaveAttribute("title", "Custom tooltip text");
+	});
+
+	it("uses default tooltip when not provided", () => {
+		renderWithProviders(<CopyablePill text="key" />);
+
+		const button = screen.getByText("key").closest("button");
+		expect(button).toHaveAttribute("title", "Click to copy");
+	});
+});

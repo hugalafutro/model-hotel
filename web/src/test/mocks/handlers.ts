@@ -21,7 +21,7 @@ import {
 // Helper to check for valid auth header
 function hasValidAuth(request: Request): boolean {
 	const auth = request.headers.get("Authorization");
-	return auth != null && auth.startsWith("Bearer ");
+	return auth?.startsWith("Bearer ");
 }
 
 // Factory function to create fresh mock data arrays for each test.
@@ -127,11 +127,66 @@ export const handlers: RequestHandler[] = [
 		});
 	}),
 
-	http.get("/api/providers/:id/usage", ({ request }) => {
+	http.get("/api/providers/:id/usage", ({ request, params }) => {
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
-		// Return a mock NanoGPTUsage response
+		// Return different mock responses based on provider type
+		const providerId = params.id as string;
+
+		// Check if it's a Z.ai provider (for testing purposes, check if ID contains 'zai')
+		if (providerId.includes("zai")) {
+			return HttpResponse.json({
+				code: 0,
+				msg: "success",
+				success: true,
+				data: {
+					level: "basic",
+					limits: [
+						{
+							type: "TOKENS_LIMIT",
+							unit: 3,
+							number: 10000,
+							usage: 5000,
+							currentValue: 5000,
+							remaining: 5000,
+							percentage: 50,
+							nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+						},
+						{
+							type: "TOKENS_LIMIT",
+							unit: 6,
+							number: 50000,
+							usage: 25000,
+							currentValue: 25000,
+							remaining: 25000,
+							percentage: 50,
+							nextResetTime: Date.now() + 7 * 24 * 60 * 60 * 1000,
+						},
+					],
+				},
+			});
+		}
+
+		// Check if it's an OpenRouter provider (for testing purposes, check if ID contains 'openrouter')
+		if (providerId.includes("openrouter")) {
+			return HttpResponse.json({
+				label: "OpenRouter",
+				limit: null,
+				limit_reset: null,
+				limit_remaining: null,
+				usage: 100000,
+				usage_daily: 10000,
+				usage_weekly: 50000,
+				usage_monthly: 100000,
+				credits_total: 1000000,
+				credits_used: 100000,
+				credits_remaining: 900000,
+				is_free_tier: false,
+			});
+		}
+
+		// Return a mock NanoGPTUsage response for other providers
 		return HttpResponse.json({
 			active: true,
 			provider: "nanogpt",
@@ -192,6 +247,30 @@ export const handlers: RequestHandler[] = [
 					topped_up_balance: "50.00",
 				},
 			],
+		});
+	}),
+
+	http.get("/api/providers/:id/account", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		// Return a mock OllamaCloudAccount response
+		return HttpResponse.json({
+			id: "ollama-account-1",
+			email: "test@example.com",
+			name: "Test User",
+			plan: "pro",
+			customer_id: { string: "cus_test123", valid: true },
+			subscription_id: { string: "sub_test123", valid: true },
+			subscription_period_start: {
+				time: new Date().toISOString(),
+				valid: true,
+			},
+			subscription_period_end: {
+				time: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+				valid: true,
+			},
+			suspended_at: { time: "", valid: false },
 		});
 	}),
 

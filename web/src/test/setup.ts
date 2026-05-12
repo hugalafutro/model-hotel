@@ -72,6 +72,15 @@ class MockEventSource {
 
 vi.stubGlobal("EventSource", MockEventSource);
 
+// Mock navigator.clipboard (jsdom doesn't implement it)
+const clipboardWriteText = vi.fn().mockResolvedValue(undefined);
+vi.stubGlobal(
+	"navigator",
+	Object.assign(globalThis.navigator || {}, {
+		clipboard: { writeText: clipboardWriteText },
+	}),
+);
+
 beforeAll(() => {
 	server.listen({ onUnhandledRequest: "warn" });
 	setAdminToken("test-admin-token");
