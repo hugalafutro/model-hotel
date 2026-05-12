@@ -53,7 +53,7 @@ const mockErrorResponse: ArenaResponse = {
 	thinkingContent: "",
 	startTimeMs: Date.now(),
 	done: true,
-	error: "Connection refused",
+	error: "Chat failed: 500 Internal Server Error",
 	metrics: null,
 };
 
@@ -249,8 +249,8 @@ describe("ResponseCard", () => {
 				wrapper: AllProviders,
 			});
 
-			// Error message should be displayed
-			expect(screen.getByText("Connection refused")).toBeInTheDocument();
+			// Error message should be displayed (500 status code)
+			expect(screen.getByText(/500/)).toBeInTheDocument();
 		});
 
 		it("shows error icon (AlertCircle)", () => {
@@ -548,22 +548,17 @@ describe("ResponseCard", () => {
 	});
 
 	describe("disabled model mutation", () => {
-		it("calls onDisableModel when error response is present", () => {
-			// This tests that the useDisableModel hook is wired up correctly
-			// The actual mutation behavior is tested in useDisableModel.test.tsx
+		it("renders disable model button for 5xx error response", () => {
+			// The disable button appears when error is a 5xx error
 			render(<ResponseCard {...defaultProps} response={mockErrorResponse} />, {
 				wrapper: AllProviders,
 			});
 
-			// The disable button should be rendered (via onDisableModel prop to ModelReplyCard)
-			// Check for the error icon which indicates error state
-			const { container } = render(
-				<ResponseCard {...defaultProps} response={mockErrorResponse} />,
-				{ wrapper: AllProviders },
-			);
-
-			const errorIcons = container.querySelectorAll(".text-red-400");
-			expect(errorIcons.length).toBeGreaterThan(0);
+			// Disable model button should be rendered for 5xx errors
+			const disableBtn = screen.getByRole("button", {
+				name: /disable model/i,
+			});
+			expect(disableBtn).toBeInTheDocument();
 		});
 	});
 

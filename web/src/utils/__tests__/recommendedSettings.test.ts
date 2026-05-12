@@ -3,7 +3,7 @@ import { fetchRecommendedSettings } from "../recommendedSettings";
 
 describe("fetchRecommendedSettings", () => {
 	beforeEach(() => {
-		vi.spyOn(global, "fetch").mockClear();
+		vi.spyOn(globalThis, "fetch").mockClear();
 	});
 
 	afterEach(() => {
@@ -11,7 +11,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for GPT-4o model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gpt-4o", "OpenAI");
 
@@ -22,7 +22,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for GPT-4-turbo model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gpt-4-turbo", "OpenAI");
 
@@ -30,7 +30,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for GPT-4 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gpt-4", "OpenAI");
 
@@ -38,7 +38,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for GPT-3.5-turbo model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gpt-3.5-turbo", "OpenAI");
 
@@ -46,7 +46,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Claude 4 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("claude-4", "Anthropic");
 
@@ -54,7 +54,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Claude 3.5 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("claude-3.5", "Anthropic");
 
@@ -62,7 +62,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Claude 3 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("claude-3", "Anthropic");
 
@@ -70,7 +70,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Gemini 2.5 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gemini-2.5", "Google");
 
@@ -78,7 +78,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Gemini 2 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gemini-2", "Google");
 
@@ -86,7 +86,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Gemini 1.5 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gemini-1.5", "Google");
 
@@ -94,7 +94,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for generic Gemini model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gemini-pro", "Google");
 
@@ -102,7 +102,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Llama 4 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("llama-4", "Meta");
 
@@ -114,7 +114,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Llama 3 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("llama-3", "Meta");
 
@@ -126,7 +126,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Llama 2 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("llama-2", "Meta");
 
@@ -138,7 +138,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for generic Llama model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("llama", "Meta");
 
@@ -150,7 +150,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Mistral Large model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("mistral-large", "Mistral");
 
@@ -158,7 +158,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Mistral Medium model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("mistral-medium", "Mistral");
 
@@ -166,7 +166,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Mistral Small model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("mistral-small", "Mistral");
 
@@ -174,7 +174,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for generic Mistral model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("mistral", "Mistral");
 
@@ -186,7 +186,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for DeepSeek R1 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("deepseek-r1", "DeepSeek");
 
@@ -194,7 +194,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for DeepSeek V3 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("deepseek-v3", "DeepSeek");
 
@@ -202,7 +202,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for DeepSeek Chat model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("deepseek-chat", "DeepSeek");
 
@@ -210,7 +210,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for generic DeepSeek model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("deepseek", "DeepSeek");
 
@@ -218,7 +218,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Qwen3 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("qwen3", "Qwen");
 
@@ -226,7 +226,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Qwen2.5 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("qwen2.5", "Qwen");
 
@@ -238,7 +238,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Qwen2 model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("qwen2", "Qwen");
 
@@ -250,7 +250,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for generic Qwen model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("qwen", "Qwen");
 
@@ -262,7 +262,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Command R Plus model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("command-r-plus", "Cohere");
 
@@ -270,7 +270,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Command R model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("command-r", "Cohere");
 
@@ -278,7 +278,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for generic Command model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("command", "Cohere");
 
@@ -286,7 +286,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Phi model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("phi-3", "Microsoft");
 
@@ -294,7 +294,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Yi model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("yi-large", "01.AI");
 
@@ -302,7 +302,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Gemma model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("gemma-7b", "Google");
 
@@ -310,7 +310,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Mixtral model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("mixtral-8x7b", "Mistral");
 
@@ -322,7 +322,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns curated settings for Codestral model", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("codestral", "Mistral");
 
@@ -330,7 +330,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("returns null params for unknown model when fetch fails", async () => {
-		global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
+		globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
 		const result = await fetchRecommendedSettings("unknown-model", "Unknown");
 
@@ -354,7 +354,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);
@@ -385,7 +385,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);
@@ -409,7 +409,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);
@@ -424,7 +424,7 @@ describe("fetchRecommendedSettings", () => {
 
 	it("handles models.dev API timeout gracefully", async () => {
 		const controller = new AbortController();
-		global.fetch = vi.fn().mockImplementation(() => {
+		globalThis.fetch = vi.fn().mockImplementation(() => {
 			controller.abort();
 			return Promise.reject(new Error("Timeout"));
 		});
@@ -436,7 +436,7 @@ describe("fetchRecommendedSettings", () => {
 	});
 
 	it("handles models.dev API non-200 response gracefully", async () => {
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: false,
 			status: 500,
 		} as unknown as Response);
@@ -461,7 +461,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);
@@ -490,7 +490,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);
@@ -517,7 +517,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);
@@ -543,7 +543,7 @@ describe("fetchRecommendedSettings", () => {
 			},
 		};
 
-		global.fetch = vi.fn().mockResolvedValueOnce({
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValueOnce(mockApiResponse),
 		} as unknown as Response);

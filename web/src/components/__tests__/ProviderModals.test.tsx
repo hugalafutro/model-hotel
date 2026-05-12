@@ -110,11 +110,14 @@ describe("NanoGPTQuotaModal", () => {
 
 		it("renders weekly token usage numbers", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
-			expect(screen.getByText("10 / 100")).toBeInTheDocument();
+			// Mock data: weeklyInputTokens used=200000, limit=1000000 → "200K / 1M"
+			expect(screen.getByText("200K / 1M")).toBeInTheDocument();
 		});
 
 		it("renders progress bar for weekly quota", () => {
-			const { container } = renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			const { container } = renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} />,
+			);
 			expect(container.querySelector("[style*=width]")).toBeInTheDocument();
 		});
 
@@ -125,6 +128,7 @@ describe("NanoGPTQuotaModal", () => {
 
 		it("renders daily images usage", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			// Mock data: dailyImages used=10, limit=100 → "10 / 100"
 			expect(screen.getByText("10 / 100")).toBeInTheDocument();
 		});
 
@@ -135,7 +139,8 @@ describe("NanoGPTQuotaModal", () => {
 
 		it("renders daily input tokens usage", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
-			expect(screen.getByText("10 / 100")).toBeInTheDocument();
+			// Mock data: dailyInputTokens used=50000, limit=200000 → "50K / 200K"
+			expect(screen.getByText("50K / 200K")).toBeInTheDocument();
 		});
 
 		it("renders subscription details section", () => {
@@ -508,12 +513,6 @@ describe("OpenRouterQuotaModal", () => {
 		it("renders credits used", () => {
 			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
 			// OpenRouter shows "spent total" text with credits used
-			expect(screen.getByText("$100,000.00 spent total")).toBeInTheDocument();
-		});
-
-		it("renders credits total", () => {
-			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
-			// OpenRouter shows total credits in the "spent total" line
 			expect(screen.getByText("$100,000.00 spent total")).toBeInTheDocument();
 		});
 

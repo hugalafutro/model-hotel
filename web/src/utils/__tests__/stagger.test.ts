@@ -110,32 +110,32 @@ describe("staggerByProvider", () => {
 });
 
 describe("fetchWithRetry", () => {
-	const originalFetch = global.fetch;
+	const originalFetch = globalThis.fetch;
 
 	beforeEach(() => {
-		global.fetch = vi.fn();
+		globalThis.fetch = vi.fn();
 		vi.useFakeTimers();
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
-		global.fetch = originalFetch;
+		globalThis.fetch = originalFetch;
 	});
 
 	it("succeeds on first try", async () => {
 		const mockResponse = new Response("OK", { status: 200 });
-		vi.mocked(global.fetch).mockResolvedValue(mockResponse);
+		vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse);
 
 		const result = await fetchWithRetry("https://api.example.com", {}, {});
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(1);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 	});
 
 	it("retries on 429 status", async () => {
 		const errorResponse = new Response("Rate Limited", { status: 429 });
 		const successResponse = new Response("OK", { status: 200 });
 
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockResolvedValueOnce(errorResponse)
 			.mockResolvedValueOnce(successResponse);
 
@@ -153,14 +153,14 @@ describe("fetchWithRetry", () => {
 
 		const result = await fetchPromise;
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("retries on 502 status", async () => {
 		const errorResponse = new Response("Bad Gateway", { status: 502 });
 		const successResponse = new Response("OK", { status: 200 });
 
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockResolvedValueOnce(errorResponse)
 			.mockResolvedValueOnce(successResponse);
 
@@ -177,14 +177,14 @@ describe("fetchWithRetry", () => {
 
 		const result = await fetchPromise;
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("retries on 503 status", async () => {
 		const errorResponse = new Response("Service Unavailable", { status: 503 });
 		const successResponse = new Response("OK", { status: 200 });
 
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockResolvedValueOnce(errorResponse)
 			.mockResolvedValueOnce(successResponse);
 
@@ -201,14 +201,14 @@ describe("fetchWithRetry", () => {
 
 		const result = await fetchPromise;
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("retries on 504 status", async () => {
 		const errorResponse = new Response("Gateway Timeout", { status: 504 });
 		const successResponse = new Response("OK", { status: 200 });
 
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockResolvedValueOnce(errorResponse)
 			.mockResolvedValueOnce(successResponse);
 
@@ -225,13 +225,13 @@ describe("fetchWithRetry", () => {
 
 		const result = await fetchPromise;
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("gives up after max retries", async () => {
 		const errorResponse = new Response("Rate Limited", { status: 429 });
 
-		vi.mocked(global.fetch).mockResolvedValue(errorResponse);
+		vi.mocked(globalThis.fetch).mockResolvedValue(errorResponse);
 
 		const fetchPromise = fetchWithRetry(
 			"https://api.example.com",
@@ -249,7 +249,7 @@ describe("fetchWithRetry", () => {
 
 		// Should return the error response after exhausting retries
 		expect(result.status).toBe(429);
-		expect(global.fetch).toHaveBeenCalledTimes(3); // initial + 2 retries
+		expect(globalThis.fetch).toHaveBeenCalledTimes(3); // initial + 2 retries
 	}, 15000);
 
 	it("respects Retry-After header", async () => {
@@ -259,7 +259,7 @@ describe("fetchWithRetry", () => {
 		});
 		const successResponse = new Response("OK", { status: 200 });
 
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockResolvedValueOnce(errorResponse)
 			.mockResolvedValueOnce(successResponse);
 
@@ -277,21 +277,21 @@ describe("fetchWithRetry", () => {
 
 		const result = await fetchPromise;
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("does not retry on non-retryable status codes", async () => {
 		const errorResponse = new Response("Not Found", { status: 404 });
 
-		vi.mocked(global.fetch).mockResolvedValue(errorResponse);
+		vi.mocked(globalThis.fetch).mockResolvedValue(errorResponse);
 
 		const result = await fetchWithRetry("https://api.example.com", {}, {});
 		expect(result.status).toBe(404);
-		expect(global.fetch).toHaveBeenCalledTimes(1);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 	});
 
 	it("retries on network error", async () => {
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockRejectedValueOnce(new Error("Network error"))
 			.mockResolvedValueOnce(new Response("OK", { status: 200 }));
 
@@ -308,18 +308,18 @@ describe("fetchWithRetry", () => {
 
 		const result = await fetchPromise;
 		expect(result.status).toBe(200);
-		expect(global.fetch).toHaveBeenCalledTimes(2);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("does not retry on AbortError", async () => {
 		const abortError = new DOMException("Aborted", "AbortError");
-		vi.mocked(global.fetch).mockRejectedValue(abortError);
+		vi.mocked(globalThis.fetch).mockRejectedValue(abortError);
 
 		await expect(
 			fetchWithRetry("https://api.example.com", {}, { maxRetries: 2 }),
 		).rejects.toThrow("Aborted");
 
-		expect(global.fetch).toHaveBeenCalledTimes(1);
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 	});
 
 	it("calls onRetry callback before each retry", async () => {
@@ -327,7 +327,7 @@ describe("fetchWithRetry", () => {
 		const errorResponse = new Response("Rate Limited", { status: 429 });
 		const successResponse = new Response("OK", { status: 200 });
 
-		vi.mocked(global.fetch)
+		vi.mocked(globalThis.fetch)
 			.mockResolvedValueOnce(errorResponse)
 			.mockResolvedValueOnce(successResponse);
 

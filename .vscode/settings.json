@@ -1,5 +1,8 @@
 {
 	"gopls": {
 		"build.buildFlags": ["-tags=integration"]
-	}
+	},
+	"typescript.tsserver.configurationPreference": "auto",
+	"typescript.preferences.importModuleSpecifier": "non-relative",
+	"typescript.tsdk": "web/node_modules/typescript/lib"
 }
