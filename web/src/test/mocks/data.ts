@@ -123,7 +123,7 @@ export const mockBackupEntry: BackupEntry = {
 
 export const mockFailoverGroup: FailoverGroup = {
 	id: "fg-001",
-	display_model: "hotel/test-model",
+	display_model: "test-model",
 	display_name: "Test Failover Group",
 	description: "A test failover group",
 	group_enabled: true,
