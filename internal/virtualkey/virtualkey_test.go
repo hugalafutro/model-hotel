@@ -360,3 +360,62 @@ func TestRepository_FindByKeyHash_NotFound(t *testing.T) {
 		t.Error("expected error for non-existent key hash, got nil")
 	}
 }
+
+func TestRepository_Update(t *testing.T) {
+	skipIfNoDB(t)
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+	suffix := uuid.New().String()[:8]
+
+	// Create a key to update
+	created, err := repo.Create(ctx, "integration-update-"+suffix, "hash-update-"+suffix, "sk-...up", nil, nil)
+	if err != nil {
+		t.Fatalf("Create() setup failed: %v", err)
+	}
+
+	// Update name only
+	updated, err := repo.Update(ctx, created.ID, "renamed-"+suffix, nil, nil)
+	if err != nil {
+		t.Fatalf("Update() name-only failed: %v", err)
+	}
+	if updated.Name != "renamed-"+suffix {
+		t.Errorf("Name = %q, want %q", updated.Name, "renamed-"+suffix)
+	}
+	if updated.RateLimitRPS != nil {
+		t.Errorf("RateLimitRPS = %v, want nil", updated.RateLimitRPS)
+	}
+	if updated.RateLimitBurst != nil {
+		t.Errorf("RateLimitBurst = %v, want nil", updated.RateLimitBurst)
+	}
+
+	// Update name + rate limits
+	rps := 10.5
+	burst := 20
+	updated2, err := repo.Update(ctx, created.ID, "limited-"+suffix, &rps, &burst)
+	if err != nil {
+		t.Fatalf("Update() with limits failed: %v", err)
+	}
+	if updated2.Name != "limited-"+suffix {
+		t.Errorf("Name = %q, want %q", updated2.Name, "limited-"+suffix)
+	}
+	if updated2.RateLimitRPS == nil || *updated2.RateLimitRPS != 10.5 {
+		t.Errorf("RateLimitRPS = %v, want 10.5", updated2.RateLimitRPS)
+	}
+	if updated2.RateLimitBurst == nil || *updated2.RateLimitBurst != 20 {
+		t.Errorf("RateLimitBurst = %v, want 20", updated2.RateLimitBurst)
+	}
+}
+
+func TestRepository_Update_NotFound(t *testing.T) {
+	skipIfNoDB(t)
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+
+	_, err := repo.Update(ctx, uuid.New(), "nonexistent", nil, nil)
+	if err == nil {
+		t.Error("expected error for non-existent UUID, got nil")
+	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}

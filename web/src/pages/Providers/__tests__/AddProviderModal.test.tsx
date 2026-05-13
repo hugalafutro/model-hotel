@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";

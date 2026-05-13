@@ -113,6 +113,152 @@ describe("getParamIncompatibility", () => {
 	});
 });
 
+describe("normalizeToProviderType - substring heuristic", () => {
+	it("matches Ollama Cloud to ollama", () => {
+		expect(normalizeToProviderType("Ollama Cloud")).toBe("ollama");
+	});
+
+	it("matches LM Studio Local to lmstudio", () => {
+		expect(normalizeToProviderType("LM Studio Local")).toBe("lmstudio");
+	});
+
+	it("matches Nano-GPT Free to nanogpt", () => {
+		expect(normalizeToProviderType("Nano-GPT Free")).toBe("nanogpt");
+	});
+
+	it("matches KoboldCpp Local to koboldcpp", () => {
+		expect(normalizeToProviderType("KoboldCpp Local")).toBe("koboldcpp");
+	});
+
+	it("matches z.ai Coding Pro to zai-coding", () => {
+		expect(normalizeToProviderType("z.ai Coding Pro")).toBe("zai-coding");
+	});
+
+	it("matches OpenCode Zen v1 to opencode-zen", () => {
+		expect(normalizeToProviderType("OpenCode Zen v1")).toBe("opencode-zen");
+	});
+
+	it("matches OpenCode Go v1 to opencode-go", () => {
+		expect(normalizeToProviderType("OpenCode Go v1")).toBe("opencode-go");
+	});
+
+	it("matches Grok 3 to xai", () => {
+		expect(normalizeToProviderType("Grok 3")).toBe("xai");
+	});
+
+	it("matches xAI API to xai", () => {
+		expect(normalizeToProviderType("xAI API")).toBe("xai");
+	});
+
+	it("matches x.ai Official to xai", () => {
+		expect(normalizeToProviderType("x.ai Official")).toBe("xai");
+	});
+});
+
+describe("provider incompatibility coverage", () => {
+	describe("cohere", () => {
+		it("disables top_k", () => {
+			expect(isParamDisabled("cohere", "top_k")).toBe(true);
+			expect(getParamIncompatibility("cohere", "top_k")).toBe(
+				"Cohere uses a different 'k' parameter; not recommended",
+			);
+		});
+
+		it("disables min_p", () => {
+			expect(isParamDisabled("cohere", "min_p")).toBe(true);
+			expect(getParamIncompatibility("cohere", "min_p")).toBe(
+				"Not supported by the Cohere API",
+			);
+		});
+	});
+
+	describe("ollama", () => {
+		it("disables min_p", () => {
+			expect(isParamDisabled("ollama", "min_p")).toBe(true);
+			expect(getParamIncompatibility("ollama", "min_p")).toBe(
+				"Support varies by underlying model; not universally available",
+			);
+		});
+
+		it("does NOT disable top_k", () => {
+			expect(isParamDisabled("ollama", "top_k")).toBe(false);
+			expect(getParamIncompatibility("ollama", "top_k")).toBeNull();
+		});
+	});
+
+	describe("zai-coding", () => {
+		it("disables min_p", () => {
+			expect(isParamDisabled("zai-coding", "min_p")).toBe(true);
+			expect(getParamIncompatibility("zai-coding", "min_p")).toBe(
+				"Not supported by z.ai Coding",
+			);
+		});
+
+		it("disables top_k", () => {
+			expect(isParamDisabled("zai-coding", "top_k")).toBe(true);
+			expect(getParamIncompatibility("zai-coding", "top_k")).toBe(
+				"Not supported by z.ai Coding",
+			);
+		});
+	});
+});
+
+describe("isParamDisabled - empty rules providers", () => {
+	const emptyRuleProviders = [
+		"koboldcpp",
+		"lmstudio",
+		"custom",
+		"openrouter",
+		"opencode-zen",
+		"opencode-go",
+	];
+
+	const commonParams = [
+		"temperature",
+		"max_tokens",
+		"top_p",
+		"top_k",
+		"min_p",
+		"frequency_penalty",
+		"presence_penalty",
+	];
+
+	it.each(
+		emptyRuleProviders,
+	)("returns false for all common params on %s", (provider) => {
+		commonParams.forEach((param) => {
+			expect(isParamDisabled(provider, param as keyof GenerationParams)).toBe(
+				false,
+			);
+			expect(
+				getParamIncompatibility(provider, param as keyof GenerationParams),
+			).toBeNull();
+		});
+	});
+});
+
+describe("getParamIncompatibility - additional providers", () => {
+	it("handles Anthropic case-insensitively for top_p", () => {
+		expect(getParamIncompatibility("Anthropic", "top_p")).toBe(
+			"top_p is deprecated on current Anthropic models; use top_k instead",
+		);
+	});
+
+	it("handles GOOGLE case-insensitively for frequency_penalty", () => {
+		expect(getParamIncompatibility("GOOGLE", "frequency_penalty")).toBe(
+			"Gemini does not support frequency/presence penalties",
+		);
+	});
+
+	it("returns false for common compatible params on openai", () => {
+		expect(isParamDisabled("openai", "temperature")).toBe(false);
+		expect(isParamDisabled("openai", "max_tokens")).toBe(false);
+		expect(isParamDisabled("openai", "top_p")).toBe(false);
+		expect(isParamDisabled("openai", "frequency_penalty")).toBe(false);
+		expect(isParamDisabled("openai", "presence_penalty")).toBe(false);
+	});
+});
+
 describe("isParamDisabled", () => {
 	it("returns true when param has incompatibility reason", () => {
 		expect(isParamDisabled("openai", "min_p")).toBe(true);

@@ -8,20 +8,24 @@ import { renderWithProviders } from "../../../test/utils";
 import { GaugeModal } from "../GaugeModal";
 
 vi.mock("recharts", () => ({
-	ResponsiveContainer: ({ children }: any) => (
+	ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
 		<div data-testid="responsive-container">{children}</div>
 	),
-	AreaChart: ({ children }: any) => (
+	AreaChart: ({ children }: { children?: React.ReactNode }) => (
 		<div data-testid="area-chart">{children}</div>
 	),
-	PieChart: ({ children }: any) => (
+	PieChart: ({ children }: { children?: React.ReactNode }) => (
 		<div data-testid="pie-chart">{children}</div>
 	),
-	Pie: ({ children }: any) => <div data-testid="pie">{children}</div>,
-	Cell: ({ fill }: any) => (
+	Pie: ({ children }: { children?: React.ReactNode }) => (
+		<div data-testid="pie">{children}</div>
+	),
+	Cell: ({ fill }: { fill?: string }) => (
 		<div data-testid="pie-cell" style={{ backgroundColor: fill }} />
 	),
-	Area: ({ dataKey }: any) => <div data-testid="area" data-datakey={dataKey} />,
+	Area: ({ dataKey }: { dataKey?: string }) => (
+		<div data-testid="area" data-datakey={dataKey} />
+	),
 	XAxis: () => <div data-testid="x-axis" />,
 	YAxis: () => <div data-testid="y-axis" />,
 	CartesianGrid: () => <div data-testid="cartesian-grid" />,

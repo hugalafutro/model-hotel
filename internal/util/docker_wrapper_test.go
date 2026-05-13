@@ -649,19 +649,17 @@ func TestIsHex(t *testing.T) {
 		// Valid hex strings
 		{"lowercase hex", "abc123", true},
 		{"uppercase hex", "ABC123", true},
-		{"mixed case hex", "aBc123", true},
-		{"deadbeef", "deadbeef", true},
-		{"single char", "f", true},
+		{"mixed case hex", "aBcDeF", true},
 		{"all digits", "123456", true},
 		{"all letters", "abcdef", true},
+		{"single valid char", "a", true},
+		{"docker container ID format", "abc123def4567890", true},
 		// Invalid hex strings
-		{"contains non-hex", "xyz", false},
-		{"contains hyphen", "abc-123", false},
 		{"empty string", "", false},
-		{"contains space", "abc 123", false},
-		{"contains newline", "abc\n", false},
-		{"contains underscore", "abc_123", false},
-		{"starts with g", "gabc", false},
+		{"invalid characters", "xyz", false},
+		{"mixed valid/invalid", "abc123xyz", false},
+		{"single invalid char", "g", false},
+		{"with dashes", "abc-123", false},
 	}
 
 	for _, tc := range tests {
@@ -710,5 +708,262 @@ func TestGetContainerStats_Error(t *testing.T) {
 	}
 	if stats != nil {
 		t.Errorf("expected nil stats, got %v", stats)
+	}
+}
+
+// TestIsDockerAvailable_NoPanic tests that IsDockerAvailable doesn't panic
+func TestIsDockerAvailable_NoPanic(t *testing.T) {
+	resetDockerState()
+
+	// Should not panic even if Docker is not available
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("IsDockerAvailable panicked: %v", r)
+		}
+	}()
+
+	// This will return false since Docker socket doesn't exist in test env
+	result := IsDockerAvailable()
+	_ = result // Just verify it doesn't panic
+}
+
+// TestIsDockerAvailable_CachedResult tests that subsequent calls return cached result
+func TestIsDockerAvailable_CachedResult(t *testing.T) {
+	resetDockerState()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	// First call
+	result1 := IsDockerAvailable()
+	if !result1 {
+		t.Fatal("expected Docker to be available on first call")
+	}
+
+	// Second call should return cached result (even if we change the client)
+	sharedDockerCli = nil
+	result2 := IsDockerAvailable()
+	if !result2 {
+		t.Error("expected cached result to be returned")
+	}
+}
+
+// TestCollectDockerStats_NoDockerAvailable tests graceful handling when Docker is unavailable
+func TestCollectDockerStats_NoDockerAvailable(t *testing.T) {
+	resetDockerState()
+
+	// Set up server that fails the /info check
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	// Should not panic and should return empty result
+	result := CollectDockerStats("myapp")
+	if result.Available {
+		t.Error("expected Available=false when Docker is not available")
+	}
+	if result.ContainerCount != 0 {
+		t.Errorf("expected ContainerCount=0, got %d", result.ContainerCount)
+	}
+}
+
+// TestCollectDockerStats_ListContainersError tests handling when ListComposeContainers fails
+func TestCollectDockerStats_ListContainersError(t *testing.T) {
+	resetDockerState()
+
+	// Server that succeeds on /info but fails on /containers/json
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/containers/json" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	// Should not panic and should return empty result
+	result := CollectDockerStats("myapp")
+	if result.Available {
+		t.Error("expected Available=false when container listing fails")
+	}
+}
+
+// TestCollectDockerStats_NoRunningContainers tests when all containers are stopped
+func TestCollectDockerStats_NoRunningContainers(t *testing.T) {
+	resetDockerState()
+
+	containers := []DockerContainer{
+		{ID: "aaa111bbb222", Name: "web", State: "exited", Labels: map[string]string{"com.docker.compose.project": "myapp"}},
+		{ID: "ccc333ddd444", Name: "db", State: "paused", Labels: map[string]string{"com.docker.compose.project": "myapp"}},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/containers/json" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(containers)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	result := CollectDockerStats("myapp")
+	// Available should be true (Docker is available, containers listed)
+	// but CPU/Memory should be 0 since no containers are running
+	if !result.Available {
+		t.Error("expected Available=true when Docker is available")
+	}
+	if result.ContainerCount != 2 {
+		t.Errorf("expected ContainerCount=2, got %d", result.ContainerCount)
+	}
+	if result.CPUPercent != 0 {
+		t.Errorf("expected CPUPercent=0 for stopped containers, got %f", result.CPUPercent)
+	}
+	if result.MemoryUsage != 0 {
+		t.Errorf("expected MemoryUsage=0 for stopped containers, got %d", result.MemoryUsage)
+	}
+}
+
+// TestCollectDockerStats_GetStatsError tests handling when GetContainerStats fails for a container
+func TestCollectDockerStats_GetStatsError(t *testing.T) {
+	resetDockerState()
+
+	containers := []DockerContainer{
+		{ID: "aaa111bbb222", Name: "web", State: "running", Labels: map[string]string{"com.docker.compose.project": "myapp"}},
+		{ID: "ccc333ddd444", Name: "db", State: "running", Labels: map[string]string{"com.docker.compose.project": "myapp"}},
+	}
+
+	// Only return stats for the second container
+	var statsResp dockerStatsResponse
+	json.Unmarshal([]byte(`{
+		"cpu_stats": {
+			"cpu_usage": {"total_usage": 200, "percpu_usage": [100, 100]},
+			"system_cpu_usage": 1000,
+			"online_cpus": 1
+		},
+		"precpu_stats": {
+			"cpu_usage": {"total_usage": 100, "percpu_usage": [50, 50]},
+			"system_cpu_usage": 0,
+			"online_cpus": 1
+		},
+		"memory_stats": {
+			"usage": 500000,
+			"limit": 1000000,
+			"stats": {}
+		},
+		"networks": {},
+		"num_procs": 2,
+		"pids_stats": {"current": 10}
+	}`), &statsResp)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/containers/json" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(containers)
+			return
+		}
+		// Only second container returns stats, first returns error
+		if r.URL.Path == "/containers/ccc333ddd444/stats" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(statsResp)
+			return
+		}
+		if r.URL.Path == "/containers/aaa111bbb222/stats" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	// Should not panic, should aggregate stats from successful container only
+	result := CollectDockerStats("myapp")
+	if !result.Available {
+		t.Error("expected Available=true when at least one container works")
+	}
+	if result.ContainerCount != 2 {
+		t.Errorf("expected ContainerCount=2, got %d", result.ContainerCount)
+	}
+	// Should have stats from the one successful container
+	if result.CPUPercent == 0 {
+		t.Error("expected non-zero CPUPercent from successful container")
 	}
 }

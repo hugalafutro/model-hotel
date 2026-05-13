@@ -196,7 +196,7 @@ describe("buildMessageContent", () => {
 
 		expect(Array.isArray(result)).toBe(true);
 		expect(result).toHaveLength(1);
-		expect((result[0] as any).type).toBe("image_url");
+		expect((result[0] as { type: string }).type).toBe("image_url");
 	});
 });
 
@@ -268,7 +268,7 @@ describe("getApiMessagesForModel", () => {
 		expect(result).toHaveLength(1);
 		expect(result[0].role).toBe("user");
 		expect(Array.isArray(result[0].content)).toBe(true);
-		expect((result[0].content[0] as any).type).toBe("image_url");
+		expect((result[0].content[0] as { type: string }).type).toBe("image_url");
 	});
 
 	it("includes assistant messages for target model", () => {

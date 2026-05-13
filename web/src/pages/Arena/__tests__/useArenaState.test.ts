@@ -24,7 +24,7 @@ const createWrapper = () => {
 };
 
 // Mock the dependencies
-vi.mock("../../hooks/useModels", () => ({
+vi.mock("../../../hooks/useModels", () => ({
 	useEnabledModels: vi.fn(() => ({
 		data: [
 			{ provider_name: "TestProvider", model_id: "model-1", enabled: true },
@@ -34,20 +34,34 @@ vi.mock("../../hooks/useModels", () => ({
 	})),
 }));
 
-vi.mock("../../context/SidebarModeContext", () => ({
+// vi.hoisted ensures the variable is available when vi.mock factory runs
+// We use a mutable ref so tests can change the arenaSubMode per-test
+const arenaModeRef = vi.hoisted(() => ({
+	current: "compare" as "compare" | "competition",
+}));
+
+vi.mock("../../../context/SidebarModeContext", () => ({
 	useSidebarMode: vi.fn(() => ({
-		arenaSubMode: "compare" as const,
-		setArenaSubMode: vi.fn(),
+		get arenaSubMode() {
+			return arenaModeRef.current;
+		},
+		setArenaSubMode: vi.fn((v: "compare" | "competition") => {
+			arenaModeRef.current = v;
+		}),
+		chatSubMode: "chat" as const,
+		setChatSubMode: vi.fn(),
+		logsSubMode: "request" as const,
+		setLogsSubMode: vi.fn(),
 	})),
 }));
 
-vi.mock("../../context/ToastContext", () => ({
+vi.mock("../../../context/ToastContext", () => ({
 	useToast: vi.fn(() => ({
 		toast: vi.fn(),
 	})),
 }));
 
-vi.mock("../../context/StorageContext", () => ({
+vi.mock("../../../context/StorageContext", () => ({
 	useStorage: vi.fn(() => ({
 		persistArena: false,
 	})),
@@ -56,6 +70,7 @@ vi.mock("../../context/StorageContext", () => ({
 describe("useArenaState", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		arenaModeRef.current = "compare";
 	});
 
 	it("returns all expected state values", () => {
@@ -119,7 +134,7 @@ describe("useArenaState", () => {
 		expect(result.current.roundsRef).toBeDefined();
 		expect(result.current.activePromptIdRef).toBeDefined();
 		expect(result.current.comparePersonaIdRef).toBeDefined();
-		expect(result.current.arenaModeRef).toBeDefined();
+		expect(result.current.arenaMode).toBeDefined();
 
 		// Computed values
 		expect(result.current.canRun).toBeDefined();
@@ -170,10 +185,8 @@ describe("useArenaState", () => {
 		expect(result.current.roundsRef.current).toEqual([]);
 		expect(result.current.activePromptIdRef.current).toBe(null);
 		expect(result.current.comparePersonaIdRef.current).toBe(null);
-		// arenaModeRef depends on SidebarModeContext mock - just verify it's a valid mode
-		expect(["compare", "competition"]).toContain(
-			result.current.arenaModeRef.current,
-		);
+		// arenaMode depends on SidebarModeContext mock - just verify it's a valid mode
+		expect(["compare", "competition"]).toContain(result.current.arenaMode);
 	});
 
 	it("provides setter functions for all state values", () => {
@@ -754,13 +767,17 @@ describe("useArenaState", () => {
 	});
 
 	it("previewPairs returns pairs in competition mode setup", () => {
+		// This test needs competition mode - set it explicitly BEFORE renderHook
+		arenaModeRef.current = "competition";
 		const { result } = renderHook(() => useArenaState(), {
 			wrapper: createWrapper(),
 		});
 
+		// Verify we're in competition mode
+		expect(result.current.arenaMode).toBe("competition");
 		// previewPairs is only non-null in competition mode during setup
-		// Since we can't easily switch modes in tests, just verify it's defined
 		expect(result.current.previewPairs).toBeDefined();
+		// Note: mode will be reset to "compare" by beforeEach of next test
 	});
 
 	it("cleans up abort controllers on unmount", () => {
@@ -830,5 +847,382 @@ describe("useArenaState", () => {
 		});
 
 		expect(result.current.comparePersonaIdRef.current).toBe("sync-persona-id");
+	});
+
+	describe("canRun - compare mode", () => {
+		beforeEach(() => {
+			arenaModeRef.current = "compare";
+		});
+
+		it("is false with no models", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is false with only 1 model", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is false with duplicate models", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-1"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is true with 2 distinct models and prompt", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(true);
+		});
+
+		it("is false when prompt is empty", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setPrompt("");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is false when prompt is whitespace-only", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setPrompt("   ");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+	});
+
+	describe("disabledReason - compare mode", () => {
+		beforeEach(() => {
+			arenaModeRef.current = "compare";
+		});
+
+		it('shows "Select at least 2 models" when 0 models', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			expect(result.current.disabledReason).toBe("Select at least 2 models");
+		});
+
+		it('shows "Pick at least 1 more model" when 1 model', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1"]);
+			});
+
+			expect(result.current.disabledReason).toBe("Pick at least 1 more model");
+		});
+
+		it('shows "No duplicate models" when duplicates present', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-1"]);
+			});
+
+			expect(result.current.disabledReason).toBe("No duplicate models");
+		});
+
+		it('shows "Enter a prompt" when models OK but no prompt', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-2"]);
+			});
+
+			expect(result.current.disabledReason).toBe("Enter a prompt");
+		});
+
+		it("is empty string when all conditions met", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.disabledReason).toBe("");
+		});
+	});
+
+	describe("canRun - competition mode", () => {
+		beforeEach(() => {
+			arenaModeRef.current = "competition";
+		});
+
+		it("is false with 0 models", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is false with 1 model", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is false with 3 models (invalid bracket size)", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2", "model-3"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is false with 5 models (invalid bracket size)", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels([
+					"model-1",
+					"model-2",
+					"model-3",
+					"model-4",
+					"model-5",
+				]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+
+		it("is true with 2 models + prompt", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(true);
+		});
+
+		it("is true with 4 models + prompt", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels([
+					"model-1",
+					"model-2",
+					"model-3",
+					"model-4",
+				]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(true);
+		});
+
+		it("is true with 8 models + prompt", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels([
+					"model-1",
+					"model-2",
+					"model-3",
+					"model-4",
+					"model-5",
+					"model-6",
+					"model-7",
+					"model-8",
+				]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(true);
+		});
+
+		it("is false with duplicate models", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-1"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.canRun).toBe(false);
+		});
+	});
+
+	describe("disabledReason - competition mode", () => {
+		beforeEach(() => {
+			arenaModeRef.current = "competition";
+		});
+
+		it('shows "Select 2, 4, or 8 models" with 0 models', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			expect(result.current.disabledReason).toBe("Select 2, 4, or 8 models");
+		});
+
+		it('shows "Pick at least 1 more model" with 1 model', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1"]);
+			});
+
+			expect(result.current.disabledReason).toBe("Pick at least 1 more model");
+		});
+
+		it('shows "No duplicate models" with duplicates', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-1"]);
+			});
+
+			expect(result.current.disabledReason).toBe("No duplicate models");
+		});
+
+		it("shows pick-or-remove message for 3 models", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2", "model-3"]);
+			});
+
+			// nextBracketSize(3) = 4, so "Pick 1 more or remove to get 4"
+			expect(result.current.disabledReason).toBe(
+				"Pick 1 more or remove to get 4",
+			);
+		});
+
+		it('shows "Enter a prompt" when models OK but no prompt', () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2"]);
+			});
+
+			expect(result.current.disabledReason).toBe("Enter a prompt");
+		});
+
+		it("is empty string when all conditions met", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2"]);
+				result.current.setPrompt("Test prompt");
+			});
+
+			expect(result.current.disabledReason).toBe("");
+		});
+
+		it("shows voting phase message", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2"]);
+				result.current.setPrompt("Test prompt");
+				result.current.setPhase("voting");
+			});
+
+			expect(result.current.disabledReason).toBe(
+				"Vote on all matchups to continue to the next round",
+			);
+		});
+
+		it("shows next round prompt message when next_round_ready with no prompt", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.setBracketModels(["model-1", "model-2"]);
+				result.current.setPrompt("");
+				result.current.setPhase("next_round_ready");
+			});
+
+			expect(result.current.disabledReason).toBe(
+				"Enter a prompt for the next round",
+			);
+		});
 	});
 });

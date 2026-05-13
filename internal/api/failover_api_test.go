@@ -12,11 +12,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
+	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
 // ---------------------------------------------------------------------------
@@ -100,6 +104,96 @@ func newFailoverRouter(h *FailoverHandler) chi.Router {
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
+}
+
+// newFailoverHandlerWithAuth creates a FailoverHandler with admin auth middleware.
+// Returns nil if the database is unavailable.
+func newFailoverHandlerWithAuth(t *testing.T) (*FailoverHandler, chi.Router) {
+	t.Helper()
+	h := newIntegrationFailoverHandler()
+	if h == nil {
+		return nil, nil
+	}
+
+	// Create admin auth manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	// Create a minimal handler to get the auth middleware
+	cfg := &config.Config{
+		MasterKey:          "testmasterkey1234567890abcdef",
+		AllowHTTPProviders: true,
+		RateLimitEnabled:   false,
+		DataDir:            tmpDir,
+	}
+	pool := apiTestDB.Pool()
+	providerRepo := provider.NewRepository(pool)
+	vkRepo := virtualkey.NewRepository(pool)
+	settingsRepo := settings.NewRepository(pool)
+
+	mainHandler := NewHandler(cfg, providerRepo, apiTestDB, adminMgr, vkRepo, settingsRepo)
+	if mainHandler == nil {
+		t.Fatal("handler is nil")
+	}
+
+	r := chi.NewRouter()
+	r.Use(mainHandler.AuthMiddleware)
+	h.Register(r)
+
+	return h, r
+}
+
+// ---------------------------------------------------------------------------
+// Authorization tests
+// ---------------------------------------------------------------------------
+
+func TestFailoverHandler_List_Unauthorized(t *testing.T) {
+	h, r := newFailoverHandlerWithAuth(t)
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/", nil)
+	// No Authorization header - should return 401
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusUnauthorized, w.Code, w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Sync_Unauthorized(t *testing.T) {
+	h, r := newFailoverHandlerWithAuth(t)
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
+	// No Authorization header - should return 401
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusUnauthorized, w.Code, w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Delete_Unauthorized(t *testing.T) {
+	h, r := newFailoverHandlerWithAuth(t)
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	unknownID := uuid.New()
+	req, w := newChiRequest(http.MethodDelete, "/failover-groups/"+unknownID.String(), nil)
+	// No Authorization header - should return 401
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusUnauthorized, w.Code, w.Body.String())
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -564,8 +658,30 @@ func TestFailoverHandler_Delete_InvalidUUID(t *testing.T) {
 	}
 }
 
+func TestFailoverHandler_Delete_NonExistent(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	if h == nil {
+		t.Skip("database not available")
+	}
+
+	unknownID := uuid.New()
+	req, w := newChiRequest(http.MethodDelete, "/failover-groups/"+unknownID.String(), nil)
+	req = setChiURLParam(req, "id", unknownID.String())
+
+	h.Delete(w, req)
+
+	// Delete returns 204 even for non-existent groups (idempotent)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusNoContent, w.Code, w.Body.String())
+	}
+}
+
 // ---------------------------------------------------------------------------
 // List tests
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// List tests - Additional coverage
 // ---------------------------------------------------------------------------
 
 func TestFailoverHandler_List_Success(t *testing.T) {

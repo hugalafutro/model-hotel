@@ -16,10 +16,20 @@ var (
 	CPUPrevMu    sync.Mutex
 )
 
+// File paths for cgroup/network stats (overridable in tests)
+var (
+	cgroupMemoryCurrentFile = "/sys/fs/cgroup/memory.current"
+	cgroupMemoryMaxFile     = "/sys/fs/cgroup/memory.max"
+	cgroupCPUStatFile       = "/sys/fs/cgroup/cpu.stat"
+	cgroupIOStatFile        = "/sys/fs/cgroup/io.stat"
+	cgroupProcsFile         = "/sys/fs/cgroup/cgroup.procs"
+	procNetDevFile          = "/proc/net/dev"
+)
+
 // ReadCgroupMemory reads cgroup v2 memory files and returns (current, limit, inContainer).
 // Returns (0, 0, false) if not in a container or files are unreadable.
 func ReadCgroupMemory() (current, limit int64, inContainer bool) {
-	currentBytes, err := os.ReadFile("/sys/fs/cgroup/memory.current")
+	currentBytes, err := os.ReadFile(cgroupMemoryCurrentFile)
 	if err == nil {
 		val := strings.TrimSpace(string(currentBytes))
 		if v, e := ParseInt(val); e == nil {
@@ -28,7 +38,7 @@ func ReadCgroupMemory() (current, limit int64, inContainer bool) {
 		}
 	}
 
-	limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory.max")
+	limitBytes, err := os.ReadFile(cgroupMemoryMaxFile)
 	if err == nil {
 		val := strings.TrimSpace(string(limitBytes))
 		if val == "max" {
@@ -46,7 +56,7 @@ func ReadCgroupMemory() (current, limit int64, inContainer bool) {
 // Returns -1 if cgroup CPU stats are not available (not in a container).
 // First call always returns 0 since it establishes the baseline.
 func ReadCgroupCPU() float64 {
-	f, err := os.Open("/sys/fs/cgroup/cpu.stat")
+	f, err := os.Open(cgroupCPUStatFile)
 	if err != nil {
 		return -1
 	}
@@ -116,7 +126,7 @@ var NetPrevMu sync.Mutex
 
 // ReadNetworkStats calculates network I/O rates from /proc/net/dev.
 func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
-	f, err := os.Open("/proc/net/dev")
+	f, err := os.Open(procNetDevFile)
 	if err != nil {
 		return 0, 0
 	}
@@ -193,7 +203,7 @@ var DiskPrevMu sync.Mutex
 
 // ReadCgroupDiskIO calculates disk I/O rates from cgroup io.stat.
 func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
-	f, err := os.Open("/sys/fs/cgroup/io.stat")
+	f, err := os.Open(cgroupIOStatFile)
 	if err != nil {
 		return -1, -1
 	}
@@ -251,7 +261,7 @@ func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
 
 // ReadCgroupProcs counts processes in the current cgroup.
 func ReadCgroupProcs() int {
-	f, err := os.Open("/sys/fs/cgroup/cgroup.procs")
+	f, err := os.Open(cgroupProcsFile)
 	if err != nil {
 		return 0
 	}

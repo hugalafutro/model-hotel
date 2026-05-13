@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 // TestDiscoverAllModels_AllDisabled tests that DiscoverAllModels skips all
@@ -101,6 +103,22 @@ func TestGetProviderUsage_InvalidUUID(t *testing.T) {
 	}
 }
 
+// TestGetProviderUsage_NonExistent tests that GetProviderUsage returns 404 for
+// a valid but non-existent UUID.
+func TestGetProviderUsage_NonExistent(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	nonExistentID := uuid.New().String()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/providers/"+nonExistentID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for non-existent provider, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 // TestGetProviderBalance_InvalidUUID tests that GetProviderBalance returns 400 for
 // an invalid UUID in the path.
 func TestGetProviderBalance_InvalidUUID(t *testing.T) {
@@ -113,6 +131,53 @@ func TestGetProviderBalance_InvalidUUID(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Expected 400 for invalid UUID, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestGetProviderBalance_NonExistent tests that GetProviderBalance returns 404 for
+// a valid but non-existent UUID.
+func TestGetProviderBalance_NonExistent(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	nonExistentID := uuid.New().String()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/providers/"+nonExistentID+"/balance", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for non-existent provider, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestGetOllamaCloudAccount_InvalidUUID tests that GetOllamaCloudAccount returns 400 for
+// an invalid UUID in the path.
+func TestGetOllamaCloudAccount_InvalidUUID(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/providers/invalid-uuid/account", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for invalid UUID, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestGetOllamaCloudAccount_NonExistent tests that GetOllamaCloudAccount returns 404 for
+// a valid but non-existent UUID.
+func TestGetOllamaCloudAccount_NonExistent(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	nonExistentID := uuid.New().String()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/providers/"+nonExistentID+"/account", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for non-existent provider, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -1,9 +1,9 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Globe, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
-import type { MetricType, Range, UsageEntry } from "../types";
+import type { Range, UsageEntry } from "../types";
 import { UsageBarPanel } from "../UsageBarPanel";
 
 describe("UsageBarPanel", () => {
@@ -223,7 +223,6 @@ describe("UsageBarPanel", () => {
 	});
 
 	it("applies deleted styling to clickable deleted entries", async () => {
-		const user = userEvent.setup();
 		const deletedEntries: UsageEntry[] = [
 			{ label: "Deleted Clickable", value: 100, deleted: true },
 		];

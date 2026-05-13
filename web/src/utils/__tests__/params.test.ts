@@ -62,15 +62,6 @@ describe("hasAnyParam", () => {
 	});
 
 	it("returns false when all fields are null", () => {
-		const _params: GenerationParams = {
-			temperature: null as unknown as undefined,
-			max_tokens: null as unknown as undefined,
-			top_p: null as unknown as undefined,
-			min_p: null as unknown as undefined,
-			top_k: null as unknown as undefined,
-			frequency_penalty: null as unknown as undefined,
-			presence_penalty: null as unknown as undefined,
-		};
 		// null is not undefined, so this should be true
 		// But the function checks for !== undefined, and null !== undefined is true
 		// So we need to test with explicit undefined

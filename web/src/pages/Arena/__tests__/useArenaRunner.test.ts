@@ -574,7 +574,7 @@ describe("useArenaRunner", () => {
 		});
 
 		it("includes model params in API request", async () => {
-			let capturedBody: any = null;
+			let capturedBody: Record<string, unknown> | null = null;
 			server.use(
 				http.post("/api/chat/arena", async ({ request }) => {
 					capturedBody = await request.json();

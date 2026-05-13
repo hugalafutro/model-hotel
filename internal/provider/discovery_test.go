@@ -1230,3 +1230,321 @@ func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
 		t.Errorf("expected 1 call (no retry for 403), got %d", callCount)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// DiscoverModels - Additional Tests
+// ---------------------------------------------------------------------------
+
+func TestDiscoverModels_UnsupportedProviderTypeFallsBackToOpenAI(t *testing.T) {
+	// Test that an unknown provider type falls back to OpenAI discovery
+	// Note: There's no "unsupported" error - unknown types default to OpenAI
+	mockResponse := `{
+		"data": [
+			{
+				"id": "fallback-model",
+				"object": "model",
+				"owned_by": "fallback"
+			}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "unknown-provider",
+		BaseURL:      server.URL,
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	models, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels should fall back to OpenAI, got error: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model from fallback, got %d", len(models))
+	}
+	if models[0].ModelID != "fallback-model" {
+		t.Errorf("expected model ID 'fallback-model', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverModels_NilProvider(t *testing.T) {
+	svc := NewDiscoveryService()
+	ctx := context.Background()
+
+	// Should panic or error with nil provider
+	defer func() {
+		if r := recover(); r != nil {
+			// Acceptable - nil provider causes panic when accessing fields
+			t.Logf("DiscoverModels panicked with nil provider (acceptable): %v", r)
+		}
+	}()
+
+	_, err := svc.DiscoverModels(ctx, nil, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels with nil provider should return error or panic")
+	}
+}
+
+func TestDiscoverModels_OpenAIProviderType(t *testing.T) {
+	// Test explicit OpenAI provider type
+	mockResponse := `{
+		"data": [
+			{
+				"id": "gpt-4-test",
+				"object": "model",
+				"owned_by": "openai"
+			}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "openai-provider",
+		BaseURL:      server.URL,
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	models, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels for OpenAI should succeed, got error: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	if models[0].ModelID != "gpt-4-test" {
+		t.Errorf("expected model ID 'gpt-4-test', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverModels_AnthropicProviderType(t *testing.T) {
+	// Test Anthropic provider type - uses different endpoint
+	// Anthropic uses pagination with "data" array and has_more/last_id
+	mockResponse := `{
+		"data": [
+			{
+				"id": "claude-3-opus-20240229",
+				"display_name": "Claude 3 Opus",
+				"capabilities": {},
+				"max_input_tokens": 200000,
+				"max_tokens": 4096
+			}
+		],
+		"has_more": false,
+		"last_id": ""
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	// Use the test server's client, but override the BaseURL to trigger anthropic detection
+	// The httpClient will still connect to the test server
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:   uuid.New(),
+		Name: "anthropic-provider",
+		// Use anthropic.com domain to trigger anthropic provider type detection
+		// The test server's transport will handle the actual connection
+		BaseURL:      "https://api.anthropic.com",
+		EncryptedKey: []byte{},
+	}
+
+	// Override the transport to redirect all requests to test server
+	svc.httpClient.Transport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		newURL := server.URL + req.URL.Path
+		if req.URL.RawQuery != "" {
+			newURL += "?" + req.URL.RawQuery
+		}
+		newReq := req.Clone(req.Context())
+		newReq.URL, _ = url.Parse(newURL)
+		newReq.Host = newReq.URL.Host
+		return http.DefaultTransport.RoundTrip(newReq)
+	})
+
+	ctx := context.Background()
+	models, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels for Anthropic should succeed, got error: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	if models[0].ModelID != "claude-3-opus-20240229" {
+		t.Errorf("expected model ID 'claude-3-opus-20240229', got '%s'", models[0].ModelID)
+	}
+}
+
+// roundTripperFunc wraps a function to implement http.RoundTripper
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestDiscoverModels_OllamaProviderType(t *testing.T) {
+	// Test Ollama provider type - uses /api/tags endpoint
+	// Ollama also calls /api/show for each model to get details
+	mockTagsResponse := `{
+		"models": [
+			{
+				"name": "llama3.2:latest",
+				"model": "llama3.2:latest"
+			}
+		]
+	}`
+	mockShowResponse := `{
+		"details": {
+			"family": "llama3"
+		},
+		"model_info": {}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockTagsResponse))
+			return
+		}
+		if r.URL.Path == "/api/show" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockShowResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	// Use ollama.com domain to trigger ollama-cloud provider type detection
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "ollama-provider",
+		BaseURL:      "https://api.ollama.com",
+		EncryptedKey: []byte{},
+	}
+
+	// Override the transport to redirect all requests to test server
+	svc.httpClient.Transport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		newURL := server.URL + req.URL.Path
+		if req.URL.RawQuery != "" {
+			newURL += "?" + req.URL.RawQuery
+		}
+		newReq := req.Clone(req.Context())
+		newReq.URL, _ = url.Parse(newURL)
+		newReq.Host = newReq.URL.Host
+		return http.DefaultTransport.RoundTrip(newReq)
+	})
+
+	ctx := context.Background()
+	models, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels for Ollama should succeed, got error: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	if models[0].ModelID != "llama3.2:latest" {
+		t.Errorf("expected model ID 'llama3.2:latest', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverModels_NetworkErrorPropagated(t *testing.T) {
+	// Test that network errors from provider discovery are propagated
+	svc := NewDiscoveryService()
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "unreachable-provider",
+		BaseURL:      "http://localhost:1", // Port 1 is typically closed
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels should return error for unreachable host")
+	}
+}
+
+func TestDiscoverModels_HTTPErrorPropagated(t *testing.T) {
+	// Test that HTTP errors from provider are propagated
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Return 401 Unauthorized for all requests
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error": "Invalid API key"}`))
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "auth-fail-provider",
+		BaseURL:      server.URL,
+		EncryptedKey: []byte{},
+	}
+
+	ctx := context.Background()
+	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels should return error for 401 response")
+	}
+	if !strings.Contains(err.Error(), "unexpected status") {
+		t.Errorf("expected 'unexpected status' error, got: %v", err)
+	}
+}
+
+func TestDiscoverModels_ContextCancellation(t *testing.T) {
+	// Test that context cancellation is respected
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate slow response
+		time.Sleep(100 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"data": []}`))
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "slow-provider",
+		BaseURL:      server.URL,
+		EncryptedKey: []byte{},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
+	if err == nil {
+		t.Error("DiscoverModels should return error when context is cancelled")
+	}
+}

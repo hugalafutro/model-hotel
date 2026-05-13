@@ -9,6 +9,7 @@ describe("CHAT_PERSONAS", () => {
 	});
 
 	it("items have required fields: id, icon, label, systemPrompt", () => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		CHAT_PERSONAS.forEach((persona: PersonaPreset, _index: number) => {
 			expect(persona).toHaveProperty("id");
 			expect(persona).toHaveProperty("icon");
@@ -24,6 +25,7 @@ describe("CHAT_PERSONAS", () => {
 	});
 
 	it("system prompts are non-empty strings longer than 100 chars", () => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		CHAT_PERSONAS.forEach((persona: PersonaPreset, _index: number) => {
 			expect(typeof persona.systemPrompt).toBe("string");
 			expect(persona.systemPrompt.length).toBeGreaterThan(100);
@@ -75,6 +77,7 @@ describe("ARENA_PROMPTS", () => {
 	});
 
 	it("items have required fields: id, icon, label, prompt", () => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset, _index: number) => {
 			expect(prompt).toHaveProperty("id");
 			expect(prompt).toHaveProperty("icon");
@@ -90,6 +93,7 @@ describe("ARENA_PROMPTS", () => {
 	});
 
 	it("prompts are non-empty strings", () => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset, _index: number) => {
 			expect(typeof prompt.prompt).toBe("string");
 			expect(prompt.prompt.length).toBeGreaterThan(0);

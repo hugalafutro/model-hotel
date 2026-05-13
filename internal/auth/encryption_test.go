@@ -117,6 +117,133 @@ func TestDecryptWithKey_InvalidKeySize(t *testing.T) {
 	}
 }
 
+func TestEncryptDecrypt_EmptyPlaintext(t *testing.T) {
+	masterKey := "test-master-key-123"
+	plaintext := ""
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if decrypted != plaintext {
+		t.Errorf("Decrypted text doesn't match original. Expected %q, got %q", plaintext, decrypted)
+	}
+}
+
+func TestEncrypt_NonceRandomization(t *testing.T) {
+	masterKey := "test-master-key-123"
+	plaintext := "same-plaintext"
+
+	encrypted1, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt 1 failed: %v", err)
+	}
+
+	encrypted2, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt 2 failed: %v", err)
+	}
+
+	// Ciphertexts should be different due to random nonce
+	if bytes.Equal(encrypted1.Ciphertext, encrypted2.Ciphertext) {
+		t.Error("Encrypt should produce different ciphertexts each call (nonce randomization)")
+	}
+
+	// Both should decrypt to the same plaintext
+	decrypted1, err := Decrypt(encrypted1.Ciphertext, encrypted1.Nonce, encrypted1.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt 1 failed: %v", err)
+	}
+
+	decrypted2, err := Decrypt(encrypted2.Ciphertext, encrypted2.Nonce, encrypted2.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt 2 failed: %v", err)
+	}
+
+	if decrypted1 != plaintext || decrypted2 != plaintext {
+		t.Errorf("Both should decrypt to original. Got %q and %q", decrypted1, decrypted2)
+	}
+}
+
+func TestDecrypt_WrongKey(t *testing.T) {
+	masterKey := "correct-master-key"
+	wrongKey := "wrong-master-key"
+	plaintext := "secret-data"
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	_, err = Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, wrongKey)
+	if err == nil {
+		t.Error("Decrypt with wrong key should fail")
+	}
+}
+
+func TestDecrypt_InvalidCiphertext(t *testing.T) {
+	masterKey := "test-master-key-123"
+
+	// Random bytes that weren't produced by Encrypt
+	randomCiphertext := []byte("not-valid-gcm-ciphertext")
+	randomNonce := make([]byte, nonceLength)
+	randomSalt := make([]byte, 32)
+
+	_, err := Decrypt(randomCiphertext, randomNonce, randomSalt, masterKey)
+	if err == nil {
+		t.Error("Decrypt with invalid ciphertext should fail")
+	}
+}
+
+func TestDecrypt_MissingSalt(t *testing.T) {
+	masterKey := "test-master-key-123"
+	ciphertext := []byte("some-ciphertext")
+	nonce := make([]byte, nonceLength)
+
+	_, err := Decrypt(ciphertext, nonce, nil, masterKey)
+	if err == nil {
+		t.Error("Decrypt with nil salt should fail")
+	}
+
+	_, err = Decrypt(ciphertext, nonce, []byte{}, masterKey)
+	if err == nil {
+		t.Error("Decrypt with empty salt should fail")
+	}
+}
+
+func TestGenerateRandomKey_Length(t *testing.T) {
+	key, err := GenerateRandomKey()
+	if err != nil {
+		t.Fatalf("GenerateRandomKey failed: %v", err)
+	}
+
+	// base64.RawURLEncoding of 32 bytes = 43 characters
+	expectedLen := 43
+	if len(key) != expectedLen {
+		t.Errorf("Expected key length %d, got %d", expectedLen, len(key))
+	}
+}
+
+func TestGenerateRandomKey_Randomness(t *testing.T) {
+	keys := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		key, err := GenerateRandomKey()
+		if err != nil {
+			t.Fatalf("GenerateRandomKey failed: %v", err)
+		}
+		if keys[key] {
+			t.Fatal("GenerateRandomKey produced duplicate key")
+		}
+		keys[key] = true
+	}
+}
+
 func TestDecryptWithKey_WrongCiphertext(t *testing.T) {
 	// Valid key size but wrong ciphertext should fail GCM authentication
 	_, err := decryptWithKey([]byte("wrong-ciphertext"), make([]byte, 12), make([]byte, 32))

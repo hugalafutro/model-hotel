@@ -155,7 +155,7 @@ describe("AccentCalendar", () => {
 	it("applies today styling for current day", () => {
 		// todayISO is mocked to return "2024-03-15"
 		renderWithProviders(<AccentCalendar {...defaultProps} />);
-		const _day15Button = screen.getByText("15").closest("button");
+		screen.getByText("15").closest("button");
 		// Today has border and accent color, but is overridden by isSelected if it's start/end
 		// Day 15 is in range but not start/end, so should show today styling if not in range
 		// Since day 15 is in range, the inRange styling takes precedence

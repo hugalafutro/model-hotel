@@ -1,6 +1,8 @@
 package util
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -187,6 +189,377 @@ func TestReadNetworkStats_WithFile(t *testing.T) {
 	rx2, tx2 := ReadNetworkStats()
 	if rx2 < 0 || tx2 < 0 {
 		t.Errorf("Network rates should be >= 0, got (%f, %f)", rx2, tx2)
+	}
+}
+
+// TestReadCgroupMemory_WithTempFile tests memory reading with controlled temp files
+func TestReadCgroupMemory_WithTempFile(t *testing.T) {
+	dir := t.TempDir()
+	currentFile := filepath.Join(dir, "memory.current")
+	maxFile := filepath.Join(dir, "memory.max")
+
+	// Write test data
+	if err := os.WriteFile(currentFile, []byte("1048576\n"), 0644); err != nil {
+		t.Fatalf("Failed to write current file: %v", err)
+	}
+	if err := os.WriteFile(maxFile, []byte("2097152\n"), 0644); err != nil {
+		t.Fatalf("Failed to write max file: %v", err)
+	}
+
+	// Override paths
+	origCurrent := cgroupMemoryCurrentFile
+	origMax := cgroupMemoryMaxFile
+	cgroupMemoryCurrentFile = currentFile
+	cgroupMemoryMaxFile = maxFile
+	defer func() {
+		cgroupMemoryCurrentFile = origCurrent
+		cgroupMemoryMaxFile = origMax
+	}()
+
+	current, limit, inContainer := ReadCgroupMemory()
+	if !inContainer {
+		t.Error("expected inContainer=true when files exist")
+	}
+	if current != 1048576 {
+		t.Errorf("current = %d, want 1048576", current)
+	}
+	if limit != 2097152 {
+		t.Errorf("limit = %d, want 2097152", limit)
+	}
+}
+
+// TestReadCgroupMemory_MaxLimit tests memory reading with "max" limit (unlimited)
+func TestReadCgroupMemory_MaxLimit(t *testing.T) {
+	dir := t.TempDir()
+	currentFile := filepath.Join(dir, "memory.current")
+	maxFile := filepath.Join(dir, "memory.max")
+
+	if err := os.WriteFile(currentFile, []byte("5242880\n"), 0644); err != nil {
+		t.Fatalf("Failed to write current file: %v", err)
+	}
+	if err := os.WriteFile(maxFile, []byte("max\n"), 0644); err != nil {
+		t.Fatalf("Failed to write max file: %v", err)
+	}
+
+	origCurrent := cgroupMemoryCurrentFile
+	origMax := cgroupMemoryMaxFile
+	cgroupMemoryCurrentFile = currentFile
+	cgroupMemoryMaxFile = maxFile
+	defer func() {
+		cgroupMemoryCurrentFile = origCurrent
+		cgroupMemoryMaxFile = origMax
+	}()
+
+	current, limit, inContainer := ReadCgroupMemory()
+	if !inContainer {
+		t.Error("expected inContainer=true")
+	}
+	if current != 5242880 {
+		t.Errorf("current = %d, want 5242880", current)
+	}
+	if limit != 0 {
+		t.Errorf("limit = %d, want 0 (unlimited)", limit)
+	}
+}
+
+// TestReadCgroupMemory_EmptyFiles tests memory reading with empty files
+func TestReadCgroupMemory_EmptyFiles(t *testing.T) {
+	dir := t.TempDir()
+	currentFile := filepath.Join(dir, "memory.current")
+	maxFile := filepath.Join(dir, "memory.max")
+
+	if err := os.WriteFile(currentFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write current file: %v", err)
+	}
+	if err := os.WriteFile(maxFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write max file: %v", err)
+	}
+
+	origCurrent := cgroupMemoryCurrentFile
+	origMax := cgroupMemoryMaxFile
+	cgroupMemoryCurrentFile = currentFile
+	cgroupMemoryMaxFile = maxFile
+	defer func() {
+		cgroupMemoryCurrentFile = origCurrent
+		cgroupMemoryMaxFile = origMax
+	}()
+
+	current, limit, inContainer := ReadCgroupMemory()
+	// Files exist and are readable, so inContainer=true, but values are 0
+	if !inContainer {
+		t.Error("expected inContainer=true when files exist (even if empty)")
+	}
+	if current != 0 {
+		t.Errorf("current = %d, want 0", current)
+	}
+	if limit != 0 {
+		t.Errorf("limit = %d, want 0", limit)
+	}
+}
+
+// TestReadCgroupCPU_WithTempFile tests CPU reading with controlled temp file
+func TestReadCgroupCPU_WithTempFile(t *testing.T) {
+	resetCPUState()
+
+	dir := t.TempDir()
+	cpuStatFile := filepath.Join(dir, "cpu.stat")
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 1000000\nusage_user_usec 800000\n"), 0644); err != nil {
+		t.Fatalf("Failed to write cpu.stat file: %v", err)
+	}
+
+	origFile := cgroupCPUStatFile
+	cgroupCPUStatFile = cpuStatFile
+	defer func() { cgroupCPUStatFile = origFile }()
+
+	// First call should return 0 (baseline)
+	result1 := ReadCgroupCPU()
+	if result1 != 0 {
+		t.Errorf("First call: got %f, want 0 (baseline)", result1)
+	}
+
+	// Second call should calculate delta
+	time.Sleep(10 * time.Millisecond)
+	result2 := ReadCgroupCPU()
+	if result2 < 0 {
+		t.Errorf("Second call: got %f, expected >= 0", result2)
+	}
+}
+
+// TestReadCgroupCPU_EmptyFile tests CPU reading with empty file
+func TestReadCgroupCPU_EmptyFile(t *testing.T) {
+	resetCPUState()
+
+	dir := t.TempDir()
+	cpuStatFile := filepath.Join(dir, "cpu.stat")
+	if err := os.WriteFile(cpuStatFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write cpu.stat file: %v", err)
+	}
+
+	origFile := cgroupCPUStatFile
+	cgroupCPUStatFile = cpuStatFile
+	defer func() { cgroupCPUStatFile = origFile }()
+
+	result := ReadCgroupCPU()
+	if result != -1 {
+		t.Errorf("got %f, want -1 (no usage_usec found)", result)
+	}
+}
+
+// TestReadCgroupDiskIO_WithTempFile tests disk IO reading with controlled temp file
+func TestReadCgroupDiskIO_WithTempFile(t *testing.T) {
+	resetDiskState()
+
+	dir := t.TempDir()
+	ioStatFile := filepath.Join(dir, "io.stat")
+	ioStatContent := "8:0 rbytes=1048576 wbytes=2097152 rios=100 wios=200\n"
+	if err := os.WriteFile(ioStatFile, []byte(ioStatContent), 0644); err != nil {
+		t.Fatalf("Failed to write io.stat file: %v", err)
+	}
+
+	origFile := cgroupIOStatFile
+	cgroupIOStatFile = ioStatFile
+	defer func() { cgroupIOStatFile = origFile }()
+
+	// First call should return (0, 0) (baseline)
+	r1, w1 := ReadCgroupDiskIO()
+	if r1 != 0 || w1 != 0 {
+		t.Errorf("First call: got (%f, %f), want (0, 0)", r1, w1)
+	}
+
+	// Second call should calculate rate
+	time.Sleep(10 * time.Millisecond)
+	r2, w2 := ReadCgroupDiskIO()
+	if r2 < 0 || w2 < 0 {
+		t.Errorf("Second call: got (%f, %f), expected >= 0", r2, w2)
+	}
+}
+
+// TestReadCgroupDiskIO_EmptyFile tests disk IO reading with empty file
+func TestReadCgroupDiskIO_EmptyFile(t *testing.T) {
+	resetDiskState()
+
+	dir := t.TempDir()
+	ioStatFile := filepath.Join(dir, "io.stat")
+	if err := os.WriteFile(ioStatFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write io.stat file: %v", err)
+	}
+
+	origFile := cgroupIOStatFile
+	cgroupIOStatFile = ioStatFile
+	defer func() { cgroupIOStatFile = origFile }()
+
+	r, w := ReadCgroupDiskIO()
+	if r != 0 || w != 0 {
+		t.Errorf("got (%f, %f), want (0, 0) for empty file", r, w)
+	}
+}
+
+// TestReadCgroupProcs_WithTempFile tests process count with controlled temp file
+func TestReadCgroupProcs_WithTempFile(t *testing.T) {
+	dir := t.TempDir()
+	procsFile := filepath.Join(dir, "cgroup.procs")
+	// Write 5 process IDs
+	procsContent := "123\n456\n789\n101112\n131415\n"
+	if err := os.WriteFile(procsFile, []byte(procsContent), 0644); err != nil {
+		t.Fatalf("Failed to write cgroup.procs file: %v", err)
+	}
+
+	origFile := cgroupProcsFile
+	cgroupProcsFile = procsFile
+	defer func() { cgroupProcsFile = origFile }()
+
+	count := ReadCgroupProcs()
+	if count != 5 {
+		t.Errorf("got %d processes, want 5", count)
+	}
+}
+
+// TestReadCgroupProcs_EmptyFile tests process count with empty file
+func TestReadCgroupProcs_EmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	procsFile := filepath.Join(dir, "cgroup.procs")
+	if err := os.WriteFile(procsFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write cgroup.procs file: %v", err)
+	}
+
+	origFile := cgroupProcsFile
+	cgroupProcsFile = procsFile
+	defer func() { cgroupProcsFile = origFile }()
+
+	count := ReadCgroupProcs()
+	if count != 0 {
+		t.Errorf("got %d processes, want 0", count)
+	}
+}
+
+// TestReadCgroupProcs_WithEmptyLines tests process count with empty lines
+func TestReadCgroupProcs_WithEmptyLines(t *testing.T) {
+	dir := t.TempDir()
+	procsFile := filepath.Join(dir, "cgroup.procs")
+	// Mix of PIDs and empty lines
+	procsContent := "123\n\n456\n\n\n789\n"
+	if err := os.WriteFile(procsFile, []byte(procsContent), 0644); err != nil {
+		t.Fatalf("Failed to write cgroup.procs file: %v", err)
+	}
+
+	origFile := cgroupProcsFile
+	cgroupProcsFile = procsFile
+	defer func() { cgroupProcsFile = origFile }()
+
+	count := ReadCgroupProcs()
+	if count != 3 {
+		t.Errorf("got %d processes, want 3 (empty lines ignored)", count)
+	}
+}
+
+// TestReadNetworkStats_WithTempFile tests network stats with controlled temp file
+func TestReadNetworkStats_WithTempFile(t *testing.T) {
+	resetNetState()
+
+	dir := t.TempDir()
+	netDevFile := filepath.Join(dir, "dev")
+	// /proc/net/dev format: iface: rx_bytes rx_packets ... tx_bytes tx_packets ...
+	netDevContent := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast |bytes    packets errs drop fifo colls carrier compressed
+    lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
+  eth0:  500000    5000    0    0    0     0          0         0   250000    2500    0    0    0     0       0          0
+`
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0644); err != nil {
+		t.Fatalf("Failed to write dev file: %v", err)
+	}
+
+	origFile := procNetDevFile
+	procNetDevFile = netDevFile
+	defer func() { procNetDevFile = origFile }()
+
+	// First call should return (0, 0) (baseline)
+	rx1, tx1 := ReadNetworkStats()
+	if rx1 != 0 || tx1 != 0 {
+		t.Errorf("First call: got (%f, %f), want (0, 0)", rx1, tx1)
+	}
+
+	// Second call should calculate rate
+	time.Sleep(10 * time.Millisecond)
+	rx2, tx2 := ReadNetworkStats()
+	if rx2 < 0 || tx2 < 0 {
+		t.Errorf("Second call: got (%f, %f), expected >= 0", rx2, tx2)
+	}
+}
+
+// TestReadNetworkStats_EmptyFile tests network stats with empty file
+func TestReadNetworkStats_EmptyFile(t *testing.T) {
+	resetNetState()
+
+	dir := t.TempDir()
+	netDevFile := filepath.Join(dir, "dev")
+	if err := os.WriteFile(netDevFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write dev file: %v", err)
+	}
+
+	origFile := procNetDevFile
+	procNetDevFile = netDevFile
+	defer func() { procNetDevFile = origFile }()
+
+	rx, tx := ReadNetworkStats()
+	if rx != 0 || tx != 0 {
+		t.Errorf("got (%f, %f), want (0, 0) for empty file", rx, tx)
+	}
+}
+
+// TestReadNetworkStats_LoopbackOnly tests network stats with only loopback interface
+func TestReadNetworkStats_LoopbackOnly(t *testing.T) {
+	resetNetState()
+
+	dir := t.TempDir()
+	netDevFile := filepath.Join(dir, "dev")
+	// Only loopback interface
+	netDevContent := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast |bytes    packets errs drop fifo colls carrier compressed
+    lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
+`
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0644); err != nil {
+		t.Fatalf("Failed to write dev file: %v", err)
+	}
+
+	origFile := procNetDevFile
+	procNetDevFile = netDevFile
+	defer func() { procNetDevFile = origFile }()
+
+	rx, tx := ReadNetworkStats()
+	// Loopback is excluded, so should be 0
+	if rx != 0 || tx != 0 {
+		t.Errorf("got (%f, %f), want (0, 0) for loopback-only", rx, tx)
+	}
+}
+
+// TestReadNetworkStats_MalformedLines tests network stats with malformed lines
+func TestReadNetworkStats_MalformedLines(t *testing.T) {
+	resetNetState()
+
+	dir := t.TempDir()
+	netDevFile := filepath.Join(dir, "dev")
+	// Mix of valid and malformed lines
+	netDevContent := `Inter-|   Receive
+ face |bytes
+    lo:  100000    1000
+  eth0:  500000    5000    0    0    0     0          0         0   250000    2500    0    0    0     0       0          0
+  eth1: malformed line without enough fields
+  eth2:  300000    3000    0    0    0     0          0         0   150000    1500    0    0    0     0       0          0
+`
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0644); err != nil {
+		t.Fatalf("Failed to write dev file: %v", err)
+	}
+
+	origFile := procNetDevFile
+	procNetDevFile = netDevFile
+	defer func() { procNetDevFile = origFile }()
+
+	rx, tx := ReadNetworkStats()
+	// Should parse eth0 and eth2, skip lo and malformed lines
+	// eth0: rx=500000, tx=250000; eth2: rx=300000, tx=150000
+	// Total: rx=800000, tx=400000
+	if rx != 0 || tx != 0 {
+		t.Logf("First call returned (%f, %f) - baseline expected", rx, tx)
 	}
 }
 

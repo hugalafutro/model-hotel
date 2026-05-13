@@ -921,6 +921,106 @@ func TestFormatBytes_JustUnderKB(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// parseCORSOrigins
+// ---------------------------------------------------------------------------
+
+func TestParseCORSOrigins_EmptyString(t *testing.T) {
+	result := parseCORSOrigins("")
+	if len(result) != 0 {
+		t.Errorf("expected empty slice for empty string, got %v", result)
+	}
+}
+
+func TestParseCORSOrigins_SingleOrigin(t *testing.T) {
+	result := parseCORSOrigins("http://localhost:5173")
+	if len(result) != 1 {
+		t.Fatalf("expected 1 origin, got %d", len(result))
+	}
+	if result[0] != "http://localhost:5173" {
+		t.Errorf("expected 'http://localhost:5173', got %q", result[0])
+	}
+}
+
+func TestParseCORSOrigins_MultipleOrigins(t *testing.T) {
+	result := parseCORSOrigins("http://a.com,http://b.com,http://c.com")
+	if len(result) != 3 {
+		t.Fatalf("expected 3 origins, got %d", len(result))
+	}
+	if result[0] != "http://a.com" {
+		t.Errorf("expected 'http://a.com', got %q", result[0])
+	}
+	if result[1] != "http://b.com" {
+		t.Errorf("expected 'http://b.com', got %q", result[1])
+	}
+	if result[2] != "http://c.com" {
+		t.Errorf("expected 'http://c.com', got %q", result[2])
+	}
+}
+
+func TestParseCORSOrigins_TrimWhitespace(t *testing.T) {
+	result := parseCORSOrigins("  http://a.com  ,  http://b.com  ,  http://c.com  ")
+	if len(result) != 3 {
+		t.Fatalf("expected 3 origins, got %d", len(result))
+	}
+	if result[0] != "http://a.com" {
+		t.Errorf("expected trimmed 'http://a.com', got %q", result[0])
+	}
+	if result[1] != "http://b.com" {
+		t.Errorf("expected trimmed 'http://b.com', got %q", result[1])
+	}
+	if result[2] != "http://c.com" {
+		t.Errorf("expected trimmed 'http://c.com', got %q", result[2])
+	}
+}
+
+func TestParseCORSOrigins_MixedEmptyEntries(t *testing.T) {
+	result := parseCORSOrigins("http://a.com, ,http://b.com")
+	if len(result) != 2 {
+		t.Fatalf("expected 2 origins (empty entries filtered), got %d", len(result))
+	}
+	if result[0] != "http://a.com" {
+		t.Errorf("expected 'http://a.com', got %q", result[0])
+	}
+	if result[1] != "http://b.com" {
+		t.Errorf("expected 'http://b.com', got %q", result[1])
+	}
+}
+
+func TestParseCORSOrigins_WildcardRemoved(t *testing.T) {
+	result := parseCORSOrigins("*")
+	if len(result) != 0 {
+		t.Errorf("expected empty slice for wildcard, got %v", result)
+	}
+}
+
+func TestParseCORSOrigins_WildcardWithOtherOrigins(t *testing.T) {
+	result := parseCORSOrigins("http://a.com,*,http://b.com")
+	if len(result) != 2 {
+		t.Fatalf("expected 2 origins (wildcard removed), got %d", len(result))
+	}
+	if result[0] != "http://a.com" {
+		t.Errorf("expected 'http://a.com', got %q", result[0])
+	}
+	if result[1] != "http://b.com" {
+		t.Errorf("expected 'http://b.com', got %q", result[1])
+	}
+}
+
+func TestParseCORSOrigins_DuplicatesNotRemoved(t *testing.T) {
+	result := parseCORSOrigins("http://a.com,http://a.com,http://b.com")
+	if len(result) != 3 {
+		t.Fatalf("expected 3 origins (duplicates kept), got %d", len(result))
+	}
+}
+
+func TestParseCORSOrigins_OnlyWhitespace(t *testing.T) {
+	result := parseCORSOrigins("   ,   ,   ")
+	if len(result) != 0 {
+		t.Errorf("expected empty slice for whitespace-only, got %v", result)
+	}
+}
+
 func TestGetEnvWithDefault(t *testing.T) {
 	tests := []struct {
 		name         string
