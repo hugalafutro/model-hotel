@@ -33,7 +33,7 @@ export function formatTokens(n: number | null | undefined): string {
 }
 
 export function formatTimestamp(ts: number | string): string {
-	return new Date(ts).toLocaleString(undefined, {
+	return new Date(ts).toLocaleString("en-GB", {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
@@ -60,7 +60,7 @@ export function countLabel(
 }
 
 export function formatDate(ts: number | string): string {
-	return new Date(ts).toLocaleDateString(undefined, {
+	return new Date(ts).toLocaleDateString("en-GB", {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
