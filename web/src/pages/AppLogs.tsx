@@ -183,7 +183,7 @@ export function AppLogs() {
 	const formatTimestamp = (ts: string) => {
 		try {
 			const d = new Date(ts);
-			return d.toLocaleString("en-GB", {
+			return d.toLocaleString(undefined, {
 				year: "numeric",
 				month: "2-digit",
 				day: "2-digit",

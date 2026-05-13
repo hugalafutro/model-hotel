@@ -105,14 +105,15 @@ describe("formatTimestamp", () => {
 	it("formats numeric timestamp", () => {
 		const ts = new Date("2024-06-15T14:30:00Z").getTime();
 		const result = formatTimestamp(ts);
-		expect(result).toMatch(/15 Jun 2024/);
-		expect(result).toMatch(/\d{2}:\d{2}/);
+		// Matches both en-GB ("15 Jun 2024") and en-US ("Jun 15, 2024")
+		expect(result).toMatch(/15.*Jun.*2024|Jun.*15.*2024/);
+		expect(result).toMatch(/\d{1,2}:\d{2}/);
 	});
 
 	it("formats string timestamp", () => {
 		const result = formatTimestamp("2024-06-15T14:30:00Z");
-		expect(result).toMatch(/15 Jun 2024/);
-		expect(result).toMatch(/\d{2}:\d{2}/);
+		expect(result).toMatch(/15.*Jun.*2024|Jun.*15.*2024/);
+		expect(result).toMatch(/\d{1,2}:\d{2}/);
 	});
 });
 
@@ -142,17 +143,18 @@ describe("formatDate", () => {
 	it("formats numeric timestamp", () => {
 		const ts = new Date("2024-06-15T00:00:00Z").getTime();
 		const result = formatDate(ts);
-		expect(result).toMatch(/15 Jun 2024/);
+		// Matches both en-GB ("15 Jun 2024") and en-US ("Jun 15, 2024")
+		expect(result).toMatch(/15.*Jun.*2024|Jun.*15.*2024/);
 	});
 
 	it("formats string timestamp", () => {
 		const result = formatDate("2024-12-25T00:00:00Z");
-		expect(result).toMatch(/25 Dec 2024/);
+		expect(result).toMatch(/25.*Dec.*2024|Dec.*25.*2024/);
 	});
 
 	it("formats date with different month", () => {
 		const result = formatDate("2024-01-01T00:00:00Z");
-		expect(result).toMatch(/1 Jan 2024/);
+		expect(result).toMatch(/1.*Jan.*2024|Jan.*1.*2024/);
 	});
 
 	it("handles current year correctly", () => {

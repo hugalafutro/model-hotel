@@ -22,13 +22,15 @@ describe("formatTime", () => {
 		const ts = new Date("2024-01-15T00:00:00Z").getTime();
 		const result = formatTime(ts);
 
-		expect(result).toMatch(/00:00/);
+		// Matches 00:00 (24h) or 12:00 AM (12h)
+		expect(result).toMatch(/00:00|12:00\s*AM/i);
 	});
 
 	it("formats noon correctly", () => {
 		const ts = new Date("2024-01-15T12:00:00Z").getTime();
 		const result = formatTime(ts);
 
+		// Matches 12:00 (24h) or 12:00 PM (12h)
 		expect(result).toMatch(/12:00/);
 	});
 

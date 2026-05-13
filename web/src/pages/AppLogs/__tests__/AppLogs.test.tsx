@@ -252,8 +252,12 @@ describe("AppLogs", () => {
 	it("shows formatted timestamp for each log entry", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			// Timestamps are formatted - check for specific formatted timestamp
-			expect(screen.getByText("11/05/2026, 11:30:00")).toBeInTheDocument();
+			// Timestamps are formatted - locale-agnostic match for date + time
+			// en-GB: "11/05/2026, 11:30:00" (DD/MM/YYYY)
+			// en-US: "05/11/2026, 11:30:00" (MM/DD/YYYY)
+			expect(
+				screen.getByText(/\d{2}\/\d{2}\/2026,\s*11:30:00/),
+			).toBeInTheDocument();
 		});
 	});
 
