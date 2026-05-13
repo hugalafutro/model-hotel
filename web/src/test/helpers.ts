@@ -177,6 +177,16 @@ export function mockLogs(options: OverrideOptions = {}): RequestHandler[] {
 	];
 }
 
+/** Create handler for SSE events endpoint (returns empty response). */
+export function mockEvents(): RequestHandler[] {
+	return [
+		http.get("/api/events", () => {
+			// SSE endpoint - return empty response to suppress warnings
+			return new HttpResponse(null, { status: 200 });
+		}),
+	];
+}
+
 /** Convenience: return all default handlers for a typical page test. */
 export function mockAllDefaults(
 	overrides: Partial<{
