@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import type { FailoverGroup } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { EmptyState } from "../components/EmptyState";
+import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
@@ -356,27 +357,25 @@ export function FailoverGroups() {
 					className="w-[260px]"
 					autoFocus
 				/>
-				<select
+				<FilterDropdown
 					value={providerFilter}
-					onChange={(e) => setProviderFilter(e.target.value)}
-					className="ui-input w-auto max-w-[220px] shrink-0"
-				>
-					<option value="">All providers</option>
-					{providerNames.map((name) => (
-						<option key={name} value={name}>
-							{name}
-						</option>
-					))}
-				</select>
-				<select
+					onChange={setProviderFilter}
+					placeholder="All providers"
+					allLabel="All providers"
+					options={providerNames.map((name) => ({ value: name, label: name }))}
+					className="w-[220px] shrink-0"
+				/>
+				<FilterDropdown
 					value={enabledFilter}
-					onChange={(e) => setEnabledFilter(e.target.value)}
-					className="ui-input w-auto max-w-[160px] shrink-0"
-				>
-					<option value="">All states</option>
-					<option value="enabled">Enabled</option>
-					<option value="disabled">Disabled</option>
-				</select>
+					onChange={setEnabledFilter}
+					placeholder="All states"
+					allLabel="All states"
+					options={[
+						{ value: "enabled", label: "Enabled" },
+						{ value: "disabled", label: "Disabled" },
+					]}
+					className="w-[160px] shrink-0"
+				/>
 				{selectedGroupIds.size > 0 && (
 					<>
 						<span className="text-sm text-gray-400 ml-auto">

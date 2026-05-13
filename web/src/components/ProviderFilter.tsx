@@ -22,10 +22,11 @@ export function ProviderFilter({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const filtered =
+	const filtered = (
 		providers?.filter((p) =>
 			p.name.toLowerCase().includes(search.toLowerCase()),
-		) ?? [];
+		) ?? []
+	).sort((a, b) => a.name.localeCompare(b.name));
 
 	const toggle = (id: string) => {
 		const next = new Set(selected);

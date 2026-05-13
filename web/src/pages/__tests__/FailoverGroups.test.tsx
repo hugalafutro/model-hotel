@@ -158,15 +158,8 @@ describe("FailoverGroups", () => {
 			renderWithProviders(<FailoverGroups />);
 
 			await waitFor(() => {
-				// Provider filter is a select with "All providers" option
-				const selects = screen.getAllByRole("combobox");
-				// Find the one that contains "All providers" option
-				const providerSelect = selects.find((s) =>
-					s
-						.querySelector('option[value=""]')
-						?.textContent?.includes("All providers"),
-				);
-				expect(providerSelect).toBeInTheDocument();
+				// Provider filter is a FilterDropdown button with placeholder text
+				expect(screen.getByRole("button", { name: "All providers" })).toBeInTheDocument();
 			});
 		});
 
@@ -183,8 +176,9 @@ describe("FailoverGroups", () => {
 			renderWithProviders(<FailoverGroups />);
 
 			await waitFor(() => {
-				const selects = screen.getAllByRole("combobox");
-				expect(selects.length).toBeGreaterThanOrEqual(2);
+				// Both FilterDropdown buttons should be present
+				expect(screen.getByRole("button", { name: "All providers" })).toBeInTheDocument();
+				expect(screen.getByRole("button", { name: "All states" })).toBeInTheDocument();
 			});
 		});
 
@@ -398,9 +392,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/model-b")).toBeInTheDocument();
 			});
 
-			// Use provider select dropdown to filter
-			const providerSelect = screen.getAllByRole("combobox")[0];
-			await user.selectOptions(providerSelect, "Provider Alpha");
+			// Use provider FilterDropdown to filter
+			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(screen.getByRole("button", { name: "Provider Alpha" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("hotel/model-a")).toBeInTheDocument();
@@ -439,9 +433,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/disabled-model")).toBeInTheDocument();
 			});
 
-			// Use enabled/disabled select dropdown (second combobox)
-			const enabledSelect = screen.getAllByRole("combobox")[1];
-			await user.selectOptions(enabledSelect, "enabled");
+			// Use enabled FilterDropdown to filter
+			await user.click(screen.getByRole("button", { name: "All states" }));
+			await user.click(screen.getByRole("button", { name: "Enabled" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("hotel/enabled-model")).toBeInTheDocument();
@@ -482,9 +476,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/disabled-model")).toBeInTheDocument();
 			});
 
-			// Use enabled/disabled select dropdown (second combobox)
-			const enabledSelect = screen.getAllByRole("combobox")[1];
-			await user.selectOptions(enabledSelect, "disabled");
+			// Use enabled FilterDropdown to filter
+			await user.click(screen.getByRole("button", { name: "All states" }));
+			await user.click(screen.getByRole("button", { name: "Disabled" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("hotel/disabled-model")).toBeInTheDocument();
@@ -809,10 +803,8 @@ describe("FailoverGroups", () => {
 			renderWithProviders(<FailoverGroups />);
 
 			await waitFor(() => {
-				// Provider name appears in card (span with text-white class) and dropdown
-				// Use getAllByText and check we have at least 2 occurrences
-				const providerElements = screen.getAllByText("UniqueProvider");
-				expect(providerElements.length).toBeGreaterThanOrEqual(2);
+				// Provider name appears only in card (FilterDropdown options not rendered when closed)
+				expect(screen.getByText("UniqueProvider")).toBeInTheDocument();
 			});
 		});
 
