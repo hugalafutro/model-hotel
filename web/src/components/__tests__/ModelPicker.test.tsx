@@ -211,37 +211,46 @@ describe("ModelPicker", () => {
 
 	describe("provider filter", () => {
 		it.skip("filters models by selected provider", async () => {
-			// Skip: ProviderFilter is a custom dropdown component with complex interaction.
-			// Testing requires reliable dropdown open/close and option selection which is fragile.
+			// Skipped: ProviderFilter uses a custom dropdown with click-outside handling.
+			// The dropdown closes when clicking options due to mousedown event propagation.
+			// Testing requires either:
+			// 1. A custom render with userEvent.setup({ pointerEvents: PointerEventsCheckLevel.Never })
+			// 2. Mocking the click-outside handler
+			// 3. A dedicated ProviderFilter test harness
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const providerFilter = screen.getByText("Filter Providers");
 			await user.click(providerFilter);
-			await user.click(screen.getAllByText("OpenAI")[1]);
+			const openaiOption = await screen.findByText("OpenAI");
+			await user.click(openaiOption);
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
 		});
 
 		it.skip("allows multiple provider selection", async () => {
-			// Skip: ProviderFilter is a custom dropdown component with complex interaction.
-			// Testing requires reliable dropdown open/close and option selection which is fragile.
+			// Skipped: Same reason as above - custom dropdown with complex click-outside behavior.
+			// Multiple selections require keeping the dropdown open across multiple clicks,
+			// which conflicts with the click-outside-to-close behavior.
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const providerFilter = screen.getByText("Filter Providers");
 			await user.click(providerFilter);
-			await user.click(screen.getAllByText("OpenAI")[1]);
+			await user.click(screen.getByText("OpenAI"));
 			await user.click(providerFilter);
-			await user.click(screen.getAllByText("Anthropic")[1]);
+			await user.click(screen.getByText("Anthropic"));
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
 			expect(screen.getByText("Claude 3")).toBeInTheDocument();
 		});
 
 		it.skip("clears provider filter when cleared", async () => {
-			// Skip: ProviderFilter is a custom dropdown component with complex interaction.
-			// Testing requires reliable dropdown open/close and option selection which is fragile.
+			// Skipped: Same reason as above - custom dropdown interaction complexity.
+			// The Clear button is inside the dropdown which closes on outside clicks.
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const providerFilter = screen.getByText("Filter Providers");
 			await user.click(providerFilter);
 			await user.click(screen.getByText("OpenAI"));
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
+			await user.click(providerFilter);
+			await user.click(screen.getByText("Clear"));
+			expect(screen.getByText("Claude 3")).toBeInTheDocument();
 		});
 	});
 

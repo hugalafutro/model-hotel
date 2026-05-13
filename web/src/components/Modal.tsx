@@ -50,10 +50,13 @@ export function Modal({
 				onClick={closeOnBackdrop ? onClose : undefined}
 				aria-label="Close dialog"
 			/>
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents backdrop click bubbling */}
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: purely structural click propagation control */}
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
 					scrollable ? " max-h-[85vh] overflow-y-auto" : ""
 				}`}
+				onClick={(e) => e.stopPropagation()}
 			>
 				<button
 					type="button"

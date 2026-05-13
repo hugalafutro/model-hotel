@@ -467,11 +467,16 @@ describe("ZAICodingQuotaModal", () => {
 			});
 		});
 
-		it.skip("shows spinning icon while refreshing", () => {
-			// Skip: Spinner test requires proper testId setup
+		it("shows spinning icon while refreshing", () => {
 			renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} isRefreshing={true} />,
 			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			expect(refreshButton).toBeDisabled();
+			// Verify spinning state: either Spinner (cyber-terminal) or animate-spin class on RefreshCw
+			const spinner = screen.queryByTestId("spinner");
+			const spinningIcon = refreshButton.querySelector(".animate-spin");
+			expect(spinner || spinningIcon).toBeTruthy();
 		});
 	});
 });

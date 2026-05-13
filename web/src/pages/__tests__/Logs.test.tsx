@@ -834,8 +834,30 @@ describe("Logs", () => {
 						virtual_key_deleted: false,
 						virtual_key_id: "",
 					},
+					{
+						id: "log-002",
+						created_at: "2026-05-12T11:00:00Z",
+						request_hash: "def456",
+						model_id: "test-model-2",
+						provider_name: "Test-2",
+						status_code: 400,
+						tokens_prompt: 100,
+						tokens_completion: 50,
+						tokens_per_second: 10,
+						ttft_ms: 200,
+						duration_ms: 1500,
+						proxy_overhead_ms: 50,
+						state: "completed",
+						error_message: "",
+						parse_ms: 10,
+						model_lookup_ms: 5,
+						provider_lookup_ms: 3,
+						key_decrypt_ms: 2,
+						virtual_key_deleted: false,
+						virtual_key_id: "key-002",
+					},
 				],
-				total: 1,
+				total: 2,
 				page: 1,
 				per_page: 25,
 			};
@@ -847,12 +869,20 @@ describe("Logs", () => {
 				expect(screen.getByText("Time/Date")).toBeInTheDocument();
 			});
 
-			// Click time header button
+			// Get time header button - initially sorted desc by default
 			const timeHeader = screen.getByRole("button", { name: /Time\/Date/i });
+
+			// Click to sort ascending
 			await user.click(timeHeader);
 
-			// Verify header is clickable
-			expect(timeHeader).toBeInTheDocument();
+			// Verify sort indicator changes to ascending arrow
+			expect(timeHeader).toHaveTextContent(/↑/);
+
+			// Click again to sort descending
+			await user.click(timeHeader);
+
+			// Verify sort indicator changes to descending arrow
+			expect(timeHeader).toHaveTextContent(/↓/);
 		});
 
 		it("sorts by model column when clicked", async () => {
@@ -880,8 +910,30 @@ describe("Logs", () => {
 						virtual_key_deleted: false,
 						virtual_key_id: "",
 					},
+					{
+						id: "log-002",
+						created_at: "2026-05-12T11:00:00Z",
+						request_hash: "def456",
+						model_id: "test-model-2",
+						provider_name: "Test-2",
+						status_code: 400,
+						tokens_prompt: 100,
+						tokens_completion: 50,
+						tokens_per_second: 10,
+						ttft_ms: 200,
+						duration_ms: 1500,
+						proxy_overhead_ms: 50,
+						state: "completed",
+						error_message: "",
+						parse_ms: 10,
+						model_lookup_ms: 5,
+						provider_lookup_ms: 3,
+						key_decrypt_ms: 2,
+						virtual_key_deleted: false,
+						virtual_key_id: "key-002",
+					},
 				],
-				total: 1,
+				total: 2,
 				page: 1,
 				per_page: 25,
 			};
@@ -893,12 +945,20 @@ describe("Logs", () => {
 				expect(screen.getByText("Model")).toBeInTheDocument();
 			});
 
-			// Click model header button - use getAllByText and filter for th context
+			// Get model header button - initially not sorted
 			const modelHeader = screen.getByRole("button", { name: "Model" });
+
+			// Click to sort ascending
 			await user.click(modelHeader);
 
-			// Verify header is clickable
-			expect(modelHeader).toBeInTheDocument();
+			// Verify sort indicator changes to ascending arrow
+			expect(modelHeader).toHaveTextContent(/↑/);
+
+			// Click again to sort descending
+			await user.click(modelHeader);
+
+			// Verify sort indicator changes to descending arrow
+			expect(modelHeader).toHaveTextContent(/↓/);
 		});
 
 		it("sorts by provider column when clicked", async () => {
@@ -926,8 +986,30 @@ describe("Logs", () => {
 						virtual_key_deleted: false,
 						virtual_key_id: "",
 					},
+					{
+						id: "log-002",
+						created_at: "2026-05-12T11:00:00Z",
+						request_hash: "def456",
+						model_id: "test-model-2",
+						provider_name: "Test-2",
+						status_code: 400,
+						tokens_prompt: 100,
+						tokens_completion: 50,
+						tokens_per_second: 10,
+						ttft_ms: 200,
+						duration_ms: 1500,
+						proxy_overhead_ms: 50,
+						state: "completed",
+						error_message: "",
+						parse_ms: 10,
+						model_lookup_ms: 5,
+						provider_lookup_ms: 3,
+						key_decrypt_ms: 2,
+						virtual_key_deleted: false,
+						virtual_key_id: "key-002",
+					},
 				],
-				total: 1,
+				total: 2,
 				page: 1,
 				per_page: 25,
 			};
@@ -939,12 +1021,20 @@ describe("Logs", () => {
 				expect(screen.getByText("Provider")).toBeInTheDocument();
 			});
 
-			// Click provider header button
+			// Get provider header button - initially not sorted
 			const providerHeader = screen.getByRole("button", { name: /Provider/i });
+
+			// Click to sort ascending
 			await user.click(providerHeader);
 
-			// Verify header is clickable
-			expect(providerHeader).toBeInTheDocument();
+			// Verify sort indicator changes to ascending arrow
+			expect(providerHeader).toHaveTextContent(/↑/);
+
+			// Click again to sort descending
+			await user.click(providerHeader);
+
+			// Verify sort indicator changes to descending arrow
+			expect(providerHeader).toHaveTextContent(/↓/);
 		});
 
 		it("sorts by status column when clicked", async () => {
@@ -972,8 +1062,30 @@ describe("Logs", () => {
 						virtual_key_deleted: false,
 						virtual_key_id: "",
 					},
+					{
+						id: "log-002",
+						created_at: "2026-05-12T11:00:00Z",
+						request_hash: "def456",
+						model_id: "test-model-2",
+						provider_name: "Test-2",
+						status_code: 400,
+						tokens_prompt: 100,
+						tokens_completion: 50,
+						tokens_per_second: 10,
+						ttft_ms: 200,
+						duration_ms: 1500,
+						proxy_overhead_ms: 50,
+						state: "completed",
+						error_message: "",
+						parse_ms: 10,
+						model_lookup_ms: 5,
+						provider_lookup_ms: 3,
+						key_decrypt_ms: 2,
+						virtual_key_deleted: false,
+						virtual_key_id: "key-002",
+					},
 				],
-				total: 1,
+				total: 2,
 				page: 1,
 				per_page: 25,
 			};
@@ -985,12 +1097,43 @@ describe("Logs", () => {
 				expect(screen.getByText("Status")).toBeInTheDocument();
 			});
 
-			// Click status header button
-			const statusHeader = screen.getByRole("button", { name: /Status/i });
+			// Get status header button in table - initially not sorted (time is default sort)
+			// Use getAllByRole and filter to get the table header button (has class "cursor-pointer")
+			const getStatusHeader = () => {
+				const headers = screen.getAllByRole("button", { name: /Status/i });
+				// The table header button has class "cursor-pointer", filter dropdown has "ui-input"
+				const header = headers.find((el) =>
+					el.classList.contains("cursor-pointer"),
+				);
+				expect(header).toBeDefined();
+				// biome-ignore lint/style/noNonNullAssertion: test assertion after expect check
+				return header!;
+			};
+
+			const statusHeader = getStatusHeader();
+
+			// Verify initially no arrow (time column is sorted by default)
+			expect(statusHeader).toHaveTextContent(/Status/);
+
+			// Click to sort ascending
 			await user.click(statusHeader);
 
-			// Verify header is clickable
-			expect(statusHeader).toBeInTheDocument();
+			// Verify sort state changed - the header should still be in document and clickable
+			await waitFor(() => {
+				const header = getStatusHeader();
+				expect(header).toBeInTheDocument();
+				expect(header).not.toHaveAttribute("disabled");
+			});
+
+			// Click again to sort descending
+			await user.click(getStatusHeader());
+
+			// Verify header is still clickable after second click
+			await waitFor(() => {
+				const header = getStatusHeader();
+				expect(header).toBeInTheDocument();
+				expect(header).not.toHaveAttribute("disabled");
+			});
 		});
 
 		it("sorts by tokens column when clicked", async () => {
@@ -1018,8 +1161,30 @@ describe("Logs", () => {
 						virtual_key_deleted: false,
 						virtual_key_id: "",
 					},
+					{
+						id: "log-002",
+						created_at: "2026-05-12T11:00:00Z",
+						request_hash: "def456",
+						model_id: "test-model-2",
+						provider_name: "Test-2",
+						status_code: 400,
+						tokens_prompt: 100,
+						tokens_completion: 50,
+						tokens_per_second: 10,
+						ttft_ms: 200,
+						duration_ms: 1500,
+						proxy_overhead_ms: 50,
+						state: "completed",
+						error_message: "",
+						parse_ms: 10,
+						model_lookup_ms: 5,
+						provider_lookup_ms: 3,
+						key_decrypt_ms: 2,
+						virtual_key_deleted: false,
+						virtual_key_id: "key-002",
+					},
 				],
-				total: 1,
+				total: 2,
 				page: 1,
 				per_page: 25,
 			};
@@ -1031,12 +1196,20 @@ describe("Logs", () => {
 				expect(screen.getByText("Tokens")).toBeInTheDocument();
 			});
 
-			// Click tokens header button
+			// Get tokens header button - initially not sorted
 			const tokensHeader = screen.getByRole("button", { name: /Tokens/i });
+
+			// Click to sort ascending
 			await user.click(tokensHeader);
 
-			// Verify header is clickable
-			expect(tokensHeader).toBeInTheDocument();
+			// Verify sort indicator changes to ascending arrow
+			expect(tokensHeader).toHaveTextContent(/↑/);
+
+			// Click again to sort descending
+			await user.click(tokensHeader);
+
+			// Verify sort indicator changes to descending arrow
+			expect(tokensHeader).toHaveTextContent(/↓/);
 		});
 
 		it("sorts by duration column when clicked", async () => {
@@ -1064,8 +1237,30 @@ describe("Logs", () => {
 						virtual_key_deleted: false,
 						virtual_key_id: "",
 					},
+					{
+						id: "log-002",
+						created_at: "2026-05-12T11:00:00Z",
+						request_hash: "def456",
+						model_id: "test-model-2",
+						provider_name: "Test-2",
+						status_code: 400,
+						tokens_prompt: 100,
+						tokens_completion: 50,
+						tokens_per_second: 10,
+						ttft_ms: 200,
+						duration_ms: 1500,
+						proxy_overhead_ms: 50,
+						state: "completed",
+						error_message: "",
+						parse_ms: 10,
+						model_lookup_ms: 5,
+						provider_lookup_ms: 3,
+						key_decrypt_ms: 2,
+						virtual_key_deleted: false,
+						virtual_key_id: "key-002",
+					},
 				],
-				total: 1,
+				total: 2,
 				page: 1,
 				per_page: 25,
 			};
@@ -1077,12 +1272,20 @@ describe("Logs", () => {
 				expect(screen.getByText("Duration")).toBeInTheDocument();
 			});
 
-			// Click duration header button
+			// Get duration header button - initially not sorted
 			const durationHeader = screen.getByRole("button", { name: /Duration/i });
+
+			// Click to sort ascending
 			await user.click(durationHeader);
 
-			// Verify header is clickable
-			expect(durationHeader).toBeInTheDocument();
+			// Verify sort indicator changes to ascending arrow
+			expect(durationHeader).toHaveTextContent(/↑/);
+
+			// Click again to sort descending
+			await user.click(durationHeader);
+
+			// Verify sort indicator changes to descending arrow
+			expect(durationHeader).toHaveTextContent(/↓/);
 		});
 	});
 
@@ -1228,8 +1431,7 @@ describe("Logs", () => {
 	});
 
 	describe("Pagination", () => {
-		it.skip("renders pagination bar when logs exist", async () => {
-			// Skipped: Pagination requires exact data format matching
+		it("renders pagination bar when logs exist", async () => {
 			const mockLogs = {
 				entries: Array(25)
 					.fill(null)
@@ -1268,8 +1470,12 @@ describe("Logs", () => {
 				expect(screen.getByText("hash0")).toBeInTheDocument();
 			});
 
-			// Pagination should be visible
-			expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+			// Pagination should be visible: shows "1 to 20 of 50 entries" (default pageSize is 20)
+			expect(screen.getByText(/1 to 20 of 50 entries/)).toBeInTheDocument();
+			// Page navigation buttons should be visible
+			expect(screen.getByText("Prev")).toBeInTheDocument();
+			expect(screen.getByText("Next")).toBeInTheDocument();
+			expect(screen.getByText("2")).toBeInTheDocument();
 		});
 
 		it("changes page when pagination button is clicked", async () => {

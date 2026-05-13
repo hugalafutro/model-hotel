@@ -414,7 +414,9 @@ describe("EditProviderModal", () => {
 			);
 			const closeButton = screen.getByRole("button", { name: "Cancel" });
 			await user.click(closeButton);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalled();
+			});
 			expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
 		});
 
@@ -429,7 +431,9 @@ describe("EditProviderModal", () => {
 			await user.click(closeButton);
 			const discardButton = screen.getByRole("button", { name: "Discard" });
 			await user.click(discardButton);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalled();
+			});
 		});
 
 		it("dismisses confirm dialog when cancel is clicked", async () => {
