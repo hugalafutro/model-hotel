@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Pre-commit hook: run backend tests and frontend lint + tests.
+# Blocks commit if any check fails.
+# Install: cp scripts/pre-commit .git/hooks/pre-commit
+
+set -euo pipefail
+
+echo "pre-commit: running backend tests..."
+if ! go test ./...; then
+	echo "pre-commit: FAILED - backend tests" >&2
+	exit 1
+fi
+
+echo "pre-commit: running golangci-lint..."
+if ! golangci-lint run ./...; then
+	echo "pre-commit: FAILED - golangci-lint" >&2
+	exit 1
+fi
+
+echo "pre-commit: running frontend lint..."
+if ! (cd web && pnpm lint); then
+	echo "pre-commit: FAILED - pnpm lint" >&2
+	exit 1
+fi
+
+echo "pre-commit: running frontend biome check..."
+if ! (cd web && pnpm biome check src/); then
+	echo "pre-commit: FAILED - pnpm biome check" >&2
+	exit 1
+fi
+
+echo "pre-commit: running frontend tests..."
+if ! (cd web && pnpm vitest run); then
+	echo "pre-commit: FAILED - frontend tests" >&2
+	exit 1
+fi
+
+echo "pre-commit: all checks passed"
