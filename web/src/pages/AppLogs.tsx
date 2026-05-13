@@ -214,6 +214,7 @@ export function AppLogs() {
 				badge={
 					<button
 						type="button"
+						aria-label="Toggle live updates"
 						onClick={() => {
 							setLiveEnabled(!liveEnabled);
 							toast(

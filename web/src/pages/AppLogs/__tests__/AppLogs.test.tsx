@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getByDialogName } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { AppLogs } from "../../AppLogs";
@@ -76,17 +77,19 @@ describe("AppLogs", () => {
 	it("shows Live badge toggle button", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Live")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Toggle live/ }),
+			).toBeInTheDocument();
 		});
 	});
 
 	it("Live badge is green when enabled", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			const liveBadge = screen.getByText("Live");
-			expect(liveBadge).toBeInTheDocument();
+			const liveButton = screen.getByRole("button", { name: /Toggle live/ });
+			expect(liveButton).toBeInTheDocument();
 			// Check for green styling
-			expect(liveBadge.closest("button")).toHaveClass("bg-green-500/20");
+			expect(liveButton).toHaveClass("bg-green-500/20");
 		});
 	});
 
@@ -94,10 +97,11 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Live")).toBeInTheDocument();
+			const liveButton = screen.getByRole("button", { name: /Toggle live/ });
+			expect(liveButton).toBeInTheDocument();
 		});
-		const liveButton = screen.getByText("Live").closest("button");
-		await user.click(liveButton!);
+		const liveButton = screen.getByRole("button", { name: /Toggle live/ });
+		await user.click(liveButton);
 		await waitFor(() => {
 			expect(screen.getByText("Live updates paused")).toBeInTheDocument();
 		});
@@ -106,10 +110,11 @@ describe("AppLogs", () => {
 	it("shows Requests and Logs submode tabs", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Requests")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Requests" }),
+			).toBeInTheDocument();
 			// Logs tab button (not the header)
-			const logsTab = screen.getAllByText("Logs")[1];
-			expect(logsTab).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Logs" })).toBeInTheDocument();
 		});
 	});
 
@@ -117,7 +122,9 @@ describe("AppLogs", () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
 			// Both Requests and Logs tabs exist
-			expect(screen.getByText("Requests")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Requests" }),
+			).toBeInTheDocument();
 			// There are multiple "Logs" texts (header + tab)
 			expect(screen.getAllByText("Logs").length).toBeGreaterThan(1);
 		});
@@ -127,9 +134,11 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Requests")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Requests" }),
+			).toBeInTheDocument();
 		});
-		const requestsTab = screen.getByText("Requests");
+		const requestsTab = screen.getByRole("button", { name: "Requests" });
 		await user.click(requestsTab);
 		await waitFor(() => {
 			expect(requestsTab).toHaveClass("bg-(--accent)/20");
@@ -146,12 +155,12 @@ describe("AppLogs", () => {
 	it("Level filter shows counts from level_counts", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			const levelDropdown = screen.getByText("Level").closest("button");
+			const levelDropdown = screen.getByRole("button", { name: "Level" });
 			expect(levelDropdown).toBeInTheDocument();
 		});
 		// Click to open dropdown
 		const user = userEvent.setup();
-		const levelButton = screen.getByText("Level");
+		const levelButton = screen.getByRole("button", { name: "Level" });
 		await user.click(levelButton);
 		await waitFor(() => {
 			expect(screen.getByText("All (3)")).toBeInTheDocument();
@@ -225,10 +234,18 @@ describe("AppLogs", () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
 			// Check for table headers (they are inside th elements with buttons)
-			expect(screen.getByText("Time/Date")).toBeInTheDocument();
-			expect(screen.getAllByText("Level").length).toBeGreaterThan(0);
-			expect(screen.getAllByText("Source").length).toBeGreaterThan(0);
-			expect(screen.getByText("Message")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Time\/Date/ }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Level/ }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Source/ }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Message/ }),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -271,7 +288,7 @@ describe("AppLogs", () => {
 			.closest("tr");
 		await user.click(row!);
 		await waitFor(() => {
-			expect(screen.getByText("Log Entry Details")).toBeInTheDocument();
+			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 		});
 	});
 
@@ -288,7 +305,7 @@ describe("AppLogs", () => {
 			.closest("tr");
 		await user.click(row!);
 		await waitFor(() => {
-			expect(screen.getByText("Log Entry Details")).toBeInTheDocument();
+			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 			// Modal shows field labels
 			expect(screen.getAllByText("Timestamp").length).toBeGreaterThan(0);
 			expect(screen.getAllByText("Level").length).toBeGreaterThan(0);
@@ -310,12 +327,14 @@ describe("AppLogs", () => {
 			.closest("tr");
 		await user.click(row!);
 		await waitFor(() => {
-			expect(screen.getByText("Log Entry Details")).toBeInTheDocument();
+			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 		});
 		const closeButtons = screen.getAllByLabelText("Close");
 		await user.click(closeButtons[0]);
 		await waitFor(() => {
-			expect(screen.queryByText("Log Entry Details")).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole("dialog", { name: /Log Entry Details/ }),
+			).not.toBeInTheDocument();
 		});
 	});
 
@@ -371,10 +390,14 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Time/Date")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Time\/Date/ }),
+			).toBeInTheDocument();
 		});
-		const timeHeader = screen.getByText("Time/Date").closest("th");
-		await user.click(timeHeader!);
+		const timeHeader = screen.getByRole("button", {
+			name: /Sort by Time\/Date/,
+		});
+		await user.click(timeHeader);
 		// Should toggle sort - check for arrow indicator
 		await waitFor(() => {
 			expect(timeHeader).toBeInTheDocument();
@@ -385,13 +408,13 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Level")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Level/ }),
+			).toBeInTheDocument();
 		});
-		const levelButton = screen
-			.getByText("Level", { selector: "button *" })
-			.closest("button");
+		const levelButton = screen.getByRole("button", { name: /Sort by Level/ });
 		expect(levelButton).toBeInTheDocument();
-		await user.click(levelButton!);
+		await user.click(levelButton);
 		// Sort toggles - just verify the button is still there
 		await waitFor(() => {
 			expect(levelButton).toBeInTheDocument();
@@ -413,10 +436,14 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Message")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Message/ }),
+			).toBeInTheDocument();
 		});
-		const messageHeader = screen.getByText("Message").closest("th");
-		await user.click(messageHeader!);
+		const messageHeader = screen.getByRole("button", {
+			name: /Sort by Message/,
+		});
+		await user.click(messageHeader);
 		await waitFor(() => {
 			expect(messageHeader).toBeInTheDocument();
 		});
@@ -551,10 +578,10 @@ describe("AppLogs", () => {
 			.closest("tr");
 		await user.click(row!);
 		await waitFor(() => {
-			expect(screen.getByText("Log Entry Details")).toBeInTheDocument();
+			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 		});
 		// Copy button should be present in the modal (has title="Copy")
-		expect(screen.getByTitle("Copy")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
 	});
 
 	it("level badge has correct color classes", async () => {

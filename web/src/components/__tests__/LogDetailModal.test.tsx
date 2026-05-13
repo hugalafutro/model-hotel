@@ -1,6 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getByDialogName } from "../../test/helpers";
 import { renderWithProviders } from "../../test/utils";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import { LogDetailModal } from "../LogDetailModal";
@@ -52,11 +53,11 @@ describe("LogDetailModal", () => {
 
 	describe("Request Log Modal", () => {
 		it("renders null when log is null", () => {
-			const { container } = renderWithProviders(
+			renderWithProviders(
 				<LogDetailModal log={null} type="request" onClose={onClose} />,
 			);
 			// Component returns null, so no dialog element is rendered
-			expect(container.querySelector('[role="dialog"]')).toBeNull();
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		});
 
 		it("renders request details modal with header", () => {
@@ -68,8 +69,10 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			expect(screen.getByText("Request Details")).toBeInTheDocument();
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(getByDialogName(/Request Details/)).toBeInTheDocument();
+			expect(
+				screen.getByRole("dialog", { name: /Request Details/ }),
+			).toBeInTheDocument();
 		});
 
 		it("displays status code badge for successful response", () => {
@@ -451,8 +454,10 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,
 			);
 
-			expect(screen.getByText("Log Entry Details")).toBeInTheDocument();
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(getByDialogName(/Log Entry Details/)).toBeInTheDocument();
+			expect(
+				screen.getByRole("dialog", { name: /Log Entry Details/ }),
+			).toBeInTheDocument();
 		});
 
 		it("displays timestamp", () => {

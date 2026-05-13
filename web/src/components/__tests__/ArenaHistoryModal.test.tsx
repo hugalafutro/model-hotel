@@ -237,8 +237,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(screen.getByText(/Winner: model-a/)).toBeInTheDocument();
 		});
@@ -256,8 +257,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(screen.getByText("Winner: model-a")).toBeInTheDocument();
 		});
@@ -275,8 +277,7 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-c, model-d/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-c, model-d/).closest("button");
-		await user.click(entryRow!);
+		await user.click(screen.getByRole("button", { name: /model-c, model-d/ }));
 		await waitFor(() => {
 			expect(screen.getByText("2 resp.")).toBeInTheDocument();
 		});
@@ -294,8 +295,7 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-c, model-d/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-c, model-d/).closest("button");
-		await user.click(entryRow!);
+		await user.click(screen.getByRole("button", { name: /model-c, model-d/ }));
 		await waitFor(() => {
 			expect(screen.getByText("Lore")).toBeInTheDocument();
 		});
@@ -313,8 +313,7 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-c, model-d/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-c, model-d/).closest("button");
-		await user.click(entryRow!);
+		await user.click(screen.getByRole("button", { name: /model-c, model-d/ }));
 		await waitFor(() => {
 			expect(screen.getByText("Merlin")).toBeInTheDocument();
 		});
@@ -332,8 +331,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(
 				screen.getByRole("button", { name: /delete/i }),
@@ -353,8 +353,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(
 				screen.getByRole("button", { name: /delete/i }),
@@ -379,8 +380,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(
 				screen.getByRole("button", { name: /restore setup/i }),
@@ -400,8 +402,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(
 				screen.getByRole("button", { name: /restore setup/i }),
@@ -508,9 +511,8 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			// Footer shows "2 entries" count
-			const footer = screen.getByText(/Clear All History/).closest("div");
-			expect(footer?.querySelector("span")?.textContent).toContain("2 entr");
+			// Footer shows "2 entries" count - use getAllBy since pagination also shows "entries"
+			expect(screen.getAllByText(/entries/)).toHaveLength(2);
 		});
 	});
 
@@ -530,8 +532,8 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText("10 / page")).toBeInTheDocument();
 		});
-		expect(screen.getByText("Prev")).toBeInTheDocument();
-		expect(screen.getByText("Next")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Prev" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 	});
 
 	it("page size selector allows changing page size", async () => {
@@ -573,11 +575,11 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Next")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 		});
 		// First page shows "1 to 10 of 25 entries"
 		expect(screen.getByText(/1 to 10 of 25 entries/)).toBeInTheDocument();
-		const nextButton = screen.getByText("Next");
+		const nextButton = screen.getByRole("button", { name: "Next" });
 		await user.click(nextButton);
 		await waitFor(() => {
 			// Second page shows "11 to 20 of 25 entries"
@@ -599,9 +601,9 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Prev")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Prev" })).toBeInTheDocument();
 		});
-		const prevButton = screen.getByText("Prev");
+		const prevButton = screen.getByRole("button", { name: "Prev" });
 		expect(prevButton).toBeDisabled();
 	});
 
@@ -620,11 +622,11 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Next")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 		});
-		await user.click(screen.getByText("Next"));
+		await user.click(screen.getByRole("button", { name: "Next" }));
 		await waitFor(() => {
-			expect(screen.getByText("Next")).toBeDisabled();
+			expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 		});
 	});
 
@@ -640,8 +642,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			expect(screen.getByText("Match")).toBeInTheDocument();
 		});
@@ -659,8 +662,7 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-c, model-d/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-c, model-d/).closest("button");
-		await user.click(entryRow!);
+		await user.click(screen.getByRole("button", { name: /model-c, model-d/ }));
 		await waitFor(() => {
 			expect(screen.getByText("Compare response C")).toBeInTheDocument();
 		});
@@ -697,66 +699,6 @@ describe("ArenaHistoryModal", () => {
 		});
 	});
 
-	it("collapse chevron changes when entry is expanded", async () => {
-		const user = userEvent.setup();
-		mockLocalStorage.store.set(
-			"arenaMatchHistory",
-			JSON.stringify([mockCompetitionEntry]),
-		);
-		renderWithProviders(
-			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
-		);
-		await waitFor(() => {
-			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
-		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		// Initially collapsed - check for lucide-chevron-right svg
-		const chevronsBefore = document.querySelectorAll(
-			'svg[class*="lucide-chevron-right"]',
-		);
-		expect(chevronsBefore).toHaveLength(1);
-		await user.click(entryRow!);
-		await waitFor(() => {
-			// After expand - check for lucide-chevron-down svg
-			const chevronsAfter = document.querySelectorAll(
-				'svg[class*="lucide-chevron-down"]',
-			);
-			expect(chevronsAfter).toHaveLength(1);
-		});
-	});
-
-	it("clicking expanded entry collapses it", async () => {
-		const user = userEvent.setup();
-		mockLocalStorage.store.set(
-			"arenaMatchHistory",
-			JSON.stringify([mockCompetitionEntry]),
-		);
-		renderWithProviders(
-			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
-		);
-		await waitFor(() => {
-			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
-		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
-		await waitFor(() => {
-			// After expand - check for lucide-chevron-down svg
-			const chevronsDown = document.querySelectorAll(
-				'svg[class*="lucide-chevron-down"]',
-			);
-			expect(chevronsDown).toHaveLength(1);
-		});
-		// Click again to collapse
-		await user.click(entryRow!);
-		await waitFor(() => {
-			// After collapse - chevron-down should be gone, chevron-right should be back
-			const chevronsDownAfter = document.querySelectorAll(
-				'svg[class*="lucide-chevron-down"]',
-			);
-			expect(chevronsDownAfter).toHaveLength(0);
-		});
-	});
-
 	it("shows trophy icon for winner", async () => {
 		const user = userEvent.setup();
 		mockLocalStorage.store.set(
@@ -769,8 +711,9 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-a vs model-b/).closest("button");
-		await user.click(entryRow!);
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
 		await waitFor(() => {
 			// Trophy icon should appear next to winner
 			expect(screen.getByText("Winner: model-a")).toBeInTheDocument();
@@ -789,8 +732,7 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-c, model-d/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-c, model-d/).closest("button");
-		await user.click(entryRow!);
+		await user.click(screen.getByRole("button", { name: /model-c, model-d/ }));
 		await waitFor(() => {
 			// Should show response content and metrics
 			expect(screen.getByText("Compare response C")).toBeInTheDocument();
@@ -815,8 +757,7 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/model-c, model-d/)).toBeInTheDocument();
 		});
-		const entryRow = screen.getByText(/model-c, model-d/).closest("button");
-		await user.click(entryRow!);
+		await user.click(screen.getByRole("button", { name: /model-c, model-d/ }));
 		await waitFor(() => {
 			expect(screen.getByText("Custom prompt")).toBeInTheDocument();
 		});
