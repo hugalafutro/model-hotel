@@ -165,6 +165,7 @@ export function Dashboard() {
 									? "Showing only active (non-deleted) virtual keys. Click to include deleted keys in stats."
 									: "Showing all virtual keys including deleted ones. Click to filter to active keys only."
 							}
+							aria-label="Toggle key filter"
 							className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
 								excludeDeleted
 									? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"

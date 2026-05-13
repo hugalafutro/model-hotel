@@ -61,6 +61,7 @@ export function UsageBarPanel({
 											onClick={() => onEntryClick(entry.label)}
 											className={`truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
 											title={`View details for ${entry.label}`}
+											aria-label={`View details for ${entry.label}`}
 										>
 											{entry.label}
 										</button>

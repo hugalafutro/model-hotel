@@ -105,7 +105,9 @@ describe("Dashboard", () => {
 			renderWithProviders(<Dashboard />);
 
 			await waitFor(() => {
-				expect(screen.getByText("All Keys")).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Toggle key filter" }),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -115,17 +117,17 @@ describe("Dashboard", () => {
 			const { user } = renderWithProviders(<Dashboard />);
 
 			await waitFor(() => {
-				expect(screen.getByText("All Keys")).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Toggle key filter" }),
+				).toBeInTheDocument();
 			});
 
-			const toggleButton = screen.getByText("All Keys").closest("button");
-			expect(toggleButton).toBeInTheDocument();
-			if (toggleButton) {
-				await user.click(toggleButton);
-				await waitFor(() => {
-					expect(screen.getByText("Active Keys Only")).toBeInTheDocument();
-				});
-			}
+			await user.click(
+				screen.getByRole("button", { name: "Toggle key filter" }),
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Active Keys Only")).toBeInTheDocument();
+			});
 		});
 
 		it("renders manual refresh button", async () => {
@@ -442,7 +444,7 @@ describe("Dashboard", () => {
 			});
 
 			// Modal containers should exist in DOM (even if not visible)
-			const modalContainers = document.querySelectorAll("[role='dialog']");
+			const modalContainers = screen.queryAllByRole("dialog");
 			// Multiple modals are rendered but hidden
 			expect(modalContainers.length).toBeGreaterThanOrEqual(0);
 		});
@@ -472,8 +474,11 @@ describe("Dashboard", () => {
 
 			// Model label is normalized: test-provider/test-model-v1
 			// Verify the model entry is rendered as clickable (has button parent)
-			const modelLabel = screen.getByText("test-provider/test-model-v1");
-			expect(modelLabel.closest("button")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", {
+					name: /View details for test-provider\/test-model-v1/i,
+				}),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -497,20 +502,15 @@ describe("Dashboard", () => {
 			});
 
 			// Find and click refresh button
-			const refreshButtons = screen.getAllByRole("button");
-			const refreshButton = refreshButtons.find((btn) => {
-				const icon = btn.querySelector("svg");
-				return icon;
+			const refreshButton = screen.getByRole("button", {
+				name: "Refresh dashboard",
 			});
+			await user.click(refreshButton);
 
-			if (refreshButton) {
-				await user.click(refreshButton);
-
-				// Should trigger refetch
-				await waitFor(() => {
-					expect(callCount).toBeGreaterThan(1);
-				});
-			}
+			// Should trigger refetch
+			await waitFor(() => {
+				expect(callCount).toBeGreaterThan(1);
+			});
 		});
 	});
 
