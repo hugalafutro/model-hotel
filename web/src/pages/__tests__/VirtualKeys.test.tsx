@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { VirtualKey } from "../../api/types";
+import { getByDialogName, mockVirtualKeys } from "../../test/helpers";
 import { mockVirtualKey } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -30,11 +31,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("renders empty state when no virtual keys", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([]);
-				}),
-			);
+			server.use(...mockVirtualKeys({ body: [] }));
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -102,11 +99,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("renders create key button", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -120,11 +113,7 @@ describe("VirtualKeys", () => {
 
 	describe("Create Key Modal", () => {
 		it("opens create modal when clicking Create Key button", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -136,7 +125,7 @@ describe("VirtualKeys", () => {
 
 			await user.click(screen.getByRole("button", { name: "+ Create Key" }));
 
-			expect(screen.getByText("Create Virtual Key")).toBeInTheDocument();
+			expect(getByDialogName("Create Virtual Key")).toBeInTheDocument();
 			expect(screen.getByLabelText("Name")).toBeInTheDocument();
 			expect(
 				screen.getByLabelText("Rate Limit RPS (requests/sec)"),
@@ -148,9 +137,7 @@ describe("VirtualKeys", () => {
 
 		it("creates a new virtual key with name only", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.post("/api/virtual-keys", async ({ request }) => {
 					const body = await request.json();
 					const newKey: VirtualKey = {
@@ -189,11 +176,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("creates a new virtual key with rate limits", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -224,9 +207,7 @@ describe("VirtualKeys", () => {
 
 		it("shows error toast when creation fails", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.post("/api/virtual-keys", async ({ request }) => {
 					if (!request.headers.get("Authorization")) {
 						return HttpResponse.json(
@@ -264,11 +245,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("shows key only once after creation with copy functionality", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -295,11 +272,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("closes modal after clicking Done button", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -329,11 +302,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("closes modal when clicking Cancel button", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -345,13 +314,13 @@ describe("VirtualKeys", () => {
 
 			await user.click(screen.getByRole("button", { name: "+ Create Key" }));
 
-			expect(screen.getByText("Create Virtual Key")).toBeInTheDocument();
+			expect(getByDialogName("Create Virtual Key")).toBeInTheDocument();
 
 			await user.click(screen.getByRole("button", { name: "Cancel" }));
 
 			await waitFor(() => {
 				expect(
-					screen.queryByText("Create Virtual Key"),
+					screen.queryByRole("dialog", { name: "Create Virtual Key" }),
 				).not.toBeInTheDocument();
 			});
 		});
@@ -387,11 +356,7 @@ describe("VirtualKeys", () => {
 
 	describe("Edit Key Modal", () => {
 		it("opens edit modal when clicking edit pencil icon", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -399,18 +364,16 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByTitle("Edit");
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			await user.click(editButtons[0]);
 
-			expect(screen.getByText("Edit Virtual Key")).toBeInTheDocument();
+			expect(getByDialogName("Edit Virtual Key")).toBeInTheDocument();
 			expect(screen.getByLabelText("Name")).toHaveValue("Test API Key");
 		});
 
 		it("updates virtual key name", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.put("/api/virtual-keys/:id", async ({ params }) => {
 					return HttpResponse.json({
 						...mockVirtualKey,
@@ -426,7 +389,7 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByTitle("Edit");
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			await user.click(editButtons[0]);
 
 			const nameInput = screen.getByLabelText("Name");
@@ -442,9 +405,7 @@ describe("VirtualKeys", () => {
 
 		it("updates rate limits", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.put("/api/virtual-keys/:id", async ({ request, params }) => {
 					const body = (await request.json()) as Partial<typeof mockVirtualKey>;
 					return HttpResponse.json({
@@ -461,7 +422,7 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByTitle("Edit");
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			await user.click(editButtons[0]);
 
 			await user.clear(screen.getByLabelText("Rate Limit RPS (requests/sec)"));
@@ -487,9 +448,7 @@ describe("VirtualKeys", () => {
 
 		it("shows error toast when update fails", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.put("/api/virtual-keys/:id", async ({ request }) => {
 					if (!request.headers.get("Authorization")) {
 						return HttpResponse.json(
@@ -509,7 +468,7 @@ describe("VirtualKeys", () => {
 				).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByTitle("Edit");
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			await user.click(editButtons[0]);
 
 			await user.type(screen.getByLabelText("Name"), " Updated");
@@ -526,9 +485,7 @@ describe("VirtualKeys", () => {
 
 		it("closes edit modal on successful update", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.put("/api/virtual-keys/:id", () => {
 					return HttpResponse.json(mockVirtualKey);
 				}),
@@ -540,22 +497,20 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByTitle("Edit");
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			await user.click(editButtons[0]);
 
 			await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
 			await waitFor(() => {
-				expect(screen.queryByText("Edit Virtual Key")).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("dialog", { name: "Edit Virtual Key" }),
+				).not.toBeInTheDocument();
 			});
 		});
 
 		it("closes edit modal when clicking Cancel", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -563,26 +518,24 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByTitle("Edit");
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			await user.click(editButtons[0]);
 
-			expect(screen.getByText("Edit Virtual Key")).toBeInTheDocument();
+			expect(getByDialogName("Edit Virtual Key")).toBeInTheDocument();
 
 			await user.click(screen.getByRole("button", { name: "Cancel" }));
 
 			await waitFor(() => {
-				expect(screen.queryByText("Edit Virtual Key")).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("dialog", { name: "Edit Virtual Key" }),
+				).not.toBeInTheDocument();
 			});
 		});
 	});
 
 	describe("Key Detail Modal", () => {
 		it("opens detail modal when clicking key name", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -597,7 +550,7 @@ describe("VirtualKeys", () => {
 			await user.click(keyButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Virtual Key Details")).toBeInTheDocument();
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 			});
 			// Key preview appears in modal (in a <p> element with text-gray-200 font-mono)
 			const modalKeyPreview = screen.getByText("sk_test_••••", {
@@ -607,11 +560,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("shows key details in modal", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -626,7 +575,7 @@ describe("VirtualKeys", () => {
 			await user.click(keyButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Virtual Key Details")).toBeInTheDocument();
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 			});
 			// Check modal content - use getAllByText since labels appear in both table and modal
 			expect(screen.getAllByText("Name")).toHaveLength(2); // header + modal label
@@ -661,7 +610,7 @@ describe("VirtualKeys", () => {
 			await user.click(keyButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Virtual Key Details")).toBeInTheDocument();
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 			});
 			// Check modal shows "Never" for last used - query within modal
 			const modal = screen.getByRole("dialog");
@@ -670,9 +619,7 @@ describe("VirtualKeys", () => {
 
 		it("deletes virtual key from detail modal", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.delete("/api/virtual-keys/:id", () => {
 					return new HttpResponse(null, { status: 204 });
 				}),
@@ -689,10 +636,15 @@ describe("VirtualKeys", () => {
 			await user.click(screen.getByRole("button", { name: "Test API Key" }));
 
 			// Click delete button
-			await user.click(screen.getByText("Delete Key"));
+			const dialog = getByDialogName("Virtual Key Details");
+			await user.click(
+				within(dialog).getByRole("button", { name: "Delete Key" }),
+			);
 
 			// Confirm deletion
-			await user.click(screen.getByText("Yes, delete"));
+			await user.click(
+				within(dialog).getByRole("button", { name: "Yes, delete" }),
+			);
 
 			await waitFor(() => {
 				expect(screen.getByText("Virtual key deleted")).toBeInTheDocument();
@@ -700,17 +652,13 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.queryByText("Virtual Key Details"),
+					screen.queryByRole("dialog", { name: "Virtual Key Details" }),
 				).not.toBeInTheDocument();
 			});
 		});
 
 		it("cancels deletion in confirm state", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -718,15 +666,18 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText("Test API Key"));
+			await user.click(screen.getByRole("button", { name: "Test API Key" }));
 
 			// Click delete button
-			await user.click(screen.getByText("Delete Key"));
+			const dialog = getByDialogName("Virtual Key Details");
+			await user.click(
+				within(dialog).getByRole("button", { name: "Delete Key" }),
+			);
 
 			expect(screen.getByText("Are you sure?")).toBeInTheDocument();
 
 			// Cancel
-			await user.click(screen.getByText("Cancel"));
+			await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
 			expect(screen.queryByText("Are you sure?")).not.toBeInTheDocument();
 			expect(screen.getByText("Delete Key")).toBeInTheDocument();
@@ -734,9 +685,7 @@ describe("VirtualKeys", () => {
 
 		it("shows error toast when deletion fails", async () => {
 			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
+				...mockVirtualKeys(),
 				http.delete("/api/virtual-keys/:id", async ({ request, params }) => {
 					if (!request.headers.get("Authorization")) {
 						return HttpResponse.json(
@@ -768,11 +717,16 @@ describe("VirtualKeys", () => {
 			await user.click(keyButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("Virtual Key Details")).toBeInTheDocument();
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText("Delete Key"));
-			await user.click(screen.getByText("Yes, delete"));
+			const dialog = getByDialogName("Virtual Key Details");
+			await user.click(
+				within(dialog).getByRole("button", { name: "Delete Key" }),
+			);
+			await user.click(
+				within(dialog).getByRole("button", { name: "Yes, delete" }),
+			);
 
 			// Toast appears with error message
 			await waitFor(() => {
@@ -782,11 +736,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("closes detail modal when clicking close button", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -794,16 +744,16 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText("Test API Key"));
+			await user.click(screen.getByRole("button", { name: "Test API Key" }));
 
-			expect(screen.getByText("Virtual Key Details")).toBeInTheDocument();
+			expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
 
 			await waitFor(() => {
 				expect(
-					screen.queryByText("Virtual Key Details"),
+					screen.queryByRole("dialog", { name: "Virtual Key Details" }),
 				).not.toBeInTheDocument();
 			});
 		});
@@ -833,8 +783,8 @@ describe("VirtualKeys", () => {
 
 			// Initial sort is name ascending, so data is already sorted
 			// Click twice to get back to ascending (first click -> desc, second -> asc)
-			await user.click(screen.getByRole("button", { name: /Name/ }));
-			await user.click(screen.getByRole("button", { name: /Name/ }));
+			await user.click(screen.getByRole("button", { name: /Sort by Name/i }));
+			await user.click(screen.getByRole("button", { name: /Sort by Name/i }));
 
 			// Should be sorted ascending: Alpha, Beta, Zebra
 			// Get all key name buttons in the table body
@@ -869,7 +819,7 @@ describe("VirtualKeys", () => {
 			});
 
 			// Default sort is name ascending, click once for descending
-			await user.click(screen.getByRole("button", { name: /Name/ }));
+			await user.click(screen.getByRole("button", { name: /Sort by Name/i }));
 
 			// Should be sorted descending: Beta, Alpha
 			const keyButtons = screen.getAllByRole("button", {
@@ -909,7 +859,9 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("New Key")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText("Created"));
+			await user.click(
+				screen.getByRole("button", { name: /Sort by Created/i }),
+			);
 
 			// Old key should be first (ascending by date)
 			const rows = screen.getAllByRole("row");
@@ -944,7 +896,7 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("High Usage")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText("Tokens"));
+			await user.click(screen.getByRole("button", { name: /Sort by Tokens/i }));
 
 			const rows = screen.getAllByRole("row");
 			expect(rows[1]).toContainElement(screen.getByText("Low Usage"));
@@ -978,7 +930,9 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Recent")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText("Last Used"));
+			await user.click(
+				screen.getByRole("button", { name: /Sort by Last Used/i }),
+			);
 
 			const rows = screen.getAllByRole("row");
 			expect(rows[1]).toContainElement(screen.getByText("Old"));
@@ -1005,8 +959,8 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
-			expect(screen.getByText("Prev")).toBeInTheDocument();
-			expect(screen.getByText("Next")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Prev" })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 		});
 
 		it("shows correct page size selector", async () => {
@@ -1194,7 +1148,7 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
-			expect(screen.getByText("Prev")).toBeDisabled();
+			expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
 		});
 
 		it("disables Next button on last page", async () => {
@@ -1220,18 +1174,14 @@ describe("VirtualKeys", () => {
 			await user.click(screen.getByRole("button", { name: "2" }));
 
 			await waitFor(() => {
-				expect(screen.getByText("Next")).toBeDisabled();
+				expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 			});
 		});
 	});
 
 	describe("Quick Start Section", () => {
 		it("renders quick start guide when keys exist", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -1265,11 +1215,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("renders quick start section with collapsible toggle", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -1290,11 +1236,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("renders bash and PowerShell tab buttons", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -1316,11 +1258,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("shows curl example in bash tab", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -1338,11 +1276,7 @@ describe("VirtualKeys", () => {
 		});
 
 		it("shows PowerShell example in powershell tab", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -1437,11 +1371,7 @@ describe("VirtualKeys", () => {
 
 	describe("Accessibility", () => {
 		it("has proper table structure", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -1450,19 +1380,23 @@ describe("VirtualKeys", () => {
 			});
 
 			// Table should have proper headers
-			expect(screen.getByText("Name")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Name/i }),
+			).toBeInTheDocument();
 			expect(screen.getByText("Key")).toBeInTheDocument();
-			expect(screen.getByText("Created")).toBeInTheDocument();
-			expect(screen.getByText("Tokens")).toBeInTheDocument();
-			expect(screen.getByText("Last Used")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Created/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Tokens/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Sort by Last Used/i }),
+			).toBeInTheDocument();
 		});
 
 		it("has accessible edit buttons", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
@@ -1470,17 +1404,13 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			// Edit button has title="Edit" attribute
-			const editButtons = document.querySelectorAll('[title="Edit"]');
+			// Edit button should be accessible by role
+			const editButtons = screen.getAllByRole("button", { name: "Edit" });
 			expect(editButtons).toHaveLength(1);
 		});
 
 		it("has accessible sort buttons with tooltips", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () => {
-					return HttpResponse.json([mockVirtualKey]);
-				}),
-			);
+			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
 
