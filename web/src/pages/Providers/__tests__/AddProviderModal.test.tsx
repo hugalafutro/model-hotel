@@ -96,13 +96,10 @@ describe("AddProviderModal", () => {
 			).toBeInTheDocument();
 		});
 
-		it("shows API key placeholder for optional key providers", () => {
+		it("shows API key placeholder for custom type", () => {
 			renderWithProviders(<AddProviderModal {...defaultProps} />);
 			const apiKeyInput = screen.getByLabelText("API Key");
-			expect(apiKeyInput).toHaveAttribute(
-				"placeholder",
-				"Optional - free models work without a key",
-			);
+			expect(apiKeyInput).toHaveAttribute("placeholder", "API key");
 		});
 	});
 
@@ -204,27 +201,21 @@ describe("AddProviderModal", () => {
 			expect(apiKeyInput).toHaveAttribute("maxLength", "500");
 		});
 
-		it("requires API key for custom provider type", () => {
+		it("shows API key placeholder for custom provider type", () => {
 			renderWithProviders(<AddProviderModal {...defaultProps} />);
 			const apiKeyInput = screen.getByLabelText("API Key");
-			// Custom type allows empty key
-			expect(apiKeyInput).toHaveAttribute(
-				"placeholder",
-				"Optional - free models work without a key",
-			);
+			// Custom type does not have free models
+			expect(apiKeyInput).toHaveAttribute("placeholder", "API key");
 		});
 
-		it("makes API key optional for ollama type", async () => {
+		it("shows API key placeholder for ollama type", async () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
 			const typeSelect = screen.getByLabelText("Type");
 			await user.selectOptions(typeSelect, "ollama");
 			const apiKeyInput = screen.getByLabelText("API Key");
-			expect(apiKeyInput).toHaveAttribute(
-				"placeholder",
-				"Optional - free models work without a key",
-			);
+			expect(apiKeyInput).toHaveAttribute("placeholder", "API key");
 		});
 	});
 

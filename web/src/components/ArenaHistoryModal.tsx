@@ -56,7 +56,7 @@ function formatDate(timestamp: number): string {
 }
 
 function formatTime(timestamp: number): string {
-	return new Date(timestamp).toLocaleTimeString(undefined, {
+	return new Date(timestamp).toLocaleTimeString("en-GB", {
 		hour: "2-digit",
 		minute: "2-digit",
 	});

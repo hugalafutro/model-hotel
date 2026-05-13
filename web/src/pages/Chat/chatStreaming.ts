@@ -12,7 +12,7 @@ import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 
 export function formatTime(ts: number): string {
 	const d = new Date(ts);
-	return d.toLocaleTimeString(undefined, {
+	return d.toLocaleTimeString("en-GB", {
 		hour: "2-digit",
 		minute: "2-digit",
 	});

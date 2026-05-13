@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	clearProviderCache,
 	DISCOVERY_INTERVALS,
@@ -101,83 +101,87 @@ describe("UI_STYLES", () => {
 });
 
 describe("getProviderCacheCount", () => {
-	beforeEach(() => {
-		vi.spyOn(localStorage, "getItem").mockReturnValue(null);
-	});
-
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
 	it("returns 0 when no cache keys exist", () => {
+		const getItemSpy = vi.fn().mockReturnValue(null);
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
+
 		const count = getProviderCacheCount();
 		expect(count).toBe(0);
+
+		vi.unstubAllGlobals();
 	});
 
 	it("returns count of existing cache keys", () => {
-		vi.spyOn(localStorage, "getItem").mockImplementation((key: string) => {
+		const getItemSpy = vi.fn().mockImplementation((key: string) => {
 			if (key === "model-hotel:nanogpt-usage") return '{"tokens": 100}';
 			if (key === "model-hotel:deepseek-balance") return '{"balance": 50}';
 			return null;
 		});
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
 
 		const count = getProviderCacheCount();
 
 		expect(count).toBe(2);
+
+		vi.unstubAllGlobals();
 	});
 
 	it("returns 4 when all cache keys exist", () => {
-		vi.spyOn(localStorage, "getItem").mockReturnValue("some-value");
+		const getItemSpy = vi.fn().mockReturnValue("some-value");
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
 
 		const count = getProviderCacheCount();
 
 		expect(count).toBe(4);
+
+		vi.unstubAllGlobals();
 	});
 
 	it("handles localStorage errors gracefully", () => {
-		vi.spyOn(localStorage, "getItem").mockImplementation(() => {
+		const getItemSpy = vi.fn().mockImplementation(() => {
 			throw new Error("localStorage not available");
 		});
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
 
 		const count = getProviderCacheCount();
 
 		expect(count).toBe(0);
+
+		vi.unstubAllGlobals();
 	});
 });
 
 describe("clearProviderCache", () => {
-	beforeEach(() => {
-		vi.spyOn(localStorage, "removeItem");
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
 	it("removes all provider cache keys", () => {
+		const removeItemSpy = vi.fn();
+		vi.stubGlobal("localStorage", { removeItem: removeItemSpy });
+
 		clearProviderCache();
 
-		expect(localStorage.removeItem).toHaveBeenCalledWith(
-			"model-hotel:nanogpt-usage",
-		);
-		expect(localStorage.removeItem).toHaveBeenCalledWith(
-			"model-hotel:zai-coding-usage",
-		);
-		expect(localStorage.removeItem).toHaveBeenCalledWith(
-			"model-hotel:deepseek-balance",
-		);
-		expect(localStorage.removeItem).toHaveBeenCalledWith(
+		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:nanogpt-usage");
+		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:zai-coding-usage");
+		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:deepseek-balance");
+		expect(removeItemSpy).toHaveBeenCalledWith(
 			"model-hotel:ollama-cloud-account",
 		);
-		expect(localStorage.removeItem).toHaveBeenCalledTimes(4);
+		expect(removeItemSpy).toHaveBeenCalledTimes(4);
+
+		vi.unstubAllGlobals();
 	});
 
 	it("handles localStorage errors gracefully", () => {
-		vi.spyOn(localStorage, "removeItem").mockImplementation(() => {
+		const removeItemSpy = vi.fn().mockImplementation(() => {
 			throw new Error("localStorage not available");
 		});
+		vi.stubGlobal("localStorage", { removeItem: removeItemSpy });
 
 		expect(() => clearProviderCache()).not.toThrow();
-		expect(localStorage.removeItem).toHaveBeenCalledTimes(4);
+		expect(removeItemSpy).toHaveBeenCalledTimes(4);
+
+		vi.unstubAllGlobals();
 	});
 });
