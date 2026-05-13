@@ -39,7 +39,7 @@ export const CopyablePill = memo(function CopyablePill({
 			<button
 				type="button"
 				onClick={handleCopy}
-				className="flex items-center gap-1.5 min-w-0 overflow-hidden select-none px-2 py-1 -mx-2 -my-1 rounded hover:bg-gray-700 transition-colors cursor-pointer"
+				className="flex items-center gap-1.5 min-w-0 overflow-hidden select-none px-1 py-0.5 rounded hover:bg-gray-700 transition-colors cursor-pointer"
 				title={tooltip}
 				aria-label={tooltip}
 			>

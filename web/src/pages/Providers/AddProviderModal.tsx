@@ -9,6 +9,7 @@ import {
 	getProviderType,
 	providerTypeAllowsEmptyKey,
 	providerTypeDisplayNames,
+	providerTypeHasFreeModels,
 } from "./constants";
 
 interface AddProviderModalProps {
@@ -314,8 +315,8 @@ export function AddProviderModal({
 							}
 							className="ui-input pr-10! overflow-hidden"
 							placeholder={
-								providerTypeAllowsEmptyKey(formData.provider_type)
-									? "Optional - free models work without a key"
+								providerTypeHasFreeModels(formData.provider_type)
+									? "Optional - free models available"
 									: "API key"
 							}
 						/>

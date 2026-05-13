@@ -55,3 +55,8 @@ export function providerTypeAllowsEmptyKey(type: string): boolean {
 		type === "lmstudio"
 	);
 }
+
+/** Returns true for providers that offer free models without requiring a key. */
+export function providerTypeHasFreeModels(type: string): boolean {
+	return type === "opencode-zen";
+}
