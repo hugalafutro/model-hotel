@@ -146,8 +146,8 @@ describe("ProviderFilter", () => {
 		const searchInput = screen.getByPlaceholderText("Search providers…");
 		await user.type(searchInput, "open");
 		expect(screen.queryByText("Anthropic")).not.toBeInTheDocument();
-		// Find the X clear button inside search - it's after the search input
-		const xButton = screen.getByRole("button", { name: "" });
+		// Find the X clear button inside search - accessible via aria-label
+		const xButton = screen.getByRole("button", { name: "Clear search" });
 		if (xButton) {
 			await user.click(xButton);
 		}

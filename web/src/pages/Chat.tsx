@@ -436,6 +436,7 @@ export function Chat() {
 												accept="image/*"
 												className="hidden"
 												onChange={chat.handleImageSelect}
+												aria-label="Upload image"
 											/>
 											<button
 												type="button"
@@ -460,6 +461,7 @@ export function Chat() {
 												accept="audio/*"
 												className="hidden"
 												onChange={chat.handleAudioSelect}
+												aria-label="Upload audio"
 											/>
 											<button
 												type="button"
@@ -505,6 +507,7 @@ export function Chat() {
 											? "Generating…"
 											: undefined
 								}
+								aria-label="Chat message input"
 								rows={1}
 								maxLength={32000}
 								className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"

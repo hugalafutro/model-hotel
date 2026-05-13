@@ -73,6 +73,7 @@ export function ResponseCard({
 							}
 							className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
 							title="Swap model"
+							aria-label="Swap model"
 						>
 							<X size={14} />
 						</button>
@@ -161,6 +162,7 @@ export function ResponseCard({
 										: "text-(--text-tertiary) hover:text-(--text-secondary)"
 								}`}
 								title={vote === null ? "Vote for this response" : undefined}
+								aria-label={vote === null ? "Vote for this response" : "Voted"}
 							>
 								<VoteThumb
 									size={18}

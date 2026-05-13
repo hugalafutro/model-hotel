@@ -133,6 +133,7 @@ export function ProviderFilter({
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
 								placeholder="Search providers…"
+								aria-label="Search providers"
 								className="ui-input text-xs h-8 pl-9! pr-6! w-full"
 								style={{
 									fontFamily: "var(--font-mono), ui-monospace, monospace",
@@ -149,6 +150,7 @@ export function ProviderFilter({
 									type="button"
 									onClick={() => setSearch("")}
 									className="absolute right-2 top-1/2 -translate-y-1/2 text-(--text-muted) hover:text-(--text-primary)"
+									aria-label="Clear search"
 								>
 									<X size={12} />
 								</button>

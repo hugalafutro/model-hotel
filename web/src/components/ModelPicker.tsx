@@ -280,6 +280,7 @@ export function ModelPicker({
 							type="button"
 							onClick={() => setCapFilter(new Set())}
 							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+							aria-label="Clear filter"
 						>
 							✕
 						</button>
@@ -295,6 +296,7 @@ export function ModelPicker({
 								type="button"
 								onClick={onRandom}
 								title="Random"
+								aria-label="Random model"
 								className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 							>
 								<Dices size={13} />

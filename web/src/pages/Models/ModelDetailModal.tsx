@@ -231,6 +231,7 @@ export function ModelDetailModal({
 									onClick={() => revertField("display_name")}
 									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
 									title="Revert to discovered value"
+									aria-label="Revert to discovered value"
 								>
 									↩
 								</button>
@@ -267,6 +268,7 @@ export function ModelDetailModal({
 									onClick={() => revertField("context_length")}
 									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
 									title="Revert to discovered value"
+									aria-label="Revert to discovered value"
 								>
 									↩
 								</button>
@@ -303,6 +305,7 @@ export function ModelDetailModal({
 									onClick={() => revertField("max_output_tokens")}
 									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
 									title="Revert to discovered value"
+									aria-label="Revert to discovered value"
 								>
 									↩
 								</button>
@@ -347,6 +350,7 @@ export function ModelDetailModal({
 									onClick={() => revertField("input_price_per_million")}
 									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
 									title="Revert to discovered value"
+									aria-label="Revert to discovered value"
 								>
 									↩
 								</button>
@@ -393,6 +397,7 @@ export function ModelDetailModal({
 									onClick={() => revertField("output_price_per_million")}
 									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
 									title="Revert to discovered value"
+									aria-label="Revert to discovered value"
 								>
 									↩
 								</button>

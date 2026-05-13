@@ -289,7 +289,7 @@ describe("ModelPicker", () => {
 			await user.click(visionButton);
 			// Llama 3 should be hidden (doesn't have vision)
 			expect(screen.queryByText("Llama 3")).not.toBeInTheDocument();
-			const clearButton = screen.getByRole("button", { name: "✕" });
+			const clearButton = screen.getByRole("button", { name: "Clear filter" });
 			await user.click(clearButton);
 			// All models should be visible again
 			expect(screen.getByText("Llama 3")).toBeInTheDocument();
@@ -534,7 +534,7 @@ describe("ModelPicker", () => {
 			renderWithProviders(
 				<ModelPicker {...defaultProps} onRandom={onRandom} />,
 			);
-			const randomButton = screen.getByRole("button", { name: "Random" });
+			const randomButton = screen.getByRole("button", { name: "Random model" });
 			expect(randomButton).toBeInTheDocument();
 		});
 
@@ -543,7 +543,7 @@ describe("ModelPicker", () => {
 			const { user } = renderWithProviders(
 				<ModelPicker {...defaultProps} onRandom={onRandom} />,
 			);
-			const randomButton = screen.getByRole("button", { name: "Random" });
+			const randomButton = screen.getByRole("button", { name: "Random model" });
 			await user.click(randomButton);
 			expect(onRandom).toHaveBeenCalledTimes(1);
 		});
