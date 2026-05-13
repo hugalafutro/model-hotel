@@ -81,6 +81,20 @@ describe("SortableHeader", () => {
 		expect(onSort).toHaveBeenCalledWith("name");
 	});
 
+	it("has aria-label for accessible sorting", () => {
+		render(
+			<SortableHeader
+				label="Name"
+				field="name"
+				sort={{ field: "name", dir: "asc" }}
+				onSort={onSort}
+			/>,
+		);
+		expect(
+			screen.getByRole("button", { name: "Sort by Name" }),
+		).toBeInTheDocument();
+	});
+
 	it("applies custom className", () => {
 		render(
 			<SortableHeader

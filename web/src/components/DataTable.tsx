@@ -36,6 +36,7 @@ export function SortableHeader<F extends string>({
 				type="button"
 				className="cursor-pointer"
 				onClick={() => onSort(field)}
+				aria-label={`Sort by ${label}`}
 			>
 				{label}{" "}
 				<span className="inline-block w-3 text-center">

@@ -773,7 +773,9 @@ describe("Logs", () => {
 			});
 
 			// Get model header button - initially not sorted
-			const modelHeader = screen.getByRole("button", { name: "Model" });
+			const modelHeader = screen.getByRole("button", {
+				name: /Sort by Model/i,
+			});
 
 			// Click to sort ascending
 			await user.click(modelHeader);
@@ -879,25 +881,16 @@ describe("Logs", () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				// Wait for the sort header to actually render (not just the filter)
-				const thead = document.querySelector("thead");
-				if (!thead) throw new Error("Table header not yet rendered");
-				expect(thead.textContent).toContain("Status");
+				// Wait for the SortableHeader to render with aria-label
+				expect(
+					screen.getByRole("button", { name: /Sort by Status/i }),
+				).toBeInTheDocument();
 			});
 
-			// "Status" text appears in both the SortableHeader button and the FilterDropdown.
-			// The other sort tests use getByRole with unique names, but "Status" is ambiguous.
-			// We scope to the <thead> to isolate the sort header from filter controls.
-			const getStatusHeader = () => {
-				const thead = document.querySelector("thead");
-				if (!thead) throw new Error("No thead found");
-				const buttons = thead.querySelectorAll("button");
-				const statusBtn = Array.from(buttons).find(
-					(b) => b.textContent?.includes("Status"),
-				);
-				if (!statusBtn) throw new Error("No Status button in thead");
-				return statusBtn;
-			};
+			// SortableHeader now has aria-label="Sort by {label}" so we can
+			// disambiguate from FilterDropdown's "Status" button.
+			const getStatusHeader = () =>
+				screen.getByRole("button", { name: /Sort by Status/i });
 
 			const statusHeader = getStatusHeader();
 

@@ -217,12 +217,16 @@ describe("ModelPicker", () => {
 			const { container, user } = renderWithProviders(
 				<ModelPicker {...defaultProps} />,
 			);
-			const filterContainer = container.querySelector(".w-48")!;
+			const filterContainer = container.querySelector(
+				'[data-testid="provider-filter"]',
+			)!;
 			await user.click(
 				within(filterContainer as HTMLElement).getByText("Filter Providers"),
 			);
 			// Disambiguate dropdown "OpenAI" from group heading "OpenAI"
-			const dropdown = container.querySelector(".absolute.z-50") as HTMLElement;
+			const dropdown = container.querySelector(
+				'[data-testid="provider-filter-dropdown"]',
+			) as HTMLElement;
 			const openaiBtn = within(dropdown).getByText("OpenAI").closest("button")!;
 			fireEvent.click(openaiBtn);
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
@@ -236,11 +240,15 @@ describe("ModelPicker", () => {
 			// ProviderFilter has click-outside handling (mousedown on document).
 			// user.click fires mousedown → click, which closes the dropdown before
 			// the option click registers. Use fireEvent.click to bypass mousedown.
-			const filterContainer = container.querySelector(".w-48")!;
+			const filterContainer = container.querySelector(
+				'[data-testid="provider-filter"]',
+			)!;
 			await user.click(
 				within(filterContainer as HTMLElement).getByText("Filter Providers"),
 			);
-			const dropdown = container.querySelector(".absolute.z-50") as HTMLElement;
+			const dropdown = container.querySelector(
+				'[data-testid="provider-filter-dropdown"]',
+			) as HTMLElement;
 			// Select OpenAI - dropdown stays open after fireEvent.click
 			fireEvent.click(within(dropdown).getByText("OpenAI").closest("button")!);
 			// Select Anthropic in same open dropdown
@@ -255,11 +263,15 @@ describe("ModelPicker", () => {
 			const { container, user } = renderWithProviders(
 				<ModelPicker {...defaultProps} />,
 			);
-			const filterContainer = container.querySelector(".w-48")!;
+			const filterContainer = container.querySelector(
+				'[data-testid="provider-filter"]',
+			)!;
 			await user.click(
 				within(filterContainer as HTMLElement).getByText("Filter Providers"),
 			);
-			const dropdown = container.querySelector(".absolute.z-50") as HTMLElement;
+			const dropdown = container.querySelector(
+				'[data-testid="provider-filter-dropdown"]',
+			) as HTMLElement;
 			// Select OpenAI - dropdown stays open after fireEvent.click
 			fireEvent.click(within(dropdown).getByText("OpenAI").closest("button")!);
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();

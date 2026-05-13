@@ -80,7 +80,11 @@ export function ProviderFilter({
 				: `${selected.size} providers`;
 
 	return (
-		<div ref={containerRef} className="relative inline-block w-full">
+		<div
+			ref={containerRef}
+			data-testid="provider-filter"
+			className="relative inline-block w-full"
+		>
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
@@ -114,6 +118,7 @@ export function ProviderFilter({
 
 			{open && (
 				<div
+					data-testid="provider-filter-dropdown"
 					className="absolute z-50 mt-1 w-full min-w-50 ui-card py-1 shadow-lg"
 					style={{
 						// Ensure the dropdown panel elevates above table borders
