@@ -389,7 +389,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	// Query 8: Total tokens
 	query = `
-		SELECT SUM(rl.tokens_prompt) as prompt_tokens, SUM(rl.tokens_completion) as completion_tokens
+		SELECT COALESCE(SUM(rl.tokens_prompt), 0) as prompt_tokens, COALESCE(SUM(rl.tokens_completion), 0) as completion_tokens
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 
