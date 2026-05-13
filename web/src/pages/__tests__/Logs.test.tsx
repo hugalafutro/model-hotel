@@ -44,6 +44,73 @@ vi.mock("../Logs/AccentCalendar", () => ({
 	),
 }));
 
+// Factory functions for creating mock log entries
+interface MockLogEntry {
+	id: string;
+	created_at: string;
+	request_hash: string;
+	model_id: string;
+	provider_name: string;
+	status_code: number;
+	tokens_prompt: number;
+	tokens_completion: number;
+	tokens_per_second: number;
+	ttft_ms: number;
+	duration_ms: number;
+	proxy_overhead_ms: number;
+	state: "completed" | "pending";
+	error_message: string;
+	parse_ms: number;
+	model_lookup_ms: number;
+	provider_lookup_ms: number;
+	key_decrypt_ms: number;
+	virtual_key_deleted: boolean;
+	virtual_key_id: string;
+	virtual_key_name?: string;
+}
+
+function createMockLogEntry(
+	overrides: Partial<MockLogEntry> = {},
+): MockLogEntry {
+	const defaultEntry: MockLogEntry = {
+		id: "log-001",
+		created_at: "2026-05-11T10:00:00Z",
+		request_hash: "abc123",
+		model_id: "test-model",
+		provider_name: "Test",
+		status_code: 200,
+		tokens_prompt: 0,
+		tokens_completion: 0,
+		tokens_per_second: 0,
+		ttft_ms: 0,
+		duration_ms: 0,
+		proxy_overhead_ms: 0,
+		state: "completed",
+		error_message: "",
+		parse_ms: 0,
+		model_lookup_ms: 0,
+		provider_lookup_ms: 0,
+		key_decrypt_ms: 0,
+		virtual_key_deleted: false,
+		virtual_key_id: "",
+	};
+	return { ...defaultEntry, ...overrides };
+}
+
+function createMockLogs(
+	entries: MockLogEntry[],
+	total?: number,
+	page: number = 1,
+	perPage: number = 25,
+) {
+	return {
+		entries,
+		total: total ?? entries.length,
+		page,
+		per_page: perPage,
+	};
+}
+
 describe("Logs", () => {
 	beforeEach(() => {
 		server.resetHandlers();
@@ -83,36 +150,29 @@ describe("Logs", () => {
 
 	describe("Request Logs Mode", () => {
 		it("renders request logs table headers", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123def4567890",
-						model_id: "test-model",
-						provider_name: "Test Provider",
-						status_code: 200,
-						tokens_prompt: 100,
-						tokens_completion: 200,
-						tokens_per_second: 50,
-						ttft_ms: 250,
-						duration_ms: 6000,
-						proxy_overhead_ms: 45,
-						state: "completed",
-						error_message: "",
-						parse_ms: 5,
-						model_lookup_ms: 10,
-						provider_lookup_ms: 20,
-						key_decrypt_ms: 10,
-						virtual_key_deleted: false,
-						virtual_key_id: "vk-001",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123def4567890",
+								provider_name: "Test Provider",
+								tokens_prompt: 100,
+								tokens_completion: 200,
+								tokens_per_second: 50,
+								ttft_ms: 250,
+								duration_ms: 6000,
+								proxy_overhead_ms: 45,
+								parse_ms: 5,
+								model_lookup_ms: 10,
+								provider_lookup_ms: 20,
+								key_decrypt_ms: 10,
+								virtual_key_id: "vk-001",
+							}),
+						]),
+					),
+				),
+			);
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
@@ -174,9 +234,7 @@ describe("Logs", () => {
 
 		it("shows empty state when no logs", async () => {
 			server.use(
-				http.get("/api/logs", () =>
-					HttpResponse.json({ entries: [], total: 0, page: 1, per_page: 25 }),
-				),
+				http.get("/api/logs", () => HttpResponse.json(createMockLogs([]))),
 			);
 			renderWithProviders(<Logs />);
 
@@ -189,12 +247,7 @@ describe("Logs", () => {
 			server.use(
 				http.get("/api/logs", async () => {
 					await new Promise((resolve) => setTimeout(resolve, 500));
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 			renderWithProviders(<Logs />);
@@ -221,38 +274,31 @@ describe("Logs", () => {
 
 	describe("Logs Data Display", () => {
 		it("displays log entries in table", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123def456",
-						model_id: "test-model-v1",
-						provider_name: "Test Provider",
-						status_code: 200,
-						tokens_prompt: 100,
-						tokens_completion: 200,
-						tokens_per_second: 50,
-						ttft_ms: 250,
-						duration_ms: 6000,
-						proxy_overhead_ms: 45,
-						virtual_key_name: "Test Key",
-						state: "completed",
-						error_message: "",
-						parse_ms: 5,
-						model_lookup_ms: 10,
-						provider_lookup_ms: 20,
-						key_decrypt_ms: 10,
-						virtual_key_deleted: false,
-						virtual_key_id: "vk-001",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123def456",
+								model_id: "test-model-v1",
+								provider_name: "Test Provider",
+								tokens_prompt: 100,
+								tokens_completion: 200,
+								tokens_per_second: 50,
+								ttft_ms: 250,
+								duration_ms: 6000,
+								proxy_overhead_ms: 45,
+								virtual_key_name: "Test Key",
+								parse_ms: 5,
+								model_lookup_ms: 10,
+								provider_lookup_ms: 20,
+								key_decrypt_ms: 10,
+								virtual_key_id: "vk-001",
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -268,37 +314,17 @@ describe("Logs", () => {
 		});
 
 		it("displays truncated request hash (16 chars)", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abcdefghij1234567890",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abcdefghij1234567890",
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -308,37 +334,20 @@ describe("Logs", () => {
 		});
 
 		it("displays cancelled status for cancelled requests", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 0,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "pending",
-						error_message: "Request cancelled by user",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								status_code: 0,
+								state: "pending",
+								error_message: "Request cancelled by user",
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -348,37 +357,20 @@ describe("Logs", () => {
 		});
 
 		it("displays deleted provider indicator", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Deleted",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 1000,
-						proxy_overhead_ms: 10,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								provider_name: "Deleted",
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -388,38 +380,22 @@ describe("Logs", () => {
 		});
 
 		it("displays deleted virtual key indicator", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 1000,
-						proxy_overhead_ms: 10,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: true,
-						virtual_key_id: "vk-001",
-						virtual_key_name: "Old Key",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+								virtual_key_deleted: true,
+								virtual_key_id: "vk-001",
+								virtual_key_name: "Old Key",
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -429,38 +405,20 @@ describe("Logs", () => {
 		});
 
 		it("displays internal key in lowercase italic", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 1000,
-						proxy_overhead_ms: 10,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-						virtual_key_name: "internal",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+								virtual_key_name: "internal",
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -470,37 +428,21 @@ describe("Logs", () => {
 		});
 
 		it("displays pending/streaming state indicators", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: new Date().toISOString(),
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "",
-						status_code: 0,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "pending",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								created_at: new Date().toISOString(),
+								request_hash: "abc123",
+								provider_name: "",
+								status_code: 0,
+								state: "pending",
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -512,35 +454,23 @@ describe("Logs", () => {
 
 	describe("Filtering", () => {
 		it("filters by model ID", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "gpt-4",
-						provider_name: "OpenAI",
-						status_code: 200,
-						tokens_prompt: 100,
-						tokens_completion: 200,
-						tokens_per_second: 50,
-						ttft_ms: 250,
-						duration_ms: 6000,
-						proxy_overhead_ms: 45,
-						state: "completed",
-						error_message: "",
-						parse_ms: 5,
-						model_lookup_ms: 10,
-						provider_lookup_ms: 20,
-						key_decrypt_ms: 10,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
+			const mockLogs = createMockLogs([
+				createMockLogEntry({
+					request_hash: "abc123",
+					model_id: "gpt-4",
+					provider_name: "OpenAI",
+					tokens_prompt: 100,
+					tokens_completion: 200,
+					tokens_per_second: 50,
+					ttft_ms: 250,
+					duration_ms: 6000,
+					proxy_overhead_ms: 45,
+					parse_ms: 5,
+					model_lookup_ms: 10,
+					provider_lookup_ms: 20,
+					key_decrypt_ms: 10,
+				}),
+			]);
 
 			server.use(
 				http.get("/api/logs", ({ request }) => {
@@ -549,12 +479,7 @@ describe("Logs", () => {
 					if (modelId === "gpt-4") {
 						return HttpResponse.json(mockLogs);
 					}
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 
@@ -575,35 +500,12 @@ describe("Logs", () => {
 		});
 
 		it("filters by provider ID", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "OpenAI",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
+			const mockLogs = createMockLogs([
+				createMockLogEntry({
+					request_hash: "abc123",
+					provider_name: "OpenAI",
+				}),
+			]);
 
 			server.use(
 				http.get("/api/logs", ({ request }) => {
@@ -612,12 +514,7 @@ describe("Logs", () => {
 					if (providerId === "openai") {
 						return HttpResponse.json(mockLogs);
 					}
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 
@@ -638,35 +535,12 @@ describe("Logs", () => {
 		});
 
 		it("filters by status code", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 500,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
+			const mockLogs = createMockLogs([
+				createMockLogEntry({
+					request_hash: "abc123",
+					status_code: 500,
+				}),
+			]);
 
 			server.use(
 				http.get("/api/logs", ({ request }) => {
@@ -675,12 +549,7 @@ describe("Logs", () => {
 					if (statusCode === "5xx") {
 						return HttpResponse.json(mockLogs);
 					}
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 
@@ -810,58 +679,37 @@ describe("Logs", () => {
 
 	describe("Sorting", () => {
 		it("sorts by time column when clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-					{
-						id: "log-002",
-						created_at: "2026-05-12T11:00:00Z",
-						request_hash: "def456",
-						model_id: "test-model-2",
-						provider_name: "Test-2",
-						status_code: 400,
-						tokens_prompt: 100,
-						tokens_completion: 50,
-						tokens_per_second: 10,
-						ttft_ms: 200,
-						duration_ms: 1500,
-						proxy_overhead_ms: 50,
-						state: "completed",
-						error_message: "",
-						parse_ms: 10,
-						model_lookup_ms: 5,
-						provider_lookup_ms: 3,
-						key_decrypt_ms: 2,
-						virtual_key_deleted: false,
-						virtual_key_id: "key-002",
-					},
-				],
-				total: 2,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							[
+								createMockLogEntry(),
+								createMockLogEntry({
+									id: "log-002",
+									created_at: "2026-05-12T11:00:00Z",
+									request_hash: "def456",
+									model_id: "test-model-2",
+									provider_name: "Test-2",
+									status_code: 400,
+									tokens_prompt: 100,
+									tokens_completion: 50,
+									tokens_per_second: 10,
+									ttft_ms: 200,
+									duration_ms: 1500,
+									proxy_overhead_ms: 50,
+									parse_ms: 10,
+									model_lookup_ms: 5,
+									provider_lookup_ms: 3,
+									key_decrypt_ms: 2,
+									virtual_key_id: "key-002",
+								}),
+							],
+							2,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -886,58 +734,37 @@ describe("Logs", () => {
 		});
 
 		it("sorts by model column when clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-					{
-						id: "log-002",
-						created_at: "2026-05-12T11:00:00Z",
-						request_hash: "def456",
-						model_id: "test-model-2",
-						provider_name: "Test-2",
-						status_code: 400,
-						tokens_prompt: 100,
-						tokens_completion: 50,
-						tokens_per_second: 10,
-						ttft_ms: 200,
-						duration_ms: 1500,
-						proxy_overhead_ms: 50,
-						state: "completed",
-						error_message: "",
-						parse_ms: 10,
-						model_lookup_ms: 5,
-						provider_lookup_ms: 3,
-						key_decrypt_ms: 2,
-						virtual_key_deleted: false,
-						virtual_key_id: "key-002",
-					},
-				],
-				total: 2,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							[
+								createMockLogEntry(),
+								createMockLogEntry({
+									id: "log-002",
+									created_at: "2026-05-12T11:00:00Z",
+									request_hash: "def456",
+									model_id: "test-model-2",
+									provider_name: "Test-2",
+									status_code: 400,
+									tokens_prompt: 100,
+									tokens_completion: 50,
+									tokens_per_second: 10,
+									ttft_ms: 200,
+									duration_ms: 1500,
+									proxy_overhead_ms: 50,
+									parse_ms: 10,
+									model_lookup_ms: 5,
+									provider_lookup_ms: 3,
+									key_decrypt_ms: 2,
+									virtual_key_id: "key-002",
+								}),
+							],
+							2,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -962,58 +789,37 @@ describe("Logs", () => {
 		});
 
 		it("sorts by provider column when clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-					{
-						id: "log-002",
-						created_at: "2026-05-12T11:00:00Z",
-						request_hash: "def456",
-						model_id: "test-model-2",
-						provider_name: "Test-2",
-						status_code: 400,
-						tokens_prompt: 100,
-						tokens_completion: 50,
-						tokens_per_second: 10,
-						ttft_ms: 200,
-						duration_ms: 1500,
-						proxy_overhead_ms: 50,
-						state: "completed",
-						error_message: "",
-						parse_ms: 10,
-						model_lookup_ms: 5,
-						provider_lookup_ms: 3,
-						key_decrypt_ms: 2,
-						virtual_key_deleted: false,
-						virtual_key_id: "key-002",
-					},
-				],
-				total: 2,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							[
+								createMockLogEntry(),
+								createMockLogEntry({
+									id: "log-002",
+									created_at: "2026-05-12T11:00:00Z",
+									request_hash: "def456",
+									model_id: "test-model-2",
+									provider_name: "Test-2",
+									status_code: 400,
+									tokens_prompt: 100,
+									tokens_completion: 50,
+									tokens_per_second: 10,
+									ttft_ms: 200,
+									duration_ms: 1500,
+									proxy_overhead_ms: 50,
+									parse_ms: 10,
+									model_lookup_ms: 5,
+									provider_lookup_ms: 3,
+									key_decrypt_ms: 2,
+									virtual_key_id: "key-002",
+								}),
+							],
+							2,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1038,58 +844,37 @@ describe("Logs", () => {
 		});
 
 		it("sorts by status column when clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-					{
-						id: "log-002",
-						created_at: "2026-05-12T11:00:00Z",
-						request_hash: "def456",
-						model_id: "test-model-2",
-						provider_name: "Test-2",
-						status_code: 400,
-						tokens_prompt: 100,
-						tokens_completion: 50,
-						tokens_per_second: 10,
-						ttft_ms: 200,
-						duration_ms: 1500,
-						proxy_overhead_ms: 50,
-						state: "completed",
-						error_message: "",
-						parse_ms: 10,
-						model_lookup_ms: 5,
-						provider_lookup_ms: 3,
-						key_decrypt_ms: 2,
-						virtual_key_deleted: false,
-						virtual_key_id: "key-002",
-					},
-				],
-				total: 2,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							[
+								createMockLogEntry(),
+								createMockLogEntry({
+									id: "log-002",
+									created_at: "2026-05-12T11:00:00Z",
+									request_hash: "def456",
+									model_id: "test-model-2",
+									provider_name: "Test-2",
+									status_code: 400,
+									tokens_prompt: 100,
+									tokens_completion: 50,
+									tokens_per_second: 10,
+									ttft_ms: 200,
+									duration_ms: 1500,
+									proxy_overhead_ms: 50,
+									parse_ms: 10,
+									model_lookup_ms: 5,
+									provider_lookup_ms: 3,
+									key_decrypt_ms: 2,
+									virtual_key_id: "key-002",
+								}),
+							],
+							2,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1118,77 +903,48 @@ describe("Logs", () => {
 			// Click to sort ascending
 			await user.click(statusHeader);
 
-			// Verify sort state changed - the header should still be in document and clickable
-			await waitFor(() => {
-				const header = getStatusHeader();
-				expect(header).toBeInTheDocument();
-				expect(header).not.toHaveAttribute("disabled");
-			});
+			// Verify sort indicator changes to ascending arrow
+			expect(getStatusHeader()).toHaveTextContent(/↑/);
 
 			// Click again to sort descending
 			await user.click(getStatusHeader());
 
-			// Verify header is still clickable after second click
-			await waitFor(() => {
-				const header = getStatusHeader();
-				expect(header).toBeInTheDocument();
-				expect(header).not.toHaveAttribute("disabled");
-			});
+			// Verify sort indicator changes to descending arrow
+			expect(getStatusHeader()).toHaveTextContent(/↓/);
 		});
 
 		it("sorts by tokens column when clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-					{
-						id: "log-002",
-						created_at: "2026-05-12T11:00:00Z",
-						request_hash: "def456",
-						model_id: "test-model-2",
-						provider_name: "Test-2",
-						status_code: 400,
-						tokens_prompt: 100,
-						tokens_completion: 50,
-						tokens_per_second: 10,
-						ttft_ms: 200,
-						duration_ms: 1500,
-						proxy_overhead_ms: 50,
-						state: "completed",
-						error_message: "",
-						parse_ms: 10,
-						model_lookup_ms: 5,
-						provider_lookup_ms: 3,
-						key_decrypt_ms: 2,
-						virtual_key_deleted: false,
-						virtual_key_id: "key-002",
-					},
-				],
-				total: 2,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							[
+								createMockLogEntry(),
+								createMockLogEntry({
+									id: "log-002",
+									created_at: "2026-05-12T11:00:00Z",
+									request_hash: "def456",
+									model_id: "test-model-2",
+									provider_name: "Test-2",
+									status_code: 400,
+									tokens_prompt: 100,
+									tokens_completion: 50,
+									tokens_per_second: 10,
+									ttft_ms: 200,
+									duration_ms: 1500,
+									proxy_overhead_ms: 50,
+									parse_ms: 10,
+									model_lookup_ms: 5,
+									provider_lookup_ms: 3,
+									key_decrypt_ms: 2,
+									virtual_key_id: "key-002",
+								}),
+							],
+							2,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1213,58 +969,37 @@ describe("Logs", () => {
 		});
 
 		it("sorts by duration column when clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-					{
-						id: "log-002",
-						created_at: "2026-05-12T11:00:00Z",
-						request_hash: "def456",
-						model_id: "test-model-2",
-						provider_name: "Test-2",
-						status_code: 400,
-						tokens_prompt: 100,
-						tokens_completion: 50,
-						tokens_per_second: 10,
-						ttft_ms: 200,
-						duration_ms: 1500,
-						proxy_overhead_ms: 50,
-						state: "completed",
-						error_message: "",
-						parse_ms: 10,
-						model_lookup_ms: 5,
-						provider_lookup_ms: 3,
-						key_decrypt_ms: 2,
-						virtual_key_deleted: false,
-						virtual_key_id: "key-002",
-					},
-				],
-				total: 2,
-				page: 1,
-				per_page: 25,
-			};
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							[
+								createMockLogEntry(),
+								createMockLogEntry({
+									id: "log-002",
+									created_at: "2026-05-12T11:00:00Z",
+									request_hash: "def456",
+									model_id: "test-model-2",
+									provider_name: "Test-2",
+									status_code: 400,
+									tokens_prompt: 100,
+									tokens_completion: 50,
+									tokens_per_second: 10,
+									ttft_ms: 200,
+									duration_ms: 1500,
+									proxy_overhead_ms: 50,
+									parse_ms: 10,
+									model_lookup_ms: 5,
+									provider_lookup_ms: 3,
+									key_decrypt_ms: 2,
+									virtual_key_id: "key-002",
+								}),
+							],
+							2,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1291,37 +1026,29 @@ describe("Logs", () => {
 
 	describe("Log Detail Modal", () => {
 		it("opens log detail modal when row is clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test Provider",
-						status_code: 200,
-						tokens_prompt: 100,
-						tokens_completion: 200,
-						tokens_per_second: 50,
-						ttft_ms: 250,
-						duration_ms: 6000,
-						proxy_overhead_ms: 45,
-						state: "completed",
-						error_message: "",
-						parse_ms: 5,
-						model_lookup_ms: 10,
-						provider_lookup_ms: 20,
-						key_decrypt_ms: 10,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								model_id: "test-model",
+								provider_name: "Test Provider",
+								tokens_prompt: 100,
+								tokens_completion: 200,
+								tokens_per_second: 50,
+								ttft_ms: 250,
+								duration_ms: 6000,
+								proxy_overhead_ms: 45,
+								parse_ms: 5,
+								model_lookup_ms: 10,
+								provider_lookup_ms: 20,
+								key_decrypt_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1340,37 +1067,29 @@ describe("Logs", () => {
 		});
 
 		it("closes log detail modal when close button is clicked", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test Provider",
-						status_code: 200,
-						tokens_prompt: 100,
-						tokens_completion: 200,
-						tokens_per_second: 50,
-						ttft_ms: 250,
-						duration_ms: 6000,
-						proxy_overhead_ms: 45,
-						state: "completed",
-						error_message: "",
-						parse_ms: 5,
-						model_lookup_ms: 10,
-						provider_lookup_ms: 20,
-						key_decrypt_ms: 10,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								model_id: "test-model",
+								provider_name: "Test Provider",
+								tokens_prompt: 100,
+								tokens_completion: 200,
+								tokens_per_second: 50,
+								ttft_ms: 250,
+								duration_ms: 6000,
+								proxy_overhead_ms: 45,
+								parse_ms: 5,
+								model_lookup_ms: 10,
+								provider_lookup_ms: 20,
+								key_decrypt_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1432,37 +1151,21 @@ describe("Logs", () => {
 
 	describe("Pagination", () => {
 		it("renders pagination bar when logs exist", async () => {
-			const mockLogs = {
-				entries: Array(25)
-					.fill(null)
-					.map((_, i) => ({
-						id: `log-${i}`,
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: `hash${i}`,
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					})),
-				total: 50,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							Array.from({ length: 25 }, (_, i) =>
+								createMockLogEntry({
+									id: `log-${i}`,
+									request_hash: `hash${i}`,
+								}),
+							),
+							50,
+						),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -1479,37 +1182,21 @@ describe("Logs", () => {
 		});
 
 		it("changes page when pagination button is clicked", async () => {
-			const mockLogs = {
-				entries: Array(25)
-					.fill(null)
-					.map((_, i) => ({
-						id: `log-${i}`,
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: `hash${i}`,
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					})),
-				total: 50,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs(
+							Array.from({ length: 25 }, (_, i) =>
+								createMockLogEntry({
+									id: `log-${i}`,
+									request_hash: `hash${i}`,
+								}),
+							),
+							50,
+						),
+					),
+				),
+			);
 
 			const { user } = renderWithProviders(<Logs />);
 
@@ -1590,12 +1277,7 @@ describe("Logs", () => {
 						provider_id: url.searchParams.get("provider_id"),
 						status_code: url.searchParams.get("status_code"),
 					};
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 
@@ -1629,12 +1311,7 @@ describe("Logs", () => {
 						page: url.searchParams.get("page"),
 						per_page: url.searchParams.get("per_page"),
 					};
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 
@@ -1661,12 +1338,7 @@ describe("Logs", () => {
 						sort_by: url.searchParams.get("sort_by"),
 						sort_dir: url.searchParams.get("sort_dir"),
 					};
-					return HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					});
+					return HttpResponse.json(createMockLogs([]));
 				}),
 			);
 
@@ -1683,38 +1355,19 @@ describe("Logs", () => {
 		it("displays stale warning for old pending requests", async () => {
 			// Create a log entry that's older than the stale threshold
 			const oldDate = new Date(Date.now() - 31 * 60 * 60 * 1000).toISOString();
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: oldDate,
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 0,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 0,
-						proxy_overhead_ms: 0,
-						state: "pending",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
 			server.use(
-				http.get("/api/logs", () => HttpResponse.json(mockLogs)),
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								created_at: oldDate,
+								request_hash: "abc123",
+								status_code: 0,
+								state: "pending",
+							}),
+						]),
+					),
+				),
 				http.get("/api/settings", () =>
 					HttpResponse.json({ stale_request_timeout: "30m0s" }),
 				),
@@ -1733,37 +1386,24 @@ describe("Logs", () => {
 
 	describe("Token Display", () => {
 		it("displays token counts in prompt+completion format", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 100,
-						tokens_completion: 200,
-						tokens_per_second: 50,
-						ttft_ms: 250,
-						duration_ms: 6000,
-						proxy_overhead_ms: 45,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								tokens_prompt: 100,
+								tokens_completion: 200,
+								tokens_per_second: 50,
+								ttft_ms: 250,
+								duration_ms: 6000,
+								proxy_overhead_ms: 45,
+								parse_ms: 0,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -1773,37 +1413,19 @@ describe("Logs", () => {
 		});
 
 		it("displays dash when no tokens", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 1000,
-						proxy_overhead_ms: 10,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -1819,37 +1441,19 @@ describe("Logs", () => {
 
 	describe("Duration Formatting", () => {
 		it("formats duration in seconds for values >= 1000ms", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 6500,
-						proxy_overhead_ms: 10,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 6500,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -1862,37 +1466,19 @@ describe("Logs", () => {
 		});
 
 		it("formats duration in milliseconds for values < 1000ms", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 450,
-						proxy_overhead_ms: 10,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 450,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -1907,37 +1493,23 @@ describe("Logs", () => {
 
 	describe("Overhead Display", () => {
 		it("displays overhead value when present", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 1000,
-						proxy_overhead_ms: 45,
-						state: "completed",
-						error_message: "",
-						parse_ms: 5,
-						model_lookup_ms: 10,
-						provider_lookup_ms: 20,
-						key_decrypt_ms: 10,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 1000,
+								proxy_overhead_ms: 45,
+								parse_ms: 5,
+								model_lookup_ms: 10,
+								provider_lookup_ms: 20,
+								key_decrypt_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 
@@ -1950,37 +1522,19 @@ describe("Logs", () => {
 		});
 
 		it("displays dash when no overhead", async () => {
-			const mockLogs = {
-				entries: [
-					{
-						id: "log-001",
-						created_at: "2026-05-11T10:00:00Z",
-						request_hash: "abc123",
-						model_id: "test-model",
-						provider_name: "Test",
-						status_code: 200,
-						tokens_prompt: 0,
-						tokens_completion: 0,
-						tokens_per_second: 0,
-						ttft_ms: 0,
-						duration_ms: 1000,
-						proxy_overhead_ms: 0,
-						state: "completed",
-						error_message: "",
-						parse_ms: 0,
-						model_lookup_ms: 0,
-						provider_lookup_ms: 0,
-						key_decrypt_ms: 0,
-						virtual_key_deleted: false,
-						virtual_key_id: "",
-					},
-				],
-				total: 1,
-				page: 1,
-				per_page: 25,
-			};
-
-			server.use(http.get("/api/logs", () => HttpResponse.json(mockLogs)));
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								duration_ms: 1000,
+								proxy_overhead_ms: 0,
+							}),
+						]),
+					),
+				),
+			);
 
 			renderWithProviders(<Logs />);
 

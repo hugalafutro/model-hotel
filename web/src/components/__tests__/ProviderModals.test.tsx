@@ -473,10 +473,8 @@ describe("ZAICodingQuotaModal", () => {
 			);
 			const refreshButton = screen.getByRole("button", { name: "Refresh" });
 			expect(refreshButton).toBeDisabled();
-			// Verify spinning state: either Spinner (cyber-terminal) or animate-spin class on RefreshCw
-			const spinner = screen.queryByTestId("spinner");
-			const spinningIcon = refreshButton.querySelector(".animate-spin");
-			expect(spinner || spinningIcon).toBeTruthy();
+			// Default theme renders RefreshCw with animate-spin class
+			expect(refreshButton.querySelector(".animate-spin")).toBeTruthy();
 		});
 	});
 });
