@@ -1,8 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { mockAllDefaults, mockModels, mockProviders } from "../../test/helpers";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
-import { mockAllDefaults, mockModels, mockProviders } from "../../test/helpers";
 import { renderWithProviders } from "../../test/utils";
 import { Chat } from "../Chat";
 
@@ -34,9 +34,7 @@ describe("Chat", () => {
 				screen.getByText("Test enabled models in temporary chat"),
 			).toBeInTheDocument();
 			// ModelPicker filter input should be visible in chat mode
-			expect(
-				screen.getByPlaceholderText("Filter models…"),
-			).toBeInTheDocument();
+			expect(screen.getByPlaceholderText("Filter models…")).toBeInTheDocument();
 		});
 
 		it("shows empty state placeholder", async () => {
@@ -68,9 +66,7 @@ describe("Chat", () => {
 			});
 
 			// Click the "AI Conversation" button to switch modes
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			// Wait for mode to switch
 			await waitFor(() => {
@@ -92,9 +88,7 @@ describe("Chat", () => {
 			});
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
@@ -113,12 +107,12 @@ describe("Chat", () => {
 			});
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
-				expect(screen.getByText("Conversation will appear here")).toBeInTheDocument();
+				expect(
+					screen.getByText("Conversation will appear here"),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -130,9 +124,7 @@ describe("Chat", () => {
 			});
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
@@ -159,7 +151,9 @@ describe("Chat", () => {
 			});
 
 			// Collapse toggle button should be present in controls section
-			const collapseButtons = screen.getAllByRole("button", { name: "Collapse" });
+			const collapseButtons = screen.getAllByRole("button", {
+				name: "Collapse",
+			});
 			expect(collapseButtons.length).toBeGreaterThan(0);
 
 			// Click the first collapse toggle
@@ -167,7 +161,9 @@ describe("Chat", () => {
 
 			// After click, toggle should change to "Expand"
 			await waitFor(() => {
-				expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Expand" }),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -179,13 +175,17 @@ describe("Chat", () => {
 			});
 
 			// Verify collapse button exists initially
-			expect(screen.getAllByRole("button", { name: "Collapse" }).length).toBeGreaterThan(0);
+			expect(
+				screen.getAllByRole("button", { name: "Collapse" }).length,
+			).toBeGreaterThan(0);
 
 			// Collapse
 			await user.click(screen.getAllByRole("button", { name: "Collapse" })[0]);
 
 			await waitFor(() => {
-				expect(screen.getAllByRole("button", { name: "Expand" }).length).toBeGreaterThan(0);
+				expect(
+					screen.getAllByRole("button", { name: "Expand" }).length,
+				).toBeGreaterThan(0);
 			});
 
 			// Expand - the toggle should change back
@@ -261,9 +261,7 @@ describe("Chat", () => {
 			});
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
@@ -288,9 +286,7 @@ describe("Chat", () => {
 			});
 
 			// ModelPicker filter input should be present
-			expect(
-				screen.getByPlaceholderText("Filter models…"),
-			).toBeInTheDocument();
+			expect(screen.getByPlaceholderText("Filter models…")).toBeInTheDocument();
 		});
 
 		it("shows model detail panel when model is selected", async () => {
@@ -338,9 +334,7 @@ describe("Chat", () => {
 			});
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
@@ -369,7 +363,9 @@ describe("Chat", () => {
 			// (Clear button only appears when there are messages)
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "Reset all (clear model & settings)" }),
+					screen.getByRole("button", {
+						name: "Reset all (clear model & settings)",
+					}),
 				).toBeInTheDocument();
 			});
 		});
@@ -380,9 +376,7 @@ describe("Chat", () => {
 			const { user } = renderWithProviders(<Chat />);
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
@@ -396,9 +390,7 @@ describe("Chat", () => {
 			const { user } = renderWithProviders(<Chat />);
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
@@ -413,9 +405,7 @@ describe("Chat", () => {
 			const { user } = renderWithProviders(<Chat />);
 
 			// Switch to conversation mode
-			await user.click(
-				screen.getByRole("button", { name: "AI Conversation" }),
-			);
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();

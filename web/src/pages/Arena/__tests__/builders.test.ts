@@ -209,6 +209,7 @@ describe("getPreviewPairs", () => {
 			"model-5",
 		]);
 		expect(pairs).not.toBeNull();
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
 		expect(pairs!).toHaveLength(4);
 		expect(pairs?.[0]).toEqual({ a: "model-1", b: "model-2" });
 		expect(pairs?.[1]).toEqual({ a: "model-3", b: "model-4" });

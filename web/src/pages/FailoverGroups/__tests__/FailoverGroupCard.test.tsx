@@ -215,7 +215,9 @@ describe("FailoverGroupCard", () => {
 				<FailoverGroupCard {...defaultProps} group={group} />,
 			);
 
-			const card = screen.getByRole("heading", { name: /hotel\/test-model/i }).closest(".ui-card");
+			const card = screen
+				.getByRole("heading", { name: /hotel\/test-model/i })
+				.closest(".ui-card");
 			expect(card).toHaveClass("border-(--accent)/30");
 		});
 
@@ -229,7 +231,9 @@ describe("FailoverGroupCard", () => {
 				<FailoverGroupCard {...defaultProps} group={group} />,
 			);
 
-			const card = screen.getByRole("heading", { name: /hotel\/test-model/i }).closest(".ui-card");
+			const card = screen
+				.getByRole("heading", { name: /hotel\/test-model/i })
+				.closest(".ui-card");
 			expect(card).toHaveClass("opacity-60");
 		});
 	});

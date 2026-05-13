@@ -74,7 +74,7 @@ vi.stubGlobal("EventSource", MockEventSource);
 
 // Mock Element.scrollTo (jsdom doesn't implement it)
 if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollTo) {
-	HTMLElement.prototype.scrollTo = function () {};
+	HTMLElement.prototype.scrollTo = () => {};
 }
 
 // Mock navigator.clipboard (jsdom doesn't implement it)

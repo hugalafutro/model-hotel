@@ -199,10 +199,10 @@ func TestReadCgroupMemory_WithTempFile(t *testing.T) {
 	maxFile := filepath.Join(dir, "memory.max")
 
 	// Write test data
-	if err := os.WriteFile(currentFile, []byte("1048576\n"), 0644); err != nil {
+	if err := os.WriteFile(currentFile, []byte("1048576\n"), 0o644); err != nil {
 		t.Fatalf("Failed to write current file: %v", err)
 	}
-	if err := os.WriteFile(maxFile, []byte("2097152\n"), 0644); err != nil {
+	if err := os.WriteFile(maxFile, []byte("2097152\n"), 0o644); err != nil {
 		t.Fatalf("Failed to write max file: %v", err)
 	}
 
@@ -234,10 +234,10 @@ func TestReadCgroupMemory_MaxLimit(t *testing.T) {
 	currentFile := filepath.Join(dir, "memory.current")
 	maxFile := filepath.Join(dir, "memory.max")
 
-	if err := os.WriteFile(currentFile, []byte("5242880\n"), 0644); err != nil {
+	if err := os.WriteFile(currentFile, []byte("5242880\n"), 0o644); err != nil {
 		t.Fatalf("Failed to write current file: %v", err)
 	}
-	if err := os.WriteFile(maxFile, []byte("max\n"), 0644); err != nil {
+	if err := os.WriteFile(maxFile, []byte("max\n"), 0o644); err != nil {
 		t.Fatalf("Failed to write max file: %v", err)
 	}
 
@@ -268,10 +268,10 @@ func TestReadCgroupMemory_EmptyFiles(t *testing.T) {
 	currentFile := filepath.Join(dir, "memory.current")
 	maxFile := filepath.Join(dir, "memory.max")
 
-	if err := os.WriteFile(currentFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(currentFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write current file: %v", err)
 	}
-	if err := os.WriteFile(maxFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(maxFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write max file: %v", err)
 	}
 
@@ -303,7 +303,7 @@ func TestReadCgroupCPU_WithTempFile(t *testing.T) {
 
 	dir := t.TempDir()
 	cpuStatFile := filepath.Join(dir, "cpu.stat")
-	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 1000000\nusage_user_usec 800000\n"), 0644); err != nil {
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 1000000\nusage_user_usec 800000\n"), 0o644); err != nil {
 		t.Fatalf("Failed to write cpu.stat file: %v", err)
 	}
 
@@ -331,7 +331,7 @@ func TestReadCgroupCPU_EmptyFile(t *testing.T) {
 
 	dir := t.TempDir()
 	cpuStatFile := filepath.Join(dir, "cpu.stat")
-	if err := os.WriteFile(cpuStatFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(cpuStatFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write cpu.stat file: %v", err)
 	}
 
@@ -352,7 +352,7 @@ func TestReadCgroupDiskIO_WithTempFile(t *testing.T) {
 	dir := t.TempDir()
 	ioStatFile := filepath.Join(dir, "io.stat")
 	ioStatContent := "8:0 rbytes=1048576 wbytes=2097152 rios=100 wios=200\n"
-	if err := os.WriteFile(ioStatFile, []byte(ioStatContent), 0644); err != nil {
+	if err := os.WriteFile(ioStatFile, []byte(ioStatContent), 0o644); err != nil {
 		t.Fatalf("Failed to write io.stat file: %v", err)
 	}
 
@@ -380,7 +380,7 @@ func TestReadCgroupDiskIO_EmptyFile(t *testing.T) {
 
 	dir := t.TempDir()
 	ioStatFile := filepath.Join(dir, "io.stat")
-	if err := os.WriteFile(ioStatFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(ioStatFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write io.stat file: %v", err)
 	}
 
@@ -400,7 +400,7 @@ func TestReadCgroupProcs_WithTempFile(t *testing.T) {
 	procsFile := filepath.Join(dir, "cgroup.procs")
 	// Write 5 process IDs
 	procsContent := "123\n456\n789\n101112\n131415\n"
-	if err := os.WriteFile(procsFile, []byte(procsContent), 0644); err != nil {
+	if err := os.WriteFile(procsFile, []byte(procsContent), 0o644); err != nil {
 		t.Fatalf("Failed to write cgroup.procs file: %v", err)
 	}
 
@@ -418,7 +418,7 @@ func TestReadCgroupProcs_WithTempFile(t *testing.T) {
 func TestReadCgroupProcs_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	procsFile := filepath.Join(dir, "cgroup.procs")
-	if err := os.WriteFile(procsFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(procsFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write cgroup.procs file: %v", err)
 	}
 
@@ -438,7 +438,7 @@ func TestReadCgroupProcs_WithEmptyLines(t *testing.T) {
 	procsFile := filepath.Join(dir, "cgroup.procs")
 	// Mix of PIDs and empty lines
 	procsContent := "123\n\n456\n\n\n789\n"
-	if err := os.WriteFile(procsFile, []byte(procsContent), 0644); err != nil {
+	if err := os.WriteFile(procsFile, []byte(procsContent), 0o644); err != nil {
 		t.Fatalf("Failed to write cgroup.procs file: %v", err)
 	}
 
@@ -464,7 +464,7 @@ func TestReadNetworkStats_WithTempFile(t *testing.T) {
     lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
   eth0:  500000    5000    0    0    0     0          0         0   250000    2500    0    0    0     0       0          0
 `
-	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0644); err != nil {
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0o644); err != nil {
 		t.Fatalf("Failed to write dev file: %v", err)
 	}
 
@@ -492,7 +492,7 @@ func TestReadNetworkStats_EmptyFile(t *testing.T) {
 
 	dir := t.TempDir()
 	netDevFile := filepath.Join(dir, "dev")
-	if err := os.WriteFile(netDevFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(netDevFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write dev file: %v", err)
 	}
 
@@ -517,7 +517,7 @@ func TestReadNetworkStats_LoopbackOnly(t *testing.T) {
  face |bytes    packets errs drop fifo frame compressed multicast |bytes    packets errs drop fifo colls carrier compressed
     lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
 `
-	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0644); err != nil {
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0o644); err != nil {
 		t.Fatalf("Failed to write dev file: %v", err)
 	}
 
@@ -546,7 +546,7 @@ func TestReadNetworkStats_MalformedLines(t *testing.T) {
   eth1: malformed line without enough fields
   eth2:  300000    3000    0    0    0     0          0         0   150000    1500    0    0    0     0       0          0
 `
-	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0644); err != nil {
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0o644); err != nil {
 		t.Fatalf("Failed to write dev file: %v", err)
 	}
 

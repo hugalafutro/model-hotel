@@ -150,16 +150,16 @@ func TestBuildProviderTargetURL_HasSuffixCheck(t *testing.T) {
 			sanitized := util.SanitizeBaseURL(tc.baseURL)
 			hasV1Suffix := strings.HasSuffix(sanitized, "/v1")
 
-			switch {
-			case tc.name == "anthropic with /v1 suffix":
+			switch tc.name {
+			case "anthropic with /v1 suffix":
 				if !hasV1Suffix {
 					t.Errorf("expected sanitized URL %q to have /v1 suffix", sanitized)
 				}
-			case tc.name == "anthropic with /v1/ suffix (becomes /v1 after sanitize)":
+			case "anthropic with /v1/ suffix (becomes /v1 after sanitize)":
 				if !hasV1Suffix {
 					t.Errorf("expected sanitized URL %q to have /v1 suffix after stripping trailing slash", sanitized)
 				}
-			case tc.name == "anthropic without /v1 suffix":
+			case "anthropic without /v1 suffix":
 				if hasV1Suffix {
 					t.Errorf("did not expect sanitized URL %q to have /v1 suffix", sanitized)
 				}

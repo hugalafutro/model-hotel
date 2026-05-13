@@ -286,6 +286,7 @@ describe("AppLogs", () => {
 		const row = screen
 			.getByText("Request processed successfully")
 			.closest("tr");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
 		await user.click(row!);
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
@@ -303,6 +304,7 @@ describe("AppLogs", () => {
 		const row = screen
 			.getByText("Request processed successfully")
 			.closest("tr");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
 		await user.click(row!);
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
@@ -325,6 +327,7 @@ describe("AppLogs", () => {
 		const row = screen
 			.getByText("Request processed successfully")
 			.closest("tr");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
 		await user.click(row!);
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
@@ -576,6 +579,7 @@ describe("AppLogs", () => {
 		const row = screen
 			.getByText("Request processed successfully")
 			.closest("tr");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
 		await user.click(row!);
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();

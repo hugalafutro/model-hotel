@@ -164,6 +164,7 @@ describe("ProviderFilter", () => {
 			/>,
 		);
 		await user.click(screen.getByRole("button"));
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
 		await user.click(screen.getByText("OpenAI").closest("button")!);
 		expect(mockOnChange).toHaveBeenCalledWith(new Set(["p1"]));
 	});

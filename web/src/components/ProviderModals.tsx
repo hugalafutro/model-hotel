@@ -63,12 +63,18 @@ export function NanoGPTQuotaModal({
 						<p className="text-sm text-gray-400 mt-1">
 							{usage.active ? (
 								<span className="inline-flex items-center gap-1.5">
-									<span data-testid="status-dot-active" className="w-2 h-2 rounded-full bg-green-400"></span>
+									<span
+										data-testid="status-dot-active"
+										className="w-2 h-2 rounded-full bg-green-400"
+									></span>
 									Active
 								</span>
 							) : (
 								<span className="inline-flex items-center gap-1.5">
-									<span data-testid="status-dot-inactive" className="w-2 h-2 rounded-full bg-red-400"></span>
+									<span
+										data-testid="status-dot-inactive"
+										className="w-2 h-2 rounded-full bg-red-400"
+									></span>
 									Inactive
 								</span>
 							)}
@@ -108,7 +114,10 @@ export function NanoGPTQuotaModal({
 							{formatTokens(weeklyUsed)} / {formatTokens(weeklyLimit)}
 						</span>
 					</div>
-					<div data-testid="weekly-progress-bar" className="w-full bg-gray-700 rounded-full h-3">
+					<div
+						data-testid="weekly-progress-bar"
+						className="w-full bg-gray-700 rounded-full h-3"
+					>
 						<div
 							data-testid="weekly-progress-fill"
 							className={`${remainingBarColor(weeklyRemaining)} h-3 rounded-full transition-all`}

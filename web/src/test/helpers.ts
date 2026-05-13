@@ -214,9 +214,7 @@ export function createSSEStream(
 				);
 			}
 			if (doneSentinel !== null) {
-				controller.enqueue(
-					encoder.encode(`data: ${doneSentinel}\n\n`),
-				);
+				controller.enqueue(encoder.encode(`data: ${doneSentinel}\n\n`));
 			}
 			controller.close();
 		},
@@ -233,7 +231,11 @@ export function createSSEStream(
  */
 export function mockChatStream(
 	chunks: unknown[],
-	options: { delay?: number; status?: number; doneSentinel?: string | null } = {},
+	options: {
+		delay?: number;
+		status?: number;
+		doneSentinel?: string | null;
+	} = {},
 ): RequestHandler[] {
 	const { delay = 0, status = 200, doneSentinel = "[DONE]" } = options;
 	return [
@@ -255,7 +257,11 @@ export function mockChatStream(
  */
 export function mockArenaStream(
 	chunks: unknown[],
-	options: { delay?: number; status?: number; doneSentinel?: string | null } = {},
+	options: {
+		delay?: number;
+		status?: number;
+		doneSentinel?: string | null;
+	} = {},
 ): RequestHandler[] {
 	const { delay = 0, status = 200, doneSentinel = "[DONE]" } = options;
 	return [
