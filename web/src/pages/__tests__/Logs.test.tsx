@@ -879,20 +879,24 @@ describe("Logs", () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Status")).toBeInTheDocument();
+				// Wait for the sort header to actually render (not just the filter)
+				const thead = document.querySelector("thead");
+				if (!thead) throw new Error("Table header not yet rendered");
+				expect(thead.textContent).toContain("Status");
 			});
 
-			// Get status header button in table - initially not sorted (time is default sort)
-			// Use getAllByRole and filter to get the table header button (has class "cursor-pointer")
+			// "Status" text appears in both the SortableHeader button and the FilterDropdown.
+			// The other sort tests use getByRole with unique names, but "Status" is ambiguous.
+			// We scope to the <thead> to isolate the sort header from filter controls.
 			const getStatusHeader = () => {
-				const headers = screen.getAllByRole("button", { name: /Status/i });
-				// The table header button has class "cursor-pointer", filter dropdown has "ui-input"
-				const header = headers.find((el) =>
-					el.classList.contains("cursor-pointer"),
+				const thead = document.querySelector("thead");
+				if (!thead) throw new Error("No thead found");
+				const buttons = thead.querySelectorAll("button");
+				const statusBtn = Array.from(buttons).find(
+					(b) => b.textContent?.includes("Status"),
 				);
-				expect(header).toBeDefined();
-				// biome-ignore lint/style/noNonNullAssertion: test assertion after expect check
-				return header!;
+				if (!statusBtn) throw new Error("No Status button in thead");
+				return statusBtn;
 			};
 
 			const statusHeader = getStatusHeader();

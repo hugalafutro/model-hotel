@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import type { Model } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
 import { ModelPicker } from "../ModelPicker";
@@ -210,46 +210,61 @@ describe("ModelPicker", () => {
 	});
 
 	describe("provider filter", () => {
-		it.skip("filters models by selected provider", async () => {
-			// Skipped: ProviderFilter uses a custom dropdown with click-outside handling.
-			// The dropdown closes when clicking options due to mousedown event propagation.
-			// Testing requires either:
-			// 1. A custom render with userEvent.setup({ pointerEvents: PointerEventsCheckLevel.Never })
-			// 2. Mocking the click-outside handler
-			// 3. A dedicated ProviderFilter test harness
-			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
-			const providerFilter = screen.getByText("Filter Providers");
-			await user.click(providerFilter);
-			const openaiOption = await screen.findByText("OpenAI");
-			await user.click(openaiOption);
+		it("filters models by selected provider", async () => {
+			// ProviderFilter has click-outside handling (mousedown on document).
+			// user.click fires mousedown → click, which closes the dropdown before
+			// the option click registers. Use fireEvent.click to bypass mousedown.
+			const { container, user } = renderWithProviders(
+				<ModelPicker {...defaultProps} />,
+			);
+			const filterContainer = container.querySelector(".w-48")!;
+			await user.click(
+				within(filterContainer as HTMLElement).getByText("Filter Providers"),
+			);
+			// Disambiguate dropdown "OpenAI" from group heading "OpenAI"
+			const dropdown = container.querySelector(".absolute.z-50") as HTMLElement;
+			const openaiBtn = within(dropdown).getByText("OpenAI").closest("button")!;
+			fireEvent.click(openaiBtn);
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
 		});
 
-		it.skip("allows multiple provider selection", async () => {
-			// Skipped: Same reason as above - custom dropdown with complex click-outside behavior.
-			// Multiple selections require keeping the dropdown open across multiple clicks,
-			// which conflicts with the click-outside-to-close behavior.
-			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
-			const providerFilter = screen.getByText("Filter Providers");
-			await user.click(providerFilter);
-			await user.click(screen.getByText("OpenAI"));
-			await user.click(providerFilter);
-			await user.click(screen.getByText("Anthropic"));
+		it("allows multiple provider selection", async () => {
+			const { container, user } = renderWithProviders(
+				<ModelPicker {...defaultProps} />,
+			);
+			// ProviderFilter has click-outside handling (mousedown on document).
+			// user.click fires mousedown → click, which closes the dropdown before
+			// the option click registers. Use fireEvent.click to bypass mousedown.
+			const filterContainer = container.querySelector(".w-48")!;
+			await user.click(
+				within(filterContainer as HTMLElement).getByText("Filter Providers"),
+			);
+			const dropdown = container.querySelector(".absolute.z-50") as HTMLElement;
+			// Select OpenAI - dropdown stays open after fireEvent.click
+			fireEvent.click(within(dropdown).getByText("OpenAI").closest("button")!);
+			// Select Anthropic in same open dropdown
+			fireEvent.click(
+				within(dropdown).getByText("Anthropic").closest("button")!,
+			);
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
 			expect(screen.getByText("Claude 3")).toBeInTheDocument();
 		});
 
-		it.skip("clears provider filter when cleared", async () => {
-			// Skipped: Same reason as above - custom dropdown interaction complexity.
-			// The Clear button is inside the dropdown which closes on outside clicks.
-			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
-			const providerFilter = screen.getByText("Filter Providers");
-			await user.click(providerFilter);
-			await user.click(screen.getByText("OpenAI"));
+		it("clears provider filter when cleared", async () => {
+			const { container, user } = renderWithProviders(
+				<ModelPicker {...defaultProps} />,
+			);
+			const filterContainer = container.querySelector(".w-48")!;
+			await user.click(
+				within(filterContainer as HTMLElement).getByText("Filter Providers"),
+			);
+			const dropdown = container.querySelector(".absolute.z-50") as HTMLElement;
+			// Select OpenAI - dropdown stays open after fireEvent.click
+			fireEvent.click(within(dropdown).getByText("OpenAI").closest("button")!);
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
-			await user.click(providerFilter);
-			await user.click(screen.getByText("Clear"));
+			// Click "Clear" in the same open dropdown (it's a bulk action button)
+			fireEvent.click(within(dropdown).getByText("Clear"));
 			expect(screen.getByText("Claude 3")).toBeInTheDocument();
 		});
 	});
