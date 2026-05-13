@@ -580,4 +580,144 @@ describe("MatchupCard", () => {
 			expect(screen.queryByText("Overwrite Persona")).not.toBeInTheDocument();
 		});
 	});
+
+	describe("Persona handlers", () => {
+		it("onCustom sets pendingPersona when personaId is not null", () => {
+			// Default props have personaId: "assistant" (not null)
+			render(<MatchupCard {...defaultProps} />, { wrapper: AllProviders });
+
+			// Click the custom button (✏️)
+			const customButton = screen.getByRole("button", { name: /✏️/i });
+			fireEvent.click(customButton);
+
+			// ConfirmDialog should appear with "Switch to Custom" title
+			expect(screen.getByText("Switch to Custom")).toBeInTheDocument();
+		});
+
+		it("onCustom does nothing when personaId is null", () => {
+			const slotWithNullPersona: MatchupSlot = {
+				modelId: "test-provider/model",
+				personaId: null,
+				personaPrompt: "",
+				params: {},
+			};
+
+			render(<MatchupCard {...defaultProps} slot={slotWithNullPersona} />, {
+				wrapper: AllProviders,
+			});
+
+			// Click the custom button
+			const customButton = screen.getByRole("button", { name: /✏️/i });
+			fireEvent.click(customButton);
+
+			// No dialog should appear (onCustom does nothing when personaId is null)
+			expect(screen.queryByText("Switch to Custom")).not.toBeInTheDocument();
+		});
+
+		it("onRandom calls onPersonaChange directly when no existing prompt", () => {
+			const slotWithEmptyPrompt: MatchupSlot = {
+				modelId: "test-provider/model",
+				personaId: "assistant",
+				personaPrompt: "",
+				params: {},
+			};
+
+			render(<MatchupCard {...defaultProps} slot={slotWithEmptyPrompt} />, {
+				wrapper: AllProviders,
+			});
+
+			// Click the random button (Dices icon with title="Random")
+			const randomButton = screen.getByTitle("Random");
+			fireEvent.click(randomButton);
+
+			// onPersonaChange should be called directly (no pendingPersona)
+			expect(defaultProps.onPersonaChange).toHaveBeenCalled();
+			expect(defaultProps.onPersonaChange).toHaveBeenCalledWith(
+				0,
+				0,
+				"A",
+				expect.any(String),
+				expect.any(String),
+			);
+		});
+
+		it("onRandom sets pendingPersona when prompt exists and personaId is null", () => {
+			const slotWithCustomPrompt: MatchupSlot = {
+				modelId: "test-provider/model",
+				personaId: null,
+				personaPrompt: "Custom prompt",
+				params: {},
+			};
+
+			render(<MatchupCard {...defaultProps} slot={slotWithCustomPrompt} />, {
+				wrapper: AllProviders,
+			});
+
+			// Click the random button
+			const randomButton = screen.getByTitle("Random");
+			fireEvent.click(randomButton);
+
+			// ConfirmDialog should appear with "Overwrite Persona" title
+			expect(screen.getByText("Overwrite Persona")).toBeInTheDocument();
+		});
+
+		it("ConfirmDialog onConfirm calls onPersonaChange with null for custom persona", () => {
+			const onPersonaChangeMock = vi.fn();
+
+			// Default props have personaId: "assistant" (not null) and existing prompt
+			render(
+				<MatchupCard {...defaultProps} onPersonaChange={onPersonaChangeMock} />,
+				{
+					wrapper: AllProviders,
+				},
+			);
+
+			// Click custom button to trigger pending state
+			const customButton = screen.getByRole("button", { name: /✏️/i });
+			fireEvent.click(customButton);
+
+			// Click the Discard/Confirm button in the dialog
+			const confirmButton = screen.getByText("Discard");
+			fireEvent.click(confirmButton);
+
+			// onPersonaChange should be called with null, "" for custom persona
+			expect(onPersonaChangeMock).toHaveBeenCalledWith(0, 0, "A", null, "");
+		});
+
+		it("ConfirmDialog onConfirm calls onPersonaChange with persona data for overwrite", () => {
+			const onPersonaChangeMock = vi.fn();
+			const slotWithCustomPrompt: MatchupSlot = {
+				modelId: "test-provider/model",
+				personaId: null,
+				personaPrompt: "Custom prompt",
+				params: {},
+			};
+
+			render(
+				<MatchupCard
+					{...defaultProps}
+					slot={slotWithCustomPrompt}
+					onPersonaChange={onPersonaChangeMock}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			// Click random button to trigger pending state with a random persona
+			const randomButton = screen.getByTitle("Random");
+			fireEvent.click(randomButton);
+
+			// Click the Discard/Confirm button in the dialog
+			const confirmButton = screen.getByText("Discard");
+			fireEvent.click(confirmButton);
+
+			// onPersonaChange should be called with the picked persona's id and prompt
+			expect(onPersonaChangeMock).toHaveBeenCalledWith(
+				0,
+				0,
+				"A",
+				expect.any(String),
+				expect.any(String),
+			);
+		});
+	});
 });

@@ -571,4 +571,107 @@ describe("PaginationBar", () => {
 		);
 		expect(screen.getByText("1 item")).toBeInTheDocument();
 	});
+
+	it("renders all page numbers when totalPages <= 7", () => {
+		render(
+			<PaginationBar
+				page={4}
+				totalPages={7}
+				totalItems={70}
+				pageSize={10}
+				onPageChange={onPageChange}
+				onPageSizeChange={onPageSizeChange}
+			/>,
+		);
+		// Should render buttons 1-7
+		for (let i = 1; i <= 7; i++) {
+			expect(
+				screen.getByRole("button", { name: String(i) }),
+			).toBeInTheDocument();
+		}
+	});
+
+	it("renders first pages and last page when page <= 4 and totalPages > 7", () => {
+		render(
+			<PaginationBar
+				page={3}
+				totalPages={10}
+				totalItems={100}
+				pageSize={10}
+				onPageChange={onPageChange}
+				onPageSizeChange={onPageSizeChange}
+			/>,
+		);
+		// Should render: 1, 2, 3, 4, 5, 6, 10 (i=6 → pageNum=totalPages=10)
+		for (let i = 1; i <= 6; i++) {
+			expect(
+				screen.getByRole("button", { name: String(i) }),
+			).toBeInTheDocument();
+		}
+		expect(screen.getByRole("button", { name: "10" })).toBeInTheDocument();
+		// Button 7 should NOT exist
+		expect(screen.queryByRole("button", { name: "7" })).not.toBeInTheDocument();
+	});
+
+	it("renders first page and last pages when page >= totalPages - 3", () => {
+		render(
+			<PaginationBar
+				page={8}
+				totalPages={10}
+				totalItems={100}
+				pageSize={10}
+				onPageChange={onPageChange}
+				onPageSizeChange={onPageSizeChange}
+			/>,
+		);
+		// Should render: 1, 5, 6, 7, 8, 9, 10 (i=0 → pageNum=1)
+		expect(screen.getByRole("button", { name: "1" })).toBeInTheDocument();
+		for (let i = 5; i <= 10; i++) {
+			expect(
+				screen.getByRole("button", { name: String(i) }),
+			).toBeInTheDocument();
+		}
+		// Button 2 should NOT exist
+		expect(screen.queryByRole("button", { name: "2" })).not.toBeInTheDocument();
+	});
+
+	it("renders first, middle, and last pages for middle page", () => {
+		render(
+			<PaginationBar
+				page={5}
+				totalPages={10}
+				totalItems={100}
+				pageSize={10}
+				onPageChange={onPageChange}
+				onPageSizeChange={onPageSizeChange}
+			/>,
+		);
+		// Should render: 1, 3, 4, 5, 6, 7, 10 (else branch: pageNum=page-3+i, with i=0→1, i=6→totalPages)
+		expect(screen.getByRole("button", { name: "1" })).toBeInTheDocument();
+		for (let i = 3; i <= 7; i++) {
+			expect(
+				screen.getByRole("button", { name: String(i) }),
+			).toBeInTheDocument();
+		}
+		expect(screen.getByRole("button", { name: "10" })).toBeInTheDocument();
+		// Button 2 should NOT exist
+		expect(screen.queryByRole("button", { name: "2" })).not.toBeInTheDocument();
+	});
+
+	it("clicking a page number calls onPageChange", async () => {
+		const user = userEvent.setup();
+		render(
+			<PaginationBar
+				page={1}
+				totalPages={10}
+				totalItems={100}
+				pageSize={10}
+				onPageChange={onPageChange}
+				onPageSizeChange={onPageSizeChange}
+			/>,
+		);
+		const page3Button = screen.getByRole("button", { name: "3" });
+		await user.click(page3Button);
+		expect(onPageChange).toHaveBeenCalledWith(3);
+	});
 });

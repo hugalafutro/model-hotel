@@ -314,6 +314,155 @@ describe("ProviderCard", () => {
 		});
 	});
 
+	describe("QuotaBadges click handlers", () => {
+		it("calls onSetModalNano when NanoGPT badge is clicked", () => {
+			mockQuotaData.showNanoBadge = true;
+			mockQuotaData.nanogptUsage = { weeklyInputTokens: { used: 1000 } } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+			mockQuotaData.nanoWeeklyUsed = 1000;
+			mockQuotaData.nanoWeeklyLimit = 10000;
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const nanoBadge = screen.getByTitle(
+				"NanoGPT weekly token quota - click for details",
+			);
+			fireEvent.click(nanoBadge);
+
+			expect(defaultProps.onSetModalNano).toHaveBeenCalledWith({
+				weeklyInputTokens: { used: 1000 },
+			});
+		});
+
+		it("does not call onSetModalNano when nanogptUsage is falsy", () => {
+			mockQuotaData.showNanoBadge = true;
+			mockQuotaData.nanogptUsage = null;
+			mockQuotaData.nanoWeeklyUsed = null;
+			mockQuotaData.nanoWeeklyLimit = null;
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const nanoBadge = screen.queryByTitle(
+				"NanoGPT weekly token quota - click for details",
+			);
+			expect(nanoBadge).not.toBeInTheDocument();
+			expect(defaultProps.onSetModalNano).not.toHaveBeenCalled();
+		});
+
+		it("calls onSetModalZaiCoding when ZAI Coding badge is clicked", () => {
+			mockQuotaData.showZaiCodingBadge = true;
+			mockQuotaData.zaiCodingUsage = { success: true } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+			mockQuotaData.zaiCodingFiveHour = { percentage: 50 } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+			mockQuotaData.zaiCodingWeekly = { percentage: 30 } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const zaiBadge = screen.getByTitle(
+				"Z.ai Coding Plan token quota - click for details",
+			);
+			fireEvent.click(zaiBadge);
+
+			expect(defaultProps.onSetModalZaiCoding).toHaveBeenCalledWith({
+				success: true,
+			});
+		});
+
+		it("calls refetchDeepseek and toasts success when DeepSeek badge is clicked", async () => {
+			mockQuotaData.showDsBadge = true;
+			mockQuotaData.deepseekBalance = {
+				balance_infos: [{ currency: "USD", total_balance: "10.00" }],
+			} as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const deepseekBadge = screen.getByTitle(/DeepSeek balance/);
+			fireEvent.click(deepseekBadge);
+
+			await vi.waitFor(() => {
+				expect(mockQuotaData.refetchDeepseek).toHaveBeenCalled();
+				expect(defaultProps.toast).toHaveBeenCalledWith(
+					"Balance refreshed",
+					"success",
+				);
+			});
+		});
+
+		it("toasts error when DeepSeek refetch fails", async () => {
+			mockQuotaData.showDsBadge = true;
+			mockQuotaData.deepseekBalance = {
+				balance_infos: [{ currency: "USD", total_balance: "10.00" }],
+			} as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+			mockQuotaData.refetchDeepseek = vi
+				.fn()
+				.mockRejectedValue(new Error("fail"));
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const deepseekBadge = screen.getByTitle(/DeepSeek balance/);
+			fireEvent.click(deepseekBadge);
+
+			await vi.waitFor(() => {
+				expect(defaultProps.toast).toHaveBeenCalledWith(
+					"Failed to refresh balance",
+					"error",
+				);
+			});
+		});
+
+		it("calls onSetModalOpenRouter when OpenRouter badge is clicked", () => {
+			mockQuotaData.showOrBadge = true;
+			mockQuotaData.openrouterBalance = { credits_remaining: 5.0 } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const openrouterBadge = screen.getByTitle(
+				"OpenRouter key balance - click for details",
+			);
+			fireEvent.click(openrouterBadge);
+
+			expect(defaultProps.onSetModalOpenRouter).toHaveBeenCalledWith({
+				credits_remaining: 5.0,
+			});
+		});
+
+		it("calls refetchOllamaCloud and toasts success when Ollama Cloud badge is clicked", async () => {
+			mockQuotaData.showOllamaCloudBadge = true;
+			mockQuotaData.ollamaCloudAccount = { plan: "pro" } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const ollamaBadge = screen.getByTitle(/Ollama Cloud/);
+			fireEvent.click(ollamaBadge);
+
+			await vi.waitFor(() => {
+				expect(mockQuotaData.refetchOllamaCloud).toHaveBeenCalled();
+				expect(defaultProps.toast).toHaveBeenCalledWith(
+					"Account info refreshed",
+					"success",
+				);
+			});
+		});
+
+		it("toasts error when Ollama Cloud refetch fails", async () => {
+			mockQuotaData.showOllamaCloudBadge = true;
+			mockQuotaData.ollamaCloudAccount = { plan: "pro" } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+			mockQuotaData.refetchOllamaCloud = vi
+				.fn()
+				.mockRejectedValue(new Error("fail"));
+
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const ollamaBadge = screen.getByTitle(/Ollama Cloud/);
+			fireEvent.click(ollamaBadge);
+
+			await vi.waitFor(() => {
+				expect(defaultProps.toast).toHaveBeenCalledWith(
+					"Failed to refresh account info",
+					"error",
+				);
+			});
+		});
+	});
+
 	describe("copyable pills", () => {
 		it("renders provider name as copyable pill", () => {
 			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });

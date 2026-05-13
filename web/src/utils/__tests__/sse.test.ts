@@ -283,4 +283,135 @@ describe("readSSEStream", () => {
 		]);
 		expect(result.sawDone).toBe(false);
 	});
+
+	it("detects idle timeout when reader stalls", async () => {
+		const mockReader = {
+			read: async () => {
+				// Never resolves - simulates a stalled stream
+				return new Promise(() => {
+					// intentionally never resolves
+				});
+			},
+			cancel: vi.fn(),
+		} as unknown as ReadableStreamDefaultReader<Uint8Array>;
+
+		const receivedChunks: unknown[] = [];
+
+		const result = await readSSEStream({
+			reader: mockReader,
+			onChunk: (parsed) => receivedChunks.push(parsed),
+			idleTimeoutMs: 50,
+		});
+
+		expect(result.idleTimeout).toBe(true);
+		expect(result.sawDone).toBe(false);
+		expect(result.aborted).toBe(false);
+		expect(mockReader.cancel).toHaveBeenCalled();
+	});
+
+	it("aborts mid-stream when signal fires during read", async () => {
+		const abortController = new AbortController();
+		let readCount = 0;
+		const mockReader = {
+			read: async () => {
+				readCount++;
+				if (readCount === 1) {
+					// First read returns a chunk
+					return {
+						done: false,
+						value: new TextEncoder().encode('data: {"content":"first"}\n\n'),
+					};
+				}
+				// Second read: wait for abort signal then return
+				return new Promise((resolve) => {
+					const checkAbort = () => {
+						if (abortController.signal.aborted) {
+							resolve({ done: true, value: undefined });
+						} else {
+							setTimeout(checkAbort, 10);
+						}
+					};
+					checkAbort();
+				});
+			},
+			cancel: vi.fn(),
+		} as unknown as ReadableStreamDefaultReader<Uint8Array>;
+
+		const receivedChunks: unknown[] = [];
+
+		const resultPromise = readSSEStream({
+			reader: mockReader,
+			signal: abortController.signal,
+			onChunk: (parsed) => {
+				receivedChunks.push(parsed);
+				// Abort after receiving first chunk
+				abortController.abort();
+			},
+			idleTimeoutMs: 5000, // Long timeout so abort wins
+		});
+
+		const result = await resultPromise;
+
+		expect(result.aborted).toBe(true);
+		expect(result.idleTimeout).toBeUndefined();
+		expect(receivedChunks).toEqual([{ content: "first" }]);
+	});
+
+	it("idle timeout disabled when set to 0", async () => {
+		const mockReader = {
+			read: async () => {
+				// Never resolves
+				return new Promise(() => {
+					// intentionally never resolves
+				});
+			},
+			cancel: vi.fn(),
+		} as unknown as ReadableStreamDefaultReader<Uint8Array>;
+
+		const receivedChunks: unknown[] = [];
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			setTimeout(() => reject(new Error("TIMEOUT")), 100);
+		});
+
+		// Race the stream against a short timeout - if timeout wins, stream correctly waits forever
+		await expect(
+			Promise.race([
+				readSSEStream({
+					reader: mockReader,
+					onChunk: (parsed) => receivedChunks.push(parsed),
+					idleTimeoutMs: 0,
+				}),
+				timeoutPromise,
+			]),
+		).rejects.toThrow("TIMEOUT");
+	});
+
+	it("idle timeout disabled when set to Infinity", async () => {
+		const mockReader = {
+			read: async () => {
+				// Never resolves
+				return new Promise(() => {
+					// intentionally never resolves
+				});
+			},
+			cancel: vi.fn(),
+		} as unknown as ReadableStreamDefaultReader<Uint8Array>;
+
+		const receivedChunks: unknown[] = [];
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			setTimeout(() => reject(new Error("TIMEOUT")), 100);
+		});
+
+		// Race the stream against a short timeout - if timeout wins, stream correctly waits forever
+		await expect(
+			Promise.race([
+				readSSEStream({
+					reader: mockReader,
+					onChunk: (parsed) => receivedChunks.push(parsed),
+					idleTimeoutMs: Infinity,
+				}),
+				timeoutPromise,
+			]),
+		).rejects.toThrow("TIMEOUT");
+	});
 });

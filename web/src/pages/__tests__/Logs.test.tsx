@@ -493,6 +493,11 @@ describe("Logs", () => {
 			const modelFilter = screen.getByPlaceholderText("Filter by model ID…");
 			await user.type(modelFilter, "gpt-4");
 
+			// Advance timers to trigger debounce
+			vi.useFakeTimers();
+			await vi.advanceTimersByTimeAsync(350);
+			vi.useRealTimers();
+
 			// Wait for debounced filter to apply
 			await waitFor(() => {
 				expect(screen.getByText("gpt-4")).toBeInTheDocument();
@@ -527,6 +532,11 @@ describe("Logs", () => {
 			// Type in provider filter
 			const providerFilter = screen.getByPlaceholderText("Filter by provider…");
 			await user.type(providerFilter, "openai");
+
+			// Advance timers to trigger debounce
+			vi.useFakeTimers();
+			await vi.advanceTimersByTimeAsync(350);
+			vi.useRealTimers();
 
 			// Wait for debounced filter to apply
 			await waitFor(() => {

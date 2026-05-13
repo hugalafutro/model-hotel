@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
+import { mockChatStream } from "../../../test/helpers";
+import { server } from "../../../test/mocks/server";
 import {
 	buildMessageContent,
 	formatTime,
 	getApiMessagesForModel,
+	streamModelResponse,
 } from "../chatStreaming";
 
 describe("formatTime", () => {
@@ -365,5 +368,202 @@ describe("getApiMessagesForModel", () => {
 		expect(result[0].role).toBe("system");
 		expect(result[1].role).toBe("user");
 		expect(result[2].role).toBe("user");
+	});
+});
+
+describe("streamModelResponse", () => {
+	const baseMessages = [{ role: "user" as const, content: "hi" }];
+	const baseParams = {};
+
+	it("streams content from SSE response", async () => {
+		const chunk1 = { choices: [{ delta: { content: "Hello" } }] };
+		const chunk2 = { choices: [{ delta: { content: " World" } }] };
+
+		server.use(...mockChatStream([chunk1, chunk2]));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).toBeNull();
+		expect(result.content).toContain("Hello");
+		expect(result.content).toContain("World");
+		expect(result.rawContent).toContain("Hello");
+		expect(result.rawContent).toContain("World");
+	});
+
+	it("extracts thinking content from reasoning_content", async () => {
+		const chunk1 = {
+			choices: [{ delta: { reasoning_content: "Let me think..." } }],
+		};
+		const chunk2 = {
+			choices: [{ delta: { reasoning_content: " about this" } }],
+		};
+
+		server.use(...mockChatStream([chunk1, chunk2]));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).toBeNull();
+		expect(result.thinkingContent).toContain("Let me think...");
+		expect(result.thinkingContent).toContain(" about this");
+	});
+
+	it("extracts thinking content from reasoning field", async () => {
+		const chunk1 = {
+			choices: [{ delta: { reasoning: "First, I need to" } }],
+		};
+		const chunk2 = {
+			choices: [{ delta: { reasoning: " analyze the problem" } }],
+		};
+
+		server.use(...mockChatStream([chunk1, chunk2]));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).toBeNull();
+		expect(result.thinkingContent).toContain("First, I need to");
+		expect(result.thinkingContent).toContain(" analyze the problem");
+	});
+
+	it("tracks usage tokens", async () => {
+		const contentChunk = { choices: [{ delta: { content: "Hi" } }] };
+		const usageChunk = { usage: { prompt_tokens: 50, completion_tokens: 100 } };
+
+		server.use(...mockChatStream([contentChunk, usageChunk]));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).toBeNull();
+		expect(result.promptTokens).toBe(50);
+		expect(result.completionTokens).toBe(100);
+	});
+
+	it("computes tokensPerSecond", async () => {
+		const contentChunk = { choices: [{ delta: { content: "Test" } }] };
+		const usageChunk = { usage: { prompt_tokens: 10, completion_tokens: 20 } };
+
+		server.use(...mockChatStream([contentChunk, usageChunk]));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).toBeNull();
+		expect(result.tokensPerSecond).toBeGreaterThan(0);
+		expect(typeof result.tokensPerSecond).toBe("number");
+	});
+
+	it("calls onDelta callback for each chunk", async () => {
+		const chunk1 = { choices: [{ delta: { content: "A" } }] };
+		const chunk2 = { choices: [{ delta: { content: "B" } }] };
+		const onDelta = vi.fn();
+
+		server.use(...mockChatStream([chunk1, chunk2]));
+
+		await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			onDelta,
+		);
+
+		expect(onDelta).toHaveBeenCalledTimes(2);
+	});
+
+	it("handles HTTP error response", async () => {
+		server.use(...mockChatStream([], { status: 429 }));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).not.toBeNull();
+		expect(result.error).toMatch(/429|Chat failed/);
+	});
+
+	it("handles stream without [DONE] sentinel and no content", async () => {
+		server.use(...mockChatStream([], { doneSentinel: null }));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).not.toBeNull();
+		expect(result.error).toContain("Stream ended unexpectedly");
+	});
+
+	it("handles stream without [DONE] but with content", async () => {
+		const chunk1 = { choices: [{ delta: { content: "Content" } }] };
+		server.use(...mockChatStream([chunk1], { doneSentinel: null }));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+		);
+
+		expect(result.error).not.toBeNull();
+		expect(result.error).toContain("Stream ended without completion signal");
+		expect(result.content).toContain("Content");
+	});
+
+	it("handles abort during streaming", async () => {
+		const abortCtrl = new AbortController();
+		const chunk1 = { choices: [{ delta: { content: "Start" } }] };
+		const chunk2 = { choices: [{ delta: { content: "More" } }] };
+		const chunk3 = { choices: [{ delta: { content: "Content" } }] };
+
+		server.use(...mockChatStream([chunk1, chunk2, chunk3], { delay: 50 }));
+
+		abortCtrl.abort();
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			abortCtrl,
+			vi.fn(),
+		);
+
+		expect(result.error).not.toBeNull();
+		expect(result.error).toMatch(/abort|aborted/i);
 	});
 });

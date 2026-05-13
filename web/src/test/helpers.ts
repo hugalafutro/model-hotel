@@ -187,6 +187,91 @@ export function mockEvents(): RequestHandler[] {
 	];
 }
 
+// ── Streaming SSE helpers ─────────────────────────────────────────────────
+
+/**
+ * Create a ReadableStream that emits SSE-formatted data chunks.
+ * Each item in `chunks` is JSON-encoded and wrapped in `data: ...\n\n`.
+ * A `[DONE]` sentinel is appended automatically unless `doneSentinel` is set to null.
+ *
+ * @param chunks - Array of objects to serialize as SSE data events
+ * @param options.delay - Milliseconds between chunks (default: 0)
+ * @param options.doneSentinel - Sentinel string to send after chunks (default: "[DONE]"), null to omit
+ */
+export function createSSEStream(
+	chunks: unknown[],
+	options: { delay?: number; doneSentinel?: string | null } = {},
+): ReadableStream<Uint8Array> {
+	const { delay = 0, doneSentinel = "[DONE]" } = options;
+	const encoder = new TextEncoder();
+
+	return new ReadableStream({
+		async start(controller) {
+			for (const chunk of chunks) {
+				if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+				controller.enqueue(
+					encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`),
+				);
+			}
+			if (doneSentinel !== null) {
+				controller.enqueue(
+					encoder.encode(`data: ${doneSentinel}\n\n`),
+				);
+			}
+			controller.close();
+		},
+	});
+}
+
+/**
+ * Create an MSW handler for POST /api/chat/chat that returns a streaming SSE response.
+ *
+ * @param chunks - SSE data chunks to stream
+ * @param options.delay - Delay between chunks in ms
+ * @param options.status - HTTP status (default: 200)
+ * @param options.doneSentinel - Done sentinel (default: "[DONE]"), null to omit
+ */
+export function mockChatStream(
+	chunks: unknown[],
+	options: { delay?: number; status?: number; doneSentinel?: string | null } = {},
+): RequestHandler[] {
+	const { delay = 0, status = 200, doneSentinel = "[DONE]" } = options;
+	return [
+		http.post("/api/chat/chat", () => {
+			const stream = createSSEStream(chunks, { delay, doneSentinel });
+			return new HttpResponse(stream, {
+				status,
+				headers: {
+					"Content-Type": "text/event-stream",
+					"Cache-Control": "no-cache",
+				},
+			});
+		}),
+	];
+}
+
+/**
+ * Create an MSW handler for POST /api/chat/arena that returns a streaming SSE response.
+ */
+export function mockArenaStream(
+	chunks: unknown[],
+	options: { delay?: number; status?: number; doneSentinel?: string | null } = {},
+): RequestHandler[] {
+	const { delay = 0, status = 200, doneSentinel = "[DONE]" } = options;
+	return [
+		http.post("/api/chat/arena", () => {
+			const stream = createSSEStream(chunks, { delay, doneSentinel });
+			return new HttpResponse(stream, {
+				status,
+				headers: {
+					"Content-Type": "text/event-stream",
+					"Cache-Control": "no-cache",
+				},
+			});
+		}),
+	];
+}
+
 /** Convenience: return all default handlers for a typical page test. */
 export function mockAllDefaults(
 	overrides: Partial<{

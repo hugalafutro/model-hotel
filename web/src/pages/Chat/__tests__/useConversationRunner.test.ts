@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
 import type { ConversationState } from "../chatStreaming";
@@ -15,11 +15,14 @@ const createWrapper = () => {
 const createMockParams = (
 	overrides?: Partial<Parameters<typeof useConversationRunner>[0]>,
 ) => {
+	const messagesState: ChatMessage[] = [];
 	const baseParams: Parameters<typeof useConversationRunner>[0] = {
 		selectedModel: "provider-a/model-a",
 		selectedModelB: "provider-b/model-b",
 		input: "Test prompt",
-		messages: [],
+		get messages() {
+			return [...messagesState];
+		},
 		currentTurn: 0,
 		maxTurns: 2,
 		turnDelayMs: 1000,
@@ -35,7 +38,15 @@ const createMockParams = (
 		capturedModelARef: { current: "" },
 		capturedModelBRef: { current: "" },
 		lastPromptRef: { current: "" },
-		setMessages: vi.fn(),
+		setMessages: vi.fn((updater) => {
+			if (typeof updater === "function") {
+				const fn = updater as (prev: ChatMessage[]) => ChatMessage[];
+				messagesState.splice(0, messagesState.length, ...fn(messagesState));
+			} else {
+				messagesState.splice(0, messagesState.length, ...updater);
+			}
+			return messagesState;
+		}),
 		setInput: vi.fn(),
 		setIsStreaming: vi.fn(),
 		setConversationState: vi.fn(),
@@ -47,6 +58,10 @@ const createMockParams = (
 };
 
 describe("useConversationRunner", () => {
+	beforeEach(() => {
+		server.resetHandlers();
+		vi.clearAllMocks();
+	});
 	it("returns all expected methods", () => {
 		const params = createMockParams();
 		const { result } = renderHook(() => useConversationRunner(params), {
@@ -525,5 +540,243 @@ describe("useConversationRunner", () => {
 		});
 
 		expect(setInputMock).not.toHaveBeenCalledWith("Test prompt");
+	});
+
+	it("alternates between Model A and Model B across turns", async () => {
+		const calledModels: string[] = [];
+		server.use(
+			http.post("/api/chat/chat", async ({ request }) => {
+				const body = await request.json();
+				calledModels.push((body as { model: string }).model);
+				return new HttpResponse(
+					new ReadableStream({
+						start(controller) {
+							const encoder = new TextEncoder();
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					}),
+					{ headers: { "Content-Type": "text/event-stream" } },
+				);
+			}),
+		);
+
+		const params = createMockParams({ maxTurns: 2 });
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		await act(async () => {
+			await result.current.runConversation();
+		});
+
+		expect(calledModels).toHaveLength(4);
+		expect(calledModels[0]).toBe("provider-a/model-a");
+		expect(calledModels[1]).toBe("provider-b/model-b");
+		expect(calledModels[2]).toBe("provider-a/model-a");
+		expect(calledModels[3]).toBe("provider-b/model-b");
+	});
+
+	it("passes correct system prompt for each model", async () => {
+		const calledSystemPrompts: string[] = [];
+		server.use(
+			http.post("/api/chat/chat", async ({ request }) => {
+				const body = await request.json();
+				const messages = (
+					body as { messages: Array<{ role: string; content: string }> }
+				).messages;
+				const systemMsg = messages.find((m) => m.role === "system");
+				calledSystemPrompts.push(systemMsg?.content ?? "");
+				return new HttpResponse(
+					new ReadableStream({
+						start(controller) {
+							const encoder = new TextEncoder();
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					}),
+					{ headers: { "Content-Type": "text/event-stream" } },
+				);
+			}),
+		);
+
+		const params = createMockParams({ maxTurns: 2 });
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		await act(async () => {
+			await result.current.runConversation();
+		});
+
+		expect(calledSystemPrompts).toHaveLength(4);
+		expect(calledSystemPrompts[0]).toBe("System prompt A");
+		expect(calledSystemPrompts[1]).toBe("System prompt B");
+		expect(calledSystemPrompts[2]).toBe("System prompt A");
+		expect(calledSystemPrompts[3]).toBe("System prompt B");
+	});
+
+	it("passes message history to each turn", async () => {
+		const callMessages: Array<{ role: string; content: string }[]> = [];
+		server.use(
+			http.post("/api/chat/chat", async ({ request }) => {
+				const body = await request.json();
+				const messages = (
+					body as { messages: Array<{ role: string; content: string }> }
+				).messages;
+				callMessages.push(messages.filter((m) => m.role !== "system"));
+				return new HttpResponse(
+					new ReadableStream({
+						start(controller) {
+							const encoder = new TextEncoder();
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"Response"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					}),
+					{ headers: { "Content-Type": "text/event-stream" } },
+				);
+			}),
+		);
+
+		const params = createMockParams({ maxTurns: 2 });
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		await act(async () => {
+			await result.current.runConversation();
+		});
+
+		// First turn (Model A): receives only user message
+		expect(callMessages[0]).toHaveLength(1);
+		expect(callMessages[0][0].role).toBe("user");
+
+		// Second turn (Model B): receives user message + Model A's response
+		// Note: getApiMessagesForModel converts other model's assistant messages to user role
+		expect(callMessages[1]).toHaveLength(2);
+		expect(callMessages[1][0].role).toBe("user");
+		expect(callMessages[1][1].role).toBe("user"); // Model A's response appears as user message to Model B
+		expect(callMessages[1][1].content).toBe("Response");
+
+		// Verify message history grows
+		expect(callMessages[2]).toHaveLength(3);
+		expect(callMessages[3]).toHaveLength(4);
+	});
+
+	it("handles abort during turn delay", async () => {
+		vi.useFakeTimers();
+
+		const params = createMockParams({ maxTurns: 2, turnDelayMs: 1000 });
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		server.use(
+			http.post("/api/chat/chat", () => {
+				return new HttpResponse(
+					new ReadableStream({
+						start(controller) {
+							const encoder = new TextEncoder();
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					}),
+					{ headers: { "Content-Type": "text/event-stream" } },
+				);
+			}),
+		);
+
+		let runPromise: Promise<void> | undefined;
+		act(() => {
+			runPromise = result.current.runConversation();
+		});
+
+		// Let first turn complete
+		await act(async () => {
+			vi.advanceTimersByTime(100);
+			await Promise.resolve();
+		});
+
+		// Advance into turn delay
+		await act(async () => {
+			vi.advanceTimersByTime(500);
+			await Promise.resolve();
+		});
+
+		// Stop during delay
+		act(() => {
+			result.current.handleStopConversation();
+		});
+
+		// Let remaining timers flush
+		await act(async () => {
+			vi.advanceTimersByTime(1000);
+			await Promise.resolve();
+		});
+
+		await runPromise;
+
+		expect(params.setConversationState).toHaveBeenCalledWith("paused");
+		expect(params.setIsStreaming).toHaveBeenCalledWith(false);
+
+		vi.useRealTimers();
+	});
+
+	it("clearConversationAbort aborts and cleans up", () => {
+		const abortController = new AbortController();
+		const params = createMockParams({
+			conversationAbortRef: { current: abortController },
+			cleanupConvAbortRef: { current: abortController },
+			conversationRunningRef: { current: true },
+		});
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		act(() => {
+			result.current.clearConversationAbort();
+		});
+
+		expect(abortController.signal.aborted).toBe(true);
+		expect(params.conversationAbortRef.current).toBe(null);
+		expect(params.cleanupConvAbortRef.current).toBe(null);
+		expect(params.conversationRunningRef.current).toBe(false);
+	});
+
+	it("does not start conversation without Model B", () => {
+		const params = createMockParams({
+			selectedModel: "provider-a/model-a",
+			selectedModelB: "",
+		});
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		act(() => {
+			result.current.runConversation();
+		});
+
+		expect(params.setConversationState).not.toHaveBeenCalled();
+		expect(params.setIsStreaming).not.toHaveBeenCalled();
 	});
 });

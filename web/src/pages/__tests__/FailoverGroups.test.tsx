@@ -159,7 +159,9 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				// Provider filter is a FilterDropdown button with placeholder text
-				expect(screen.getByRole("button", { name: "All providers" })).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "All providers" }),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -177,8 +179,12 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				// Both FilterDropdown buttons should be present
-				expect(screen.getByRole("button", { name: "All providers" })).toBeInTheDocument();
-				expect(screen.getByRole("button", { name: "All states" })).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "All providers" }),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "All states" }),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -836,6 +842,1429 @@ describe("FailoverGroups", () => {
 			await waitFor(() => {
 				// Look for the toggle button (it's a button with role="switch")
 				expect(screen.getByRole("switch")).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Sync Mutation", () => {
+		it("Sync button triggers sync mutation", async () => {
+			let syncCalled = false;
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () => {
+					syncCalled = true;
+					return HttpResponse.json({ disabled_groups: [] });
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(syncCalled).toBe(true);
+			});
+		});
+
+		it("Sync success without disabled groups shows success toast", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () =>
+					HttpResponse.json({ disabled_groups: [] }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Failover groups synced")).toBeInTheDocument();
+			});
+		});
+
+		it("Sync success with disabled groups shows warning toasts", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () =>
+					HttpResponse.json({
+						disabled_groups: [
+							{
+								display_model: "gpt-4",
+								reason: "no providers",
+								provider_names: ["OpenAI"],
+							},
+						],
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("hotel/gpt-4 disabled: no providers (OpenAI)"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Sync error shows error toast", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () =>
+					HttpResponse.json({ error: "Sync failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to sync:/)).toBeInTheDocument();
+			});
+		});
+
+		it("Sync button shows spinner while pending", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () => {
+					return new Promise((resolve) => {
+						setTimeout(() => {
+							resolve(HttpResponse.json({ disabled_groups: [] }));
+						}, 100);
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			// Spinner should appear while pending
+			expect(screen.getByText("Syncing…")).toBeInTheDocument();
+
+			await waitFor(() => {
+				expect(screen.queryByText("Syncing…")).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Delete Confirmation", () => {
+		it("Confirm delete calls delete mutation and closes modal", async () => {
+			let deleteCalled = false;
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.delete("/api/failover-groups/:id", () => {
+					deleteCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			// Click Delete button
+			await user.click(screen.getByRole("button", { name: /delete/i }));
+
+			// Wait for modal to open
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			// Click confirm button
+			await user.click(screen.getByRole("button", { name: "Delete" }));
+
+			await waitFor(() => {
+				expect(deleteCalled).toBe(true);
+			});
+
+			// Modal should close
+			await waitFor(() => {
+				expect(
+					screen.queryByText(/Are you sure you want to delete/),
+				).not.toBeInTheDocument();
+			});
+		});
+
+		it("Delete success shows success toast", async () => {
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.delete("/api/failover-groups/:id", () => HttpResponse.json({})),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: /delete/i }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Delete" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Group deleted")).toBeInTheDocument();
+			});
+		});
+
+		it("Delete error shows error toast", async () => {
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.delete("/api/failover-groups/:id", () =>
+					HttpResponse.json({ error: "Delete failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: /delete/i }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Delete" }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to delete:/)).toBeInTheDocument();
+			});
+		});
+
+		it("Cancel delete closes modal without deleting", async () => {
+			let deleteCalled = false;
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.delete("/api/failover-groups/:id", () => {
+					deleteCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: /delete/i }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			// Click cancel button
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			await waitFor(() => {
+				expect(deleteCalled).toBe(false);
+			});
+
+			// Modal should close
+			await waitFor(() => {
+				expect(
+					screen.queryByText(/Are you sure you want to delete/),
+				).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Toggle Group", () => {
+		it("Toggling group enabled calls update mutation", async () => {
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				group_enabled: true,
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			let updateCalled = false;
+			let updateData: unknown;
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.put("/api/failover-groups/:id", async ({ request }) => {
+					updateCalled = true;
+					updateData = await request.json();
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			// Click the ON/OFF toggle button
+			const toggleButton = screen.getByRole("button", {
+				name: /ON|OFF/i,
+			});
+			await user.click(toggleButton);
+
+			await waitFor(() => {
+				expect(updateCalled).toBe(true);
+			});
+
+			expect(updateData).toEqual({ group_enabled: false });
+		});
+
+		it("Update error shows error toast", async () => {
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				group_enabled: true,
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.put("/api/failover-groups/:id", () =>
+					HttpResponse.json({ error: "Update failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			const toggleButton = screen.getByRole("button", {
+				name: /ON|OFF/i,
+			});
+			await user.click(toggleButton);
+
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to update:/)).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Toggle Entry", () => {
+		it("Toggling entry enabled calls update mutation", async () => {
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						provider_name: "OpenAI",
+						model_id: "gpt-4",
+						enabled: true,
+						model_uuid: "uuid-1",
+					},
+					{
+						provider_name: "Anthropic",
+						model_id: "claude-3",
+						enabled: true,
+						model_uuid: "uuid-2",
+					},
+				],
+			};
+
+			let updateCalled = false;
+			let updateData: unknown;
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.put("/api/failover-groups/:id", async ({ request }) => {
+					updateCalled = true;
+					updateData = await request.json();
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			// Find the Anthropic entry container, then find its toggle
+			// Entry text shows "Anthropic / claude-3"
+			const anthropicEntry = screen
+				.getByText("Anthropic")
+				.closest(".relative.flex.items-center");
+			expect(anthropicEntry).toBeTruthy();
+			const entryToggle = anthropicEntry?.querySelector(
+				'button[role="switch"]',
+			);
+			expect(entryToggle).toBeTruthy();
+			await user.click(entryToggle as HTMLElement);
+
+			await waitFor(() => {
+				expect(updateCalled).toBe(true);
+			});
+
+			// Should have entry_enabled with uuid-2 set to false
+			expect(updateData).toMatchObject({
+				entry_enabled: { "uuid-2": false },
+			});
+		});
+
+		it("Toggling last enabled entry shows error toast", async () => {
+			const groupWithOneEntry = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						provider_name: "OpenAI",
+						model_id: "gpt-4",
+						enabled: true,
+						model_uuid: "uuid-only",
+					},
+				],
+			};
+
+			let updateCalled = false;
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithOneEntry],
+						last_synced_at: null,
+					}),
+				),
+				http.put("/api/failover-groups/:id", async () => {
+					updateCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			// Find the OpenAI entry container, then find its toggle
+			const openaiEntry = screen
+				.getByText("OpenAI")
+				.closest(".relative.flex.items-center");
+			expect(openaiEntry).toBeTruthy();
+			const entryToggle = openaiEntry?.querySelector('button[role="switch"]');
+			expect(entryToggle).toBeTruthy();
+			await user.click(entryToggle as HTMLElement);
+
+			// Should show error toast
+			await waitFor(() => {
+				expect(
+					screen.getByText("At least one provider must remain active"),
+				).toBeInTheDocument();
+			});
+
+			// Should NOT call update
+			expect(updateCalled).toBe(false);
+		});
+	});
+
+	describe("Copy Model Name", () => {
+		it("Clicking model name copies hotel/model to clipboard", async () => {
+			const groupWithEntries = {
+				...mockFailoverGroup,
+				display_model: "test-model",
+				entries: [
+					{
+						provider_name: "Test Provider",
+						model_id: "test-model",
+						enabled: true,
+						model_uuid: "model-001",
+					},
+				],
+			};
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
+			});
+
+			// Click the model name (it's a div with role="button" and title="Click to copy")
+			const modelNameElement = screen.getByText("hotel/test-model");
+			await user.click(modelNameElement);
+
+			// Verify clipboard was called (the toast should appear)
+			await waitFor(() => {
+				expect(screen.getByText("Copied hotel/test-model")).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Bulk Model Toggle", () => {
+		it("Selecting groups shows bulk action buttons", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					entries: [
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const checkboxes = screen.getAllByRole("checkbox");
+			await user.click(checkboxes[0]);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 group selected")).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Enable all entries" }),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Disable all entries" }),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Deselect" }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Enable all entries in selected groups", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: false,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					entries: [
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: false,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const checkboxes = screen.getAllByRole("checkbox");
+			await user.click(checkboxes[0]);
+			await user.click(checkboxes[1]);
+
+			await waitFor(() => {
+				expect(screen.getByText("2 groups selected")).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Enable all entries" }),
+			);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(2);
+				expect(putCalls[0].data).toEqual({ entry_enabled: { "uuid-1": true } });
+				expect(putCalls[1].data).toEqual({ entry_enabled: { "uuid-2": true } });
+			});
+		});
+
+		it("Disable all entries also disables group when group was enabled", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					group_enabled: true,
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const checkboxes = screen.getAllByRole("checkbox");
+			await user.click(checkboxes[0]);
+
+			await user.click(
+				screen.getByRole("button", { name: "Disable all entries" }),
+			);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(1);
+				expect(putCalls[0].data).toEqual({
+					entry_enabled: { "uuid-1": false },
+					group_enabled: false,
+				});
+			});
+		});
+
+		it("Bulk toggle error shows error toast", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", () =>
+					HttpResponse.json({ error: "Failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const checkboxes = screen.getAllByRole("checkbox");
+			await user.click(checkboxes[0]);
+
+			await user.click(
+				screen.getByRole("button", { name: "Disable all entries" }),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("Bulk toggle failed for some groups"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Deselect clears selection", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const checkboxes = screen.getAllByRole("checkbox");
+			await user.click(checkboxes[0]);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 group selected")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Deselect" }));
+
+			await waitFor(() => {
+				expect(screen.queryByText("1 group selected")).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("button", { name: "Enable all entries" }),
+				).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Bulk Provider Toggle", () => {
+		it("Provider filter shows provider action bar", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("1 group with OpenAI entries"),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Enable all OpenAI" }),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Disable all OpenAI" }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Enable all provider entries across groups", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: false,
+							model_uuid: "uuid-1",
+						},
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+
+			await user.click(
+				screen.getByRole("button", { name: "Enable all OpenAI" }),
+			);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(1);
+				expect(putCalls[0].data).toEqual({
+					entry_enabled: { "uuid-1": true, "uuid-2": true },
+				});
+			});
+		});
+
+		it("Disable all provider entries preserves other providers' enabled state", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+
+			await user.click(
+				screen.getByRole("button", { name: "Disable all OpenAI" }),
+			);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(1);
+				expect(putCalls[0].data).toEqual({
+					entry_enabled: { "uuid-1": false, "uuid-2": true },
+				});
+			});
+		});
+
+		it("Disable all provider entries also disables group when no entries remain enabled", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					group_enabled: true,
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+
+			await user.click(
+				screen.getByRole("button", { name: "Disable all OpenAI" }),
+			);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(1);
+				expect(putCalls[0].data).toEqual({
+					entry_enabled: { "uuid-1": false },
+					group_enabled: false,
+				});
+			});
+		});
+
+		it("Bulk provider toggle error shows error toast", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.put("/api/failover-groups/:id", () =>
+					HttpResponse.json({ error: "Failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+
+			await user.click(
+				screen.getByRole("button", { name: "Disable all OpenAI" }),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("Bulk provider toggle failed for some groups"),
+				).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Badge", () => {
+		it("Shows enabled/disabled badge when groups have mixed states", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					group_enabled: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					group_enabled: false,
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+			);
+
+			renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 enabled")).toBeInTheDocument();
+				expect(screen.getByText("1 disabled")).toBeInTheDocument();
+			});
+		});
+
+		it("Does not show badge when all groups same state", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					group_enabled: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					group_enabled: true,
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+			);
+
+			renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.queryByText("enabled")).not.toBeInTheDocument();
+				expect(screen.queryByText("disabled")).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Alphabet Sidebar", () => {
+		it("Shows alphabet sidebar when more than 3 letter groups", async () => {
+			const groups = [
+				{ ...mockFailoverGroup, display_model: "alpha-model" },
+				{ ...mockFailoverGroup, id: "fg-002", display_model: "beta-model" },
+				{ ...mockFailoverGroup, id: "fg-003", display_model: "gamma-model" },
+				{ ...mockFailoverGroup, id: "fg-004", display_model: "delta-model" },
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+			);
+
+			renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByRole("button", { name: "A" })).toBeInTheDocument();
+				expect(screen.getByRole("button", { name: "B" })).toBeInTheDocument();
+				expect(screen.getByRole("button", { name: "D" })).toBeInTheDocument();
+				expect(screen.getByRole("button", { name: "G" })).toBeInTheDocument();
+			});
+		});
+
+		it("Does not show alphabet sidebar with 3 or fewer letter groups", async () => {
+			const groups = [
+				{ ...mockFailoverGroup, display_model: "alpha-model" },
+				{ ...mockFailoverGroup, id: "fg-002", display_model: "beta-model" },
+				{ ...mockFailoverGroup, id: "fg-003", display_model: "gamma-model" },
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+			);
+
+			renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("button", { name: "A" }),
+				).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Empty State Actions", () => {
+		it("Empty state with no filters shows auto-discover action", async () => {
+			let syncCalled = false;
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups: [], last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () => {
+					syncCalled = true;
+					return HttpResponse.json({ disabled_groups: [] });
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("No failover groups configured"),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Auto-discover from models" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Auto-discover from models" }),
+			);
+
+			await waitFor(() => {
+				expect(syncCalled).toBe(true);
+			});
+		});
+
+		it("Empty state with filters shows clear filters action", async () => {
+			const groups = [{ ...mockFailoverGroup, display_model: "alpha-model" }];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const filterInput = screen.getByPlaceholderText("Filter hotel/model…");
+			await user.type(filterInput, "NonExistentModel");
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("No groups matching filters"),
+				).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Clear filters" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+				expect(
+					screen.queryByText("No groups matching filters"),
+				).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Group Card Checkbox", () => {
+		it("Checking group card checkbox selects the group", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const checkboxes = screen.getAllByRole("checkbox");
+			expect((checkboxes[0] as HTMLInputElement).checked).toBe(false);
+
+			await user.click(checkboxes[0]);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 group selected")).toBeInTheDocument();
 			});
 		});
 	});

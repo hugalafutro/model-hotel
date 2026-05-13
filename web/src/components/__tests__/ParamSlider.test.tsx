@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ParamSlider } from "../ParamSlider";
 
@@ -158,5 +158,114 @@ describe("ParamSlider", () => {
 		expect(numberInput).toHaveAttribute("placeholder", "off");
 		// When value is undefined, the number input has empty string value
 		expect(numberInput.getAttribute("value")).toBe("");
+	});
+
+	it("calls onChange(undefined) when number input is cleared to empty string", async () => {
+		const user = userEvent.setup();
+		render(
+			<ParamSlider
+				label="Temperature"
+				value={0.5}
+				min={0}
+				max={1}
+				step={0.1}
+				onChange={onChange}
+			/>,
+		);
+		const spinbutton = screen.getByRole("spinbutton");
+		await user.clear(spinbutton);
+		expect(onChange).toHaveBeenCalledWith(undefined);
+	});
+
+	it("calls onChange(undefined) when number input value is just a dash", () => {
+		render(
+			<ParamSlider
+				label="Temperature"
+				value={0.5}
+				min={0}
+				max={1}
+				step={0.1}
+				onChange={onChange}
+			/>,
+		);
+		const spinbutton = screen.getByRole("spinbutton");
+		fireEvent.change(spinbutton, { target: { value: "-" } });
+		expect(onChange).toHaveBeenCalledWith(undefined);
+	});
+
+	it("calls onChange(undefined) when number input value is just a dot", () => {
+		render(
+			<ParamSlider
+				label="Temperature"
+				value={0.5}
+				min={0}
+				max={1}
+				step={0.1}
+				onChange={onChange}
+			/>,
+		);
+		const spinbutton = screen.getByRole("spinbutton");
+		fireEvent.change(spinbutton, { target: { value: "." } });
+		expect(onChange).toHaveBeenCalledWith(undefined);
+	});
+
+	it("hides tooltip on mouse leave", async () => {
+		const user = userEvent.setup();
+		render(
+			<ParamSlider
+				label="Temperature"
+				value={0.5}
+				min={0}
+				max={1}
+				step={0.1}
+				onChange={onChange}
+				disabled
+				disabledReason="Not available"
+			/>,
+		);
+		const container = screen.getByText("Temperature").parentElement;
+		if (container) {
+			await user.hover(container);
+			expect(screen.getByRole("tooltip")).toBeInTheDocument();
+			await user.unhover(container);
+			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+		}
+	});
+
+	it("does not show tooltip when disabled but no disabledReason", async () => {
+		const user = userEvent.setup();
+		render(
+			<ParamSlider
+				label="Temperature"
+				value={0.5}
+				min={0}
+				max={1}
+				step={0.1}
+				onChange={onChange}
+				disabled
+			/>,
+		);
+		const container = screen.getByText("Temperature").parentElement;
+		if (container) {
+			await user.hover(container);
+			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+		}
+	});
+
+	it("does not call onChange from range slider when disabled", () => {
+		render(
+			<ParamSlider
+				label="Temperature"
+				value={0.5}
+				min={0}
+				max={1}
+				step={0.1}
+				onChange={onChange}
+				disabled
+			/>,
+		);
+		const slider = screen.getByRole("slider");
+		fireEvent.change(slider, { target: { value: "0.8" } });
+		expect(onChange).not.toHaveBeenCalled();
 	});
 });

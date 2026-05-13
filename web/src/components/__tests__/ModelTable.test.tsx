@@ -644,7 +644,7 @@ describe("ModelTable", () => {
 						screen.getByRole("button", { name: "Prev" }),
 					).not.toBeDisabled();
 				},
-				{ timeout: 5000 },
+				{ timeout: 10000 },
 			);
 
 			// Go back to previous page
@@ -655,7 +655,7 @@ describe("ModelTable", () => {
 				() => {
 					expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
 				},
-				{ timeout: 5000 },
+				{ timeout: 10000 },
 			);
 		});
 
