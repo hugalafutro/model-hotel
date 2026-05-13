@@ -193,22 +193,47 @@ export function useChat() {
 		handleAudioSelect,
 	} = useMultimodalAttachments(hasVision, toast);
 
-	const scrollToBottom = useCallback(() => {
+	const scrollToBottom = useCallback((smooth = false) => {
 		requestAnimationFrame(() => {
 			const el = messagesContainerRef.current;
-			if (el) el.scrollTop = el.scrollHeight;
+			if (!el) return;
+			if (smooth) {
+				el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+			} else {
+				el.scrollTop = el.scrollHeight;
+			}
 		});
 	}, []);
 
+	// Scroll on mount
 	useEffect(() => {
 		scrollToBottom();
 	}, [scrollToBottom]);
 
+	// Scroll after layout settles (e.g. when message bubbles render)
 	useEffect(() => {
 		scrollToBottom();
 		const timer = setTimeout(scrollToBottom, 320);
 		return () => clearTimeout(timer);
 	}, [scrollToBottom]);
+
+	// Smooth auto-scroll during streaming - keeps latest content visible
+	// without being jarring if user is reading earlier messages
+	const streamingContentLen = messages.reduce(
+		(sum, m) => sum + m.content.length,
+		0,
+	);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: streamingContentLen triggers re-scroll on streaming updates
+	useEffect(() => {
+		if (!isStreaming) return;
+		const el = messagesContainerRef.current;
+		if (!el) return;
+		// Only auto-scroll if user is already near the bottom (within 150px)
+		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+		if (nearBottom) {
+			scrollToBottom(true);
+		}
+	}, [streamingContentLen, isStreaming, scrollToBottom]);
 
 	// Shared streaming helper: creates abort controller, assistant placeholder,
 	// streams the response, applies progressive + final updates.

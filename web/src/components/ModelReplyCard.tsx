@@ -8,7 +8,7 @@ import {
 	Settings,
 	Zap,
 } from "lucide-react";
-import { memo, type ReactNode, useEffect, useState } from "react";
+import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import type { GenerationParams } from "../api/types";
 import { formatDuration } from "../utils/format";
 import { is5xxError } from "../utils/model";
@@ -131,6 +131,20 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 }: ModelReplyCardProps) {
 	const [elapsed, setElapsed] = useState(0);
 	const [maximized, setMaximized] = useState(false);
+	const bodyRef = useRef<HTMLDivElement>(null);
+
+	// Auto-scroll body during streaming (Arena cards)
+	const contentLen = (content || "").length + (thinkingContent || "").length;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: contentLen triggers re-scroll on streaming updates
+	useEffect(() => {
+		if (!isStreaming) return;
+		const el = bodyRef.current;
+		if (!el) return;
+		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+		if (nearBottom) {
+			el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+		}
+	}, [contentLen, isStreaming]);
 
 	// Live elapsed timer while streaming
 	useEffect(() => {
@@ -262,7 +276,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 				)}
 
 				{/* ── Body ── */}
-				<div className={bodyClassName || ""}>
+				<div ref={bodyRef} className={bodyClassName || ""}>
 					{error && !content ? (
 						<div className="flex flex-col gap-2">
 							<div className="text-red-400 text-xs">{error}</div>

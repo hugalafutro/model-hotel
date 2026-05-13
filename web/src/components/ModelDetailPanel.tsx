@@ -72,7 +72,7 @@ export function ModelDetailPanel({
 
 	return (
 		<div
-			className={`${embedded ? "" : "ui-card p-3 "}text-xs relative overflow-y-auto max-h-full ${tintClass} ${pulseClass}`}
+			className={`${embedded ? "" : "ui-card p-3 "}text-xs relative max-h-full ${collapsed && collapsible ? "overflow-hidden" : "overflow-y-auto"} ${tintClass} ${pulseClass}`}
 		>
 			{/* Header with collapse arrow + cog */}
 			<div className="flex items-center justify-between">
@@ -137,9 +137,10 @@ export function ModelDetailPanel({
 					)}
 				</div>
 			</div>
+			{!collapsed && <div className="mt-2" />}
 			{!collapsed && model.description && (
 				<p
-					className="text-(--text-secondary) mt-1 line-clamp-10 text-[11px] text-justify"
+					className="text-(--text-secondary) line-clamp-10 text-[11px] text-justify"
 					title={model.description}
 				>
 					{model.description}
