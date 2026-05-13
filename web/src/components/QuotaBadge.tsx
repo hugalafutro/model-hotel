@@ -239,7 +239,7 @@ export function QuotaBadges({
 		<>
 			{quotaData.showNanoBadge &&
 				quotaData.nanogptUsage &&
-				(scope === undefined || scope === "nanogpt") && (
+				(scope == null || scope === "nanogpt") && (
 					<QuotaBadge
 						type="nanogpt"
 						variant={variant}
@@ -250,7 +250,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showZaiCodingBadge &&
 				quotaData.zaiCodingUsage &&
-				(scope === undefined || scope === "zai-coding") && (
+				(scope == null || scope === "zai-coding") && (
 					<QuotaBadge
 						type="zai-coding"
 						variant={variant}
@@ -260,7 +260,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showDsBadge &&
 				quotaData.deepseekBalance &&
-				(scope === undefined || scope === "deepseek") && (
+				(scope == null || scope === "deepseek") && (
 					<QuotaBadge
 						type="deepseek"
 						variant={variant}
@@ -277,7 +277,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showOrBadge &&
 				quotaData.openrouterBalance &&
-				(scope === undefined || scope === "openrouter") && (
+				(scope == null || scope === "openrouter") && (
 					<QuotaBadge
 						type="openrouter"
 						variant={variant}
@@ -287,7 +287,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showOllamaCloudBadge &&
 				quotaData.ollamaCloudAccount &&
-				(scope === undefined || scope === "ollama-cloud") && (
+				(scope == null || scope === "ollama-cloud") && (
 					<QuotaBadge
 						type="ollama-cloud"
 						variant={variant}
