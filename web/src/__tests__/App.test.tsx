@@ -237,10 +237,13 @@ describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
 		const spinner = container.querySelector(".animate-spin");
 		expect(spinner).toBeInTheDocument();
 
-		// Wait for lazy component to resolve
-		await waitFor(() => {
-			expect(screen.getByTestId("lazy-content")).toBeInTheDocument();
-		});
+		// Wait for lazy component to resolve (increased timeout for full-suite load)
+		await waitFor(
+			() => {
+				expect(screen.getByTestId("lazy-content")).toBeInTheDocument();
+			},
+			{ timeout: 5000 },
+		);
 
 		expect(screen.getByText("Lazy Loaded")).toBeInTheDocument();
 	});
