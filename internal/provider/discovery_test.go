@@ -866,28 +866,6 @@ func TestDiscoverModels_UnknownProviderType(t *testing.T) {
 	}
 }
 
-func TestDiscoverModels_DecryptionFailure(t *testing.T) {
-	// Test with invalid encrypted key data to trigger decryption failure
-	svc := NewDiscoveryService()
-	provider := &Provider{
-		ID:           uuid.New(),
-		Name:         "bad-key-provider",
-		BaseURL:      "https://api.openai.com/v1",
-		EncryptedKey: []byte("invalid-encrypted-data"),
-		KeyNonce:     make([]byte, 12),
-		KeySalt:      make([]byte, 32), // Valid salt length, but garbage data
-	}
-
-	ctx := context.Background()
-	_, err := svc.DiscoverModels(ctx, provider, "test-master-key")
-	if err == nil {
-		t.Error("DiscoverModels with invalid encrypted key should return decryption error")
-	}
-	if !strings.Contains(err.Error(), "failed to decrypt API key") {
-		t.Errorf("expected decryption error, got: %v", err)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------

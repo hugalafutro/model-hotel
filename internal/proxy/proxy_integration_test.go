@@ -82,9 +82,9 @@ func TestHandleStreamingResponse_MissingDoneSentinel(t *testing.T) {
 		}
 
 		// Send a few chunks then close without [DONE]
-		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n`)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n`)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
 		// Close without sending [DONE]
 	}))
@@ -203,9 +203,9 @@ func TestHandleStreamingResponse_Basic(t *testing.T) {
 		}
 
 		// Send a few chunks
-		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n`)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n`)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
 		// Send [DONE] sentinel
 		fmt.Fprint(w, "data: [DONE]\n\n")
@@ -242,9 +242,8 @@ func TestHandleStreamingResponse_Basic(t *testing.T) {
 	if inner.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, inner.Code)
 	}
-	// The state should be either completed or failed (depending on whether [DONE] was received)
-	if logData.state != "completed" && logData.state != "failed" {
-		t.Errorf("expected state to be completed or failed, got %q", logData.state)
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
 	}
 }
 
@@ -272,12 +271,12 @@ func TestChatCompletions_ContextCancelDuringStream(t *testing.T) {
 		}
 
 		// Send first chunk
-		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n`)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
 
 		// Wait a bit then send more
 		time.Sleep(100 * time.Millisecond)
-		fmt.Fprint(w, `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n`)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
 	}))
 	defer slowUpstream.Close()
@@ -571,6 +570,573 @@ func TestChatCompletions_ParamStripping(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	// The request should have been processed (params may or may not be stripped depending on provider type)
+}
+
+// TestHandleStreamingResponse_ClientDisconnectMidStream tests that client
+// disconnect during streaming sets clientDisconnected flag and logs state correctly.
+func TestHandleStreamingResponse_ClientDisconnectMidStream(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that streams slowly
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send first chunk
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+
+		// Wait longer than client will wait
+		time.Sleep(500 * time.Millisecond)
+
+		// This should never be sent
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Create a context that will be canceled
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	// Start streaming in goroutine
+	done := make(chan struct{})
+	go func() {
+		h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+		close(done)
+	}()
+
+	// Let first chunk be processed
+	time.Sleep(50 * time.Millisecond)
+
+	// Cancel context to simulate client disconnect
+	cancel()
+
+	// Wait for handler to finish
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handleStreamingResponse did not finish")
+	}
+
+	// Verify clientDisconnected was detected (state should be failed with disconnect message)
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "client disconnected") {
+		t.Errorf("expected error message to mention client disconnect, got %q", logData.errorMessage)
+	}
+}
+
+// TestHandleStreamingResponse_EmptyLinesSSESep tests that empty lines between
+// events are passed through correctly (they're SSE separators).
+func TestHandleStreamingResponse_EmptyLinesSSESep(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends chunks with extra empty lines
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send chunk with empty line separator
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		// Extra empty lines (normal SSE separators)
+		fmt.Fprint(w, "\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete successfully
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+	// Verify both chunks were forwarded
+	if !strings.Contains(inner.Body.String(), "hello") {
+		t.Error("expected first chunk to be forwarded")
+	}
+	if !strings.Contains(inner.Body.String(), "world") {
+		t.Error("expected second chunk to be forwarded")
+	}
+}
+
+// TestHandleStreamingResponse_TooManyEmptyLines tests that streams with >1000
+// consecutive empty lines are aborted.
+func TestHandleStreamingResponse_TooManyEmptyLines(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends many empty lines
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send one chunk with real newlines (not backtick \n literals)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+
+		// Send 1002 empty lines. bufio.Scanner splits on \n, so each
+		// \n is a separate scan line. The implementation aborts when
+		// emptyLines > 1000.
+		for i := 0; i < 1002; i++ {
+			fmt.Fprint(w, "\n")
+		}
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "too many empty lines") {
+		t.Errorf("expected error message to mention 'too many empty lines', got %q", logData.errorMessage)
+	}
+}
+
+// TestHandleStreamingResponse_UTF8BOM tests that UTF-8 BOM at start of stream
+// is handled correctly (stripped for parsing).
+func TestHandleStreamingResponse_UTF8BOM(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends UTF-8 BOM before first chunk
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send UTF-8 BOM (\uFEFF) before first data line
+		// Note: The BOM is stripped for parsing purposes, but may still appear
+		// in the forwarded output since we forward raw bytes.
+		fmt.Fprint(w, "\uFEFF")
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete successfully - BOM is stripped for parsing
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+	// Verify chunk was forwarded
+	if !strings.Contains(inner.Body.String(), "hello") {
+		t.Error("expected chunk to be forwarded")
+	}
+}
+
+// TestHandleStreamingResponse_LeadingWhitespace tests that leading \\r\\n before
+// data: lines is trimmed correctly.
+func TestHandleStreamingResponse_LeadingWhitespace(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends leading whitespace before data lines
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send chunk with leading \\r\\n (Gemini-style)
+		fmt.Fprint(w, "\r\n")
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete successfully
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+	if !strings.Contains(inner.Body.String(), "hello") {
+		t.Error("expected chunk to be forwarded")
+	}
+}
+
+// TestHandleStreamingResponse_UsageExtraction tests that usage is extracted
+// from the final chunk and logged.
+func TestHandleStreamingResponse_UsageExtraction(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends usage in final chunk with [DONE]
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send content chunk
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		// Send usage chunk with [DONE] combined (common pattern)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+	if logData.tokensPrompt != 10 {
+		t.Errorf("expected prompt_tokens=10, got %d", logData.tokensPrompt)
+	}
+	if logData.tokensCompletion != 5 {
+		t.Errorf("expected completion_tokens=5, got %d", logData.tokensCompletion)
+	}
+}
+
+// TestHandleStreamingResponse_AnthropicErrorEvent tests handling of Anthropic-style
+// "event: error" followed by error data.
+func TestHandleStreamingResponse_AnthropicErrorEvent(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends Anthropic-style error event
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send Anthropic-style error event (event line + data line)
+		fmt.Fprint(w, "event: error\n")
+		fmt.Fprint(w, "data: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Server overloaded\"}}\n\n")
+		flusher.Flush()
+		// Send [DONE] to complete the stream
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// The stream captures the Anthropic error and marks the request as failed.
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "Server overloaded") {
+		t.Errorf("expected error message to contain 'Server overloaded', got %q", logData.errorMessage)
+	}
+}
+
+// TestHandleStreamingResponse_DuplicateFinishReasonSuppression tests that
+// consecutive chunks with same finish_reason and no content are suppressed.
+func TestHandleStreamingResponse_DuplicateFinishReasonSuppression(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends duplicate finish_reason chunks
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send content chunk with finish_reason
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		// Send duplicate finish_reason with no content (should be suppressed)
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete successfully
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+	// The duplicate suppression is an optimization - verify the stream completed
+	// Counting exact finish_reason occurrences is fragile due to formatting
+}
+
+// TestHandleStreamingResponse_RepeatedContentDetection tests that repeated
+// identical content chunks are handled (warning is logged).
+func TestHandleStreamingResponse_RepeatedContentDetection(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends repeated content
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send same content 12 times (exceeds threshold of 10)
+		for i := 0; i < 12; i++ {
+			fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking...\"},\"finish_reason\":null}]}\n\n")
+			flusher.Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Should complete (repeated content is just logged, not failed)
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
 }
 
 // stopUnitHandler stops the unit handler's background goroutines

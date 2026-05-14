@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -784,5 +785,479 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 
 	if resp["error"] == nil {
 		t.Error("expected error in response")
+	}
+}
+
+// TestChatCompletions_HotelModelNoAvailableProvider tests that hotel/ prefix
+// with no available provider returns 404.
+func TestChatCompletions_HotelModelNoAvailableProvider(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	defer env.Upstream.Close()
+
+	pool := testDB.Pool()
+	failoverRepo := failover.NewRepository(pool)
+
+	// Create a failover group with no models (empty candidates)
+	groupName := "empty-group-" + uuid.New().String()[:8]
+	if _, err := failoverRepo.UpsertWithConfig(context.Background(), groupName, []uuid.UUID{}, map[string]bool{}, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create empty failover group: %v", err)
+	}
+
+	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should return 404 Not Found (empty failover group returns error)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+// TestChatCompletions_ProviderModelInvalidFormat tests model with multiple slashes
+// like "a/b/c" is handled gracefully.
+func TestChatCompletions_ProviderModelInvalidFormat(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	defer env.Upstream.Close()
+
+	// Model with multiple slashes - should use first two parts
+	body := `{"model": "provider/model/extra", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should return 404 (provider not found) - handled gracefully, not a crash
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+// TestChatCompletions_FailoverWithBackoff tests that when first provider returns
+// 500, the request succeeds with the second provider after backoff.
+func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	// Create first provider that returns 500
+	upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "internal error",
+				"type":    "server_error",
+			},
+		})
+	}))
+	defer upstream1.Close()
+
+	// Create second provider that succeeds
+	upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":      "chatcmpl-test",
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   "success-model",
+			"choices": []map[string]interface{}{
+				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "success"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{
+				"prompt_tokens":     5,
+				"completion_tokens": 7,
+				"total_tokens":      12,
+			},
+		})
+	}))
+	defer upstream2.Close()
+
+	// Create providers
+	keyPair1, _ := auth.Encrypt("key1", "test-master-key-for-integration")
+	keyPair2, _ := auth.Encrypt("key2", "test-master-key-for-integration")
+
+	provider1Name := "fail-provider-" + uuid.New().String()[:8]
+	provider1, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    provider1Name,
+		BaseURL: upstream1.URL,
+		APIKey:  "key1",
+	}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
+
+	provider2Name := "success-provider-" + uuid.New().String()[:8]
+	provider2, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    provider2Name,
+		BaseURL: upstream2.URL,
+		APIKey:  "key2",
+	}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
+
+	// Create models
+	model1 := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       provider1.ID,
+		ModelID:          "shared-model",
+		Name:             "Shared Model 1",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     provider1Name,
+		ProviderEnabled:  true,
+	}
+	model2 := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       provider2.ID,
+		ModelID:          "shared-model",
+		Name:             "Shared Model 2",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     provider2Name,
+		ProviderEnabled:  true,
+	}
+	_ = modelRepo.Upsert(context.Background(), model1)
+	_ = modelRepo.Upsert(context.Background(), model2)
+
+	// Create failover group with both models
+	groupName := "failover-group-" + uuid.New().String()[:8]
+	if _, err := failoverRepo.UpsertWithConfig(context.Background(), groupName, []uuid.UUID{model1.ID, model2.ID}, map[string]bool{model1.ID.String(): true, model2.ID.String(): true}, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+
+	// Create virtual key
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-failover"), "sk-tes...", nil, nil)
+	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
+
+	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, virtualkey.Hash("test-vk-failover"))
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should succeed with second provider after failover
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 after failover, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp["model"] != "success-model" {
+		t.Errorf("expected model 'success-model', got %v", resp["model"])
+	}
+}
+
+// TestChatCompletions_ClientDisconnectDuringBackoff tests that client disconnect
+// during failover backoff returns 408.
+func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	// Create providers that are slow (to allow client disconnect during backoff)
+	upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "error1",
+			},
+		})
+	}))
+	defer upstream1.Close()
+
+	upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This should not be reached because client disconnects during backoff
+		time.Sleep(500 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":      "chatcmpl-test",
+			"choices": []map[string]interface{}{{"message": map[string]interface{}{"content": "success"}}},
+		})
+	}))
+	defer upstream2.Close()
+
+	keyPair1, _ := auth.Encrypt("key1", "test-master-key-for-integration")
+	keyPair2, _ := auth.Encrypt("key2", "test-master-key-for-integration")
+
+	provider1Name := "slow-provider1-" + uuid.New().String()[:8]
+	provider1, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    provider1Name,
+		BaseURL: upstream1.URL,
+		APIKey:  "key1",
+	}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
+
+	provider2Name := "slow-provider2-" + uuid.New().String()[:8]
+	provider2, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    provider2Name,
+		BaseURL: upstream2.URL,
+		APIKey:  "key2",
+	}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
+
+	model1 := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       provider1.ID,
+		ModelID:          "shared-model",
+		Name:             "Model 1",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     provider1Name,
+		ProviderEnabled:  true,
+	}
+	model2 := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       provider2.ID,
+		ModelID:          "shared-model",
+		Name:             "Model 2",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     provider2Name,
+		ProviderEnabled:  true,
+	}
+	_ = modelRepo.Upsert(context.Background(), model1)
+	_ = modelRepo.Upsert(context.Background(), model2)
+
+	groupName := "disconnect-group-" + uuid.New().String()[:8]
+	if _, err := failoverRepo.UpsertWithConfig(context.Background(), groupName, []uuid.UUID{model1.ID, model2.ID}, map[string]bool{model1.ID.String(): true, model2.ID.String(): true}, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-disconnect"), "sk-tes...", nil, nil)
+	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
+
+	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, virtualkey.Hash("test-vk-disconnect"))
+
+	// Create cancellable context
+	ctx, cancel := context.WithCancel(ctx)
+	req = req.WithContext(ctx)
+
+	// Start request in goroutine
+	w := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		handler.ChatCompletions(w, req)
+		close(done)
+	}()
+
+	// Let first attempt complete
+	time.Sleep(50 * time.Millisecond)
+
+	// Cancel during backoff (before second attempt)
+	cancel()
+
+	// Wait for handler to finish
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("ChatCompletions did not finish")
+	}
+
+	// Should get 408 (client disconnected during failover)
+	if w.Code != http.StatusRequestTimeout {
+		t.Errorf("expected 408, got %d", w.Code)
+	}
+}
+
+// TestChatCompletions_ParamRejectionAutoRetry tests that when provider returns
+// 400 with parameter rejection, the proxy retries with param stripped.
+func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	var retryCount atomic.Int32
+	// Create provider that rejects temperature on first request, succeeds on retry
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		retryCount.Add(1)
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+
+		// First request has temperature - reject it with quoted param name
+		if retryCount.Load() == 1 && body["temperature"] != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": map[string]interface{}{
+					"message": "Unsupported parameter: \"temperature\" is not supported for this model",
+					"type":    "invalid_request_error",
+				},
+			})
+			return
+		}
+
+		// Retry or request without temperature - succeed
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":      "chatcmpl-test",
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   body["model"].(string),
+			"choices": []map[string]interface{}{
+				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "success"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{
+				"prompt_tokens":     5,
+				"completion_tokens": 7,
+				"total_tokens":      12,
+			},
+		})
+	}))
+	defer upstream.Close()
+
+	keyPair, _ := auth.Encrypt("test-key", "test-master-key-for-integration")
+	providerName := "retry-provider-" + uuid.New().String()[:8]
+	prov, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: upstream.URL,
+		APIKey:  "test-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+
+	modelID := uuid.New()
+	testModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       prov.ID,
+		ModelID:          "retry-model",
+		Name:             "Retry Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	_ = modelRepo.Upsert(context.Background(), testModel)
+
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-retry"), "sk-tes...", nil, nil)
+	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
+
+	// Request with temperature parameter
+	body := `{"model": "` + providerName + `/retry-model", "messages": [{"role": "user", "content": "hello"}], "stream": false, "temperature": 0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, virtualkey.Hash("test-vk-retry"))
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should succeed after auto-retry
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 after auto-retry, got %d", w.Code)
+	}
+
+	// Verify retry happened
+	if retryCount.Load() != 2 {
+		t.Errorf("expected 2 requests (initial + retry), got %d", retryCount.Load())
 	}
 }

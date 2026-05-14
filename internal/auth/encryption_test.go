@@ -251,3 +251,114 @@ func TestDecryptWithKey_WrongCiphertext(t *testing.T) {
 		t.Error("expected error with wrong ciphertext")
 	}
 }
+
+func TestEncryptDecrypt_LargePlaintext(t *testing.T) {
+	t.Parallel()
+	masterKey := "test-master-key-123"
+	// Generate 100KB of data
+	data := make([]byte, 100*1024)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+	plaintext := string(data)
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if decrypted != plaintext {
+		t.Errorf("Decrypted text doesn't match original. Lengths: expected %d, got %d", len(plaintext), len(decrypted))
+	}
+}
+
+func TestEncryptDecrypt_UnicodeAndSpecialChars(t *testing.T) {
+	t.Parallel()
+	masterKey := "test-master-key-123"
+	// Test with emojis, CJK characters, and null bytes
+	plaintext := "Hello 世界 🌍🎉\x00null\x00bytes 日本語 Ελληνικά"
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if decrypted != plaintext {
+		t.Errorf("Decrypted text doesn't match original. Expected %q, got %q", plaintext, decrypted)
+	}
+}
+
+func TestEncryptDecrypt_EmptyMasterKey(t *testing.T) {
+	t.Parallel()
+	masterKey := ""
+	plaintext := "test-data"
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt with empty master key failed: %v", err)
+	}
+
+	decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Decrypt with empty master key failed: %v", err)
+	}
+
+	if decrypted != plaintext {
+		t.Errorf("Decrypted text doesn't match original. Expected %q, got %q", plaintext, decrypted)
+	}
+}
+
+func TestEncryptDecrypt_Concurrent(t *testing.T) {
+	t.Parallel()
+	masterKey := "test-master-key-123"
+	plaintext := "concurrent-test-data"
+	iterations := 100
+
+	results := make(chan string, iterations)
+	for i := 0; i < iterations; i++ {
+		go func() {
+			encrypted, err := Encrypt(plaintext, masterKey)
+			if err != nil {
+				results <- "encrypt-error: " + err.Error()
+				return
+			}
+			decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+			if err != nil {
+				results <- "decrypt-error: " + err.Error()
+				return
+			}
+			results <- decrypted
+		}()
+	}
+
+	for i := 0; i < iterations; i++ {
+		result := <-results
+		if result != plaintext {
+			t.Errorf("Concurrent operation failed: expected %q, got %q", plaintext, result)
+		}
+	}
+}
+
+func TestDeriveKey_EmptyMasterKey(t *testing.T) {
+	t.Parallel()
+	salt := make([]byte, 32)
+	key := deriveKey("", salt)
+	if len(key) != keyLength {
+		t.Errorf("Expected key length %d, got %d", keyLength, len(key))
+	}
+	// Empty master key should still produce a deterministic key
+	key2 := deriveKey("", salt)
+	if string(key) != string(key2) {
+		t.Error("Same salt and empty master key should produce same derived key")
+	}
+}

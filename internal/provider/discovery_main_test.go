@@ -254,6 +254,522 @@ func TestDiscoverModels(t *testing.T) {
 
 // TestGetZAICodingQuota is defined in discovery_http_test.go with live API testing
 
+func TestDiscoverModels_KeylessProvider(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock OpenAI server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "gpt-4", "object": "model", "created": 1234567890, "owned_by": "openai"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	// Provider with empty EncryptedKey (keyless)
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL,
+		EncryptedKey: []byte{}, // Empty = keyless
+	}
+
+	svc := NewDiscoveryService()
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "gpt-4", models[0].Name)
+}
+
+func TestDiscoverModels_DecryptionFailure(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Provider with invalid encrypted key bytes (will fail decryption)
+	// Use properly sized nonce (12 bytes) and salt (32 bytes) for AES-GCM
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://api.openai.com",
+		EncryptedKey: []byte("invalid-encrypted-key-bytes"),
+		KeyNonce:     make([]byte, 12), // Proper nonce length for AES-GCM
+		KeySalt:      make([]byte, 32), // Proper salt length
+	}
+
+	svc := NewDiscoveryService()
+	_, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decrypt API key")
+}
+
+func TestDiscoverModels_DeepSeekDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock DeepSeek server (uses /models endpoint)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "deepseek-chat", "object": "model", "created": 1234567890, "owned_by": "deepseek"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://api.deepseek.com",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Contains(t, models[0].Name, "deepseek")
+}
+
+func TestDiscoverModels_OllamaDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock Ollama server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/tags":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"models": [{"name": "llama3.2"}]}`))
+		case "/api/show":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"capabilities": [], "model_info": {}, "details": {"family": "llama"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "http://localhost:11434",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "llama3.2", models[0].ModelID)
+}
+
+func TestDiscoverModels_OllamaCloudDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock Ollama Cloud server (same API as Ollama)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/tags":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"models": [{"name": "llama3.1"}]}`))
+		case "/api/show":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"capabilities": [], "model_info": {}, "details": {"family": "llama"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://ollama.com",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "llama3.1", models[0].ModelID)
+}
+
+func TestDiscoverModels_OpenCodeZenDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock OpenCode Zen server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle both /models and /zen/models paths
+		if r.URL.Path == "/models" || r.URL.Path == "/zen/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "big-pickle", "object": "model", "owned_by": "opencode", "created": 1234567890, "pricing": {"prompt": "0.00", "completion": "0.00"}}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://opencode.ai/zen",
+		EncryptedKey: []byte{}, // Keyless
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "big-pickle", models[0].ModelID)
+}
+
+func TestDiscoverModels_OpenCodeGoDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock OpenCode Go server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle both /models and /zen/go/models paths
+		if r.URL.Path == "/models" || r.URL.Path == "/zen/go/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "gpt-4", "object": "model", "owned_by": "opencode", "created": 1234567890}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	// Use opencode.ai/zen/go which will be detected as opencode-go
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://opencode.ai/zen/go",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "gpt-4", models[0].ModelID)
+}
+
+func TestDiscoverModels_XAIDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock xAI server (uses /language-models endpoint)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"models": [{"id": "grok-2", "name": "Grok 2", "capabilities": {"chat": true}}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://api.x.ai",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Contains(t, models[0].Name, "grok")
+}
+
+func TestDiscoverModels_GoogleDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock Google AI Studio server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"models": [{"name": "models/gemini-2.0-flash", "displayName": "Gemini 2.0 Flash", "description": "Test", "inputTokenLimit": 1000000, "outputTokenLimit": 8192, "supportedGenerationMethods": ["generateContent"], "thinking": false}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Contains(t, models[0].ModelID, "gemini")
+}
+
+func TestDiscoverModels_CohereDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock Cohere server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" && r.URL.Query().Get("endpoint") == "chat" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"models": [{"name": "command-r", "endpoints": ["chat"], "context_length": 128000, "features": ["tools"]}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	// Use api.cohere.com which will be detected as cohere
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://api.cohere.com",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "command-r", models[0].ModelID)
+}
+
+func TestDiscoverModels_OpenRouterDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock OpenRouter server (uses /models endpoint)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" || r.URL.Path == "/v1/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "meta-llama/llama-3-8b-instruct", "object": "model", "created": 1234567890, "owned_by": "openrouter"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://openrouter.ai",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	if err != nil {
+		t.Logf("OpenRouter dispatch error: %v", err)
+	}
+	assert.NoError(t, err)
+	if len(models) > 0 {
+		assert.Contains(t, models[0].Name, "llama")
+	}
+}
+
+func TestDiscoverModels_KoboldCPPDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock KoboldCPP server (requires /api/extra/version check and /models endpoint)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/extra/version":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"result": "KoboldCpp", "version": "1.0.0"}`))
+		case "/models":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "kobold-model", "object": "model", "created": 1234567890, "owned_by": "koboldcpp"}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "http://localhost:5001",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "kobold-model", models[0].Name)
+}
+
+func TestDiscoverModels_LMStudioDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock LMStudio server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "lmstudio-model", "object": "model", "created": 1234567890, "owned_by": "lmstudio"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "http://localhost:1234",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "lmstudio-model", models[0].Name)
+}
+
+func TestDiscoverModels_NanoGPTDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock NanoGPT server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" && r.URL.Query().Get("detailed") == "true" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [{"id": "nano-gpt-model", "name": "NanoGPT Model", "description": "Test", "owned_by": "nano-gpt", "capabilities": {"vision": false, "reasoning": false, "tool_calling": false}, "architecture": {"modality": "text", "input_modalities": ["text"], "output_modalities": ["text"]}, "pricing": {"prompt": 0.01, "completion": 0.02}, "context_length": 8192, "max_output_tokens": 4096}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://api.nano-gpt.com",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "nano-gpt-model", models[0].ModelID)
+}
+
+func TestDiscoverModels_ZAICodingDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// ZAI Coding uses static catalog, no HTTP needed
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://api.z.ai",
+	}
+
+	svc := NewDiscoveryService()
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, models)
+	assert.Equal(t, "zhipu", models[0].OwnedBy)
+}
+
+func TestDiscoverModels_ErrorPropagation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mock server that returns 500 error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error"))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://api.deepseek.com",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	_, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.Error(t, err)
+}
+
 func TestLoadModelsDev(t *testing.T) {
 	t.Parallel()
 
@@ -301,8 +817,11 @@ type testTransport struct {
 }
 
 func (m *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Rewrite the URL to point to our mock server
-	req.URL, _ = url.Parse(m.url + req.URL.Path)
+	// Rewrite the URL to point to our mock server, preserving query parameters
+	newURL, _ := url.Parse(m.url + req.URL.Path)
+	newURL.RawQuery = req.URL.RawQuery
+	req.URL = newURL
+	req.Host = "" // Clear Host header to avoid conflicts
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
 		return nil, err

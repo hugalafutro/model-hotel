@@ -11,6 +11,11 @@
   <img src="https://img.shields.io/github/license/hugalafutro/model-hotel" alt="License">
   <img src="https://img.shields.io/github/last-commit/hugalafutro/model-hotel" alt="Last Commit">
   <img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version">
+  <img src="https://img.shields.io/github/v/release/hugalafutro/model-hotel" alt="Release">
+  <img src="https://img.shields.io/badge/ghcr.io-hugalafutro%2Fmodel--hotel-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report">
+  <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel?style=social" alt="Stars">
+  <img src="https://codecov.io/gh/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage">
   <br/>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">

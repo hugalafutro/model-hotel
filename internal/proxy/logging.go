@@ -22,38 +22,51 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	logEntry.requestHash = generateRequestHash()
 	logEntry.insertWg.Add(1)
 
+	// Capture values before spawning goroutine to avoid data races.
+	// The handler modifies logEntry fields after this function returns,
+	// so the goroutine must read from local copies, not the shared struct.
+	id := logEntry.id
+	requestHash := logEntry.requestHash
+	modelID := logEntry.modelID
+	streaming := logEntry.streaming
+	virtualKeyName := logEntry.virtualKeyName
+	virtualKeyID := logEntry.virtualKeyID
+	failoverAttempt := logEntry.failoverAttempt
+	state := logEntry.state
+	wg := &logEntry.insertWg
+
 	go func() {
-		defer logEntry.insertWg.Done()
+		defer wg.Done()
 		defer func() {
 			if r := recover(); r != nil {
-				debuglog.Error("proxy: panic in insertRequestLog", "request_id", logEntry.id, "error", r)
+				debuglog.Error("proxy: panic in insertRequestLog", "request_id", id, "error", r)
 			}
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		var vkID interface{}
-		if logEntry.virtualKeyID != "" {
-			vkID = logEntry.virtualKeyID
+		if virtualKeyID != "" {
+			vkID = virtualKeyID
 		}
 		_, err := h.dbPool.Exec(ctx, `
 			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			logEntry.id, logEntry.modelID, logEntry.requestHash, logEntry.streaming, logEntry.virtualKeyName, vkID, logEntry.failoverAttempt, logEntry.state,
+			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state,
 		)
 		if err != nil {
-			debuglog.Error("proxy: failed to insert initial request log", "request_id", logEntry.id, "error", err)
+			debuglog.Error("proxy: failed to insert initial request log", "request_id", id, "error", err)
 			return
 		}
 		events.Publish(events.Event{
 			Type:     "request.started",
 			Severity: "info",
-			Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
+			Message:  fmt.Sprintf("Request started: %s", modelID),
 			Metadata: map[string]interface{}{
-				"request_id": logEntry.id,
-				"model_id":   logEntry.modelID,
-				"streaming":  logEntry.streaming,
-				"state":      logEntry.state,
+				"request_id": id,
+				"model_id":   modelID,
+				"streaming":  streaming,
+				"state":      state,
 			},
 		})
 	}()

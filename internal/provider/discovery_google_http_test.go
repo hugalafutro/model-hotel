@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -264,5 +265,200 @@ func TestDiscoverGoogleAIStudio_InvalidResponse(t *testing.T) {
 	_, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
 	if err == nil {
 		t.Error("Expected error for invalid JSON, got nil")
+	}
+}
+
+func TestDiscoverGoogleAIStudio_FiltersNonRelevantModels(t *testing.T) {
+	t.Parallel()
+
+	// Create test server with mix of relevant and non-relevant models
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						// Relevant model (has generateContent)
+						Name:                       "models/gemini-2.0-flash",
+						DisplayName:                "Gemini 2.0 Flash",
+						Description:                "Test model",
+						InputTokenLimit:            1000000,
+						OutputTokenLimit:           8192,
+						SupportedGenerationMethods: []string{"generateContent"},
+						Thinking:                   false,
+					},
+					{
+						// Non-relevant model (video generation only)
+						Name:                       "models/veo-2.0",
+						DisplayName:                "Veo 2.0",
+						Description:                "Video generation",
+						InputTokenLimit:            1000,
+						OutputTokenLimit:           100,
+						SupportedGenerationMethods: []string{"generateVideo"},
+						Thinking:                   false,
+					},
+					{
+						// Non-relevant model (embedding only)
+						Name:                       "models/text-embedding-004",
+						DisplayName:                "Text Embedding",
+						Description:                "Embeddings",
+						InputTokenLimit:            2048,
+						OutputTokenLimit:           768,
+						SupportedGenerationMethods: []string{"embedContent"},
+						Thinking:                   false,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+
+	// Should only return relevant models (gemini and embedding)
+	// Note: embedding is considered relevant due to embedContent method
+	if len(models) != 2 {
+		t.Errorf("Expected 2 models (filtered non-relevant), got %d", len(models))
+	}
+
+	// Verify gemini model is included
+	found := false
+	for _, m := range models {
+		if m.ModelID == "gemini-2.0-flash" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected gemini-2.0-flash to be included")
+	}
+}
+
+func TestDiscoverGoogleAIStudio_WithPricingEnrichment(t *testing.T) {
+	t.Parallel()
+
+	// Create test server with a model that has pricing in catalog
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						Name:                       "models/gemini-2.5-flash",
+						DisplayName:                "Gemini 2.5 Flash",
+						Description:                "Lightweight model",
+						InputTokenLimit:            1000000,
+						OutputTokenLimit:           8192,
+						SupportedGenerationMethods: []string{"generateContent"},
+						Thinking:                   false,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	// Verify pricing was enriched
+	if models[0].InputPricePerMillion == nil {
+		t.Error("Expected InputPricePerMillion to be set from pricing catalog")
+	}
+	if models[0].OutputPricePerMillion == nil {
+		t.Error("Expected OutputPricePerMillion to be set from pricing catalog")
+	}
+}
+
+func TestDiscoverGoogleAIStudio_VisionModel(t *testing.T) {
+	t.Parallel()
+
+	// Create test server with vision-capable model
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						Name:                       "models/gemini-2.0-flash",
+						DisplayName:                "Gemini 2.0 Flash",
+						Description:                "Vision model",
+						InputTokenLimit:            1000000,
+						OutputTokenLimit:           8192,
+						SupportedGenerationMethods: []string{"generateContent"},
+						Thinking:                   false,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+
+	if !caps.Vision {
+		t.Error("Expected Vision capability for gemini-2.0-flash")
+	}
+
+	// Check input modalities include image
+	if !strings.Contains(models[0].InputModalities, "image") {
+		t.Errorf("Expected image in InputModalities, got %s", models[0].InputModalities)
 	}
 }

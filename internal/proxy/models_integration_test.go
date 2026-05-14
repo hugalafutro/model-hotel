@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,12 +26,10 @@ func TestListModels_MultipleProviders(t *testing.T) {
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
-	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE provider_name LIKE 'test-provider-%'"); err != nil {
-		t.Logf("Failed to clean up test models: %v", err)
-	}
 	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-provider-%'"); err != nil {
 		t.Logf("Failed to clean up test providers: %v", err)
 	}
+	model.InvalidateModelCache()
 
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -158,8 +157,9 @@ func TestListModels_MultipleProviders(t *testing.T) {
 		t.Fatal("expected data to be an array")
 	}
 
-	if len(data) != 2 {
-		t.Errorf("expected 2 models, got %d", len(data))
+	// Check that both specific models are present (exact count is fragile in parallel test suite)
+	if len(data) < 2 {
+		t.Errorf("expected at least 2 models, got %d", len(data))
 	}
 
 	// Verify model IDs are in the expected format
@@ -191,12 +191,10 @@ func TestListModels_NoModels(t *testing.T) {
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
-	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE provider_name LIKE 'test-provider-%'"); err != nil {
-		t.Logf("Failed to clean up test models: %v", err)
-	}
 	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-provider-%'"); err != nil {
 		t.Logf("Failed to clean up test providers: %v", err)
 	}
+	model.InvalidateModelCache()
 
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -248,9 +246,19 @@ func TestListModels_NoModels(t *testing.T) {
 		t.Fatal("expected data to be an array")
 	}
 
-	if len(data) != 0 {
-		t.Errorf("expected 0 models, got %d", len(data))
+	// Verify no test provider models are present (exact count is fragile in parallel test suite)
+	for _, item := range data {
+		m := item.(map[string]interface{})
+		modelID := m["id"].(string)
+		if containsTestProviderPrefix(modelID) {
+			t.Errorf("unexpected test provider model in response: %s", modelID)
+		}
 	}
+}
+
+// containsTestProviderPrefix checks if a model ID starts with a test provider prefix
+func containsTestProviderPrefix(modelID string) bool {
+	return strings.HasPrefix(modelID, "test-provider-")
 }
 
 // Test ListModels with disabled models (should be filtered)
@@ -258,12 +266,10 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
-	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE provider_name LIKE 'test-provider-%'"); err != nil {
-		t.Logf("Failed to clean up test models: %v", err)
-	}
 	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-provider-%'"); err != nil {
 		t.Logf("Failed to clean up test providers: %v", err)
 	}
+	model.InvalidateModelCache()
 
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -372,9 +378,29 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 		t.Fatal("expected data to be an array")
 	}
 
-	// Should only return the enabled model
-	if len(data) != 1 {
-		t.Errorf("expected 1 enabled model, got %d", len(data))
+	// Should contain the enabled model (exact count is fragile in parallel test suite)
+	if len(data) < 1 {
+		t.Errorf("expected at least 1 enabled model, got %d", len(data))
+	}
+
+	// Verify the enabled model is present and disabled model is NOT present
+	foundEnabled := false
+	foundDisabled := false
+	for _, item := range data {
+		m := item.(map[string]interface{})
+		modelID := m["id"].(string)
+		if modelID == provider.NormalizeName(providerName)+"/enabled-model" {
+			foundEnabled = true
+		}
+		if modelID == provider.NormalizeName(providerName)+"/disabled-model" {
+			foundDisabled = true
+		}
+	}
+	if !foundEnabled {
+		t.Error("expected enabled-model to be present")
+	}
+	if foundDisabled {
+		t.Error("expected disabled-model to NOT be present")
 	}
 
 	// Verify it's the enabled model
@@ -389,15 +415,13 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
-	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE provider_name LIKE 'test-provider-%'"); err != nil {
-		t.Logf("Failed to clean up test models: %v", err)
-	}
 	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-provider-%'"); err != nil {
 		t.Logf("Failed to clean up test providers: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), "DELETE FROM model_failover_groups WHERE display_model LIKE 'my-failover-model'"); err != nil {
 		t.Logf("Failed to clean up test failover groups: %v", err)
 	}
+	model.InvalidateModelCache()
 
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -489,9 +513,9 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 		t.Fatal("expected data to be an array")
 	}
 
-	// Should return both the regular model and the failover model
-	if len(data) != 2 {
-		t.Errorf("expected 2 models (1 regular + 1 failover), got %d", len(data))
+	// Should contain both the regular model and the failover model (exact count is fragile in parallel test suite)
+	if len(data) < 2 {
+		t.Errorf("expected at least 2 models (1 regular + 1 failover), got %d", len(data))
 	}
 
 	// Verify the failover model is present

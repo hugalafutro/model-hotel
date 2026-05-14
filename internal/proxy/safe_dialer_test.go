@@ -3,6 +3,8 @@ package proxy
 import (
 	"context"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -93,21 +95,16 @@ func TestIsBlockedIP_Unspecified(t *testing.T) {
 	}
 }
 
-// TestSafeDialer_ResolveThenCheck tests the dialer's resolution and blocking
-// logic against a host that resolves to a known public IP. We use a lookup on
-// example.com to verify the dialer does not block public hosts. This test
-// requires working DNS and network access.
 func TestSafeDialer_PublicHostAllowed(t *testing.T) {
-	// Resolve a public host to verify it passes the check.
-	host := "example.com"
-	ips, err := net.DefaultResolver.LookupIPAddr(context.Background(), host)
-	if err != nil {
-		t.Skipf("DNS resolution failed for %s: %v", host, err)
-	}
-
-	for _, ip := range ips {
-		if isBlockedIP(ip.IP) {
-			t.Fatalf("expected %s (resolved from %s) to NOT be blocked, got blocked", ip.IP, host)
+	// Verify that public IPs pass the isBlockedIP check
+	publicIPs := []string{"93.184.216.34", "8.8.8.8", "1.1.1.1"}
+	for _, ipStr := range publicIPs {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			t.Fatalf("failed to parse IP %s", ipStr)
+		}
+		if isBlockedIP(ip) {
+			t.Errorf("expected public IP %s to NOT be blocked", ipStr)
 		}
 	}
 }
@@ -309,4 +306,62 @@ func TestSafeDialer_AllResolvedIPsBlocked(t *testing.T) {
 	if !strings.Contains(err.Error(), "refused connection to private/reserved IP") {
 		t.Errorf("expected blocked-IP error, got: %v", err)
 	}
+}
+
+func TestIsBlockedIP_IPv6MappedIPv4Private(t *testing.T) {
+	t.Parallel()
+	// ::ffff:10.0.0.1 should be blocked (IPv6-mapped IPv4 private address)
+	if !isBlockedIP(net.ParseIP("::ffff:10.0.0.1")) {
+		t.Error("expected ::ffff:10.0.0.1 to be blocked")
+	}
+	// ::ffff:192.168.1.1 should also be blocked
+	if !isBlockedIP(net.ParseIP("::ffff:192.168.1.1")) {
+		t.Error("expected ::ffff:192.168.1.1 to be blocked")
+	}
+}
+
+func TestIsBlockedIP_IPv6UniqueLocal(t *testing.T) {
+	t.Parallel()
+	// fc00::/7 is IPv6 unique local address (ULA)
+	if !isBlockedIP(net.ParseIP("fc00::1")) {
+		t.Error("expected fc00::1 to be blocked")
+	}
+	if !isBlockedIP(net.ParseIP("fd00::1")) {
+		t.Error("expected fd00::1 to be blocked")
+	}
+	if !isBlockedIP(net.ParseIP("fd12:3456:789a::1")) {
+		t.Error("expected fd12:3456:789a::1 to be blocked")
+	}
+}
+
+func TestIsBlockedIP_IPv6MappedIPv4Loopback(t *testing.T) {
+	t.Parallel()
+	// ::ffff:127.0.0.1 should be caught as loopback (already tested but ensure coverage)
+	if !isBlockedIP(net.ParseIP("::ffff:127.0.0.1")) {
+		t.Error("expected ::ffff:127.0.0.1 to be blocked")
+	}
+}
+
+// TestSafeDialer_DialByIP exercises the path where DialContext dials by IP
+// after DNS resolution returns at least one allowed IP.
+func TestSafeDialer_DialByIP(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+
+	// Extract host:port from server URL (e.g. "127.0.0.1:PORT")
+	hostPort := strings.TrimPrefix(srv.URL, "http://")
+	host, _, _ := net.SplitHostPort(hostPort)
+
+	// 127.0.0.1 is blocked by default, so add the host (without port) to allowed hosts
+	// The SafeDialer extracts host from addr using SplitHostPort before checking allowlist
+	sdWithAllow := NewSafeDialer([]string{host})
+
+	conn, err := sdWithAllow.DialContext(ctx, "tcp", hostPort)
+	if err != nil {
+		t.Fatalf("expected successful dial to local server, got: %v", err)
+	}
+	conn.Close()
 }

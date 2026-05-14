@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -253,5 +255,141 @@ func TestOllamaShowModel_Success(t *testing.T) {
 	ctxLen := show.ModelInfo["llama.context_length"]
 	if ctxLen != float64(16384) {
 		t.Errorf("Expected context length 16384, got %v", ctxLen)
+	}
+}
+
+func TestGetOllamaCloudAccount_Success(t *testing.T) {
+	t.Parallel()
+
+	// Create test server with mock Ollama Cloud account response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/me" && r.Method == "POST" {
+			response := OllamaCloudAccount{
+				ID:    "test-user-id",
+				Email: "test@example.com",
+				Name:  "Test User",
+				Plan:  "pro",
+				CustomerID: OllamaCloudNullableString{
+					String: "cus_test123",
+					Valid:  true,
+				},
+				SubscriptionID: OllamaCloudNullableString{
+					String: "sub_test456",
+					Valid:  true,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	// Create provider with encrypted key
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL + "/v1",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	account, err := service.GetOllamaCloudAccount(context.Background(), provider, masterKey)
+	if err != nil {
+		t.Fatalf("GetOllamaCloudAccount failed: %v", err)
+	}
+
+	if account.ID != "test-user-id" {
+		t.Errorf("Expected ID 'test-user-id', got '%s'", account.ID)
+	}
+	if account.Email != "test@example.com" {
+		t.Errorf("Expected email 'test@example.com', got '%s'", account.Email)
+	}
+	if account.Name != "Test User" {
+		t.Errorf("Expected name 'Test User', got '%s'", account.Name)
+	}
+	if account.Plan != "pro" {
+		t.Errorf("Expected plan 'pro', got '%s'", account.Plan)
+	}
+	if !account.CustomerID.Valid || account.CustomerID.String != "cus_test123" {
+		t.Errorf("Expected customer ID 'cus_test123', got %+v", account.CustomerID)
+	}
+}
+
+func TestGetOllamaCloudAccount_DecryptionFailure(t *testing.T) {
+	t.Parallel()
+
+	service := &DiscoveryService{
+		httpClient: http.DefaultClient,
+	}
+
+	// Create provider with invalid encrypted key
+	// Use properly sized nonce (12 bytes) and salt (32 bytes) for AES-GCM
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://ollama.com/v1",
+		EncryptedKey: []byte("invalid-encrypted-key"),
+		KeyNonce:     make([]byte, 12), // Proper nonce length
+		KeySalt:      make([]byte, 32), // Proper salt length
+	}
+
+	_, err := service.GetOllamaCloudAccount(context.Background(), provider, "wrong-master-key")
+	if err == nil {
+		t.Fatal("Expected error for invalid encrypted key, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to decrypt API key") {
+		t.Errorf("Expected decryption error, got: %v", err)
+	}
+}
+
+func TestGetOllamaCloudAccount_Non200Status(t *testing.T) {
+	t.Parallel()
+
+	// Create test server that returns 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/me" {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL + "/v1",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	_, err = service.GetOllamaCloudAccount(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Fatal("Expected error for non-200 status, got nil")
 	}
 }

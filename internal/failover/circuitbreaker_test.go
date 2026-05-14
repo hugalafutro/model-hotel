@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -421,5 +422,191 @@ func TestCircuitBreaker_SeverityForState(t *testing.T) {
 				t.Errorf("severityForState(%q) = %q, want %q", tt.state, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCircuitBreaker_IsOpen_Concurrent(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(100, 30*time.Second)
+	pid := uuid.New()
+
+	// Pre-populate with some failures but not enough to open
+	for i := 0; i < 50; i++ {
+		cb.RecordFailure(pid)
+	}
+
+	var wg sync.WaitGroup
+	isOpenResults := make(chan bool, 100)
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			isOpenResults <- cb.IsOpen(pid)
+		}()
+	}
+	wg.Wait()
+	close(isOpenResults)
+
+	// All calls should return false (closed state)
+	for result := range isOpenResults {
+		if result {
+			t.Error("Concurrent IsOpen calls should all return false for closed circuit")
+		}
+	}
+}
+
+func TestCircuitBreaker_IsOpen_HalfOpenState(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	// Open the circuit
+	cb.RecordFailure(pid)
+	if !cb.IsOpen(pid) {
+		t.Fatal("should be open after 1 failure")
+	}
+
+	// Wait for cooldown to elapse
+	time.Sleep(60 * time.Millisecond)
+
+	// First IsOpen call transitions to half-open and returns false
+	if cb.IsOpen(pid) {
+		t.Error("IsOpen should return false after transitioning to half-open")
+	}
+
+	// Verify state is half-open
+	if s := cb.GetState(pid); s != StateHalfOpen {
+		t.Errorf("expected StateHalfOpen, got %v", s)
+	}
+
+	// Subsequent IsOpen calls while in half-open should also return false
+	if cb.IsOpen(pid) {
+		t.Error("IsOpen should return false for half-open circuit (allow probe)")
+	}
+}
+
+func TestCircuitBreaker_IsOpen_RaceWithRecordSuccess(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	// Open the circuit
+	cb.RecordFailure(pid)
+	time.Sleep(60 * time.Millisecond)
+
+	// Trigger transition to half-open
+	cb.IsOpen(pid)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 20)
+	for i := 0; i < 10; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("panic in IsOpen: %v", r)
+				}
+			}()
+			_ = cb.IsOpen(pid)
+		}()
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("panic in RecordSuccess: %v", r)
+				}
+			}()
+			cb.RecordSuccess(pid)
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Error(err)
+	}
+
+	// Circuit should be closed after successful probe
+	if cb.IsOpen(pid) {
+		t.Error("circuit should be closed after successful probe in half-open state")
+	}
+}
+
+func TestCircuitBreaker_IsOpen_MultipleProviders(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(3, 30*time.Second)
+	pid1 := uuid.New()
+	pid2 := uuid.New()
+	pid3 := uuid.New()
+
+	// Open only pid1
+	cb.RecordFailure(pid1)
+	cb.RecordFailure(pid1)
+	cb.RecordFailure(pid1)
+
+	// pid2 and pid3 should remain closed
+	if cb.IsOpen(pid1) {
+		// pid1 is open
+	} else {
+		t.Error("pid1 should be open after 3 failures")
+	}
+
+	if cb.IsOpen(pid2) {
+		t.Error("pid2 should be closed (no failures recorded)")
+	}
+
+	if cb.IsOpen(pid3) {
+		t.Error("pid3 should be closed (no failures recorded)")
+	}
+
+	// Verify independence
+	statuses := cb.Status()
+	if len(statuses) != 1 {
+		t.Errorf("expected 1 status entry, got %d", len(statuses))
+	}
+}
+
+func TestCircuitBreaker_IsOpen_OpenToHalfOpenTransition(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 100*time.Millisecond)
+	pid := uuid.New()
+
+	// Open the circuit
+	cb.RecordFailure(pid)
+
+	// Verify it's open
+	if !cb.IsOpen(pid) {
+		t.Error("should be open immediately after failure")
+	}
+
+	// Wait for exactly the cooldown period
+	time.Sleep(110 * time.Millisecond)
+
+	// IsOpen should now transition to half-open and return false
+	isOpen := cb.IsOpen(pid)
+	if isOpen {
+		t.Error("IsOpen should return false after cooldown (half-open state)")
+	}
+
+	// Verify the state transitioned
+	if s := cb.GetState(pid); s != StateHalfOpen {
+		t.Errorf("expected StateHalfOpen after cooldown, got %v", s)
+	}
+}
+
+func TestCircuitBreaker_IsOpen_UnknownProvider(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(3, 30*time.Second)
+	unknownPID := uuid.New()
+
+	// Never record any failures for this provider
+	if cb.IsOpen(unknownPID) {
+		t.Error("IsOpen should return false for unknown provider")
+	}
+
+	// Verify state is closed
+	if s := cb.GetState(unknownPID); s != StateClosed {
+		t.Errorf("expected StateClosed for unknown provider, got %v", s)
 	}
 }

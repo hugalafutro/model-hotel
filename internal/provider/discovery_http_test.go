@@ -723,3 +723,139 @@ func TestGetZAICodingQuota(t *testing.T) {
 
 	t.Logf("ZAI Coding quota test passed - %d limits found", len(quota.Data.Limits))
 }
+
+func TestGetZAICodingQuota_MockServer(t *testing.T) {
+	t.Parallel()
+
+	// Create test server with mock ZAI Coding quota response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/monitor/usage/quota/limit" && r.Method == "GET" {
+			response := ZAICodingQuotaResponse{
+				Code:    0,
+				Msg:     "success",
+				Success: true,
+				Data: ZAICodingQuotaData{
+					Level: "level-1",
+					Limits: []ZAICodingQuotaLimit{
+						{
+							Type:          "daily",
+							Unit:          1,
+							Number:        1000000,
+							Usage:         10000,
+							CurrentValue:  990000,
+							Remaining:     990000,
+							Percentage:    1.0,
+							NextResetTime: 1735689600,
+							UsageDetails: []ZAICodingQuotaUsageDetail{
+								{ModelCode: "glm-4-flash", Usage: 5000},
+								{ModelCode: "glm-4-air", Usage: 5000},
+							},
+						},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	// Use custom transport to redirect requests to mock server
+	service := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+
+	// Create provider with encrypted key
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://api.z.ai",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	quota, err := service.GetZAICodingQuota(context.Background(), provider, masterKey)
+	if err != nil {
+		t.Fatalf("GetZAICodingQuota failed: %v", err)
+	}
+
+	if quota == nil {
+		t.Fatal("expected non-nil quota")
+	}
+
+	if !quota.Success {
+		t.Error("expected Success=true")
+	}
+	if quota.Code != 0 {
+		t.Errorf("expected Code=0, got %d", quota.Code)
+	}
+	if quota.Msg != "success" {
+		t.Errorf("expected Msg='success', got '%s'", quota.Msg)
+	}
+	if len(quota.Data.Limits) != 1 {
+		t.Errorf("expected 1 limit, got %d", len(quota.Data.Limits))
+	}
+	if quota.Data.Limits[0].Type != "daily" {
+		t.Errorf("expected Type='daily', got '%s'", quota.Data.Limits[0].Type)
+	}
+	if quota.Data.Limits[0].Remaining != 990000 {
+		t.Errorf("expected Remaining=990000, got %d", quota.Data.Limits[0].Remaining)
+	}
+	if len(quota.Data.Limits[0].UsageDetails) != 2 {
+		t.Errorf("expected 2 usage details, got %d", len(quota.Data.Limits[0].UsageDetails))
+	}
+}
+
+func TestGetZAICodingQuota_Non200Status(t *testing.T) {
+	t.Parallel()
+
+	// Create test server that returns 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/monitor/usage/quota/limit" {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	// Use custom transport to redirect requests to mock server
+	service := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://api.z.ai",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	_, err = service.GetZAICodingQuota(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Fatal("Expected error for non-200 status, got nil")
+	}
+}

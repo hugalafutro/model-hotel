@@ -39,7 +39,14 @@ jobs:
         env:
           POSTGRES_PASSWORD: changeme
           TEST_DATABASE_URL: postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable
-        run: go test -timeout 5m ./...
+        run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload Go coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+          flags: backend
+          fail_ci_if_error: false
 
   go-lint:
     name: Go Lint
@@ -95,7 +102,14 @@ jobs:
         run: pnpm run lint
 
       - name: Test
-        run: pnpm test
+        run: pnpm vitest run --coverage
+
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: web/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
 
       - name: Build
         run: pnpm run build
