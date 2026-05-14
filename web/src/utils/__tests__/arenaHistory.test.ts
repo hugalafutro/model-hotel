@@ -81,28 +81,33 @@ describe("arenaHistory", () => {
 		});
 
 		it("handles localStorage errors gracefully", () => {
-			// Clear localStorage first
-			localStorage.clear();
-
-			// Mock setItem to throw on the localStorage instance directly.
-			// vi.spyOn(Storage.prototype) doesn't work in jsdom because
-			// localStorage has its own bound setItem that bypasses the prototype.
-			const origSetItem = localStorage.setItem.bind(localStorage);
-			Object.defineProperty(localStorage, "setItem", {
-				value: () => {
+			// Replace localStorage with a mock that throws on setItem.
+			// Object.defineProperty and vi.spyOn don't work on jsdom's
+			// non-configurable localStorage in CI.
+			const realStorage = globalThis.localStorage;
+			const store: Record<string, string> = {};
+			vi.stubGlobal("localStorage", {
+				getItem: (key: string) => store[key] ?? null,
+				setItem: () => {
 					throw new Error("Storage error");
 				},
-				configurable: true,
+				removeItem: (key: string) => {
+					delete store[key];
+				},
+				clear: () => {
+					for (const k of Object.keys(store)) delete store[k];
+				},
+				get length() {
+					return Object.keys(store).length;
+				},
+				key: (i: number) => Object.keys(store)[i] ?? null,
 			});
 
 			expect(() => setArenaHistoryEnabled(true)).not.toThrow();
 			// When setItem fails, the value is not persisted
 			expect(getArenaHistoryEnabled()).toBe(false);
 
-			Object.defineProperty(localStorage, "setItem", {
-				value: origSetItem,
-				configurable: true,
-			});
+			vi.stubGlobal("localStorage", realStorage);
 		});
 	});
 

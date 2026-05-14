@@ -29,20 +29,15 @@ const mockState: ArenaPersistenceState = {
 // Full hook tests require the StorageProvider and ToastProvider contexts
 
 describe("useArenaPersistence - localStorage behavior", () => {
-	let origSetItem: typeof Storage.prototype.setItem;
+	let realStorage: Storage;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		localStorage.clear();
-		origSetItem = localStorage.setItem;
+		realStorage = globalThis.localStorage;
 	});
 
 	afterEach(() => {
-		Object.defineProperty(localStorage, "setItem", {
-			value: origSetItem,
-			configurable: true,
-		});
-		localStorage.clear();
+		vi.stubGlobal("localStorage", realStorage);
 	});
 
 	function mockSetItem(
@@ -51,9 +46,20 @@ describe("useArenaPersistence - localStorage behavior", () => {
 			...args: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any[]
 		) => void,
 	) {
-		Object.defineProperty(localStorage, "setItem", {
-			value: impl,
-			configurable: true,
+		const store: Record<string, string> = {};
+		vi.stubGlobal("localStorage", {
+			getItem: (key: string) => store[key] ?? null,
+			setItem: impl,
+			removeItem: (key: string) => {
+				delete store[key];
+			},
+			clear: () => {
+				for (const k of Object.keys(store)) delete store[k];
+			},
+			get length() {
+				return Object.keys(store).length;
+			},
+			key: (i: number) => Object.keys(store)[i] ?? null,
 		});
 	}
 

@@ -253,15 +253,15 @@ describe("AppLogs", () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
 			// Timestamps are formatted - locale-agnostic match
-			// The format varies by locale (DD/MM/YYYY vs MM/DD/YYYY, different separators)
-			// Just verify a timestamp-like string containing "2026" and "11:30" appears
-			expect(
-				screen.getByText((_content, element) => {
-					return element?.tagName === "TD"
-						? /2026.*11:30/.test(element.textContent ?? "")
-						: false;
-				}),
-			).toBeInTheDocument();
+			// The format varies by locale and timezone (DD/MM/YYYY vs MM/DD/YYYY,
+			// UTC vs local). Just verify a timestamp-like string containing "2026"
+			// and a time pattern (HH:MM:SS) appears in a table cell.
+			const cells = screen.getAllByText((_content, element) => {
+				return element?.tagName === "TD"
+					? /2026.*\d{2}:\d{2}:\d{2}/.test(element.textContent ?? "")
+					: false;
+			});
+			expect(cells.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
