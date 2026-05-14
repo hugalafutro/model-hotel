@@ -477,8 +477,8 @@ func TestRefreshAllQuotas_UnsupportedType(t *testing.T) {
 func TestDiscoverAllModels_DiscoveryError(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	// Create a provider with unreachable URL (using a non-routable address)
-	providerData := `{"name": "test-discovery-error", "base_url": "https://192.0.2.1", "api_key": "sk-test123"}`
+	// Create a provider with unreachable URL (connection refused immediately)
+	providerData := `{"name": "test-discovery-error", "base_url": "http://127.0.0.1:1", "api_key": "sk-test123"}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -662,5 +662,498 @@ func TestDiscoverAllModels_WithEnabledProvider(t *testing.T) {
 	}
 	if response.Results[0].Error != "" {
 		t.Errorf("Expected no error, got %s", response.Results[0].Error)
+	}
+}
+
+// TestGetProviderUsage_ZAICodingError tests that GetProviderUsage handles
+// z.ai API errors (note: z.ai returns 200 with error JSON for invalid keys).
+func TestGetProviderUsage_ZAICodingError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with z.ai URL and fake key
+	providerName := fmt.Sprintf("test-zai-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.z.ai", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get usage - z.ai returns 200 with error JSON for invalid keys
+	// This exercises the zai-coding case in GetProviderUsage
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	// Note: z.ai API returns 200 with error JSON body for invalid keys
+	// The response should contain quota-related fields or error indication
+	var quotaResp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &quotaResp); err != nil {
+		t.Fatalf("Failed to parse quota response: %v", err)
+	}
+	// Verify the response was processed (either success or error JSON)
+	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 200 or 500 for z.ai API call, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestGetProviderUsage_NanoGPTError tests that GetProviderUsage returns 500
+// when the NanoGPT API call fails with an invalid key.
+func TestGetProviderUsage_NanoGPTError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with NanoGPT URL (with hyphen) and fake key
+	providerName := fmt.Sprintf("test-nanogpt-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.nano-gpt.com", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get usage - should fail with 500 due to fake key
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for NanoGPT API error, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to fetch usage") {
+		t.Errorf("Expected error about failed to fetch usage, got: %s", rec.Body.String())
+	}
+}
+
+// TestGetProviderUsage_OpenRouterError tests that GetProviderUsage returns 500
+// when the OpenRouter API call fails with an invalid key.
+func TestGetProviderUsage_OpenRouterError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with OpenRouter URL and fake key
+	providerName := fmt.Sprintf("test-openrouter-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://openrouter.ai", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get usage - should fail with 500 due to fake key
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for OpenRouter API error, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to fetch key balance") {
+		t.Errorf("Expected error about failed to fetch key balance, got: %s", rec.Body.String())
+	}
+}
+
+// TestGetProviderBalance_DeepSeekError tests that GetProviderBalance returns 500
+// when the DeepSeek API call fails with an invalid key.
+func TestGetProviderBalance_DeepSeekError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with DeepSeek URL and fake key
+	providerName := fmt.Sprintf("test-deepseek-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.deepseek.com", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get balance - should fail with 500 due to fake key
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/balance", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for DeepSeek API error, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to fetch balance") {
+		t.Errorf("Expected error about failed to fetch balance, got: %s", rec.Body.String())
+	}
+}
+
+// TestGetOllamaCloudAccount_Error tests that GetOllamaCloudAccount returns 500
+// when the Ollama Cloud API call fails with an invalid key.
+func TestGetOllamaCloudAccount_Error(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with Ollama Cloud URL and fake key
+	providerName := fmt.Sprintf("test-ollama-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://ollama.com", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get account - should fail with 500 due to fake key
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/account", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for Ollama Cloud API error, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to fetch ollama cloud account") {
+		t.Errorf("Expected error about failed to fetch ollama cloud account, got: %s", rec.Body.String())
+	}
+}
+
+// TestRefreshAllQuotas_WithSupportedTypes tests that RefreshAllQuotas handles
+// multiple provider types with errors for unsupported types.
+func TestRefreshAllQuotas_WithSupportedTypes(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create Provider A: nanogpt type (will fail with fake key)
+	// Note: z.ai returns 200 with error JSON for invalid keys, so it may succeed
+	providerAName := fmt.Sprintf("test-quota-nanogpt-%s", uuid.New().String()[:8])
+	providerAData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.nano-gpt.com", "api_key": "fake-key"}`, providerAName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerAData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider A: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Create Provider B: zai-coding type (may return 200 with error JSON)
+	providerBName := fmt.Sprintf("test-quota-zai-%s", uuid.New().String()[:8])
+	providerBData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.z.ai", "api_key": "fake-key"}`, providerBName)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerBData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider B: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Create Provider C: openai type (unsupported for quota - will be skipped)
+	providerCName := fmt.Sprintf("test-quota-openai-%s", uuid.New().String()[:8])
+	providerCData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.openai.com", "api_key": "fake-key"}`, providerCName)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerCData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider C: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Run refresh-quotas
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// nanogpt should fail, zai-coding may succeed with error JSON, openai should be skipped
+	// At minimum: nanogpt fails, openai skipped
+	if response.Failed < 1 {
+		t.Errorf("Expected failed >= 1 (nanogpt), got %d", response.Failed)
+	}
+	if response.Skipped < 1 {
+		t.Errorf("Expected skipped >= 1 (openai), got %d", response.Skipped)
+	}
+
+	// Verify results array has entries for supported types
+	var nanogptFound, zaiFound bool
+	for _, result := range response.Results {
+		if result.ProviderType == "nanogpt" {
+			nanogptFound = true
+		}
+		if result.ProviderType == "zai-coding" {
+			zaiFound = true
+		}
+	}
+	if !nanogptFound {
+		t.Error("Expected nanogpt result in results")
+	}
+	if !zaiFound {
+		t.Error("Expected zai-coding result in results")
+	}
+}
+
+// TestRefreshAllQuotas_DeepSeekError tests that RefreshAllQuotas handles
+// DeepSeek API errors correctly.
+func TestRefreshAllQuotas_DeepSeekError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with DeepSeek URL and fake key
+	providerName := fmt.Sprintf("test-quota-deepseek-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.deepseek.com", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Run refresh-quotas
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Failed < 1 {
+		t.Errorf("Expected failed >= 1, got %d", response.Failed)
+	}
+
+	// Verify the result has provider_type: "deepseek" and non-empty error
+	var deepSeekFound bool
+	for _, result := range response.Results {
+		if result.ProviderType == "deepseek" && result.Error != "" {
+			deepSeekFound = true
+			break
+		}
+	}
+	if !deepSeekFound {
+		t.Error("Expected deepseek result with error in results")
+	}
+}
+
+// TestRefreshAllQuotas_OllamaCloudError tests that RefreshAllQuotas handles
+// Ollama Cloud API errors correctly.
+func TestRefreshAllQuotas_OllamaCloudError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with Ollama Cloud URL and fake key
+	providerName := fmt.Sprintf("test-quota-ollama-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://ollama.com", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Run refresh-quotas
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Failed < 1 {
+		t.Errorf("Expected failed >= 1, got %d", response.Failed)
+	}
+
+	// Verify the result has provider_type: "ollama-cloud" and non-empty error
+	var ollamaFound bool
+	for _, result := range response.Results {
+		if result.ProviderType == "ollama-cloud" && result.Error != "" {
+			ollamaFound = true
+			break
+		}
+	}
+	if !ollamaFound {
+		t.Error("Expected ollama-cloud result with error in results")
+	}
+}
+
+// TestRefreshAllQuotas_OpenRouterError tests that RefreshAllQuotas handles
+// OpenRouter API errors correctly.
+func TestRefreshAllQuotas_OpenRouterError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with OpenRouter URL and fake key
+	providerName := fmt.Sprintf("test-quota-openrouter-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://openrouter.ai", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Run refresh-quotas
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Failed < 1 {
+		t.Errorf("Expected failed >= 1, got %d", response.Failed)
+	}
+
+	// Verify the result has provider_type: "openrouter" and non-empty error
+	var openrouterFound bool
+	for _, result := range response.Results {
+		if result.ProviderType == "openrouter" && result.Error != "" {
+			openrouterFound = true
+			break
+		}
+	}
+	if !openrouterFound {
+		t.Error("Expected openrouter result with error in results")
+	}
+}
+
+// TestDiscoverProviderModels_DiscoveryError tests that DiscoverProviderModels
+// returns 500 when model discovery fails due to unreachable URL.
+func TestDiscoverProviderModels_DiscoveryError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a provider with unreachable URL (localhost port 1, refuses immediately)
+	providerName := fmt.Sprintf("test-discover-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "http://127.0.0.1:1", "api_key": "sk-test123"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to discover models - should fail with 500 due to unreachable URL
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/"+createResp.ID+"/discover", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for discovery error, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to discover models") {
+		t.Errorf("Expected error about failed to discover models, got: %s", rec.Body.String())
 	}
 }
