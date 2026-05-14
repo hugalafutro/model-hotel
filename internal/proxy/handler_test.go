@@ -420,16 +420,6 @@ func TestRegister_RequiresAuth(t *testing.T) {
 // RegisterAdminChat tests
 // ---------------------------------------------------------------------------
 
-func TestRegisterAdminChat(t *testing.T) {
-	h := newUnitHandler()
-	defer stopUnitHandler(h)
-
-	r := chi.NewRouter()
-
-	// This should not panic
-	h.RegisterAdminChat(r)
-}
-
 func TestRegisterAdminChat_SetsUpRoutes(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
