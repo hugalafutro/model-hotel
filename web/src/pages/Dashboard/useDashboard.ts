@@ -194,26 +194,30 @@ export function useDashboard(): UseDashboardReturn {
 	const [virtualKeysMetric, setVirtualKeysMetric] =
 		useState<MetricType>(globalMetric);
 
-	// Sync locals when global header toggles change (render-time pattern per React docs)
-	const [prevGlobalRange, setPrevGlobalRange] = useState(globalRange);
-	const [prevGlobalMetric, setPrevGlobalMetric] = useState(globalMetric);
-	if (prevGlobalRange !== globalRange) {
-		setPrevGlobalRange(globalRange);
-		setRequestsChartRange(globalRange);
-		setTokensChartRange(globalRange);
-		setDoughnutRange(globalRange);
-		setTokenRange(globalRange);
-		setModelsRange(globalRange);
-		setProvidersRange(globalRange);
-		setVirtualKeysRange(globalRange);
-	}
-	if (prevGlobalMetric !== globalMetric) {
-		setPrevGlobalMetric(globalMetric);
-		setDoughnutMetric(globalMetric);
-		setModelsMetric(globalMetric);
-		setProvidersMetric(globalMetric);
-		setVirtualKeysMetric(globalMetric);
-	}
+	// Sync locals when global header toggles change
+	const prevGlobalRangeRef = useRef(globalRange);
+	const prevGlobalMetricRef = useRef(globalMetric);
+	useEffect(() => {
+		if (prevGlobalRangeRef.current !== globalRange) {
+			prevGlobalRangeRef.current = globalRange;
+			setRequestsChartRange(globalRange);
+			setTokensChartRange(globalRange);
+			setDoughnutRange(globalRange);
+			setTokenRange(globalRange);
+			setModelsRange(globalRange);
+			setProvidersRange(globalRange);
+			setVirtualKeysRange(globalRange);
+		}
+	}, [globalRange]);
+	useEffect(() => {
+		if (prevGlobalMetricRef.current !== globalMetric) {
+			prevGlobalMetricRef.current = globalMetric;
+			setDoughnutMetric(globalMetric);
+			setModelsMetric(globalMetric);
+			setProvidersMetric(globalMetric);
+			setVirtualKeysMetric(globalMetric);
+		}
+	}, [globalMetric]);
 
 	// Modal states
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);
