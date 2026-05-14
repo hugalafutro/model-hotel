@@ -180,6 +180,8 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 
 > **Security:** The Docker socket is disabled by default in `docker-compose.yml`. Enable it only if you need container-level stats in the sidebar and trust the deployment environment.
 
+> **ARM:** Prebuilt images include `linux/arm64` (Apple Silicon, Raspberry Pi, AWS Graviton, Oracle Cloud free tier). Built via QEMU emulation; not tested on physical ARM hardware. If you hit an ARM-specific issue, please file a bug.
+
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
 
 No `git clone` needed. Create two files and go:
