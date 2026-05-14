@@ -120,7 +120,7 @@ func TestPublishWithIDAndTimestamp(t *testing.T) {
 	b.Unsubscribe(ch)
 }
 
-func TestConcurrentSubscribePublish(_ *testing.T) {
+func TestConcurrentSubscribePublish(t *testing.T) {
 	b := NewBus()
 	var wg sync.WaitGroup
 
@@ -152,9 +152,24 @@ func TestConcurrentSubscribePublish(_ *testing.T) {
 
 	wg.Wait()
 
-	// Clean up remaining subscribers.
-	for _, ch := range subs {
+	// Verify all pre-registered subscriber channels received at least one event
+	for i, ch := range subs {
+		eventCount := 0
+		drainDone := make(chan struct{})
+		go func() {
+			for range ch {
+				eventCount++
+			}
+			close(drainDone)
+		}()
+		// Give a brief moment for any pending events
+		time.Sleep(10 * time.Millisecond)
 		b.Unsubscribe(ch)
+		<-drainDone
+
+		if eventCount == 0 {
+			t.Errorf("subscriber %d received no events", i)
+		}
 	}
 }
 
@@ -162,7 +177,7 @@ func TestConcurrentSubscribePublish(_ *testing.T) {
 // Publish after Unsubscribe (panic recovery)
 // ---------------------------------------------------------------------------
 
-func TestPublishAfterUnsubscribe_NoPanic(_ *testing.T) {
+func TestPublishAfterUnsubscribe_NoPanic(t *testing.T) {
 	// This tests the recover() path in Publish — sending to a closed channel
 	// should not panic.
 	b := NewBus()
@@ -180,7 +195,19 @@ func TestPublishAfterUnsubscribe_NoPanic(_ *testing.T) {
 
 	// This should NOT panic even though the channel is closed.
 	// The Publish method has a recover() wrapper.
-	b.Publish(Event{Type: "after-close"})
+	var panicked bool
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				panicked = true
+			}
+		}()
+		b.Publish(Event{Type: "after-close"})
+	}()
+
+	if panicked {
+		t.Error("Publish() after Unsubscribe() should not panic")
+	}
 
 	// Give a moment for any goroutine to complete
 	time.Sleep(10 * time.Millisecond)

@@ -339,10 +339,17 @@ func TestInvalidateModelCache_RemovesAll(t *testing.T) {
 	}
 }
 
-func TestInvalidateModelCache_EmptyCache(_ *testing.T) {
+func TestInvalidateModelCache_EmptyCache(t *testing.T) {
 	// Should not panic on empty cache
 	InvalidateModelCache()
 	InvalidateModelCache()
+
+	// Verify cache is empty after invalidation
+	testUUID := uuid.New()
+	_, ok := GetCachedByUUID(testUUID)
+	if ok {
+		t.Error("GetCachedByUUID should return ok=false after InvalidateModelCache on empty cache")
+	}
 }
 
 func TestInvalidateModelCache_AllowsReinsertion(t *testing.T) {
@@ -401,18 +408,32 @@ func TestWarmModelCache_MultipleModels(t *testing.T) {
 	}
 }
 
-func TestWarmModelCache_EmptySlice(_ *testing.T) {
+func TestWarmModelCache_EmptySlice(t *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic
 	WarmModelCache([]*Model{})
+
+	// Verify cache is still empty after warming with empty slice
+	testUUID := uuid.New()
+	_, ok := GetCachedByUUID(testUUID)
+	if ok {
+		t.Error("GetCachedByUUID should return ok=false after WarmModelCache with empty slice")
+	}
 }
 
-func TestWarmModelCache_NilSlice(_ *testing.T) {
+func TestWarmModelCache_NilSlice(t *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic
 	WarmModelCache(nil)
+
+	// Verify cache is still empty after warming with nil slice
+	testUUID := uuid.New()
+	_, ok := GetCachedByUUID(testUUID)
+	if ok {
+		t.Error("GetCachedByUUID should return ok=false after WarmModelCache with nil slice")
+	}
 }
 
 func TestWarmModelCache_OverwritesExisting(t *testing.T) {

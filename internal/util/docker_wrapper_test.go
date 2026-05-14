@@ -277,7 +277,7 @@ func TestCollectDockerStats(t *testing.T) {
 }
 
 // TestDetectComposeProject tests compose project detection
-func TestDetectComposeProject(_ *testing.T) {
+func TestDetectComposeProject(t *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -317,7 +317,9 @@ func TestDetectComposeProject(_ *testing.T) {
 	// we'll just verify it doesn't panic and returns empty string
 	result := DetectComposeProject()
 	// In test environment without real Docker, this should return empty string
-	_ = result
+	if result != "" {
+		t.Errorf("DetectComposeProject() = %q, want empty string (no real Docker)", result)
+	}
 }
 
 // TestDetectComposeProject_NoLabels tests when container has no compose labels
@@ -517,7 +519,7 @@ func TestGetOwnContainerID_Empty(t *testing.T) {
 }
 
 // TestCloseDockerClient tests client cleanup
-func TestCloseDockerClient(_ *testing.T) {
+func TestCloseDockerClient(t *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -538,12 +540,17 @@ func TestCloseDockerClient(_ *testing.T) {
 		Timeout:   5 * time.Second,
 	}
 
-	// Should not panic
+	// Should not panic - CloseDockerClient closes idle connections on the transport
 	CloseDockerClient()
+
+	// Verify the client still exists (CloseDockerClient doesn't nil it, just closes connections)
+	if sharedDockerCli == nil {
+		t.Error("CloseDockerClient() should not set sharedDockerCli to nil")
+	}
 }
 
 // TestCloseDockerClient_NilClient tests CloseDockerClient when client is nil
-func TestCloseDockerClient_NilClient(_ *testing.T) {
+func TestCloseDockerClient_NilClient(t *testing.T) {
 	resetDockerState()
 
 	// Ensure sharedDockerCli is nil
@@ -551,10 +558,15 @@ func TestCloseDockerClient_NilClient(_ *testing.T) {
 
 	// Should not panic when client is nil
 	CloseDockerClient()
+
+	// Verify sharedDockerCli is still nil after
+	if sharedDockerCli != nil {
+		t.Error("CloseDockerClient() should leave sharedDockerCli as nil when already nil")
+	}
 }
 
 // TestCloseDockerClient_NonTransport tests CloseDockerClient when transport is not *http.Transport
-func TestCloseDockerClient_NonTransport(_ *testing.T) {
+func TestCloseDockerClient_NonTransport(t *testing.T) {
 	resetDockerState()
 
 	// Create client with non-Transport roundtripper
@@ -563,8 +575,13 @@ func TestCloseDockerClient_NonTransport(_ *testing.T) {
 		Timeout:   5 * time.Second,
 	}
 
-	// Should not panic
+	// Should not panic - CloseDockerClient handles non-*http.Transport gracefully
 	CloseDockerClient()
+
+	// Verify the client still exists (CloseDockerClient doesn't nil it)
+	if sharedDockerCli == nil {
+		t.Error("CloseDockerClient() should not set sharedDockerCli to nil")
+	}
 }
 
 // TestCollectDockerStats_NotAvailable tests behavior when Docker is not available

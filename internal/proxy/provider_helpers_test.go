@@ -193,14 +193,16 @@ func TestGetCachedRejectedParams_WrongType(t *testing.T) {
 	}
 }
 
-func TestGetCachedRejectedParams_NilMapValue(_ *testing.T) {
+func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
 	var cache sync.Map
 	cache.Store("key", map[string]bool(nil))
 
 	got := getCachedRejectedParams(&cache, "key")
 	// A nil map[string]bool passes the type assertion, so Load returns it.
 	// This just verifies it doesn't panic.
-	_ = got
+	if got != nil {
+		t.Errorf("getCachedRejectedParams should return nil for nil map value, got %v", got)
+	}
 }
 
 func TestGetCachedRejectedParams_MultipleKeys(t *testing.T) {

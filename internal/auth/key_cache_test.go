@@ -383,12 +383,15 @@ func TestDecryptCached_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestStopKeyCacheEviction(_ *testing.T) {
+func TestStopKeyCacheEviction(t *testing.T) {
 	// Calling Stop should not panic even if called multiple times
 	// (the init() goroutine is already running from package init)
 	StopKeyCacheEviction()
 
 	// Calling Stop again should not panic (nil channel guard)
+	StopKeyCacheEviction()
+
+	// Calling a third time should also not panic (idempotent)
 	StopKeyCacheEviction()
 }
 

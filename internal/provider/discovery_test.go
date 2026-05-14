@@ -601,9 +601,16 @@ func TestToResponse_EmptyStringMaskedKey(t *testing.T) {
 // Provider Cache
 // ---------------------------------------------------------------------------
 
-func TestCacheProvider_NilProvider(_ *testing.T) {
+func TestCacheProvider_NilProvider(t *testing.T) {
 	// Should not panic
 	cacheProvider(nil)
+
+	// Verify nil provider was not cached
+	testUUID := uuid.New()
+	_, ok := GetCachedByID(testUUID)
+	if ok {
+		t.Error("GetCachedByID should return ok=false after cacheProvider(nil)")
+	}
 }
 
 func TestCacheProvider_RoundTrip(t *testing.T) {

@@ -245,12 +245,17 @@ func (e *mockWriteError) Error() string {
 }
 
 // TestWriteJSON_ErrorBranch tests the error path when JSON encoding fails
-func TestWriteJSON_ErrorBranch(_ *testing.T) {
+func TestWriteJSON_ErrorBranch(t *testing.T) {
 	fw := &failingResponseWriter{}
 	data := map[string]string{"key": "value"}
 
 	// This should not panic and should log the error
 	writeJSON(fw, data)
+
+	// Verify writeJSON set Content-Type header before the Write failed
+	if fw.Header() == nil {
+		t.Error("writeJSON should set Content-Type header even when Write fails")
+	}
 }
 
 // TestWriteJSON_Success tests the success path
@@ -284,12 +289,17 @@ func TestWriteJSONCreated_Success(t *testing.T) {
 }
 
 // TestWriteJSONCreated_ErrorBranch tests the error path when JSON encoding fails
-func TestWriteJSONCreated_ErrorBranch(_ *testing.T) {
+func TestWriteJSONCreated_ErrorBranch(t *testing.T) {
 	fw := &failingResponseWriter{}
 	data := map[string]string{"key": "value"}
 
 	// This should not panic and should log the error
 	writeJSONCreated(fw, data)
+
+	// Verify writeJSONCreated set Content-Type header before the Write failed
+	if fw.Header() == nil {
+		t.Error("writeJSONCreated should set Content-Type header even when Write fails")
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -147,10 +147,16 @@ func TestInvalidateFailoverCache_RemovesAll(t *testing.T) {
 	}
 }
 
-func TestInvalidateFailoverCache_EmptyCache(_ *testing.T) {
+func TestInvalidateFailoverCache_EmptyCache(t *testing.T) {
 	// Should not panic on empty cache
 	InvalidateFailoverCache()
 	InvalidateFailoverCache()
+
+	// Verify cache is empty after invalidation
+	_, ok := GetCachedFailoverByModel("nonexistent-model")
+	if ok {
+		t.Error("GetCachedFailoverByModel should return ok=false after InvalidateFailoverCache on empty cache")
+	}
 }
 
 func TestInvalidateFailoverCache_AllowsReinsertion(t *testing.T) {
@@ -228,18 +234,30 @@ func TestWarmFailoverCache_MultipleGroups(t *testing.T) {
 	}
 }
 
-func TestWarmFailoverCache_EmptySlice(_ *testing.T) {
+func TestWarmFailoverCache_EmptySlice(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
 	WarmFailoverCache([]*FailoverGroup{})
+
+	// Verify cache is still empty after warming with empty slice
+	_, ok := GetCachedFailoverByModel("nonexistent-model")
+	if ok {
+		t.Error("GetCachedFailoverByModel should return ok=false after WarmFailoverCache with empty slice")
+	}
 }
 
-func TestWarmFailoverCache_NilSlice(_ *testing.T) {
+func TestWarmFailoverCache_NilSlice(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
 	WarmFailoverCache(nil)
+
+	// Verify cache is still empty after warming with nil slice
+	_, ok := GetCachedFailoverByModel("nonexistent-model")
+	if ok {
+		t.Error("GetCachedFailoverByModel should return ok=false after WarmFailoverCache with nil slice")
+	}
 }
 
 func TestWarmFailoverCache_OverwritesExisting(t *testing.T) {
