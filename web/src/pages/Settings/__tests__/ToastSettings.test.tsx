@@ -162,7 +162,7 @@ describe("ToastSettings", () => {
 		const slider = screen.getByRole("slider");
 		await user.click(slider);
 		// Use keyboard to change slider value (arrow keys adjust range input)
-		await user.keyboard("[ArrowRight]");
+		await user.keyboard("{ArrowRight}");
 		await waitFor(() => {
 			// Timeout display should reflect the new value
 			const timeoutDisplay = screen.getByText(/\d+\.\ds/);
