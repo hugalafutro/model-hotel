@@ -29,8 +29,8 @@ describe("Test infrastructure", () => {
 		const { user } = renderWithProviders(<SimpleComponent />);
 		const button = screen.getByRole("button", { name: /click me/i });
 		await user.click(button);
-		// No crash = success
-		expect(button).toBeInTheDocument();
+		// Verify click was processed (button still functional after interaction)
+		expect(button).not.toBeDisabled();
 	});
 
 	it("MSW intercepts API calls and returns mock data", async () => {
@@ -65,8 +65,8 @@ describe("Test infrastructure", () => {
 
 	it("EventSource mock is available globally", () => {
 		const es = new EventSource("/api/events");
-		expect(es).toBeDefined();
-		expect(es.readyState).toBeDefined();
+		expect(es.readyState).toBe(EventSource.CONNECTING);
 		es.close();
+		expect(es.readyState).toBe(EventSource.CLOSED);
 	});
 });

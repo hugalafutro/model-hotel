@@ -31,16 +31,6 @@ describe("ModelDetailModal", () => {
 		server.resetHandlers();
 	});
 
-	it("renders without crashing", () => {
-		renderWithProviders(<ModelDetailModal {...defaultProps} />);
-
-		// Use getAllByText since name appears in header and display name field
-		expect(screen.getAllByText("Test Model v1")).toHaveLength(2);
-		expect(screen.getByText("Test Provider")).toBeInTheDocument();
-		expect(screen.getByText(/8,192 tokens/)).toBeInTheDocument();
-		expect(screen.getByText(/4,096 tokens/)).toBeInTheDocument();
-	});
-
 	it("displays model header with name and proxy ID", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

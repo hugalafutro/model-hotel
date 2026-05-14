@@ -10,13 +10,6 @@ describe("ModelDetailPanel", () => {
 		model: mockModel,
 	};
 
-	it("renders without crashing", () => {
-		renderWithProviders(<ModelDetailPanel {...defaultProps} />);
-
-		expect(screen.getByText("Test Model v1")).toBeInTheDocument();
-		expect(screen.getByText("Test Provider")).toBeInTheDocument();
-	});
-
 	it("displays model name as title", () => {
 		renderWithProviders(<ModelDetailPanel {...defaultProps} />);
 

@@ -11,13 +11,6 @@ describe("AppearanceSettings", () => {
 		onToggle.mockClear();
 	});
 
-	it("renders without crashing", () => {
-		renderWithProviders(
-			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
-		);
-		expect(screen.getByText("Appearance")).toBeInTheDocument();
-	});
-
 	it("renders UI Style section with all style options", () => {
 		renderWithProviders(
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,

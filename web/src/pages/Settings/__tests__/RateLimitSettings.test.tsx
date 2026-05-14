@@ -34,15 +34,6 @@ describe("RateLimitSettings", () => {
 		onToggle.mockClear();
 	});
 
-	it("renders without crashing", async () => {
-		renderWithProviders(
-			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
-		);
-		await waitFor(() => {
-			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
-		});
-	});
-
 	it("renders section title with Gauge icon", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
