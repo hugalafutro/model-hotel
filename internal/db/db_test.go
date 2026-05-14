@@ -184,3 +184,170 @@ func TestPool(t *testing.T) {
 		t.Error("Pool() should return the same pool instance")
 	}
 }
+
+// TestNew_PoolCreationError tests the error path when pgxpool.NewWithConfig fails.
+// Uses a valid URL format but unreachable port to trigger pool creation failure.
+func TestNew_PoolCreationError(t *testing.T) {
+	ctx := context.Background()
+	// Port 1 is typically unreachable, causing pool creation to fail
+	// while still passing ParseConfig validation
+	_, err := New(ctx, "postgres://user:pass@localhost:1/testdb?sslmode=disable", 25, 5)
+	if err == nil {
+		t.Error("expected error for unreachable database port")
+	}
+}
+
+// TestRunMigration_BeginError tests the error path when tx.Begin fails in runMigration.
+// This is triggered by calling runMigration on a closed pool.
+func TestRunMigration_BeginError(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_begin")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_begin")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+
+	// Close the pool to trigger Begin error
+	d.Close()
+
+	// runMigration should fail when trying to begin a transaction on closed pool
+	err = d.runMigration(ctx, "test.sql", "SELECT 1")
+	if err == nil {
+		t.Error("expected error when running migration on closed pool")
+	}
+}
+
+// TestRunMigration_ExecError tests the error path when migration SQL execution fails.
+// Uses invalid SQL to trigger the exec error path.
+func TestRunMigration_ExecError(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_exec")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_exec")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Use invalid SQL to trigger exec error
+	err = d.runMigration(ctx, "bad.sql", "INVALID SQL SYNTAX !!!")
+	if err == nil {
+		t.Error("expected error for invalid SQL in migration")
+	}
+}
+
+// TestWaitForReady_MaxAttemptsExhausted tests the error path when max attempts are exhausted.
+// Uses a closed pool to ensure Ping always fails.
+func TestWaitForReady_MaxAttemptsExhausted(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_ready")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_ready")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+
+	// Close the pool so Ping always fails
+	d.Close()
+
+	// With maxAttempts=1, should fail immediately with "not ready after 1 attempts"
+	err = d.WaitForReady(ctx, 1)
+	if err == nil {
+		t.Error("expected error when max attempts exhausted")
+	}
+}
+
+// TestWaitForReady_ContextCancelledDuringWait tests the ctx.Done() branch.
+// Cancels the context during the wait sleep to trigger context cancellation.
+func TestWaitForReady_ContextCancelledDuringWait(t *testing.T) {
+	testURL, err := SetupTestDB("db_cancel")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_cancel")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+
+	// Close the pool so Ping always fails
+	d.Close()
+
+	// Cancel context after a short delay to trigger ctx.Done() during sleep
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+
+	err = d.WaitForReady(ctx, 5)
+	if err == nil {
+		t.Error("expected error from context cancellation")
+	}
+}
+
+// TestBuildTestDBURL_EnvOverride tests that TEST_DATABASE_URL env var takes precedence.
+func TestBuildTestDBURL_EnvOverride(t *testing.T) {
+	const expectedURL = "postgres://test:test@localhost:5432/customdb?sslmode=disable"
+	t.Setenv("TEST_DATABASE_URL", expectedURL)
+
+	result := buildTestDBURL()
+	if result != expectedURL {
+		t.Errorf("buildTestDBURL() = %q, want %q", result, expectedURL)
+	}
+}
+
+// TestSetupTestDB_InvalidURL tests the url.Parse error path.
+func TestSetupTestDB_InvalidURL(t *testing.T) {
+	t.Setenv("TEST_DATABASE_URL", "://invalid-url")
+
+	_, err := SetupTestDB("invalid")
+	if err == nil {
+		t.Error("expected error for invalid URL")
+	}
+}
+
+// TestSetupTestDB_ConnectionError tests the pgxpool.New error path.
+// Uses an unreachable host to trigger connection failure.
+func TestSetupTestDB_ConnectionError(t *testing.T) {
+	// Use a valid URL format but unreachable host/port
+	t.Setenv("TEST_DATABASE_URL", "postgres://user:pass@localhost:1/testdb?sslmode=disable")
+
+	_, err := SetupTestDB("unreachable")
+	if err == nil {
+		t.Error("expected error for unreachable database")
+	}
+}
+
+// TestCleanupTestDB_InvalidURL tests the url.Parse error path in CleanupTestDB.
+func TestCleanupTestDB_InvalidURL(t *testing.T) {
+	t.Setenv("TEST_DATABASE_URL", "://invalid-url")
+
+	// CleanupTestDB should not panic, just return silently on error
+	CleanupTestDB("invalid")
+}
+
+// TestCleanupTestDB_ConnectionError tests the pgxpool.New error path in CleanupTestDB.
+// Uses an unreachable host to trigger connection failure.
+func TestCleanupTestDB_ConnectionError(t *testing.T) {
+	// Use a valid URL format but unreachable host/port
+	t.Setenv("TEST_DATABASE_URL", "postgres://user:pass@localhost:1/testdb?sslmode=disable")
+
+	// CleanupTestDB should not panic, just return silently on error
+	CleanupTestDB("unreachable")
+}
