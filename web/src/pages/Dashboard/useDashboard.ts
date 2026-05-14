@@ -70,7 +70,6 @@ export interface UseDashboardReturn {
 
 	// Loading states
 	statsLoading: boolean;
-	gaugeStatsLoading: boolean;
 	modelsLoading: boolean;
 	providersLoading: boolean;
 	tsDataLoading: boolean;
@@ -83,11 +82,9 @@ export interface UseDashboardReturn {
 
 	// Error states
 	statsError: Error | null;
-	gaugeStatsError: Error | null;
 
 	// Query data
 	stats: Stats | undefined;
-	gaugeStats: Stats | undefined;
 	models: Model[] | undefined;
 	providers: Provider[] | undefined;
 	tsData: TimeSeriesStats | undefined;
@@ -298,22 +295,6 @@ export function useDashboard(): UseDashboardReturn {
 		retry: 1,
 	});
 
-	const {
-		data: gaugeStats,
-		isLoading: gaugeStatsLoading,
-		error: gaugeStatsError,
-	} = useQuery({
-		queryKey: [
-			"stats",
-			globalRange === "1h" ? "1h" : globalRange,
-			excludeDeleted,
-		],
-		queryFn: () => api.stats.get({ period: globalRange, excludeDeleted }),
-		placeholderData: (prev) => prev,
-		refetchInterval: dashboardRefreshMs,
-		retry: 1,
-	});
-
 	const { data: models, isLoading: modelsLoading } = useQuery({
 		queryKey: ["models", excludeDeleted],
 		queryFn: () =>
@@ -456,10 +437,10 @@ export function useDashboard(): UseDashboardReturn {
 		globalRange === "1h" ? "1h" : globalRange === "24h" ? "1d" : "7d";
 	const gaugeRequestCount =
 		globalRange === "1h"
-			? gaugeStats?.requests_last_1h || 0
+			? stats?.requests_last_1h || 0
 			: globalRange === "24h"
-				? gaugeStats?.total_requests_last_24h || 0
-				: gaugeStats?.total_requests_last_7d || 0;
+				? stats?.total_requests_last_24h || 0
+				: stats?.total_requests_last_7d || 0;
 
 	const acData = (() => {
 		if (!tsData?.points) return [];
@@ -617,7 +598,6 @@ export function useDashboard(): UseDashboardReturn {
 
 		// Loading states
 		statsLoading,
-		gaugeStatsLoading,
 		modelsLoading,
 		providersLoading,
 		tsDataLoading,
@@ -630,11 +610,9 @@ export function useDashboard(): UseDashboardReturn {
 
 		// Error states
 		statsError,
-		gaugeStatsError,
 
 		// Query data
 		stats,
-		gaugeStats,
 		models,
 		providers,
 		tsData,

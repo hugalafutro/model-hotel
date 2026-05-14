@@ -87,7 +87,6 @@ export function Dashboard() {
 
 		// Loading states
 		statsLoading,
-		gaugeStatsLoading,
 		modelsLoading,
 		providersLoading,
 		tsDataLoading,
@@ -100,11 +99,9 @@ export function Dashboard() {
 
 		// Error states
 		statsError,
-		gaugeStatsError,
 
 		// Query data
 		stats,
-		gaugeStats,
 		models,
 		providers,
 		provDist,
@@ -205,11 +202,11 @@ export function Dashboard() {
 				}
 				actions={
 					<div className="flex gap-4">
-						{gaugeStatsLoading ? (
+						{statsLoading ? (
 							<div className="flex items-center justify-center gap-2 py-4 text-sm text-(--text-muted)">
 								Loading gauges…
 							</div>
-						) : gaugeStatsError ? (
+						) : statsError ? (
 							<div className="flex items-center justify-center gap-2 py-4 text-sm text-red-400">
 								<AlertTriangle size={14} />{" "}
 								<span>Failed to load gauge stats</span>
@@ -228,7 +225,7 @@ export function Dashboard() {
 								/>
 								<Gauge
 									label={`Avg TTFT/${rangeLabel}`}
-									value={(gaugeStats?.avg_ttft_ms || 0) / 1000}
+									value={(stats?.avg_ttft_ms || 0) / 1000}
 									decimals={1}
 									suffix="s"
 									color={accents.latency}
@@ -236,38 +233,32 @@ export function Dashboard() {
 									tooltip="Click to view TTFT history"
 									maxScale={Math.max(
 										1,
-										((gaugeStats?.avg_ttft_ms || 0) / 1000) * 1.5,
+										((stats?.avg_ttft_ms || 0) / 1000) * 1.5,
 									)}
 								/>
 								<Gauge
 									label={`Avg Overhead/${rangeLabel}`}
-									value={gaugeStats?.avg_overhead_ms || 0}
+									value={stats?.avg_overhead_ms || 0}
 									decimals={1}
 									suffix="ms"
 									color={accents.overhead}
 									onClick={() => setOverheadModalOpen(true)}
 									tooltip="Click to view overhead history"
-									maxScale={Math.max(
-										100,
-										(gaugeStats?.avg_overhead_ms || 0) * 1.5,
-									)}
+									maxScale={Math.max(100, (stats?.avg_overhead_ms || 0) * 1.5)}
 								/>
 								<Gauge
 									label={`Rate Limit Hits/${rangeLabel}`}
-									value={gaugeStats?.rate_limit_hits || 0}
+									value={stats?.rate_limit_hits || 0}
 									decimals={0}
 									suffix=""
 									color="#a855f7"
 									onClick={() => setRateLimitModalOpen(true)}
 									tooltip="Click to view rate limit hit history"
-									maxScale={Math.max(
-										10,
-										(gaugeStats?.rate_limit_hits || 0) * 1.5,
-									)}
+									maxScale={Math.max(10, (stats?.rate_limit_hits || 0) * 1.5)}
 								/>
 								<Gauge
 									label={`Error Rate/${rangeLabel}`}
-									value={(gaugeStats?.error_rate || 0) * 100}
+									value={(stats?.error_rate || 0) * 100}
 									decimals={1}
 									suffix="%"
 									color={accents.errors}
@@ -300,7 +291,7 @@ export function Dashboard() {
 					label={`Requests/${rangeLabel}`}
 					value={
 						globalRange === "1h"
-							? gaugeStats?.requests_last_1h || 0
+							? stats?.requests_last_1h || 0
 							: globalRange === "24h"
 								? stats?.total_requests_last_24h || 0
 								: stats?.total_requests_last_7d || 0
