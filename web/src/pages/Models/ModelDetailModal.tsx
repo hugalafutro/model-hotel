@@ -15,6 +15,27 @@ import {
 } from "../../utils/model";
 import { useModelEditor } from "./useModelEditor";
 
+/** Small revert button that restores a field to its discovered default value. */
+function RevertButton({
+	onClick,
+	className,
+}: {
+	onClick: () => void;
+	className?: string;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={`text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer ${className ?? ""}`}
+			title="Revert to discovered value"
+			aria-label="Revert to discovered value"
+		>
+			↩
+		</button>
+	);
+}
+
 function parseParams(raw: string): Record<string, unknown> | null {
 	try {
 		return JSON.parse(raw);
@@ -226,15 +247,7 @@ export function ModelDetailModal({
 								className="ui-input text-sm"
 							/>
 							{editData.display_name !== discoveredDefaults.display_name && (
-								<button
-									type="button"
-									onClick={() => revertField("display_name")}
-									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
-									title="Revert to discovered value"
-									aria-label="Revert to discovered value"
-								>
-									↩
-								</button>
+								<RevertButton onClick={() => revertField("display_name")} />
 							)}
 						</div>
 					) : (
@@ -263,15 +276,7 @@ export function ModelDetailModal({
 							/>
 							{editData.context_length !==
 								(discoveredDefaults.context_length?.toString() ?? "") && (
-								<button
-									type="button"
-									onClick={() => revertField("context_length")}
-									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
-									title="Revert to discovered value"
-									aria-label="Revert to discovered value"
-								>
-									↩
-								</button>
+								<RevertButton onClick={() => revertField("context_length")} />
 							)}
 						</div>
 					) : (
@@ -300,15 +305,9 @@ export function ModelDetailModal({
 							/>
 							{editData.max_output_tokens !==
 								(discoveredDefaults.max_output_tokens?.toString() ?? "") && (
-								<button
-									type="button"
+								<RevertButton
 									onClick={() => revertField("max_output_tokens")}
-									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer"
-									title="Revert to discovered value"
-									aria-label="Revert to discovered value"
-								>
-									↩
-								</button>
+								/>
 							)}
 						</div>
 					) : (
@@ -345,15 +344,10 @@ export function ModelDetailModal({
 								formatPriceInput(
 									discoveredDefaults.input_price_per_million,
 								) && (
-								<button
-									type="button"
+								<RevertButton
 									onClick={() => revertField("input_price_per_million")}
-									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
-									title="Revert to discovered value"
-									aria-label="Revert to discovered value"
-								>
-									↩
-								</button>
+									className="shrink-0"
+								/>
 							)}
 						</div>
 					) : (
@@ -392,15 +386,10 @@ export function ModelDetailModal({
 								formatPriceInput(
 									discoveredDefaults.output_price_per_million,
 								) && (
-								<button
-									type="button"
+								<RevertButton
 									onClick={() => revertField("output_price_per_million")}
-									className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer shrink-0"
-									title="Revert to discovered value"
-									aria-label="Revert to discovered value"
-								>
-									↩
-								</button>
+									className="shrink-0"
+								/>
 							)}
 						</div>
 					) : (
