@@ -180,6 +180,91 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 
 > **Security:** The Docker socket is disabled by default in `docker-compose.yml`. Enable it only if you need container-level stats in the sidebar and trust the deployment environment.
 
+### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
+
+No `git clone` needed. Create two files and go:
+
+**1.** Create `.env` with your secrets:
+
+```bash
+# Generate strong secrets:
+#   MASTER_KEY:       openssl rand -base64 32
+#   POSTGRES_PASSWORD: openssl rand -hex 16
+#   ADMIN_TOKEN:      openssl rand -hex 16   (optional; auto-generated if empty)
+
+MASTER_KEY=<your-master-key>
+POSTGRES_PASSWORD=<your-postgres-password>
+ADMIN_TOKEN=
+```
+
+**2.** Create `docker-compose.yml`:
+
+<!-- AUTO-SYNC: docker-compose.yml start -->
+<details>
+<summary>docker-compose.yml (click to expand, then copy)</summary>
+
+```yaml
+name: model-hotel
+services:
+    app:
+        # Build from source (default):
+        build: .
+        # Prebuilt image (uncomment below, comment out build above):
+        # image: ghcr.io/hugalafutro/model-hotel:latest
+        ports:
+            - "${HOST_PORT:-8081}:8080"
+        environment:
+            - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
+            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+            - POSTGRES_HOST=db
+            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
+            - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+            - ALLOW_HTTP_PROVIDERS=false
+            - DATA_DIR=/data
+            - RATE_LIMIT_ENABLED=true
+            - DEBUG_LOG=true
+            - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
+            - ALLOWED_PROVIDER_HOSTS=
+        volumes:
+            - ./.data:/data
+            # Docker socket (disabled by default for security).
+            # Enable to show container-level stats in the sidebar (CPU, memory per container).
+            # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
+            #     Only enable if you trust the deployment environment.
+            # - /var/run/docker.sock:/var/run/docker.sock:ro
+        depends_on:
+            db:
+                condition: service_healthy
+
+    db:
+        image: postgres:16-alpine
+        environment:
+            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
+        volumes:
+            - ./.data/pgdata:/var/lib/postgresql/data
+        ports:
+            - "5432:5432"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+```
+
+</details>
+<!-- AUTO-SYNC: docker-compose.yml end -->
+
+**3.** Deploy:
+
+```bash
+docker compose up --build -d
+```
+
+> **Note:** The `docker-compose.yml` content above is auto-synced from the repository file by a GitHub Action. If you want the prebuilt image instead of building from source, uncomment the `image:` line and comment out `build: .` in the compose file.
+
 ## Features at a Glance
 
 - **One endpoint for all providers**: OpenAI-compatible `/v1/chat/completions` proxy with automatic model discovery

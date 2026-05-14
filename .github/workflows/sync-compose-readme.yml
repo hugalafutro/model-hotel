@@ -1,0 +1,71 @@
+name: Sync docker-compose.yml to README
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docker-compose.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync docker-compose.yml into README
+        run: |
+          # Read the compose file and indent each line by 4 spaces for the yaml code block
+          COMPOSE_CONTENT=$(sed 's/^/    /' docker-compose.yml)
+
+          # Build the replacement block
+          REPLACEMENT=$(cat <<'BLOCK_END'
+          <!-- AUTO-SYNC: docker-compose.yml start -->
+          <details>
+          <summary>docker-compose.yml (click to expand, then copy)</summary>
+
+          ```yaml
+          BLOCK_END
+          )
+          REPLACEMENT="${REPLACEMENT}
+          ${COMPOSE_CONTENT}
+          "
+          REPLACEMENT="${REPLACEMENT}$(cat <<'BLOCK_END'
+          ```
+
+          </details>
+          <!-- AUTO-SYNC: docker-compose.yml end -->
+          BLOCK_END
+          )"
+
+          # Use Python to replace between the markers (awk/sed are fragile with multiline)
+          python3 -c '
+          import sys, re
+
+          with open("README.md", "r") as f:
+              readme = f.read()
+
+          start_marker = "<!-- AUTO-SYNC: docker-compose.yml start -->"
+          end_marker = "<!-- AUTO-SYNC: docker-compose.yml end -->"
+
+          pattern = re.escape(start_marker) + r".*?" + re.escape(end_marker)
+
+          # Read the replacement from stdin
+          replacement = sys.stdin.read()
+
+          new_readme = re.sub(pattern, replacement.strip(), readme, flags=re.DOTALL)
+
+          with open("README.md", "w") as f:
+              f.write(new_readme)
+          ' <<< "$REPLACEMENT"
+
+      - name: Commit if changed
+        run: |
+          git diff --quiet README.md && echo "No changes" && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: sync docker-compose.yml to README"
+          git push
