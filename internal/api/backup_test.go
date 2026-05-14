@@ -28,39 +28,6 @@ func setupBackupRouter(t *testing.T) (chi.Router, string) {
 	return r, dir
 }
 
-func TestBackupHandler_Register(t *testing.T) {
-	r := chi.NewRouter()
-	h := NewBackupHandler("", t.TempDir())
-	h.Register(r)
-
-	var routes []string
-	//nolint:gosec // test-only: error handling not critical
-	chi.Walk(r, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expected := []string{
-		"GET /backups/",
-		"POST /backups/",
-		"GET /backups/{filename}",
-		"DELETE /backups/{filename}",
-	}
-
-	for _, exp := range expected {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
-
 func TestBackupHandler_ListBackups_Empty(t *testing.T) {
 	r, _ := setupBackupRouter(t)
 

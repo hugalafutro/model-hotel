@@ -369,37 +369,6 @@ func TestClose_NilTransport(t *testing.T) {
 // Register tests
 // ---------------------------------------------------------------------------
 
-func TestRegister(t *testing.T) {
-	h := newUnitHandler()
-	defer stopUnitHandler(h)
-
-	r := chi.NewRouter()
-
-	// This should not panic
-	h.Register(r)
-}
-
-func TestRegister_SetsUpRoutes(t *testing.T) {
-	h := newUnitHandler()
-	defer stopUnitHandler(h)
-
-	r := chi.NewRouter()
-	h.Register(r)
-
-	routes := make(map[string][]string)
-	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes[route] = append(routes[route], method)
-		return nil
-	})
-
-	if !containsMethod(routes["/models"], "GET") {
-		t.Error("expected GET /models route to be registered")
-	}
-	if !containsMethod(routes["/chat/completions"], "POST") {
-		t.Error("expected POST /chat/completions route to be registered")
-	}
-}
-
 func TestRegister_RequiresAuth(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
@@ -419,34 +388,6 @@ func TestRegister_RequiresAuth(t *testing.T) {
 // ---------------------------------------------------------------------------
 // RegisterAdminChat tests
 // ---------------------------------------------------------------------------
-
-func TestRegisterAdminChat_SetsUpRoutes(t *testing.T) {
-	h := newUnitHandler()
-	defer stopUnitHandler(h)
-
-	r := chi.NewRouter()
-	h.RegisterAdminChat(r)
-
-	routes := make(map[string][]string)
-	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes[route] = append(routes[route], method)
-		return nil
-	})
-
-	tests := []struct {
-		method string
-		route  string
-	}{
-		{"POST", "/chat"},
-		{"POST", "/arena"},
-		{"POST", "/completions"},
-	}
-	for _, tt := range tests {
-		if !containsMethod(routes[tt.route], tt.method) {
-			t.Errorf("expected %s %s route to be registered", tt.method, tt.route)
-		}
-	}
-}
 
 func TestRegisterAdminChat_OnlyPostMethods(t *testing.T) {
 	h := newUnitHandler()

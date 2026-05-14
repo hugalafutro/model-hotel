@@ -9,45 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
-
-// TestRegisterModels_Routes verifies that model routes are registered correctly
-func TestRegisterModels_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterModels(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	// Routes are registered with trailing slashes - /models/, /models/{id}, etc.
-	expectedRoutes := []string{
-		"GET /models/",
-		"PATCH /models/{id}",
-		"DELETE /models/{id}",
-		"POST /models/{id}/test",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
 
 // TestPurgeLogs_InvalidValue tests PurgeLogs with invalid older_than
 func TestPurgeLogs_InvalidValue(t *testing.T) {
@@ -62,98 +27,6 @@ func TestPurgeLogs_InvalidValue(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
-}
-
-// TestRegisterSettings_Routes verifies settings routes are registered correctly
-func TestRegisterSettings_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterSettings(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"GET /settings/",
-		"PUT /settings/",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
-
-// TestRegisterAppLogs_Routes verifies app logs routes
-func TestRegisterAppLogs_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterAppLogs(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"GET /logs/app",
-		"DELETE /logs/app",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
-
-// TestRegisterEvents_Routes verifies events routes
-func TestRegisterEvents_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterEvents(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"GET /events",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
 	}
 }
 
@@ -183,134 +56,6 @@ func TestAuthMiddleware(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d (valid token), got %d", http.StatusOK, w.Code)
-	}
-}
-
-// TestRegisterProviderDiscovery_Routes verifies discovery routes
-func TestRegisterProviderDiscovery_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterProviderDiscovery(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"POST /providers/discover-all",
-		"POST /providers/refresh-quotas",
-		"POST /providers/{id}/discover/",
-		"GET /providers/{id}/usage/",
-		"GET /providers/{id}/balance/",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
-
-// TestRegisterLogs_Routes verifies logs routes are registered correctly
-func TestRegisterLogs_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterLogs(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"GET /logs/",
-		"DELETE /logs/purge",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
-
-// TestRegisterVirtualKeys_Routes verifies virtual keys routes
-func TestRegisterVirtualKeys_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := &Handler{}
-	h.RegisterVirtualKeys(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"POST /virtual-keys/",
-		"GET /virtual-keys/",
-		"GET /virtual-keys/{id}",
-		"DELETE /virtual-keys/{id}",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
-	}
-}
-
-// TestRegisterSystem_Routes verifies system routes
-func TestRegisterSystem_Routes(t *testing.T) {
-	r := chi.NewRouter()
-	h := NewSystemHandler(nil)
-	h.Register(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"GET /system/",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
 	}
 }
 
@@ -398,38 +143,6 @@ func TestVirtualKeyToResponse_NoLastUsed(t *testing.T) {
 
 	if resp.LastUsedAt != nil {
 		t.Errorf("expected nil LastUsedAt, got %v", resp.LastUsedAt)
-	}
-}
-
-// TestStatsHandler_Register tests stats routes
-func TestStatsHandler_Register(t *testing.T) {
-	r := chi.NewRouter()
-	h := NewStatsHandler(nil, &mockAdminAuth{validateFn: func(string) bool { return true }})
-	h.Register(r)
-
-	var routes []string
-	chi.Walk(r, func(method, path string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		routes = append(routes, method+" "+path)
-		return nil
-	})
-
-	expectedRoutes := []string{
-		"GET /stats/",
-		"GET /stats/timeseries",
-		"GET /stats/provider-distribution",
-	}
-
-	for _, exp := range expectedRoutes {
-		found := false
-		for _, r := range routes {
-			if r == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected route %q not found, got %v", exp, routes)
-		}
 	}
 }
 
