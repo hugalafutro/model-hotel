@@ -43,6 +43,8 @@ jobs:
 
       - name: Upload Go coverage
         uses: codecov/codecov-action@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           files: coverage.out
           flags: backend
@@ -89,7 +91,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - uses: pnpm/action-setup@v5
         with:
@@ -106,6 +108,8 @@ jobs:
 
       - name: Upload frontend coverage
         uses: codecov/codecov-action@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           files: web/coverage/lcov.info
           flags: frontend
