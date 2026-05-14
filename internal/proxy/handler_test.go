@@ -60,7 +60,7 @@ func stopUnitHandler(h *Handler) {
 	}
 }
 
-func containsMethod(methods []string, method string) bool {
+func containsMethod(methods []string, method string) bool { //nolint:unused // kept for future handler tests
 	for _, m := range methods {
 		if m == method {
 			return true

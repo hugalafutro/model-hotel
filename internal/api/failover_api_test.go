@@ -57,36 +57,38 @@ func TestMain(m *testing.M) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-type mockFailoverSettingsStore struct {
+// mockFailoverSettingsStore implements settings.Store for unit tests.
+// Kept for future use in failover settings integration tests.
+type mockFailoverSettingsStore struct { //nolint:unused // kept for future failover settings tests
 	data map[string]string
 }
 
-func newMockFailoverSettingsStore() *mockFailoverSettingsStore {
+func newMockFailoverSettingsStore() *mockFailoverSettingsStore { //nolint:unused // kept for future failover settings tests
 	return &mockFailoverSettingsStore{data: make(map[string]string)}
 }
 
-func (m *mockFailoverSettingsStore) GetAll(ctx context.Context) (map[string]string, error) {
+func (m *mockFailoverSettingsStore) GetAll(ctx context.Context) (map[string]string, error) { //nolint:unused // kept for future failover settings tests
 	return m.data, nil
 }
 
-func (m *mockFailoverSettingsStore) GetWithDefault(ctx context.Context, key, defaultValue string) string {
+func (m *mockFailoverSettingsStore) GetWithDefault(ctx context.Context, key, defaultValue string) string { //nolint:unused // kept for future failover settings tests
 	if v, ok := m.data[key]; ok {
 		return v
 	}
 	return defaultValue
 }
 
-func (m *mockFailoverSettingsStore) Set(ctx context.Context, key, value string) error {
+func (m *mockFailoverSettingsStore) Set(ctx context.Context, key, value string) error { //nolint:unused // kept for future failover settings tests
 	m.data[key] = value
 	return nil
 }
 
-func (m *mockFailoverSettingsStore) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error {
+func (m *mockFailoverSettingsStore) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error { //nolint:unused // kept for future failover settings tests
 	m.data[key] = value
 	return nil
 }
 
-func (m *mockFailoverSettingsStore) InvalidateCache(_ string) {}
+func (m *mockFailoverSettingsStore) InvalidateCache(_ string) {} //nolint:unused // kept for future failover settings tests
 
 // newIntegrationFailoverHandler creates a FailoverHandler backed by the test database.
 // Returns nil if the database is unavailable.
