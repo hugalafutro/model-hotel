@@ -49,6 +49,7 @@ jobs:
           files: coverage.out
           flags: backend
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   go-lint:
     name: Go Lint
