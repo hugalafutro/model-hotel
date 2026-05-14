@@ -275,7 +275,7 @@ func TestDiscoverModels_KeylessProvider(t *testing.T) {
 	provider := &Provider{
 		ID:           uuid.New(),
 		BaseURL:      server.URL,
-		EncryptedKey: []byte{}, // Empty = keyless
+		EncryptedKey: []byte{}, // keyless provider
 	}
 
 	svc := NewDiscoveryService()

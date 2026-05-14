@@ -319,7 +319,8 @@ func TestDiscoverCohere_Pagination(t *testing.T) {
 			pageToken := r.URL.Query().Get("page_token")
 
 			var response CohereModelsResponse
-			if pageToken == "" {
+			switch pageToken {
+			case "":
 				// First page
 				response = CohereModelsResponse{
 					Models: []CohereNativeModel{
@@ -332,7 +333,7 @@ func TestDiscoverCohere_Pagination(t *testing.T) {
 					},
 					NextPageToken: "page2",
 				}
-			} else if pageToken == "page2" {
+			case "page2":
 				// Second page
 				response = CohereModelsResponse{
 					Models: []CohereNativeModel{

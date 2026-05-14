@@ -546,9 +546,7 @@ func TestCircuitBreaker_IsOpen_MultipleProviders(t *testing.T) {
 	cb.RecordFailure(pid1)
 
 	// pid2 and pid3 should remain closed
-	if cb.IsOpen(pid1) {
-		// pid1 is open
-	} else {
+	if !cb.IsOpen(pid1) {
 		t.Error("pid1 should be open after 3 failures")
 	}
 

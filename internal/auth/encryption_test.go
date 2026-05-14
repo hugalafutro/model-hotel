@@ -358,7 +358,7 @@ func TestDeriveKey_EmptyMasterKey(t *testing.T) {
 	}
 	// Empty master key should still produce a deterministic key
 	key2 := deriveKey("", salt)
-	if string(key) != string(key2) {
+	if !bytes.Equal(key, key2) {
 		t.Error("Same salt and empty master key should produce same derived key")
 	}
 }
