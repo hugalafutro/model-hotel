@@ -481,7 +481,7 @@ func TestFailoverSync_Integration(t *testing.T) {
 func TestUpdateSettings_Integration_MultipleKeys(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	body := `{"rate_limit_enabled": "true", "rate_limit_rps": "50", "toast_duration": "3000"}`
+	body := `{"rate_limit_enabled": "true", "rate_limit_rps": "50", "rate_limit_burst": "30"}`
 	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
@@ -504,8 +504,8 @@ func TestUpdateSettings_Integration_MultipleKeys(t *testing.T) {
 	if response["rate_limit_rps"] != "50" {
 		t.Errorf("expected rate_limit_rps='50', got %s", response["rate_limit_rps"])
 	}
-	if response["toast_duration"] != "3000" {
-		t.Errorf("expected toast_duration='3000', got %s", response["toast_duration"])
+	if response["rate_limit_burst"] != "30" {
+		t.Errorf("expected rate_limit_burst='30', got %s", response["rate_limit_burst"])
 	}
 }
 
@@ -539,8 +539,8 @@ func TestUpdateSettings_FloatValue(t *testing.T) {
 func TestUpdateSettings_OutOfRangeInt(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	// toast_duration max is 15000
-	body := `{"toast_duration": "99999"}`
+	// rate_limit_burst max is 10000
+	body := `{"rate_limit_burst": "99999"}`
 	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")

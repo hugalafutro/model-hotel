@@ -5,6 +5,7 @@ import { useCollapsible } from "../components/CollapsibleToggle";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { AppearanceSettings } from "./Settings/AppearanceSettings";
+import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
 import { DashboardRefreshSettings } from "./Settings/DashboardRefreshSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
 import { DataStorageSettings } from "./Settings/DataStorageSettings";
@@ -37,6 +38,8 @@ export function Settings() {
 	);
 	const { collapsed: rateLimitCollapsed, toggle: toggleRateLimit } =
 		useCollapsible("settings_rateLimitCollapsed");
+	const { collapsed: circuitBreakerCollapsed, toggle: toggleCircuitBreaker } =
+		useCollapsible("settings_circuitBreakerCollapsed");
 	const { collapsed: proxyCollapsed, toggle: toggleProxy } = useCollapsible(
 		"settings_proxyCollapsed",
 	);
@@ -99,6 +102,11 @@ export function Settings() {
 				<RateLimitSettings
 					collapsed={rateLimitCollapsed}
 					onToggle={toggleRateLimit}
+				/>
+
+				<CircuitBreakerSettings
+					collapsed={circuitBreakerCollapsed}
+					onToggle={toggleCircuitBreaker}
 				/>
 
 				<ProxySettings collapsed={proxyCollapsed} onToggle={toggleProxy} />

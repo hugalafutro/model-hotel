@@ -21,9 +21,6 @@ var AllowedSettings = map[string]bool{
 	"discovery_interval":           true,
 	"discovery_on_startup":         true,
 	"discovery_on_provider_create": true,
-	"dashboard_refresh":            true,
-	"quota_refresh":                true,
-	"history_limit":                true,
 	"log_retention":                true,
 	"stale_request_timeout":        true,
 	"request_timeout":              true,
@@ -38,10 +35,6 @@ var AllowedSettings = map[string]bool{
 	"rate_limit_rps":               true,
 	"rate_limit_burst":             true,
 	"rate_limit_max_wait_ms":       true,
-	"toast_duration":               true,
-	"theme":                        true,
-	"ui_style":                     true,
-	"accent_color":                 true,
 	"key_cache_ttl":                true,
 }
 
