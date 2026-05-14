@@ -105,7 +105,7 @@ export function DatabaseBackupSettings({
 				</p>
 
 				{/* Restore instructions */}
-				<div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
+				<div className="bg-gray-800/50 rounded-lg p-3 space-y-3">
 					<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
 						Restore Instructions
 					</h4>
@@ -119,6 +119,37 @@ export function DatabaseBackupSettings({
 							-U user -d dbname {"<"} backup_file.dump
 						</code>
 					</p>
+					<div className="space-y-1.5 border-t border-gray-700/50 pt-2">
+						<h5 className="text-xs font-semibold text-amber-400">
+							Requirements for a working restore
+						</h5>
+						<ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+							<li>
+								<strong className="text-gray-300">MASTER_KEY must match</strong>
+								: Provider API keys are AES-256-GCM encrypted using a key
+								derived from your MASTER_KEY. Restoring with a different
+								MASTER_KEY will leave all provider keys unrecoverable.
+							</li>
+							<li>
+								<strong className="text-gray-300">
+									Admin token is not in the backup
+								</strong>
+								: It is stored on the filesystem in{" "}
+								<code className="text-xs bg-gray-800 px-1 py-0.5 rounded">
+									DATA_DIR/admin-token
+								</code>
+								. If lost, a new token is auto-generated on next boot (check
+								startup logs).
+							</li>
+							<li>
+								<strong className="text-gray-300">
+									Virtual keys are irrecoverable
+								</strong>
+								: Only SHA-256 hashes are stored. If you lose the plaintext
+								virtual keys, they cannot be recovered from the backup.
+							</li>
+						</ul>
+					</div>
 				</div>
 
 				{/* Create button */}

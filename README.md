@@ -299,7 +299,36 @@ See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint
 - [Model Discovery](model-hotel.wiki/Model-Discovery.md): Automatic sync, provider-specific metadata, enrichment
 - [Virtual Keys](model-hotel.wiki/Virtual-Keys.md): Creating, using, and deleting client keys
 - [Request Logging](model-hotel.wiki/Request-Logging.md): Log fields, overhead breakdown, retention
+- [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
 - [Development](model-hotel.wiki/Development.md): Local setup, build commands, contributing
+
+## [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
+
+Backups are created via the Settings page or the admin API (`POST /api/backups`) using `pg_dump --format=custom`. The resulting `.dump` files contain all database tables: providers, models, virtual keys, failover groups, and settings.
+
+### Restoring a backup
+
+```bash
+# Direct
+pg_restore --clean --if-exists -d YOUR_DB backup_file.dump
+
+# Via Docker
+docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbname < backup_file.dump
+```
+
+### Critical requirements for a working restore
+
+| Requirement | Details |
+|---|---|
+| **MASTER_KEY must match** | Provider API keys are AES-256-GCM encrypted using a key derived from `MASTER_KEY` via Argon2id. Restoring with a different `MASTER_KEY` will leave all provider keys unrecoverable. The app will start, but key decryption will fail. |
+| **Admin token is not in the backup** | The admin token hash lives in `DATA_DIR/admin-token` on the filesystem, not in the database. If that file is lost, a new token is auto-generated on next boot. Check startup logs for the new token. |
+| **Virtual keys are irrecoverable** | Virtual keys are stored as SHA-256 hashes only. Plaintext virtual keys are never persisted. If you lose the plaintext keys, they cannot be recovered from the backup (by design). |
+
+### What is and isn't in the backup
+
+**Included** (in the database, captured by `pg_dump`): providers (encrypted keys, nonces, salts), models, virtual keys (hashes only), failover groups, settings.
+
+**Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
 
 ## Known Limitations
 

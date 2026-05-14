@@ -73,6 +73,26 @@ describe("DatabaseBackupSettings", () => {
 		expect(restoreTexts[0]).toBeInTheDocument();
 	});
 
+	it("shows restore requirements with MASTER_KEY warning", async () => {
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByText("Requirements for a working restore"),
+			).toBeInTheDocument();
+		});
+		expect(
+			screen.getByText(/MASTER_KEY must match/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Admin token is not in the backup/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Virtual keys are irrecoverable/i),
+		).toBeInTheDocument();
+	});
+
 	it("shows loading spinner when fetching backups", async () => {
 		server.use(
 			http.get("/api/backups", async () => {
