@@ -43,6 +43,15 @@ func (h *SystemHandler) SetDockerStatsCollector(fn dockerStatsCollector) {
 	h.dockerStatsCollector = fn
 }
 
+// resetSystemCache clears the package-level system stats cache (for testing).
+func resetSystemCache() {
+	cachedSystemMu.Lock()
+	cachedSystem = nil
+	cachedSystemTime = time.Time{}
+	cachedSystemSince = ""
+	cachedSystemMu.Unlock()
+}
+
 // Register mounts system API routes.
 func (h *SystemHandler) Register(r chi.Router) {
 	r.Route("/system", func(r chi.Router) {

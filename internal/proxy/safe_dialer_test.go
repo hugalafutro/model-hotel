@@ -2,11 +2,13 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
@@ -364,4 +366,133 @@ func TestSafeDialer_DialByIP(t *testing.T) {
 		t.Fatalf("expected successful dial to local server, got: %v", err)
 	}
 	conn.Close()
+}
+
+// TestSafeDialer_DialTimingSetOnRealDNS tests that the dial timing context
+// value is properly set when DNS resolution actually occurs for a real hostname.
+func TestSafeDialer_DialTimingSetOnRealDNS(t *testing.T) {
+	t.Parallel()
+	sd := NewSafeDialer(nil)
+	var dialMs float64
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ctx = context.WithValue(ctx, ctxkeys.SafeDialMsKey, &dialMs)
+
+	// Dial a real public host - connection may fail but DNS should resolve
+	_, _ = sd.DialContext(ctx, "tcp", "example.com:80")
+
+	if dialMs <= 0 {
+		t.Errorf("expected dialMs > 0 after DNS resolution, got %f", dialMs)
+	}
+}
+
+// TestSafeDialer_DialByIPForPublicHost tests that dialing a public hostname
+// (not in allowlist) goes through the resolve → check → dial-by-IP path.
+// mockResolver implements a fake DNS resolver for testing.
+type mockResolver struct {
+	lookupFunc func(ctx context.Context, host string) ([]net.IPAddr, error)
+}
+
+func (m *mockResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	if m.lookupFunc != nil {
+		return m.lookupFunc(ctx, host)
+	}
+	return nil, fmt.Errorf("no mock implementation for host: %s", host)
+}
+
+// TestSafeDialer_DialByIPWithMockDNS tests the dial-by-IP path using a mock DNS
+// resolver that returns a non-blocked IP. This covers lines 89-95 in safe_dialer.go.
+func TestSafeDialer_DialByIPWithMockDNS(t *testing.T) {
+	t.Parallel()
+
+	// Create a mock resolver that returns a public IP (8.8.8.8) for any hostname
+	// The dial will fail (no route/connection refused) but the dial-by-IP path
+	// (lines 89-95) will be exercised
+	mockResolver := &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			// Return a public IP that is NOT blocked
+			return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
+		},
+	}
+
+	// Create a SafeDialer with the mock resolver - NOT allowlisting the host
+	// This forces the dial-by-IP path
+	sd := newSafeDialerWithResolver(nil, mockResolver)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Dial a fake hostname - the mock resolver returns 8.8.8.8 (public, non-blocked)
+	// The dial will fail (connection timeout/refused) but the dial-by-IP path
+	// should be exercised
+	_, err := sd.DialContext(ctx, "tcp", "fake-hostname.example.com:80")
+
+	// We expect a connection error (not a blocked-IP error)
+	if err == nil {
+		t.Fatal("expected connection error for non-routable IP")
+	}
+	// Should NOT be a blocked-IP error since 8.8.8.8 is public
+	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("expected connection error, got blocked-IP error: %v", err)
+	}
+}
+
+// TestSafeDialer_DialByIPPublicHostWithDNS tests the dial-by-IP path with a real
+// public hostname. This test may be skipped if DNS resolution fails in the test environment.
+func TestSafeDialer_DialByIPPublicHostWithDNS(t *testing.T) {
+	t.Parallel()
+
+	// First check if DNS resolution works
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, "example.com")
+	if err != nil {
+		t.Skipf("DNS resolution failed, skipping test: %v", err)
+	}
+
+	// Check if any resolved IP is non-blocked
+	hasNonBlocked := false
+	for _, ip := range ips {
+		if !isBlockedIP(ip.IP) {
+			hasNonBlocked = true
+			break
+		}
+	}
+	if !hasNonBlocked {
+		t.Skip("all resolved IPs are blocked, skipping test")
+	}
+
+	// Now test the actual dial-by-IP path
+	sd := NewSafeDialer(nil)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+
+	// Dial example.com - DNS should resolve to public IPs, then dial by IP
+	// The connection may fail (timeout, connection refused, etc.) but the
+	// dial-by-IP path should be exercised
+	_, err = sd.DialContext(ctx2, "tcp", "example.com:80")
+
+	// We don't care if the connection succeeds or fails
+	// We just care that it's NOT a blocked-IP error
+	if err != nil && strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("public host should not be blocked, got: %v", err)
+	}
+}
+
+func TestSafeDialer_DialByIPForPublicHost(t *testing.T) {
+	t.Parallel()
+	sd := NewSafeDialer(nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := sd.DialContext(ctx, "tcp", "example.com:80")
+	if err == nil {
+		// Connection succeeded (unlikely but possible)
+		// Just return, test passed
+		return
+	}
+	// Should NOT be a blocked-IP error for a public host
+	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("public host should not be blocked, got: %v", err)
+	}
 }

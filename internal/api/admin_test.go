@@ -769,6 +769,161 @@ func TestProviderTypeAllowsEmptyKey(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // ListProviders tests with integration (see handler_integration_test.go)
+
+// --- Additional unit tests for uncovered paths ---
+
+func TestCreateProvider_BaseURLTooLong(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	longURL := "https://api.example.com/" + strings.Repeat("a", 490) // >500 chars
+	body := bytes.NewReader([]byte(fmt.Sprintf(`{"name":"test","base_url":"%s","api_key":"sk-key"}`, longURL)))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestCreateProvider_APIKeyTooLong(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	longKey := "sk-" + strings.Repeat("a", 498) // >500 chars
+	body := bytes.NewReader([]byte(fmt.Sprintf(`{"name":"test","base_url":"https://api.example.com/v1","api_key":"%s"}`, longKey)))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestCreateProvider_HTTPURLRejected(t *testing.T) {
+	h := &Handler{
+		cfg: &config.Config{
+			AllowHTTPProviders:   false,
+			AllowedProviderHosts: []string{"api.example.com"},
+		},
+		providerRepo: &mockProviderStore{},
+		adminMgr:     &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	body := bytes.NewReader([]byte(`{"name":"test","base_url":"http://api.example.com/v1","api_key":"sk-key"}`))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestCreateProvider_RepoError(t *testing.T) {
+	mockProv := &mockProviderStore{
+		getByNameFn: func(_ context.Context, _ string) (*provider.Provider, error) { return nil, nil },
+		createFn: func(_ context.Context, _ provider.CreateProviderRequest, _, _, _ []byte) (*provider.Provider, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"test","base_url":"https://api.example.com/v1","api_key":"sk-key"}`))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestCreateProvider_UniqueViolation(t *testing.T) {
+	mockProv := &mockProviderStore{
+		getByNameFn: func(_ context.Context, _ string) (*provider.Provider, error) { return nil, nil },
+		createFn: func(_ context.Context, _ provider.CreateProviderRequest, _, _, _ []byte) (*provider.Provider, error) {
+			return nil, &pgconn.PgError{Code: "23505"}
+		},
+	}
+	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"test","base_url":"https://api.example.com/v1","api_key":"sk-key"}`))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, w.Code)
+	}
+}
+
+func TestUpdateProvider_DuplicateName(t *testing.T) {
+	id := uuid.New()
+	otherID := uuid.New()
+	mockProv := &mockProviderStore{
+		getByNameFn: func(_ context.Context, name string) (*provider.Provider, error) {
+			return &provider.Provider{ID: otherID, Name: name}, nil // different ID = conflict
+		},
+	}
+	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"duplicate-name"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, w.Code)
+	}
+}
+
+func TestUpdateProvider_UniqueViolation(t *testing.T) {
+	id := uuid.New()
+	mockProv := &mockProviderStore{
+		getByNameFn: func(_ context.Context, _ string) (*provider.Provider, error) { return nil, nil },
+		updateFn: func(_ context.Context, _ uuid.UUID, _ provider.UpdateProviderRequest, _, _, _ []byte) (*provider.Provider, error) {
+			return nil, &pgconn.PgError{Code: "23505"}
+		},
+	}
+	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"conflict-name"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, w.Code)
+	}
+}
+
+func TestUpdateProvider_APIKeyTooLong(t *testing.T) {
+	id := uuid.New()
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	longKey := "sk-" + strings.Repeat("a", 498) // >500 chars
+	body := bytes.NewReader([]byte(fmt.Sprintf(`{"api_key":"%s"}`, longKey)))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestGetProvider_RepoError(t *testing.T) {
+	mockProv := &mockProviderStore{
+		getFn: func(_ context.Context, _ uuid.UUID) (*provider.Provider, error) {
+			return nil, errors.New("connection refused")
+		},
+	}
+	h := testHandler(mockProv, nil, nil, nil, nil)
+	id := uuid.New()
+	req, w := newChiRequest(http.MethodGet, "/providers/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+	h.GetProvider(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestDeleteProvider_RepoError(t *testing.T) {
+	mockProv := &mockProviderStore{
+		deleteFn: func(_ context.Context, _ uuid.UUID) error {
+			return errors.New("connection refused")
+		},
+	}
+	h := testHandler(mockProv, nil, nil, nil, nil)
+	id := uuid.New()
+	req, w := newChiRequest(http.MethodDelete, "/providers/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+	h.DeleteProvider(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
 // The ListProviders handler requires real DB connection for model/token count queries.
 // Integration tests cover: TestListProviders_Empty, TestListProviders_AfterCreate,
 // TestListProviders_WithPagination, TestListProviders_WithSearchFilter,

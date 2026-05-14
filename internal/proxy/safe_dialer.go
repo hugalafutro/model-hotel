@@ -11,12 +11,18 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// ipResolver is the interface for DNS resolution, allowing mocking in tests.
+type ipResolver interface {
+	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
+}
+
 // SafeDialer wraps a net.Dialer with IP-range checking on every dial.
 // Intended for use as http.Transport.DialContext to prevent DNS-rebinding
 // attacks that redirect proxy requests to private or reserved IPs.
 type SafeDialer struct {
-	d     *net.Dialer
-	hosts map[string]bool
+	d        *net.Dialer
+	hosts    map[string]bool
+	resolver ipResolver
 }
 
 // NewSafeDialer creates a SafeDialer that blocks connections to private,
@@ -28,8 +34,23 @@ func NewSafeDialer(allowedHosts []string) *SafeDialer {
 		hosts[strings.ToLower(h)] = true
 	}
 	return &SafeDialer{
-		d:     &net.Dialer{Resolver: net.DefaultResolver},
-		hosts: hosts,
+		d:        &net.Dialer{Resolver: net.DefaultResolver},
+		hosts:    hosts,
+		resolver: net.DefaultResolver,
+	}
+}
+
+// newSafeDialerWithResolver creates a SafeDialer with a custom resolver for testing.
+// This is exported for testing purposes only.
+func newSafeDialerWithResolver(allowedHosts []string, resolver ipResolver) *SafeDialer {
+	hosts := make(map[string]bool, len(allowedHosts))
+	for _, h := range allowedHosts {
+		hosts[strings.ToLower(h)] = true
+	}
+	return &SafeDialer{
+		d:        &net.Dialer{Resolver: net.DefaultResolver},
+		hosts:    hosts,
+		resolver: resolver,
 	}
 }
 
@@ -56,7 +77,7 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 
 	// Resolve the host to IP addresses (timed).
 	dnsStart := time.Now()
-	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	ips, err := s.resolver.LookupIPAddr(ctx, host)
 	// Write per-request dial timing if the caller provided a pointer.
 	if v := ctx.Value(ctxkeys.SafeDialMsKey); v != nil {
 		if p, ok := v.(*float64); ok {

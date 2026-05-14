@@ -6620,6 +6620,426 @@ func TestUpdateVirtualKey(t *testing.T) {
 	})
 }
 
+// Stats Query Parameter Tests
+
+func TestGetStats_WithExcludeDeleted(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"stats-exclude-deleted-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with exclude_deleted=true
+	req = httptest.NewRequest("GET", "/stats?exclude_deleted=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var stats StatsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("Failed to parse stats response: %v", err)
+	}
+	if stats.TotalRequestsLast24h == 0 {
+		t.Error("Expected TotalRequestsLast24h > 0")
+	}
+}
+
+func TestGetStats_WithMetricTokens(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"stats-metric-tokens-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Create a virtual key
+	vkBody := `{"name":"test-metric-tokens-key"}`
+	req = httptest.NewRequest("POST", "/virtual-keys", strings.NewReader(vkBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create virtual key: %d", w.Code)
+	}
+
+	var vkResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &vkResp)
+	vkIDStr := vkResp["id"].(string)
+	vkUUID, _ := uuid.Parse(vkIDStr)
+
+	// Insert request logs with token counts using the virtual key
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', $3, 200, 1000, 50, 100, 200, $4)`,
+		uuid.New(), provUUID, vkUUID, now.Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with metric=tokens
+	req = httptest.NewRequest("GET", "/stats?metric=tokens", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var stats StatsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("Failed to parse stats response: %v", err)
+	}
+	if len(stats.ByModel) == 0 {
+		t.Error("Expected ByModel to be populated with metric=tokens")
+	}
+	if len(stats.ByProvider) == 0 {
+		t.Error("Expected ByProvider to be populated with metric=tokens")
+	}
+	if len(stats.ByVirtualKey) == 0 {
+		t.Error("Expected ByVirtualKey to be populated with metric=tokens")
+	}
+}
+
+func TestGetStats_Period7d(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"stats-period-7d-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-2*24*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with period=7d
+	req = httptest.NewRequest("GET", "/stats?period=7d", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var stats StatsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("Failed to parse stats response: %v", err)
+	}
+	if stats.TotalRequestsLast7d == 0 {
+		t.Error("Expected TotalRequestsLast7d > 0")
+	}
+}
+
+func TestGetStats_Period1h(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"stats-period-1h-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-30*time.Minute))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with period=1h
+	req = httptest.NewRequest("GET", "/stats?period=1h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var stats StatsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("Failed to parse stats response: %v", err)
+	}
+	if stats.RequestsLast1h == 0 {
+		t.Error("Expected RequestsLast1h > 0")
+	}
+}
+
+func TestGetStats_WithChatLogs(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"stats-chat-logs-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs with virtual_key_name = 'chat'
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, virtual_key_name, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 'chat', 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test stats endpoint
+	req = httptest.NewRequest("GET", "/stats", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var stats StatsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("Failed to parse stats response: %v", err)
+	}
+	if _, ok := stats.ByVirtualKey["chat"]; !ok {
+		t.Error("Expected ByVirtualKey to contain 'chat' entry")
+	}
+}
+
+func TestGetProviderDistribution_WithMetricTokens(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create providers
+	provBody := fmt.Sprintf(`{"name":"prov-dist-tokens-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs with token counts
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with metric=tokens
+	req = httptest.NewRequest("GET", "/stats/provider-distribution?metric=tokens", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var dist ProviderDistributionStats
+	if err := json.Unmarshal(w.Body.Bytes(), &dist); err != nil {
+		t.Fatalf("Failed to parse distribution response: %v", err)
+	}
+	if len(dist.Items) == 0 {
+		t.Fatal("Expected items in distribution response")
+	}
+	// With metric=tokens, Tokens should be > 0
+	if dist.Items[0].Tokens == 0 {
+		t.Error("Expected Tokens > 0 with metric=tokens")
+	}
+}
+
+func TestGetTimeSeries_WithExcludeDeleted(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"timeseries-exclude-deleted-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with exclude_deleted=true
+	req = httptest.NewRequest("GET", "/stats/timeseries?exclude_deleted=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var ts TimeSeriesStats
+	if err := json.Unmarshal(w.Body.Bytes(), &ts); err != nil {
+		t.Fatalf("Failed to parse time series response: %v", err)
+	}
+	if len(ts.Points) == 0 {
+		t.Error("Expected time series points")
+	}
+}
+
+func TestGetProviderDistribution_WithExcludeDeleted(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	provBody := fmt.Sprintf(`{"name":"prov-dist-exclude-deleted-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", w.Code)
+	}
+
+	var createResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	provIDStr := createResp["id"].(string)
+	provUUID, _ := uuid.Parse(provIDStr)
+
+	// Insert request logs
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'gpt-4', NULL, 200, 1000, 50, 100, 200, $3)`,
+		uuid.New(), provUUID, now.Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Test with exclude_deleted=true
+	req = httptest.NewRequest("GET", "/stats/provider-distribution?exclude_deleted=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var dist ProviderDistributionStats
+	if err := json.Unmarshal(w.Body.Bytes(), &dist); err != nil {
+		t.Fatalf("Failed to parse distribution response: %v", err)
+	}
+	if len(dist.Items) == 0 {
+		t.Error("Expected items in distribution response")
+	}
+}
+
 // Ollama Cloud Account Tests
 
 func TestGetOllamaCloudAccount(t *testing.T) {

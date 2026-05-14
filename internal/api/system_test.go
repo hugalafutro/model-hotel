@@ -180,8 +180,10 @@ func TestGetSystem_Handler(t *testing.T) {
 // TestGetSystem_CacheHit tests that calling GetSystem twice within the cache TTL
 // returns cached data on the second call.
 func TestGetSystem_CacheHit(t *testing.T) {
-	t.Parallel()
+	// Do NOT use t.Parallel() — this test resets and populates the
+	// package-level system cache, which is shared mutable state.
 
+	resetSystemCache()
 	_, r := newTestHandlerWithRouter(t)
 
 	// First request - cache miss, collects fresh data
@@ -243,8 +245,10 @@ func TestGetSystem_InvalidSince(t *testing.T) {
 // TestGetSystem_DockerStatsCollector tests that the Docker stats collector
 // is called and its result appears in the response.
 func TestGetSystem_DockerStatsCollector(t *testing.T) {
-	t.Parallel()
+	// Do NOT use t.Parallel() — this test mutates the handler's
+	// systemHandler.dockerStatsCollector, which is shared state.
 
+	resetSystemCache()
 	h, r := newTestHandlerWithRouter(t)
 
 	// Override the Docker stats collector with a mock that returns non-empty stats
@@ -261,7 +265,6 @@ func TestGetSystem_DockerStatsCollector(t *testing.T) {
 		return mockStats
 	})
 
-	// Make request to /system/
 	req := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
