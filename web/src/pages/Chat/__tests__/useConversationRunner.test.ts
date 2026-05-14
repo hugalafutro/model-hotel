@@ -62,18 +62,6 @@ describe("useConversationRunner", () => {
 		server.resetHandlers();
 		vi.clearAllMocks();
 	});
-	it("returns all expected methods", () => {
-		const params = createMockParams();
-		const { result } = renderHook(() => useConversationRunner(params), {
-			wrapper: createWrapper(),
-		});
-
-		expect(result.current.runConversation).toBeDefined();
-		expect(result.current.handleStopConversation).toBeDefined();
-		expect(result.current.handleRetryConversation).toBeDefined();
-		expect(result.current.clearConversationAbort).toBeDefined();
-	});
-
 	it("does not start if conversation is already running", () => {
 		const params = createMockParams({
 			conversationRunningRef: { current: true },

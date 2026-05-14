@@ -118,20 +118,19 @@ describe("ToastSettings", () => {
 		expect(onToggle).toHaveBeenCalledTimes(1);
 	});
 
-	it("changes position when top-left button clicked", async () => {
+	it("updates position label when top-left button clicked", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<ToastSettings collapsed={false} onToggle={onToggle} />,
 		);
 		const topLeftButton = screen.getByTitle("Top Left");
 		await user.click(topLeftButton);
-		// Position should update in toast context
 		await waitFor(() => {
-			expect(topLeftButton).toBeInTheDocument();
+			expect(screen.getByText("top left")).toBeInTheDocument();
 		});
 	});
 
-	it("changes position when top-right button clicked", async () => {
+	it("updates position label when top-right button clicked", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<ToastSettings collapsed={false} onToggle={onToggle} />,
@@ -139,11 +138,11 @@ describe("ToastSettings", () => {
 		const topRightButton = screen.getByTitle("Top Right");
 		await user.click(topRightButton);
 		await waitFor(() => {
-			expect(topRightButton).toBeInTheDocument();
+			expect(screen.getByText("top right")).toBeInTheDocument();
 		});
 	});
 
-	it("changes position when bottom-center button clicked", async () => {
+	it("updates position label when bottom-center button clicked", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<ToastSettings collapsed={false} onToggle={onToggle} />,
@@ -151,35 +150,35 @@ describe("ToastSettings", () => {
 		const bottomCenterButton = screen.getByTitle("Bottom Center");
 		await user.click(bottomCenterButton);
 		await waitFor(() => {
-			expect(bottomCenterButton).toBeInTheDocument();
+			expect(screen.getByText("bottom center")).toBeInTheDocument();
 		});
 	});
 
-	it("updates timeout when slider is moved", async () => {
+	it("updates timeout display when slider value changes", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<ToastSettings collapsed={false} onToggle={onToggle} />,
 		);
 		const slider = screen.getByRole("slider");
-		// Change slider value from default to 5000ms
 		await user.click(slider);
+		// Use keyboard to change slider value (arrow keys adjust range input)
+		await user.keyboard("[ArrowRight]");
 		await waitFor(() => {
-			// Slider value should change (toast context handles state)
-			expect(slider).toBeInTheDocument();
+			// Timeout display should reflect the new value
+			const timeoutDisplay = screen.getByText(/\d+\.\ds/);
+			expect(timeoutDisplay).toBeInTheDocument();
 		});
 	});
 
-	it("shows toast notification when position button clicked", async () => {
+	it("highlights active position button with full opacity", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<ToastSettings collapsed={false} onToggle={onToggle} />,
 		);
 		const topLeftButton = screen.getByTitle("Top Left");
 		await user.click(topLeftButton);
-		// Toast should be triggered (check for toast container or notification)
 		await waitFor(() => {
-			// Toast context should have been called with notification
-			expect(topLeftButton).toBeInTheDocument();
+			expect(topLeftButton).toHaveClass("opacity-100");
 		});
 	});
 

@@ -43,21 +43,6 @@ const createMockDeps = (
 };
 
 describe("useArenaRunner", () => {
-	it("returns all expected methods", () => {
-		const deps = createMockDeps();
-		const { result } = renderHook(() => useArenaRunner(deps), {
-			wrapper: createWrapper(),
-		});
-
-		expect(result.current.streamModel).toBeDefined();
-		expect(result.current.runRound).toBeDefined();
-		expect(result.current.handleStopAll).toBeDefined();
-		expect(result.current.handleRetry).toBeDefined();
-		expect(result.current.handleCancelSlot).toBeDefined();
-		expect(result.current.handleSwapComplete).toBeDefined();
-		expect(result.current.abortMapRef).toBeDefined();
-	});
-
 	it("initializes with empty abort map", () => {
 		const deps = createMockDeps();
 		const { result } = renderHook(() => useArenaRunner(deps), {
