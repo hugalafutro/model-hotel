@@ -252,11 +252,15 @@ describe("AppLogs", () => {
 	it("shows formatted timestamp for each log entry", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			// Timestamps are formatted - locale-agnostic match for date + time
-			// en-GB: "11/05/2026, 11:30:00" (DD/MM/YYYY)
-			// en-US: "05/11/2026, 11:30:00" (MM/DD/YYYY)
+			// Timestamps are formatted - locale-agnostic match
+			// The format varies by locale (DD/MM/YYYY vs MM/DD/YYYY, different separators)
+			// Just verify a timestamp-like string containing "2026" and "11:30" appears
 			expect(
-				screen.getByText(/\d{2}\/\d{2}\/2026,\s*11:30:00/),
+				screen.getByText((_content, element) => {
+					return element?.tagName === "TD"
+						? /2026.*11:30/.test(element.textContent ?? "")
+						: false;
+				}),
 			).toBeInTheDocument();
 		});
 	});

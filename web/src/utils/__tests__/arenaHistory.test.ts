@@ -84,18 +84,25 @@ describe("arenaHistory", () => {
 			// Clear localStorage first
 			localStorage.clear();
 
-			// Mock setItem to throw - this simulates localStorage quota exceeded
-			const originalSetItem = localStorage.setItem;
-			localStorage.setItem = vi.fn(() => {
-				throw new Error("Storage error");
-			}) as unknown as typeof originalSetItem;
+			// Mock setItem to throw on the localStorage instance directly.
+			// vi.spyOn(Storage.prototype) doesn't work in jsdom because
+			// localStorage has its own bound setItem that bypasses the prototype.
+			const origSetItem = localStorage.setItem.bind(localStorage);
+			Object.defineProperty(localStorage, "setItem", {
+				value: () => {
+					throw new Error("Storage error");
+				},
+				configurable: true,
+			});
 
 			expect(() => setArenaHistoryEnabled(true)).not.toThrow();
 			// When setItem fails, the value is not persisted
 			expect(getArenaHistoryEnabled()).toBe(false);
 
-			// Restore
-			localStorage.setItem = originalSetItem;
+			Object.defineProperty(localStorage, "setItem", {
+				value: origSetItem,
+				configurable: true,
+			});
 		});
 	});
 
@@ -459,7 +466,9 @@ describe("arenaHistory", () => {
 			expect(entry.completed).toBe(true);
 
 			// Verify privacy: custom persona prompts are stripped
-			const matchup = entry.rounds?.[0].matchups[0];
+			const round = entry.rounds?.[0];
+			expect(round).toBeDefined();
+			const matchup = round.matchups[0];
 			expect(matchup.slotA?.personaId).toBe("merlin"); // preset preserved
 			expect(matchup.slotB?.personaId).toBe(null); // null preserved
 		});
@@ -491,7 +500,9 @@ describe("arenaHistory", () => {
 			});
 
 			const entry = getArenaHistory()[0];
-			expect(entry.rounds?.[0].matchups[0].slotA?.personaId).toBe(null); // Non-preset stripped
+			const round2 = entry.rounds?.[0];
+			expect(round2).toBeDefined();
+			expect(round2.matchups[0].slotA?.personaId).toBe(null); // Non-preset stripped
 		});
 
 		it("strips non-preset prompt IDs", () => {

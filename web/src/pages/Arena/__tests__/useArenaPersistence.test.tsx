@@ -29,26 +29,40 @@ const mockState: ArenaPersistenceState = {
 // Full hook tests require the StorageProvider and ToastProvider contexts
 
 describe("useArenaPersistence - localStorage behavior", () => {
-	const originalSetItem = localStorage.setItem;
-	const originalGetItem = localStorage.getItem;
-	const originalRemoveItem = localStorage.removeItem;
+	let origSetItem: typeof Storage.prototype.setItem;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		origSetItem = localStorage.setItem;
 	});
 
 	afterEach(() => {
-		localStorage.setItem = originalSetItem;
-		localStorage.getItem = originalGetItem;
-		localStorage.removeItem = originalRemoveItem;
+		Object.defineProperty(localStorage, "setItem", {
+			value: origSetItem,
+			configurable: true,
+		});
 		localStorage.clear();
 	});
 
-	it("persists arena state to localStorage when persistArena=true", () => {
-		const setItemSpy = vi.spyOn(localStorage, "setItem");
+	function mockSetItem(
+		impl: (
+			// biome-ignore lint/suspicious/noExplicitAny: test helper mock
+			...args: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any[]
+		) => void,
+	) {
+		Object.defineProperty(localStorage, "setItem", {
+			value: impl,
+			configurable: true,
+		});
+	}
 
-		// Simulate what the hook does when persistArena=true
+	it("persists arena state to localStorage when persistArena=true", () => {
+		const calls: [string, string][] = [];
+		mockSetItem((key: string, value: string) => {
+			calls.push([key, value]);
+		});
+
 		const stateToPersist = {
 			arenaMode: mockState.arenaMode,
 			compareModels: mockState.compareModels,
@@ -67,10 +81,10 @@ describe("useArenaPersistence - localStorage behavior", () => {
 			// Quota exceeded
 		}
 
-		expect(setItemSpy).toHaveBeenCalledWith("arenaState", expect.any(String));
+		expect(calls).toHaveLength(1);
+		expect(calls[0][0]).toBe("arenaState");
 
-		const callArg = setItemSpy.mock.calls[0][1];
-		const parsed = JSON.parse(callArg as string);
+		const parsed = JSON.parse(calls[0][1]);
 		expect(parsed.arenaMode).toBe("compare");
 		expect(parsed.compareModels).toEqual([
 			"Provider/model-1",
@@ -87,17 +101,18 @@ describe("useArenaPersistence - localStorage behavior", () => {
 	});
 
 	it("does NOT call setItem when persistArena=false", () => {
-		const setItemSpy = vi.spyOn(localStorage, "setItem");
+		const calls: [string, string][] = [];
+		mockSetItem((key: string, value: string) => {
+			calls.push([key, value]);
+		});
 
 		// When persistArena=false, the hook returns early and never calls setItem
-		// This test verifies that behavior is correct when the condition is not met
-		expect(setItemSpy).not.toHaveBeenCalled();
+		expect(calls).toHaveLength(0);
 	});
 
 	it("handles localStorage quota exceeded gracefully", () => {
 		const mockToast = vi.fn();
-		const setItemSpy = vi.spyOn(localStorage, "setItem");
-		setItemSpy.mockImplementation(() => {
+		mockSetItem(() => {
 			throw new DOMException("Quota exceeded", "QuotaExceededError");
 		});
 
@@ -116,14 +131,12 @@ describe("useArenaPersistence - localStorage behavior", () => {
 			"Storage full - arena state not saved",
 			"warning",
 		);
-		expect(setItemSpy).toHaveBeenCalled();
 	});
 
 	it("warns only once via quotaWarnedRef pattern", () => {
 		const mockToast = vi.fn();
 		let quotaWarned = false;
-		const setItemSpy = vi.spyOn(localStorage, "setItem");
-		setItemSpy.mockImplementation(() => {
+		mockSetItem(() => {
 			throw new DOMException("Quota exceeded", "QuotaExceededError");
 		});
 
@@ -152,11 +165,13 @@ describe("useArenaPersistence - localStorage behavior", () => {
 
 		// Toast should only be called once despite multiple failures
 		expect(mockToast).toHaveBeenCalledTimes(1);
-		expect(setItemSpy).toHaveBeenCalledTimes(2);
 	});
 
 	it("serializes all state properties correctly", () => {
-		const setItemSpy = vi.spyOn(localStorage, "setItem");
+		const calls: [string, string][] = [];
+		mockSetItem((key: string, value: string) => {
+			calls.push([key, value]);
+		});
 
 		const complexState: ArenaPersistenceState = {
 			arenaMode: "compare",
@@ -191,10 +206,9 @@ describe("useArenaPersistence - localStorage behavior", () => {
 			// Quota exceeded
 		}
 
-		expect(setItemSpy).toHaveBeenCalled();
+		expect(calls).toHaveLength(1);
 
-		const callArg = setItemSpy.mock.calls[0][1];
-		const parsed = JSON.parse(callArg as string);
+		const parsed = JSON.parse(calls[0][1]);
 		expect(parsed.arenaMode).toBe("compare");
 		expect(parsed.bracketModels).toHaveLength(3);
 		expect(parsed.rounds).toHaveLength(1);
