@@ -89,6 +89,17 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 }
 
 func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData) {
+	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
+	// not called), there is no row to update. An empty string is not a valid
+	// UUID and would cause "invalid input syntax for type uuid" errors.
+	// Note: if insertRequestLogAsync was called but the async INSERT failed,
+	// the ID will still be set (assigned synchronously), and the UPDATE will
+	// simply affect 0 rows (logged as a warning below).
+	if logEntry.id == "" {
+		debuglog.Warn("proxy: skipping updateRequestLog — log entry has no ID")
+		return
+	}
+
 	// Ensure the async INSERT has completed before we try to UPDATE the row.
 	h.WaitForInsert(logEntry)
 

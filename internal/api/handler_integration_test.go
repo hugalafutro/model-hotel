@@ -6326,7 +6326,7 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 
 	// Insert a request log with token counts
 	_, err = h.dbPool.Pool().Exec(context.Background(),
-		`INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, tokens_prompt, tokens_completion, status, latency_ms, created_at)
+		`INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, tokens_prompt, tokens_completion, status_code, latency_ms, created_at)
 		 VALUES ($1, $2, 'test-model', NULL, 100, 50, 200, 123, NOW())`,
 		uuid.New(), provUUID)
 	if err != nil {
@@ -6430,7 +6430,7 @@ func TestGetStats_WithFilters_Integration(t *testing.T) {
 
 	// Insert request log
 	_, _ = h.dbPool.Pool().Exec(context.Background(),
-		`INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, tokens_prompt, tokens_completion, status, latency_ms, created_at)
+		`INSERT INTO request_logs (id, provider_id, model_id, virtual_key_id, tokens_prompt, tokens_completion, status_code, latency_ms, created_at)
 		 VALUES ($1, $2, 'gpt-4', NULL, 50, 25, 200, 100, NOW())`,
 		uuid.New(), provUUID)
 
