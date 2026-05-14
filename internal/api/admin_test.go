@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -302,7 +303,54 @@ func TestListProviders_RepoError(t *testing.T) {
 }
 
 func TestGetProvider_Success(t *testing.T) {
-	t.Skip("requires real database connection for model count query")
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+
+	// Create a provider first
+	createBody := `{"name":"get-test-provider","base_url":"https://api.example.com/v1","provider_type":"openai","api_key":"sk-testkey1234567890abcdef"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var created struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
+		t.Fatalf("failed to decode created provider: %v", err)
+	}
+
+	// Now GET the provider
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+created.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("get provider: expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var fetched struct {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		ModelCount int    `json:"model_count"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&fetched); err != nil {
+		t.Fatalf("failed to decode fetched provider: %v", err)
+	}
+	if fetched.ID != created.ID {
+		t.Errorf("expected ID %q, got %q", created.ID, fetched.ID)
+	}
+	if fetched.Name != "get-test-provider" {
+		t.Errorf("expected name 'get-test-provider', got %q", fetched.Name)
+	}
 }
 
 func TestGetProvider_NotFound(t *testing.T) {

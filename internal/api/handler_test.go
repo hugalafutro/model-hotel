@@ -49,16 +49,6 @@ func TestRegisterModels_Routes(t *testing.T) {
 	}
 }
 
-// TestDeleteModel_Succeeds tests DeleteModel handler
-func TestDeleteModel_Succeeds(t *testing.T) {
-	t.Skip("DeleteModel requires real database - integration test needed")
-}
-
-// TestPurgeLogs_Success tests PurgeLogs with valid older_than value
-func TestPurgeLogs_Success(t *testing.T) {
-	t.Skip("PurgeLogs requires real database - integration test needed")
-}
-
 // TestPurgeLogs_InvalidValue tests PurgeLogs with invalid older_than
 func TestPurgeLogs_InvalidValue(t *testing.T) {
 	h := &Handler{
@@ -73,21 +63,6 @@ func TestPurgeLogs_InvalidValue(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
-}
-
-// TestPurgeLogs_All tests PurgeLogs with "all" value
-func TestPurgeLogs_All(t *testing.T) {
-	t.Skip("PurgeLogs requires real database - integration test needed")
-}
-
-// TestListLogs_Success tests ListLogs handler returns status OK
-func TestListLogs_Success(t *testing.T) {
-	t.Skip("ListLogs requires real database - integration test needed")
-}
-
-// TestListLogs_WithFilters tests ListLogs with various filter query params
-func TestListLogs_WithFilters(t *testing.T) {
-	t.Skip("ListLogs requires real database - integration test needed")
 }
 
 // TestRegisterSettings_Routes verifies settings routes are registered correctly
@@ -119,36 +94,6 @@ func TestRegisterSettings_Routes(t *testing.T) {
 			t.Errorf("expected route %q not found, got %v", exp, routes)
 		}
 	}
-}
-
-// TestUpdateSettings_Success tests UpdateSettings handler
-func TestUpdateSettings_Success(t *testing.T) {
-	t.Skip("UpdateSettings requires real database - integration test needed")
-}
-
-// TestUpdateSettings_UnknownSetting tests UpdateSettings with unknown key
-func TestUpdateSettings_UnknownSetting(t *testing.T) {
-	t.Skip("UpdateSettings requires real database - integration test needed")
-}
-
-// TestUpdateSettings_InvalidValue tests UpdateSettings with invalid value type
-func TestUpdateSettings_InvalidValue(t *testing.T) {
-	t.Skip("UpdateSettings requires real database - integration test needed")
-}
-
-// TestUpdateSettings_RangeValidation tests range validation for numeric settings
-func TestUpdateSettings_RangeValidation(t *testing.T) {
-	t.Skip("UpdateSettings requires real database - integration test needed")
-}
-
-// TestGetAppLogs_History tests history mode without DB
-func TestGetAppLogs_History(t *testing.T) {
-	t.Skip("GetAppLogs requires real database - integration test needed")
-}
-
-// TestClearAppLogs tests ClearAppLogs
-func TestClearAppLogs(t *testing.T) {
-	t.Skip("ClearAppLogs requires real database - integration test needed")
 }
 
 // TestRegisterAppLogs_Routes verifies app logs routes
@@ -273,31 +218,6 @@ func TestRegisterProviderDiscovery_Routes(t *testing.T) {
 			t.Errorf("expected route %q not found, got %v", exp, routes)
 		}
 	}
-}
-
-// TestDiscoverProviderModels tests DiscoverProviderModels handler
-func TestDiscoverProviderModels(t *testing.T) {
-	t.Skip("DiscoverProviderModels requires real database - integration test needed")
-}
-
-// TestDiscoverAllModels tests DiscoverAllModels handler
-func TestDiscoverAllModels(t *testing.T) {
-	t.Skip("DiscoverAllModels requires real database - integration test needed")
-}
-
-// TestRefreshAllQuotas tests RefreshAllQuotas handler
-func TestRefreshAllQuotas(t *testing.T) {
-	t.Skip("RefreshAllQuotas requires real database - integration test needed")
-}
-
-// TestGetProviderUsage tests GetProviderUsage handler
-func TestGetProviderUsage(t *testing.T) {
-	t.Skip("GetProviderUsage requires real database - integration test needed")
-}
-
-// TestGetProviderBalance tests GetProviderBalance handler
-func TestGetProviderBalance(t *testing.T) {
-	t.Skip("GetProviderBalance requires real database - integration test needed")
 }
 
 // TestRegisterLogs_Routes verifies logs routes are registered correctly
