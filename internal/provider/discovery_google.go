@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -71,7 +72,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 		// Build capabilities from API data
 		hasThinking := gm.Thinking
-		hasGenerateContent := containsString(gm.SupportedGenerationMethods, "generateContent")
+		hasGenerateContent := slices.Contains(gm.SupportedGenerationMethods, "generateContent")
 
 		caps := model.Capability{
 			Streaming:        hasGenerateContent,
@@ -202,12 +203,4 @@ func isGoogleEmbeddingModel(modelID string) bool {
 	return strings.Contains(strings.ToLower(modelID), "embedding")
 }
 
-// containsString checks if a slice contains a specific string value.
-func containsString(slice []string, target string) bool {
-	for _, s := range slice {
-		if s == target {
-			return true
-		}
-	}
-	return false
-}
+// containsString removed — use slices.Contains from stdlib.

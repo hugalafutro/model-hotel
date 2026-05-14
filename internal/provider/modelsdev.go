@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -419,9 +420,9 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model) int {
 
 // modalityFromModelsDev derives a modality string from models.dev modalities.
 func modalityFromModelsDev(mods ModelsDevModalities) string {
-	hasImage := contains(mods.Input, "image")
-	hasAudio := contains(mods.Input, "audio")
-	hasVideo := contains(mods.Input, "video")
+	hasImage := slices.Contains(mods.Input, "image")
+	hasAudio := slices.Contains(mods.Input, "audio")
+	hasVideo := slices.Contains(mods.Input, "video")
 
 	switch {
 	case hasVideo:
@@ -437,14 +438,7 @@ func modalityFromModelsDev(mods ModelsDevModalities) string {
 	}
 }
 
-func contains(slice []string, s string) bool {
-	for _, v := range slice {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
+// contains removed — use slices.Contains from stdlib.
 
 func isNumeric(s string) bool {
 	for _, c := range s {

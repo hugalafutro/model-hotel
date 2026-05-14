@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -90,7 +91,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		outputPrice := float64(lm.CompletionTextTokenPrice) / 100.0
 
 		// Build capabilities from API data
-		hasVision := containsString(lm.InputModalities, "image")
+		hasVision := slices.Contains(lm.InputModalities, "image")
 		streaming := true        // xAI supports streaming on all models
 		reasoning := false       // Default; override from catalog if available
 		toolCalling := true      // xAI supports tool calling on language models

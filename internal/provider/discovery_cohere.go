@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -78,7 +79,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 			capJSON, _ := json.Marshal(caps)
 
 			// Determine modality from features
-			hasVision := containsString(cm.Features, "vision")
+			hasVision := slices.Contains(cm.Features, "vision")
 			modality := "text"
 			inputMods := `["text"]`
 			outputMods := `["text"]`

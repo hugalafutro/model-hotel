@@ -4,27 +4,6 @@ import (
 	"testing"
 )
 
-func TestContainsString(t *testing.T) {
-	tests := []struct {
-		name   string
-		slice  []string
-		target string
-		want   bool
-	}{
-		{"found", []string{"a", "b", "c"}, "b", true},
-		{"not found", []string{"a", "b", "c"}, "d", false},
-		{"empty slice", []string{}, "a", false},
-		{"nil slice", nil, "a", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := containsString(tt.slice, tt.target); got != tt.want {
-				t.Errorf("containsString() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestIsGoogleToolCallingModel(t *testing.T) {
 	tests := []struct {
 		name    string
