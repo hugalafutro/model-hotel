@@ -373,12 +373,4 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// buildProviderTargetURL constructs the full upstream URL for a given provider.
-// Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
-// because its base URL (https://api.anthropic.com) lacks the /v1 prefix.
-// buildProviderTargetURL is in internal/util — use util.BuildProviderTargetURL.
-
-// setProviderAuthHeaders sets the correct authentication headers for each provider type.
-// - Anthropic: x-api-key + anthropic-version (no Bearer auth)
-// - All others: standard Authorization: Bearer header
-// setProviderAuthHeaders is in internal/util — use util.SetProviderAuthHeaders.
+// See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.

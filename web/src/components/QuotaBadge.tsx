@@ -34,6 +34,10 @@ const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
 };
 
+/** Card variant classes derived from PROVIDER_BRAND_COLORS.
+ *  Colors are hardcoded as Tailwind arbitrary values because the
+ *  content scanner cannot detect template-literal class names.
+ *  Keep in sync with web/src/utils/providerBrands.ts. */
 const TYPE_STYLES: Record<
 	QuotaProviderType,
 	Record<QuotaBadgeVariant, string>
