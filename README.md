@@ -11,12 +11,13 @@
   <img src="https://img.shields.io/github/license/hugalafutro/model-hotel" alt="License">
   <img src="https://img.shields.io/github/last-commit/hugalafutro/model-hotel" alt="Last Commit">
   <img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version">
-  <img src="https://img.shields.io/github/v/release/hugalafutro/model-hotel" alt="Release">
   <img src="https://img.shields.io/badge/ghcr.io-hugalafutro%2Fmodel--hotel-2496ED?logo=docker&logoColor=white" alt="Docker">
   <img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report">
+
+ [![codecov](https://codecov.io/github/hugalafutro/model-hotel/graph/badge.svg?token=P4HJTYS75O)](https://codecov.io/github/hugalafutro/model-hotel)
+  
   <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel?style=social" alt="Stars">
-  <img src="https://codecov.io/gh/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage">
-  <br/>
+  <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
@@ -37,22 +38,22 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          1,424 │
-│Messages                                         49,125 │
+│Sessions                                          1,447 │
+│Messages                                         50,162 │
 │Days                                                 29 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
-│Total Cost                                      $106.83 │
-│Avg Cost/Day                                      $3.68 │
+│Total Cost                                      $108.63 │
+│Avg Cost/Day                                      $3.75 │
 │Avg Tokens/Session                                 2.5M │
-│Median Tokens/Session                            523.9K │
-│Input                                           2527.2M │
-│Output                                            13.6M │
-│Cache Read                                       992.9M │
-│Cache Write                                        3.4M │
+│Median Tokens/Session                            535.2K │
+│Input                                           2531.2M │
+│Output                                            13.8M │
+│Cache Read                                      1086.9M │
+│Cache Write                                        3.6M │
 └────────────────────────────────────────────────────────┘
 ```
 </details><br>
