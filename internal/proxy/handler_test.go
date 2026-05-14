@@ -60,15 +60,6 @@ func stopUnitHandler(h *Handler) {
 	}
 }
 
-func containsMethod(methods []string, method string) bool { //nolint:unused // kept for future handler tests
-	for _, m := range methods {
-		if m == method {
-			return true
-		}
-	}
-	return false
-}
-
 // mockVirtualKeyRepoWithFuncs is a test mock implementing VirtualKeyRepository
 // with customizable Create and Delete functions for testing error paths.
 // (Note: mockVirtualKeyRepo exists in response_test.go for simpler use cases)
