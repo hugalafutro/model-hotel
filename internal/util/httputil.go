@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
@@ -98,6 +99,40 @@ func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 			"code":    statusCode,
 		},
 	})
+}
+
+// BuildProviderTargetURL constructs the full upstream URL for a given provider.
+// Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
+// because its base URL (https://api.anthropic.com) lacks the /v1 prefix.
+// Defensive: if the base URL already ends with /v1, don't double-append it.
+func BuildProviderTargetURL(baseURL, providerType string) string {
+	sanitized := SanitizeBaseURL(baseURL)
+	switch providerType {
+	case "anthropic":
+		// Avoid double /v1 if the user configured https://api.anthropic.com/v1
+		if strings.HasSuffix(sanitized, "/v1") {
+			return sanitized + "/chat/completions"
+		}
+		return sanitized + "/v1/chat/completions"
+	default:
+		return sanitized + "/chat/completions"
+	}
+}
+
+// SetProviderAuthHeaders sets the correct authentication headers for each provider type.
+// - Anthropic: x-api-key + anthropic-version (no Bearer auth)
+// - All others: standard Authorization: Bearer header
+func SetProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
+	if apiKey == "" {
+		return
+	}
+	switch providerType {
+	case "anthropic":
+		req.Header.Set("x-api-key", apiKey)
+		req.Header.Set("anthropic-version", "2023-06-01")
+	default:
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 }
 
 // OpenAIErrorType maps an HTTP status code to the corresponding OpenAI error type string.

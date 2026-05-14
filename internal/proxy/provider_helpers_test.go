@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -91,9 +93,9 @@ func TestBuildProviderTargetURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildProviderTargetURL(tt.baseURL, tt.providerType)
+			got := util.BuildProviderTargetURL(tt.baseURL, tt.providerType)
 			if got != tt.want {
-				t.Errorf("buildProviderTargetURL(%q, %q) = %q, want %q", tt.baseURL, tt.providerType, got, tt.want)
+				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tt.baseURL, tt.providerType, got, tt.want)
 			}
 		})
 	}
@@ -105,7 +107,7 @@ func TestBuildProviderTargetURL(t *testing.T) {
 
 func TestSetProviderAuthHeaders_EmptyKey(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	setProviderAuthHeaders(req, "anthropic", "")
+	util.SetProviderAuthHeaders(req, "anthropic", "")
 	if req.Header.Get("x-api-key") != "" {
 		t.Error("expected no x-api-key header for empty key")
 	}
@@ -119,7 +121,7 @@ func TestSetProviderAuthHeaders_EmptyKey(t *testing.T) {
 
 func TestSetProviderAuthHeaders_Anthropic(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	setProviderAuthHeaders(req, "anthropic", "sk-test-key")
+	util.SetProviderAuthHeaders(req, "anthropic", "sk-test-key")
 	if v := req.Header.Get("x-api-key"); v != "sk-test-key" {
 		t.Errorf("x-api-key = %q, want %q", v, "sk-test-key")
 	}
@@ -133,7 +135,7 @@ func TestSetProviderAuthHeaders_Anthropic(t *testing.T) {
 
 func TestSetProviderAuthHeaders_OpenAI(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	setProviderAuthHeaders(req, "openai", "sk-test-key")
+	util.SetProviderAuthHeaders(req, "openai", "sk-test-key")
 	if v := req.Header.Get("Authorization"); v != "Bearer sk-test-key" {
 		t.Errorf("Authorization = %q, want %q", v, "Bearer sk-test-key")
 	}
@@ -144,7 +146,7 @@ func TestSetProviderAuthHeaders_OpenAI(t *testing.T) {
 
 func TestSetProviderAuthHeaders_Google(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	setProviderAuthHeaders(req, "google", "test-key")
+	util.SetProviderAuthHeaders(req, "google", "test-key")
 	if v := req.Header.Get("Authorization"); v != "Bearer test-key" {
 		t.Errorf("Authorization = %q, want %q", v, "Bearer test-key")
 	}
@@ -152,7 +154,7 @@ func TestSetProviderAuthHeaders_Google(t *testing.T) {
 
 func TestSetProviderAuthHeaders_EmptyProvider(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	setProviderAuthHeaders(req, "", "key")
+	util.SetProviderAuthHeaders(req, "", "key")
 	if v := req.Header.Get("Authorization"); v != "Bearer key" {
 		t.Errorf("Authorization = %q, want %q", v, "Bearer key")
 	}

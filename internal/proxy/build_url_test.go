@@ -95,9 +95,9 @@ func TestBuildProviderTargetURL_AnthropicEdgeCases(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildProviderTargetURL(tc.baseURL, tc.providerType)
+			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType)
 			if got != tc.want {
-				t.Errorf("buildProviderTargetURL(%q, %q) = %q, want %q", tc.baseURL, tc.providerType, got, tc.want)
+				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tc.baseURL, tc.providerType, got, tc.want)
 			}
 		})
 	}
@@ -110,9 +110,9 @@ func TestBuildProviderTargetURL_VariousProviders(t *testing.T) {
 
 	for _, provider := range providers {
 		t.Run(provider, func(t *testing.T) {
-			got := buildProviderTargetURL(baseURL, provider)
+			got := util.BuildProviderTargetURL(baseURL, provider)
 			if got != expected {
-				t.Errorf("buildProviderTargetURL(%q, %q) = %q, want %q", baseURL, provider, got, expected)
+				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", baseURL, provider, got, expected)
 			}
 		})
 	}
@@ -165,7 +165,7 @@ func TestBuildProviderTargetURL_HasSuffixCheck(t *testing.T) {
 				}
 			}
 
-			got := buildProviderTargetURL(tc.baseURL, tc.providerType)
+			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType)
 			if tc.providerType == "anthropic" && hasV1Suffix {
 				if strings.Contains(got, "/v1/v1/") {
 					t.Errorf("double /v1 detected in result: %q", got)

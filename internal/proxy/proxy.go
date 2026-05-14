@@ -810,7 +810,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}(candidate.provider.ID)
 		providerType := provider.DetectProviderType(candidate.provider.BaseURL)
 		debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
-		targetURL := buildProviderTargetURL(candidate.provider.BaseURL, providerType)
+		targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType)
 		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 		upstreamBody := proxyReqBody
@@ -851,7 +851,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		setProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
+		util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
 		proxyReq.Header.Set("Content-Type", "application/json")
 		debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 
@@ -949,7 +949,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 								lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
 								continue
 							}
-							setProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
+							util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
 							retryReq.Header.Set("Content-Type", "application/json")
 							retryClient := &http.Client{Transport: h.upstreamTransport}
 							resp, retryErr = retryClient.Do(retryReq)
@@ -1059,35 +1059,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 // Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
 // because its base URL (https://api.anthropic.com) lacks the /v1 prefix.
 // Defensive: if the base URL already ends with /v1, don't double-append it.
-func buildProviderTargetURL(baseURL, providerType string) string {
-	sanitized := util.SanitizeBaseURL(baseURL)
-	switch providerType {
-	case "anthropic":
-		// Avoid double /v1 if the user configured https://api.anthropic.com/v1
-		if strings.HasSuffix(sanitized, "/v1") {
-			return sanitized + "/chat/completions"
-		}
-		return sanitized + "/v1/chat/completions"
-	default:
-		return sanitized + "/chat/completions"
-	}
-}
+// buildProviderTargetURL is in internal/util — use util.BuildProviderTargetURL.
 
 // setProviderAuthHeaders sets the correct authentication headers for each provider type.
 // - Anthropic: x-api-key + anthropic-version (no Bearer auth)
 // - All others: standard Authorization: Bearer header
-func setProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
-	if apiKey == "" {
-		return
-	}
-	switch providerType {
-	case "anthropic":
-		req.Header.Set("x-api-key", apiKey)
-		req.Header.Set("anthropic-version", "2023-06-01")
-	default:
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-}
+// setProviderAuthHeaders is in internal/util — use util.SetProviderAuthHeaders.
 
 // mapKeys returns the keys of a map[string]bool for logging.
 // failoverBackoff calculates exponential backoff with jitter between failover attempts.
