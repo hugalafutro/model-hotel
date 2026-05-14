@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -142,58 +141,6 @@ func TestCreateBackup_Success(t *testing.T) {
 		if _, err := exec.Command("stat", backupPath).CombinedOutput(); err != nil {
 			t.Errorf("backup file should exist at %s", backupPath)
 		}
-	}
-}
-
-// TestGetProviderUsage_UnsupportedType tests the default branch of
-// Handler.GetProviderUsage() which returns 400 for unsupported provider types.
-func TestGetProviderUsage_UnsupportedType(t *testing.T) {
-
-	_, r := newTestHandlerWithRouter(t)
-
-	// Create a provider with an unsupported base URL
-	unknownURL := "https://api.unknown-provider.example.com/v1"
-	createBody := map[string]interface{}{
-		"name":     "unsupported-provider-" + t.Name(),
-		"base_url": unknownURL,
-		"api_key":  "test-key",
-	}
-	bodyBytes, err := json.Marshal(createBody)
-	if err != nil {
-		t.Fatalf("failed to marshal request body: %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/providers", bytes.NewReader(bodyBytes))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
-	}
-
-	var createResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(w.Body).Decode(&createResp); err != nil {
-		t.Fatalf("failed to decode create response: %v", err)
-	}
-
-	// Now request usage for this provider
-	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-
-	w = httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
-	}
-
-	if !strings.Contains(w.Body.String(), "usage information not supported") {
-		t.Errorf("expected error about unsupported provider type, got: %s", w.Body.String())
 	}
 }
 

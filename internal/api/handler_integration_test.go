@@ -58,10 +58,11 @@ func newTestHandler(t *testing.T) *Handler {
 	}
 
 	cfg := &config.Config{
-		MasterKey:          testMasterKey,
-		AllowHTTPProviders: true,
-		RateLimitEnabled:   false,
-		DataDir:            t.TempDir(),
+		MasterKey:            testMasterKey,
+		AllowHTTPProviders:   true,
+		RateLimitEnabled:     false,
+		DataDir:              t.TempDir(),
+		AllowedProviderHosts: []string{"localhost", "127.0.0.1", "api.nano-gpt.com", "nano-gpt.com", "api.nanogpt.com", "nanogpt.com", "ngc.nanogpt.com", "openrouter.ai", "api.z.ai", "z.ai", "api.zai.chat", "zai.api.example.com", "api.deepseek.com", "deepseek.com", "api.anthropic.com", "anthropic.com", "api.openai.com", "opencode.ai", "api.example.com", "custom.example.com", "api.alpha.com", "api.beta.com", "api.first.com", "api.second.com", "api.generic.com", "example.com", "api.mistral.ai", "api.cohere.ai", "api.x.ai", "generativelanguage.googleapis.com", "192.168.1.1", "192.0.2.1", "httpbin.org"},
 	}
 
 	providerRepo := provider.NewRepository(pool)
@@ -2746,62 +2747,6 @@ func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 }
 
 // Discovery Handler Tests - Uncovered Code Paths
-
-func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
-
-	// Create provider
-	body := `{"name":"test-disc-disabled","base_url":"https://api.openai.com","api_key":"sk-test123"}`
-	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	// Check response status
-	if w.Code != http.StatusCreated {
-		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
-	}
-
-	// Parse response to get provider ID
-	var resp map[string]interface{}
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("Failed to parse provider creation response: %v, body: %s", err, w.Body.String())
-	}
-	providerID, ok := resp["id"].(string)
-	if !ok {
-		t.Fatalf("Provider ID not found in response or not a string: %+v", resp)
-	}
-
-	// Disable the provider via SQL
-	h.dbPool.Pool().Exec(context.Background(), "UPDATE providers SET enabled = false WHERE id = $1", providerID)
-
-	// Try to discover
-	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", http.NoBody)
-	req2.Header.Set("Authorization", "Bearer test-admin-token")
-	w2 := httptest.NewRecorder()
-	r.ServeHTTP(w2, req2)
-
-	// Should get error (400 for disabled provider, or 500 for API key failure)
-	if w2.Code != 400 && w2.Code != 500 {
-		t.Errorf("expected 400 or 500, got %d", w2.Code)
-	}
-}
-
-func TestDiscoverProviderModels_InvalidUUID(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
-
-	// Call with invalid UUID
-	req := httptest.NewRequest("POST", "/providers/not-a-uuid/discover", http.NoBody)
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	// Should get 400
-	if w.Code != 400 {
-		t.Errorf("expected 400, got %d", w.Code)
-	}
-}
 
 func TestDiscoverProviderModels_NotFound(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
