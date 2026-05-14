@@ -253,8 +253,9 @@ func TestWriteJSON_ErrorBranch(t *testing.T) {
 	writeJSON(fw, data)
 
 	// Verify writeJSON set Content-Type header before the Write failed
-	if fw.Header() == nil {
-		t.Error("writeJSON should set Content-Type header even when Write fails")
+	ct := fw.Header().Get("Content-Type")
+	if ct != "application/json" {
+		t.Errorf("writeJSON should set Content-Type to application/json, got %q", ct)
 	}
 }
 
@@ -297,8 +298,9 @@ func TestWriteJSONCreated_ErrorBranch(t *testing.T) {
 	writeJSONCreated(fw, data)
 
 	// Verify writeJSONCreated set Content-Type header before the Write failed
-	if fw.Header() == nil {
-		t.Error("writeJSONCreated should set Content-Type header even when Write fails")
+	ct := fw.Header().Get("Content-Type")
+	if ct != "application/json" {
+		t.Errorf("writeJSONCreated should set Content-Type to application/json, got %q", ct)
 	}
 }
 

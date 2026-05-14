@@ -198,8 +198,9 @@ func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
 	cache.Store("key", map[string]bool(nil))
 
 	got := getCachedRejectedParams(&cache, "key")
-	// A nil map[string]bool passes the type assertion, so Load returns it.
-	// This just verifies it doesn't panic.
+	// A nil map[string]bool passes the type assertion in Load, but the
+	// returned value is still nil (a nil map is nil in Go). Verify the
+	// function returns nil rather than a sentinel or empty map.
 	if got != nil {
 		t.Errorf("getCachedRejectedParams should return nil for nil map value, got %v", got)
 	}

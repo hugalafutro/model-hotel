@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+// noopRoundTripper is a minimal http.RoundTripper that is NOT *http.Transport.
+// Used to test the non-Transport code path in CloseDockerClient.
+type noopRoundTripper struct{}
+
+func (noopRoundTripper) RoundTrip(*http.Request) (*http.Response, error) { return nil, nil }
+
 // localhostRedirectTransport redirects http://localhost/* requests to a test server
 type localhostRedirectTransport struct {
 	targetURL string
@@ -569,9 +575,11 @@ func TestCloseDockerClient_NilClient(t *testing.T) {
 func TestCloseDockerClient_NonTransport(t *testing.T) {
 	resetDockerState()
 
-	// Create client with non-Transport roundtripper
+	// Create client with a custom RoundTripper (not *http.Transport)
+	// so the type assertion in CloseDockerClient fails and the
+	// CloseIdleConnections call is skipped gracefully.
 	sharedDockerCli = &http.Client{
-		Transport: http.DefaultTransport,
+		Transport: noopRoundTripper{},
 		Timeout:   5 * time.Second,
 	}
 
