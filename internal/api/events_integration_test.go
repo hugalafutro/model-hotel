@@ -47,11 +47,14 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 	r.Use(h.AuthMiddleware)
 	h.RegisterEvents(r)
 
-	// Create a channel to capture SSE output
+	// Create a cancellable context so the handler goroutine can be cleaned up.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	done := make(chan struct{})
 	rec := httptest.NewRecorder()
 
-	req := httptest.NewRequest(http.MethodGet, "/events", http.NoBody)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 
 	// Start the SSE handler in a goroutine
@@ -74,14 +77,6 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 	// Give time for event to be delivered
 	time.Sleep(100 * time.Millisecond)
 
-	// Cancel the request
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	// Create a new request with cancelled context to signal stop
-	newReq := httptest.NewRequestWithContext(cancelCtx, http.MethodGet, "/events", http.NoBody)
-	newReq.Header.Set("Authorization", "Bearer test-admin-token")
-
 	// The handler should have received the event
 	body := rec.Body.String()
 	if !strings.Contains(body, "test.event") {
@@ -89,6 +84,16 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 	}
 	if !strings.Contains(body, "Test message") {
 		t.Errorf("Expected message in SSE stream, got: %s", body)
+	}
+
+	// Cancel the request context to unblock the handler goroutine.
+	cancel()
+
+	// Wait for the handler goroutine to finish.
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Error("handler goroutine did not exit after context cancellation")
 	}
 }
 
