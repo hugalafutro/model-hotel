@@ -249,7 +249,6 @@ Event types:
 - `discovery.provider_error`
 - `discovery.models_disabled`
 - `failover.sync_error`
-- `logs.stale_startup`
 - `model.disabled_manually`
 
 ## Testing
@@ -326,7 +325,7 @@ Creates optimized bundle in `web/dist/`
 ### Docker Deployment
 The Go backend serves the built frontend:
 ```go
-// cmd/server/spa.go
+// cmd/server/static.go
 r.Get("/*", spaHandler.ServeHTTP)
 ```
 

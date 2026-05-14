@@ -64,6 +64,7 @@ var allowedSettings = map[string]struct {
 	"theme":                        {typeName: "string"}, // light/dark
 	"ui_style":                     {typeName: "string"}, // e.g. "default"
 	"accent_color":                 {typeName: "string"}, // hex color
+	"key_cache_ttl":                {typeName: "string"}, // duration (e.g. "10m0s")
 }
 
 const maxSettingValueLen = 500
