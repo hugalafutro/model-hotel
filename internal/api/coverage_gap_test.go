@@ -17,9 +17,7 @@ import (
 // request_logs for models with hotel/ prefix and sums tokens in the last 30 days.
 func TestGetTokenCounts(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 	pool := h.dbPool
 
@@ -103,10 +101,6 @@ func TestCreateBackup_Success(t *testing.T) {
 	// Skip if pg_dump is not available
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed, skipping backup integration test")
-	}
-
-	if apiTestDBURL == "" {
-		t.Skip("database not available")
 	}
 
 	backupDir := t.TempDir()
@@ -450,9 +444,6 @@ func TestDeleteProvider_Integration_Success(t *testing.T) {
 // TestFailoverSync_Integration tests the Sync endpoint.
 func TestFailoverSync_Integration(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
 

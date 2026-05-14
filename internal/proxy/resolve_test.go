@@ -85,9 +85,6 @@ func TestShouldFailover_PureUnit_NoFailoverCodes(t *testing.T) {
 
 func TestShouldFailover_Integration_429DefaultEnabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Default setting for failover_on_rate_limit is true
 	if !h.shouldFailover(context.Background(), 429) {
@@ -97,9 +94,6 @@ func TestShouldFailover_Integration_429DefaultEnabled(t *testing.T) {
 
 func TestShouldFailover_Integration_429Disabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	if err := h.settingsRepo.Set(context.Background(), "failover_on_rate_limit", "false"); err != nil {
 		t.Fatalf("failed to set setting: %v", err)
@@ -116,9 +110,6 @@ func TestShouldFailover_Integration_429Disabled(t *testing.T) {
 
 func TestShouldFailover_Integration_TableDriven(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	tests := []struct {
 		name     string
@@ -153,9 +144,6 @@ func TestShouldFailover_Integration_TableDriven(t *testing.T) {
 
 func TestResolveHotelModel_GroupNotFound(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	candidates, timings, err := h.resolveHotelModel(context.Background(), "nonexistent-model-xyz")
 
@@ -179,9 +167,6 @@ func TestResolveHotelModel_GroupNotFound(t *testing.T) {
 
 func TestResolveHotelModel_ContextCanceled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -199,9 +184,6 @@ func TestResolveHotelModel_ContextCanceled(t *testing.T) {
 
 func TestResolveSpecificProvider_ProviderNotFound(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	candidates, timings, err := h.resolveSpecificProvider(context.Background(), "nonexistent-provider", "some-model")
 
@@ -217,9 +199,6 @@ func TestResolveSpecificProvider_ProviderNotFound(t *testing.T) {
 
 func TestResolveSpecificProvider_ModelNotFound(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	providers, err := h.providerRepo.List(context.Background())
 	if err != nil || len(providers) == 0 {
@@ -238,9 +217,6 @@ func TestResolveSpecificProvider_ModelNotFound(t *testing.T) {
 
 func TestResolveSpecificProvider_ContextCanceled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -276,9 +252,6 @@ func TestResolveTimings_ZeroValue(t *testing.T) {
 
 func TestResolveHotelModel_Success(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
@@ -358,9 +331,6 @@ func TestResolveHotelModel_Success(t *testing.T) {
 
 func TestResolveSpecificProvider_Success(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
@@ -434,9 +404,6 @@ func TestResolveSpecificProvider_Success(t *testing.T) {
 // TestResolveHotelModel_MultipleEntriesWithDisabled tests failover group with multiple entries where some are disabled
 func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
@@ -527,9 +494,6 @@ func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
 // TestResolveHotelModel_ModelDisabled tests when the only model in failover group is disabled
 func TestResolveHotelModel_ModelDisabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
@@ -598,9 +562,6 @@ func TestResolveHotelModel_ModelDisabled(t *testing.T) {
 // TestResolveHotelModel_ProviderDisabled tests when the provider is disabled
 func TestResolveHotelModel_ProviderDisabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
@@ -666,9 +627,6 @@ func TestResolveHotelModel_ProviderDisabled(t *testing.T) {
 // TestResolveHotelModel_CircuitBreakerOpen tests when circuit breaker is open for provider
 func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
@@ -733,9 +691,6 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 // TestResolveHotelModel_EmptyAPIKey tests resolution with a provider that has empty encrypted key
 func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider with empty API key (keyless-like behavior)
 	providerName := "test-provider-emptykey-" + uuid.New().String()[:8]
@@ -804,9 +759,6 @@ func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
 
 func TestResolveSpecificProvider_WrongMasterKey(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider with wrong master key
 	keyPair, err := auth.Encrypt("test-api-key", "wrong-master-key")

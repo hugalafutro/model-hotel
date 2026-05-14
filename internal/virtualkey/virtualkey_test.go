@@ -3,6 +3,7 @@ package virtualkey
 import (
 	"context"
 	"errors"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -20,29 +21,22 @@ var testDB *db.DB
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	var err error
 	testDBURL, setupErr := db.SetupTestDB("virtualkey")
 	if setupErr != nil {
-		testDB = nil
-	} else {
-		testDB, err = db.New(ctx, testDBURL, 25, 5)
-		if err != nil {
-			testDB = nil
-		}
+		log.Printf("failed to setup test DB: %v", setupErr)
+		os.Exit(1)
 	}
-	code := m.Run()
-	if testDB != nil {
-		testDB.Close()
-	}
-	db.CleanupTestDB("virtualkey")
-	os.Exit(code)
-}
+	defer db.CleanupTestDB("virtualkey")
 
-func skipIfNoDB(t *testing.T) {
-	t.Helper()
-	if testDB == nil {
-		t.Skip("database not available")
+	var err error
+	testDB, err = db.New(ctx, testDBURL, 25, 5)
+	if err != nil {
+		log.Printf("failed to initialize test DB: %v", err)
+		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
+	defer testDB.Close()
+
+	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +150,7 @@ func TestVirtualKeyResponse_EmptyKey(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRepository_Create(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -183,7 +177,7 @@ func TestRepository_Create(t *testing.T) {
 }
 
 func TestRepository_List(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -204,7 +198,7 @@ func TestRepository_List(t *testing.T) {
 }
 
 func TestRepository_Get(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -227,7 +221,7 @@ func TestRepository_Get(t *testing.T) {
 }
 
 func TestRepository_Get_NotFound(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
@@ -238,7 +232,7 @@ func TestRepository_Get_NotFound(t *testing.T) {
 }
 
 func TestRepository_Delete(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -261,7 +255,7 @@ func TestRepository_Delete(t *testing.T) {
 }
 
 func TestRepository_Delete_NotFound(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
@@ -275,7 +269,7 @@ func TestRepository_Delete_NotFound(t *testing.T) {
 }
 
 func TestRepository_AddTokens(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -303,7 +297,7 @@ func TestRepository_AddTokens(t *testing.T) {
 }
 
 func TestRepository_TouchLastUsed(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -328,7 +322,7 @@ func TestRepository_TouchLastUsed(t *testing.T) {
 }
 
 func TestRepository_FindByKeyHash(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -351,7 +345,7 @@ func TestRepository_FindByKeyHash(t *testing.T) {
 }
 
 func TestRepository_FindByKeyHash_NotFound(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
@@ -362,7 +356,7 @@ func TestRepository_FindByKeyHash_NotFound(t *testing.T) {
 }
 
 func TestRepository_Update(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
@@ -407,7 +401,7 @@ func TestRepository_Update(t *testing.T) {
 }
 
 func TestRepository_Update_NotFound(t *testing.T) {
-	skipIfNoDB(t)
+
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 

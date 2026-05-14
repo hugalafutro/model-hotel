@@ -1,5 +1,3 @@
-//go:build integration
-
 package proxy
 
 import (
@@ -21,9 +19,6 @@ import (
 
 // TestResolveHotelModel_EmptyFailoverGroup tests the case where a failover group exists but has no priority order
 func TestResolveHotelModel_EmptyFailoverGroup(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, _, keyHash, _, _ := newTestProxyHandler(t)
 	defer handler.Close()
@@ -55,9 +50,6 @@ func TestResolveHotelModel_EmptyFailoverGroup(t *testing.T) {
 
 // TestResolveHotelModel_DisabledFailoverGroup tests the case where a failover group is disabled
 func TestResolveHotelModel_DisabledFailoverGroup(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, modelID, keyHash, _, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -98,9 +90,6 @@ func TestResolveHotelModel_DisabledFailoverGroup(t *testing.T) {
 
 // TestResolveHotelModel_DisabledModel tests the case where a model in failover group is disabled
 func TestResolveHotelModel_DisabledModel(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -150,9 +139,6 @@ func TestResolveHotelModel_DisabledModel(t *testing.T) {
 
 // TestResolveHotelModel_DisabledProvider tests the case where a provider in failover group is disabled
 func TestResolveHotelModel_DisabledProvider(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -193,10 +179,7 @@ func TestResolveHotelModel_DisabledProvider(t *testing.T) {
 }
 
 // TestResolveHotelModel_CircuitBreakerOpen tests the case where circuit breaker is open for a provider
-func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
+func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 
 	handler, _, providerID, modelID, keyHash, _, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -232,9 +215,6 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 
 // TestResolveSpecificProvider_InvalidFormat tests specific provider resolution with invalid format
 func TestResolveSpecificProvider_InvalidFormat(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, _, keyHash, _, _ := newTestProxyHandler(t)
 	defer handler.Close()
@@ -257,9 +237,6 @@ func TestResolveSpecificProvider_InvalidFormat(t *testing.T) {
 
 // TestChatCompletions_UpstreamTimeout tests the case where upstream times out
 func TestChatCompletions_UpstreamTimeout(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 	t.Skip("skipped: upstream timeout test requires >30s sleep, too slow for CI")
 
 	handler, _, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
@@ -316,9 +293,6 @@ func TestChatCompletions_UpstreamTimeout(t *testing.T) {
 
 // TestChatCompletions_UpstreamConnectionRefused tests the case where upstream refuses connection
 func TestChatCompletions_UpstreamConnectionRefused(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -344,9 +318,6 @@ func TestChatCompletions_UpstreamConnectionRefused(t *testing.T) {
 
 // TestChatCompletions_UpstreamMalformedResponse tests the case where upstream returns malformed JSON
 func TestChatCompletions_UpstreamMalformedResponse(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -378,9 +349,6 @@ func TestChatCompletions_UpstreamMalformedResponse(t *testing.T) {
 
 // TestChatCompletions_StreamingPartialStream tests the case where upstream sends partial stream
 func TestChatCompletions_StreamingPartialStream(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -411,9 +379,6 @@ func TestChatCompletions_StreamingPartialStream(t *testing.T) {
 
 // TestChatCompletions_StreamingSSEFormatError tests the case where upstream sends malformed SSE
 func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -444,9 +409,6 @@ func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 
 // TestChatCompletions_FailoverOnRateLimit tests failover when rate limit is hit
 func TestChatCompletions_FailoverOnRateLimit(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -501,9 +463,6 @@ func TestChatCompletions_FailoverOnRateLimit(t *testing.T) {
 
 // TestChatCompletions_FailoverOnAuthError tests failover when auth error occurs
 func TestChatCompletions_FailoverOnAuthError(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -558,9 +517,6 @@ func TestChatCompletions_FailoverOnAuthError(t *testing.T) {
 
 // TestChatCompletions_FailoverOn5xxError tests failover when 5xx error occurs
 func TestChatCompletions_FailoverOn5xxError(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -615,9 +571,6 @@ func TestChatCompletions_FailoverOn5xxError(t *testing.T) {
 
 // TestChatCompletions_EmptyMessages tests the case with empty messages array
 func TestChatCompletions_EmptyMessages(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
 	defer handler.Close()
@@ -640,9 +593,6 @@ func TestChatCompletions_EmptyMessages(t *testing.T) {
 
 // TestChatCompletions_RoutingInvalidJSON tests the case with malformed JSON body
 func TestChatCompletions_RoutingInvalidJSON(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, _, _, _, keyHash, _, _ := newTestProxyHandler(t)
 	defer handler.Close()

@@ -1,5 +1,3 @@
-//go:build integration
-
 package proxy
 
 import (
@@ -9,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -24,9 +23,6 @@ import (
 
 // Test ListModels with model filtering by provider
 func TestListModels_FilterByProvider(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
@@ -51,10 +47,16 @@ func TestListModels_FilterByProvider(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	// Create a provider
@@ -107,7 +109,7 @@ func TestListModels_FilterByProvider(t *testing.T) {
 	}
 
 	// Test the ListModels endpoint
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 	req = withAuthContext(req)
 
 	rr := httptest.NewRecorder()
@@ -153,9 +155,6 @@ func TestListModels_FilterByProvider(t *testing.T) {
 
 // Test ChatCompletions with error handling
 func TestChatCompletions_ErrorHandling(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 
@@ -173,10 +172,16 @@ func TestChatCompletions_ErrorHandling(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	// Test with empty model name
@@ -211,9 +216,6 @@ func TestChatCompletions_ErrorHandling(t *testing.T) {
 
 // Test ChatCompletions with invalid request body
 func TestChatCompletions_InvalidRequestBody(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 
@@ -231,10 +233,16 @@ func TestChatCompletions_InvalidRequestBody(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	// Test with invalid JSON

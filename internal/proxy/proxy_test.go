@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -30,30 +31,27 @@ var testDB *db.DB
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	var err error
 	testDBURL, setupErr := db.SetupTestDB("proxy")
 	if setupErr != nil {
-		testDB = nil
-	} else {
-		testDB, err = db.New(ctx, testDBURL, 25, 5)
-		if err != nil {
-			testDB = nil
-		}
+		log.Printf("failed to setup test DB: %v", setupErr)
+		os.Exit(1)
 	}
-	code := m.Run()
-	if testDB != nil {
-		testDB.Close()
+	defer db.CleanupTestDB("proxy")
+
+	var err error
+	testDB, err = db.New(ctx, testDBURL, 25, 5)
+	if err != nil {
+		log.Printf("failed to initialize test DB: %v", err)
+		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
-	db.CleanupTestDB("proxy")
-	os.Exit(code)
+	defer testDB.Close()
+
+	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 }
 
 // newIntegrationHandler creates a Handler with a real settings.Repository
-// backed by the test database. Returns nil if the database is unavailable.
+// backed by the test database.
 func newIntegrationHandler() *Handler {
-	if testDB == nil {
-		return nil
-	}
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -74,6 +72,7 @@ func newIntegrationHandler() *Handler {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       90 * time.Second,
 		},
@@ -86,9 +85,6 @@ func newIntegrationHandler() *Handler {
 
 func TestShouldFailover_5xx(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	for _, code := range []int{500, 502, 503, 504} {
 		if !h.shouldFailover(context.Background(), code) {
 			t.Errorf("status %d should trigger failover", code)
@@ -98,9 +94,6 @@ func TestShouldFailover_5xx(t *testing.T) {
 
 func TestShouldFailover_429_DefaultEnabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	// Default setting for failover_on_rate_limit is true
 	if !h.shouldFailover(context.Background(), 429) {
 		t.Error("429 should trigger failover when failover_on_rate_limit=true (default)")
@@ -109,9 +102,6 @@ func TestShouldFailover_429_DefaultEnabled(t *testing.T) {
 
 func TestShouldFailover_429_Disabled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	// Set failover_on_rate_limit=false
 	if err := h.settingsRepo.Set(context.Background(), "failover_on_rate_limit", "false"); err != nil {
 		t.Fatalf("failed to set setting: %v", err)
@@ -128,9 +118,6 @@ func TestShouldFailover_429_Disabled(t *testing.T) {
 
 func TestShouldFailover_AuthErrors(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	for _, code := range []int{401, 403} {
 		if !h.shouldFailover(context.Background(), code) {
 			t.Errorf("status %d should trigger failover", code)
@@ -140,9 +127,6 @@ func TestShouldFailover_AuthErrors(t *testing.T) {
 
 func TestShouldFailover_SuccessCodes(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	for _, code := range []int{200, 201, 204, 301, 302} {
 		if h.shouldFailover(context.Background(), code) {
 			t.Errorf("status %d should NOT trigger failover", code)
@@ -152,9 +136,6 @@ func TestShouldFailover_SuccessCodes(t *testing.T) {
 
 func TestShouldFailover_Other4xx(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	for _, code := range []int{400, 404, 405, 408, 422} {
 		if h.shouldFailover(context.Background(), code) {
 			t.Errorf("status %d should NOT trigger failover", code)
@@ -168,9 +149,6 @@ func TestShouldFailover_Other4xx(t *testing.T) {
 
 func TestChatCompletions_MissingBody(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	req := httptest.NewRequest("POST", "/chat/completions", strings.NewReader(""))
 	req = withAuthContext(req)
 
@@ -184,9 +162,6 @@ func TestChatCompletions_MissingBody(t *testing.T) {
 
 func TestChatCompletions_InvalidJSON(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	req := httptest.NewRequest("POST", "/chat/completions", strings.NewReader("not json"))
 	req = withAuthContext(req)
 
@@ -200,9 +175,6 @@ func TestChatCompletions_InvalidJSON(t *testing.T) {
 
 func TestChatCompletions_MissingModel(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	body := `{"messages":[{"role":"user","content":"hi"}]}`
 	req := httptest.NewRequest("POST", "/chat/completions", strings.NewReader(body))
 	req = withAuthContext(req)
@@ -217,9 +189,6 @@ func TestChatCompletions_MissingModel(t *testing.T) {
 
 func TestChatCompletions_InvalidModelFormat(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	body := `{"model":"just-a-name","messages":[]}`
 	req := httptest.NewRequest("POST", "/chat/completions", strings.NewReader(body))
 	req = withAuthContext(req)
@@ -234,9 +203,6 @@ func TestChatCompletions_InvalidModelFormat(t *testing.T) {
 
 func TestChatCompletions_HotelModelNotFound(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	body := `{"model":"hotel/nonexistent","messages":[]}`
 	req := httptest.NewRequest("POST", "/chat/completions", strings.NewReader(body))
 	req = withAuthContext(req)
@@ -251,9 +217,6 @@ func TestChatCompletions_HotelModelNotFound(t *testing.T) {
 
 func TestChatCompletions_SpecificProviderNotFound(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	body := `{"model":"unknown-provider/some-model","messages":[]}`
 	req := httptest.NewRequest("POST", "/chat/completions", strings.NewReader(body))
 	req = withAuthContext(req)
@@ -406,9 +369,6 @@ func (w *failAfterNWriter) Flush() {
 
 func TestHandleStreamingResponse_ClientWriteFailureMarksDisconnected(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	// Build an upstream SSE server that streams ~50 chunks then [DONE].
@@ -504,9 +464,6 @@ func withAuthContext(r *http.Request) *http.Request {
 // that don't contain a slash (invalid format)
 func TestChatCompletions_ModelWithNoSlash(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	body := `{"model":"justmodel","messages":[{"role":"user","content":"hi"}]}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 	req = withAuthContext(req)
@@ -522,9 +479,6 @@ func TestChatCompletions_ModelWithNoSlash(t *testing.T) {
 // TestChatCompletions_EmptyModel tests the error path for empty model field
 func TestChatCompletions_EmptyModel(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	body := `{"model":"","messages":[{"role":"user","content":"hi"}]}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 	req = withAuthContext(req)
@@ -540,9 +494,6 @@ func TestChatCompletions_EmptyModel(t *testing.T) {
 // TestHandleStreamingResponse_EmptyStream tests when upstream sends no data
 func TestHandleStreamingResponse_EmptyStream(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	// Build an upstream SSE server that sends no data, just closes
@@ -588,9 +539,6 @@ func TestHandleStreamingResponse_EmptyStream(t *testing.T) {
 // TestHandleStreamingResponse_ErrorChunk tests when upstream sends error chunks
 func TestHandleStreamingResponse_ErrorChunk(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	// Build an upstream SSE server that sends an error chunk

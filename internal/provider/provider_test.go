@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -20,29 +21,27 @@ var testDB *db.DB
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	var err error
 	testDBURL, setupErr := db.SetupTestDB("provider")
 	if setupErr != nil {
-		testDB = nil
-	} else {
-		testDB, err = db.New(ctx, testDBURL, 25, 5)
-		if err != nil {
-			testDB = nil
-		}
+		log.Printf("failed to setup test DB: %v", setupErr)
+		os.Exit(1)
 	}
-	code := m.Run()
-	if testDB != nil {
-		testDB.Close()
+	defer db.CleanupTestDB("provider")
+
+	var err error
+	testDB, err = db.New(ctx, testDBURL, 25, 5)
+	if err != nil {
+		log.Printf("failed to initialize test DB: %v", err)
+		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
-	db.CleanupTestDB("provider")
-	os.Exit(code)
+	defer testDB.Close()
+
+	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 }
 
 func newTestRepo(t *testing.T) *Repository {
 	t.Helper()
-	if testDB == nil {
-		t.Skip("database not available")
-	}
+
 	return NewRepository(testDB.Pool())
 }
 

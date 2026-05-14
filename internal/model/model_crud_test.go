@@ -156,7 +156,7 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 
 func TestList_EmptyDatabase(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	// No cleanup needed - list should return empty with no providers/models
@@ -272,7 +272,7 @@ func TestList_ByProviderID(t *testing.T) {
 
 func TestListEnabled_EmptyDatabase(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	models, err := repo.ListEnabled(ctx)
@@ -328,7 +328,7 @@ func TestListEnabled_OnlyEnabledModels(t *testing.T) {
 
 func TestGet_NotFound(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	id := uuid.New()
@@ -389,7 +389,7 @@ func TestGet_CacheHit(t *testing.T) {
 
 func TestGetByIDs_EmptyIDs(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	result, err := repo.GetByIDs(ctx, []uuid.UUID{})
@@ -403,7 +403,7 @@ func TestGetByIDs_EmptyIDs(t *testing.T) {
 
 func TestGetByIDs_NotFound(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	id1 := uuid.New()
@@ -481,7 +481,7 @@ func TestGetByIDs_CacheHit(t *testing.T) {
 
 func TestGetByModelID_NotFound(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	models, err := repo.GetByModelID(ctx, "non-existent-model")
@@ -755,7 +755,7 @@ func TestUpdate_EnabledFalse(t *testing.T) {
 
 func TestUpdate_NotFound(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	// Try to update non-existent model
@@ -777,7 +777,7 @@ func TestUpdate_NotFound(t *testing.T) {
 
 func TestGetByProviderAndModelID_NotFound(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	providerID := uuid.New()

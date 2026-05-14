@@ -18,7 +18,7 @@ type VirtualKeyRepository interface {
 	AddTokens(ctx context.Context, keyHash string, tokens int) error
 	TouchLastUsed(ctx context.Context, keyHash string) error
 	FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error)
-	Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error)
+	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error)
 	Delete(ctx context.Context, id string) error
 }
 

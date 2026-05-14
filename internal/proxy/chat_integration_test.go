@@ -1,5 +1,3 @@
-//go:build integration
-
 package proxy
 
 import (
@@ -29,9 +27,6 @@ import (
 // newTestProxyHandler creates a Handler with test data for ChatCompletions testing.
 // Returns handler, upstream server, provider ID, model ID, and virtual key hash.
 func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, uuid.UUID, string, string, string) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
@@ -129,7 +124,7 @@ func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, u
 	virtualKeyName := "test-key-" + uuid.New().String()[:8]
 	keyHash := virtualkey.Hash(virtualKeyName)
 	keyPreview := "test-" + keyHash[:8]
-	if _, err := virtualKeyRepo.Create(context.Background(), virtualKeyName, keyHash, keyPreview); err != nil {
+	if _, err := virtualKeyRepo.Create(context.Background(), virtualKeyName, keyHash, keyPreview, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -139,7 +134,7 @@ func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, u
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
@@ -221,9 +216,6 @@ func TestChatCompletions_Streaming(t *testing.T) {
 }
 
 func TestChatCompletions_HotelModel(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	handler, upstream, _, modelID, keyHash, _, modelName := newTestProxyHandler(t)
 	defer upstream.Close()
@@ -507,9 +499,6 @@ func TestChatCompletions_NonStreaming_Success(t *testing.T) {
 
 // Test ChatCompletions non-streaming with upstream 4xx error
 func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
@@ -567,7 +556,7 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 		t.Fatalf("failed to create model: %v", err)
 	}
 
-	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-4xx"), "sk-tes...")
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-4xx"), "sk-tes...", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
@@ -579,10 +568,16 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	body := `{"model": "` + providerName + `/error-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -613,9 +608,6 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 
 // Test ChatCompletions non-streaming with upstream 5xx error
 func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
@@ -673,7 +665,7 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		t.Fatalf("failed to create model: %v", err)
 	}
 
-	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-5xx"), "sk-tes...")
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-5xx"), "sk-tes...", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
@@ -685,10 +677,16 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	body := `{"model": "` + providerName + `/error-model-5xx", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -701,9 +699,9 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
-	// Should return error response (502 Bad Gateway for upstream 5xx)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502, got %d", w.Code)
+	// Should return error response (upstream 5xx is passed through)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
 	}
 
 	var resp map[string]interface{}

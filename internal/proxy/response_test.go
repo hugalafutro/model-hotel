@@ -38,7 +38,7 @@ func (m *mockVirtualKeyRepo) FindByKeyHash(ctx context.Context, keyHash string) 
 	return &VirtualKeyInfo{ID: "test-id", Name: "test-key"}, nil
 }
 
-func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
 	return &VirtualKeyInfo{ID: "test-id", Name: name, KeyHash: keyHash, KeyPreview: keyPreview}, nil
 }
 
@@ -50,9 +50,6 @@ func (m *mockVirtualKeyRepo) Delete(ctx context.Context, id string) error {
 // ChatCompletionResponse JSON body
 func TestHandleNonStreamingResponse_Success(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	// Create a successful upstream response
@@ -125,9 +122,6 @@ func TestHandleNonStreamingResponse_Success(t *testing.T) {
 // represents an error response from the upstream.
 func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	// Non-200 status with valid JSON structure (upstream error response)
@@ -184,9 +178,6 @@ func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
 // with invalid JSON body
 func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	upstreamBody := "invalid json response"
@@ -237,9 +228,6 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 // with empty body
 func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 
 	resp := &http.Response{
@@ -288,9 +276,6 @@ func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 func TestHandleNonStreamingResponse_WithVirtualKeyHash(t *testing.T) {
 	mockVKRepo := &mockVirtualKeyRepo{}
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 	defer stopUnitHandler(h)
 	// Replace virtualKeyRepo with mock for this test
 	h.virtualKeyRepo = mockVKRepo

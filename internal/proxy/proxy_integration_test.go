@@ -1,5 +1,3 @@
-//go:build integration
-
 package proxy
 
 import (
@@ -23,10 +21,7 @@ import (
 // TestHandleStreamingResponse_UpstreamError tests error handling in streaming responses
 func TestHandleStreamingResponse_UpstreamError(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
-	defer stopUnitHandler_Integration(h)
+	defer stopUnitHandlerIntegration(h)
 
 	// Build an upstream server that returns an error
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,13 +66,11 @@ func TestHandleStreamingResponse_UpstreamError(t *testing.T) {
 	}
 }
 
-// TestHandleStreamingResponse_TruncatedStream tests handling of truncated streams
-func TestHandleStreamingResponse_TruncatedStream(t *testing.T) {
+// TestHandleStreamingResponse_MissingDoneSentinel tests that the proxy auto-injects
+// the [DONE] sentinel when the upstream omits it but content was received successfully.
+func TestHandleStreamingResponse_MissingDoneSentinel(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
-	defer stopUnitHandler_Integration(h)
+	defer stopUnitHandlerIntegration(h)
 
 	// Build an upstream server that closes connection without [DONE]
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -122,21 +115,19 @@ func TestHandleStreamingResponse_TruncatedStream(t *testing.T) {
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
-	if logData.state != "failed" {
-		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	if logData.state != "completed" {
+		t.Errorf("expected state=%q, got %q", "completed", logData.state)
 	}
-	if !strings.Contains(logData.errorMessage, "without [DONE] sentinel") {
-		t.Errorf("expected error message about missing [DONE], got %q", logData.errorMessage)
+	// Verify the proxy actually injected [DONE] into the downstream response
+	if !strings.Contains(inner.Body.String(), "data: [DONE]") {
+		t.Errorf("expected downstream response to contain 'data: [DONE]', got body:\n%s", inner.Body.String())
 	}
 }
 
 // TestHandleNonStreamingResponse_Success tests successful non-streaming response handling
-func TestHandleNonStreamingResponse_Success(t *testing.T) {
+func TestHandleNonStreamingResponse_Success_Integration(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
-	defer stopUnitHandler_Integration(h)
+	defer stopUnitHandlerIntegration(h)
 
 	// Build an upstream server that returns a successful response
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -200,10 +191,7 @@ func TestHandleNonStreamingResponse_Success(t *testing.T) {
 // This test verifies that the streaming handler processes chunks and updates logs
 func TestHandleStreamingResponse_Basic(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
-	defer stopUnitHandler_Integration(h)
+	defer stopUnitHandlerIntegration(h)
 
 	// Build an upstream server that returns a simple streaming response
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -434,10 +422,7 @@ func TestSafeDialer_AllowedHost(t *testing.T) {
 // TestRegisterAdminChat_Routes tests that RegisterAdminChat registers the expected routes
 func TestRegisterAdminChat_Routes(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
-	defer stopUnitHandler_Integration(h)
+	defer stopUnitHandlerIntegration(h)
 
 	// Create a chi router and register admin chat routes
 	router := chi.NewRouter()
@@ -446,7 +431,7 @@ func TestRegisterAdminChat_Routes(t *testing.T) {
 	// Test that routes are registered by checking if they don't return 404
 	// We don't need to test the full functionality, just that routes exist
 	t.Run("chat route exists", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/chat", nil)
+		req := httptest.NewRequest("POST", "/chat", http.NoBody)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		// Route should exist (may return auth error, but not 404)
@@ -456,7 +441,7 @@ func TestRegisterAdminChat_Routes(t *testing.T) {
 	})
 
 	t.Run("arena route exists", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/arena", nil)
+		req := httptest.NewRequest("POST", "/arena", http.NoBody)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		if w.Code == http.StatusNotFound {
@@ -465,7 +450,7 @@ func TestRegisterAdminChat_Routes(t *testing.T) {
 	})
 
 	t.Run("completions route exists", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/completions", nil)
+		req := httptest.NewRequest("POST", "/completions", http.NoBody)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		if w.Code == http.StatusNotFound {
@@ -569,7 +554,7 @@ func TestChatCompletions_ParamStripping(t *testing.T) {
 }
 
 // stopUnitHandler stops the unit handler's background goroutines
-func stopUnitHandler_Integration(h *Handler) {
+func stopUnitHandlerIntegration(h *Handler) {
 	if h != nil && h.upstreamTransport != nil {
 		h.upstreamTransport.CloseIdleConnections()
 	}

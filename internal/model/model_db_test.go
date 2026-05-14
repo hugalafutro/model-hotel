@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"log"
 	"os"
 	"testing"
 
@@ -13,38 +14,29 @@ import (
 
 var testPool *pgxpool.Pool
 
-func skipIfNoDB(t *testing.T) {
-	t.Helper()
-	if testPool == nil {
-		t.Skip("skipping: test database not available")
-	}
-}
-
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	dbURL, err := db.SetupTestDB("model")
+	dbURL, setupErr := db.SetupTestDB("model")
+	if setupErr != nil {
+		log.Printf("failed to setup test DB: %v", setupErr)
+		os.Exit(1)
+	}
+	defer db.CleanupTestDB("model")
+
+	testDB, err := db.New(ctx, dbURL, 25, 5)
 	if err != nil {
-		testPool = nil
-	} else {
-		testDB, dbErr := db.New(ctx, dbURL, 25, 5)
-		if dbErr != nil {
-			testPool = nil
-		} else {
-			testPool = testDB.Pool()
-		}
+		log.Printf("failed to initialize test DB: %v", err)
+		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
-	code := m.Run()
-	if testPool != nil {
-		testPool.Close()
-	}
-	db.CleanupTestDB("model")
-	os.Exit(code)
+	testPool = testDB.Pool()
+	defer testDB.Close()
+
+	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 }
 
 // insertTestProvider inserts a provider row and returns its ID.
 func insertTestProvider(ctx context.Context, t *testing.T, name string) uuid.UUID {
 	t.Helper()
-	skipIfNoDB(t)
 
 	// Need the same columns that the app would write.
 	// encrypted_key, key_nonce, key_salt are nullable after migration 026.
@@ -62,7 +54,6 @@ func insertTestProvider(ctx context.Context, t *testing.T, name string) uuid.UUI
 // insertTestModel inserts a model row for a given provider.
 func insertTestModel(ctx context.Context, t *testing.T, providerID uuid.UUID, modelID string) uuid.UUID {
 	t.Helper()
-	skipIfNoDB(t)
 
 	id := uuid.New()
 	_, err := testPool.Exec(ctx, `
@@ -78,7 +69,6 @@ func insertTestModel(ctx context.Context, t *testing.T, providerID uuid.UUID, mo
 // countEnabledModels returns the number of enabled models for a provider.
 func countEnabledModels(ctx context.Context, t *testing.T, providerID uuid.UUID) int {
 	t.Helper()
-	skipIfNoDB(t)
 
 	var count int
 	err := testPool.QueryRow(ctx,
@@ -94,7 +84,6 @@ func countEnabledModels(ctx context.Context, t *testing.T, providerID uuid.UUID)
 // cleanupProvider deletes models and provider for a test provider ID.
 func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 	t.Helper()
-	skipIfNoDB(t)
 
 	_, _ = testPool.Exec(ctx, `DELETE FROM models WHERE provider_id = $1`, providerID)
 	_, _ = testPool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
@@ -106,7 +95,7 @@ func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 
 func TestDisableMissingModels_EmptyList(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	// Empty list should return (0, nil) without executing any query.
@@ -270,7 +259,7 @@ func TestDisableMissingModels_AlreadyDisabledUnaffected(t *testing.T) {
 
 func TestDisableMissingModels_NonExistentProvider(t *testing.T) {
 	ctx := context.Background()
-	skipIfNoDB(t)
+
 	repo := NewRepository(testPool)
 
 	// A provider UUID that does not exist should result in 0 rows affected.

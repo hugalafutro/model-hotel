@@ -1,5 +1,3 @@
-//go:build integration
-
 package proxy
 
 import (
@@ -8,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -23,9 +22,6 @@ import (
 
 // Test ListModels with multiple providers and models
 func TestListModels_MultipleProviders(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
@@ -50,10 +46,16 @@ func TestListModels_MultipleProviders(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	// Create two providers
@@ -131,7 +133,7 @@ func TestListModels_MultipleProviders(t *testing.T) {
 	}
 
 	// Test the ListModels endpoint
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 	req = withAuthContext(req)
 
 	rr := httptest.NewRecorder()
@@ -186,9 +188,6 @@ func TestListModels_MultipleProviders(t *testing.T) {
 
 // Test ListModels with no models
 func TestListModels_NoModels(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
@@ -213,13 +212,19 @@ func TestListModels_NoModels(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 	req = withAuthContext(req)
 
 	rr := httptest.NewRecorder()
@@ -250,9 +255,6 @@ func TestListModels_NoModels(t *testing.T) {
 
 // Test ListModels with disabled models (should be filtered)
 func TestListModels_DisabledModelsFiltered(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
@@ -277,10 +279,16 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	// Create a provider
@@ -344,7 +352,7 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	}
 
 	// Test the ListModels endpoint
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 	req = withAuthContext(req)
 
 	rr := httptest.NewRecorder()
@@ -378,9 +386,6 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 
 // Test ListModels with failover groups
 func TestListModels_WithFailoverGroups(t *testing.T) {
-	if testDB == nil {
-		t.Skip("database not available")
-	}
 
 	pool := testDB.Pool()
 	// Clean up any existing test data
@@ -390,7 +395,7 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-provider-%'"); err != nil {
 		t.Logf("Failed to clean up test providers: %v", err)
 	}
-	if _, err := pool.Exec(context.Background(), "DELETE FROM failover_groups WHERE display_model LIKE 'my-failover-model'"); err != nil {
+	if _, err := pool.Exec(context.Background(), "DELETE FROM model_failover_groups WHERE display_model LIKE 'my-failover-model'"); err != nil {
 		t.Logf("Failed to clean up test failover groups: %v", err)
 	}
 
@@ -408,10 +413,16 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: virtualKeyRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
 		rateLimiter:    limiter,
 		ipLimiter:      ipLimiter,
 		dbPool:         pool,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
 	}
 
 	// Create a provider
@@ -458,7 +469,7 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	}
 
 	// Test the ListModels endpoint
-	req := httptest.NewRequest("GET", "/v1/models", nil)
+	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 	req = withAuthContext(req)
 
 	rr := httptest.NewRecorder()

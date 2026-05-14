@@ -55,6 +55,9 @@ func newUnitHandler() *Handler {
 func stopUnitHandler(h *Handler) {
 	h.rateLimiter.Stop()
 	h.ipLimiter.Stop()
+	if h.upstreamTransport != nil {
+		h.upstreamTransport.CloseIdleConnections()
+	}
 }
 
 func containsMethod(methods []string, method string) bool {
@@ -70,7 +73,7 @@ func containsMethod(methods []string, method string) bool {
 // with customizable Create and Delete functions for testing error paths.
 // (Note: mockVirtualKeyRepo exists in response_test.go for simpler use cases)
 type mockVirtualKeyRepoWithFuncs struct {
-	createFunc func(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error)
+	createFunc func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error)
 	deleteFunc func(ctx context.Context, id string) error
 }
 
@@ -86,9 +89,9 @@ func (m *mockVirtualKeyRepoWithFuncs) FindByKeyHash(ctx context.Context, keyHash
 	return nil, nil
 }
 
-func (m *mockVirtualKeyRepoWithFuncs) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+func (m *mockVirtualKeyRepoWithFuncs) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
 	if m.createFunc != nil {
-		return m.createFunc(ctx, name, keyHash, keyPreview)
+		return m.createFunc(ctx, name, keyHash, keyPreview, rps, burst)
 	}
 	return nil, nil
 }
@@ -237,13 +240,10 @@ func TestProxyKeyMiddleware_BearerPrefixOnly(t *testing.T) {
 
 func TestProxyKeyMiddleware_ValidKey_Integration(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	testKey := "sk-test-proxy-middleware-valid-key"
 	keyHash := virtualkey.Hash(testKey)
-	vk, err := h.virtualKeyRepo.Create(context.Background(), "test-middleware", keyHash, "sk-tes...")
+	vk, err := h.virtualKeyRepo.Create(context.Background(), "test-middleware", keyHash, "sk-tes...", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
@@ -284,9 +284,6 @@ func TestProxyKeyMiddleware_ValidKey_Integration(t *testing.T) {
 
 func TestProxyKeyMiddleware_KeyNotFound_Integration(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -311,9 +308,6 @@ func TestProxyKeyMiddleware_KeyNotFound_Integration(t *testing.T) {
 
 func TestProxyKeyMiddleware_ContextCanceledDBError(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -518,15 +512,12 @@ func TestVirtualKeyRepoAdapter_Create_ErrorPropagation(t *testing.T) {
 	t.Parallel()
 
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Use a canceled context to trigger an error from the underlying repo
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := h.virtualKeyRepo.Create(ctx, "test-key", "hash123", "sk-tes...")
+	_, err := h.virtualKeyRepo.Create(ctx, "test-key", "hash123", "sk-tes...", nil, nil)
 
 	if err == nil {
 		t.Error("expected error from canceled context, got nil")
@@ -544,12 +535,12 @@ func TestVirtualKeyRepository_Create_Success(t *testing.T) {
 		TokensUsed: 1000,
 	}
 	mockRepo := &mockVirtualKeyRepoWithFuncs{
-		createFunc: func(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+		createFunc: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
 			return expectedVK, nil
 		},
 	}
 
-	result, err := mockRepo.Create(context.Background(), "test-key", "hash123", "sk-tes...")
+	result, err := mockRepo.Create(context.Background(), "test-key", "hash123", "sk-tes...", nil, nil)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -578,7 +569,7 @@ func TestVirtualKeyRepository_Create_AllFieldsMapped(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := &mockVirtualKeyRepoWithFuncs{
-		createFunc: func(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
+		createFunc: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
 			return &VirtualKeyInfo{
 				ID:         "test-id-123",
 				Name:       "my-virtual-key",
@@ -589,7 +580,7 @@ func TestVirtualKeyRepository_Create_AllFieldsMapped(t *testing.T) {
 		},
 	}
 
-	result, err := mockRepo.Create(context.Background(), "my-virtual-key", "sha256-hash-value", "sk-proj...")
+	result, err := mockRepo.Create(context.Background(), "my-virtual-key", "sha256-hash-value", "sk-proj...", nil, nil)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -704,9 +695,6 @@ func TestVirtualKeyRepository_Delete_MultipleUUIDFormats(t *testing.T) {
 
 func TestVirtualKeyRepoAdapter_Create_Integration(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	testKey := &VirtualKeyInfo{
 		Name:       "integration-test-key",
@@ -714,7 +702,7 @@ func TestVirtualKeyRepoAdapter_Create_Integration(t *testing.T) {
 		KeyPreview: "sk-int...",
 	}
 
-	result, err := h.virtualKeyRepo.Create(context.Background(), testKey.Name, testKey.KeyHash, testKey.KeyPreview)
+	result, err := h.virtualKeyRepo.Create(context.Background(), testKey.Name, testKey.KeyHash, testKey.KeyPreview, nil, nil)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -744,9 +732,6 @@ func TestVirtualKeyRepoAdapter_Create_Integration(t *testing.T) {
 
 func TestVirtualKeyRepoAdapter_Delete_Integration(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a key to delete
 	testKey := &VirtualKeyInfo{
@@ -754,7 +739,7 @@ func TestVirtualKeyRepoAdapter_Delete_Integration(t *testing.T) {
 		KeyHash:    virtualkey.Hash("sk-delete-test-key"),
 		KeyPreview: "sk-del...",
 	}
-	created, err := h.virtualKeyRepo.Create(context.Background(), testKey.Name, testKey.KeyHash, testKey.KeyPreview)
+	created, err := h.virtualKeyRepo.Create(context.Background(), testKey.Name, testKey.KeyHash, testKey.KeyPreview, nil, nil)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -774,12 +759,9 @@ func TestVirtualKeyRepoAdapter_Delete_Integration(t *testing.T) {
 
 func TestVirtualKeyRepoAdapter_CreateDelete_RoundTrip(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create
-	created, err := h.virtualKeyRepo.Create(context.Background(), "roundtrip-key", virtualkey.Hash("sk-roundtrip"), "sk-rou...")
+	created, err := h.virtualKeyRepo.Create(context.Background(), "roundtrip-key", virtualkey.Hash("sk-roundtrip"), "sk-rou...", nil, nil)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}

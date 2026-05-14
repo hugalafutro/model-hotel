@@ -50,6 +50,13 @@ type virtualKeyRepoAdapter struct {
 	repo *virtualkey.Repository
 }
 
+// WrapVirtualKeyRepo wraps a *virtualkey.Repository to implement the VirtualKeyRepository interface.
+// This is needed because the proxy package uses VirtualKeyInfo (a subset of virtualkey.VirtualKey)
+// and the interface signatures may diverge from the concrete repository.
+func WrapVirtualKeyRepo(repo *virtualkey.Repository) VirtualKeyRepository {
+	return &virtualKeyRepoAdapter{repo: repo}
+}
+
 func (a *virtualKeyRepoAdapter) AddTokens(ctx context.Context, keyHash string, tokens int) error {
 	return a.repo.AddTokens(ctx, keyHash, tokens)
 }
@@ -74,8 +81,8 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 	}, nil
 }
 
-func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string) (*VirtualKeyInfo, error) {
-	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, nil, nil)
+func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst)
 	if err != nil {
 		return nil, err
 	}

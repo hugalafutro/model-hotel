@@ -17,9 +17,6 @@ import (
 
 func TestInsertRequestLogAsync_Success(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -42,9 +39,6 @@ func TestInsertRequestLogAsync_Success(t *testing.T) {
 
 func TestInsertRequestLogAsync_SetsIDImmediately(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -74,9 +68,6 @@ func TestInsertRequestLogAsync_SetsIDImmediately(t *testing.T) {
 
 func TestInsertRequestLogAsync_SetsRequestHashImmediately(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -100,9 +91,6 @@ func TestInsertRequestLogAsync_SetsRequestHashImmediately(t *testing.T) {
 
 func TestInsertRequestLogAsync_EmptyVirtualKeyID(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -120,9 +108,6 @@ func TestInsertRequestLogAsync_EmptyVirtualKeyID(t *testing.T) {
 
 func TestInsertRequestLogAsync_ContextCanceled(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -147,9 +132,6 @@ func TestInsertRequestLogAsync_ContextCanceled(t *testing.T) {
 
 func TestUpdateRequestLog_Success(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider so we can reference a valid providerID
 	masterKey := h.cfg.MasterKey
@@ -209,9 +191,6 @@ func TestUpdateRequestLog_Success(t *testing.T) {
 
 func TestUpdateRequestLog_CalculatesLatency(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a provider so we can reference a valid providerID
 	masterKey := h.cfg.MasterKey
@@ -259,9 +238,6 @@ func TestUpdateRequestLog_CalculatesLatency(t *testing.T) {
 
 func TestUpdateRequestLog_NilProviderID(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	logEntry := &requestLogData{
 		modelID:         uuid.NewString(),
@@ -287,9 +263,6 @@ func TestUpdateRequestLog_NilProviderID(t *testing.T) {
 
 func TestUpdateRequestLog_NonexistentID(t *testing.T) {
 	h := newIntegrationHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	// Create a log entry with a non-existent ID — update should log a
 	// warning about 0 rows affected but not panic.

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -36,20 +37,20 @@ func TestMain(m *testing.M) {
 	var setupErr error
 	apiTestDBURL, setupErr = db.SetupTestDB("api")
 	if setupErr != nil {
-		apiTestDB = nil
-	} else {
-		apiTestDB, err = db.New(ctx, apiTestDBURL, 25, 5)
-		if err != nil {
-			apiTestDB = nil
-		}
+		log.Printf("failed to setup test DB: %v", setupErr)
+		os.Exit(1)
 	}
-	code := m.Run()
-	if apiTestDB != nil {
-		apiTestDB.Close()
+	defer db.CleanupTestDB("api")
+
+	apiTestDB, err = db.New(ctx, apiTestDBURL, 25, 5)
+	if err != nil {
+		log.Printf("failed to initialize test DB: %v", err)
+		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 	}
+	defer apiTestDB.Close()
+
 	util.CloseDockerClient()
-	db.CleanupTestDB("api")
-	os.Exit(code)
+	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
 }
 
 // ---------------------------------------------------------------------------
@@ -151,10 +152,7 @@ func newFailoverHandlerWithAuth(t *testing.T) (*FailoverHandler, chi.Router) {
 // ---------------------------------------------------------------------------
 
 func TestFailoverHandler_List_Unauthorized(t *testing.T) {
-	h, r := newFailoverHandlerWithAuth(t)
-	if h == nil {
-		t.Skip("database not available")
-	}
+	_, r := newFailoverHandlerWithAuth(t)
 
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/", nil)
 	// No Authorization header - should return 401
@@ -166,10 +164,7 @@ func TestFailoverHandler_List_Unauthorized(t *testing.T) {
 }
 
 func TestFailoverHandler_Sync_Unauthorized(t *testing.T) {
-	h, r := newFailoverHandlerWithAuth(t)
-	if h == nil {
-		t.Skip("database not available")
-	}
+	_, r := newFailoverHandlerWithAuth(t)
 
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
 	// No Authorization header - should return 401
@@ -181,10 +176,7 @@ func TestFailoverHandler_Sync_Unauthorized(t *testing.T) {
 }
 
 func TestFailoverHandler_Delete_Unauthorized(t *testing.T) {
-	h, r := newFailoverHandlerWithAuth(t)
-	if h == nil {
-		t.Skip("database not available")
-	}
+	_, r := newFailoverHandlerWithAuth(t)
 
 	unknownID := uuid.New()
 	req, w := newChiRequest(http.MethodDelete, "/failover-groups/"+unknownID.String(), nil)
@@ -202,9 +194,7 @@ func TestFailoverHandler_Delete_Unauthorized(t *testing.T) {
 
 func TestFailoverHandler_Create_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	id1, id2 := uuid.New(), uuid.New()
@@ -237,9 +227,6 @@ func TestFailoverHandler_Create_Success(t *testing.T) {
 
 func TestFailoverHandler_Create_MissingDisplayModel(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	body := `{"entry_ids":["` + uuid.New().String() + `","` + uuid.New().String() + `"]}`
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
@@ -256,9 +243,6 @@ func TestFailoverHandler_Create_MissingDisplayModel(t *testing.T) {
 
 func TestFailoverHandler_Create_InsufficientEntries(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	body := `{"display_model":"test-one-entry","entry_ids":["` + uuid.New().String() + `"]}`
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
@@ -275,9 +259,6 @@ func TestFailoverHandler_Create_InsufficientEntries(t *testing.T) {
 
 func TestFailoverHandler_Create_InvalidEntryID(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	body := `{"display_model":"test-bad-id","entry_ids":["not-a-uuid","` + uuid.New().String() + `"]}`
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
@@ -291,9 +272,6 @@ func TestFailoverHandler_Create_InvalidEntryID(t *testing.T) {
 
 func TestFailoverHandler_Create_InvalidJSON(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader("{invalid json"))
 
@@ -306,9 +284,7 @@ func TestFailoverHandler_Create_InvalidJSON(t *testing.T) {
 
 func TestFailoverHandler_Create_Conflict(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-conflict-" + uuid.New().String()[:8]
@@ -339,9 +315,7 @@ func TestFailoverHandler_Create_Conflict(t *testing.T) {
 
 func TestFailoverHandler_Get_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-get-" + uuid.New().String()[:8]
@@ -376,9 +350,6 @@ func TestFailoverHandler_Get_Success(t *testing.T) {
 
 func TestFailoverHandler_Get_NotFound(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	unknownID := uuid.New()
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/"+unknownID.String(), nil)
@@ -393,9 +364,6 @@ func TestFailoverHandler_Get_NotFound(t *testing.T) {
 
 func TestFailoverHandler_Get_InvalidUUID(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/not-a-uuid", nil)
 	req = setChiURLParam(req, "id", "not-a-uuid")
@@ -413,9 +381,7 @@ func TestFailoverHandler_Get_InvalidUUID(t *testing.T) {
 
 func TestFailoverHandler_Update_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-update-" + uuid.New().String()[:8]
@@ -455,9 +421,7 @@ func TestFailoverHandler_Update_Success(t *testing.T) {
 
 func TestFailoverHandler_Update_DisableGroup(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-update-disable-" + uuid.New().String()[:8]
@@ -493,9 +457,7 @@ func TestFailoverHandler_Update_DisableGroup(t *testing.T) {
 
 func TestFailoverHandler_Update_NoEnabledEntries(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-update-noenabled-" + uuid.New().String()[:8]
@@ -526,9 +488,6 @@ func TestFailoverHandler_Update_NoEnabledEntries(t *testing.T) {
 
 func TestFailoverHandler_Update_InvalidUUID(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	body := `{"group_enabled":false}`
 	req, w := newChiRequest(http.MethodPut, "/failover-groups/not-a-uuid", strings.NewReader(body))
@@ -543,9 +502,6 @@ func TestFailoverHandler_Update_InvalidUUID(t *testing.T) {
 
 func TestFailoverHandler_Update_NotFound(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	unknownID := uuid.New()
 	body := `{"group_enabled":false}`
@@ -561,9 +517,7 @@ func TestFailoverHandler_Update_NotFound(t *testing.T) {
 
 func TestFailoverHandler_Update_InvalidPriorityOrderEntry(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-update-badorder-" + uuid.New().String()[:8]
@@ -591,9 +545,6 @@ func TestFailoverHandler_Update_InvalidPriorityOrderEntry(t *testing.T) {
 
 func TestFailoverHandler_Update_InvalidJSON(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	id := uuid.New()
 	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+id.String(), strings.NewReader("{invalid"))
@@ -612,9 +563,7 @@ func TestFailoverHandler_Update_InvalidJSON(t *testing.T) {
 
 func TestFailoverHandler_Delete_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-delete-" + uuid.New().String()[:8]
@@ -644,9 +593,6 @@ func TestFailoverHandler_Delete_Success(t *testing.T) {
 
 func TestFailoverHandler_Delete_InvalidUUID(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodDelete, "/failover-groups/not-a-uuid", nil)
 	req = setChiURLParam(req, "id", "not-a-uuid")
@@ -660,9 +606,6 @@ func TestFailoverHandler_Delete_InvalidUUID(t *testing.T) {
 
 func TestFailoverHandler_Delete_NonExistent(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	unknownID := uuid.New()
 	req, w := newChiRequest(http.MethodDelete, "/failover-groups/"+unknownID.String(), nil)
@@ -686,9 +629,7 @@ func TestFailoverHandler_Delete_NonExistent(t *testing.T) {
 
 func TestFailoverHandler_List_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-list-" + uuid.New().String()[:8]
@@ -726,9 +667,6 @@ func TestFailoverHandler_List_Success(t *testing.T) {
 
 func TestFailoverHandler_Sync_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
 
@@ -752,9 +690,6 @@ func TestFailoverHandler_Sync_Success(t *testing.T) {
 
 func TestFailoverHandler_Candidates_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/candidates", nil)
 
@@ -776,9 +711,7 @@ func TestFailoverHandler_Candidates_Success(t *testing.T) {
 
 func TestFailoverHandler_GetByModelUUID_Found(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
+
 	ctx := context.Background()
 
 	displayModel := "test-byuuid-" + uuid.New().String()[:8]
@@ -819,9 +752,6 @@ func TestFailoverHandler_GetByModelUUID_Found(t *testing.T) {
 
 func TestFailoverHandler_GetByModelUUID_NotFound(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	unknownUUID := uuid.New()
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/by-model/"+unknownUUID.String(), nil)
@@ -836,9 +766,6 @@ func TestFailoverHandler_GetByModelUUID_NotFound(t *testing.T) {
 
 func TestFailoverHandler_GetByModelUUID_InvalidUUID(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("database not available")
-	}
 
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/by-model/not-a-uuid", nil)
 	req = setChiURLParam(req, "model_uuid", "not-a-uuid")
