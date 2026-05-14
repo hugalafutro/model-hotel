@@ -26,27 +26,27 @@
 Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>
 
 <details>
-<summary>📊 opencode stats</summary>
+<summary>📊 opencode stats (click to expand)</summary>
 
 ```
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          1,372 │
-│Messages                                         47,714 │
-│Days                                                 28 │
+│Sessions                                          1,424 │
+│Messages                                         49,125 │
+│Days                                                 29 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $106.83 │
-│Avg Cost/Day                                      $3.82 │
+│Avg Cost/Day                                      $3.68 │
 │Avg Tokens/Session                                 2.5M │
-│Median Tokens/Session                            514.6K │
-│Input                                           2483.9M │
-│Output                                            13.0M │
-│Cache Read                                       937.5M │
+│Median Tokens/Session                            523.9K │
+│Input                                           2527.2M │
+│Output                                            13.6M │
+│Cache Read                                       992.9M │
 │Cache Write                                        3.4M │
 └────────────────────────────────────────────────────────┘
 ```
@@ -266,16 +266,6 @@ docker compose up --build -d
 ```
 
 > **Note:** The `docker-compose.yml` content above is auto-synced from the repository file by a GitHub Action. If you want the prebuilt image instead of building from source, uncomment the `image:` line and comment out `build: .` in the compose file.
-
-## Features at a Glance
-
-- **One endpoint for all providers**: OpenAI-compatible `/v1/chat/completions` proxy with automatic model discovery
-- **Transparent failover**: Retries on 5xx, 429 (configurable), 401/403, and timeouts with exponential backoff
-- **Hotel routing**: Prefix any model with `hotel/` to route through a failover group (e.g. `hotel/gpt-4o`)
-- **Per-client virtual keys**: Issue separate `sk-` keys with independent rate limiting and usage tracking
-- **Privacy by design**: Prompt content is never logged, read, or stored
-- **Real-time observability**: Request logging with latency decomposition, SSE events, and circuit breaker status
-- **Multi-modal support**: Vision and audio input attachments via OpenAI-compatible content parts
 
 ## API Example
 
