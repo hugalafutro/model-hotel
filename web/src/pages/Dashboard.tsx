@@ -13,10 +13,10 @@ import {
 	Timer,
 	Zap,
 } from "lucide-react";
-
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { PageHeader } from "../components/PageHeader";
+import { formatCompact } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
@@ -26,7 +26,6 @@ import { MetricToggle, RangeToggle } from "./Dashboard/ToggleGroup";
 import { TokenSplitBar } from "./Dashboard/TokenSplitBar";
 import { UsageBarPanel } from "./Dashboard/UsageBarPanel";
 import { useDashboard } from "./Dashboard/useDashboard";
-import { formatCompact } from "./Dashboard/utils";
 
 /* =====================================================
    DASHBOARD

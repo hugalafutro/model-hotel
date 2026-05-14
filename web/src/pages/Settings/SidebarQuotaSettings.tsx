@@ -1,6 +1,7 @@
 import { Timer } from "lucide-react";
 import { useState } from "react";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 
@@ -21,6 +22,29 @@ export function SidebarQuotaSettings({
 			return false;
 		}
 	});
+	const [refreshMin, setRefreshMin] = useState(() => {
+		try {
+			return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
+		} catch {
+			return "5";
+		}
+	});
+
+	const handleRefreshChange = (val: string) => {
+		setRefreshMin(val);
+		try {
+			localStorage.setItem("sidebarQuotaRefreshMin", val);
+		} catch {
+			/* ignore */
+		}
+		window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
+		toast(
+			val === "0"
+				? "Sidebar quota auto-refresh disabled - use manual refresh"
+				: `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
+			"success",
+		);
+	};
 
 	return (
 		<SettingsSection
@@ -63,54 +87,23 @@ export function SidebarQuotaSettings({
 						}}
 					/>
 				</div>
-				<div>
-					<label
-						htmlFor="quota-refresh-interval"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Refresh Interval
-					</label>
-					<select
-						id="quota-refresh-interval"
-						disabled={quotaDisabled}
-						value={(() => {
-							try {
-								return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
-							} catch {
-								return "5";
-							}
-						})()}
-						onChange={(e) => {
-							const val = e.target.value;
-							try {
-								localStorage.setItem("sidebarQuotaRefreshMin", val);
-							} catch {
-								/* ignore */
-							}
-							window.dispatchEvent(
-								new CustomEvent("sidebarQuotaRefreshChange"),
-							);
-							toast(
-								val === "0"
-									? "Sidebar quota auto-refresh disabled - use manual refresh"
-									: `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
-								"success",
-							);
-						}}
-						className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
-					>
-						<option value="1">1 minute</option>
-						<option value="2">2 minutes</option>
-						<option value="5">5 minutes (default)</option>
-						<option value="10">10 minutes</option>
-						<option value="15">15 minutes</option>
-						<option value="30">30 minutes</option>
-						<option value="0">Disabled (manual only)</option>
-					</select>
-					<p className="text-gray-500 text-xs mt-1">
-						Minimum 1 minute. Changes take effect on next scheduled refresh.
-					</p>
-				</div>
+				<SettingsSelect
+					id="quota-refresh-interval"
+					label="Refresh Interval"
+					value={refreshMin}
+					options={[
+						{ value: "1", label: "1 minute" },
+						{ value: "2", label: "2 minutes" },
+						{ value: "5", label: "5 minutes (default)" },
+						{ value: "10", label: "10 minutes" },
+						{ value: "15", label: "15 minutes" },
+						{ value: "30", label: "30 minutes" },
+						{ value: "0", label: "Disabled (manual only)" },
+					]}
+					onChange={handleRefreshChange}
+					disabled={quotaDisabled}
+					description="Minimum 1 minute. Changes take effect on next scheduled refresh."
+				/>
 			</div>
 		</SettingsSection>
 	);

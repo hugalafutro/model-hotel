@@ -7,6 +7,7 @@ import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { LogEntry } from "../api/types";
+import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
 	EmptyRow,
@@ -17,10 +18,12 @@ import {
 } from "../components/DataTable";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { PageHeader } from "../components/PageHeader";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
+import { useDebounce } from "../hooks/useDebounce";
 import { AppLogs } from "./AppLogs";
 import { AccentCalendar } from "./Logs/AccentCalendar";
 
@@ -55,20 +58,8 @@ function RequestLogs() {
 		provider_id: "",
 		status_code: "",
 	});
-	const [debouncedModelId, setDebouncedModelId] = useState("");
-	const [debouncedProviderId, setDebouncedProviderId] = useState("");
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setDebouncedModelId(filters.model_id);
-		}, 300);
-		return () => clearTimeout(timer);
-	}, [filters.model_id]);
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setDebouncedProviderId(filters.provider_id);
-		}, 300);
-		return () => clearTimeout(timer);
-	}, [filters.provider_id]);
+	const debouncedModelId = useDebounce(filters.model_id, 300);
+	const debouncedProviderId = useDebounce(filters.provider_id, 300);
 	const [dateFrom, setDateFrom] = useState("");
 	const [dateTo, setDateTo] = useState("");
 	const [sort, setSort] = useState<SortState<LogSortField>>({
@@ -243,15 +234,16 @@ function RequestLogs() {
 		);
 	};
 
-	const getStatusBg = (statusCode: number, errorMessage?: string) => {
-		if (isCancelled(errorMessage)) return "bg-yellow-900/30 text-yellow-400";
-		if (statusCode === 0) return "bg-red-900/30 text-red-400";
-		if (statusCode >= 200 && statusCode < 300)
-			return "bg-green-900/30 text-green-400";
-		if (statusCode >= 400 && statusCode < 500)
-			return "bg-orange-900/30 text-orange-400";
-		if (statusCode >= 500) return "bg-red-900/30 text-red-400";
-		return "bg-gray-700 text-gray-300";
+	const getStatusBadgeVariant = (
+		statusCode: number,
+		errorMessage?: string,
+	): "error" | "warning" | "success" | "orange" | "muted" => {
+		if (isCancelled(errorMessage)) return "warning";
+		if (statusCode === 0) return "error";
+		if (statusCode >= 200 && statusCode < 300) return "success";
+		if (statusCode >= 400 && statusCode < 500) return "orange";
+		if (statusCode >= 500) return "error";
+		return "muted";
 	};
 
 	// A request stuck in pending/streaming longer than the configured timeout
@@ -510,16 +502,7 @@ function RequestLogs() {
 			</div>
 
 			{/* Initial loading state - show spinner when first fetch hasn't arrived */}
-			{isLoading && !logsData && (
-				<div className="flex items-center justify-center py-20">
-					<div
-						className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin"
-						data-testid="spinner"
-						role="status"
-						aria-label="Loading"
-					/>
-				</div>
-			)}
+			{isLoading && !logsData && <LoadingSpinner />}
 
 			{/* Error state - show message when fetch fails and no fallback data */}
 			{error && !logsData && displayEntries.length === 0 && (
@@ -684,8 +667,12 @@ function RequestLogs() {
 												)}
 											</td>
 											<td className="px-4 py-2 whitespace-nowrap">
-												<span
-													className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getStatusBg(log.status_code, log.error_message)}`}
+												<Badge
+													variant={getStatusBadgeVariant(
+														log.status_code,
+														log.error_message,
+													)}
+													className="gap-1 whitespace-nowrap"
 												>
 													{isStale(log) ? (
 														<span className="text-yellow-500/70">⚠</span>
@@ -696,7 +683,7 @@ function RequestLogs() {
 													) : (
 														log.status_code
 													)}
-												</span>
+												</Badge>
 											</td>
 											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isCancelled(log.error_message)

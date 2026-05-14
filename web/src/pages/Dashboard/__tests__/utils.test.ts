@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCompact } from "../utils";
+import { formatCompact } from "../../../utils/format";
 
 describe("formatCompact", () => {
 	it("formats zero as '0'", () => {

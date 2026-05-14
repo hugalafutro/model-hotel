@@ -1,5 +1,7 @@
 import { LayoutDashboard } from "lucide-react";
+import { useState } from "react";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSelect } from "../../components/SettingsSelect";
 import { useToast } from "../../context/ToastContext";
 
 interface DashboardRefreshSettingsProps {
@@ -12,6 +14,29 @@ export function DashboardRefreshSettings({
 	onToggle,
 }: DashboardRefreshSettingsProps) {
 	const { toast } = useToast();
+	const [refreshSec, setRefreshSec] = useState(() => {
+		try {
+			return localStorage.getItem("dashboardRefreshSec") || "30";
+		} catch {
+			return "30";
+		}
+	});
+
+	const handleChange = (val: string) => {
+		setRefreshSec(val);
+		try {
+			localStorage.setItem("dashboardRefreshSec", val);
+		} catch {
+			/* ignore */
+		}
+		window.dispatchEvent(new CustomEvent("dashboardRefreshChange"));
+		toast(
+			val === "0"
+				? "Dashboard auto-refresh disabled - use manual refresh"
+				: `Dashboard refresh set to every ${val} second${val === "1" ? "" : "s"}`,
+			"success",
+		);
+	};
 
 	return (
 		<SettingsSection
@@ -26,52 +51,22 @@ export function DashboardRefreshSettings({
 					automatically. Manual refresh button is hidden when set to 10 seconds
 					or faster.
 				</p>
-				<div>
-					<label
-						htmlFor="dashboard-refresh-interval"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
-						Refresh Interval
-					</label>
-					<select
-						id="dashboard-refresh-interval"
-						value={(() => {
-							try {
-								return localStorage.getItem("dashboardRefreshSec") || "30";
-							} catch {
-								return "30";
-							}
-						})()}
-						onChange={(e) => {
-							const val = e.target.value;
-							try {
-								localStorage.setItem("dashboardRefreshSec", val);
-							} catch {
-								/* ignore */
-							}
-							window.dispatchEvent(new CustomEvent("dashboardRefreshChange"));
-							toast(
-								val === "0"
-									? "Dashboard auto-refresh disabled - use manual refresh"
-									: `Dashboard refresh set to every ${val} second${val === "1" ? "" : "s"}`,
-								"success",
-							);
-						}}
-						className="ui-input"
-					>
-						<option value="10">10 seconds (manual refresh hidden)</option>
-						<option value="30">30 seconds (default)</option>
-						<option value="60">1 minute</option>
-						<option value="120">2 minutes</option>
-						<option value="300">5 minutes</option>
-						<option value="600">10 minutes</option>
-						<option value="0">Disabled (manual only)</option>
-					</select>
-					<p className="text-gray-500 text-xs mt-1">
-						At 10 seconds the manual refresh button is hidden. Changes take
-						effect on next navigation to the dashboard.
-					</p>
-				</div>
+				<SettingsSelect
+					id="dashboard-refresh-interval"
+					label="Refresh Interval"
+					value={refreshSec}
+					options={[
+						{ value: "10", label: "10 seconds (manual refresh hidden)" },
+						{ value: "30", label: "30 seconds (default)" },
+						{ value: "60", label: "1 minute" },
+						{ value: "120", label: "2 minutes" },
+						{ value: "300", label: "5 minutes" },
+						{ value: "600", label: "10 minutes" },
+						{ value: "0", label: "Disabled (manual only)" },
+					]}
+					onChange={handleChange}
+					description="At 10 seconds the manual refresh button is hidden. Changes take effect on next navigation to the dashboard."
+				/>
 			</div>
 		</SettingsSection>
 	);

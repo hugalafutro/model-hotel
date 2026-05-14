@@ -7,6 +7,8 @@ export function LoadingSpinner({ className }: LoadingSpinnerProps) {
 		<div className="flex items-center justify-center h-64">
 			<div
 				data-testid="spinner"
+				role="status"
+				aria-label="Loading"
 				className={`animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent) ${className ?? ""}`}
 			/>
 		</div>

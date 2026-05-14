@@ -1,9 +1,9 @@
 import { TrendingUp } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Spinner } from "../../components/Spinner";
+import { formatCompact } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, ProviderDistItem, Range } from "./types";
-import { formatCompact } from "./utils";
 
 export function ProviderDoughnut({
 	items,

@@ -1,8 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FileText, ScrollText } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
+import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
 	EmptyRow,
@@ -12,10 +13,12 @@ import {
 } from "../components/DataTable";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { PageHeader } from "../components/PageHeader";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
+import { useDebounce } from "../hooks/useDebounce";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -23,7 +26,6 @@ export function AppLogs() {
 	const { logsSubMode, setLogsSubMode } = useSidebarMode();
 	const [liveEnabled, setLiveEnabled] = useState(true);
 	const [searchFilter, setSearchFilter] = useState("");
-	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [levelFilter, setLevelFilter] = useState<
 		"all" | "info" | "warning" | "error"
 	>("all");
@@ -37,10 +39,7 @@ export function AppLogs() {
 	const [pageSize, setPageSize] = useState(20);
 	const { toast } = useToast();
 
-	useEffect(() => {
-		const timer = setTimeout(() => setDebouncedSearch(searchFilter), 300);
-		return () => clearTimeout(timer);
-	}, [searchFilter]);
+	const debouncedSearch = useDebounce(searchFilter, 300);
 
 	const handleSort = useCallback((field: AppLogSortField) => {
 		setSort((prev) => ({
@@ -112,18 +111,18 @@ export function AppLogs() {
 	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 	const safePage = Math.min(page, totalPages);
 
-	const getLevelBadge = (level: string) => {
+	const getLevelBadgeVariant = (level: string) => {
 		switch (level) {
 			case "error":
-				return "bg-red-900/30 text-red-400";
+				return "error" as const;
 			case "warning":
-				return "bg-yellow-900/30 text-yellow-400";
+				return "warning" as const;
 			default:
-				return "bg-blue-900/30 text-blue-400";
+				return "info" as const;
 		}
 	};
 
-	const getSourceBadge = (source: string) => {
+	const getSourceBadgeClasses = (source: string) => {
 		switch (source) {
 			case "auth":
 				return "bg-purple-900/30 text-purple-400";
@@ -334,11 +333,7 @@ export function AppLogs() {
 				</div>
 			</div>
 
-			{isLoading && !historyData && (
-				<div className="flex items-center justify-center py-20">
-					<div className="w-6 h-6 border-2 border-(--accent) border-t-transparent rounded-full animate-spin" />
-				</div>
-			)}
+			{isLoading && !historyData && <LoadingSpinner />}
 
 			{error && !historyData && entries.length === 0 && (
 				<div className="ui-card p-8 text-center">
@@ -397,19 +392,18 @@ export function AppLogs() {
 											{formatTimestamp(entry.timestamp)}
 										</td>
 										<td className="px-4 py-2">
-											<span
-												className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium ${getLevelBadge(entry.level)}`}
-											>
+											<Badge variant={getLevelBadgeVariant(entry.level)}>
 												{entry.level.toUpperCase()}
-											</span>
+											</Badge>
 										</td>
 										<td className="px-4 py-2">
 											{entry.source ? (
-												<span
-													className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium ${getSourceBadge(entry.source)}`}
+												<Badge
+													variant="custom"
+													className={getSourceBadgeClasses(entry.source)}
 												>
 													{entry.source}
-												</span>
+												</Badge>
 											) : (
 												<span className="text-gray-600">-</span>
 											)}

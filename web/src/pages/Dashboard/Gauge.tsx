@@ -1,4 +1,4 @@
-import { dropTrailingZero } from "./utils";
+import { dropTrailingZero } from "../../utils/format";
 
 export function Gauge({
 	label,

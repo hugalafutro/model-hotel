@@ -1,5 +1,6 @@
 import { Database } from "lucide-react";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
@@ -162,31 +163,24 @@ export function DataStorageSettings({
 					</div>
 
 					<div>
-						<label
-							htmlFor="history-limit"
-							className="block text-sm font-medium text-gray-300 mb-2"
-						>
-							Maximum Saved Matches
-						</label>
-						<select
+						<SettingsSelect
 							id="history-limit"
-							value={arenaHistoryLimit}
-							onChange={(e) => {
-								const val = Number(e.target.value);
+							label="Maximum Saved Matches"
+							value={String(arenaHistoryLimit)}
+							options={[
+								{ value: "10", label: "10 matches" },
+								{ value: "25", label: "25 matches (default)" },
+								{ value: "50", label: "50 matches" },
+								{ value: "100", label: "100 matches" },
+							]}
+							onChange={(v) => {
+								const val = Number(v);
 								setArenaHistoryLimit(val);
 								toast(`History limit set to ${val} matches`, "success");
 							}}
-							className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
 							disabled={!arenaHistoryEnabled}
-						>
-							<option value={10}>10 matches</option>
-							<option value={25}>25 matches (default)</option>
-							<option value={50}>50 matches</option>
-							<option value={100}>100 matches</option>
-						</select>
-						<p className="text-gray-500 text-xs mt-1">
-							Oldest matches are automatically removed when the limit is reached
-						</p>
+							description="Oldest matches are automatically removed when the limit is reached"
+						/>
 					</div>
 
 					<div className="flex items-center justify-between">

@@ -68,7 +68,7 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|
 | ![Dashboard](docs/screenshots/placeholder-1.png) | ![Providers](docs/screenshots/placeholder-2.png) | ![Models](docs/screenshots/placeholder-3.png) | ![Logs](docs/screenshots/placeholder-4.png) | ![Failover](docs/screenshots/placeholder-5.png) |
-| ![Settings](docs/screenshots/placeholder-6.png) | ![Virtual Keys](docs/screenshots/placeholder-7.png) | ![Stats](docs/screenshots/placeholder-8.png) | ![Discovery](docs/screenshots/placeholder-9.png) | ![Proxy Usage](docs/screenshots/placeholder-10.png) |
+| ![Settings](docs/screenshots/placeholder-6.png) | ![Virtual Keys](docs/screenshots/placeholder-7.png) | ![Chat](docs/screenshots/placeholder-8.png) | ![Arena](docs/screenshots/placeholder-9.png) | ![App Logs](docs/screenshots/placeholder-10.png) |
 
 ## What It Does
 

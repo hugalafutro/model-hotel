@@ -39,7 +39,7 @@ export function SettingsSelect({
 					type="text"
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
-					className="ui-input"
+					className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
 					disabled={disabled}
 				/>
 			) : (
@@ -47,7 +47,7 @@ export function SettingsSelect({
 					id={id}
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
-					className="ui-input"
+					className="ui-input disabled:opacity-50 disabled:cursor-not-allowed"
 					disabled={disabled}
 				>
 					{options.map((opt) => (

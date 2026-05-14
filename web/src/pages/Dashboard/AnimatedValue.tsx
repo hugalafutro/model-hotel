@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { dropTrailingZero } from "./utils";
+import { dropTrailingZero } from "../../utils/format";
 
 export function AnimatedValue({
 	value,
