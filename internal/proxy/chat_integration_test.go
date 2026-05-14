@@ -24,9 +24,20 @@ import (
 
 // Use testDB from proxy_test.go
 
+// testProxyEnv holds the test environment for proxy integration tests.
+type testProxyEnv struct {
+	Handler      *Handler
+	Upstream     *httptest.Server
+	ProviderID   uuid.UUID
+	ModelID      uuid.UUID
+	KeyHash      string
+	ProviderName string
+	ModelName    string
+}
+
 // newTestProxyHandler creates a Handler with test data for ChatCompletions testing.
-// Returns handler, upstream server, provider ID, model ID, and virtual key hash.
-func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, uuid.UUID, string, string, string) {
+// Returns a testProxyEnv struct containing all test fixtures.
+func newTestProxyHandler(t *testing.T) *testProxyEnv {
 
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
@@ -146,11 +157,24 @@ func newTestProxyHandler(t *testing.T) (*Handler, *httptest.Server, uuid.UUID, u
 		},
 	}
 
-	return handler, upstream, providerID, modelID, keyHash, providerName, modelName
+	return &testProxyEnv{
+		Handler:      handler,
+		Upstream:     upstream,
+		ProviderID:   providerID,
+		ModelID:      modelID,
+		KeyHash:      keyHash,
+		ProviderName: providerName,
+		ModelName:    modelName,
+	}
 }
 
 func TestChatCompletions_NonStreaming(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -183,7 +207,12 @@ func TestChatCompletions_NonStreaming(t *testing.T) {
 }
 
 func TestChatCompletions_Streaming(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": true}`
@@ -217,7 +246,12 @@ func TestChatCompletions_Streaming(t *testing.T) {
 
 func TestChatCompletions_HotelModel(t *testing.T) {
 
-	handler, upstream, _, modelID, keyHash, _, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	// Create failover group
@@ -255,8 +289,10 @@ func TestChatCompletions_HotelModel(t *testing.T) {
 }
 
 func TestChatCompletions_ModelNotFound(t *testing.T) {
-	handler, upstream, _, _, keyHash, _, _ := newTestProxyHandler(t)
-	defer upstream.Close()
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	defer env.Upstream.Close()
 
 	body := `{"model": "nonexistent-provider/nonexistent-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -274,8 +310,10 @@ func TestChatCompletions_ModelNotFound(t *testing.T) {
 }
 
 func TestChatCompletions_InvalidModelFormat_Integration(t *testing.T) {
-	handler, upstream, _, _, keyHash, _, _ := newTestProxyHandler(t)
-	defer upstream.Close()
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	defer env.Upstream.Close()
 
 	body := `{"model": "invalid-format", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -293,7 +331,12 @@ func TestChatCompletions_InvalidModelFormat_Integration(t *testing.T) {
 }
 
 func TestChatCompletions_UpstreamError(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	// Close the upstream server to simulate an error
@@ -317,7 +360,12 @@ func TestChatCompletions_UpstreamError(t *testing.T) {
 
 // Test ChatCompletions with stream=false and stream_options present
 func TestChatCompletions_StreamFalseWithStreamOptions(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false, "stream_options": {"include_usage": true}}`
@@ -347,7 +395,12 @@ func TestChatCompletions_StreamFalseWithStreamOptions(t *testing.T) {
 
 // Test ChatCompletions with stream=true and stream_options
 func TestChatCompletions_StreamTrueWithStreamOptions(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": true, "stream_options": {"include_usage": true}}`
@@ -381,7 +434,12 @@ func TestChatCompletions_StreamTrueWithStreamOptions(t *testing.T) {
 
 // Test ChatCompletions with empty messages array
 func TestChatCompletions_EmptyMessagesArray(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [], "stream": false}`
@@ -402,7 +460,12 @@ func TestChatCompletions_EmptyMessagesArray(t *testing.T) {
 
 // Test ChatCompletions with missing messages field
 func TestChatCompletions_MissingMessagesField(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false}`
@@ -423,7 +486,12 @@ func TestChatCompletions_MissingMessagesField(t *testing.T) {
 
 // Test ChatCompletions with additional request parameters
 func TestChatCompletions_AdditionalParameters(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false, "temperature": 0.7, "max_tokens": 100}`
@@ -452,7 +520,12 @@ func TestChatCompletions_AdditionalParameters(t *testing.T) {
 
 // Test ChatCompletions non-streaming with successful response
 func TestChatCompletions_NonStreaming_Success(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`

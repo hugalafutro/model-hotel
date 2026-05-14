@@ -20,7 +20,9 @@ import (
 // TestResolveHotelModel_EmptyFailoverGroup tests the case where a failover group exists but has no priority order
 func TestResolveHotelModel_EmptyFailoverGroup(t *testing.T) {
 
-	handler, _, _, _, keyHash, _, _ := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -51,7 +53,11 @@ func TestResolveHotelModel_EmptyFailoverGroup(t *testing.T) {
 // TestResolveHotelModel_DisabledFailoverGroup tests the case where a failover group is disabled
 func TestResolveHotelModel_DisabledFailoverGroup(t *testing.T) {
 
-	handler, _, _, modelID, keyHash, _, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -91,7 +97,12 @@ func TestResolveHotelModel_DisabledFailoverGroup(t *testing.T) {
 // TestResolveHotelModel_DisabledModel tests the case where a model in failover group is disabled
 func TestResolveHotelModel_DisabledModel(t *testing.T) {
 
-	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -140,7 +151,12 @@ func TestResolveHotelModel_DisabledModel(t *testing.T) {
 // TestResolveHotelModel_DisabledProvider tests the case where a provider in failover group is disabled
 func TestResolveHotelModel_DisabledProvider(t *testing.T) {
 
-	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -181,7 +197,12 @@ func TestResolveHotelModel_DisabledProvider(t *testing.T) {
 // TestResolveHotelModel_CircuitBreakerOpen tests the case where circuit breaker is open for a provider
 func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 
-	handler, _, providerID, modelID, keyHash, _, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	providerID := env.ProviderID
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -216,7 +237,9 @@ func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 // TestResolveSpecificProvider_InvalidFormat tests specific provider resolution with invalid format
 func TestResolveSpecificProvider_InvalidFormat(t *testing.T) {
 
-	handler, _, _, _, keyHash, _, _ := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
 	defer handler.Close()
 
 	// Test with malformed provider/model format (multiple slashes)
@@ -239,7 +262,11 @@ func TestResolveSpecificProvider_InvalidFormat(t *testing.T) {
 func TestChatCompletions_UpstreamTimeout(t *testing.T) {
 	t.Skip("skipped: upstream timeout test requires >30s sleep, too slow for CI")
 
-	handler, _, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	// Create a slow upstream server that times out
@@ -294,7 +321,12 @@ func TestChatCompletions_UpstreamTimeout(t *testing.T) {
 // TestChatCompletions_UpstreamConnectionRefused tests the case where upstream refuses connection
 func TestChatCompletions_UpstreamConnectionRefused(t *testing.T) {
 
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	// Close the upstream server to simulate connection refused
@@ -319,7 +351,12 @@ func TestChatCompletions_UpstreamConnectionRefused(t *testing.T) {
 // TestChatCompletions_UpstreamMalformedResponse tests the case where upstream returns malformed JSON
 func TestChatCompletions_UpstreamMalformedResponse(t *testing.T) {
 
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	// Create a mock upstream server that returns malformed JSON
@@ -350,7 +387,12 @@ func TestChatCompletions_UpstreamMalformedResponse(t *testing.T) {
 // TestChatCompletions_StreamingPartialStream tests the case where upstream sends partial stream
 func TestChatCompletions_StreamingPartialStream(t *testing.T) {
 
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	// Create a mock upstream server that sends partial stream without [DONE]
@@ -380,7 +422,12 @@ func TestChatCompletions_StreamingPartialStream(t *testing.T) {
 // TestChatCompletions_StreamingSSEFormatError tests the case where upstream sends malformed SSE
 func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	// Create a mock upstream server that sends malformed SSE
@@ -410,7 +457,12 @@ func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 // TestChatCompletions_FailoverOnRateLimit tests failover when rate limit is hit
 func TestChatCompletions_FailoverOnRateLimit(t *testing.T) {
 
-	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -464,7 +516,12 @@ func TestChatCompletions_FailoverOnRateLimit(t *testing.T) {
 // TestChatCompletions_FailoverOnAuthError tests failover when auth error occurs
 func TestChatCompletions_FailoverOnAuthError(t *testing.T) {
 
-	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -518,7 +575,12 @@ func TestChatCompletions_FailoverOnAuthError(t *testing.T) {
 // TestChatCompletions_FailoverOn5xxError tests failover when 5xx error occurs
 func TestChatCompletions_FailoverOn5xxError(t *testing.T) {
 
-	handler, _, _, modelID, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	modelID := env.ModelID
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	pool := testDB.Pool()
@@ -572,7 +634,11 @@ func TestChatCompletions_FailoverOn5xxError(t *testing.T) {
 // TestChatCompletions_EmptyMessages tests the case with empty messages array
 func TestChatCompletions_EmptyMessages(t *testing.T) {
 
-	handler, _, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer handler.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [], "stream": false}`
@@ -594,7 +660,9 @@ func TestChatCompletions_EmptyMessages(t *testing.T) {
 // TestChatCompletions_RoutingInvalidJSON tests the case with malformed JSON body
 func TestChatCompletions_RoutingInvalidJSON(t *testing.T) {
 
-	handler, _, _, _, keyHash, _, _ := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
 	defer handler.Close()
 
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader("{invalid json}"))

@@ -250,7 +250,12 @@ func TestHandleStreamingResponse_Basic(t *testing.T) {
 
 // TestChatCompletions_ContextCancelDuringStream tests client disconnect during streaming
 func TestChatCompletions_ContextCancelDuringStream(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	// Override upstream to stream slowly
@@ -317,7 +322,12 @@ func TestChatCompletions_ContextCancelDuringStream(t *testing.T) {
 
 // TestChatCompletions_FailoverWithTimeout tests failover with timeout
 func TestChatCompletions_FailoverWithTimeout(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	// Create a second provider that will succeed
@@ -461,7 +471,12 @@ func TestRegisterAdminChat_Routes(t *testing.T) {
 
 // TestChatCompletions_StreamOptionsInjection_Integration tests stream_options injection in integration
 func TestChatCompletions_StreamOptionsInjection_Integration(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "stream": true, "messages": [{"role": "user", "content": "hello"}]}`
@@ -506,7 +521,12 @@ func TestChatCompletions_StreamOptionsInjection_Integration(t *testing.T) {
 
 // TestChatCompletions_ParamStripping tests parameter stripping for unsupported params
 func TestChatCompletions_ParamStripping(t *testing.T) {
-	handler, upstream, _, _, keyHash, providerName, modelName := newTestProxyHandler(t)
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
 	defer upstream.Close()
 
 	// Test with a provider that rejects certain params
