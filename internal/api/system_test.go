@@ -176,3 +176,124 @@ func TestGetSystem_Handler(t *testing.T) {
 		t.Errorf("expected cache_hit_ratio between 0 and 100, got %f", response.DB.CacheHitRatio)
 	}
 }
+
+// TestGetSystem_CacheHit tests that calling GetSystem twice within the cache TTL
+// returns cached data on the second call.
+func TestGetSystem_CacheHit(t *testing.T) {
+	t.Parallel()
+
+	_, r := newTestHandlerWithRouter(t)
+
+	// First request - cache miss, collects fresh data
+	req1 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req1.Header.Set("Authorization", "Bearer test-admin-token")
+	w1 := httptest.NewRecorder()
+	r.ServeHTTP(w1, req1)
+
+	if w1.Code != http.StatusOK {
+		t.Fatalf("first request: expected status 200 OK, got %d: %s", w1.Code, w1.Body.String())
+	}
+
+	var response1 SystemStats
+	if err := json.NewDecoder(w1.Body).Decode(&response1); err != nil {
+		t.Fatalf("first request: failed to decode response: %v", err)
+	}
+
+	// Second request immediately - should hit cache
+	req2 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second request: expected status 200 OK, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	var response2 SystemStats
+	if err := json.NewDecoder(w2.Body).Decode(&response2); err != nil {
+		t.Fatalf("second request: failed to decode response: %v", err)
+	}
+
+	// Cache hit returns the cached struct verbatim, so uptime must match
+	if response1.App.UptimeSeconds != response2.App.UptimeSeconds {
+		t.Errorf("cache hit should return same data: uptime1=%d, uptime2=%d",
+			response1.App.UptimeSeconds, response2.App.UptimeSeconds)
+	}
+}
+
+// TestGetSystem_InvalidSince tests that an invalid 'since' query parameter
+// causes collect() to return an error, resulting in 500 Internal Server Error.
+func TestGetSystem_InvalidSince(t *testing.T) {
+	t.Parallel()
+
+	_, r := newTestHandlerWithRouter(t)
+
+	// Make request with invalid since parameter
+	req := httptest.NewRequest(http.MethodGet, "/system/?since=not-a-date", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 Internal Server Error, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestGetSystem_DockerStatsCollector tests that the Docker stats collector
+// is called and its result appears in the response.
+func TestGetSystem_DockerStatsCollector(t *testing.T) {
+	t.Parallel()
+
+	h, r := newTestHandlerWithRouter(t)
+
+	// Override the Docker stats collector with a mock that returns non-empty stats
+	collectorCalled := false
+	mockStats := util.AggregatedDockerStats{
+		Available:      true,
+		CPUPercent:     42.5,
+		MemoryUsage:    123456789,
+		MemoryLimit:    987654321,
+		ContainerCount: 3,
+	}
+	h.SetDockerStatsCollector(func(project string) util.AggregatedDockerStats {
+		collectorCalled = true
+		return mockStats
+	})
+
+	// Make request to /system/
+	req := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Decode and verify response
+	var response SystemStats
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Verify the collector was called
+	if !collectorCalled {
+		t.Error("expected Docker stats collector to be called")
+	}
+
+	// Verify the mock data appears in the response
+	if response.Docker.Available != mockStats.Available {
+		t.Errorf("expected Docker.Available=%v, got %v", mockStats.Available, response.Docker.Available)
+	}
+	if response.Docker.CPUPercent != mockStats.CPUPercent {
+		t.Errorf("expected Docker.CPUPercent=%f, got %f", mockStats.CPUPercent, response.Docker.CPUPercent)
+	}
+	if response.Docker.MemoryUsage != mockStats.MemoryUsage {
+		t.Errorf("expected Docker.MemoryUsage=%d, got %d", mockStats.MemoryUsage, response.Docker.MemoryUsage)
+	}
+	if response.Docker.ContainerCount != mockStats.ContainerCount {
+		t.Errorf("expected Docker.ContainerCount=%d, got %d", mockStats.ContainerCount, response.Docker.ContainerCount)
+	}
+}

@@ -547,3 +547,47 @@ func TestUpdateSettings_TooManyKeys(t *testing.T) {
 		t.Errorf("expected error about too many settings, got: %s", w.Body.String())
 	}
 }
+
+// TestUpdateSettings_NonNumericInt tests that updating an int-type setting with non-numeric value returns 400.
+func TestUpdateSettings_NonNumericInt(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_ip_burst is an int-type setting
+	body := `{"rate_limit_ip_burst": "not-a-number"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be a number") {
+		t.Errorf("expected error about numeric value, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_NonNumericFloat tests that updating a float-type setting with non-numeric value returns 400.
+func TestUpdateSettings_NonNumericFloat(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_ip_rps is a float-type setting
+	body := `{"rate_limit_ip_rps": "not-a-number"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be a number") {
+		t.Errorf("expected error about numeric value, got: %s", w.Body.String())
+	}
+}

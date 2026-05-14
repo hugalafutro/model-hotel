@@ -691,3 +691,139 @@ func TestWriteOpenAIError(t *testing.T) {
 		t.Errorf("expected code %d, got %v", testStatusCode, errorObj["code"])
 	}
 }
+
+// ---------------------------------------------------------------------------
+// BuildProviderTargetURL
+// ---------------------------------------------------------------------------
+
+func TestBuildProviderTargetURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		baseURL      string
+		providerType string
+		expected     string
+	}{
+		{
+			name:         "OpenAI type",
+			baseURL:      "https://api.openai.com",
+			providerType: "openai",
+			expected:     "https://api.openai.com/chat/completions",
+		},
+		{
+			name:         "Anthropic type",
+			baseURL:      "https://api.anthropic.com",
+			providerType: "anthropic",
+			expected:     "https://api.anthropic.com/v1/chat/completions",
+		},
+		{
+			name:         "Anthropic with /v1 already",
+			baseURL:      "https://api.anthropic.com/v1",
+			providerType: "anthropic",
+			expected:     "https://api.anthropic.com/v1/chat/completions",
+		},
+		{
+			name:         "DeepSeek type",
+			baseURL:      "https://api.deepseek.com",
+			providerType: "deepseek",
+			expected:     "https://api.deepseek.com/chat/completions",
+		},
+		{
+			name:         "Ollama type",
+			baseURL:      "http://localhost:11434",
+			providerType: "ollama",
+			expected:     "http://localhost:11434/chat/completions",
+		},
+		{
+			name:         "Trailing slash gets sanitized",
+			baseURL:      "https://api.openai.com/",
+			providerType: "openai",
+			expected:     "https://api.openai.com/chat/completions",
+		},
+		{
+			name:         "Empty provider type (default)",
+			baseURL:      "https://api.example.com",
+			providerType: "",
+			expected:     "https://api.example.com/chat/completions",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := BuildProviderTargetURL(tc.baseURL, tc.providerType)
+			if result != tc.expected {
+				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tc.baseURL, tc.providerType, result, tc.expected)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SetProviderAuthHeaders
+// ---------------------------------------------------------------------------
+
+func TestSetProviderAuthHeaders(t *testing.T) {
+	tests := []struct {
+		name             string
+		providerType     string
+		apiKey           string
+		expectAuthHeader string
+		expectXAPIKey    string
+		expectVersion    string
+	}{
+		{
+			name:             "Anthropic",
+			providerType:     "anthropic",
+			apiKey:           "sk-ant-12345",
+			expectXAPIKey:    "sk-ant-12345",
+			expectVersion:    "2023-06-01",
+			expectAuthHeader: "",
+		},
+		{
+			name:             "OpenAI",
+			providerType:     "openai",
+			apiKey:           "sk-12345",
+			expectAuthHeader: "Bearer sk-12345",
+			expectXAPIKey:    "",
+			expectVersion:    "",
+		},
+		{
+			name:             "Empty apiKey",
+			providerType:     "openai",
+			apiKey:           "",
+			expectAuthHeader: "",
+			expectXAPIKey:    "",
+			expectVersion:    "",
+		},
+		{
+			name:             "Other provider type",
+			providerType:     "deepseek",
+			apiKey:           "sk-deepseek-123",
+			expectAuthHeader: "Bearer sk-deepseek-123",
+			expectXAPIKey:    "",
+			expectVersion:    "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/", http.NoBody)
+
+			SetProviderAuthHeaders(req, tc.providerType, tc.apiKey)
+
+			authHeader := req.Header.Get("Authorization")
+			if authHeader != tc.expectAuthHeader {
+				t.Errorf("Authorization header = %q, want %q", authHeader, tc.expectAuthHeader)
+			}
+
+			xAPIKey := req.Header.Get("x-api-key")
+			if xAPIKey != tc.expectXAPIKey {
+				t.Errorf("x-api-key header = %q, want %q", xAPIKey, tc.expectXAPIKey)
+			}
+
+			version := req.Header.Get("anthropic-version")
+			if version != tc.expectVersion {
+				t.Errorf("anthropic-version header = %q, want %q", version, tc.expectVersion)
+			}
+		})
+	}
+}
