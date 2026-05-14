@@ -149,17 +149,19 @@ A live SSE event bus delivers toast notifications for discovery outcomes, model 
 
 Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage: the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) are applied to all responses. Decrypted provider keys are cached in memory for up to 5 minutes to avoid repeated key derivation overhead.
 
-## [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start (Docker Compose)](#-quick-start-docker-compose)
+## [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 
 ```bash
 git clone <repository-url>
 cd model-hotel
 
 cp .env.example .env
-nano .env          # set a strong MASTER_KEY and DATABASE_URL
+nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD
 
-docker compose up --build
+docker compose up -d
 ```
+
+To use the prebuilt image instead of building from source, edit `docker-compose.yml`: comment out `build: .` and uncomment the `image:` line.
 
 The admin token is displayed once in the logs on first run and will never be shown again:
 
@@ -174,6 +176,8 @@ You can also set a fixed admin token via the `ADMIN_TOKEN` environment variable.
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
 
 > **Tip:** The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
+
+> **Security:** The Docker socket is disabled by default in `docker-compose.yml`. Enable it only if you need container-level stats in the sidebar and trust the deployment environment.
 
 ## Features at a Glance
 
