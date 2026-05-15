@@ -390,7 +390,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								iconClassName="text-red-400/50 hover:text-red-300"
 							/>
 						</div>
-						<pre className="text-sm text-red-300 font-mono whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
+						<pre className="text-sm text-red-300 font-mono whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
 							{requestLog.error_message}
 						</pre>
 					</div>
