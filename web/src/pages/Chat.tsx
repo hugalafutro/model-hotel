@@ -255,7 +255,7 @@ export function Chat() {
 
 			{/* Chat Area: Model Details + Messages */}
 			<div
-				className={`flex gap-4 flex-1 ${chat.chatSubMode === "conversation" ? "overflow-visible" : "min-h-0 lg:overflow-hidden"}`}
+				className={`flex gap-4 flex-1 ${chat.chatSubMode === "conversation" ? "overflow-visible" : "min-h-0 lg:overflow-hidden p-1.5"}`}
 			>
 				{/* Sidebar */}
 				<div
