@@ -42,9 +42,7 @@ jobs:
         run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload Go coverage
-        uses: codecov/codecov-action@v5
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.out
           flags: backend
@@ -108,9 +106,7 @@ jobs:
         run: pnpm vitest run --coverage
 
       - name: Upload frontend coverage
-        uses: codecov/codecov-action@v5
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        uses: codecov/codecov-action@v6
         with:
           files: web/coverage/lcov.info
           flags: frontend
