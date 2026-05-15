@@ -592,8 +592,8 @@ describe("AppLogs", () => {
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 		});
-		// Copy button should be present in the modal (has title="Copy")
-		expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+		// Copy button should be present in the modal (aria-label="Copy message")
+		expect(screen.getByRole("button", { name: "Copy message" })).toBeInTheDocument();
 	});
 
 	it("level badge has correct color classes", async () => {
