@@ -351,3 +351,49 @@ func TestCleanupTestDB_ConnectionError(t *testing.T) {
 	// CleanupTestDB should not panic, just return silently on error
 	CleanupTestDB("unreachable")
 }
+
+// TestBuildTestDBURL_FallbackDefaults tests the POSTGRES_* fallback path
+// when TEST_DATABASE_URL is not set. Covers the default values for
+// user, password, and host.
+func TestBuildTestDBURL_FallbackDefaults(t *testing.T) {
+	t.Setenv("TEST_DATABASE_URL", "")
+	t.Setenv("POSTGRES_USER", "")
+	t.Setenv("POSTGRES_PASSWORD", "")
+	t.Setenv("POSTGRES_HOST", "")
+
+	result := buildTestDBURL()
+	expected := "postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable"
+	if result != expected {
+		t.Errorf("buildTestDBURL() = %q, want %q", result, expected)
+	}
+}
+
+// TestBuildTestDBURL_FallbackCustom tests the POSTGRES_* fallback path
+// with explicit env vars overriding the defaults.
+func TestBuildTestDBURL_FallbackCustom(t *testing.T) {
+	t.Setenv("TEST_DATABASE_URL", "")
+	t.Setenv("POSTGRES_USER", "myuser")
+	t.Setenv("POSTGRES_PASSWORD", "mypass")
+	t.Setenv("POSTGRES_HOST", "myhost")
+
+	result := buildTestDBURL()
+	expected := "postgres://myuser:mypass@myhost:5433/testdb?sslmode=disable"
+	if result != expected {
+		t.Errorf("buildTestDBURL() = %q, want %q", result, expected)
+	}
+}
+
+// TestBuildTestDBURL_FallbackDockerHost tests that POSTGRES_HOST="db"
+// is rewritten to "localhost" (test runs outside Docker).
+func TestBuildTestDBURL_FallbackDockerHost(t *testing.T) {
+	t.Setenv("TEST_DATABASE_URL", "")
+	t.Setenv("POSTGRES_USER", "u")
+	t.Setenv("POSTGRES_PASSWORD", "p")
+	t.Setenv("POSTGRES_HOST", "db")
+
+	result := buildTestDBURL()
+	expected := "postgres://u:p@localhost:5433/testdb?sslmode=disable"
+	if result != expected {
+		t.Errorf("buildTestDBURL() = %q, want %q", result, expected)
+	}
+}
