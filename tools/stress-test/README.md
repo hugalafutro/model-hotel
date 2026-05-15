@@ -12,6 +12,21 @@ A black-box stress testing tool that fires concurrent streaming requests through
 
 ## Prerequisites
 
+### Docker Compose (Recommended)
+
+Use the stress-test compose override to start the proxy with the correct settings without modifying the main `docker-compose.yml`:
+
+```bash
+# From the project root
+docker compose -f docker-compose.yml -f docker-compose.stress-test.yml up -d
+```
+
+This override sets `ALLOW_HTTP_PROVIDERS=true`, `RATE_LIMIT_ENABLED=false`, adds `host.docker.internal` to `ALLOWED_PROVIDER_HOSTS`, and maps `host.docker.internal` so the proxy can reach the mock server on the host.
+
+When the proxy runs in Docker, use `--mock-url http://host.docker.internal:9090/v1` so the provider points at the host-reachable address instead of `localhost`.
+
+### Manual Setup
+
 The proxy must already be running with:
 
 ```bash
@@ -77,6 +92,9 @@ go run . -admin-token abc123 -concurrency 200,500,1000,2000 -keys 10 -requests 1
 
 # Test with per-key rate limits (10 RPS / 20 burst per key)
 go run . -admin-token abc123 -key-rps 10 -key-burst 20 -concurrency 50,100 -keys 10 -rate-limit true
+
+# Sustained streams: each request streams for 3-13 seconds (random per request)
+go run . -admin-token abc123 -stream-duration 3-13 -chunk-count 50 -concurrency 50,100 -requests 200
 ```
 
 ### CLI Flags
@@ -95,6 +113,7 @@ go run . -admin-token abc123 -key-rps 10 -key-burst 20 -concurrency 50,100 -keys
 | `-chunk-count` | `15` | Number of SSE chunks per response |
 | `-tokens-per-chunk` | `3` | Completion tokens per SSE chunk |
 | `-initial-delay` | `10` | Initial delay before first chunk (ms, simulates TTFT) |
+| `-stream-duration` | `""` | Random stream duration range in seconds (e.g. `3-13`). Overrides `-chunk-delay` with per-request random variation for sustained, realistic streams |
 | `-reject-params` | `""` | Comma-separated param names the mock server rejects with 400 (e.g. `top_p,frequency_penalty`) |
 | `-extra-params` | `""` | Comma-separated params to include in requests, with optional values (e.g. `top_p=0.5,frequency_penalty=1.0`) |
 | `-rps` | `10` | Rate limit RPS when enabled |
@@ -102,6 +121,7 @@ go run . -admin-token abc123 -key-rps 10 -key-burst 20 -concurrency 50,100 -keys
 | `-key-rps` | `0` | Per-key rate limit RPS override (0 = use global setting, no override) |
 | `-key-burst` | `0` | Per-key rate limit burst override (0 = use global setting, no override) |
 | `-ip-ratelimit` | `""` | Override IP rate limiter: `"true"` or `"false"` (empty = do not change setting) |
+| `-mock-url` | `""` | Override provider base URL (use `http://host.docker.internal:9090/v1` when proxy runs in Docker) |
 | `-output` | `markdown` | Output format: text, markdown, json |
 
 ## Test Matrix
@@ -194,6 +214,7 @@ tools/stress-test/
 +-- main_test.go         # Unit tests for CLI parsers (parseIntList, parseBoolList, maxInt)
 +-- go.mod               # Standalone module (stdlib only, replace directive to ../../)
 +-- .golangci.yml        # Linter config
++-- ../../docker-compose.stress-test.yml  # Docker Compose override for stress testing
 +-- mock/
 |   +-- server.go        # Mock OpenAI-compatible SSE upstream
 |   +-- server_test.go   # Mock server endpoint tests
@@ -227,7 +248,7 @@ tools/stress-test/
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Failed to set up test fixtures: create provider: 500` | Proxy can't reach mock or `ALLOW_HTTP_PROVIDERS` not set | Set `ALLOW_HTTP_PROVIDERS=true` and `ALLOWED_PROVIDER_HOSTS=localhost` |
+| `Failed to set up test fixtures: create provider: 500` | Proxy can't reach mock or `ALLOW_HTTP_PROVIDERS` not set | Set `ALLOW_HTTP_PROVIDERS=true` and `ALLOWED_PROVIDER_HOSTS=localhost`. If proxy runs in Docker, use `--mock-url http://host.docker.internal:9090/v1` |
 | `Failed to start mock server: listen tcp :9090: bind: address already in use` | Another process on port 9090 | Use `-mock-port 9091` or kill the process |
 | All requests return 429 at high concurrency | IP rate limiter is throttling | Increase `RATE_LIMIT_IP_RPS` / `RATE_LIMIT_IP_BURST` env vars on the proxy. Or disable IP rate limiting during tests using `-ip-ratelimit false`, or via the settings API (`rate_limit_ip_enabled`). |
 | Discovery fails (`discovery failed`) | Mock server not ready or unreachable | Check mock server logs; ensure it started before the proxy call |

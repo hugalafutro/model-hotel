@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -19,7 +21,9 @@ func main() {
 	// Connection settings
 	proxyURL := flag.String("proxy-url", "http://localhost:8080", "Proxy base URL")
 	adminToken := flag.String("admin-token", "", "Admin token for API calls (required)")
-	mockPort := flag.Int("mock-port", 9090, "Port for the mock upstream server")
+	mockPort := flag.Int("mock-port", 9090, "Base port for the mock upstream server(s)")
+	mockURL := flag.String("mock-url", "", "Override URL for the mock server as seen by the proxy (e.g. http://host.docker.internal:9090/v1 when proxy runs in Docker)")
+	mockWorkers := flag.Int("mock-workers", 1, "Number of mock upstream servers to start (distributes load across multiple providers)")
 
 	// Scenario settings
 	concurrencyStr := flag.String("concurrency", "10,50,100,1000", "Comma-separated concurrency levels")
@@ -33,6 +37,7 @@ func main() {
 	chunkCount := flag.Int("chunk-count", 15, "Number of SSE chunks per response")
 	tokensPerChunk := flag.Int("tokens-per-chunk", 3, "Completion tokens per SSE chunk")
 	initialDelay := flag.Int("initial-delay", 10, "Initial delay before first chunk in ms (simulates TTFT)")
+	streamDuration := flag.String("stream-duration", "", "Random stream duration range in seconds (e.g. 3-13). Overrides -chunk-delay with per-request random variation")
 	rejectParams := flag.String("reject-params", "", "Comma-separated param names the mock server rejects with 400 (e.g. top_p,frequency_penalty)")
 	extraParams := flag.String("extra-params", "", "Comma-separated param names to include in requests (set to 0.5 for floats, e.g. top_p=0.5,frequency_penalty=1.0)")
 
@@ -120,44 +125,89 @@ func main() {
 	debuglog.Info("main: Streaming", "enabled", *streaming)
 	debuglog.Info("main: Chunk config", "chunkDelay", *chunkDelay, "chunkCount", *chunkCount, "tokensPerChunk", *tokensPerChunk)
 
-	// ── Start mock server ──────────────────────────────────────────
-	mockAddr := fmt.Sprintf(":%d", *mockPort)
-	mockServer := mock.NewServer(mockAddr)
-	mockServer.ChunkDelay = time.Duration(*chunkDelay) * time.Millisecond
-	mockServer.ChunkCount = *chunkCount
-	mockServer.TokensPerChunk = *tokensPerChunk
-	mockServer.InitialDelay = time.Duration(*initialDelay) * time.Millisecond
-
-	debuglog.Info("main: starting mock upstream server...")
-	if err := mockServer.StartAsync(); err != nil {
-		log.Fatalf("Failed to start mock server: %v", err)
+	// ── Start mock server(s) ─────────────────────────────────────────
+	if *mockWorkers < 1 {
+		*mockWorkers = 1
 	}
-	defer mockServer.Stop()
-	debuglog.Info("main: mock server listening", "addr", mockAddr)
 
-	// Wait for mock to be ready
-	<-mockServer.Ready()
+	type mockInstance struct {
+		server *mock.Server
+		port   int
+	}
+	var mockInstances []mockInstance
 
-	// Parse reject/extra params
-	if *rejectParams != "" {
-		for _, p := range strings.Split(*rejectParams, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				mockServer.RejectParams = append(mockServer.RejectParams, p)
+	for w := 0; w < *mockWorkers; w++ {
+		port := *mockPort + w
+		mockAddr := fmt.Sprintf(":%d", port)
+		mockServer := mock.NewServer(mockAddr)
+		mockServer.ChunkDelay = time.Duration(*chunkDelay) * time.Millisecond
+		mockServer.ChunkCount = *chunkCount
+		mockServer.TokensPerChunk = *tokensPerChunk
+		mockServer.InitialDelay = time.Duration(*initialDelay) * time.Millisecond
+
+		// Parse stream-duration range (e.g. "3-13" → 3s–13s per request)
+		if *streamDuration != "" {
+			if w == 0 { // parse once, apply to all
+				min, max, err := parseDurationRange(*streamDuration)
+				if err != nil {
+					log.Fatalf("Invalid -stream-duration: %v (use format like 3-13)", err)
+				}
+				mockServer.StreamDurationMin = time.Duration(min) * time.Second
+				mockServer.StreamDurationMax = time.Duration(max) * time.Second
+				debuglog.Info("main: stream duration range", "min", fmt.Sprintf("%ds", min), "max", fmt.Sprintf("%ds", max))
+			} else {
+				// Copy from first instance (already parsed)
+				mockServer.StreamDurationMin = mockInstances[0].server.StreamDurationMin
+				mockServer.StreamDurationMax = mockInstances[0].server.StreamDurationMax
 			}
 		}
-		debuglog.Info("main: mock server will reject params", "params", mockServer.RejectParams)
+
+		debuglog.Info("main: starting mock upstream server...", "worker", w, "port", port)
+		if err := mockServer.StartAsync(); err != nil {
+			log.Fatalf("Failed to start mock server %d: %v", w, err)
+		}
+
+		// Parse reject params (apply to all workers)
+		if *rejectParams != "" {
+			for _, p := range strings.Split(*rejectParams, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					mockServer.RejectParams = append(mockServer.RejectParams, p)
+				}
+			}
+		}
+
+		mockInstances = append(mockInstances, mockInstance{server: mockServer, port: port})
 	}
+
+	// Wait for all mock servers to be ready
+	for _, mi := range mockInstances {
+		<-mi.server.Ready()
+	}
+	if len(mockInstances) > 0 && len(mockInstances[0].server.RejectParams) > 0 {
+		debuglog.Info("main: mock servers will reject params", "params", mockInstances[0].server.RejectParams)
+	}
+
+	// Defer cleanup for all mock servers
+	defer func() {
+		for _, mi := range mockInstances {
+			mi.server.Stop()
+		}
+	}()
 
 	// ── Create clients ─────────────────────────────────────────────
 	admin := harness.NewAdminClient(*proxyURL, *adminToken)
 
-	// Use the max concurrency to determine the HTTP client timeout.
-	// Each request takes roughly chunkCount*chunkDelay ms of streaming time,
-	// plus proxy overhead. Multiply by 2 for safety headroom.
-	maxConc := maxInt(concurrencyLevels)
-	clientTimeoutMs := int64(maxConc) * int64(*chunkDelay) * int64(*chunkCount) * 2
-	clientTimeout := time.Duration(clientTimeoutMs) * time.Millisecond
+	// Use the max stream duration to determine the HTTP client timeout.
+	// Each request takes roughly the stream duration plus proxy overhead.
+	// Multiply by 2 for safety headroom.
+	var maxStreamDuration time.Duration
+	if len(mockInstances) > 0 && mockInstances[0].server.StreamDurationMax > 0 {
+		maxStreamDuration = mockInstances[0].server.StreamDurationMax
+	} else {
+		maxStreamDuration = time.Duration(*chunkDelay**chunkCount) * time.Millisecond
+	}
+	clientTimeout := maxStreamDuration * 2
 	if clientTimeout < 30*time.Second {
 		clientTimeout = 30 * time.Second
 	}
@@ -199,9 +249,37 @@ func main() {
 	// ── Determine max keys needed ──────────────────────────────────
 	maxKeys := maxInt(keyCounts)
 
+	// ── Build provider configs ──────────────────────────────────────
+	var providerConfigs []harness.ProviderConfig
+	for w := 0; w < *mockWorkers; w++ {
+		name := "stress-mock"
+		if *mockWorkers > 1 {
+			name = fmt.Sprintf("stress-mock-%d", w)
+		}
+
+		// Determine the URL the proxy should use to reach this mock server.
+		// When --mock-url is set, it overrides the base URL. For multi-worker,
+		// we replace the port in the mock URL with the worker's port.
+		var providerURL string
+		if *mockURL != "" {
+			if *mockWorkers > 1 {
+				// Replace port in mock URL with this worker's port
+				providerURL = replacePortInURL(*mockURL, *mockPort+w)
+			} else {
+				providerURL = *mockURL
+			}
+		} else {
+			providerURL = mockInstances[w].server.URL()
+		}
+
+		providerConfigs = append(providerConfigs, harness.ProviderConfig{
+			Name: name,
+			URL:  providerURL,
+		})
+	}
+
 	// ── Setup test fixtures ────────────────────────────────────────
-	mockURL := mockServer.URL()
-	if err := runner.Setup(mockURL, maxKeys); err != nil {
+	if err := runner.Setup(providerConfigs, maxKeys); err != nil {
 		log.Fatalf("Failed to set up test fixtures: %v", err)
 	}
 	defer func() {
@@ -264,7 +342,7 @@ func main() {
 	// ── Print report ───────────────────────────────────────────────
 	report := &metrics.Report{
 		ProxyURL:  *proxyURL,
-		MockURL:   mockURL,
+		MockURL:   providerConfigs[0].URL,
 		Scenarios: scenarioReports,
 	}
 
@@ -274,8 +352,24 @@ func main() {
 	}
 
 	// ── Mock server stats ──────────────────────────────────────────
-	served, failed := mockServer.Stats()
-	debuglog.Info("main: mock server stats", "served", served, "failed", failed)
+	var totalServed, totalFailed int64
+	for _, mi := range mockInstances {
+		s, f := mi.server.Stats()
+		totalServed += s
+		totalFailed += f
+	}
+	debuglog.Info("main: mock server stats", "workers", len(mockInstances), "served", totalServed, "failed", totalFailed)
+}
+
+// replacePortInURL replaces the port number in a URL string.
+// e.g. "http://host.docker.internal:9090/v1" with port 9091 → "http://host.docker.internal:9091/v1"
+func replacePortInURL(urlStr string, newPort int) string {
+	u, err := url.Parse(urlStr)
+	if err != nil || u.Scheme == "" {
+		return urlStr
+	}
+	u.Host = net.JoinHostPort(u.Hostname(), strconv.Itoa(newPort))
+	return u.String()
 }
 
 func parseIntList(s string) []int {
@@ -326,4 +420,28 @@ func maxInt(vals []int) int {
 		}
 	}
 	return m
+}
+
+// parseDurationRange parses a "min-max" string (e.g. "3-13") and returns
+// (min, max) in seconds.
+func parseDurationRange(s string) (int, int, error) {
+	parts := strings.SplitN(s, "-", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("expected min-max format")
+	}
+	min, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid min: %w", err)
+	}
+	max, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid max: %w", err)
+	}
+	if min <= 0 || max <= 0 {
+		return 0, 0, fmt.Errorf("both min and max must be positive")
+	}
+	if min > max {
+		return 0, 0, fmt.Errorf("min (%d) must be <= max (%d)", min, max)
+	}
+	return min, max, nil
 }

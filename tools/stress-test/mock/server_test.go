@@ -238,3 +238,48 @@ func TestURL(t *testing.T) {
 		t.Errorf("URL() = %q, want %q", s.URL(), expected)
 	}
 }
+
+func TestChunkDelayForRequest_Fixed(t *testing.T) {
+	s := NewServer(":0")
+	s.ChunkDelay = 50 * time.Millisecond
+	// Without StreamDurationMin, should always return fixed ChunkDelay
+	for i := 0; i < 10; i++ {
+		d := s.chunkDelayForRequest()
+		if d != 50*time.Millisecond {
+			t.Errorf("chunkDelayForRequest() = %v, want 50ms (fixed mode)", d)
+		}
+	}
+}
+
+func TestChunkDelayForRequest_RandomDuration(t *testing.T) {
+	s := NewServer(":0")
+	s.ChunkCount = 10
+	s.StreamDurationMin = 3 * time.Second
+	s.StreamDurationMax = 13 * time.Second
+
+	// Each call should return a delay in [3s/10, 13s/10] = [300ms, 1300ms]
+	minDelay := 3 * time.Second / 10
+	maxDelay := 13 * time.Second / 10
+
+	for i := 0; i < 100; i++ {
+		d := s.chunkDelayForRequest()
+		if d < minDelay || d > maxDelay {
+			t.Errorf("chunkDelayForRequest() = %v, want range [%v, %v]", d, minDelay, maxDelay)
+		}
+	}
+}
+
+func TestChunkDelayForRequest_SameMinMax(t *testing.T) {
+	s := NewServer(":0")
+	s.ChunkCount = 5
+	s.StreamDurationMin = 5 * time.Second
+	s.StreamDurationMax = 5 * time.Second
+
+	// When min == max, delay should always be exactly 5s/5 = 1s
+	for i := 0; i < 10; i++ {
+		d := s.chunkDelayForRequest()
+		if d != 1*time.Second {
+			t.Errorf("chunkDelayForRequest() = %v, want 1s (fixed duration mode)", d)
+		}
+	}
+}

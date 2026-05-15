@@ -23,11 +23,18 @@ type Server struct {
 	totalFailed atomic.Int64
 
 	// Configurable behaviour
-	ChunkCount     int           // number of SSE data chunks (default 15)
-	ChunkDelay     time.Duration // delay between chunks (default 20ms)
+	ChunkCount     int           // number of SSE chunks (default 15)
+	ChunkDelay     time.Duration // delay between chunks (default 20ms), ignored when StreamDurationMin > 0
 	TokensPerChunk int           // completion tokens per chunk (default 3)
 	InitialDelay   time.Duration // delay before first chunk (simulates TTFT)
 	ErrorRate      float64       // 0.0–1.0, probability of returning 500
+
+	// StreamDurationMin/Max set a per-request random stream duration range.
+	// When StreamDurationMin > 0, each request picks a random duration in
+	// [Min, Max] and computes chunk delay = duration / ChunkCount, overriding
+	// the fixed ChunkDelay. This produces sustained, varied streams.
+	StreamDurationMin time.Duration
+	StreamDurationMax time.Duration
 
 	// RejectParams lists request body param names that trigger a 400 error
 	// with a provider-style rejection message. This exercises the proxy's
@@ -74,9 +81,25 @@ func (s *Server) newHandler() http.Handler {
 	return mux
 }
 
+// newHTTPServer creates a tuned http.Server for high-concurrency streaming.
+// The default http.Server has no explicit timeouts, which is fine for SSE
+// (WriteTimeout covers the entire write phase, so it must be 0 for long streams).
+// We set ReadTimeout to prevent slowloris attacks and IdleTimeout to keep
+// connections alive between requests in the same pool.
+func (s *Server) newHTTPServer() *http.Server {
+	return &http.Server{
+		Addr:           s.addr,
+		Handler:        s.newHandler(),
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   0, // no limit — SSE streams can last seconds to minutes
+		IdleTimeout:    120 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1MB
+	}
+}
+
 // Start launches the mock server in the foreground. For tests, use StartAsync.
 func (s *Server) Start() error {
-	s.server = &http.Server{Addr: s.addr, Handler: s.newHandler()}
+	s.server = s.newHTTPServer()
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("mock server failed: %w", err)
 	}
@@ -87,7 +110,7 @@ func (s *Server) Start() error {
 // StartAsync starts the server in a goroutine and signals readiness.
 func (s *Server) StartAsync() error {
 	go func() {
-		s.server = &http.Server{Addr: s.addr, Handler: s.newHandler()}
+		s.server = s.newHTTPServer()
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			debuglog.Error("mock: server error", "error", err)
 		}
@@ -181,6 +204,24 @@ func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
 	s.totalServed.Add(1)
 }
 
+// chunkDelayForRequest returns the inter-chunk delay for this request.
+// When StreamDurationMin > 0, it picks a random duration in [Min, Max]
+// and divides by ChunkCount. Otherwise falls back to the fixed ChunkDelay.
+func (s *Server) chunkDelayForRequest() time.Duration {
+	if s.StreamDurationMin > 0 {
+		maxD := s.StreamDurationMax
+		if maxD < s.StreamDurationMin {
+			maxD = s.StreamDurationMin
+		}
+		duration := s.StreamDurationMin + time.Duration(rand.Int63n(int64(maxD-s.StreamDurationMin)+1))
+		if s.ChunkCount > 0 {
+			return duration / time.Duration(s.ChunkCount)
+		}
+		return duration
+	}
+	return s.ChunkDelay
+}
+
 func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, model string) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -194,6 +235,8 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, model s
 	totalCompletionTokens := 0
 	words := []string{"The ", "mock ", "server ", "is ", "responding ", "with ", "synthetic ", "streaming ", "data ", "for ",
 		"stress ", "testing ", "the ", "LLM ", "proxy ", "gateway ", "under ", "high ", "concurrency ", "load. "}
+
+	chunkDelay := s.chunkDelayForRequest()
 
 	for i := 0; i < s.ChunkCount; i++ {
 		// Pick content for this chunk
@@ -224,8 +267,8 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, model s
 		}
 
 		// Inter-chunk delay (simulates token generation latency)
-		if s.ChunkDelay > 0 && i < s.ChunkCount-1 {
-			time.Sleep(s.ChunkDelay)
+		if chunkDelay > 0 && i < s.ChunkCount-1 {
+			time.Sleep(chunkDelay)
 		}
 	}
 

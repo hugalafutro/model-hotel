@@ -96,7 +96,7 @@ type CreateVirtualKeyResponse struct {
 }
 
 // CreateVirtualKey creates a new virtual key and returns the raw key value.
-func (a *AdminClient) CreateVirtualKey(name string, rateLimitRPS, rateLimitBurst *float64) (*CreateVirtualKeyResponse, error) {
+func (a *AdminClient) CreateVirtualKey(name string, rateLimitRPS *float64, rateLimitBurst *int) (*CreateVirtualKeyResponse, error) {
 	body := map[string]interface{}{"name": name}
 	if rateLimitRPS != nil {
 		body["rate_limit_rps"] = *rateLimitRPS

@@ -34,6 +34,12 @@ type ScenarioResult struct {
 	Summary metrics.Summary
 }
 
+// ProviderConfig defines a single mock upstream provider for Setup.
+type ProviderConfig struct {
+	Name string // provider name (e.g. "stress-mock-0")
+	URL  string // base URL as seen by the proxy (e.g. "http://host.docker.internal:9090/v1")
+}
+
 // Runner executes test scenarios against the proxy.
 type Runner struct {
 	proxyClient *ProxyClient
@@ -41,8 +47,8 @@ type Runner struct {
 	keys        []string // raw virtual key values
 	keyIDs      []string // virtual key UUIDs (for cleanup)
 	keyNames    []string // virtual key names (for update API)
-	providerID  string   // provider UUID (for cleanup)
-	model       string   // model ID to use (e.g. "stress-mock/mock-model")
+	providerIDs []string // provider UUIDs (for cleanup)
+	models      []string // model IDs to round-robin (e.g. "stress-mock-0/mock-model")
 }
 
 // SetExtraParams configures the proxy client to send additional request
@@ -61,23 +67,34 @@ func NewRunner(proxyClient *ProxyClient, admin *AdminClient) *Runner {
 	}
 }
 
-// Setup provisions the test fixtures: a provider pointing to the mock
-// upstream and the specified number of virtual keys.
-func (r *Runner) Setup(mockURL string, numKeys int) error {
-	// Create provider
-	prov, err := r.admin.CreateProvider("stress-mock", mockURL, "sk-mock-stress-test-key")
-	if err != nil {
-		return fmt.Errorf("setup: create provider: %w", err)
+// Setup provisions the test fixtures: one or more providers pointing to mock
+// upstream servers and the specified number of virtual keys. When multiple
+// ProviderConfigs are given, requests are round-robined across providers.
+func (r *Runner) Setup(providers []ProviderConfig, numKeys int) error {
+	r.providerIDs = make([]string, len(providers))
+	r.models = make([]string, len(providers))
+
+	for i, pc := range providers {
+		prov, err := r.admin.CreateProvider(pc.Name, pc.URL, "sk-mock-stress-test-key")
+		if err != nil {
+			// Cleanup already-created providers
+			for j := 0; j < i; j++ {
+				_ = r.admin.DeleteProvider(r.providerIDs[j])
+			}
+			return fmt.Errorf("setup: create provider %d: %w", i, err)
+		}
+
+		// Trigger discovery so the provider's models are registered.
+		if err := r.admin.TriggerDiscovery(prov.ID); err != nil {
+			debuglog.Warn("runner: discovery failed (will try to use model anyway)", "provider", pc.Name, "error", err)
+		}
+
+		r.providerIDs[i] = prov.ID
+		r.models[i] = pc.Name + "/mock-model"
 	}
 
-	// Trigger discovery so the provider's models are registered.
-	// The mock server has a /v1/models endpoint that returns "mock-model".
-	if err := r.admin.TriggerDiscovery(prov.ID); err != nil {
-		debuglog.Warn("runner: discovery failed (will try to use model anyway)", "error", err)
-	}
-
-	r.providerID = prov.ID
-	r.model = "stress-mock/mock-model"
+	// Brief pause for model cache to populate after discovery.
+	time.Sleep(500 * time.Millisecond)
 
 	// Create virtual keys
 	r.keys = make([]string, numKeys)
@@ -91,7 +108,9 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 			for j := 0; j < i; j++ {
 				_ = r.admin.DeleteVirtualKey(r.keyIDs[j])
 			}
-			_ = r.admin.DeleteProvider(prov.ID)
+			for _, pid := range r.providerIDs {
+				_ = r.admin.DeleteProvider(pid)
+			}
 			return fmt.Errorf("setup: create virtual key %d: %w", i, err)
 		}
 		r.keys[i] = vk.Key
@@ -99,7 +118,7 @@ func (r *Runner) Setup(mockURL string, numKeys int) error {
 		r.keyNames[i] = vk.Name
 	}
 
-	debuglog.Info("runner: setup complete", "provider", prov.ID, "keys", numKeys, "model", r.model)
+	debuglog.Info("runner: setup complete", "providers", len(providers), "keys", numKeys, "models", r.models)
 	return nil
 }
 
@@ -110,9 +129,9 @@ func (r *Runner) Cleanup() {
 			debuglog.Warn("runner: failed to delete key", "keyID", id, "error", err)
 		}
 	}
-	if r.providerID != "" {
-		if err := r.admin.DeleteProvider(r.providerID); err != nil {
-			debuglog.Warn("runner: failed to delete provider", "providerID", r.providerID, "error", err)
+	for _, id := range r.providerIDs {
+		if err := r.admin.DeleteProvider(id); err != nil {
+			debuglog.Warn("runner: failed to delete provider", "providerID", id, "error", err)
 		}
 	}
 	debuglog.Info("runner: cleanup complete")
@@ -136,14 +155,25 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 	}
 	debuglog.Info("runner: starting scenario", "label", label, "requests", totalReqs)
 
-	// Configure rate limiting
+	// Configure rate limiting. Only send rps/burst when rate limiting is
+	// enabled; the API validates burst >= 1 and will reject burst=0.
 	settings := map[string]string{
 		"rate_limit_enabled": fmt.Sprintf("%v", cfg.RateLimitOn),
-		"rate_limit_rps":     fmt.Sprintf("%.0f", cfg.RPS),
-		"rate_limit_burst":   fmt.Sprintf("%d", cfg.Burst),
 	}
+	if cfg.RateLimitOn {
+		settings["rate_limit_rps"] = fmt.Sprintf("%.0f", cfg.RPS)
+		burst := cfg.Burst
+		if burst < 1 {
+			burst = 1
+		}
+		settings["rate_limit_burst"] = fmt.Sprintf("%d", burst)
+	}
+	// IP rate limiter is a separate toggle. When RateLimitOn is false,
+	// disable IP rate limiting too unless explicitly overridden.
 	if cfg.IPRateLimitOn != nil {
 		settings["rate_limit_ip_enabled"] = fmt.Sprintf("%v", *cfg.IPRateLimitOn)
+	} else if !cfg.RateLimitOn {
+		settings["rate_limit_ip_enabled"] = "false"
 	}
 	if err := r.admin.UpdateSettings(settings); err != nil {
 		debuglog.Warn("runner: failed to update rate limit settings", "error", err)
@@ -194,7 +224,11 @@ func (r *Runner) RunScenario(cfg ScenarioConfig) *ScenarioResult {
 			keyIdx := idx % numKeys
 			key := r.keys[keyIdx]
 
-			result := r.proxyClient.SendChatCompletion(key, r.model, cfg.Streaming)
+			// Pick a model (round-robin across providers)
+			modelIdx := idx % len(r.models)
+			model := r.models[modelIdx]
+
+			result := r.proxyClient.SendChatCompletion(key, model, cfg.Streaming)
 			result.KeyIndex = keyIdx
 			collector.Record(result)
 
@@ -221,9 +255,9 @@ func (r *Runner) Keys() []string {
 	return r.keys
 }
 
-// Model returns the model ID to use for requests.
-func (r *Runner) Model() string {
-	return r.model
+// Models returns the model IDs available for requests.
+func (r *Runner) Models() []string {
+	return r.models
 }
 
 func floatPtrOr(p *float64, def float64) float64 {
