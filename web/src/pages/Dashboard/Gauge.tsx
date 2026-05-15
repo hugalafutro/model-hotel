@@ -63,7 +63,7 @@ export function Gauge({
 					</p>
 				</div>
 			</div>
-			<p className="text-[10px] uppercase tracking-wider text-(--text-muted) mt-2">
+			<p className="text-[10px] uppercase tracking-wider text-(--text-secondary) mt-2">
 				{label}
 			</p>
 		</button>

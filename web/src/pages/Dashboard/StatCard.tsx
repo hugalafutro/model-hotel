@@ -51,7 +51,7 @@ export function StatCard({
 					<Icon size={18} style={{ color: accent }} />
 				</div>
 				<span
-					className="font-semibold uppercase tracking-wider text-(--text-muted) text-right"
+					className="font-semibold uppercase tracking-wider text-(--text-secondary) text-right"
 					style={{ fontSize: "clamp(8px, 0.55vw, 10px)" }}
 				>
 					{label}

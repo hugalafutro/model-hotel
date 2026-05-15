@@ -95,7 +95,7 @@ function deepseekBadgeContent(
 	const usd = balance.balance_infos.find(
 		(b: DeepSeekBalanceInfo) => b.currency === "USD",
 	)?.total_balance;
-	const label = variant === "sidebar" ? `$ ${usd ?? "-"}` : `${usd ?? "-"} USD`;
+	const label = variant === "sidebar" ? `$${usd ?? "-"}` : `${usd ?? "-"} USD`;
 	const refreshed = dataUpdatedAt
 		? ` - updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
 		: "";

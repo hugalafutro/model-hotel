@@ -50,7 +50,7 @@ export function AnimatedValue({
 			{formatted}
 			{suffix && (
 				<span
-					className="text-sm font-normal text-(--text-muted) ml-1"
+					className="text-sm font-normal text-(--text-primary) ml-1"
 					style={{ textTransform: "none" }}
 				>
 					{suffix}
