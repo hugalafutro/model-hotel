@@ -15,7 +15,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
-	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/settings"
@@ -27,7 +26,7 @@ import (
 type Handler struct {
 	cfg            *config.Config
 	providerRepo   *provider.Repository
-	modelRepo      *model.Repository
+	modelRepo      ModelRepository
 	dbPool         *pgxpool.Pool
 	virtualKeyRepo VirtualKeyRepository
 	failoverRepo   *failover.Repository
@@ -109,7 +108,7 @@ func (a *virtualKeyRepoAdapter) Delete(ctx context.Context, id string) error {
 func NewHandler(
 	cfg *config.Config,
 	providerRepo *provider.Repository,
-	modelRepo *model.Repository,
+	modelRepo ModelRepository,
 	dbPool *pgxpool.Pool,
 	virtualKeyRepo *virtualkey.Repository,
 	failoverRepo *failover.Repository,

@@ -3,8 +3,10 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -536,6 +538,59 @@ func TestListModels_FailoverGroupEntryNotFound(t *testing.T) {
 	if !foundFailover {
 		t.Error("expected to find failover model in response")
 	}
+}
+
+// TestListModels_RepoError tests the error path when modelRepo.ListEnabled fails.
+// This covers the error handling at lines 13-18 in models.go.
+func TestListModels_RepoError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Replace modelRepo with a mock that returns an error
+	h.modelRepo = &mockModelRepo{listEnabledErr: fmt.Errorf("db connection failed")}
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rr.Code)
+	}
+
+	// Verify response body contains error message
+	body := rr.Body.String()
+	if !strings.Contains(body, "failed to list models") {
+		t.Errorf("expected response to contain 'failed to list models', got: %s", body)
+	}
+}
+
+// mockModelRepo is a test mock for model.Repository
+type mockModelRepo struct {
+	listEnabledErr error
+}
+
+func (m *mockModelRepo) ListEnabled(ctx context.Context) ([]*model.Model, error) {
+	return nil, m.listEnabledErr
+}
+
+func (m *mockModelRepo) Upsert(ctx context.Context, model *model.Model) error {
+	return nil
+}
+
+func (m *mockModelRepo) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+
+func (m *mockModelRepo) Get(ctx context.Context, id uuid.UUID) (*model.Model, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *mockModelRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error) {
+	return nil, nil
+}
+
+func (m *mockModelRepo) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error) {
+	return nil, nil
 }
 
 func TestListModels_ResponseFormat(t *testing.T) {

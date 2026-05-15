@@ -11,6 +11,18 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
+// ModelRepository defines the interface for model operations.
+// Used to enable mocking in tests while allowing the real *model.Repository
+// to be used in production.
+type ModelRepository interface {
+	ListEnabled(ctx context.Context) ([]*model.Model, error)
+	Upsert(ctx context.Context, model *model.Model) error
+	DeleteByID(ctx context.Context, id uuid.UUID) error
+	Get(ctx context.Context, id uuid.UUID) (*model.Model, error)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error)
+	GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error)
+}
+
 // VirtualKeyRepository defines the interface for virtual key operations.
 // Used to enable mocking in tests while allowing the real *virtualkey.Repository
 // to be used in production.

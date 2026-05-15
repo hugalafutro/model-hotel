@@ -1139,6 +1139,132 @@ func TestHandleStreamingResponse_RepeatedContentDetection(t *testing.T) {
 	}
 }
 
+// TestHandleStreamingResponse_DataWithoutSpace tests that SSE lines with "data:"
+// (no space after colon) are correctly parsed. This is for LM Studio compatibility.
+// Covers lines 145-149 in proxy.go.
+func TestHandleStreamingResponse_DataWithoutSpace(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that sends SSE with "data:" (no space after colon)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+
+		// Send data without space after colon (LM Studio style)
+		fmt.Fprint(w, "data:{\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Verify status code
+	if inner.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, inner.Code)
+	}
+
+	// Verify the content "hello" was correctly extracted from the payload
+	if !strings.Contains(inner.Body.String(), "hello") {
+		t.Errorf("expected response body to contain 'hello', got:\n%s", inner.Body.String())
+	}
+
+	// Verify log state is completed
+	if logData.state != "completed" {
+		t.Errorf("expected state=%q, got %q", "completed", logData.state)
+	}
+}
+
+// TestHandleNonStreamingResponse_NonJSONError tests that non-JSON error responses
+// from upstream are wrapped in OpenAI-compatible error format.
+// Covers the decode-failure branch in handleNonStreamingResponse (proxy.go:602-621).
+func TestHandleNonStreamingResponse_NonJSONError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Build an upstream server that returns a non-JSON 500 error
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "Internal Server Error")
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":false,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	// Verify status code is 500 (preserved from upstream)
+	if inner.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, inner.Code)
+	}
+
+	// Verify response is valid JSON (OpenAI error format)
+	var response map[string]interface{}
+	if err := json.Unmarshal(inner.Body.Bytes(), &response); err != nil {
+		t.Errorf("expected response to be valid JSON, got:\n%s\nerror: %v", inner.Body.String(), err)
+	}
+
+	// Verify it has the OpenAI error structure
+	if response["error"] == nil {
+		t.Errorf("expected response to have 'error' field, got:\n%s", inner.Body.String())
+	}
+
+	// Verify log state is failed
+	if logData.state != "failed" {
+		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+}
+
 // stopUnitHandler stops the unit handler's background goroutines
 func stopUnitHandlerIntegration(h *Handler) {
 	if h != nil && h.upstreamTransport != nil {
