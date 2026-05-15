@@ -140,7 +140,7 @@ describe("QuotaBadge", () => {
 					deepseekBalance={mockDeepSeekBalance}
 				/>,
 			);
-			expect(screen.getByText("$ 25.5")).toBeInTheDocument();
+			expect(screen.getByText("$25.5")).toBeInTheDocument();
 		});
 
 		it("handles missing USD balance", () => {
