@@ -262,7 +262,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<CopyablePill
 							text={requestLog.id}
 							tooltip="Copy DB row ID"
-							textClassName="font-mono text-sm whitespace-normal break-all"
+							textClassName="font-mono text-sm whitespace-normal break-words"
 						/>
 					</DetailItem>
 					<DetailItem
@@ -453,7 +453,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						/>
 					}
 				>
-					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-all bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
+					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
 						{appLog.message}
 					</pre>
 				</DetailItem>

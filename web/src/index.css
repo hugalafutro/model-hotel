@@ -490,7 +490,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	align-items: center;
 	padding: 1px 7px;
 	border-radius: 9999px;
-	font-size: 0.59rem;
+	font-size: 0.625rem;
 	font-weight: 500;
 	font-family: var(--font-mono);
 	cursor: pointer;
