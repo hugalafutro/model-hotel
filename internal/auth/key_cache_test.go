@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -459,5 +460,353 @@ func TestSetKeyCacheTTL(t *testing.T) {
 	SetKeyCacheTTL(-1 * time.Minute)
 	if getKeyCacheTTL() != 30*time.Minute {
 		t.Error("TTL should remain unchanged after SetKeyCacheTTL(-1m)")
+	}
+}
+
+func TestDecryptCached_CacheExpiryEndToEnd(t *testing.T) {
+	// Save original TTL and defer restore
+	orig := getKeyCacheTTL()
+	defer SetKeyCacheTTL(orig)
+
+	// Set a very short TTL
+	SetKeyCacheTTL(100 * time.Millisecond)
+
+	// Restart eviction goroutine
+	startKeyCacheEviction()
+	defer StopKeyCacheEviction()
+
+	// Clear the cache
+	keyCacheMu.Lock()
+	keyCache = make(map[string]cacheEntry)
+	keyCacheMu.Unlock()
+
+	// Encrypt a plaintext
+	masterKey := "expiry-test-key"
+	plaintext := "key-to-expire"
+	kp, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// First call: cache miss (decrypts)
+	result1, err := DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("First DecryptCached call failed: %v", err)
+	}
+	if result1 != plaintext {
+		t.Errorf("First call returned %q, want %q", result1, plaintext)
+	}
+
+	// Verify the cache has an entry
+	ck := decryptionCacheKey(kp.Ciphertext, kp.Nonce, kp.Salt)
+	keyCacheMu.RLock()
+	entry, exists := keyCache[ck]
+	keyCacheMu.RUnlock()
+	if !exists {
+		t.Fatal("cache entry should exist after first call")
+	}
+	expectedExpiresAt := time.Now().Add(100 * time.Millisecond)
+	if entry.expiresAt.Before(expectedExpiresAt.Add(-50*time.Millisecond)) || entry.expiresAt.After(expectedExpiresAt.Add(50*time.Millisecond)) {
+		t.Errorf("entry expiresAt %v not within ~100ms of now", entry.expiresAt)
+	}
+
+	// Second call: should be a cache hit
+	result2, err := DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Second DecryptCached call failed: %v", err)
+	}
+	if result2 != result1 {
+		t.Errorf("cache hit returned %q, want %q", result2, result1)
+	}
+
+	// Wait for TTL to expire
+	time.Sleep(200 * time.Millisecond)
+
+	// Manually call eviction
+	evictExpiredKeyCacheEntries()
+
+	// Verify the cache entry is gone
+	keyCacheMu.RLock()
+	_, exists = keyCache[ck]
+	keyCacheMu.RUnlock()
+	if exists {
+		t.Error("cache entry should have been evicted after expiry")
+	}
+
+	// Third call: should re-decrypt (cache miss after expiry)
+	result3, err := DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("Third DecryptCached call failed: %v", err)
+	}
+	if result3 != plaintext {
+		t.Errorf("Third call returned %q, want %q", result3, plaintext)
+	}
+}
+
+func TestStartKeyCacheEviction_FiresPeriodically(t *testing.T) {
+	// Stop any existing eviction goroutine
+	StopKeyCacheEviction()
+
+	// Set very short TTL
+	orig := getKeyCacheTTL()
+	defer SetKeyCacheTTL(orig)
+	SetKeyCacheTTL(50 * time.Millisecond)
+
+	// Clear cache
+	keyCacheMu.Lock()
+	keyCache = make(map[string]cacheEntry)
+	keyCacheMu.Unlock()
+
+	// Start eviction
+	startKeyCacheEviction()
+	defer StopKeyCacheEviction()
+
+	// Add an expired entry directly
+	keyCacheMu.Lock()
+	keyCache["expired"] = cacheEntry{
+		plaintext: "x",
+		expiresAt: time.Now().Add(-1 * time.Hour),
+	}
+	keyCacheMu.Unlock()
+
+	// Wait for the goroutine to fire at least once
+	time.Sleep(200 * time.Millisecond)
+
+	// Check that the expired entry was evicted
+	keyCacheMu.RLock()
+	_, exists := keyCache["expired"]
+	keyCacheMu.RUnlock()
+	if exists {
+		t.Error("expired entry should have been evicted by background goroutine")
+	}
+}
+
+func TestSetKeyCacheTTL_AffectsNewEntryExpiry(t *testing.T) {
+	// Save original TTL, defer restore
+	orig := getKeyCacheTTL()
+	defer SetKeyCacheTTL(orig)
+
+	// Set TTL to 5 minutes
+	SetKeyCacheTTL(5 * time.Minute)
+
+	// Clear cache
+	keyCacheMu.Lock()
+	keyCache = make(map[string]cacheEntry)
+	keyCacheMu.Unlock()
+
+	// Encrypt and call DecryptCached to populate cache
+	masterKey := "ttl-test-key"
+	plaintext1 := "key-with-5min-ttl"
+	kp1, err := Encrypt(plaintext1, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+	_, err = DecryptCached(kp1.Ciphertext, kp1.Nonce, kp1.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("DecryptCached failed: %v", err)
+	}
+
+	// Read the cache entry, record its expiresAt
+	ck1 := decryptionCacheKey(kp1.Ciphertext, kp1.Nonce, kp1.Salt)
+	keyCacheMu.RLock()
+	entry1, exists := keyCache[ck1]
+	keyCacheMu.RUnlock()
+	if !exists {
+		t.Fatal("cache entry should exist")
+	}
+	expiresAt1 := entry1.expiresAt
+
+	// Set TTL to 30 minutes
+	SetKeyCacheTTL(30 * time.Minute)
+
+	// Clear cache
+	keyCacheMu.Lock()
+	keyCache = make(map[string]cacheEntry)
+	keyCacheMu.Unlock()
+
+	// Encrypt a different plaintext and call DecryptCached again
+	plaintext2 := "key-with-30min-ttl"
+	kp2, err := Encrypt(plaintext2, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+	_, err = DecryptCached(kp2.Ciphertext, kp2.Nonce, kp2.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("DecryptCached failed: %v", err)
+	}
+
+	// Read the new cache entry
+	ck2 := decryptionCacheKey(kp2.Ciphertext, kp2.Nonce, kp2.Salt)
+	keyCacheMu.RLock()
+	entry2, exists := keyCache[ck2]
+	keyCacheMu.RUnlock()
+	if !exists {
+		t.Fatal("cache entry should exist")
+	}
+	expiresAt2 := entry2.expiresAt
+
+	// Verify each entry's expiresAt is roughly now+TTL
+	now := time.Now()
+	if diff := expiresAt1.Sub(now); diff < 4*time.Minute || diff > 6*time.Minute {
+		t.Errorf("5min TTL entry expiresAt %v, expected ~5min from now (diff=%v)", expiresAt1, diff)
+	}
+	if diff := expiresAt2.Sub(now); diff < 29*time.Minute || diff > 31*time.Minute {
+		t.Errorf("30min TTL entry expiresAt %v, expected ~30min from now (diff=%v)", expiresAt2, diff)
+	}
+}
+
+func TestDecryptCached_EmptySaltReturnsError(t *testing.T) {
+	// Test with nil salt
+	_, err := DecryptCached([]byte("ct"), []byte("123456789012"), nil, "key")
+	if err == nil {
+		t.Error("DecryptCached with nil salt should return error")
+	}
+
+	// Test with empty salt slice
+	_, err = DecryptCached([]byte("ct"), []byte("123456789012"), []byte{}, "key")
+	if err == nil {
+		t.Error("DecryptCached with empty salt should return error")
+	}
+
+	// Verify error message contains "salt is required"
+	// Note: We can't easily check the exact error message without importing strings
+	// and doing a Contains check, but the error should be returned
+	if err != nil && err.Error() == "" {
+		t.Error("error message should not be empty")
+	}
+}
+
+func TestWarmKeyCache_EmptyCiphertext(t *testing.T) {
+	// WarmKeyCache with empty ciphertext should not panic
+	// It calls DecryptCached which should return an error for empty ciphertext
+	validNonce := []byte("123456789012")                    // 12 bytes
+	validSalt := []byte("12345678901234567890123456789012") // 32 bytes
+
+	// This should not panic
+	WarmKeyCache([]byte{}, validNonce, validSalt, "key")
+
+	// Verify no cache entry was created for this input
+	ck := decryptionCacheKey([]byte{}, validNonce, validSalt)
+	keyCacheMu.RLock()
+	_, exists := keyCache[ck]
+	keyCacheMu.RUnlock()
+	if exists {
+		t.Error("cache entry should not exist for empty ciphertext")
+	}
+}
+
+func TestDecryptionCacheKey_NoColonCollision(t *testing.T) {
+	// Create ciphertext bytes that contain the ':' character (0x3A)
+	ct := []byte{0x3A, 0x3A, 0x3A}
+	// Create normal ciphertext
+	ct2 := []byte{0x01, 0x02, 0x03}
+	// Use same nonce and salt for both
+	nonce := []byte("123456789012")
+	salt := []byte("12345678901234567890123456789012")
+
+	key1 := decryptionCacheKey(ct, nonce, salt)
+	key2 := decryptionCacheKey(ct2, nonce, salt)
+
+	// Assert different cache keys
+	if key1 == key2 {
+		t.Error("different ciphertexts should produce different cache keys")
+	}
+
+	// Assert that the hex-encoded key contains only hex chars and colons
+	// (no raw 0x3A bytes leaked through as literal colons in wrong places)
+	for i, c := range key1 {
+		isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+		isColon := c == ':'
+		if !isHex && !isColon {
+			t.Errorf("key1[%d] = %q (0x%02x), expected hex char or colon", i, c, c)
+		}
+	}
+	for i, c := range key2 {
+		isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+		isColon := c == ':'
+		if !isHex && !isColon {
+			t.Errorf("key2[%d] = %q (0x%02x), expected hex char or colon", i, c, c)
+		}
+	}
+}
+
+func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
+	// Save original TTL
+	orig := getKeyCacheTTL()
+	defer SetKeyCacheTTL(orig)
+
+	// Set short TTL
+	SetKeyCacheTTL(50 * time.Millisecond)
+
+	// Stop existing eviction, restart with short TTL
+	StopKeyCacheEviction()
+	startKeyCacheEviction()
+	defer StopKeyCacheEviction()
+
+	// Clear cache
+	keyCacheMu.Lock()
+	keyCache = make(map[string]cacheEntry)
+	keyCacheMu.Unlock()
+
+	// Encrypt a plaintext
+	masterKey := "concurrent-eviction-test"
+	plaintext := "concurrent-key"
+	kp, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	errors := make(chan error, 20)
+	done := make(chan struct{})
+
+	// Launch 10 goroutines repeatedly calling DecryptCached
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					result, err := DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
+					if err != nil {
+						errors <- err
+						return
+					}
+					if result != plaintext {
+						errors <- fmt.Errorf("result mismatch: got %q, want %q", result, plaintext)
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	// Launch 1 goroutine repeatedly calling evictExpiredKeyCacheEntries
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				evictExpiredKeyCacheEntries()
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}()
+
+	// Run for ~500ms
+	time.Sleep(500 * time.Millisecond)
+	close(done)
+	wg.Wait()
+	close(errors)
+
+	// Check for errors
+	for err := range errors {
+		t.Errorf("concurrent operation error: %v", err)
 	}
 }

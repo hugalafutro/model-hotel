@@ -2,6 +2,8 @@ package auth
 
 import (
 	"bytes"
+	"encoding/base64"
+	"strings"
 	"testing"
 )
 
@@ -360,5 +362,191 @@ func TestDeriveKey_EmptyMasterKey(t *testing.T) {
 	key2 := deriveKey("", salt)
 	if !bytes.Equal(key, key2) {
 		t.Error("Same salt and empty master key should produce same derived key")
+	}
+}
+
+func TestDeriveKey_DifferentSaltsProduceDifferentKeys(t *testing.T) {
+	t.Parallel()
+	salt1 := make([]byte, 32)
+	salt2 := make([]byte, 32)
+	// Make salts different
+	salt1[0] = 0x01
+	salt2[0] = 0x02
+
+	key1 := deriveKey("master", salt1)
+	key2 := deriveKey("master", salt2)
+
+	if bytes.Equal(key1, key2) {
+		t.Error("Different salts should produce different derived keys")
+	}
+}
+
+func TestDeriveKey_OutputLength(t *testing.T) {
+	t.Parallel()
+	salt := make([]byte, 32)
+
+	testCases := []struct {
+		name      string
+		masterKey string
+	}{
+		{"single char", "a"},
+		{"16 chars", "1234567890123456"},
+		{"100 chars", strings.Repeat("x", 100)},
+		{"empty string", ""},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			key := deriveKey(tc.masterKey, salt)
+			if len(key) != keyLength {
+				t.Errorf("Expected key length %d for %q, got %d", keyLength, tc.name, len(key))
+			}
+		})
+	}
+}
+
+func TestDecrypt_BitflipCiphertext(t *testing.T) {
+	t.Parallel()
+	masterKey := "test-master-key"
+	plaintext := "secret-data"
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// Flip a single bit in the ciphertext
+	encrypted.Ciphertext[0] ^= 0x01
+
+	_, err = Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err == nil {
+		t.Error("Decrypt with bit-flipped ciphertext should fail")
+	}
+}
+
+func TestDecrypt_BitflipNonce(t *testing.T) {
+	t.Parallel()
+	masterKey := "test-master-key"
+	plaintext := "secret-data"
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// Flip a single bit in the nonce
+	encrypted.Nonce[0] ^= 0x01
+
+	_, err = Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err == nil {
+		t.Error("Decrypt with bit-flipped nonce should fail")
+	}
+}
+
+func TestDecrypt_TruncatedCiphertext(t *testing.T) {
+	t.Parallel()
+	masterKey := "test-master-key"
+	plaintext := "secret-data"
+
+	encrypted, err := Encrypt(plaintext, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// Truncate the last 16 bytes (GCM auth tag)
+	if len(encrypted.Ciphertext) > 16 {
+		encrypted.Ciphertext = encrypted.Ciphertext[:len(encrypted.Ciphertext)-16]
+	}
+
+	_, err = Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, masterKey)
+	if err == nil {
+		t.Error("Decrypt with truncated ciphertext should fail")
+	}
+}
+
+func TestConstantTimeCompare_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		a        string
+		b        string
+		expected bool
+	}{
+		{"empty strings", "", "", true},
+		{"empty vs non-empty", "", "a", false},
+		{"null bytes equal", "a\x00b", "a\x00b", true},
+		{"null bytes different", "a\x00b", "a\x01b", false},
+		{"long strings equal", strings.Repeat("x", 10240), strings.Repeat("x", 10240), true},
+		{"long strings different", strings.Repeat("x", 10240), strings.Repeat("y", 10240), false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ConstantTimeCompare(tc.a, tc.b)
+			if result != tc.expected {
+				t.Errorf("ConstantTimeCompare(%q, %q) = %v, expected %v", tc.a, tc.b, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestEncryptDecrypt_MasterKeyBoundaryLengths(t *testing.T) {
+	t.Parallel()
+	plaintext := "test-data"
+
+	testCases := []struct {
+		name      string
+		masterKey string
+	}{
+		{"1-char key", "a"},
+		{"1000-char key", strings.Repeat("x", 1000)},
+		{"key with null bytes", "key\x00with\x00nulls"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			encrypted, err := Encrypt(plaintext, tc.masterKey)
+			if err != nil {
+				t.Fatalf("Encrypt with %s failed: %v", tc.name, err)
+			}
+
+			decrypted, err := Decrypt(encrypted.Ciphertext, encrypted.Nonce, encrypted.Salt, tc.masterKey)
+			if err != nil {
+				t.Fatalf("Decrypt with %s failed: %v", tc.name, err)
+			}
+
+			if decrypted != plaintext {
+				t.Errorf("Decrypted text doesn't match original for %s. Expected %q, got %q", tc.name, plaintext, decrypted)
+			}
+		})
+	}
+}
+
+func TestGenerateRandomKey_Base64URLFormat(t *testing.T) {
+	t.Parallel()
+	key, err := GenerateRandomKey()
+	if err != nil {
+		t.Fatalf("GenerateRandomKey failed: %v", err)
+	}
+
+	// Check for base64url characters that should NOT be present
+	if strings.Contains(key, "+") {
+		t.Error("Generated key should not contain '+' (base64url encoding)")
+	}
+	if strings.Contains(key, "/") {
+		t.Error("Generated key should not contain '/' (base64url encoding)")
+	}
+	if strings.Contains(key, "=") {
+		t.Error("Generated key should not contain '=' (base64url encoding)")
+	}
+
+	// Decode and verify length
+	decoded, err := base64.RawURLEncoding.DecodeString(key)
+	if err != nil {
+		t.Fatalf("Failed to decode key: %v", err)
+	}
+	if len(decoded) != 32 {
+		t.Errorf("Expected decoded key length 32, got %d", len(decoded))
 	}
 }
