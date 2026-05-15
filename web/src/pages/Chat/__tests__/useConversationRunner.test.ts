@@ -751,6 +751,67 @@ describe("useConversationRunner", () => {
 		expect(params.conversationRunningRef.current).toBe(false);
 	});
 
+	it("skips duplicate state writes when handleStopConversation already cleaned up", async () => {
+		// Simulate a stream that closes on abort
+		server.use(
+			http.post("/api/chat/chat", ({ request }) => {
+				const encoder = new TextEncoder();
+				const stream = new ReadableStream({
+					start(ctrl) {
+						ctrl.enqueue(
+							encoder.encode(
+								'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n',
+							),
+						);
+						// Close when the abort signal fires so the stream resolves
+						request.signal.addEventListener("abort", () => {
+							ctrl.close();
+						});
+					},
+				});
+				return new Response(stream, {
+					headers: { "Content-Type": "text/event-stream" },
+				});
+			}),
+		);
+
+		const params = createMockParams();
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		let runPromise: Promise<void> | undefined;
+		act(() => {
+			runPromise = result.current.runConversation();
+		});
+
+		// Let the stream start
+		await act(async () => {
+			await Promise.resolve();
+		});
+
+		// Stop while streaming — handleStopConversation runs synchronously
+		act(() => {
+			result.current.handleStopConversation();
+		});
+
+		// Let the aborted stream resolve
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		if (runPromise) await runPromise;
+
+		// setConversationState should be called exactly once with "paused"
+		// (from handleStopConversation), not a second time from the error handler
+		const stateCalls = params.setConversationState.mock.calls.filter(
+			(call: [ConversationState]) => call[0] === "paused",
+		);
+		expect(stateCalls).toHaveLength(1);
+		expect(params.conversationRunningRef.current).toBe(false);
+	});
+
 	it("does not start conversation without Model B", () => {
 		const params = createMockParams({
 			selectedModel: "provider-a/model-a",

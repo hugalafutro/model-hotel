@@ -215,16 +215,20 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 					if (!result.aborted) {
 						toast(`${modelId}: ${result.error}`, "error");
 					}
-					// User aborts pause the conversation; real errors transition to error state
-					setConversationState(result.aborted ? "paused" : "error");
+					// Skip state cleanup if handleStopConversation already ran
+					// (it sets conversationRunningRef to false synchronously)
+					if (conversationRunningRef.current) {
+						// User aborts pause the conversation; real errors transition to error state
+						setConversationState(result.aborted ? "paused" : "error");
+						setIsStreaming(false);
+						setTurnCountdown(0);
+						conversationAbortRef.current = null;
+						cleanupConvAbortRef.current = null;
+						conversationRunningRef.current = false;
+					}
 					if (turn === 0 && lastPromptRef.current) {
 						setInput(lastPromptRef.current);
 					}
-					setIsStreaming(false);
-					setTurnCountdown(0);
-					conversationAbortRef.current = null;
-					cleanupConvAbortRef.current = null;
-					conversationRunningRef.current = false;
 					return;
 				}
 
