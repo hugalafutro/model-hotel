@@ -1,10 +1,18 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/admin"
 )
 
 // ---------------------------------------------------------------------------
@@ -529,5 +537,338 @@ func TestFillEmptyBuckets_DailyEndTruncation(t *testing.T) {
 	lastExpected := bucketFormat(start.Add(6 * 24 * time.Hour))
 	if got[6].Bucket != lastExpected {
 		t.Errorf("last bucket = %q, want %q", got[6].Bucket, lastExpected)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests for DB-querying handler functions
+// ---------------------------------------------------------------------------
+
+// TestMain is defined in failover_api_test.go for the api package.
+// Integration tests use the shared apiTestDBURL variable.
+
+func newStatsHandler(t *testing.T) (*StatsHandler, *pgxpool.Pool, func()) {
+	t.Helper()
+
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Clean test data
+	pool.Exec(context.Background(), `
+		TRUNCATE request_logs, providers, models, virtual_keys CASCADE
+	`)
+
+	// Create admin manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	handler := NewStatsHandler(pool, adminMgr)
+	if handler == nil {
+		pool.Close()
+		t.Fatal("handler is nil")
+	}
+
+	cleanup := func() {
+		pool.Close()
+	}
+
+	return handler, pool, cleanup
+}
+
+func insertTestProvider(t *testing.T, pool *pgxpool.Pool, providerID uuid.UUID, name, baseURL string) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, enabled, created_at, updated_at)
+		VALUES ($1, $2, $3, true, NOW(), NOW())`,
+		providerID, name, baseURL)
+	if err != nil {
+		t.Fatalf("Failed to insert test provider: %v", err)
+	}
+}
+
+func insertTestRequestLog(t *testing.T, pool *pgxpool.Pool, logID, providerID uuid.UUID, modelID string, statusCode, durationMs, tokensPrompt, tokensCompletion int) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+		logID, providerID, modelID, statusCode, durationMs, tokensPrompt, tokensCompletion)
+	if err != nil {
+		t.Fatalf("Failed to insert test request log: %v", err)
+	}
+}
+
+func TestGetStats_24h(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-24h", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.TotalRequestsLast24h != 1 {
+		t.Errorf("Expected TotalRequestsLast24h=1, got %d", response.TotalRequestsLast24h)
+	}
+}
+
+func TestGetStats_7d(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-7d", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=7d", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.TotalRequestsLast7d != 1 {
+		t.Errorf("Expected TotalRequestsLast7d=1, got %d", response.TotalRequestsLast7d)
+	}
+}
+
+func TestGetStats_TokensMetric(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-tokens", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 100, 200)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?metric=tokens", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// With metric=tokens, ByModel and ByProvider should contain token counts
+	if len(response.ByModel) == 0 {
+		t.Error("Expected ByModel to have entries with metric=tokens")
+	}
+	if len(response.ByProvider) == 0 {
+		t.Error("Expected ByProvider to have entries with metric=tokens")
+	}
+}
+
+func TestGetStats_ExcludeDeleted(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-exclude", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?exclude_deleted=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Should return stats successfully
+	if response.TotalRequestsLast24h != 1 {
+		t.Errorf("Expected TotalRequestsLast24h=1, got %d", response.TotalRequestsLast24h)
+	}
+}
+
+func TestGetTimeSeries_24h(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-ts24h", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Should have time series points (may be filled with zeros for missing hours)
+	if len(response.Points) == 0 {
+		t.Error("Expected time series points")
+	}
+}
+
+func TestGetTimeSeries_7d(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-ts7d", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=7d", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// With 7d period, should have daily buckets (7-8 expected depending on time boundaries)
+	if len(response.Points) == 0 {
+		t.Error("Expected time series points for 7d period")
+	}
+	// Check that we have the expected number of buckets (may be 7 or 8 depending on time boundaries)
+	if len(response.Points) < 7 || len(response.Points) > 8 {
+		t.Errorf("Expected 7-8 daily buckets, got %d", len(response.Points))
+	}
+}
+
+func TestGetProviderDistribution_Integration(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-dist", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/provider-distribution", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response ProviderDistributionStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Should have provider distribution items
+	if len(response.Items) == 0 {
+		t.Error("Expected provider distribution items")
+	}
+
+	// Check that our test provider is in the results
+	found := false
+	for _, item := range response.Items {
+		if item.Name == "test-provider-dist" {
+			found = true
+			if item.Count != 1 {
+				t.Errorf("Expected Count=1 for test-provider-dist, got %d", item.Count)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected test-provider-dist in provider distribution")
 	}
 }

@@ -930,6 +930,153 @@ func TestDeleteProvider_RepoError(t *testing.T) {
 // TestListProviders_WithPaginationAndModelCounts, TestListProviders_SearchFilter_Integration
 // ---------------------------------------------------------------------------
 
+// --- Additional tests for uncovered error paths ---
+
+func TestCreateProvider_EmptyAPIKey_Unit(t *testing.T) {
+	h := &Handler{
+		cfg: &config.Config{
+			AllowHTTPProviders:   true,
+			AllowedProviderHosts: []string{"api.example.com"},
+		},
+		providerRepo: &mockProviderStore{},
+		adminMgr:     &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	// OpenAI-style URL requires API key
+	body := bytes.NewReader([]byte(`{"name":"test","base_url":"https://api.example.com/v1","api_key":""}`))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "api_key is required for this provider type") {
+		t.Errorf("expected error about api_key required, got %q", got)
+	}
+}
+
+func TestCreateProvider_BlockedHost(t *testing.T) {
+	h := &Handler{
+		cfg: &config.Config{
+			AllowHTTPProviders:   true,
+			AllowedProviderHosts: []string{"allowed.com"},
+		},
+		providerRepo: &mockProviderStore{},
+		adminMgr:     &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	body := bytes.NewReader([]byte(`{"name":"test","base_url":"https://blocked.com/v1","api_key":"sk-key"}`))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "invalid provider URL") {
+		t.Errorf("expected error about invalid provider URL, got %q", got)
+	}
+}
+
+func TestUpdateProvider_MalformedJSON(t *testing.T) {
+	id := uuid.New()
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{invalid json}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "invalid request body") {
+		t.Errorf("expected error about invalid request body, got %q", got)
+	}
+}
+
+func TestUpdateProvider_DuplicateNameOnRename(t *testing.T) {
+	id := uuid.New()
+	existingID := uuid.New()
+	mockProv := &mockProviderStore{
+		getByNameFn: func(_ context.Context, name string) (*provider.Provider, error) {
+			return &provider.Provider{ID: existingID, Name: name}, nil
+		},
+	}
+	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"existing-name"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "a provider with this name already exists") {
+		t.Errorf("expected error about duplicate name, got %q", got)
+	}
+}
+
+func TestUpdateProvider_HTTPURLRejected(t *testing.T) {
+	id := uuid.New()
+	h := &Handler{
+		cfg: &config.Config{
+			AllowHTTPProviders:   false,
+			AllowedProviderHosts: []string{"example.com"},
+		},
+		providerRepo: &mockProviderStore{},
+		adminMgr:     &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	body := bytes.NewReader([]byte(`{"base_url":"http://example.com/v1"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "base_url must use HTTPS") {
+		t.Errorf("expected error about HTTPS requirement, got %q", got)
+	}
+}
+
+func TestUpdateProvider_BlockedHost(t *testing.T) {
+	id := uuid.New()
+	h := &Handler{
+		cfg: &config.Config{
+			AllowHTTPProviders:   true,
+			AllowedProviderHosts: []string{"allowed.com"},
+		},
+		providerRepo: &mockProviderStore{},
+		adminMgr:     &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	body := bytes.NewReader([]byte(`{"base_url":"https://blocked.com/v1"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "invalid provider URL") {
+		t.Errorf("expected error about invalid provider URL, got %q", got)
+	}
+}
+
+func TestUpdateProvider_GenericRepoError(t *testing.T) {
+	id := uuid.New()
+	mockProv := &mockProviderStore{
+		getByNameFn: func(_ context.Context, _ string) (*provider.Provider, error) { return nil, nil },
+		updateFn: func(_ context.Context, _ uuid.UUID, _ provider.UpdateProviderRequest, _, _, _ []byte) (*provider.Provider, error) {
+			return nil, errors.New("generic db error")
+		},
+	}
+	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"test"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
 // setChiURLParam sets a chi URL parameter on the request context.
 func setChiURLParam(r *http.Request, key, value string) *http.Request {
 	rctx := chi.NewRouteContext()

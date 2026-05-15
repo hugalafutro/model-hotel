@@ -532,3 +532,63 @@ func TestIsNew(t *testing.T) {
 		t.Error("IsNew() should return false on reload")
 	}
 }
+
+func TestLoadOrCreateToken_ReadError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write a valid sha256: prefixed token file
+	tokenPath := filepath.Join(tmpDir, "admin-token")
+	hashHex := hex.EncodeToString(make([]byte, 32))
+	if err := os.WriteFile(tokenPath, []byte(sha256Prefix+hashHex), 0o600); err != nil {
+		t.Fatalf("Failed to write token file: %v", err)
+	}
+
+	// Make it unreadable
+	if err := os.Chmod(tokenPath, 0o000); err != nil {
+		t.Fatalf("Failed to chmod token file: %v", err)
+	}
+	defer func() {
+		// Restore permissions for cleanup
+		_ = os.Chmod(tokenPath, 0o600)
+	}()
+
+	_, _, err = New(tmpDir, "")
+	if err == nil {
+		t.Fatal("Expected error when token file is unreadable")
+	}
+	if !strings.Contains(err.Error(), "failed to read token file") {
+		t.Errorf("Error should contain 'failed to read token file', got: %v", err)
+	}
+}
+
+func TestCreateAndSaveToken_WriteError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a subdirectory and make it read-only so WriteFile fails
+	// This triggers the write error path in createAndSaveToken (line 136-139)
+	writeDir := filepath.Join(tmpDir, "readonly")
+	if err := os.Mkdir(writeDir, 0o500); err != nil {
+		t.Fatalf("Failed to create readonly dir: %v", err)
+	}
+	defer func() {
+		// Restore permissions for cleanup
+		_ = os.Chmod(writeDir, 0o700)
+	}()
+
+	// Use the readonly dir as dataDir - WriteFile will fail with EACCES
+	_, _, err = New(writeDir, "test-token")
+	if err == nil {
+		t.Fatal("Expected error when writing to read-only directory")
+	}
+	if !strings.Contains(err.Error(), "failed to write token file") {
+		t.Errorf("Error should contain 'failed to write token file', got: %v", err)
+	}
+}

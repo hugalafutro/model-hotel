@@ -552,3 +552,108 @@ func TestGetAppLogs_HistoryNilDBPool(t *testing.T) {
 		t.Errorf("expected empty Entries, got %d", len(resp.Entries))
 	}
 }
+
+func TestGetAppLogs_WithLimitAndAfter(t *testing.T) {
+	InitAppLogBuffer(nil)
+	defer func() {
+		appLogBuffer = nil
+		dbWriter = nil
+	}()
+
+	// Add 15 entries with different timestamps
+	baseTime := time.Now().UTC()
+	for i := 0; i < 15; i++ {
+		entry := AppLogEntry{
+			Timestamp: baseTime.Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    "test",
+			Message:   fmt.Sprintf("message %d", i),
+		}
+		appLogBuffer.writeEntry(entry)
+	}
+
+	h := &Handler{dbPool: nil}
+
+	// Test limit=5 - should return only last 5 entries
+	req := httptest.NewRequest(http.MethodGet, "/api/app-logs?limit=5", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.GetAppLogs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	var entries []AppLogEntry
+	if err := json.NewDecoder(rr.Body).Decode(&entries); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(entries) != 5 {
+		t.Errorf("expected 5 entries with limit=5, got %d", len(entries))
+	}
+	// Should be the last 5 entries (messages 10-14)
+	if len(entries) > 0 && entries[0].Message != "message 10" {
+		t.Errorf("expected first entry to be message 10, got %q", entries[0].Message)
+	}
+
+	// Test after=<timestamp_of_entry_10> - should return entries after that timestamp
+	afterTime := baseTime.Add(9 * time.Second).Format(time.RFC3339Nano) // timestamp of entry 9
+	req = httptest.NewRequest(http.MethodGet, "/api/app-logs?after="+afterTime, http.NoBody)
+	rr = httptest.NewRecorder()
+	h.GetAppLogs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	entries = nil
+	if err := json.NewDecoder(rr.Body).Decode(&entries); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	// Should return entries 10-14 (5 entries after timestamp of entry 9)
+	if len(entries) != 5 {
+		t.Errorf("expected 5 entries after timestamp, got %d", len(entries))
+	}
+	if len(entries) > 0 && entries[0].Message != "message 10" {
+		t.Errorf("expected first entry after filter to be message 10, got %q", entries[0].Message)
+	}
+}
+
+func TestClearAppLogs_WithBuffer(t *testing.T) {
+	InitAppLogBuffer(nil)
+	defer func() {
+		appLogBuffer = nil
+		dbWriter = nil
+	}()
+
+	// Add some entries
+	for i := 0; i < 5; i++ {
+		entry := AppLogEntry{
+			Timestamp: time.Now().UTC().Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    "test",
+			Message:   fmt.Sprintf("message %d", i),
+		}
+		appLogBuffer.writeEntry(entry)
+	}
+
+	// Verify entries exist
+	entries := appLogBuffer.GetEntries()
+	if len(entries) != 5 {
+		t.Fatalf("expected 5 entries before clear, got %d", len(entries))
+	}
+
+	// Create handler with nil dbPool (so DB delete is skipped)
+	h := &Handler{dbPool: nil}
+	req := httptest.NewRequest(http.MethodDelete, "/api/app-logs", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	h.ClearAppLogs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+
+	// Verify buffer is cleared
+	entries = appLogBuffer.GetEntries()
+	if entries != nil {
+		t.Errorf("expected nil entries after clear, got %v", entries)
+	}
+}
