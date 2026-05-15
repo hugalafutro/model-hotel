@@ -23,6 +23,18 @@ if ! golangci-lint run ./...; then
 	exit 1
 fi
 
+# TypeScript type check — only when .ts/.tsx files are staged
+staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.tsx?$' || true)
+if [ -n "$staged_ts" ]; then
+	echo "pre-commit: running TypeScript type check..."
+	if ! (cd web && pnpm tsc --noEmit); then
+		echo "pre-commit: FAILED - tsc --noEmit" >&2
+		exit 1
+	fi
+else
+	echo "pre-commit: skipping TypeScript type check (no .ts/.tsx staged)"
+fi
+
 echo "pre-commit: running frontend lint..."
 if ! (cd web && pnpm lint); then
 	echo "pre-commit: FAILED - pnpm lint" >&2
