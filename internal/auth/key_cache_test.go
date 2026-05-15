@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/cipher"
 	"fmt"
 	"sync"
 	"testing"
@@ -808,5 +809,29 @@ func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 	// Check for errors
 	for err := range errors {
 		t.Errorf("concurrent operation error: %v", err)
+	}
+}
+
+func TestDecryptCached_NewCipherBlockError(t *testing.T) {
+	orig := newCipherBlock
+	defer func() { newCipherBlock = orig }()
+	newCipherBlock = func([]byte) (cipher.Block, error) {
+		return nil, fmt.Errorf("mock cipher error")
+	}
+	_, err := DecryptCached([]byte("ct"), []byte("123456789012"), []byte("12345678901234567890123456789012"), "key")
+	if err == nil {
+		t.Error("expected error when newCipherBlock fails")
+	}
+}
+
+func TestDecryptCached_NewGCMError(t *testing.T) {
+	orig := newGCM
+	defer func() { newGCM = orig }()
+	newGCM = func(cipher.Block) (cipher.AEAD, error) {
+		return nil, fmt.Errorf("mock GCM error")
+	}
+	_, err := DecryptCached([]byte("ct"), []byte("123456789012"), []byte("12345678901234567890123456789012"), "key")
+	if err == nil {
+		t.Error("expected error when newGCM fails")
 	}
 }

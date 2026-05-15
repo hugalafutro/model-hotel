@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"encoding/hex"
 	"fmt"
 	"sync"
@@ -75,12 +73,12 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 
 	key := deriveKey(masterKey, salt)
 
-	block, err := aes.NewCipher(key)
+	block, err := newCipherBlock(key)
 	if err != nil {
 		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	gcm, err := newGCM(block)
 	if err != nil {
 		return "", fmt.Errorf("failed to create GCM: %w", err)
 	}

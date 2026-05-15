@@ -30,6 +30,15 @@ const (
 	argonThr  = 4
 )
 
+var (
+	// randReader is the source of cryptographic randomness. Overridable for testing.
+	randReader = cryptoRand.Reader
+	// newCipherBlock creates a new AES cipher block. Overridable for testing.
+	newCipherBlock = aes.NewCipher
+	// newGCM creates a GCM mode cipher. Overridable for testing.
+	newGCM = cipher.NewGCM
+)
+
 // KeyPair holds an encrypted key and its Argon2id parameters.
 type KeyPair struct {
 	Ciphertext []byte
@@ -42,18 +51,18 @@ func deriveKey(masterKey string, salt []byte) []byte {
 }
 
 func encryptWithKey(plaintext string, key []byte) (*KeyPair, error) {
-	block, err := aes.NewCipher(key)
+	block, err := newCipherBlock(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	gcm, err := newGCM(block)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
 
 	nonce := make([]byte, nonceLength)
-	if _, err := io.ReadFull(cryptoRand.Reader, nonce); err != nil {
+	if _, err := io.ReadFull(randReader, nonce); err != nil {
 		return nil, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
@@ -66,12 +75,12 @@ func encryptWithKey(plaintext string, key []byte) (*KeyPair, error) {
 }
 
 func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
-	block, err := aes.NewCipher(key)
+	block, err := newCipherBlock(key)
 	if err != nil {
 		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	gcm, err := newGCM(block)
 	if err != nil {
 		return "", fmt.Errorf("failed to create GCM: %w", err)
 	}
@@ -88,7 +97,7 @@ func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
 // the salt, nonce, and ciphertext encoded as a single string.
 func Encrypt(plaintext, masterKey string) (*KeyPair, error) {
 	salt := make([]byte, 32)
-	if _, err := io.ReadFull(cryptoRand.Reader, salt); err != nil {
+	if _, err := io.ReadFull(randReader, salt); err != nil {
 		return nil, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
@@ -114,7 +123,7 @@ func Decrypt(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
 // GenerateRandomKey creates a cryptographically secure random key of the specified length.
 func GenerateRandomKey() (string, error) {
 	key := make([]byte, 32)
-	if _, err := io.ReadFull(cryptoRand.Reader, key); err != nil {
+	if _, err := io.ReadFull(randReader, key); err != nil {
 		return "", fmt.Errorf("failed to generate random key: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(key), nil

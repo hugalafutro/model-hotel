@@ -2,7 +2,9 @@ package auth
 
 import (
 	"bytes"
+	"crypto/cipher"
 	"encoding/base64"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -548,5 +550,110 @@ func TestGenerateRandomKey_Base64URLFormat(t *testing.T) {
 	}
 	if len(decoded) != 32 {
 		t.Errorf("Expected decoded key length 32, got %d", len(decoded))
+	}
+}
+
+// failAfterReader succeeds for n reads then fails.
+type failAfterReader struct {
+	reads int
+}
+
+func (r *failAfterReader) Read(p []byte) (int, error) {
+	if r.reads <= 0 {
+		return 0, fmt.Errorf("mock rand error")
+	}
+	r.reads--
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
+}
+
+func TestEncryptWithKey_NewCipherBlockError(t *testing.T) {
+	orig := newCipherBlock
+	defer func() { newCipherBlock = orig }()
+	newCipherBlock = func([]byte) (cipher.Block, error) {
+		return nil, fmt.Errorf("mock cipher block error")
+	}
+	_, err := encryptWithKey("test", make([]byte, 32))
+	if err == nil {
+		t.Error("expected error when newCipherBlock fails")
+	}
+}
+
+func TestEncryptWithKey_NewGCMError(t *testing.T) {
+	orig := newGCM
+	defer func() { newGCM = orig }()
+	newGCM = func(cipher.Block) (cipher.AEAD, error) {
+		return nil, fmt.Errorf("mock GCM error")
+	}
+	_, err := encryptWithKey("test", make([]byte, 32))
+	if err == nil {
+		t.Error("expected error when newGCM fails")
+	}
+}
+
+func TestEncryptWithKey_NonceGenerationError(t *testing.T) {
+	orig := randReader
+	defer func() { randReader = orig }()
+	randReader = &failAfterReader{reads: 0}
+	_, err := encryptWithKey("test", make([]byte, 32))
+	if err == nil {
+		t.Error("expected error when nonce generation fails")
+	}
+}
+
+func TestDecryptWithKey_NewCipherBlockError(t *testing.T) {
+	orig := newCipherBlock
+	defer func() { newCipherBlock = orig }()
+	newCipherBlock = func([]byte) (cipher.Block, error) {
+		return nil, fmt.Errorf("mock cipher block error")
+	}
+	_, err := decryptWithKey([]byte("ct"), []byte("123456789012"), make([]byte, 32))
+	if err == nil {
+		t.Error("expected error when newCipherBlock fails")
+	}
+}
+
+func TestDecryptWithKey_NewGCMError(t *testing.T) {
+	orig := newGCM
+	defer func() { newGCM = orig }()
+	newGCM = func(cipher.Block) (cipher.AEAD, error) {
+		return nil, fmt.Errorf("mock GCM error")
+	}
+	_, err := decryptWithKey([]byte("ct"), []byte("123456789012"), make([]byte, 32))
+	if err == nil {
+		t.Error("expected error when newGCM fails")
+	}
+}
+
+func TestEncrypt_SaltGenerationError(t *testing.T) {
+	orig := randReader
+	defer func() { randReader = orig }()
+	randReader = &failAfterReader{reads: 0}
+	_, err := Encrypt("test", "master")
+	if err == nil {
+		t.Error("expected error when salt generation fails")
+	}
+}
+
+func TestEncrypt_EncryptWithKeyError(t *testing.T) {
+	orig := randReader
+	defer func() { randReader = orig }()
+	// Succeed for salt (1 read), fail for nonce (2nd read)
+	randReader = &failAfterReader{reads: 1}
+	_, err := Encrypt("test", "master")
+	if err == nil {
+		t.Error("expected error when encryptWithKey fails")
+	}
+}
+
+func TestGenerateRandomKey_RandReaderError(t *testing.T) {
+	orig := randReader
+	defer func() { randReader = orig }()
+	randReader = &failAfterReader{reads: 0}
+	_, err := GenerateRandomKey()
+	if err == nil {
+		t.Error("expected error when rand reader fails")
 	}
 }
