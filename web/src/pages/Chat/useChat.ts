@@ -217,8 +217,10 @@ export function useChat() {
 		return () => clearTimeout(timer);
 	}, [scrollToBottom]);
 
-	// Smooth auto-scroll during streaming - keeps latest content visible
-	// without being jarring if user is reading earlier messages
+	// Auto-scroll during streaming - keeps latest content visible
+	// without being jarring if user is reading earlier messages.
+	// Uses instant scroll (not smooth) because Firefox cancels in-progress
+	// smooth scrolls when scrollTo is called again rapidly during streaming.
 	const streamingContentLen = messages.reduce(
 		(sum, m) => sum + m.content.length,
 		0,
@@ -231,7 +233,7 @@ export function useChat() {
 		// Only auto-scroll if user is already near the bottom (within 150px)
 		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
 		if (nearBottom) {
-			scrollToBottom(true);
+			scrollToBottom(false);
 		}
 	}, [streamingContentLen, isStreaming, scrollToBottom]);
 

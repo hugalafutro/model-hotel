@@ -133,7 +133,9 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	const [maximized, setMaximized] = useState(false);
 	const bodyRef = useRef<HTMLDivElement>(null);
 
-	// Auto-scroll body during streaming (Arena cards)
+	// Auto-scroll body during streaming (Arena cards).
+	// Uses instant scroll because Firefox cancels in-progress smooth scrolls
+	// when scrollTo is called again rapidly during streaming.
 	const contentLen = (content || "").length + (thinkingContent || "").length;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: contentLen triggers re-scroll on streaming updates
 	useEffect(() => {
@@ -142,7 +144,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 		if (!el) return;
 		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
 		if (nearBottom) {
-			el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+			el.scrollTop = el.scrollHeight;
 		}
 	}, [contentLen, isStreaming]);
 
