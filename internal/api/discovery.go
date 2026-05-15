@@ -143,9 +143,15 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 
 	discovery := provider.NewDiscoveryService()
 
+	// Use a context decoupled from the HTTP request deadline for outbound
+	// API calls. Client disconnects (navigation, tab close) cancel r.Context(),
+	// which would abort in-flight provider API requests mid-flight.
+	quotaCtx, quotaCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+	defer quotaCancel()
+
 	switch provider.DetectProviderType(prov.BaseURL) {
 	case "zai-coding":
-		quota, err := discovery.GetZAICodingQuota(r.Context(), prov, h.cfg.MasterKey)
+		quota, err := discovery.GetZAICodingQuota(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
 			respondError(w, fmt.Sprintf("failed to fetch usage for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
@@ -153,7 +159,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, quota)
 		return
 	case "nanogpt":
-		usage, err := discovery.GetNanoGPTUsage(r.Context(), prov, h.cfg.MasterKey)
+		usage, err := discovery.GetNanoGPTUsage(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
 			respondError(w, fmt.Sprintf("failed to fetch usage for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
@@ -161,7 +167,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, usage)
 		return
 	case "openrouter":
-		keyBalance, err := discovery.GetOpenRouterBalance(r.Context(), prov, h.cfg.MasterKey)
+		keyBalance, err := discovery.GetOpenRouterBalance(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
 			respondError(w, fmt.Sprintf("failed to fetch key balance for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
@@ -189,9 +195,13 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 
 	discovery := provider.NewDiscoveryService()
 
+	// Use a context decoupled from the HTTP request deadline for outbound API calls.
+	balanceCtx, balanceCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+	defer balanceCancel()
+
 	switch provider.DetectProviderType(prov.BaseURL) {
 	case "deepseek":
-		balance, err := discovery.GetDeepSeekBalance(r.Context(), prov, h.cfg.MasterKey)
+		balance, err := discovery.GetDeepSeekBalance(balanceCtx, prov, h.cfg.MasterKey)
 		if err != nil {
 			respondError(w, fmt.Sprintf("failed to fetch balance for provider %s", prov.Name), err, http.StatusInternalServerError)
 			return
@@ -224,7 +234,11 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 	discovery := provider.NewDiscoveryService()
 
-	account, err := discovery.GetOllamaCloudAccount(r.Context(), prov, h.cfg.MasterKey)
+	// Use a context decoupled from the HTTP request deadline for outbound API calls.
+	accountCtx, accountCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+	defer accountCancel()
+
+	account, err := discovery.GetOllamaCloudAccount(accountCtx, prov, h.cfg.MasterKey)
 	if err != nil {
 		respondError(w, fmt.Sprintf("failed to fetch ollama cloud account for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
