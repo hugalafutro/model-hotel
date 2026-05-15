@@ -128,7 +128,9 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			var err error
 			kdStart := time.Now()
 			apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-			keyDecryptTotal += float64(time.Since(kdStart).Microseconds()) / 1000.0
+			kdMs := float64(time.Since(kdStart).Microseconds()) / 1000.0
+			keyDecryptTotal += kdMs
+			debuglog.Debug("resolve: key decrypted", "provider", prov.Name, "model", m.ModelID, "decrypt_ms", kdMs)
 			if err != nil {
 				debuglog.Error("resolve: key decryption failed", "provider", prov.Name, "model", m.ModelID, "entry", modelUUID, "error", err)
 				decryptFailures++
@@ -190,6 +192,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		kdStart := time.Now()
 		apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 		t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
+		debuglog.Debug("resolve: key decrypted", "provider", prov.Name, "model", modelID, "decrypt_ms", t.keyDecryptMs)
 		if err != nil {
 			debuglog.Error("resolve: key decryption failed", "provider", prov.Name, "model", modelID, "error", err)
 			return nil, t, err

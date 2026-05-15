@@ -92,6 +92,8 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		return s.d.DialContext(ctx, network, addr)
 	}
 
+	debuglog.Debug("proxy: SafeDialer DNS resolved", "host", host, "ip_count", len(ips), "dns_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
+
 	// If every resolved IP is blocked, reject the connection.
 	blocked := true
 	for _, ip := range ips {
@@ -109,10 +111,17 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 	// resolution and dial.
 	for _, ip := range ips {
 		if isBlockedIP(ip.IP) {
+			debuglog.Debug("proxy: SafeDialer blocked IP skipped", "host", host, "ip", ip.IP)
 			continue
 		}
 		dialAddr := net.JoinHostPort(ip.IP.String(), port)
-		return s.d.DialContext(ctx, network, dialAddr)
+		conn, dialErr := s.d.DialContext(ctx, network, dialAddr)
+		if dialErr != nil {
+			debuglog.Warn("proxy: SafeDialer dial failed", "host", host, "ip", ip.IP, "error", dialErr)
+			continue
+		}
+		debuglog.Debug("proxy: SafeDialer connected", "host", host, "ip", ip.IP, "total_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
+		return conn, nil
 	}
 
 	// Should not be reachable (fell through without a non-blocked IP),

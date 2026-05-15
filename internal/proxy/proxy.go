@@ -58,6 +58,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	chunkCount := 0
 	errorChunkCount := 0
 	var bytesWritten int64
+	// Periodic streaming progress logging (every 50 chunks) to give
+	// visibility into stream health without flooding logs.
+	const chunkLogInterval = 50
 	// P1-B: Error accumulation buffer. Some providers (e.g. go-openai) split
 	// error JSON across multiple SSE data lines. We accumulate bytes until a
 	// non-error chunk arrives, then try to unmarshal the full accumulated error.
@@ -86,10 +89,18 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// OpenRouter includes this field alongside the normalized finish_reason,
 	// preserving the original provider's value for debugging.
 	var lastNativeFinishReason string
+	// Track whether we've seen reasoning_content (thinking) in this stream
+	// for first-occurrence debug logging.
+	sawThinking := false
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		chunkCount++
+
+		// Periodic streaming progress log for observability.
+		if chunkCount%chunkLogInterval == 0 {
+			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
+		}
 
 		select {
 		case <-r.Context().Done():
@@ -305,6 +316,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				}
 				if delta.ReasoningContent != nil && currentContent == "" {
 					currentContent = *delta.ReasoningContent
+					if !sawThinking {
+						sawThinking = true
+						debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+					}
 				}
 				if currentContent == lastContent && currentContent != "" {
 					repeatedCount++
@@ -669,7 +684,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		vkHash = v.(string)
 	}
 
-	debuglog.Info("proxy: request start", "model", req.Model, "stream", req.Stream, "key", vkName)
+	debuglog.Info("proxy: request start", "model", req.Model, "stream", req.Stream, "key", vkName, "client_ip", r.RemoteAddr)
 	debuglog.Debug("proxy: request details", "model", req.Model, "stream", req.Stream, "key", vkName, "vk_id", vkID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
 
 	logData := &requestLogData{
@@ -785,7 +800,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
-				debuglog.Info("proxy: client disconnected during failover backoff")
+				debuglog.Info("proxy: client disconnected during failover backoff", "model", req.Model, "attempt", attempt+1)
 				h.failRequest(logData, 499, "client disconnected during failover", attempt-1, startTime, parseMs, timings, proxyOverhead)
 				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
 				return
@@ -848,6 +863,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		var retryCancel context.CancelFunc
 		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), failoverTimeout)
+		failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
 		if err != nil {
 			failoverCancel()
@@ -877,21 +893,43 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		timings.safeDialMs = safeDialMs
 		if err != nil {
 			failoverCancel() // no body to consume on error
-			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
-			lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
+			// Determine the origin of context cancellation for actionable errors.
+			// "context canceled" is opaque — we need to know if the client
+			// disconnected, the failover timeout expired, or the retry timeout expired.
+			// Key insight: context.Canceled means the parent (client) context was
+			// canceled — always a client disconnect. context.DeadlineExceeded means
+			// the derived context's deadline expired — read CancelOriginKey to
+			// distinguish failover_timeout from retry_timeout.
+			isContextErr := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+			if isContextErr {
+				cancelOrigin := "client_disconnect"
+				if errors.Is(err, context.DeadlineExceeded) {
+					if v := proxyReq.Context().Value(ctxkeys.CancelOriginKey); v != nil {
+						if s, ok := v.(string); ok {
+							cancelOrigin = s
+						}
+					}
+				}
+				lastErr = fmt.Sprintf("attempt %d: %s: %v", attempt, cancelOrigin, err)
+				debuglog.Info("proxy: context cancelled during request to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", req.Model, "origin", cancelOrigin, "error", err)
+			} else {
+				lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
+				debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
+			}
 			// Client-initiated cancellations and deadline exceeded are not
 			// provider failures. If the caller disconnected (Canceled) or
 			// the request timed out (DeadlineExceeded), we must not penalize
 			// the circuit breaker for that.
-			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			if !isContextErr {
 				if circuitBreakerEnabled {
 					h.circuitBreaker.RecordFailure(candidate.provider.ID)
 				}
-			} else {
-				debuglog.Info("proxy: client disconnected during request to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", req.Model)
 			}
 			continue
 		}
+
+		// Log upstream response metadata for debugging.
+		debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
 
 		// Auto-retry param-rejection 400s: parse the error, learn which params
 		// are rejected for this model, strip them, and retry once.
@@ -945,6 +983,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						}
 						if rebuilt, err := json.Marshal(raw); err == nil {
 							retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
+							retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
 							retryCtx = context.WithValue(retryCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
 							retryCancel = rc
 							retryReq, retryErr := http.NewRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
@@ -1053,7 +1092,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Error("proxy: all providers exhausted", "model", req.Model, "error", lastErr)
+	debuglog.Error("proxy: all providers exhausted", "model", req.Model, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
 	logData.providerID = uuid.Nil
 	h.failRequest(logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
 	writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)

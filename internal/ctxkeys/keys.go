@@ -46,3 +46,13 @@ const VirtualKeyRateLimitRPSKey contextKey = "virtual_key_rate_limit_rps"
 // nil when unset). The ratelimit middleware reads this alongside
 // VirtualKeyRateLimitRPSKey.
 const VirtualKeyRateLimitBurstKey contextKey = "virtual_key_rate_limit_burst"
+
+// CancelOriginKey is the context key under which the proxy handler stores a
+// string describing why a derived context (failover, retry) was created.
+// When a context cancellation error is caught, this value identifies whether
+// the cancellation came from the client disconnecting, the failover timeout
+// expiring, or the retry timeout expiring. This makes "context canceled" errors
+// actionable instead of opaque.
+//
+// Values: "client_disconnect", "failover_timeout", "retry_timeout"
+const CancelOriginKey contextKey = "cancel_origin"
