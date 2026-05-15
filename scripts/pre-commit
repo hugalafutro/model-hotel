@@ -11,6 +11,12 @@ if ! go test ./...; then
 	exit 1
 fi
 
+echo "pre-commit: running go vet..."
+if ! go vet ./...; then
+	echo "pre-commit: FAILED - go vet" >&2
+	exit 1
+fi
+
 echo "pre-commit: running golangci-lint..."
 if ! golangci-lint run ./...; then
 	echo "pre-commit: FAILED - golangci-lint" >&2
