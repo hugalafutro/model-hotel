@@ -565,7 +565,7 @@ describe("streamModelResponse", () => {
 			vi.fn(),
 		);
 
-		expect(result.error).not.toBeNull();
-		expect(result.error).toMatch(/abort|aborted/i);
+		expect(result.aborted).toBe(true);
+		expect(result.error).toBeNull();
 	});
 });

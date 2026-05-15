@@ -91,6 +91,7 @@ export interface StreamResult {
 	content: string;
 	thinkingContent: string;
 	error: string | null;
+	aborted: boolean;
 	durationMs: number;
 	tokensPerSecond: number | null;
 	promptTokens: number;
@@ -179,6 +180,7 @@ export async function streamModelResponse(
 					: content
 						? "Stream ended without completion signal - the response may still be complete."
 						: "Stream ended unexpectedly with no content.",
+				aborted: false,
 				durationMs,
 				tokensPerSecond,
 				promptTokens,
@@ -186,13 +188,19 @@ export async function streamModelResponse(
 			};
 		}
 	} catch (err) {
-		const errorMsg = err instanceof Error ? err.message : "Unknown error";
+		const isAbort = err instanceof Error && err.name === "AbortError";
+		const errorMsg = isAbort
+			? null
+			: err instanceof Error
+				? err.message
+				: "Unknown error";
 		const errorDurationMs = Math.round(performance.now() - startTime);
 		return {
 			rawContent,
 			content,
 			thinkingContent,
 			error: errorMsg,
+			aborted: isAbort,
 			durationMs: errorDurationMs,
 			tokensPerSecond:
 				completionTokens > 0 && errorDurationMs > 0
@@ -214,6 +222,7 @@ export async function streamModelResponse(
 		content,
 		thinkingContent,
 		error: null,
+		aborted: false,
 		durationMs: Math.round(durationMs),
 		tokensPerSecond,
 		promptTokens,

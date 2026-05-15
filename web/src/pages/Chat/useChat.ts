@@ -368,10 +368,14 @@ export function useChat() {
 		try {
 			const result = await streamAssistantReply(selectedModel, chatMessages);
 
-			if (result.error) toast(result.error, "error");
+			if (result.error && !result.aborted) toast(result.error, "error");
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : "Unknown error";
-			toast(msg, "error");
+			if (err instanceof Error && err.name === "AbortError") {
+				// User-initiated abort, no toast needed
+			} else {
+				const msg = err instanceof Error ? err.message : "Unknown error";
+				toast(msg, "error");
+			}
 		} finally {
 			setIsStreaming(false);
 			abortRef.current = null;
@@ -442,10 +446,14 @@ export function useChat() {
 				chatMessages,
 			);
 
-			if (result.error) toast(result.error, "error");
+			if (result.error && !result.aborted) toast(result.error, "error");
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : "Unknown error";
-			toast(msg, "error");
+			if (err instanceof Error && err.name === "AbortError") {
+				// User-initiated abort, no toast needed
+			} else {
+				const msg = err instanceof Error ? err.message : "Unknown error";
+				toast(msg, "error");
+			}
 		} finally {
 			setIsStreaming(false);
 			abortRef.current = null;

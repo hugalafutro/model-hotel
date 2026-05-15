@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/refs */
 import {
 	Bot,
+	CircleStop,
 	Eraser,
 	Gauge,
 	Image as ImageIcon,
@@ -582,6 +583,17 @@ export function Chat() {
 									</span>
 								</div>
 								<div className="flex items-center gap-2">
+									{chat.isStreaming && (
+										<ActionIconButton
+											icon={CircleStop}
+											onClick={chat.handleStopConversation}
+											title="Stop"
+											color="red"
+											size={16}
+											label="Stop"
+											withLabel
+										/>
+									)}
 									{chat.messages.length > 0 && (
 										<ActionIconButton
 											icon={Eraser}

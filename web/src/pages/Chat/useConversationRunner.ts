@@ -211,11 +211,12 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 						: m,
 				);
 
-				if (result.error) {
-					toast(`${modelId}: ${result.error}`, "error");
-					// Transition to error state so user can retry
-					// If this was the first turn, restore the prompt
-					setConversationState("error");
+				if (result.error || result.aborted) {
+					if (!result.aborted) {
+						toast(`${modelId}: ${result.error}`, "error");
+					}
+					// User aborts pause the conversation; real errors transition to error state
+					setConversationState(result.aborted ? "paused" : "error");
 					if (turn === 0 && lastPromptRef.current) {
 						setInput(lastPromptRef.current);
 					}
