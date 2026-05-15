@@ -7,7 +7,7 @@ import {
 	Swords,
 	X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
@@ -32,7 +32,6 @@ export function Arena() {
 	// Auto-scroll the page viewport during streaming so response cards stay visible.
 	// Uses instant scroll because Firefox cancels in-progress smooth scrolls
 	// when scrollTo is called again rapidly during streaming.
-	const responseGridRef = useRef<HTMLDivElement>(null);
 	const streamingContentLen = arena.rounds.reduce(
 		(sum, round) =>
 			sum +
@@ -436,7 +435,7 @@ export function Arena() {
 						round.matchups.every((m) => m.slotB === null);
 					return (
 						// biome-ignore lint/suspicious/noArrayIndexKey: round index is the stable identifier
-						<div key={`resp-round-${roundIdx}`} ref={responseGridRef}>
+						<div key={`resp-round-${roundIdx}`}>
 							<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
 								{isCompare
 									? "Responses"
