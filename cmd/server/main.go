@@ -117,7 +117,7 @@ func main() {
 ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`)
 	fmt.Println(cfg)
 	fmt.Println("Model Hotel instance is up and running.")
-	debuglog.Info("Config loaded", "config", fmt.Sprintf("%+v", cfg))
+	debuglog.Info("config: Config loaded")
 
 	// Clean up stale request logs left in "pending" or "streaming" state
 	// from a previous server crash, restart, or unhandled error.
