@@ -879,8 +879,8 @@ func TestTestModel_ConnectionError(t *testing.T) {
 	}
 }
 
-// TestDeleteModel_NotFound tests that DeleteModel returns 404 for
-// a non-existent model.
+// TestDeleteModel_NotFound tests that DeleteModel returns 204 for
+// a non-existent model (idempotent delete).
 func TestDeleteModel_NotFound(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
@@ -890,10 +890,9 @@ func TestDeleteModel_NotFound(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		// DeleteModel returns 500 on DB error (including not found in some cases)
-		// The handler doesn't distinguish between not-found and other DB errors
-		t.Logf("DeleteModel returned %d (may be 500 for DB error or 204 for idempotent delete)", rec.Code)
+	// SQL DELETE on non-existent rows returns no error, so handler returns 204
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("expected 204, got %d", rec.Code)
 	}
 }
 

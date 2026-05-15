@@ -33,7 +33,7 @@ func TestUpdateSettings_MalformedJSON(t *testing.T) {
 }
 
 // TestGetSettings_EncodeError tests the error path when JSON encoding fails.
-// This covers lines 32-34 in settings.go where encode errors are logged.
+// This covers lines 32-34 in settings.go where encode errors trigger respondError.
 func TestGetSettings_EncodeError(t *testing.T) {
 	mockSets := &mockSettingsStore{
 		getAllFn: func(ctx context.Context) (map[string]string, error) {
@@ -43,10 +43,34 @@ func TestGetSettings_EncodeError(t *testing.T) {
 	h := testHandler(nil, nil, mockSets, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/settings", http.NoBody)
 
-	// Use failingResponseWriter to trigger encode error path
-	h.GetSettings(&failingResponseWriter{}, req)
-	// The error path just logs, doesn't return HTTP error (headers may already be sent)
-	// Test just verifies the code path doesn't panic
+	fw := &trackingFailingWriter{}
+	h.GetSettings(fw, req)
+
+	// After encode fails, respondError is called with 500
+	if fw.statusCode != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, fw.statusCode)
+	}
+}
+
+// trackingFailingWriter is a failingResponseWriter that tracks the status code.
+type trackingFailingWriter struct {
+	header     http.Header
+	statusCode int
+}
+
+func (f *trackingFailingWriter) Header() http.Header {
+	if f.header == nil {
+		f.header = make(http.Header)
+	}
+	return f.header
+}
+
+func (f *trackingFailingWriter) WriteHeader(code int) {
+	f.statusCode = code
+}
+
+func (f *trackingFailingWriter) Write([]byte) (int, error) {
+	return 0, &mockWriteError{"write failed"}
 }
 
 // TestUpdateSettings_Success tests that UpdateSettings successfully updates

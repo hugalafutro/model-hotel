@@ -462,19 +462,11 @@ func TestRepository_Delete_NotFound_NoError(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
-	// Delete non-existent key - should not error (idempotent behavior)
-	// Note: This tests the SQL DELETE behavior which doesn't error on non-existent rows
+	// Delete non-existent key - returns ErrNotFound (RowsAffected == 0)
 	nonExistentID := uuid.New()
 	err := repo.Delete(ctx, nonExistentID)
-	// The Delete method returns ErrNotFound when RowsAffected() == 0
-	// This is the expected behavior for this implementation
-	if err == nil {
-		// If no error, that's also acceptable for idempotent delete
-		return
-	}
-	// If error, it should be ErrNotFound
 	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("expected ErrNotFound or nil, got %v", err)
+		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
 
