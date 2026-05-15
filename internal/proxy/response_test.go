@@ -18,6 +18,7 @@ import (
 // mockVirtualKeyRepo is a simple in-memory mock for testing AddTokens calls
 type mockVirtualKeyRepo struct {
 	addTokensCalls []addTokensCall
+	addTokensErr   error // if set, AddTokens returns this error
 }
 
 type addTokensCall struct {
@@ -27,6 +28,9 @@ type addTokensCall struct {
 
 func (m *mockVirtualKeyRepo) AddTokens(ctx context.Context, keyHash string, tokens int) error {
 	m.addTokensCalls = append(m.addTokensCalls, addTokensCall{keyHash: keyHash, tokens: tokens})
+	if m.addTokensErr != nil {
+		return m.addTokensErr
+	}
 	return nil
 }
 
