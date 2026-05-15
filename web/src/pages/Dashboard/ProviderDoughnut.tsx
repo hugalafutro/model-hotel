@@ -27,7 +27,9 @@ export function ProviderDoughnut({
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<TrendingUp size={18} className="text-(--accent)" />
-					Provider Breakdown
+					{items.length > 0
+						? `Top ${items.length} Provider${items.length !== 1 ? "s" : ""}`
+						: "Providers"}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				<div className="flex items-center gap-1.5">

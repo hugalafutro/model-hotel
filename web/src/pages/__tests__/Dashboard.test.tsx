@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel, mockProvider, mockStats } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -330,7 +331,9 @@ describe("Dashboard", () => {
 			});
 
 			// Provider distribution section should render
-			expect(screen.getByText("Provider Breakdown")).toBeInTheDocument();
+			expect(
+				screen.getByRole("heading", { name: "Providers" }),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -611,5 +614,138 @@ describe("Dashboard", () => {
 				expect(apiCalled).toBe(true);
 			});
 		});
+	});
+});
+
+describe("Dashboard filter persistence", () => {
+	beforeEach(() => {
+		server.resetHandlers();
+		vi.clearAllMocks();
+		localStorage.clear();
+	});
+
+	afterEach(() => {
+		localStorage.clear();
+	});
+
+	it("restores global range from localStorage on mount", async () => {
+		localStorage.setItem("dashboardRange", "7d");
+
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+		// The 7D range toggle should be active (accent-styled) in the header
+		const all7D = screen.getAllByText("7D");
+		const active7D = all7D.find((el) => el.classList.contains("text-white"));
+		expect(active7D).toBeTruthy();
+	});
+
+	it("restores global metric from localStorage on mount", async () => {
+		localStorage.setItem("dashboardMetric", "requests");
+
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+		// "Req" toggle should be active (accent-styled)
+		const allReq = screen.getAllByText("Req");
+		const activeReq = allReq.find((el) => el.classList.contains("text-white"));
+		expect(activeReq).toBeTruthy();
+	});
+
+	it("restores per-section doughnut range from localStorage", async () => {
+		localStorage.setItem("dashboard.doughnutRange", "1h");
+
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+		// The 1H toggle should be active somewhere (doughnut section)
+		const all1H = screen.getAllByText("1H");
+		const active1H = all1H.find((el) => el.classList.contains("text-white"));
+		expect(active1H).toBeTruthy();
+	});
+
+	it("restores per-section doughnut metric from localStorage", async () => {
+		localStorage.setItem("dashboard.doughnutMetric", "requests");
+
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+		// "Req" should be active in the doughnut section
+		const allReq = screen.getAllByText("Req");
+		const activeReq = allReq.find((el) => el.classList.contains("text-white"));
+		expect(activeReq).toBeTruthy();
+	});
+
+	it("persists per-section range change to localStorage", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+
+		// Click the header 7D button to change global range
+		const all7D = screen.getAllByText("7D");
+		await user.click(all7D[0]);
+
+		// The global range key should be persisted
+		await waitFor(() => {
+			expect(localStorage.getItem("dashboardRange")).toBe("7d");
+		});
+	});
+
+	it("uses default values when localStorage is empty", async () => {
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+
+		// Default range is "24h" which shows as "1D" - should be active
+		const all1D = screen.getAllByText("1D");
+		const active1D = all1D.find((el) => el.classList.contains("text-white"));
+		expect(active1D).toBeTruthy();
+		// Default metric is "tokens" which shows as "Tok" - should be active
+		const allTok = screen.getAllByText("Tok");
+		const activeTok = allTok.find((el) => el.classList.contains("text-white"));
+		expect(activeTok).toBeTruthy();
+	});
+
+	it("falls back to defaults when localStorage has invalid range", async () => {
+		localStorage.setItem("dashboardRange", "1w");
+		localStorage.setItem("dashboard.doughnutRange", "invalid");
+
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+		// Should fall back to default "24h" (1D) instead of invalid value
+		const all1D = screen.getAllByText("1D");
+		const active1D = all1D.find((el) => el.classList.contains("text-white"));
+		expect(active1D).toBeTruthy();
+	});
+
+	it("falls back to defaults when localStorage has invalid metric", async () => {
+		localStorage.setItem("dashboardMetric", "clicks");
+		localStorage.setItem("dashboard.doughnutMetric", "bogus");
+
+		renderWithProviders(<Dashboard />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+		// Should fall back to default "tokens" (Tok) instead of invalid value
+		const allTok = screen.getAllByText("Tok");
+		const activeTok = allTok.find((el) => el.classList.contains("text-white"));
+		expect(activeTok).toBeTruthy();
 	});
 });

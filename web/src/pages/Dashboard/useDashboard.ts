@@ -10,6 +10,7 @@ import type {
 	TimeSeriesStats,
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { proxyModelID } from "../../utils/model";
 import type { Range } from "./types";
 
@@ -146,53 +147,84 @@ export interface UseDashboardReturn {
 	};
 }
 
+const VALID_RANGES: ReadonlySet<Range> = new Set(["1h", "24h", "7d"]);
+const VALID_METRICS: ReadonlySet<MetricType> = new Set(["tokens", "requests"]);
+const deserializeRange = (stored: string, fallback: Range): Range =>
+	VALID_RANGES.has(stored as Range) ? (stored as Range) : fallback;
+const deserializeMetric = (stored: string, fallback: MetricType): MetricType =>
+	VALID_METRICS.has(stored as MetricType) ? (stored as MetricType) : fallback;
+
 export function useDashboard(): UseDashboardReturn {
 	// Global state with localStorage persistence
-	const [globalRange, setGlobalRange] = useState<Range>(() => {
-		try {
-			const v = localStorage.getItem("dashboardRange");
-			if (v === "1h" || v === "24h" || v === "7d") return v;
-		} catch {
-			/* ignore */
-		}
-		return "24h";
-	});
-	const [globalMetric, setGlobalMetric] = useState<MetricType>(() => {
-		try {
-			const v = localStorage.getItem("dashboardMetric");
-			if (v === "tokens" || v === "requests") return v;
-		} catch {
-			/* ignore */
-		}
-		return "tokens";
-	});
+	const [globalRange, setGlobalRange] = useLocalStorage<Range>(
+		"dashboardRange",
+		"24h",
+		{ deserialize: deserializeRange },
+	);
+	const [globalMetric, setGlobalMetric] = useLocalStorage<MetricType>(
+		"dashboardMetric",
+		"tokens",
+		{ deserialize: deserializeMetric },
+	);
 	const [excludeDeleted, setExcludeDeleted] = useState(false);
 
-	// localStorage sync effects
-	useEffect(() => {
-		localStorage.setItem("dashboardRange", globalRange);
-	}, [globalRange]);
-	useEffect(() => {
-		localStorage.setItem("dashboardMetric", globalMetric);
-	}, [globalMetric]);
-
-	// Per-section local states: synced from global header toggles,
-	// but each component's own toggles only affect that section.
-	const [requestsChartRange, setRequestsChartRange] =
-		useState<Range>(globalRange);
-	const [tokensChartRange, setTokensChartRange] = useState<Range>(globalRange);
-	const [doughnutRange, setDoughnutRange] = useState<Range>(globalRange);
-	const [doughnutMetric, setDoughnutMetric] =
-		useState<MetricType>(globalMetric);
-	const [tokenRange, setTokenRange] = useState<Range>(globalRange);
-	const [modelsRange, setModelsRange] = useState<Range>(globalRange);
-	const [modelsMetric, setModelsMetric] = useState<MetricType>(globalMetric);
-	const [providersRange, setProvidersRange] = useState<Range>(globalRange);
-	const [providersMetric, setProvidersMetric] =
-		useState<MetricType>(globalMetric);
-	const [virtualKeysRange, setVirtualKeysRange] = useState<Range>(globalRange);
-	const [virtualKeysMetric, setVirtualKeysMetric] =
-		useState<MetricType>(globalMetric);
+	// Per-section local states: persisted in localStorage, synced from global
+	// header toggles when those change.
+	const [requestsChartRange, setRequestsChartRange] = useLocalStorage<Range>(
+		"dashboard.requestsChartRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [tokensChartRange, setTokensChartRange] = useLocalStorage<Range>(
+		"dashboard.tokensChartRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [doughnutRange, setDoughnutRange] = useLocalStorage<Range>(
+		"dashboard.doughnutRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [doughnutMetric, setDoughnutMetric] = useLocalStorage<MetricType>(
+		"dashboard.doughnutMetric",
+		globalMetric,
+		{ deserialize: deserializeMetric },
+	);
+	const [tokenRange, setTokenRange] = useLocalStorage<Range>(
+		"dashboard.tokenRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [modelsRange, setModelsRange] = useLocalStorage<Range>(
+		"dashboard.modelsRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [modelsMetric, setModelsMetric] = useLocalStorage<MetricType>(
+		"dashboard.modelsMetric",
+		globalMetric,
+		{ deserialize: deserializeMetric },
+	);
+	const [providersRange, setProvidersRange] = useLocalStorage<Range>(
+		"dashboard.providersRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [providersMetric, setProvidersMetric] = useLocalStorage<MetricType>(
+		"dashboard.providersMetric",
+		globalMetric,
+		{ deserialize: deserializeMetric },
+	);
+	const [virtualKeysRange, setVirtualKeysRange] = useLocalStorage<Range>(
+		"dashboard.virtualKeysRange",
+		globalRange,
+		{ deserialize: deserializeRange },
+	);
+	const [virtualKeysMetric, setVirtualKeysMetric] = useLocalStorage<MetricType>(
+		"dashboard.virtualKeysMetric",
+		globalMetric,
+		{ deserialize: deserializeMetric },
+	);
 
 	// Sync locals when global header toggles change
 	const prevGlobalRangeRef = useRef(globalRange);
@@ -208,7 +240,16 @@ export function useDashboard(): UseDashboardReturn {
 			setProvidersRange(globalRange);
 			setVirtualKeysRange(globalRange);
 		}
-	}, [globalRange]);
+	}, [
+		globalRange,
+		setRequestsChartRange,
+		setTokensChartRange,
+		setDoughnutRange,
+		setTokenRange,
+		setModelsRange,
+		setProvidersRange,
+		setVirtualKeysRange,
+	]);
 	useEffect(() => {
 		if (prevGlobalMetricRef.current !== globalMetric) {
 			prevGlobalMetricRef.current = globalMetric;
@@ -217,7 +258,13 @@ export function useDashboard(): UseDashboardReturn {
 			setProvidersMetric(globalMetric);
 			setVirtualKeysMetric(globalMetric);
 		}
-	}, [globalMetric]);
+	}, [
+		globalMetric,
+		setDoughnutMetric,
+		setModelsMetric,
+		setProvidersMetric,
+		setVirtualKeysMetric,
+	]);
 
 	// Modal states
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);

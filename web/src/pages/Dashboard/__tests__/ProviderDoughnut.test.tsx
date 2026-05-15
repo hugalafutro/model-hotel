@@ -49,7 +49,7 @@ describe("ProviderDoughnut", () => {
 	it("renders with title and icon", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
 
-		expect(screen.getByText("Provider Breakdown")).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /Top \d/ })).toBeInTheDocument();
 	});
 
 	it("renders pie chart when items are provided", () => {
@@ -257,5 +257,37 @@ describe("ProviderDoughnut", () => {
 		expect(cells).toHaveLength(6);
 		// 6th item should cycle back to first color
 		expect(cells[5]).toHaveStyle("background-color: rgb(129, 140, 248)");
+	});
+
+	describe("dynamic title", () => {
+		it("shows 'Top N Providers' with multiple items", () => {
+			renderWithProviders(<ProviderDoughnut {...defaultProps} />);
+
+			expect(
+				screen.getByRole("heading", { name: /Top 3 Providers/ }),
+			).toBeInTheDocument();
+		});
+
+		it("uses singular 'Provider' for a single item", () => {
+			const singleItem: ProviderDistItem[] = [
+				{ name: "Only One", count: 50, tokens: 500, share: 100 },
+			];
+
+			renderWithProviders(
+				<ProviderDoughnut {...defaultProps} items={singleItem} />,
+			);
+
+			expect(
+				screen.getByRole("heading", { name: /Top 1 Provider$/ }),
+			).toBeInTheDocument();
+		});
+
+		it("shows 'Providers' heading with empty items", () => {
+			renderWithProviders(<ProviderDoughnut {...defaultProps} items={[]} />);
+
+			expect(
+				screen.getByRole("heading", { name: "Providers" }),
+			).toBeInTheDocument();
+		});
 	});
 });
