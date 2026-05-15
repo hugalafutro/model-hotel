@@ -82,6 +82,14 @@ export function Chat() {
 							(chat.chatSubMode === "conversation" &&
 								(!!chat.activePersonaIdB || !!chat.systemPromptB.trim()))) && (
 							<>
+								{chat.isStreaming && chat.chatSubMode === "chat" && (
+									<ActionIconButton
+										icon={CircleStop}
+										onClick={chat.handleStop}
+										title="Stop"
+										color="red"
+									/>
+								)}
 								{/* Light reset: clear messages/results only, keep model/persona/params */}
 								{chat.messages.length > 0 && (
 									<ActionIconButton
