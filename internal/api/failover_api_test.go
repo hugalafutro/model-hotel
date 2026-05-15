@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/config"
@@ -742,5 +744,354 @@ func TestFailoverHandler_GetByModelUUID_InvalidUUID(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Error handling path tests
+// ---------------------------------------------------------------------------
+
+// newClosedPool creates a new pool and immediately closes it for testing error paths
+func newClosedPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	pool.Close()
+	return pool
+}
+
+// TestFailoverHandler_List_RepoError tests when failoverRepo.List returns an error
+func TestFailoverHandler_List_RepoError(t *testing.T) {
+	closedPool := newClosedPool(t)
+	failoverRepo := failover.NewRepository(closedPool)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(closedPool)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/", nil)
+	h.List(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_List_GetTokenCountsError tests when getTokenCounts returns an error
+// but failoverRepo.List succeeds (different pools)
+func TestFailoverHandler_List_GetTokenCountsError(t *testing.T) {
+	// Create handler with working repos but closed dbPool for getTokenCounts
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	modelRepo := model.NewRepository(workingPool)
+	settingsRepo := settings.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+
+	// Create a failover group first so List has data to return
+	ctx := context.Background()
+	displayModel := "test-list-tokenerr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	_, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/", nil)
+	h.List(w, req)
+
+	// Should still return 200 with empty token counts (error is swallowed)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_List_BuildGroupResponseError tests when buildGroupResponse fails
+func TestFailoverHandler_List_BuildGroupResponseError(t *testing.T) {
+	// Create handler where failoverRepo works but modelRepo fails
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(workingPool)
+
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+
+	// Create a failover group first
+	ctx := context.Background()
+	displayModel := "test-list-builderr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	_, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/", nil)
+	h.List(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Get_GetTokenCountsError tests when getTokenCounts returns an error in Get
+func TestFailoverHandler_Get_GetTokenCountsError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	modelRepo := model.NewRepository(workingPool)
+	settingsRepo := settings.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+
+	// Create a failover group first
+	ctx := context.Background()
+	displayModel := "test-get-tokenerr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/"+fg.ID.String(), nil)
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Get(w, req)
+
+	// Should still return 200 with empty token counts
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Get_BuildGroupResponseError tests when buildGroupResponse fails in Get
+func TestFailoverHandler_Get_BuildGroupResponseError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(workingPool)
+
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+
+	// Create a failover group first
+	ctx := context.Background()
+	displayModel := "test-get-builderr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/"+fg.ID.String(), nil)
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Get(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Create_UpsertError tests when UpsertWithConfig fails
+func TestFailoverHandler_Create_UpsertError(t *testing.T) {
+	closedPool := newClosedPool(t)
+	failoverRepo := failover.NewRepository(closedPool)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(closedPool)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+
+	id1, id2 := uuid.New(), uuid.New()
+	displayModel := "test-create-upserterr-" + uuid.New().String()[:8]
+	body := `{"display_model":"` + displayModel + `","entry_ids":["` + id1.String() + `","` + id2.String() + `"]}`
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
+	h.Create(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Create_BuildGroupResponseError tests when buildGroupResponse fails after Create
+func TestFailoverHandler_Create_BuildGroupResponseError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(workingPool)
+
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+
+	id1, id2 := uuid.New(), uuid.New()
+	displayModel := "test-create-builderr-" + uuid.New().String()[:8]
+	body := `{"display_model":"` + displayModel + `","entry_ids":["` + id1.String() + `","` + id2.String() + `"]}`
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
+	h.Create(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+
+	// Cleanup
+	ctx := context.Background()
+	_ = failoverRepo.Delete(ctx, displayModel)
+}
+
+// TestFailoverHandler_Update_RepoError tests when failoverRepo.Update fails
+// Note: With a closed pool, GetByID fails first (404) before Update is called.
+// This still exercises DB error handling. The Update-specific error path (500)
+// would require repository mocking to isolate.
+func TestFailoverHandler_Update_RepoError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	modelRepo := model.NewRepository(workingPool)
+	settingsRepo := settings.NewRepository(workingPool)
+
+	// Create a group first with working pool
+	ctx := context.Background()
+	displayModel := "test-update-repoerr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	// Create handler with closed pool - GetByID will fail before Update is called
+	closedPool := newClosedPool(t)
+	failoverRepoClosed := failover.NewRepository(closedPool)
+	h := NewFailoverHandler(closedPool, failoverRepoClosed, modelRepo, settingsRepo)
+
+	body := `{"group_enabled":false}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+
+	// With closed pool, GetByID fails first returning 404
+	// The Update error path (500) would require mocking the repo
+	if w.Code != http.StatusNotFound && w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 404 or 500, got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Update_BuildGroupResponseError tests when buildGroupResponse fails after Update
+func TestFailoverHandler_Update_BuildGroupResponseError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(workingPool)
+
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+
+	// Create a group first
+	ctx := context.Background()
+	displayModel := "test-update-builderr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	body := `{"group_enabled":false}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Delete_RepoError tests when failoverRepo.DeleteByID fails
+func TestFailoverHandler_Delete_RepoError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+
+	// Create a group first
+	ctx := context.Background()
+	displayModel := "test-delete-repoerr-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	// Create handler with closed pool for delete
+	closedPool := newClosedPool(t)
+	failoverRepoClosed := failover.NewRepository(closedPool)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(closedPool)
+	h := NewFailoverHandler(closedPool, failoverRepoClosed, modelRepo, settingsRepo)
+
+	req, w := newChiRequest(http.MethodDelete, "/failover-groups/"+fg.ID.String(), nil)
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Delete(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_Sync_SettingsSetError tests when settingsRepo.Set fails (error is logged, not returned)
+func TestFailoverHandler_Sync_SettingsSetError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	modelRepo := model.NewRepository(workingPool)
+
+	// Create mock settings store that always fails on Set
+	mockSettings := &mockSettingsStore{
+		setFn: func(ctx context.Context, key, value string) error {
+			return fmt.Errorf("simulated settings set error")
+		},
+	}
+
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, mockSettings)
+
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
+	h.Sync(w, req)
+
+	// Sync should still return 200 even if settings.Set fails (error is only logged)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestFailoverHandler_GetByModelUUID_RepoError tests when failoverRepo.List fails
+func TestFailoverHandler_GetByModelUUID_RepoError(t *testing.T) {
+	closedPool := newClosedPool(t)
+	failoverRepo := failover.NewRepository(closedPool)
+	modelRepo := model.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(closedPool)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+
+	unknownUUID := uuid.New()
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/by-model/"+unknownUUID.String(), nil)
+	req = setChiURLParam(req, "model_uuid", unknownUUID.String())
+	h.GetByModelUUID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
 }
