@@ -201,20 +201,15 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 }
 
 func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
-	debuglog.Debug("resolve: evaluating failover decision", "status", statusCode)
 	if statusCode >= 500 {
-		debuglog.Info("resolve: failover decision: 5xx", "status", statusCode)
 		return true
 	}
 	if statusCode == 429 {
 		enabled := h.settingsRepo.GetBool(ctx, "failover_on_rate_limit", true)
-		debuglog.Info("resolve: failover decision: rate limit", "status", 429, "rate_limit_failover", enabled)
 		return enabled
 	}
 	if statusCode == 401 || statusCode == 403 {
-		debuglog.Info("resolve: failover decision: auth error", "status", statusCode)
 		return true
 	}
-	debuglog.Debug("resolve: failover decision: no failover", "status", statusCode)
 	return false
 }
