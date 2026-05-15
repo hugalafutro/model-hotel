@@ -335,7 +335,7 @@ export function Chat() {
 					className={`flex-1 pr-1 space-y-4 ${
 						chat.chatSubMode === "conversation"
 							? "overflow-visible"
-							: "min-h-0 overflow-y-auto"
+							: "min-h-0 overflow-y-auto pb-4"
 					}`}
 				>
 					{chat.messages.length === 0 && (
