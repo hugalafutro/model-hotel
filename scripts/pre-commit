@@ -5,22 +5,46 @@
 
 set -euo pipefail
 
-echo "pre-commit: running backend tests..."
-if ! go test ./...; then
-	echo "pre-commit: FAILED - backend tests" >&2
-	exit 1
+# Backend tests — only for staged Go packages
+staged_go=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.go$' || true)
+if [ -n "$staged_go" ]; then
+	go_pkgs=""
+	for f in $staged_go; do
+		pkg_dir="$(dirname "$f")"
+		go_pkgs="$go_pkgs ./$pkg_dir/..."
+	done
+	go_pkgs=$(echo "$go_pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
+
+	echo "pre-commit: running backend tests for staged packages..."
+	echo "  packages: $go_pkgs"
+	if ! go test $go_pkgs; then
+		echo "pre-commit: FAILED - backend tests" >&2
+		exit 1
+	fi
+else
+	echo "pre-commit: skipping backend tests (no .go staged)"
 fi
 
-echo "pre-commit: running go vet..."
-if ! go vet ./...; then
-	echo "pre-commit: FAILED - go vet" >&2
-	exit 1
+# Go vet — only for staged Go packages
+if [ -n "$staged_go" ]; then
+	echo "pre-commit: running go vet for staged packages..."
+	if ! go vet $go_pkgs; then
+		echo "pre-commit: FAILED - go vet" >&2
+		exit 1
+	fi
+else
+	echo "pre-commit: skipping go vet (no .go staged)"
 fi
 
-echo "pre-commit: running golangci-lint..."
-if ! golangci-lint run ./...; then
-	echo "pre-commit: FAILED - golangci-lint" >&2
-	exit 1
+# golangci-lint — only for staged Go packages
+if [ -n "$staged_go" ]; then
+	echo "pre-commit: running golangci-lint for staged packages..."
+	if ! golangci-lint run $go_pkgs; then
+		echo "pre-commit: FAILED - golangci-lint" >&2
+		exit 1
+	fi
+else
+	echo "pre-commit: skipping golangci-lint (no .go staged)"
 fi
 
 # TypeScript type check — only when .ts/.tsx files are staged
@@ -35,22 +59,136 @@ else
 	echo "pre-commit: skipping TypeScript type check (no .ts/.tsx staged)"
 fi
 
-echo "pre-commit: running frontend lint..."
-if ! (cd web && pnpm lint); then
-	echo "pre-commit: FAILED - pnpm lint" >&2
-	exit 1
+# Frontend lint — only for staged .ts/.tsx files
+if [ -n "$staged_ts" ]; then
+	echo "pre-commit: running frontend lint for staged files..."
+	lint_targets=""
+	for f in $staged_ts; do
+		rel="${f#web/}"
+		if [ -f "web/$rel" ]; then
+			lint_targets="$lint_targets $rel"
+		fi
+	done
+	if [ -n "$lint_targets" ]; then
+		if ! (cd web && pnpm lint $lint_targets); then
+			echo "pre-commit: FAILED - pnpm lint" >&2
+			exit 1
+		fi
+	fi
+else
+	echo "pre-commit: skipping frontend lint (no .ts/.tsx staged)"
 fi
 
-echo "pre-commit: running frontend biome check..."
-if ! (cd web && pnpm biome check src/); then
-	echo "pre-commit: FAILED - pnpm biome check" >&2
-	exit 1
+# Frontend biome — only for staged .ts/.tsx files
+if [ -n "$staged_ts" ]; then
+	echo "pre-commit: running biome check for staged files..."
+	biome_targets=""
+	for f in $staged_ts; do
+		rel="${f#web/}"
+		if [ -f "web/$rel" ]; then
+			biome_targets="$biome_targets $rel"
+		fi
+	done
+	if [ -n "$biome_targets" ]; then
+		if ! (cd web && pnpm biome check --write $biome_targets); then
+			echo "pre-commit: FAILED - pnpm biome check" >&2
+			exit 1
+		fi
+	fi
+else
+	echo "pre-commit: skipping biome check (no .ts/.tsx staged)"
 fi
 
-echo "pre-commit: running frontend tests..."
-if ! (cd web && pnpm vitest run); then
-	echo "pre-commit: FAILED - frontend tests" >&2
-	exit 1
+# Frontend tests — only for staged files and their dependents
+staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.tsx?$' || true)
+if [ -n "$staged_ts" ]; then
+	test_files=""
+	for f in $staged_ts; do
+		# Strip web/ prefix for internal references
+		rel="${f#web/}"
+		base="${rel%%.*}"
+
+		# 1) Direct test file: Foo.tsx → Foo.test.tsx (same dir or __tests__/)
+		for candidate in \
+			"${base}.test.tsx" \
+			"${base}.test.ts" \
+			"$(dirname "$base")/__tests__/$(basename "$base").test.tsx" \
+			"$(dirname "$base")/__tests__/$(basename "$base").test.ts" \
+			"${base}/__tests__/$(basename "$base").test.tsx" \
+			"${base}/__tests__/$(basename "$base").test.ts"; do
+			if [ -f "web/$candidate" ]; then
+				test_files="$test_files ${candidate}"
+			fi
+		done
+
+		# 2) Test files that import the staged module (reverse deps)
+		#    Grep for the module's basename (without extension) in import statements
+		module_name="$(basename "$base")"
+		while IFS= read -r dep_test; do
+			# dep_test is like web/src/components/__tests__/Foo.test.tsx
+			# Convert to vitest path format (strip web/ prefix)
+			vitest_path="${dep_test#web/}"
+			test_files="$test_files $vitest_path"
+		done < <(grep -rl --include='*.test.ts' --include='*.test.tsx' \
+			-E "from ['\"].*${module_name}['\"]|import\\s+.*['\"].*${module_name}['\"]" \
+			web/src/ 2>/dev/null || true)
+
+		# 3) Transitive reverse deps: source files that import the staged module,
+		#    then find test files for those source files + their own dependents
+		while IFS= read -r importer; do
+			importer_base="${importer#web/}"
+			importer_base="${importer_base%%.*}"
+			importer_name="$(basename "$importer_base")"
+			for candidate in \
+				"${importer_base}.test.tsx" \
+				"${importer_base}.test.ts" \
+				"$(dirname "$importer_base")/__tests__/$(basename "$importer_base").test.tsx" \
+				"$(dirname "$importer_base")/__tests__/$(basename "$importer_base").test.ts" \
+				"${importer_base}/__tests__/$(basename "$importer_base").test.tsx" \
+				"${importer_base}/__tests__/$(basename "$importer_base").test.ts"; do
+				if [ -f "web/$candidate" ]; then
+					test_files="$test_files ${candidate}"
+				fi
+			done
+
+			# 3b) Second level: files that import this importer
+			while IFS= read -r importer2; do
+				importer2_base="${importer2#web/}"
+				importer2_base="${importer2_base%%.*}"
+				for candidate2 in \
+					"${importer2_base}.test.tsx" \
+					"${importer2_base}.test.ts" \
+					"$(dirname "$importer2_base")/__tests__/$(basename "$importer2_base").test.tsx" \
+					"$(dirname "$importer2_base")/__tests__/$(basename "$importer2_base").test.ts" \
+					"${importer2_base}/__tests__/$(basename "$importer2_base").test.tsx" \
+					"${importer2_base}/__tests__/$(basename "$importer2_base").test.ts"; do
+					if [ -f "web/$candidate2" ]; then
+						test_files="$test_files ${candidate2}"
+					fi
+				done
+			done < <(grep -rl --include='*.ts' --include='*.tsx' \
+				-E "from ['\"].*${importer_name}['\"]|import\\s+.*['\"].*${importer_name}['\"]" \
+				web/src/ 2>/dev/null || true)
+		done < <(grep -rl --include='*.ts' --include='*.tsx' \
+			-E "from ['\"].*${module_name}['\"]|import\\s+.*['\"].*${module_name}['\"]" \
+			web/src/ 2>/dev/null || true)
+	done
+
+	# Deduplicate test files
+	test_files=$(echo "$test_files" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
+
+	if [ -n "$test_files" ]; then
+		echo "pre-commit: running frontend tests for staged files..."
+		echo "  test files: $test_files"
+		if ! (cd web && pnpm vitest run $test_files); then
+			echo "pre-commit: FAILED - frontend tests" >&2
+			exit 1
+		fi
+	else
+		echo "pre-commit: no test files found for staged .ts/.tsx files"
+	fi
+else
+	echo "pre-commit: skipping frontend tests (no .ts/.tsx staged)"
 fi
 
 echo "pre-commit: all checks passed"
