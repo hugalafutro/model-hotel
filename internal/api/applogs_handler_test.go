@@ -657,3 +657,54 @@ func TestClearAppLogs_WithBuffer(t *testing.T) {
 		t.Errorf("expected nil entries after clear, got %v", entries)
 	}
 }
+
+// TestGetAppLogs_HistoryWithDB tests that GetAppLogs with history=true
+// returns log entries from the database.
+func TestGetAppLogs_HistoryWithDB(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Insert app log entries directly via DB
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert a few app log entries
+	for i := 0; i < 3; i++ {
+		_, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (timestamp, level, source, message)
+			 VALUES (NOW(), $1, $2, $3)`,
+			"info", "test", fmt.Sprintf("test message %d", i))
+		if err != nil {
+			t.Fatalf("Failed to insert app log: %v", err)
+		}
+	}
+
+	// Request with history=true - route is /logs/app
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Total < 3 {
+		t.Errorf("expected at least 3 entries, got %d", resp.Total)
+	}
+
+	// Verify entries contain our test messages
+	found := 0
+	for _, entry := range resp.Entries {
+		if entry.Source == "test" && strings.Contains(entry.Message, "test message") {
+			found++
+		}
+	}
+	if found < 3 {
+		t.Errorf("expected to find at least 3 test entries, got %d", found)
+	}
+}

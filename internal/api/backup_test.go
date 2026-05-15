@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -230,5 +231,55 @@ func TestBackupHandler_CreateBackup_NoPgDump(t *testing.T) {
 
 	if w.Code != http.StatusPreconditionFailed {
 		t.Errorf("expected 412, got %d", w.Code)
+	}
+}
+
+// TestCreateBackup_Success_Integration tests that CreateBackup returns 200 with JSON response
+// when pg_dump is available and database is accessible.
+func TestCreateBackup_Success_Integration(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Check pg_dump is available
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed, skipping integration test")
+	}
+
+	dir := t.TempDir()
+	h := NewBackupHandler(apiTestDBURL, dir)
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			next.ServeHTTP(w, r)
+		})
+	})
+	h.Register(r)
+
+	req := httptest.NewRequest("POST", "/backups", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var result backupEntry
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if result.Filename == "" {
+		t.Error("expected non-empty filename")
+	}
+	if !strings.HasSuffix(result.Filename, ".dump") {
+		t.Errorf("expected filename to end with .dump, got %q", result.Filename)
+	}
+	if result.SizeBytes <= 0 {
+		t.Errorf("expected positive size_bytes, got %d", result.SizeBytes)
+	}
+	if result.CreatedAt == "" {
+		t.Error("expected non-empty created_at")
 	}
 }

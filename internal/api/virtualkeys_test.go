@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -354,5 +355,75 @@ func TestCond_EmptyStringFalse(t *testing.T) {
 	result := cond("", false)
 	if result != "" {
 		t.Errorf("cond(%q, false) = %q, want empty string", "", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DeleteVirtualKey DB error tests
+// ---------------------------------------------------------------------------
+
+// TestDeleteVirtualKey_DBError tests that DeleteVirtualKey returns 500
+// when the database is unavailable.
+func TestDeleteVirtualKey_DBError(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		deleteFn: func(ctx context.Context, vid uuid.UUID) error {
+			return errors.New("db connection lost")
+		},
+	}
+	h := testHandler(nil, mockVK, nil, nil, nil)
+
+	id := uuid.New()
+	req, w := newChiRequest(http.MethodDelete, "/virtual-keys/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.DeleteVirtualKey(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateVirtualKey tests
+// ---------------------------------------------------------------------------
+
+// TestUpdateVirtualKey_MalformedJSON tests that UpdateVirtualKey returns 400
+// when the request body contains malformed JSON.
+func TestUpdateVirtualKey_MalformedJSON(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	id := uuid.New()
+	body := bytes.NewReader([]byte(`{invalid json`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid request body") {
+		t.Errorf("expected body to contain %q, got %q", "invalid request body", w.Body.String())
+	}
+}
+
+// TestUpdateVirtualKey_DBError tests that UpdateVirtualKey returns 500
+// when the database is unavailable.
+func TestUpdateVirtualKey_DBError(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int) (*virtualkey.VirtualKey, error) {
+			return nil, errors.New("db connection lost")
+		},
+	}
+	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+
+	id := uuid.New()
+	body := bytes.NewReader([]byte(`{"name":"updated-name"}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
 }
