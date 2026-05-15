@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // TestDiscoverAllModels_AllDisabled tests that DiscoverAllModels skips all
@@ -1156,4 +1159,171 @@ func TestDiscoverProviderModels_DiscoveryError(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "failed to discover models") {
 		t.Errorf("Expected error about failed to discover models, got: %s", rec.Body.String())
 	}
+}
+
+// TestDiscoverProviderModels_WithModelsDevCache tests that model discovery
+// successfully enriches models with data from the models.dev cache.
+func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
+	defer provider.ResetModelsDevCache()
+
+	// Create mock models.dev server
+	modelsDevResponse := `{
+		"openai": {
+			"id": "openai",
+			"name": "OpenAI",
+			"api": "openai",
+			"doc": "https://platform.openai.com/docs",
+			"models": {
+				"gpt-4": {
+					"id": "gpt-4",
+					"name": "GPT-4 Test",
+					"family": "gpt-4",
+					"attachment": true,
+					"reasoning": true,
+					"tool_call": true,
+					"modalities": {"input": ["text", "image"], "output": ["text"]},
+					"open_weights": false,
+					"cost": {"input": 0.03, "output": 0.06},
+					"limit": {"context": 8192, "output": 4096}
+				}
+			}
+		}
+	}`
+
+	modelsDevServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api.json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(modelsDevResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer modelsDevServer.Close()
+
+	// Load models.dev cache with custom client that redirects to mock server
+	httpClient := modelsDevServer.Client()
+	httpClient.Transport = &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+		if req.URL.String() == "https://models.dev/api.json" {
+			return http.Get(modelsDevServer.URL + "/api.json")
+		}
+		return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+	}}
+
+	ctx := context.Background()
+	err := provider.LoadModelsDevWithClient(ctx, httpClient)
+	if err != nil {
+		t.Fatalf("LoadModelsDevWithClient failed: %v", err)
+	}
+
+	// Verify cache is loaded
+	cache := provider.GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("GetModelsDevCache returned nil after loading")
+	}
+
+	// Create mock OpenAI-compatible server that returns models matching the cache
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" && r.Method == "GET" {
+			response := map[string]interface{}{
+				"data": []map[string]interface{}{
+					{"id": "gpt-4", "owned_by": "openai"},
+					{"id": "gpt-3.5-test", "owned_by": "openai"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer mockServer.Close()
+
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create provider with mock server URL
+	providerData := fmt.Sprintf(`{"name": "test-discover-cache", "base_url": "%s", "api_key": "sk-test123"}`, mockServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Discover models for this provider
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/"+createResp.ID+"/discover", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Discovered int `json:"discovered"`
+		Models     []struct {
+			ModelID       string `json:"model_id"`
+			DisplayName   string `json:"display_name"`
+			ContextLength *int   `json:"context_length"`
+			OwnedBy       string `json:"owned_by"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Discovered != 2 {
+		t.Errorf("Expected discovered=2, got %d", response.Discovered)
+	}
+	if len(response.Models) != 2 {
+		t.Fatalf("Expected 2 models, got %d", len(response.Models))
+	}
+
+	// Verify gpt-4 was enriched from models.dev cache
+	var gpt4 *struct {
+		ModelID       string `json:"model_id"`
+		DisplayName   string `json:"display_name"`
+		ContextLength *int   `json:"context_length"`
+		OwnedBy       string `json:"owned_by"`
+	}
+	for i := range response.Models {
+		if response.Models[i].ModelID == "gpt-4" {
+			gpt4 = &response.Models[i]
+			break
+		}
+	}
+	if gpt4 == nil {
+		t.Fatal("gpt-4 model not found in response")
+	}
+	if gpt4.DisplayName != "GPT-4 Test" {
+		t.Errorf("Expected display_name='GPT-4 Test' from models.dev enrichment, got %q", gpt4.DisplayName)
+	}
+	if gpt4.ContextLength == nil || *gpt4.ContextLength != 8192 {
+		t.Errorf("Expected context_length=8192 from models.dev enrichment, got %v", gpt4.ContextLength)
+	}
+	if gpt4.OwnedBy != "openai" {
+		t.Errorf("Expected owned_by='openai' from discovery catalog, got %q", gpt4.OwnedBy)
+	}
+}
+
+// mockTransport implements http.RoundTripper for test request interception.
+type mockTransport struct {
+	roundTripFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if m.roundTripFunc != nil {
+		return m.roundTripFunc(req)
+	}
+	return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
 }
