@@ -7,11 +7,7 @@ import type { useToast } from "../../context/ToastContext";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
-import {
-	extractThinking,
-	sanitizeDelta,
-	shouldReExtract,
-} from "../../utils/thinking";
+import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 import type { ArenaResponse, BracketRound } from "./types";
 import {
 	collectSlots,
@@ -85,7 +81,6 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	} = deps;
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
-	const lastExtractLenRef = useRef<Map<string, number>>(new Map());
 
 	const streamModel = useCallback(
 		(
@@ -101,8 +96,6 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			abortMapRef.current.set(model, abortCtrl);
 
 			const run = async () => {
-				const extractKey = `${roundIdx}-${matchupIdx}-${slotKey}`;
-				lastExtractLenRef.current.delete(extractKey);
 				const startTime = performance.now();
 				let promptTokens = 0;
 				let completionTokens = 0;
@@ -165,25 +158,10 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 												slotKey === "A" ? "responseA" : "responseB";
 											const resp = mu[respKey] as ArenaResponse;
 											const newRaw = resp.rawContent + clean;
-											const lastLen =
-												lastExtractLenRef.current.get(extractKey) ?? 0;
-											const needsExtract =
-												shouldReExtract(clean) || newRaw.length - lastLen >= 50;
-											let nextContent: string;
-											let nextThinking: string;
-											if (needsExtract) {
-												const extracted = extractThinking(newRaw);
-												lastExtractLenRef.current.set(
-													extractKey,
-													newRaw.length,
-												);
-												nextContent = extracted.content;
-												nextThinking =
-													extracted.thinking || resp.thinkingContent;
-											} else {
-												nextContent = resp.content + clean;
-												nextThinking = resp.thinkingContent;
-											}
+											const extracted = extractThinking(newRaw);
+											const nextContent = extracted.content;
+											const nextThinking =
+												extracted.thinking || resp.thinkingContent;
 											mu[respKey] = {
 												...resp,
 												rawContent: newRaw,
@@ -289,7 +267,6 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 						}
 						return next;
 					});
-					lastExtractLenRef.current.delete(extractKey);
 					abortMapRef.current.delete(model);
 				}
 			};

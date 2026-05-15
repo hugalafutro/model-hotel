@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractThinking, sanitizeDelta, shouldReExtract } from "../thinking";
+import { extractThinking, sanitizeDelta } from "../thinking";
 
 describe("extractThinking", () => {
 	it("returns empty thinking and original content when no tags present", () => {
@@ -124,43 +124,5 @@ describe("sanitizeDelta", () => {
 	it("removes Assistant token", () => {
 		const result = sanitizeDelta("<｜Assistant｜>response");
 		expect(result).toBe("response");
-	});
-});
-
-describe("shouldReExtract", () => {
-	it("returns false for regular content without tags", () => {
-		expect(shouldReExtract("Hello world")).toBe(false);
-	});
-
-	it("returns true when delta contains opening thinking tag", () => {
-		expect(shouldReExtract("<thinking>")).toBe(true);
-	});
-
-	it("returns true when delta contains closing thinking tag", () => {
-		expect(shouldReExtract("</thinking>")).toBe(true);
-	});
-
-	it("returns true when delta contains think tag", () => {
-		expect(shouldReExtract("<think>content</think>")).toBe(true);
-	});
-
-	it("returns true when delta contains fence start", () => {
-		expect(shouldReExtract("<<")).toBe(true);
-	});
-
-	it("returns true when delta contains fence end", () => {
-		expect(shouldReExtract(">>")).toBe(true);
-	});
-
-	it("returns true when delta contains any < character", () => {
-		expect(shouldReExtract("text<more")).toBe(true);
-	});
-
-	it("returns false when current content has thinking but delta is normal", () => {
-		expect(shouldReExtract("regular text")).toBe(false);
-	});
-
-	it("returns false for empty string", () => {
-		expect(shouldReExtract("")).toBe(false);
 	});
 });
