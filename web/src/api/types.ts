@@ -424,6 +424,7 @@ export interface ChatMessage {
 	rawContent?: string;
 	thinkingContent?: string;
 	error?: string | null;
+	aborted?: boolean;
 	model?: string;
 	timestamp: number;
 	metrics?: {

@@ -566,6 +566,6 @@ describe("streamModelResponse", () => {
 		);
 
 		expect(result.aborted).toBe(true);
-		expect(result.error).toBeNull();
+		expect(result.error).toBe("Stopped by user");
 	});
 });

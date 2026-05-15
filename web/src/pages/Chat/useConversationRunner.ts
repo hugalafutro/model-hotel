@@ -183,6 +183,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 						content: result.content,
 						thinkingContent: result.thinkingContent,
 						error: result.error,
+						aborted: result.aborted || undefined,
 						metrics: {
 							tokensPerSecond: result.tokensPerSecond,
 							durationMs: result.durationMs,
@@ -201,6 +202,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 								content: result.content,
 								thinkingContent: result.thinkingContent,
 								error: result.error,
+								aborted: result.aborted || undefined,
 								metrics: {
 									tokensPerSecond: result.tokensPerSecond,
 									durationMs: result.durationMs,

@@ -295,6 +295,7 @@ export function useChat() {
 					content: result.content,
 					thinkingContent: result.thinkingContent,
 					error: result.error,
+					aborted: result.aborted || undefined,
 					metrics: {
 						tokensPerSecond: result.tokensPerSecond,
 						durationMs: result.durationMs,
@@ -625,7 +626,11 @@ export function useChat() {
 	const lastChatError = (() => {
 		if (chatSubMode !== "chat") return null;
 		for (let i = messages.length - 1; i >= 0; i--) {
-			if (messages[i].role === "assistant" && messages[i].error) {
+			if (
+				messages[i].role === "assistant" &&
+				messages[i].error &&
+				!messages[i].aborted
+			) {
 				const errModel = messages[i].model || "";
 				// Only show the error if it's from the currently selected model.
 				// After switching models the error is stale and misleading.

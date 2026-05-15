@@ -111,6 +111,9 @@ export async function streamModelResponse(
 	let rawContent = "";
 	let content = "";
 	let thinkingContent = "";
+	let completion: Awaited<
+		ReturnType<typeof readSSEStream<StreamChunk>>
+	> | null = null;
 
 	try {
 		const resp = await fetchWithRetry(
@@ -139,7 +142,7 @@ export async function streamModelResponse(
 		const reader = resp.body?.getReader();
 		if (!reader) throw new Error("No readable stream");
 
-		const completion = await readSSEStream<StreamChunk>({
+		completion = await readSSEStream<StreamChunk>({
 			reader,
 			signal: abortCtrl.signal,
 			onChunk: (chunk) => {
@@ -190,7 +193,7 @@ export async function streamModelResponse(
 	} catch (err) {
 		const isAbort = err instanceof Error && err.name === "AbortError";
 		const errorMsg = isAbort
-			? null
+			? "Stopped by user"
 			: err instanceof Error
 				? err.message
 				: "Unknown error";
@@ -221,8 +224,8 @@ export async function streamModelResponse(
 		rawContent,
 		content,
 		thinkingContent,
-		error: null,
-		aborted: false,
+		error: completion?.aborted ? "Stopped by user" : null,
+		aborted: completion?.aborted ?? false,
 		durationMs: Math.round(durationMs),
 		tokensPerSecond,
 		promptTokens,
