@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getByDialogName } from "../../test/helpers";
@@ -587,16 +587,12 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			const modelSection = screen.getByText("Model").closest("div");
-			expect(modelSection).toBeInTheDocument();
+			const copyButtons = screen.getAllByLabelText("Click to copy");
+			// Model is the first CopyablePill in the request log modal
+			await user.click(copyButtons[0]);
 
-			if (modelSection) {
-				const copyButton = within(modelSection).getByRole("button");
-				await user.click(copyButton);
-
-				const clipboardText = await navigator.clipboard.readText();
-				expect(clipboardText).toBe("gemma3:4b");
-			}
+			const clipboardText = await navigator.clipboard.readText();
+			expect(clipboardText).toBe("gemma3:4b");
 		});
 
 		it("copies DB row ID to clipboard", async () => {
@@ -609,16 +605,12 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			const dbIdSection = screen.getByText("DB Row ID").closest("div");
-			expect(dbIdSection).toBeInTheDocument();
+			const copyButtons = screen.getAllByLabelText("Click to copy");
+			// DB Row ID is the second CopyablePill in the request log modal
+			await user.click(copyButtons[1]);
 
-			if (dbIdSection) {
-				const copyButton = within(dbIdSection).getByRole("button");
-				await user.click(copyButton);
-
-				const clipboardText = await navigator.clipboard.readText();
-				expect(clipboardText).toBe("req-123");
-			}
+			const clipboardText = await navigator.clipboard.readText();
+			expect(clipboardText).toBe("req-123");
 		});
 
 		it("copies error message to clipboard", async () => {
@@ -631,16 +623,12 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={errorLog} type="request" onClose={onClose} />,
 			);
 
-			const errorSection = screen.getByText("Error").closest("div");
-			expect(errorSection).toBeInTheDocument();
+			const copyButtons = screen.getAllByLabelText("Click to copy");
+			// Error CopyablePill is the third in the request log modal
+			await user.click(copyButtons[2]);
 
-			if (errorSection) {
-				const copyButton = within(errorSection).getByRole("button");
-				await user.click(copyButton);
-
-				const clipboardText = await navigator.clipboard.readText();
-				expect(clipboardText).toBe("Test error message");
-			}
+			const clipboardText = await navigator.clipboard.readText();
+			expect(clipboardText).toBe("Test error message");
 		});
 
 		it("copies app log message to clipboard", async () => {
@@ -649,16 +637,11 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,
 			);
 
-			const messageSection = screen.getByText("Message").closest("div");
-			expect(messageSection).toBeInTheDocument();
+			const copyButton = screen.getByLabelText("Click to copy");
+			await user.click(copyButton);
 
-			if (messageSection) {
-				const copyButton = within(messageSection).getByRole("button");
-				await user.click(copyButton);
-
-				const clipboardText = await navigator.clipboard.readText();
-				expect(clipboardText).toBe("Server started successfully");
-			}
+			const clipboardText = await navigator.clipboard.readText();
+			expect(clipboardText).toBe("Server started successfully");
 		});
 	});
 

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
-import { CopyButton } from "./CopyButton";
+import { CopyablePill } from "./CopyablePill";
 import { Modal } from "./Modal";
 
 interface LogDetailModalProps {
@@ -246,36 +246,23 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						mono
 						truncate
 					/>
-					<DetailItem
-						icon={Box}
-						label="Model"
-						value={requestLog.model_id}
-						labelExtra={
-							<CopyButton
-								text={requestLog.model_id}
-								size={11}
-								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all cursor-pointer inline-flex items-center"
-							/>
-						}
-					/>
+					<DetailItem icon={Box} label="Model">
+						<CopyablePill
+							text={requestLog.model_id}
+							textClassName="font-mono text-sm"
+						/>
+					</DetailItem>
 					<DetailItem
 						icon={Server}
 						label="Provider"
 						value={requestLog.provider_name}
 					/>
-					<DetailItem
-						icon={Hash}
-						label="DB Row ID"
-						value={requestLog.id}
-						mono
-						labelExtra={
-							<CopyButton
-								text={requestLog.id}
-								size={11}
-								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all cursor-pointer inline-flex items-center"
-							/>
-						}
-					/>
+					<DetailItem icon={Hash} label="DB Row ID">
+						<CopyablePill
+							text={requestLog.id}
+							textClassName="font-mono text-sm whitespace-normal break-all"
+						/>
+					</DetailItem>
 					<DetailItem
 						icon={Key}
 						label="Virtual Key"
@@ -393,11 +380,12 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					<div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
 						<div className="flex items-center gap-2 mb-2">
 							<AlertTriangle size={14} className="text-red-400" />
-							<span className="text-sm font-semibold text-red-400">Error</span>
-							<CopyButton
+							<CopyablePill
 								text={requestLog.error_message}
-								size={12}
-								className="text-red-400/50 hover:text-red-300 hover:drop-shadow-[var(--glow-red)] transition-all cursor-pointer inline-flex items-center"
+								displayText="Error"
+								textClassName="text-sm font-semibold text-red-400"
+								iconClassName="text-red-400/50 hover:text-red-300"
+								className=""
 							/>
 						</div>
 						<pre className="text-sm text-red-300 font-mono whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
@@ -453,12 +441,13 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					icon={FileText}
 					label="Message"
 					accent
-					value={appLog.message}
 					labelExtra={
-						<CopyButton
+						<CopyablePill
 							text={appLog.message}
-							size={11}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all cursor-pointer inline-flex items-center"
+							displayText="Copy"
+							textClassName="text-[11px] uppercase tracking-wider"
+							iconClassName="w-3 h-3"
+							className=""
 						/>
 					}
 				>
