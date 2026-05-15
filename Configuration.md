@@ -17,11 +17,15 @@ These are read once at startup and cannot be changed at runtime.
 | `RATE_LIMIT_ENABLED` | No | `true` | **Hard kill-switch** for rate limiting. When set to `false`, the rate-limiting middleware becomes a complete no-op: no buckets are created, no headers are set, no 429 responses are ever sent. Cannot be overridden at runtime. |
 | `MAX_REQUEST_SIZE` | No | `10485760` | Maximum request body size in bytes (default 10 MB) |
 | `CORS_ORIGINS` | No | `http://localhost:5173,http://localhost:8081` | Comma-separated list of allowed CORS origins. Must include the scheme (e.g. `http://`). |
-| `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Comma-separated list of additional allowed provider hosts. Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`) are **always** allowed regardless of this setting. Hosts listed here also bypass loopback-address blocking, so `localhost` can be added for local Ollama or testing. |
+| `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Comma-separated list of additional allowed provider hosts. Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`, `api.x.ai`, `generativelanguage.googleapis.com`, `api.cohere.com`, `api.cohere.ai`, `openrouter.ai`) are **always** allowed regardless of this setting. Hosts listed here also bypass loopback-address blocking, so `localhost` can be added for local Ollama or testing. |
 | `RATE_LIMIT_IP_RPS` | No | `30` | Per-IP requests per second (DoS safety net; always-on, not DB-configurable). |
 | `RATE_LIMIT_IP_BURST` | No | `60` | Per-IP burst size for DoS protection token bucket. |
 | `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size. |
 | `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size. |
+| `MODELSDEV_ENABLED` | No | `true` | Enable models.dev enrichment for auto-discovering model metadata (pricing, context window, capabilities). |
+| `DEBUG_LOG` | No | `false` | Enable structured debug logging via `internal/debuglog`. |
+| `TRUSTED_PROXIES` | No | *(empty)* | Comma-separated CIDR ranges for trusted reverse proxies (e.g. `10.0.0.0/8,172.16.0.0/12`). When set, `X-Forwarded-For` headers from these IPs are trusted for rate limiting and request logging. |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_DB` | No | *(empty)* | Fallback env vars for constructing `DATABASE_URL` when it is not set directly. If `DATABASE_URL` is empty, the connection string is built as `postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB`. |
 
 ### Notes
 
@@ -29,6 +33,7 @@ These are read once at startup and cannot be changed at runtime.
 - `ADMIN_TOKEN` is stored as a SHA-256 hash. Legacy plaintext tokens are automatically migrated to hashed format on first validation. See [Security](Security).
 - `RATE_LIMIT_ENABLED=false` completely removes the rate-limiting middleware from the request pipeline: it is not merely "disabled", it is a hard kill-switch.
 - `ALLOWED_PROVIDER_HOSTS` is primarily for permitting non-standard hosts (loopback addresses for Ollama, custom provider endpoints). Built-in provider hosts never need to be listed here.
+- `POSTGRES_*` env vars are a convenience for Docker Compose setups where `DATABASE_URL` is not set directly. If `DATABASE_URL` is provided, these vars are ignored.
 
 ## Database Settings
 
@@ -45,6 +50,15 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `rate_limit_enabled` | `true` | Runtime toggle for rate limiting. Overridden by the `RATE_LIMIT_ENABLED` env var: if the env var is `false`, this setting has no effect. |
 | `rate_limit_rps` | `10` | Requests per second per virtual key. Set to `0` to disable rate limiting for all keys (makes every bucket unlimited). |
 | `rate_limit_burst` | `20` | Maximum burst bucket size per virtual key. |
+| `request_timeout` | `1m0s` | Timeout for upstream proxy requests (e.g. `30s`, `1m0s`, `2m0s`). |
+| `circuit_breaker_enabled` | `true` | Enable circuit breaker for failover groups. When a provider fails repeatedly, the circuit opens and requests skip it until the cooldown expires. |
+| `circuit_breaker_threshold` | `5` | Number of consecutive failures before the circuit breaker opens (1-100). |
+| `circuit_breaker_cooldown` | `1m0s` | Duration the circuit breaker stays open before allowing a half-open retry (e.g. `30s`, `1m0s`, `5m0s`). |
+| `rate_limit_ip_enabled` | `true` | Runtime toggle for per-IP rate limiting. Overridden by the `RATE_LIMIT_ENABLED` env var. |
+| `rate_limit_ip_rps` | `30` | Per-IP requests per second. |
+| `rate_limit_ip_burst` | `60` | Per-IP burst size for the token bucket. |
+| `rate_limit_max_wait_ms` | `200` | Maximum time (ms) a rate-limited request waits for a token before returning 429 (0-10000). |
+| `key_cache_ttl` | `10m0s` | How long decrypted provider API keys are cached in memory (e.g. `5m0s`, `10m0s`, `30m0s`). Shorter values improve key rotation responsiveness; longer values reduce Argon2id overhead. |
 | `theme` | `dark` | UI theme: `dark` or `light`. |
 | `ui_style` | *(empty)* | UI style preset: `cyber-terminal`, `glassmorphism-lite`, or empty for default. |
 | `accent_color` | `#1dd1a1` | Primary accent color for the UI (hex color string). |
@@ -88,6 +102,8 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 | `persistArena` | Whether to persist arena state and history |
 | `sidebarChatSubMode` | chat/conversation |
 | `sidebarArenaSubMode` | competition/compare |
+| `arenaHistoryEnabled` | Whether to persist arena battle history across sessions |
+| `arenaHistoryLimit` | Maximum number of arena history entries to keep (default: 25) |
 | `sidebarLogsSubMode` | request/app |
 
 ## Docker Compose
