@@ -3,9 +3,12 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -494,5 +497,58 @@ func TestGetAppLogCounts_Cache(t *testing.T) {
 	appLogCountCache.RUnlock()
 	if !cacheEmpty {
 		t.Error("cache should NOT be populated when dbPool is nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetAppLogs handler tests
+// ---------------------------------------------------------------------------
+
+func TestGetAppLogs_NilBuffer(t *testing.T) {
+	defer func() {
+		appLogBuffer = nil
+		dbWriter = nil
+	}()
+	// appLogBuffer is nil by default if InitAppLogBuffer hasn't been called
+	h := &Handler{dbPool: nil}
+	req := httptest.NewRequest(http.MethodGet, "/api/app-logs", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	h.GetAppLogs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	body := strings.TrimSpace(rr.Body.String())
+	if body != "[]" {
+		t.Errorf("expected body [], got %q", body)
+	}
+}
+
+func TestGetAppLogs_HistoryNilDBPool(t *testing.T) {
+	h := &Handler{dbPool: nil}
+	req := httptest.NewRequest(http.MethodGet, "/api/app-logs?history=true", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	h.GetAppLogs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected Total 0, got %d", resp.Total)
+	}
+	if resp.Page != 0 {
+		t.Errorf("expected Page 0, got %d", resp.Page)
+	}
+	if resp.PerPage != 0 {
+		t.Errorf("expected PerPage 0, got %d", resp.PerPage)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty Entries, got %d", len(resp.Entries))
 	}
 }
