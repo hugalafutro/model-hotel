@@ -29,6 +29,7 @@ import type { AppLogEntry, LogEntry } from "../api/types";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
+import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -674,6 +675,8 @@ export function Layout({ children }: LayoutProps) {
 		setLogsSubMode,
 	} = useSidebarMode();
 
+	const githubVersion = useGitHubVersion();
+
 	const navigation = [
 		{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 		{
@@ -847,10 +850,11 @@ export function Layout({ children }: LayoutProps) {
 							href="https://github.com/hugalafutro/model-hotel"
 							target="_blank"
 							rel="noopener noreferrer"
+							aria-label="GitHub repository"
 							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
 						>
 							<GitBranch size={14} strokeWidth={2} />
-							GitHub
+							{githubVersion}
 						</a>
 					</div>
 					<button

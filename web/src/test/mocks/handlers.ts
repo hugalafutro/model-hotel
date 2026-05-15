@@ -515,4 +515,12 @@ export const handlers: RequestHandler[] = [
 		}
 		return new HttpResponse(null, { status: 204 });
 	}),
+
+	// ── GitHub API (version check) ────────────────────────────────────────
+	http.get(
+		"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
+		() => {
+			return HttpResponse.json({ tag_name: "v0.2" });
+		},
+	),
 ];

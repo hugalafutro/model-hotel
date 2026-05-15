@@ -173,7 +173,7 @@ describe("Layout", () => {
 		it("renders GitHub link", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const githubLink = screen.getByText("GitHub").closest("a");
+			const githubLink = screen.getByLabelText("GitHub repository");
 			expect(githubLink).toHaveAttribute(
 				"href",
 				"https://github.com/hugalafutro/model-hotel",
