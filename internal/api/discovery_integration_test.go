@@ -1200,14 +1200,17 @@ func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
 	}))
 	defer modelsDevServer.Close()
 
-	// Load models.dev cache with custom client that redirects to mock server
-	httpClient := modelsDevServer.Client()
-	httpClient.Transport = &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+	// Load models.dev cache with custom client that redirects to mock server.
+	// Use a fresh http.Client (not modelsDevServer.Client()) so the inner
+	// modelsDevServer.Client().Get call uses the server's own transport,
+	// not the mockTransport we're installing here.
+	mockServerClient := modelsDevServer.Client()
+	httpClient := &http.Client{Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 		if req.URL.String() == "https://models.dev/api.json" {
-			return http.Get(modelsDevServer.URL + "/api.json")
+			return mockServerClient.Get(modelsDevServer.URL + "/api.json")
 		}
 		return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
-	}}
+	}}}
 
 	ctx := context.Background()
 	err := provider.LoadModelsDevWithClient(ctx, httpClient)
