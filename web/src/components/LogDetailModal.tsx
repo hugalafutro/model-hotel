@@ -249,6 +249,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					<DetailItem icon={Box} label="Model">
 						<CopyablePill
 							text={requestLog.model_id}
+							tooltip="Copy model ID"
 							textClassName="font-mono text-sm"
 						/>
 					</DetailItem>
@@ -260,6 +261,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					<DetailItem icon={Hash} label="DB Row ID">
 						<CopyablePill
 							text={requestLog.id}
+							tooltip="Copy DB row ID"
 							textClassName="font-mono text-sm whitespace-normal break-all"
 						/>
 					</DetailItem>
@@ -383,9 +385,9 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<CopyablePill
 								text={requestLog.error_message}
 								displayText="Error"
+								tooltip="Copy error message"
 								textClassName="text-sm font-semibold text-red-400"
 								iconClassName="text-red-400/50 hover:text-red-300"
-								className=""
 							/>
 						</div>
 						<pre className="text-sm text-red-300 font-mono whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
@@ -445,9 +447,9 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<CopyablePill
 							text={appLog.message}
 							displayText="Copy"
+							tooltip="Copy message"
 							textClassName="text-[11px] uppercase tracking-wider"
 							iconClassName="w-3 h-3"
-							className=""
 						/>
 					}
 				>

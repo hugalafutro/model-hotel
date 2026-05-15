@@ -587,9 +587,8 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			const copyButtons = screen.getAllByLabelText("Click to copy");
-			// Model is the first CopyablePill in the request log modal
-			await user.click(copyButtons[0]);
+			const copyButton = screen.getByLabelText("Copy model ID");
+			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
 			expect(clipboardText).toBe("gemma3:4b");
@@ -605,9 +604,8 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			const copyButtons = screen.getAllByLabelText("Click to copy");
-			// DB Row ID is the second CopyablePill in the request log modal
-			await user.click(copyButtons[1]);
+			const copyButton = screen.getByLabelText("Copy DB row ID");
+			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
 			expect(clipboardText).toBe("req-123");
@@ -623,9 +621,8 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={errorLog} type="request" onClose={onClose} />,
 			);
 
-			const copyButtons = screen.getAllByLabelText("Click to copy");
-			// Error CopyablePill is the third in the request log modal
-			await user.click(copyButtons[2]);
+			const copyButton = screen.getByLabelText("Copy error message");
+			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
 			expect(clipboardText).toBe("Test error message");
@@ -637,7 +634,7 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,
 			);
 
-			const copyButton = screen.getByLabelText("Click to copy");
+			const copyButton = screen.getByLabelText("Copy message");
 			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
