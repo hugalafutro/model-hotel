@@ -43,7 +43,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	logData.ttftMs = ttft
 	logData.failoverAttempt = attempt
 	logData.state = "streaming"
-	h.updateRequestLog(r.Context(), logData)
+	h.updateRequestLog(logData)
 
 	flusher, canFlush := w.(http.Flusher)
 
@@ -502,7 +502,7 @@ logUpdate:
 	} else {
 		logData.state = "completed"
 	}
-	h.updateRequestLog(r.Context(), logData)
+	h.updateRequestLog(logData)
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {
@@ -513,7 +513,9 @@ logUpdate:
 
 	if vkHash != "" && !clientDisconnected {
 		totalTokens := promptTokens + completionTokens
-		if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
+		tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer tokCancel()
+		if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {
 			keyLabel := vkHash
 			if logData.virtualKeyName != "" {
 				keyLabel = logData.virtualKeyName
@@ -558,11 +560,13 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
-		h.updateRequestLog(r.Context(), logData)
+		h.updateRequestLog(logData)
 
 		if vkHash != "" {
 			totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
-			if err := h.virtualKeyRepo.AddTokens(r.Context(), vkHash, totalTokens); err != nil {
+			tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer tokCancel()
+			if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {
 				keyLabel := vkHash
 				if logData.virtualKeyName != "" {
 					keyLabel = logData.virtualKeyName
@@ -595,7 +599,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
-		h.updateRequestLog(r.Context(), logData)
+		h.updateRequestLog(logData)
 		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID)
 		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID, "error", errMsg, "duration_ms", totalDuration)
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
@@ -604,7 +608,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 
 // failRequest populates logData with failure details and updates the request log.
 // Always populates all timing fields from timings - if zero-valued, they record as 0ms.
-func (h *Handler) failRequest(ctx context.Context, logData *requestLogData, statusCode int, errMsg string, attempt int, startTime time.Time, parseMs float64, timings resolveTimings, proxyOverhead float64) {
+func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg string, attempt int, startTime time.Time, parseMs float64, timings resolveTimings, proxyOverhead float64) {
 	logData.statusCode = statusCode
 	logData.errorMessage = errMsg
 	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
@@ -617,7 +621,7 @@ func (h *Handler) failRequest(ctx context.Context, logData *requestLogData, stat
 	logData.settingsReadMs = timings.settingsReadMs
 	logData.failoverAttempt = attempt
 	logData.state = "failed"
-	h.updateRequestLog(ctx, logData)
+	h.updateRequestLog(logData)
 }
 
 // ChatCompletions handles OpenAI-compatible chat completion requests with failover support.
@@ -695,12 +699,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		displayModel := strings.TrimPrefix(req.Model, "hotel/")
 		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
-			h.failRequest(r.Context(), logData, 404, err.Error(), 0, startTime, parseMs, timings, 0)
+			h.failRequest(logData, 404, err.Error(), 0, startTime, parseMs, timings, 0)
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		if len(candidates) == 0 {
-			h.failRequest(r.Context(), logData, 502, "no available provider for hotel/"+displayModel, 0, startTime, parseMs, timings, 0)
+			h.failRequest(logData, 502, "no available provider for hotel/"+displayModel, 0, startTime, parseMs, timings, 0)
 			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
 			return
 		}
@@ -708,25 +712,25 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", req.Model)
 		parts := strings.SplitN(req.Model, "/", 2)
 		if len(parts) != 2 {
-			h.failRequest(r.Context(), logData, 400, "invalid model format", 0, startTime, parseMs, timings, 0)
+			h.failRequest(logData, 400, "invalid model format", 0, startTime, parseMs, timings, 0)
 			writeOpenAIError(w, "invalid model format, expected provider/model", http.StatusBadRequest)
 			return
 		}
 		providerName, modelID := parts[0], parts[1]
 		candidates, timings, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
-			h.failRequest(r.Context(), logData, 404, err.Error(), 0, startTime, parseMs, timings, 0)
+			h.failRequest(logData, 404, err.Error(), 0, startTime, parseMs, timings, 0)
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return
 		}
 	default:
-		h.failRequest(r.Context(), logData, 400, "invalid model format: "+req.Model, 0, startTime, parseMs, timings, 0)
+		h.failRequest(logData, 400, "invalid model format: "+req.Model, 0, startTime, parseMs, timings, 0)
 		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
 		return
 	}
 
 	if len(candidates) == 0 {
-		h.failRequest(r.Context(), logData, 404, "model not found or disabled", 0, startTime, parseMs, timings, 0)
+		h.failRequest(logData, 404, "model not found or disabled", 0, startTime, parseMs, timings, 0)
 		writeOpenAIError(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
@@ -782,7 +786,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
 				debuglog.Info("proxy: client disconnected during failover backoff")
-				h.failRequest(r.Context(), logData, 499, "client disconnected during failover", attempt-1, startTime, parseMs, timings, proxyOverhead)
+				h.failRequest(logData, 499, "client disconnected during failover", attempt-1, startTime, parseMs, timings, proxyOverhead)
 				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
 				return
 			}
@@ -1015,7 +1019,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.ttftMs = ttft
-			h.failRequest(r.Context(), logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
+			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			// Forward the upstream error to the client. If the upstream returned
 			// valid JSON (most OpenAI-compatible providers do), pass it through
 			// as-is. If it's not JSON (e.g. plain text, HTML error page), wrap it
@@ -1051,7 +1055,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	debuglog.Error("proxy: all providers exhausted", "model", req.Model, "error", lastErr)
 	logData.providerID = uuid.Nil
-	h.failRequest(r.Context(), logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
+	h.failRequest(logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
 	writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
 }
 

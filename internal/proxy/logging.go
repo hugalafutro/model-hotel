@@ -88,7 +88,7 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 	}
 }
 
-func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData) {
+func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
 	// not called), there is no row to update. An empty string is not a valid
 	// UUID and would cause "invalid input syntax for type uuid" errors.
@@ -108,6 +108,9 @@ func (h *Handler) updateRequestLog(ctx context.Context, logEntry *requestLogData
 		providerID = logEntry.providerID
 	}
 	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	tag, err := h.dbPool.Exec(ctx, `
 		UPDATE request_logs SET

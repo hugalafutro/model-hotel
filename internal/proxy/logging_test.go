@@ -184,7 +184,7 @@ func TestUpdateRequestLog_Success(t *testing.T) {
 	logEntry.providerID = prov.ID
 	logEntry.state = "completed"
 
-	h.updateRequestLog(context.Background(), logEntry)
+	h.updateRequestLog(logEntry)
 	// updateRequestLog does not return an error, just logs it.
 	// If no panic occurred, the test passes.
 }
@@ -227,7 +227,7 @@ func TestUpdateRequestLog_CalculatesLatency(t *testing.T) {
 	logEntry.providerID = prov.ID
 	logEntry.state = "completed"
 
-	h.updateRequestLog(context.Background(), logEntry)
+	h.updateRequestLog(logEntry)
 
 	// Verify latencyMs was calculated: latencyMs = durationMs - proxyOverheadMs
 	expectedLatency := 200.0 - 30.0
@@ -257,7 +257,7 @@ func TestUpdateRequestLog_NilProviderID(t *testing.T) {
 	logEntry.state = "failed"
 	logEntry.errorMessage = "connection refused"
 
-	h.updateRequestLog(context.Background(), logEntry)
+	h.updateRequestLog(logEntry)
 	// Should not panic with nil providerID
 }
 
@@ -276,6 +276,6 @@ func TestUpdateRequestLog_NonexistentID(t *testing.T) {
 		errorMessage:    "test error",
 	}
 
-	h.updateRequestLog(context.Background(), logEntry)
+	h.updateRequestLog(logEntry)
 	// No panic = pass
 }
