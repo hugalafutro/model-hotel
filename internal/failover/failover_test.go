@@ -1492,6 +1492,88 @@ func TestRepository_GetEnabled_EmptyList(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Integration tests — List edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_List_Empty(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// List with no groups should return empty slice, not error
+	groups, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(groups) != 0 {
+		t.Errorf("List should return empty slice, got %d items", len(groups))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — UpsertWithConfig edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_UpsertWithConfig_FullConfiguration(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	displayModel := "test-upsert-config-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New(), uuid.New()}
+	entryEnabled := map[string]bool{po[0].String(): true, po[1].String(): false}
+	groupEnabled := true
+	displayName := "Test Display Name"
+	description := "Test description for failover group"
+	autoCreated := false
+
+	fg, err := repo.UpsertWithConfig(ctx, displayModel, po, entryEnabled, &groupEnabled, &displayName, &description, &autoCreated)
+	if err != nil {
+		t.Fatalf("UpsertWithConfig failed: %v", err)
+	}
+	defer func() {
+		_ = repo.Delete(ctx, displayModel)
+	}()
+
+	// Verify all fields were set
+	if fg.DisplayModel != displayModel {
+		t.Errorf("DisplayModel = %q, want %q", fg.DisplayModel, displayModel)
+	}
+	if fg.DisplayName == nil || *fg.DisplayName != displayName {
+		t.Errorf("DisplayName = %v, want %q", fg.DisplayName, displayName)
+	}
+	if fg.Description != description {
+		t.Errorf("Description = %q, want %q", fg.Description, description)
+	}
+	if fg.GroupEnabled != true {
+		t.Errorf("GroupEnabled = %v, want true", fg.GroupEnabled)
+	}
+	if fg.AutoCreated != false {
+		t.Errorf("AutoCreated = %v, want false", fg.AutoCreated)
+	}
+	if len(fg.PriorityOrder) != 2 {
+		t.Errorf("PriorityOrder length = %d, want 2", len(fg.PriorityOrder))
+	}
+	if fg.EntryEnabled[po[0].String()] != true {
+		t.Errorf("EntryEnabled[%q] = %v, want true", po[0].String(), fg.EntryEnabled[po[0].String()])
+	}
+	if fg.EntryEnabled[po[1].String()] != false {
+		t.Errorf("EntryEnabled[%q] = %v, want false", po[1].String(), fg.EntryEnabled[po[1].String()])
+	}
+
+	// Verify via GetByModel
+	InvalidateFailoverCache()
+	found, err := repo.GetByModel(ctx, displayModel)
+	if err != nil {
+		t.Fatalf("GetByModel failed: %v", err)
+	}
+	if found.DisplayName == nil || *found.DisplayName != displayName {
+		t.Errorf("GetByModel DisplayName = %v, want %q", found.DisplayName, displayName)
+	}
+	if found.Description != description {
+		t.Errorf("GetByModel Description = %q, want %q", found.Description, description)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Integration tests — GetByID edge cases
 // ---------------------------------------------------------------------------
 

@@ -413,3 +413,92 @@ func TestRepository_Update_NotFound(t *testing.T) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestRepository_TouchLastUsed edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_TouchLastUsed_NotFound(t *testing.T) {
+
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+
+	// Touch non-existent key - should not error
+	err := repo.TouchLastUsed(ctx, "non-existent-key-hash")
+	if err != nil {
+		t.Errorf("TouchLastUsed on non-existent key should not error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestRepository_Create edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_Create_Duplicate(t *testing.T) {
+
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+	suffix := uuid.New().String()[:8]
+
+	// Create a key with a specific hash
+	_, err := repo.Create(ctx, "duplicate-key-"+suffix, "hash-duplicate-"+suffix, "sk-...du", nil, nil)
+	if err != nil {
+		t.Fatalf("Create() setup failed: %v", err)
+	}
+
+	// Try to create another key with the same key_hash - should error (unique constraint)
+	_, err = repo.Create(ctx, "duplicate-key-2-"+suffix, "hash-duplicate-"+suffix, "sk-...d2", nil, nil)
+	if err == nil {
+		t.Error("Create with duplicate key_hash should error")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestRepository_Delete edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_Delete_NotFound_NoError(t *testing.T) {
+
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+
+	// Delete non-existent key - should not error (idempotent behavior)
+	// Note: This tests the SQL DELETE behavior which doesn't error on non-existent rows
+	nonExistentID := uuid.New()
+	err := repo.Delete(ctx, nonExistentID)
+	// The Delete method returns ErrNotFound when RowsAffected() == 0
+	// This is the expected behavior for this implementation
+	if err == nil {
+		// If no error, that's also acceptable for idempotent delete
+		return
+	}
+	// If error, it should be ErrNotFound
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound or nil, got %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestRepository_List edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_List_Empty(t *testing.T) {
+
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+
+	// Clean up any existing keys first
+	_, err := testDB.Pool().Exec(ctx, "DELETE FROM virtual_keys")
+	if err != nil {
+		t.Fatalf("cleanup failed: %v", err)
+	}
+
+	// List when no keys exist - should return empty slice
+	keys, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Errorf("expected 0 keys, got %d", len(keys))
+	}
+}

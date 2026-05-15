@@ -1051,3 +1051,201 @@ func TestGetByIDs(t *testing.T) {
 		t.Errorf("expected 0 models for nil input, got %d", len(empty))
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestDeleteByID edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_DeleteByID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	// Delete non-existent model - should not error (idempotent)
+	nonExistentID := uuid.New()
+	err := repo.DeleteByID(ctx, nonExistentID)
+	if err != nil {
+		t.Errorf("DeleteByID on non-existent model should not error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestSetEnabled edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_SetEnabled_DisableThenVerify(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-setenabled-verify")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	// Create a model
+	modelID := uuid.New()
+	_, err := testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
+		VALUES ($1, $2, $3, $4, true, now())
+	`, modelID, providerID, "setenabled-verify", "SetEnabled Verify")
+	if err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+
+	// Disable it
+	updated, err := repo.SetEnabled(ctx, modelID, false)
+	if err != nil {
+		t.Fatalf("SetEnabled failed: %v", err)
+	}
+
+	// Verify enabled=false
+	if updated.Enabled {
+		t.Error("model should be disabled after SetEnabled(false)")
+	}
+
+	// Verify in database
+	var enabled bool
+	err = testPool.QueryRow(ctx, `SELECT enabled FROM models WHERE id = $1`, modelID).Scan(&enabled)
+	if err != nil {
+		t.Fatalf("failed to query model: %v", err)
+	}
+	if enabled {
+		t.Error("database should show enabled=false")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestUpsert edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_Upsert_NewModel(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-new")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	modelID := uuid.New()
+	model := &Model{
+		ID:               modelID,
+		ProviderID:       providerID,
+		ModelID:          "upsert-new-model",
+		Name:             "New Upsert Model",
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+
+	err := repo.Upsert(ctx, model)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+
+	// Verify the model was created
+	var name string
+	err = testPool.QueryRow(ctx, `SELECT name FROM models WHERE id = $1`, modelID).Scan(&name)
+	if err != nil {
+		t.Fatalf("failed to query model: %v", err)
+	}
+	if name != "New Upsert Model" {
+		t.Errorf("expected name 'New Upsert Model', got %q", name)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestGetByIDs edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_GetByIDs_NotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	// Get by non-existent IDs - should return empty result
+	id1 := uuid.New()
+	id2 := uuid.New()
+
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("GetByIDs failed: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty result for non-existent IDs, got %d", len(result))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestGetByModelID edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_GetByModelID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	// Get by non-existent model ID - should return nil/empty
+	models, err := repo.GetByModelID(ctx, "non-existent-model-id")
+	if err != nil {
+		t.Fatalf("GetByModelID failed: %v", err)
+	}
+	if len(models) != 0 {
+		t.Errorf("expected 0 models for non-existent model ID, got %d", len(models))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestDisableMissingModels edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-disable-missing-crud")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	// Create two models
+	modelID1 := uuid.New()
+	modelID2 := uuid.New()
+	_, err := testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
+		VALUES ($1, $2, $3, $4, true, now())
+	`, modelID1, providerID, "keep-this-model", "Keep This Model")
+	if err != nil {
+		t.Fatalf("insert model1 failed: %v", err)
+	}
+	_, err = testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
+		VALUES ($1, $2, $3, $4, true, now())
+	`, modelID2, providerID, "remove-this-model", "Remove This Model")
+	if err != nil {
+		t.Fatalf("insert model2 failed: %v", err)
+	}
+
+	// Call DisableMissingModels with only modelID1 in the list - should disable modelID2
+	count, err := repo.DisableMissingModels(ctx, providerID, []string{"keep-this-model"})
+	if err != nil {
+		t.Fatalf("DisableMissingModels failed: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 row affected, got %d", count)
+	}
+
+	// Verify modelID1 is still enabled
+	var enabled1 bool
+	err = testPool.QueryRow(ctx, `SELECT enabled FROM models WHERE id = $1`, modelID1).Scan(&enabled1)
+	if err != nil {
+		t.Fatalf("failed to query model1: %v", err)
+	}
+	if !enabled1 {
+		t.Error("model1 should still be enabled")
+	}
+
+	// Verify modelID2 is now disabled
+	var enabled2 bool
+	err = testPool.QueryRow(ctx, `SELECT enabled FROM models WHERE id = $1`, modelID2).Scan(&enabled2)
+	if err != nil {
+		t.Fatalf("failed to query model2: %v", err)
+	}
+	if enabled2 {
+		t.Error("model2 should be disabled after DisableMissingModels")
+	}
+}

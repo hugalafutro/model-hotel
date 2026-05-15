@@ -613,3 +613,63 @@ func TestConcurrentSetGetSubscribe(t *testing.T) {
 
 	wg.Wait()
 }
+
+// ---------------------------------------------------------------------------
+// TestGetAll edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_GetAll_Empty(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// GetAll when no settings exist - should return empty map
+	result, err := r.GetAll(ctx)
+	if err != nil {
+		t.Fatalf("GetAll failed: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty map, got %d entries", len(result))
+	}
+}
+
+func TestRepository_SetAndGetAll(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Set a setting
+	err := r.Set(ctx, "test_setting", "test_value")
+	if err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+
+	// GetAll should include it
+	result, err := r.GetAll(ctx)
+	if err != nil {
+		t.Fatalf("GetAll failed: %v", err)
+	}
+	if len(result) < 1 {
+		t.Errorf("expected at least 1 setting, got %d", len(result))
+	}
+	if val, ok := result["test_setting"]; !ok || val != "test_value" {
+		t.Errorf("expected test_setting=test_value, got %q", result["test_setting"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestGetWithDefault edge cases
+// ---------------------------------------------------------------------------
+
+func TestRepository_GetWithDefault_Missing(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Get non-existent key with default - should return default
+	defaultValue := "my_default_value"
+	result := r.GetWithDefault(ctx, "non_existent_key", defaultValue)
+	if result != defaultValue {
+		t.Errorf("expected default %q, got %q", defaultValue, result)
+	}
+}
