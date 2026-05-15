@@ -1644,3 +1644,153 @@ func TestCollectDockerStats_SecondCall(t *testing.T) {
 		t.Errorf("expected positive DiskWriteBytesSec on second call, got %f", result2.DiskWriteBytesSec)
 	}
 }
+
+// TestListComposeContainers_JSONDecodeError tests JSON decode error handling
+func TestListComposeContainers_JSONDecodeError(t *testing.T) {
+	resetDockerState()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/containers/json" {
+			w.WriteHeader(http.StatusOK)
+			// Return malformed JSON that doesn't match DockerContainer struct
+			w.Write([]byte(`{"invalid": "json", "structure": "mismatch"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	if !IsDockerAvailable() {
+		t.Skip("Docker not available in test setup")
+	}
+
+	_, err := ListComposeContainers("myapp")
+	if err == nil {
+		t.Error("expected error for malformed JSON response")
+	}
+}
+
+// TestGetContainerStats_JSONDecodeError tests JSON decode error handling
+func TestGetContainerStats_JSONDecodeError(t *testing.T) {
+	resetDockerState()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/containers/abc123def4567/stats" {
+			w.WriteHeader(http.StatusOK)
+			// Return truly malformed JSON that will cause decode error
+			w.Write([]byte(`{invalid json that cannot be parsed}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	stats, err := GetContainerStats("abc123def4567")
+	if err == nil {
+		t.Error("expected error for malformed JSON response")
+	}
+	if stats != nil {
+		t.Errorf("expected nil stats, got %v", stats)
+	}
+}
+
+// TestCollectDockerStats_ProcsFallbackToPids tests fallback from Procs to Pids when num_procs is 0
+func TestCollectDockerStats_ProcsFallbackToPids(t *testing.T) {
+	resetDockerState()
+
+	containers := []DockerContainer{
+		{ID: "aaa111bbb222", Name: "web", State: "running", Labels: map[string]string{"com.docker.compose.project": "myapp"}},
+	}
+
+	// num_procs: 0 but pids_stats.current: 10 - should use Pids (10) instead of Procs (0)
+	var statsResp dockerStatsResponse
+	json.Unmarshal([]byte(`{
+		"cpu_stats": {
+			"cpu_usage": {"total_usage": 200, "percpu_usage": [100, 100]},
+			"system_cpu_usage": 1000,
+			"online_cpus": 1
+		},
+		"precpu_stats": {
+			"cpu_usage": {"total_usage": 100, "percpu_usage": [50, 50]},
+			"system_cpu_usage": 0,
+			"online_cpus": 1
+		},
+		"memory_stats": {
+			"usage": 500000,
+			"limit": 1000000,
+			"stats": {}
+		},
+		"networks": {},
+		"blkio_stats": {
+			"io_service_bytes_recursive": []
+		},
+		"num_procs": 0,
+		"pids_stats": {"current": 10}
+	}`), &statsResp)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/info":
+			w.WriteHeader(http.StatusOK)
+		case "/containers/json":
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(containers)
+		case "/containers/aaa111bbb222/stats":
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(statsResp)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	result := CollectDockerStats("myapp")
+	if !result.Available {
+		t.Fatal("expected Available=true")
+	}
+	// Should use Pids (10) as fallback when Procs is 0
+	if result.Procs != 10 {
+		t.Errorf("Procs = %d, want 10 (fallback from Pids)", result.Procs)
+	}
+}
