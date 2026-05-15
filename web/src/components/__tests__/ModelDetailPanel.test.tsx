@@ -383,6 +383,137 @@ describe("ModelDetailPanel", () => {
 		const title = screen.getByRole("heading", { level: 3 });
 		expect(title).toHaveTextContent("test-model-v1");
 	});
+
+	it("shows ReasoningEffortSelect when model has reasoning capability and provider supports it", async () => {
+		const user = userEvent.setup();
+		const reasoningModel = {
+			...mockModel,
+			capabilities: '{"reasoning":true}',
+			provider_name: "OpenAI",
+		};
+
+		renderWithProviders(
+			<ModelDetailPanel
+				model={reasoningModel}
+				params={{}}
+				onParamsChange={vi.fn()}
+			/>,
+		);
+
+		// Open settings panel
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+
+		// Reasoning Effort section should be visible
+		expect(screen.getByText(/Reasoning Effort/i)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /Low/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /Medium/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /High/i })).toBeInTheDocument();
+	});
+
+	it("does NOT show ReasoningEffortSelect when model has no reasoning capability", async () => {
+		const user = userEvent.setup();
+		const nonReasoningModel = {
+			...mockModel,
+			capabilities: '{"reasoning":false}',
+			provider_name: "OpenAI",
+		};
+
+		renderWithProviders(
+			<ModelDetailPanel
+				model={nonReasoningModel}
+				params={{}}
+				onParamsChange={vi.fn()}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+
+		expect(screen.queryByText(/Reasoning Effort/i)).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /Low/i }),
+		).not.toBeInTheDocument();
+	});
+
+	it("does NOT show ReasoningEffortSelect when model capabilities don't include reasoning", async () => {
+		const user = userEvent.setup();
+		const modelWithoutReasoning = {
+			...mockModel,
+			capabilities: '{"streaming":true,"vision":false}',
+			provider_name: "OpenAI",
+		};
+
+		renderWithProviders(
+			<ModelDetailPanel
+				model={modelWithoutReasoning}
+				params={{}}
+				onParamsChange={vi.fn()}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+
+		expect(screen.queryByText(/Reasoning Effort/i)).not.toBeInTheDocument();
+	});
+
+	it("does NOT show ReasoningEffortSelect when provider doesn't support reasoning_effort (Anthropic)", async () => {
+		const user = userEvent.setup();
+		const anthropicReasoningModel = {
+			...mockModel,
+			capabilities: '{"reasoning":true}',
+			provider_name: "Anthropic",
+		};
+
+		renderWithProviders(
+			<ModelDetailPanel
+				model={anthropicReasoningModel}
+				params={{}}
+				onParamsChange={vi.fn()}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+
+		expect(screen.queryByText(/Reasoning Effort/i)).not.toBeInTheDocument();
+	});
+
+	it("hides incompatible sliders for Anthropic provider (top_p, min_p, freq penalty, pres penalty)", async () => {
+		const user = userEvent.setup();
+		const anthropicModel = {
+			...mockModel,
+			provider_name: "Anthropic",
+		};
+
+		renderWithProviders(
+			<ModelDetailPanel
+				model={anthropicModel}
+				params={{}}
+				onParamsChange={vi.fn()}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+
+		// These should NOT be in the DOM for Anthropic
+		expect(screen.queryByText("Top P")).not.toBeInTheDocument();
+		expect(screen.queryByText("Min P")).not.toBeInTheDocument();
+		expect(screen.queryByText("Freq Penalty")).not.toBeInTheDocument();
+		expect(screen.queryByText("Pres Penalty")).not.toBeInTheDocument();
+
+		// These should still be visible
+		expect(screen.getByText("Temperature")).toBeInTheDocument();
+		expect(screen.getByText("Max Tokens")).toBeInTheDocument();
+		expect(screen.getByText("Top K")).toBeInTheDocument();
+	});
 });
 
 describe("ModelDetailModal", () => {

@@ -18,6 +18,7 @@ import { PersonaPicker } from "../components/PersonaPicker";
 import { PromptPicker } from "../components/PromptPicker";
 import { SubModeToggle } from "../components/SubModeToggle";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+import { parseCapabilities } from "../utils/model";
 import { MatchupCard } from "./Arena/MatchupCard";
 import { ParamEditorModal } from "./Arena/ParamEditorModal";
 import { ResponseCard } from "./Arena/ResponseCard";
@@ -684,6 +685,15 @@ export function Arena() {
 					}}
 					onClose={() => arena.setParamEditorModel(null)}
 					knownProviders={arena.enabledModels.map((m) => m.provider_name)}
+					reasoning={(() => {
+						const model = arena.enabledModels.find(
+							(m) =>
+								`${m.provider_name}/${m.model_id}` === arena.paramEditorModel,
+						);
+						return model
+							? (parseCapabilities(model.capabilities).reasoning ?? false)
+							: false;
+					})()}
 				/>
 			)}
 

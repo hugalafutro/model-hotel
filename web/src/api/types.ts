@@ -399,6 +399,7 @@ export interface GenerationParams {
 	top_k?: number;
 	frequency_penalty?: number;
 	presence_penalty?: number;
+	reasoning_effort?: string; // "low" | "medium" | "high" — OpenAI o1/o3 reasoning depth
 }
 
 /** OpenAI-compatible multimodal content part types */

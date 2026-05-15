@@ -15,6 +15,7 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 		presence_penalty:
 			"Anthropic uses a single penalties parameter, not separate frequency/presence",
 		min_p: "Not supported by the Anthropic API",
+		reasoning_effort: "Not supported by the Anthropic API",
 	},
 	google: {
 		frequency_penalty: "Gemini does not support frequency/presence penalties",
@@ -22,10 +23,12 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 		top_k:
 			"Gemini top_k behaves differently from OpenAI top_k; use top_p instead",
 		min_p: "Not supported by the Google Gemini API",
+		reasoning_effort: "Not supported by the Google Gemini API",
 	},
 	cohere: {
 		top_k: "Cohere uses a different 'k' parameter; not recommended",
 		min_p: "Not supported by the Cohere API",
+		reasoning_effort: "Not supported by the Cohere API",
 	},
 	openai: {
 		min_p: "Not part of the OpenAI API",
@@ -34,6 +37,7 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	deepseek: {
 		min_p: "Not supported by the DeepSeek API",
 		top_k: "Not supported by the DeepSeek API",
+		reasoning_effort: "Not supported by the DeepSeek API",
 	},
 	xai: {
 		min_p: "Not supported by the xAI API",
@@ -41,18 +45,38 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	},
 	ollama: {
 		min_p: "Support varies by underlying model; not universally available",
+		reasoning_effort: "Not supported by Ollama",
+	},
+	"ollama-cloud": {
+		min_p: "Support varies by underlying model; not universally available",
+		reasoning_effort: "Not supported by Ollama",
 	},
 	"zai-coding": {
 		min_p: "Not supported by z.ai Coding",
 		top_k: "Not supported by z.ai Coding",
+		reasoning_effort: "Not supported by z.ai Coding",
 	},
-	nanogpt: {},
-	openrouter: {},
-	"opencode-zen": {},
-	"opencode-go": {},
-	koboldcpp: {},
-	lmstudio: {},
-	custom: {},
+	nanogpt: {
+		reasoning_effort: "Not supported by NanoGPT",
+	},
+	openrouter: {
+		reasoning_effort: "Not supported by OpenRouter",
+	},
+	"opencode-zen": {
+		reasoning_effort: "Not supported",
+	},
+	"opencode-go": {
+		reasoning_effort: "Not supported",
+	},
+	koboldcpp: {
+		reasoning_effort: "Not supported",
+	},
+	lmstudio: {
+		reasoning_effort: "Not supported",
+	},
+	custom: {
+		reasoning_effort: "Not supported",
+	},
 };
 
 /**
@@ -84,6 +108,7 @@ export function normalizeToProviderType(providerName: string): string {
 		deepseek: ["deepseek"],
 		xai: ["xai", "x.ai", "grok"],
 		ollama: ["ollama"],
+		"ollama-cloud": ["ollama-cloud", "ollama cloud"],
 		openrouter: ["openrouter"],
 		cohere: ["cohere"],
 		"zai-coding": ["z.ai", "zai", "z-ai"],
@@ -127,4 +152,15 @@ export function isParamDisabled(
 	paramKey: keyof GenerationParams,
 ): boolean {
 	return getParamIncompatibility(providerName, paramKey) !== null;
+}
+
+/**
+ * Returns true if the param should be hidden (not shown at all) for the given provider.
+ * Currently, all incompatible params are hidden instead of disabled.
+ */
+export function isParamHidden(
+	providerName: string,
+	paramKey: keyof GenerationParams,
+): boolean {
+	return isParamDisabled(providerName, paramKey);
 }

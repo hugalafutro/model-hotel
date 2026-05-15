@@ -105,8 +105,9 @@ type Choice struct {
 
 // Message represents a chat message with role and content.
 type Message struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content"`
+	Role             string      `json:"role"`
+	Content          interface{} `json:"content"`
+	ReasoningContent string      `json:"reasoning_content,omitempty"`
 }
 
 // Usage contains token usage statistics for a request.

@@ -8,13 +8,18 @@ import {
 import { useState } from "react";
 import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
-import { getParamIncompatibility, isParamDisabled } from "../utils/paramCompat";
+import {
+	getParamIncompatibility,
+	isParamDisabled,
+	isParamHidden,
+} from "../utils/paramCompat";
 import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
 import { CapBadge } from "./CapBadge";
 import { CopyablePill } from "./CopyablePill";
 import { CAP_META } from "./capMeta";
 import { Modal } from "./Modal";
 import { ParamSlider } from "./ParamSlider";
+import { ReasoningEffortSelect } from "./ReasoningEffortSelect";
 
 interface ModelDetailPanelProps {
 	model: Model;
@@ -56,7 +61,8 @@ export function ModelDetailPanel({
 			params.min_p !== undefined ||
 			params.top_k !== undefined ||
 			params.frequency_penalty !== undefined ||
-			params.presence_penalty !== undefined
+			params.presence_penalty !== undefined ||
+			params.reasoning_effort !== undefined
 		: false;
 
 	const tintClass =
@@ -163,130 +169,159 @@ export function ModelDetailPanel({
 								}`}
 							>
 								<div className="space-y-2">
-									<ParamSlider
-										label="Temperature"
-										value={params?.temperature}
-										min={0}
-										max={2}
-										step={0.01}
-										disabled={isParamDisabled(provider, "temperature")}
-										disabledReason={
-											getParamIncompatibility(provider, "temperature") ??
-											undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												temperature: v,
-											})
-										}
-									/>
-									<ParamSlider
-										label="Max Tokens"
-										value={params?.max_tokens}
-										min={1}
-										max={32768}
-										step={1}
-										disabled={isParamDisabled(provider, "max_tokens")}
-										disabledReason={
-											getParamIncompatibility(provider, "max_tokens") ??
-											undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												max_tokens: v === undefined ? undefined : Math.round(v),
-											})
-										}
-									/>
-									<ParamSlider
-										label="Top P"
-										value={params?.top_p}
-										min={0}
-										max={1}
-										step={0.01}
-										disabled={isParamDisabled(provider, "top_p")}
-										disabledReason={
-											getParamIncompatibility(provider, "top_p") ?? undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												top_p: v,
-											})
-										}
-									/>
-									<ParamSlider
-										label="Min P"
-										value={params?.min_p}
-										min={0}
-										max={1}
-										step={0.01}
-										disabled={isParamDisabled(provider, "min_p")}
-										disabledReason={
-											getParamIncompatibility(provider, "min_p") ?? undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												min_p: v,
-											})
-										}
-									/>
-									<ParamSlider
-										label="Top K"
-										value={params?.top_k}
-										min={1}
-										max={100}
-										step={1}
-										disabled={isParamDisabled(provider, "top_k")}
-										disabledReason={
-											getParamIncompatibility(provider, "top_k") ?? undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												top_k: v === undefined ? undefined : Math.round(v),
-											})
-										}
-									/>
-									<ParamSlider
-										label="Freq Penalty"
-										value={params?.frequency_penalty}
-										min={-2}
-										max={2}
-										step={0.01}
-										disabled={isParamDisabled(provider, "frequency_penalty")}
-										disabledReason={
-											getParamIncompatibility(provider, "frequency_penalty") ??
-											undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												frequency_penalty: v,
-											})
-										}
-									/>
-									<ParamSlider
-										label="Pres Penalty"
-										value={params?.presence_penalty}
-										min={-2}
-										max={2}
-										step={0.01}
-										disabled={isParamDisabled(provider, "presence_penalty")}
-										disabledReason={
-											getParamIncompatibility(provider, "presence_penalty") ??
-											undefined
-										}
-										onChange={(v) =>
-											onParamsChange?.({
-												...(params as GenerationParams),
-												presence_penalty: v,
-											})
-										}
-									/>
+									{!isParamHidden(provider, "temperature") && (
+										<ParamSlider
+											label="Temperature"
+											value={params?.temperature}
+											min={0}
+											max={2}
+											step={0.01}
+											disabled={isParamDisabled(provider, "temperature")}
+											disabledReason={
+												getParamIncompatibility(provider, "temperature") ??
+												undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													temperature: v,
+												})
+											}
+										/>
+									)}
+									{!isParamHidden(provider, "max_tokens") && (
+										<ParamSlider
+											label="Max Tokens"
+											value={params?.max_tokens}
+											min={1}
+											max={32768}
+											step={1}
+											disabled={isParamDisabled(provider, "max_tokens")}
+											disabledReason={
+												getParamIncompatibility(provider, "max_tokens") ??
+												undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													max_tokens:
+														v === undefined ? undefined : Math.round(v),
+												})
+											}
+										/>
+									)}
+									{!isParamHidden(provider, "top_p") && (
+										<ParamSlider
+											label="Top P"
+											value={params?.top_p}
+											min={0}
+											max={1}
+											step={0.01}
+											disabled={isParamDisabled(provider, "top_p")}
+											disabledReason={
+												getParamIncompatibility(provider, "top_p") ?? undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													top_p: v,
+												})
+											}
+										/>
+									)}
+									{!isParamHidden(provider, "min_p") && (
+										<ParamSlider
+											label="Min P"
+											value={params?.min_p}
+											min={0}
+											max={1}
+											step={0.01}
+											disabled={isParamDisabled(provider, "min_p")}
+											disabledReason={
+												getParamIncompatibility(provider, "min_p") ?? undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													min_p: v,
+												})
+											}
+										/>
+									)}
+									{!isParamHidden(provider, "top_k") && (
+										<ParamSlider
+											label="Top K"
+											value={params?.top_k}
+											min={1}
+											max={100}
+											step={1}
+											disabled={isParamDisabled(provider, "top_k")}
+											disabledReason={
+												getParamIncompatibility(provider, "top_k") ?? undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													top_k: v === undefined ? undefined : Math.round(v),
+												})
+											}
+										/>
+									)}
+									{!isParamHidden(provider, "frequency_penalty") && (
+										<ParamSlider
+											label="Freq Penalty"
+											value={params?.frequency_penalty}
+											min={-2}
+											max={2}
+											step={0.01}
+											disabled={isParamDisabled(provider, "frequency_penalty")}
+											disabledReason={
+												getParamIncompatibility(
+													provider,
+													"frequency_penalty",
+												) ?? undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													frequency_penalty: v,
+												})
+											}
+										/>
+									)}
+									{!isParamHidden(provider, "presence_penalty") && (
+										<ParamSlider
+											label="Pres Penalty"
+											value={params?.presence_penalty}
+											min={-2}
+											max={2}
+											step={0.01}
+											disabled={isParamDisabled(provider, "presence_penalty")}
+											disabledReason={
+												getParamIncompatibility(provider, "presence_penalty") ??
+												undefined
+											}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													presence_penalty: v,
+												})
+											}
+										/>
+									)}
 								</div>
+								{caps.reasoning &&
+									!isParamHidden(provider, "reasoning_effort") && (
+										<ReasoningEffortSelect
+											value={params?.reasoning_effort}
+											onChange={(v) =>
+												onParamsChange?.({
+													...(params as GenerationParams),
+													reasoning_effort: v,
+												})
+											}
+										/>
+									)}
 								{/* Recommended settings button */}
 								<ApplyRecommendedButton
 									modelId={proxyModelID(model.provider_name, model.model_id)}

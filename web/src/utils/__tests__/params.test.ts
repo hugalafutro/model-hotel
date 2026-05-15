@@ -80,4 +80,10 @@ describe("hasAnyParam", () => {
 		};
 		expect(hasAnyParam(params)).toBe(false);
 	});
+
+	it("returns true when reasoning_effort is set", () => {
+		expect(hasAnyParam({ reasoning_effort: "high" })).toBe(true);
+		expect(hasAnyParam({ reasoning_effort: "medium" })).toBe(true);
+		expect(hasAnyParam({ reasoning_effort: "low" })).toBe(true);
+	});
 });

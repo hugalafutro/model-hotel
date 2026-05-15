@@ -334,3 +334,70 @@ func TestHandleNonStreamingResponse_WithVirtualKeyHash(t *testing.T) {
 
 	assert.Equal(t, "completed", logData.state)
 }
+
+// TestHandleNonStreamingResponse_WithReasoningContent tests that
+// reasoning_content in the message is preserved through re-serialization.
+func TestHandleNonStreamingResponse_WithReasoningContent(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{
+		"id": "chatcmpl-reasoning",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "deepseek-reasoner",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "The answer is 42.",
+				"reasoning_content": "Let me think about this step by step..."
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 10,
+			"completion_tokens": 20,
+			"total_tokens": 30
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "deepseek-reasoner",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "deepseek-reasoner", decodedResp.Model)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "The answer is 42.", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, "Let me think about this step by step...", decodedResp.Choices[0].Message.ReasoningContent)
+
+	assert.Equal(t, "completed", logData.state)
+}

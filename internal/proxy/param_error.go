@@ -16,6 +16,7 @@ var providerUnsupportedParams = map[string][]string{
 		"frequency_penalty", // Anthropic uses a single penalties param, not separate freq/presence
 		"presence_penalty",  // Anthropic uses a single penalties param, not separate freq/presence
 		"min_p",             // not part of Anthropic API
+		"reasoning_effort",  // not supported by Anthropic API
 	},
 	"google": {
 		"frequency_penalty", // not supported on Gemini OpenAI-compat endpoint
@@ -24,24 +25,54 @@ var providerUnsupportedParams = map[string][]string{
 		"top_logprobs",      // not supported
 		"min_p",             // not supported on Gemini API
 		"top_k",             // Gemini top_k ≠ OpenAI top_k; causes unexpected behavior
+		"reasoning_effort",  // not supported on Gemini API
 	},
 	"cohere": {
-		"logprobs",     // not supported
-		"top_logprobs", // not supported
-		"min_p",        // not supported
-		"top_k",        // Cohere uses 'k' differently; not recommended
+		"logprobs",         // not supported
+		"top_logprobs",     // not supported
+		"min_p",            // not supported
+		"top_k",            // Cohere uses 'k' differently; not recommended
+		"reasoning_effort", // not supported by Cohere API
 	},
 	"openai": {
 		"min_p", // not part of OpenAI API
 		"top_k", // not part of OpenAI API
 	},
 	"deepseek": {
-		"min_p", // not supported by DeepSeek API
-		"top_k", // not supported by DeepSeek API
+		"min_p",            // not supported by DeepSeek API
+		"top_k",            // not supported by DeepSeek API
+		"reasoning_effort", // not supported by DeepSeek API
 	},
 	"xai": {
 		"min_p", // not supported by xAI API
 		"top_k", // not supported by xAI API
+	},
+	"ollama": {
+		"reasoning_effort", // not supported by Ollama
+	},
+	"ollama-cloud": {
+		"reasoning_effort", // not supported by Ollama Cloud
+	},
+	"koboldcpp": {
+		"reasoning_effort", // not supported by KoboldCpp
+	},
+	"lmstudio": {
+		"reasoning_effort", // not supported by LM Studio
+	},
+	"nanogpt": {
+		"reasoning_effort", // not supported by NanoGPT
+	},
+	"zai-coding": {
+		"reasoning_effort", // not supported by z.ai Coding
+	},
+	"openrouter": {
+		"reasoning_effort", // not supported by OpenRouter
+	},
+	"opencode-zen": {
+		"reasoning_effort", // not supported
+	},
+	"opencode-go": {
+		"reasoning_effort", // not supported
 	},
 }
 

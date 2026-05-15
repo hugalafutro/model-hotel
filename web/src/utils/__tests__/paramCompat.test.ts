@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { GenerationParams } from "../../api/types";
 import {
 	getParamIncompatibility,
 	isParamDisabled,
+	isParamHidden,
 	normalizeToProviderType,
 } from "../paramCompat";
 
@@ -44,9 +46,8 @@ describe("normalizeToProviderType", () => {
 		expect(normalizeToProviderType("z.ai Coding")).toBe("zai-coding");
 	});
 
-	it("handles Ollama Cloud (falls back to ollama)", () => {
-		// "Ollama Cloud" contains "ollama" substring, so it matches ollama first
-		expect(normalizeToProviderType("Ollama Cloud")).toBe("ollama");
+	it("handles Ollama Cloud (matches ollama-cloud directly)", () => {
+		expect(normalizeToProviderType("Ollama Cloud")).toBe("ollama-cloud");
 	});
 });
 
@@ -114,8 +115,8 @@ describe("getParamIncompatibility", () => {
 });
 
 describe("normalizeToProviderType - substring heuristic", () => {
-	it("matches Ollama Cloud to ollama", () => {
-		expect(normalizeToProviderType("Ollama Cloud")).toBe("ollama");
+	it("matches Ollama Cloud to ollama-cloud", () => {
+		expect(normalizeToProviderType("Ollama Cloud")).toBe("ollama-cloud");
 	});
 
 	it("matches LM Studio Local to lmstudio", () => {
@@ -204,14 +205,9 @@ describe("provider incompatibility coverage", () => {
 });
 
 describe("isParamDisabled - empty rules providers", () => {
-	const emptyRuleProviders = [
-		"koboldcpp",
-		"lmstudio",
-		"custom",
-		"openrouter",
-		"opencode-zen",
-		"opencode-go",
-	];
+	// Only custom has truly empty rules (no incompatibilities)
+	// nanogpt has reasoning_effort incompatibility
+	const emptyRuleProviders = ["custom"];
 
 	const commonParams = [
 		"temperature",
@@ -274,12 +270,69 @@ describe("isParamDisabled", () => {
 		expect(isParamDisabled("unknown", "min_p")).toBe(false);
 	});
 
-	it("returns false for nanogpt (empty rules)", () => {
+	it("returns false for nanogpt common params (but not reasoning_effort)", () => {
 		expect(isParamDisabled("nanogpt", "min_p")).toBe(false);
+		expect(isParamDisabled("nanogpt", "reasoning_effort")).toBe(true);
 	});
 
 	it("handles case-insensitive provider names", () => {
 		expect(isParamDisabled("OpenAI", "min_p")).toBe(true);
 		expect(isParamDisabled("GOOGLE", "frequency_penalty")).toBe(true);
+	});
+});
+
+describe("isParamHidden", () => {
+	it("returns true when isParamDisabled returns true", () => {
+		expect(isParamHidden("openai", "min_p")).toBe(true);
+		expect(isParamHidden("anthropic", "top_p")).toBe(true);
+		expect(isParamHidden("google", "frequency_penalty")).toBe(true);
+	});
+
+	it("returns false when isParamDisabled returns false", () => {
+		expect(isParamHidden("openai", "temperature")).toBe(false);
+		expect(isParamHidden("openai", "top_p")).toBe(false);
+		expect(isParamHidden("anthropic", "temperature")).toBe(false);
+	});
+
+	it("returns false for unknown providers", () => {
+		expect(isParamHidden("unknown", "min_p")).toBe(false);
+	});
+});
+
+describe("reasoning_effort incompatibility", () => {
+	const providersWithReasoningEffortIncompatible = [
+		"anthropic",
+		"google",
+		"cohere",
+		"deepseek",
+		"ollama",
+		"ollama-cloud",
+		"zai-coding",
+		"koboldcpp",
+		"lmstudio",
+		"nanogpt",
+		"openrouter",
+		"opencode-zen",
+		"opencode-go",
+	];
+
+	const providersWithReasoningEffortCompatible = ["openai", "xai"];
+
+	it.each(
+		providersWithReasoningEffortIncompatible,
+	)("reasoning_effort is incompatible for %s", (provider) => {
+		expect(isParamDisabled(provider, "reasoning_effort")).toBe(true);
+		expect(isParamHidden(provider, "reasoning_effort")).toBe(true);
+		expect(getParamIncompatibility(provider, "reasoning_effort")).toMatch(
+			/Not supported/i,
+		);
+	});
+
+	it.each(
+		providersWithReasoningEffortCompatible,
+	)("reasoning_effort is compatible for %s", (provider) => {
+		expect(isParamDisabled(provider, "reasoning_effort")).toBe(false);
+		expect(isParamHidden(provider, "reasoning_effort")).toBe(false);
+		expect(getParamIncompatibility(provider, "reasoning_effort")).toBeNull();
 	});
 });

@@ -8,6 +8,7 @@ export function hasAnyParam(p: GenerationParams): boolean {
 		p.min_p !== undefined ||
 		p.top_k !== undefined ||
 		p.frequency_penalty !== undefined ||
-		p.presence_penalty !== undefined
+		p.presence_penalty !== undefined ||
+		p.reasoning_effort !== undefined
 	);
 }

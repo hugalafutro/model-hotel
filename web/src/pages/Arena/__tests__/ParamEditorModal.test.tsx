@@ -7,17 +7,17 @@ import { ParamEditorModal } from "../ParamEditorModal";
 
 describe("ParamEditorModal", () => {
 	const defaultProps = {
-		modelId: "Ollama Cloud/gemma3:4b",
+		modelId: "Test Provider/gemma3:4b",
 		params: {} as GenerationParams,
 		onChange: vi.fn(),
 		onClose: vi.fn(),
-		knownProviders: ["Ollama Cloud", "OpenAI"],
+		knownProviders: ["Test Provider"],
 	};
 
 	it("renders modal with model ID as title", () => {
 		renderWithProviders(<ParamEditorModal {...defaultProps} />);
 
-		expect(screen.getByText("Ollama Cloud/gemma3:4b")).toBeInTheDocument();
+		expect(screen.getByText("Test Provider/gemma3:4b")).toBeInTheDocument();
 	});
 
 	it("renders all parameter sliders with correct labels", () => {
@@ -178,14 +178,29 @@ describe("ParamEditorModal", () => {
 		expect(button).toBeInTheDocument();
 	});
 
-	it("disables sliders when param is disabled for provider", () => {
-		// This tests the paramCompat integration - sliders should show disabled state
-		// when isParamDisabled returns true for the provider
-		renderWithProviders(<ParamEditorModal {...defaultProps} />);
+	it("hides sliders for incompatible params (Anthropic)", () => {
+		// This tests the paramCompat integration - sliders should be hidden
+		// when isParamHidden returns true for the provider
+		const anthropicProps = {
+			modelId: "Anthropic Pro/gemma3:4b",
+			params: {} as GenerationParams,
+			onChange: vi.fn(),
+			onClose: vi.fn(),
+			knownProviders: ["Anthropic Pro"],
+		};
 
-		// All sliders should be enabled by default for Ollama Cloud
-		// Find the temperature number input (first one)
-		const numberInputs = screen.getAllByRole("spinbutton");
-		expect(numberInputs[0]).not.toBeDisabled();
+		renderWithProviders(<ParamEditorModal {...anthropicProps} />);
+
+		// Anthropic has min_p, top_p, frequency_penalty, presence_penalty as incompatible
+		// These sliders should be hidden (not present in the DOM)
+		expect(screen.queryByText(/Min P/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Top P/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Freq Penalty/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Pres Penalty/i)).not.toBeInTheDocument();
+
+		// Compatible sliders should still be present
+		expect(screen.getByText(/Temperature/i)).toBeInTheDocument();
+		expect(screen.getByText(/Max Tokens/i)).toBeInTheDocument();
+		expect(screen.getByText(/Top K/i)).toBeInTheDocument();
 	});
 });
