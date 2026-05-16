@@ -473,6 +473,13 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	expectedBuckets := 12
 	since := now.Add(-period).Truncate(5 * time.Minute)
 
+	// For sub-24h ranges, fetch 24h of 5-min data so the frontend
+	// can offer drag-to-pan across the full day.
+	if period < 24*time.Hour {
+		since = now.Add(-24 * time.Hour).Truncate(5 * time.Minute)
+		expectedBuckets = 288
+	}
+
 	if period >= 24*time.Hour {
 		bucketSize = "hour"
 		expectedBuckets = 24

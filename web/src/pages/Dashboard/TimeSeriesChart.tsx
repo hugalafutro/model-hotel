@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
 	Area,
 	AreaChart,
@@ -11,6 +11,9 @@ import {
 import { Spinner } from "../../components/Spinner";
 import { RangeToggle } from "./ToggleGroup";
 import type { GaugeDataKey, Range, TimeSeriesDataPoint } from "./types";
+
+/** Number of 5-min buckets visible in the 1h viewport. */
+const VIEWPORT_SIZE = 12;
 
 export function TimeSeriesChart({
 	data,
@@ -51,6 +54,66 @@ export function TimeSeriesChart({
 		};
 	}, []);
 
+	// Drag-to-pan state for 1h range
+	const pannable = range === "1h" && data.length > VIEWPORT_SIZE;
+	const [viewportStart, setViewportStart] = useState(0);
+	const [isDragging, setIsDragging] = useState(false);
+	const dragRef = useRef<{
+		startX: number;
+		startOffset: number;
+		containerWidth: number;
+	} | null>(null);
+
+	// When range or data length changes, snap viewport to latest
+	const maxStart = Math.max(0, data.length - VIEWPORT_SIZE);
+	const clampedStart = Math.min(viewportStart, maxStart);
+	// If viewport is beyond the data (e.g. after range change), snap to end
+	const effectiveStart = clampedStart > maxStart ? maxStart : clampedStart;
+
+	const visibleData = pannable
+		? data.slice(effectiveStart, effectiveStart + VIEWPORT_SIZE)
+		: data;
+
+	const canPanLeft = pannable && effectiveStart > 0;
+	const canPanRight = pannable && effectiveStart < maxStart;
+
+	const onPointerDown = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (!pannable) return;
+			const container = e.currentTarget;
+			container.setPointerCapture(e.pointerId);
+			dragRef.current = {
+				startX: e.clientX,
+				startOffset: effectiveStart,
+				containerWidth: container.getBoundingClientRect().width,
+			};
+			setIsDragging(true);
+		},
+		[pannable, effectiveStart],
+	);
+
+	const onPointerMove = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (!dragRef.current) return;
+			const { startX, startOffset, containerWidth } = dragRef.current;
+			const dx = e.clientX - startX;
+			// Pixels per bucket: container width / visible points
+			const pxPerBucket = containerWidth / VIEWPORT_SIZE;
+			const bucketShift = Math.round(dx / pxPerBucket);
+			const newStart = Math.max(
+				0,
+				Math.min(maxStart, startOffset - bucketShift),
+			);
+			setViewportStart(newStart);
+		},
+		[maxStart],
+	);
+
+	const onPointerUp = useCallback(() => {
+		dragRef.current = null;
+		setIsDragging(false);
+	}, []);
+
 	if (data.length === 0) {
 		return (
 			<div className="ui-card p-6">
@@ -83,10 +146,19 @@ export function TimeSeriesChart({
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
 			</div>
-			<div style={{ height }}>
+			<div
+				style={{
+					height,
+					cursor: pannable ? (isDragging ? "grabbing" : "grab") : undefined,
+				}}
+				onPointerDown={pannable ? onPointerDown : undefined}
+				onPointerMove={pannable ? onPointerMove : undefined}
+				onPointerUp={pannable ? onPointerUp : undefined}
+				onPointerCancel={pannable ? onPointerUp : undefined}
+			>
 				<ResponsiveContainer width="100%" height="100%">
 					<AreaChart
-						data={data}
+						data={visibleData}
 						margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
 					>
 						<defs>
@@ -160,6 +232,13 @@ export function TimeSeriesChart({
 					</AreaChart>
 				</ResponsiveContainer>
 			</div>
+			{pannable && (canPanLeft || canPanRight) && (
+				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
+					{canPanLeft && <span>←</span>}
+					<span>drag to pan</span>
+					{canPanRight && <span>→</span>}
+				</div>
+			)}
 		</div>
 	);
 }
