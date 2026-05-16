@@ -387,7 +387,7 @@ function SystemStatus() {
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
-											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 95, 80, true)}`}
+											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 90, 80, true)}`}
 											title="Buffer cache hit ratio (higher is better)"
 										>
 											Hit {stats.db.cache_hit_ratio}
