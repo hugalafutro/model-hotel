@@ -693,3 +693,33 @@ func TestRunMigrations_ReadFileError(t *testing.T) {
 		t.Errorf("error = %q, want substring %q", got, "failed to read migration")
 	}
 }
+
+// TestKnownMigrations returns embedded migration filenames.
+func TestKnownMigrations(t *testing.T) {
+	names := KnownMigrations()
+	if len(names) == 0 {
+		t.Fatal("expected at least one migration, got none")
+	}
+	for _, n := range names {
+		if !strings.HasSuffix(n, ".sql") {
+			t.Errorf("migration %q should end with .sql", n)
+		}
+	}
+}
+
+// TestKnownMigrations_ReadDirError tests the error path when fs.ReadDir fails.
+func TestKnownMigrations_ReadDirError(t *testing.T) {
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return nil, errors.New("read dir failed")
+		},
+	}
+
+	names := KnownMigrations()
+	if names != nil {
+		t.Errorf("expected nil on ReadDir error, got %v", names)
+	}
+}
