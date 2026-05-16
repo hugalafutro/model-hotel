@@ -453,8 +453,8 @@ export function VirtualKeys() {
 							</tr>
 						</thead>
 						<tbody>
-							{paginatedKeys.map((vk, idx) => (
-								<Row key={vk.id} index={idx}>
+							{paginatedKeys.map((vk) => (
+								<Row key={vk.id}>
 									<td className="px-4 py-3">
 										<div className="flex items-center gap-2">
 											<button

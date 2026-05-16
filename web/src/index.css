@@ -1188,6 +1188,10 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
 	color: var(--text-secondary);
 }
 
+[data-ui-style] .ui-table tbody tr:nth-child(even) {
+	background-color: rgb(255 255 255 / 3%);
+}
+
 [data-ui-style] .ui-table tbody tr:hover {
 	background-color: var(--surface-hover);
 }

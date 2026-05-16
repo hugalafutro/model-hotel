@@ -186,7 +186,7 @@ describe("Row", () => {
 		render(
 			<table>
 				<tbody>
-					<Row index={0}>
+					<Row>
 						<td>Cell 1</td>
 						<td>Cell 2</td>
 					</Row>
@@ -197,30 +197,29 @@ describe("Row", () => {
 		expect(screen.getByText("Cell 2")).toBeInTheDocument();
 	});
 
-	it("applies alternating row colors", () => {
+	it("no longer applies bg-white/3 class (striping is CSS nth-child)", () => {
 		render(
-			<table>
+			<table className="ui-table">
 				<tbody>
-					<Row index={0}>
+					<Row>
 						<td>Even row</td>
 					</Row>
-					<Row index={1}>
+					<Row>
 						<td>Odd row</td>
 					</Row>
 				</tbody>
 			</table>,
 		);
-		const evenRow = screen.getByText("Even row").parentElement;
-		const oddRow = screen.getByText("Odd row").parentElement;
-		expect(evenRow?.className).not.toContain("bg-white/3");
-		expect(oddRow?.className).toContain("bg-white/3");
+		const rows = document.querySelectorAll("tbody tr");
+		expect(rows[0]).not.toHaveClass("bg-white/3");
+		expect(rows[1]).not.toHaveClass("bg-white/3");
 	});
 
 	it("applies custom className", () => {
 		render(
 			<table>
 				<tbody>
-					<Row index={0} className="custom-row">
+					<Row className="custom-row">
 						<td>Cell</td>
 					</Row>
 				</tbody>
@@ -235,7 +234,7 @@ describe("Row", () => {
 		render(
 			<table>
 				<tbody>
-					<Row index={0} onClick={onClick}>
+					<Row onClick={onClick}>
 						<td>Clickable row</td>
 					</Row>
 				</tbody>
@@ -252,7 +251,7 @@ describe("Row", () => {
 		render(
 			<table>
 				<tbody>
-					<Row index={0} onClick={onClick}>
+					<Row onClick={onClick}>
 						<td>Clickable row</td>
 					</Row>
 				</tbody>
@@ -271,7 +270,7 @@ describe("Row", () => {
 		render(
 			<table>
 				<tbody>
-					<Row index={0} onClick={onClick}>
+					<Row onClick={onClick}>
 						<td>Clickable row</td>
 					</Row>
 				</tbody>
@@ -288,7 +287,7 @@ describe("Row", () => {
 		render(
 			<table>
 				<tbody>
-					<Row index={0} onClick={vi.fn()}>
+					<Row onClick={vi.fn()}>
 						<td>Clickable</td>
 					</Row>
 				</tbody>

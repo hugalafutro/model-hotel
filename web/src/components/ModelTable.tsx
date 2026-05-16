@@ -397,14 +397,10 @@ export function ModelTable({
 					</thead>
 					<tbody>
 						{paginatedModels.length > 0 ? (
-							paginatedModels.map((model, idx) => {
+							paginatedModels.map((model) => {
 								const caps = parseCapabilities(model.capabilities);
 								return (
-									<Row
-										key={model.id}
-										index={idx}
-										onClick={() => onModelClick?.(model)}
-									>
+									<Row key={model.id} onClick={() => onModelClick?.(model)}>
 										<td className="px-4 py-1.5">
 											<div className="flex flex-col">
 												<span className="text-left text-sm font-medium text-white">

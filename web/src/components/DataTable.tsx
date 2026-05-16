@@ -81,19 +81,17 @@ export function StaticHeaderNoArrow({
 }
 
 export function Row({
-	index,
 	children,
 	className = "",
 	onClick,
 }: {
-	index: number;
 	children: ReactNode;
 	className?: string;
 	onClick?: (e: MouseEvent<HTMLTableRowElement>) => void;
 }) {
 	return (
 		<tr
-			className={`${index % 2 === 1 ? "bg-white/3" : ""}   hover:bg-(--surface-hover) transition-colors ${className} ${onClick ? "cursor-pointer" : ""}`}
+			className={`hover:bg-(--surface-hover) transition-colors ${className} ${onClick ? "cursor-pointer" : ""}`}
 			role={onClick ? "button" : undefined}
 			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}

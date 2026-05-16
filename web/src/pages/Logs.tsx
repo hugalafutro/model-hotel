@@ -608,7 +608,7 @@ function RequestLogs() {
 						</thead>
 						<tbody>
 							{displayEntries && displayEntries.length > 0 ? (
-								displayEntries.map((log, idx) => {
+								displayEntries.map((log) => {
 									const hasOverhead =
 										log.proxy_overhead_ms != null &&
 										log.proxy_overhead_ms > 0 &&
@@ -619,7 +619,6 @@ function RequestLogs() {
 									return (
 										<Row
 											key={log.id}
-											index={idx}
 											className={
 												isInProgress(log) ? "animate-pulse-subtle" : ""
 											}

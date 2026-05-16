@@ -382,10 +382,9 @@ export function AppLogs() {
 						</thead>
 						<tbody>
 							{entries.length > 0 ? (
-								entries.map((entry, i) => (
+								entries.map((entry) => (
 									<Row
 										key={entry.timestamp}
-										index={i}
 										onClick={() => setSelectedLog(entry)}
 									>
 										<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
