@@ -82,9 +82,7 @@ describe("DatabaseBackupSettings", () => {
 				screen.getByText("Requirements for a working restore"),
 			).toBeInTheDocument();
 		});
-		expect(
-			screen.getByText(/MASTER_KEY must match/i),
-		).toBeInTheDocument();
+		expect(screen.getByText(/MASTER_KEY must match/i)).toBeInTheDocument();
 		expect(
 			screen.getByText(/Admin token is not in the backup/i),
 		).toBeInTheDocument();
