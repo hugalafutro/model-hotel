@@ -10,6 +10,11 @@ vi.mock("../api/client", () => ({
 	setAdminToken: vi.fn(),
 	getAdminToken: vi.fn(() => localStorage.getItem("adminToken")),
 	API_BASE: "",
+	api: {
+		settings: {
+			get: vi.fn().mockResolvedValue({ app_version: "v0.0.0-test" }),
+		},
+	},
 }));
 
 describe("LoginScreen", () => {

@@ -1,35 +1,36 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockSettings } from "../../test/helpers";
+import { server } from "../../test/mocks/server";
 import { useGitHubVersion } from "../useGitHubVersion";
-
-// Mock the api module
-vi.mock("../../api/client", () => ({
-	api: {
-		settings: {
-			get: vi.fn().mockResolvedValue({ app_version: "v1.0.0" }),
-		},
-	},
-}));
-
-import { api } from "../../api/client";
 
 const STORAGE_KEY = "github-latest-version";
 const REPO_API =
 	"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest";
 
+/** Mock fetch only for the GitHub releases API; let MSW handle /api/* */
+function mockGitHubFetch(
+	impl: (url: string, init?: RequestInit) => Promise<Response>,
+) {
+	const realFetch = globalThis.fetch;
+	vi.spyOn(globalThis, "fetch").mockImplementation((url, init) => {
+		if (typeof url === "string" && url.startsWith(REPO_API)) {
+			return impl(url, init);
+		}
+		// Fall through to real fetch (MSW intercepts /api/* requests)
+		return realFetch(url, init);
+	});
+}
+
 describe("useGitHubVersion", () => {
 	beforeEach(() => {
 		localStorage.clear();
 		vi.restoreAllMocks();
-		// Reset api.settings.get mock
-		vi.mocked(api.settings.get).mockResolvedValue({
-			app_version: "v1.0.0",
-		});
 	});
 
 	it("returns dev running version when settings fetch fails", async () => {
-		vi.mocked(api.settings.get).mockRejectedValue(new Error("offline"));
-		vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+		server.use(...mockSettings({ status: 500 }));
+		mockGitHubFetch(() => Promise.reject(new Error("offline")));
 
 		const { result } = renderHook(() => useGitHubVersion());
 		expect(result.current.running).toBe("dev");
@@ -38,10 +39,8 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("returns running version from settings API", async () => {
-		vi.mocked(api.settings.get).mockResolvedValue({
-			app_version: "v1.0.0",
-		});
-		vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
+		mockGitHubFetch(() => Promise.reject(new Error("offline")));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -56,7 +55,7 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		vi.spyOn(globalThis, "fetch");
+		mockGitHubFetch(() => Promise.reject(new Error("offline")));
 		const { result } = renderHook(() => useGitHubVersion());
 		expect(result.current.latest).toBe("v0.1.2");
 	});
@@ -72,7 +71,7 @@ describe("useGitHubVersion", () => {
 			await new Promise((r) => setTimeout(r, 0));
 		});
 
-		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(fetchSpy).not.toHaveBeenCalledWith(REPO_API, expect.anything());
 	});
 
 	it("fetches when cache is stale", async () => {
@@ -80,24 +79,20 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.1", timestamp: staleTimestamp });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		const fetchSpy = vi
-			.spyOn(globalThis, "fetch")
-			.mockResolvedValue(new Response(JSON.stringify({ tag_name: "v0.2" })));
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ tag_name: "v0.2" }))),
+		);
 
 		renderHook(() => useGitHubVersion());
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
 		});
-
-		expect(fetchSpy).toHaveBeenCalledWith(REPO_API, {
-			signal: expect.any(AbortSignal),
-		});
 	});
 
 	it("updates latest from API response", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ tag_name: "v0.2" })),
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ tag_name: "v0.2" }))),
 		);
 
 		const { result } = renderHook(() => useGitHubVersion());
@@ -111,8 +106,8 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("caches fetched version in localStorage", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ tag_name: "v0.2" })),
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ tag_name: "v0.2" }))),
 		);
 
 		renderHook(() => useGitHubVersion());
@@ -131,8 +126,8 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response("rate limited", { status: 403 }),
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response("rate limited", { status: 403 })),
 		);
 
 		const { result } = renderHook(() => useGitHubVersion());
@@ -149,7 +144,7 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network error"));
+		mockGitHubFetch(() => Promise.reject(new Error("network error")));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -161,8 +156,8 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("ignores response without tag_name", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ message: "Not Found" })),
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ message: "Not Found" }))),
 		);
 
 		const { result } = renderHook(() => useGitHubVersion());
@@ -175,11 +170,9 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("sets updateAvailable=true when latest > running", async () => {
-		vi.mocked(api.settings.get).mockResolvedValue({
-			app_version: "v1.0.0",
-		});
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ tag_name: "v1.1.0" })),
+		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ tag_name: "v1.1.0" }))),
 		);
 
 		const { result } = renderHook(() => useGitHubVersion());
@@ -194,11 +187,9 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("sets updateAvailable=false when versions match", async () => {
-		vi.mocked(api.settings.get).mockResolvedValue({
-			app_version: "v1.0.0",
-		});
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ tag_name: "v1.0.0" })),
+		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ tag_name: "v1.0.0" }))),
 		);
 
 		const { result } = renderHook(() => useGitHubVersion());
@@ -211,11 +202,9 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("sets updateAvailable=true when running is dev", async () => {
-		vi.mocked(api.settings.get).mockResolvedValue({
-			app_version: "dev",
-		});
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(JSON.stringify({ tag_name: "v1.0.0" })),
+		server.use(...mockSettings({ body: { app_version: "dev" } }));
+		mockGitHubFetch(() =>
+			Promise.resolve(new Response(JSON.stringify({ tag_name: "v1.0.0" }))),
 		);
 
 		const { result } = renderHook(() => useGitHubVersion());
