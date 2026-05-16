@@ -41,7 +41,22 @@ jobs:
           TEST_DATABASE_URL: postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable
         run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
+      - name: Check coverage (mirrors codecov.yml 80% target)
+        run: |
+          # Filter out cmd/ and tools/ to match codecov.yml ignore patterns
+          filtered=$(mktemp)
+          { head -1 coverage.out; grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' coverage.out | tail -n +2; } > "$filtered"
+          pct=$(go tool cover -func="$filtered" | tail -1 | awk '{print $NF}' | tr -d '%')
+          rm -f "$filtered"
+          pct_int=${pct%%.*}
+          echo "Coverage: ${pct}%"
+          if [ "$pct_int" -lt 80 ]; then
+            echo "FAIL: coverage ${pct}% is below 80% threshold"
+            exit 1
+          fi
+
       - name: Upload Go coverage
+        if: always()
         uses: codecov/codecov-action@v6
         with:
           files: coverage.out
@@ -105,7 +120,28 @@ jobs:
       - name: Test
         run: pnpm vitest run --coverage
 
+      - name: Check frontend coverage (mirrors codecov.yml 80% target)
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "WARNING: no coverage-summary.json, skipping gate"
+            exit 0
+          fi
+          pct=$(python3 -c "
+          import json,sys
+          d=json.load(open('coverage/coverage-summary.json'))
+          total=d.get('total',{})
+          pct=total.get('lines',{}).get('pct',0)
+          print(pct)
+          ")
+          pct_int=${pct%%.*}
+          echo "Frontend coverage: ${pct}%"
+          if [ "$pct_int" -lt 80 ]; then
+            echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
+            exit 1
+          fi
+
       - name: Upload frontend coverage
+        if: always()
         uses: codecov/codecov-action@v6
         with:
           files: web/coverage/lcov.info

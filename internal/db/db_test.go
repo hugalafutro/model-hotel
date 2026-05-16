@@ -723,3 +723,5 @@ func TestKnownMigrations_ReadDirError(t *testing.T) {
 		t.Errorf("expected nil on ReadDir error, got %v", names)
 	}
 }
+
+// verify hook

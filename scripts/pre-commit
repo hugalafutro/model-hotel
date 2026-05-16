@@ -31,7 +31,7 @@ fi
 # Single run: coverage profile also catches test failures, no need to run twice.
 echo "pre-commit: go test ./... (with coverage)..."
 cover_out=$(mktemp)
-if ! go test -timeout 5m -coverprofile="$cover_out" -covermode=atomic ./...; then
+if ! go test -count=1 -timeout 5m -coverprofile="$cover_out" -covermode=atomic ./...; then
 	echo "pre-commit: FAILED - go test" >&2
 	exit 1
 fi
@@ -41,12 +41,7 @@ fi
 # to avoid coverage regressions. Mirrors codecov.yml: 80% target, ignores cmd/ tools/.
 echo "pre-commit: checking project coverage (mirrors codecov.yml)..."
 cover_filtered=$(mktemp)
-grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' "$cover_out" > "$cover_filtered"
-# Re-add mode line from original profile
-mode_line=$(head -1 "$cover_out")
-if [[ "$mode_line" == mode:* ]]; then
-	printf '%s\n' "$mode_line" | cat - "$cover_filtered" > "$cover_filtered.tmp" && mv "$cover_filtered.tmp" "$cover_filtered"
-fi
+{ head -1 "$cover_out"; grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' "$cover_out" | tail -n +2; } > "$cover_filtered"
 rm -f "$cover_out"
 
 if [ -s "$cover_filtered" ]; then
