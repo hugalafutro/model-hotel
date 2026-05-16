@@ -66,12 +66,12 @@ export function TimeSeriesChart({
 	// Drag-to-pan state: enabled when data exceeds viewport
 	const pannable = data.length > viewportSize;
 	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
-	// Snap to latest data; reset when range changes (keyed state)
-	const [viewportStart, setViewportStart] = useState(maxStart);
+	// userStart is null until the user explicitly pans; null = snap to latest
+	const [userStart, setUserStart] = useState<number | null>(null);
 	const [viewportRange, setViewportRange] = useState(range);
 	if (viewportRange !== range) {
 		setViewportRange(range);
-		setViewportStart(maxStart);
+		setUserStart(null);
 	}
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragOffset, setDragOffset] = useState(0);
@@ -81,8 +81,10 @@ export function TimeSeriesChart({
 		containerWidth: number;
 	} | null>(null);
 
-	// Clamp viewport to valid range
-	const effectiveStart = Math.max(0, Math.min(viewportStart, maxStart));
+	// If user hasn't panned, always show latest data (maxStart).
+	// Otherwise, clamp their position to the valid range.
+	const effectiveStart =
+		userStart !== null ? Math.max(0, Math.min(userStart, maxStart)) : maxStart;
 
 	const visibleData = pannable
 		? data.slice(effectiveStart, effectiveStart + viewportSize)
@@ -129,7 +131,7 @@ export function TimeSeriesChart({
 		const pxPerBucket = containerWidth / viewportSize;
 		const bucketShift = Math.round(-dragOffset / pxPerBucket);
 		const newStart = Math.max(0, Math.min(maxStart, startOffset + bucketShift));
-		setViewportStart(newStart);
+		setUserStart(newStart);
 		setDragOffset(0);
 		dragRef.current = null;
 		setIsDragging(false);
@@ -191,90 +193,87 @@ export function TimeSeriesChart({
 						}}
 					/>
 				)}
-				<div
-					style={{
-						transform: isDragging ? `translateX(${dragOffset}px)` : undefined,
-						transition: isDragging ? "none" : "transform 0.15s ease-out",
-					}}
-				>
-					<ResponsiveContainer width="100%" height="100%">
-						<AreaChart
-							data={visibleData}
-							margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
-						>
-							<defs>
-								<linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor={color} stopOpacity={0.3} />
-									<stop offset="100%" stopColor={color} stopOpacity={0.02} />
-								</linearGradient>
-							</defs>
-							<CartesianGrid
-								strokeDasharray="3 3"
-								stroke={grid}
-								vertical={false}
-							/>
-							<XAxis
-								dataKey="hour"
-								tick={{ fontSize: 10, fill: text }}
-								tickLine={false}
-								axisLine={false}
-								interval={4}
-							/>
-							<YAxis
-								tick={{ fontSize: 10, fill: text }}
-								tickLine={false}
-								axisLine={false}
-								allowDecimals={allowDecimals}
-								tickFormatter={(v: number) => {
-									const raw = Number(v) * scale;
-									const val = allowDecimals ? raw : Math.round(raw);
-									return val.toLocaleString(undefined, {
+				<ResponsiveContainer width="100%" height="100%">
+					<AreaChart
+						data={visibleData}
+						margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
+						style={{
+							transform: isDragging ? `translateX(${dragOffset}px)` : undefined,
+							transition: isDragging ? "none" : "transform 0.15s ease-out",
+						}}
+					>
+						<defs>
+							<linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+								<stop offset="0%" stopColor={color} stopOpacity={0.3} />
+								<stop offset="100%" stopColor={color} stopOpacity={0.02} />
+							</linearGradient>
+						</defs>
+						<CartesianGrid
+							strokeDasharray="3 3"
+							stroke={grid}
+							vertical={false}
+						/>
+						<XAxis
+							dataKey="hour"
+							tick={{ fontSize: 10, fill: text }}
+							tickLine={false}
+							axisLine={false}
+							interval={4}
+						/>
+						<YAxis
+							tick={{ fontSize: 10, fill: text }}
+							tickLine={false}
+							axisLine={false}
+							allowDecimals={allowDecimals}
+							tickFormatter={(v: number) => {
+								const raw = Number(v) * scale;
+								const val = allowDecimals ? raw : Math.round(raw);
+								return val.toLocaleString(undefined, {
+									maximumFractionDigits: allowDecimals ? 2 : 0,
+								});
+							}}
+						/>
+						<Tooltip
+							contentStyle={{
+								backgroundColor: "var(--surface-elevated)",
+								border: "1px solid var(--border-default)",
+								borderRadius: "10px",
+								fontSize: "12px",
+							}}
+							labelStyle={{
+								color: "var(--text-muted)",
+								fontSize: "10px",
+								textTransform: "uppercase",
+								letterSpacing: "0.05em",
+							}}
+							itemStyle={{
+								color: "var(--text-primary)",
+								fontSize: "13px",
+							}}
+							formatter={(value: number | string | unknown) => {
+								const raw = Number(value) * scale;
+								const val = allowDecimals ? raw : Math.round(raw);
+								return [
+									val.toLocaleString(undefined, {
 										maximumFractionDigits: allowDecimals ? 2 : 0,
-									});
-								}}
-							/>
-							<Tooltip
-								contentStyle={{
-									backgroundColor: "var(--surface-elevated)",
-									border: "1px solid var(--border-default)",
-									borderRadius: "10px",
-									fontSize: "12px",
-								}}
-								labelStyle={{
-									color: "var(--text-muted)",
-									fontSize: "10px",
-									textTransform: "uppercase",
-									letterSpacing: "0.05em",
-								}}
-								itemStyle={{
-									color: "var(--text-primary)",
-									fontSize: "13px",
-								}}
-								formatter={(value: number | string | unknown) => {
-									const raw = Number(value) * scale;
-									const val = allowDecimals ? raw : Math.round(raw);
-									return [
-										val.toLocaleString(undefined, {
-											maximumFractionDigits: allowDecimals ? 2 : 0,
-										}),
-										label,
-									];
-								}}
-							/>
-							<Area
-								type="monotone"
-								dataKey={dataKey}
-								stroke={color}
-								strokeWidth={2}
-								fill={`url(#${gradientId})`}
-								dot={false}
-								activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
-								isAnimationActive={!isDragging}
-								animationDuration={0}
-							/>
-						</AreaChart>
-					</ResponsiveContainer>
-				</div>
+									}),
+									label,
+								];
+							}}
+						/>
+						<Area
+							type="monotone"
+							dataKey={dataKey}
+							stroke={color}
+							strokeWidth={2}
+							fill={`url(#${gradientId})`}
+							dot={false}
+							activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+							isAnimationActive={!isDragging}
+							animationDuration={0}
+						/>
+					</AreaChart>
+				</ResponsiveContainer>
 			</div>
 			{pannable && (canPanLeft || canPanRight) && (
 				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
