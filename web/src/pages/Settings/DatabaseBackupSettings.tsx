@@ -116,76 +116,31 @@ export function DatabaseBackupSettings({
 					with custom format for efficient compression.
 				</p>
 
-				{/* Restore section */}
-				<div className="bg-gray-800/50 rounded-lg p-3 space-y-3">
+				{/* Restore requirements */}
+				<div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
 					<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-						Restore Backup
+						Restore Requirements
 					</h4>
-					<p className="text-xs text-gray-500">
-						Upload a{" "}
-						<code className="text-xs bg-gray-800 px-1 py-0.5 rounded">
-							.dump
-						</code>{" "}
-						file to restore the database. The backup will be validated before
-						restore.
-					</p>
-					<div className="space-y-1.5 border-t border-gray-700/50 pt-2">
-						<h5 className="text-xs font-semibold text-amber-400">
-							Requirements for a working restore
-						</h5>
-						<ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
-							<li>
-								<strong className="text-gray-300">MASTER_KEY must match</strong>
-								: Provider API keys are AES-256-GCM encrypted. Restoring with a
-								different MASTER_KEY will leave all provider keys unrecoverable.
-							</li>
-							<li>
-								<strong className="text-gray-300">
-									Admin token is not in the backup
-								</strong>
-								: Your current admin token will continue to work after restore.
-							</li>
-							<li>
-								<strong className="text-gray-300">
-									Virtual keys are irrecoverable
-								</strong>
-								: Only SHA-256 hashes are stored. If you lose the plaintext
-								virtual keys, they cannot be recovered from the backup.
-							</li>
-						</ul>
-					</div>
-					<div className="flex items-center gap-2 pt-1">
-						<input
-							ref={fileInputRef}
-							type="file"
-							accept=".dump"
-							className="hidden"
-							aria-label="Select backup file to restore"
-							onChange={(e) => {
-								const file = e.target.files?.[0];
-								if (file) {
-									setRestoreFile(file);
-									setShowRestoreModal(true);
-								}
-								// Reset so re-selecting the same file triggers onChange
-								e.target.value = "";
-							}}
-						/>
-						<button
-							type="button"
-							onClick={() => fileInputRef.current?.click()}
-							disabled={isRestoring}
-							className="ui-btn ui-btn-secondary flex items-center gap-2"
-						>
-							<Upload size={14} />
-							{isRestoring ? "Restoring…" : "Upload & Restore"}
-						</button>
-						{restoreFile && (
-							<span className="text-xs text-gray-400 truncate">
-								{restoreFile.name}
-							</span>
-						)}
-					</div>
+					<ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+						<li>
+							<strong className="text-gray-300">MASTER_KEY must match</strong>:
+							Provider API keys are AES-256-GCM encrypted. Restoring with a
+							different MASTER_KEY will leave all provider keys unrecoverable.
+						</li>
+						<li>
+							<strong className="text-gray-300">
+								Admin token is not in the backup
+							</strong>
+							: Your current admin token will continue to work after restore.
+						</li>
+						<li>
+							<strong className="text-gray-300">
+								Virtual keys are irrecoverable
+							</strong>
+							: Only SHA-256 hashes are stored. If you lose the plaintext
+							virtual keys, they cannot be recovered from the backup.
+						</li>
+					</ul>
 				</div>
 
 				{showRestoreModal && restoreFile && (
@@ -245,16 +200,45 @@ export function DatabaseBackupSettings({
 					/>
 				)}
 
-				{/* Create button */}
-				<button
-					type="button"
-					onClick={() => createMutation.mutate()}
-					disabled={createMutation.isPending}
-					className="ui-btn ui-btn-primary flex items-center gap-2"
-				>
-					<Plus size={14} />
-					{createMutation.isPending ? "Creating backup…" : "Create Backup"}
-				</button>
+				{/* Action buttons row */}
+				<div className="flex items-center justify-between">
+					<button
+						type="button"
+						onClick={() => createMutation.mutate()}
+						disabled={createMutation.isPending}
+						className="ui-btn ui-btn-primary flex items-center gap-2"
+					>
+						<Plus size={14} />
+						{createMutation.isPending ? "Creating backup…" : "Create Backup"}
+					</button>
+					<div className="flex items-center gap-2">
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept=".dump"
+							className="hidden"
+							aria-label="Select backup file to restore"
+							onChange={(e) => {
+								const file = e.target.files?.[0];
+								if (file) {
+									setRestoreFile(file);
+									setShowRestoreModal(true);
+								}
+								// Reset so re-selecting the same file triggers onChange
+								e.target.value = "";
+							}}
+						/>
+						<button
+							type="button"
+							onClick={() => fileInputRef.current?.click()}
+							disabled={isRestoring}
+							className="ui-btn ui-btn-secondary flex items-center gap-2"
+						>
+							<Upload size={14} />
+							{isRestoring ? "Restoring…" : "Upload & Restore"}
+						</button>
+					</div>
+				</div>
 
 				{/* Backup list */}
 				{isLoading ? (
