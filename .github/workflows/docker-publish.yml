@@ -55,7 +55,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=v${{ steps.meta.outputs.version }}
+          build-args: VERSION=${{ github.event_name == 'workflow_dispatch' && inputs.tag || format('v{0}', steps.meta.outputs.version) }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
