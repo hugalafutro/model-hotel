@@ -108,7 +108,7 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 
 ## Docker Compose
 
-The included `docker-compose.yml` sets up:
+The included `docker-compose.yml` (production) sets up:
 
 - **app** service: The Model Hotel server
   - Port `8081` mapped to container `8080`
@@ -119,6 +119,12 @@ The included `docker-compose.yml` sets up:
   - Health check for readiness (`pg_isready`)
   - Named volume for persistent data
 
+For local development, use the `compose.dev.yml` override which enables the Docker socket and debug logging:
+
+```bash
+docker compose -f docker-compose.yml -f compose.dev.yml up -d
+```
+
 ### Quick Start
 
 ```bash
@@ -128,12 +134,12 @@ cd model-hotel
 cp .env.example .env
 nano .env          # set a strong MASTER_KEY and DATABASE_URL
 
-docker compose up --build
+docker compose -f docker-compose.yml -f compose.dev.yml up --build
 ```
 
 Get the admin token:
 ```bash
-docker compose logs app | grep "ADMIN_TOKEN="
+docker compose -f docker-compose.yml -f compose.dev.yml logs app | grep "ADMIN_TOKEN="
 ```
 
 If you lose the token, delete `.data/admin-token` and restart to generate a new one.

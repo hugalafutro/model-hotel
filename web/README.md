@@ -266,7 +266,7 @@ pnpm typecheck
 ```
 
 ### Manual Testing
-1. Start backend: `docker compose up` (or `go run cmd/server/main.go`)
+1. Start backend: `docker compose -f docker-compose.yml -f compose.dev.yml up` (or `go run cmd/server/main.go`)
 2. Start frontend: `pnpm dev`
 3. Login with admin token
 4. Add a provider and test
@@ -348,7 +348,7 @@ pnpm build
 ### API Errors
 - Check browser network tab
 - Verify backend is running
-- Check backend logs: `docker compose logs app`
+- Check backend logs: `docker compose -f docker-compose.yml -f compose.dev.yml logs app`
 
 ### Build Failures
 - Clear node_modules and reinstall

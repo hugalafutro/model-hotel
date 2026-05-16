@@ -163,15 +163,15 @@ cd model-hotel
 cp .env.example .env
 nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD
 
-docker compose up --build -d
+docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
 ```
 
-To use the prebuilt image instead of building from source, edit `docker-compose.yml`: comment out `build: .` and uncomment the `image:` line.
+For development, use the dev compose override: `docker compose -f docker-compose.yml -f compose.dev.yml up -d`. To use the prebuilt image instead of building from source, edit `docker-compose.yml`: comment out `build: .` and uncomment the `image:` line.
 
 The admin token is displayed once in the logs on first run and will never be shown again:
 
 ```bash
-docker compose logs app | grep "ADMIN_TOKEN="
+docker compose -f docker-compose.yml -f compose.dev.yml logs app | grep "ADMIN_TOKEN="
 ```
 
 If you lose the token, delete `.data/admin-token` and restart to generate a new one.
@@ -182,7 +182,7 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 
 > **Tip:** The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
 
-> **Security:** The Docker socket is disabled by default in `docker-compose.yml`. Enable it only if you need container-level stats in the sidebar and trust the deployment environment.
+> **Security:** The Docker socket is disabled by default in `docker-compose.yml` (production). The `compose.dev.yml` override enables it for local development. Only use the dev override in trusted environments.
 
 > **ARM:** Prebuilt images include `linux/arm64` (Apple Silicon, Raspberry Pi, AWS Graviton, Oracle Cloud free tier). Built via QEMU emulation; not tested on physical ARM hardware. If you hit an ARM-specific issue, please file a bug.
 
@@ -266,10 +266,10 @@ services:
 **3.** Deploy:
 
 ```bash
-docker compose up --build -d
+docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
 ```
 
-> **Note:** The `docker-compose.yml` content above is auto-synced from the repository file by a GitHub Action. If you want the prebuilt image instead of building from source, uncomment the `image:` line and comment out `build: .` in the compose file.
+> **Note:** The `docker-compose.yml` content above is the production compose (auto-synced by a GitHub Action). For development, layer the `compose.dev.yml` override: `docker compose -f docker-compose.yml -f compose.dev.yml up -d`. If you want the prebuilt image instead of building from source, uncomment the `image:` line and comment out `build: .` in the compose file.
 
 ## API Example
 

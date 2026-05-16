@@ -20,7 +20,7 @@ services:
             - ALLOW_HTTP_PROVIDERS=false
             - DATA_DIR=/data
             - RATE_LIMIT_ENABLED=true
-            - DEBUG_LOG=true
+            - DEBUG_LOG=false
             - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
             - ALLOWED_PROVIDER_HOSTS=
         volumes:

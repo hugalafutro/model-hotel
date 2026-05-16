@@ -26,16 +26,17 @@ deps:
 	go mod tidy
 
 docker-up:
-	docker compose up -d
+	docker compose -f docker-compose.yml -f compose.dev.yml up -d
 
 docker-build:
-	VERSION=$(VERSION) docker compose up -d --build
+	docker compose -f docker-compose.yml -f compose.dev.yml down
+	VERSION=$(VERSION) docker compose -f docker-compose.yml -f compose.dev.yml up -d --build
 
 docker-down:
-	docker compose down
+	docker compose -f docker-compose.yml -f compose.dev.yml down
 
 docker-logs:
-	docker compose logs -f
+	docker compose -f docker-compose.yml -f compose.dev.yml logs -f
 
 # -- Test database (ephemeral, no persistent volume) --
 

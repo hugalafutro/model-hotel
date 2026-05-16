@@ -1,0 +1,16 @@
+# Docker Compose override for local development.
+# Usage: docker compose -f docker-compose.yml -f compose.dev.yml up -d
+#
+# Changes from production defaults:
+#   - Docker socket mounted (container-level stats in sidebar)
+#   - DEBUG_LOG=true (verbose structured logging)
+#
+# ⚠️  Docker socket access allows the container to control the Docker daemon.
+#     Only use in trusted development environments.
+
+services:
+    app:
+        environment:
+            - DEBUG_LOG=true
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
