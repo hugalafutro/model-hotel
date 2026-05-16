@@ -472,8 +472,12 @@ export function useDashboard(): UseDashboardReturn {
 
 	const handleModelClick = useCallback(
 		(label: string) => {
+			// Backend returns by_model keys with raw provider names (spaces),
+			// but proxyModelID normalizes spaces to hyphens. Normalize the
+			// label before comparing so both formats match.
+			const normalized = label.replace(/ /g, "-");
 			const found = models?.find(
-				(m) => proxyModelID(m.provider_name, m.model_id) === label,
+				(m) => proxyModelID(m.provider_name, m.model_id) === normalized,
 			);
 			if (found) setDetailModel(found);
 		},
