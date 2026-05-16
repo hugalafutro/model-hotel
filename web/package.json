@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint ${@:-.}",
     "preview": "vite preview",
     "test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning --disable-warning=DEP0205' vitest run",
     "test:watch": "vitest"
