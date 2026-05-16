@@ -42,6 +42,9 @@ export function AnimatedValue({
 		return () => cancelAnimationFrame(raf);
 	}, [value, duration, display]);
 
+	// Unit suffixes (% s ms) should be tight against the number;
+	// word suffixes (T/Rq etc.) get a space.
+	const isUnitSuffix = /^(ms|μs|%?s)$/.test(suffix) || suffix === "%";
 	const formatted = formatter
 		? formatter(display)
 		: dropTrailingZero(display, decimals);
@@ -50,7 +53,7 @@ export function AnimatedValue({
 			{formatted}
 			{suffix && (
 				<span
-					className="text-sm font-normal text-(--text-primary) ml-1"
+					className={`text-sm font-normal text-(--text-primary) ${isUnitSuffix ? "" : "ml-1"}`}
 					style={{ textTransform: "none" }}
 				>
 					{suffix}

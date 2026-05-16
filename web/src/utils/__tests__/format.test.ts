@@ -8,6 +8,7 @@ import {
 	formatTimestamp,
 	formatTimeUntil,
 	formatTokens,
+	formatWithCommas,
 } from "../format";
 
 describe("formatDuration", () => {
@@ -66,6 +67,21 @@ describe("formatNumber", () => {
 
 	it("handles zero", () => {
 		expect(formatNumber(0)).toBe("0");
+	});
+});
+
+describe("formatWithCommas", () => {
+	it("formats integers with locale separators", () => {
+		expect(formatWithCommas(0)).toBe("0");
+		expect(formatWithCommas(999)).toBe("999");
+		expect(formatWithCommas(1000)).toBe("1,000");
+		expect(formatWithCommas(1000000)).toBe("1,000,000");
+		expect(formatWithCommas(1234567)).toBe("1,234,567");
+	});
+
+	it("rounds fractional values", () => {
+		expect(formatWithCommas(1234.5)).toBe("1,235");
+		expect(formatWithCommas(0.9)).toBe("1");
 	});
 });
 

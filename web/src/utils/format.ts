@@ -67,6 +67,10 @@ export function formatDate(ts: number | string): string {
 	});
 }
 
+export function formatWithCommas(n: number): string {
+	return Math.round(n).toLocaleString();
+}
+
 export function formatCompact(n: number): string {
 	if (n === 0) return "0";
 	const abs = Math.abs(n);

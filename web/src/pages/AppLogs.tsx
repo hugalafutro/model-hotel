@@ -409,7 +409,7 @@ export function AppLogs() {
 											)}
 										</td>
 										<td
-											className={`px-4 py-2 whitespace-pre-wrap break-all text-xs font-mono ${getLevelColor(entry.level)}`}
+											className={`px-4 py-2 text-xs font-mono line-clamp-2 ${getLevelColor(entry.level)}`}
 										>
 											{entry.message}
 										</td>

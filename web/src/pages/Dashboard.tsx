@@ -5,18 +5,18 @@ import {
 	Bot,
 	Clock,
 	Gauge as GaugeIcon,
+	Hash,
 	LayoutDashboard,
 	PlugZap,
 	RefreshCw,
 	ShieldAlert,
 	Target,
 	Timer,
-	Zap,
 } from "lucide-react";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { PageHeader } from "../components/PageHeader";
-import { formatCompact } from "../utils/format";
+import { formatCompact, formatWithCommas } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
@@ -298,6 +298,7 @@ export function Dashboard() {
 					}
 					icon={Activity}
 					accent={accents.requests}
+					formatter={formatWithCommas}
 					onClick={() => setRequestsModalOpen(true)}
 					tooltip="Click to view request history"
 				/>
@@ -334,7 +335,7 @@ export function Dashboard() {
 					}
 					decimals={0}
 					suffix={globalMetric === "tokens" ? "" : "T/Rq"}
-					icon={globalMetric === "tokens" ? Zap : Target}
+					icon={globalMetric === "tokens" ? Hash : Target}
 					accent={accents.tokens}
 					formatter={globalMetric === "tokens" ? formatCompact : undefined}
 					onClick={() => setTokensModalOpen(true)}
@@ -362,7 +363,7 @@ export function Dashboard() {
 							range={tokensChartRange}
 							onRangeChange={setTokensChartRange}
 							metric="Tokens"
-							icon={Zap}
+							icon={Hash}
 							color={accents.tokens}
 							label="Tokens"
 							dataKey="tokens"
@@ -377,7 +378,7 @@ export function Dashboard() {
 							range={tokensChartRange}
 							onRangeChange={setTokensChartRange}
 							metric="Tokens"
-							icon={Zap}
+							icon={Hash}
 							color={accents.tokens}
 							label="Tokens"
 							dataKey="tokens"
@@ -525,7 +526,7 @@ export function Dashboard() {
 				onClose={() => setTokensModalOpen(false)}
 				title="Avg Tokens"
 				metric="Tokens"
-				icon={Zap}
+				icon={Hash}
 				color={accents.tokens}
 				dataKey="tokens"
 				label="tokens"

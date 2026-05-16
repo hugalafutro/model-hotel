@@ -15,14 +15,22 @@ describe("AnimatedValue", () => {
 		expect(outerSpan).toHaveStyle({ textTransform: "none" });
 	});
 
-	it("renders suffix in a nested span with correct classes", () => {
+	it("renders unit suffix without spacing", () => {
 		const { container } = render(<AnimatedValue value={50} suffix="ms" />);
 		const suffixSpan = container.querySelector("span span");
 		expect(suffixSpan).toBeInTheDocument();
 		expect(suffixSpan).toHaveClass("text-sm");
 		expect(suffixSpan).toHaveClass("font-normal");
-		expect(suffixSpan).toHaveClass("ml-1");
+		expect(suffixSpan).not.toHaveClass("ml-1");
 		expect(suffixSpan?.textContent).toBe("ms");
+	});
+
+	it("renders word suffix with spacing", () => {
+		const { container } = render(<AnimatedValue value={50} suffix="T/Rq" />);
+		const suffixSpan = container.querySelector("span span");
+		expect(suffixSpan).toBeInTheDocument();
+		expect(suffixSpan).toHaveClass("ml-1");
+		expect(suffixSpan?.textContent).toBe("T/Rq");
 	});
 
 	it("does not render suffix span when no suffix provided", () => {
