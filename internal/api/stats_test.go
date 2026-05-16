@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -608,6 +609,46 @@ func insertTestRequestLog(t *testing.T, pool *pgxpool.Pool, logID, providerID uu
 	}
 }
 
+type requestLogOpts struct {
+	VirtualKeyID    *uuid.UUID
+	VirtualKeyName  string
+	TTFTMs          float64
+	ProxyOverheadMs float64
+}
+
+func insertRichTestRequestLog(t *testing.T, pool *pgxpool.Pool, logID, providerID uuid.UUID, modelID string, statusCode, durationMs, tokensPrompt, tokensCompletion int, opts requestLogOpts) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at, virtual_key_id, virtual_key_name, ttft_ms, proxy_overhead_ms)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11)`,
+		logID, providerID, modelID, statusCode, durationMs, tokensPrompt, tokensCompletion,
+		opts.VirtualKeyID, opts.VirtualKeyName, opts.TTFTMs, opts.ProxyOverheadMs)
+	if err != nil {
+		t.Fatalf("Failed to insert rich test request log: %v", err)
+	}
+}
+
+type brokenResponseWriter struct {
+	header http.Header
+	code   int
+}
+
+func (b *brokenResponseWriter) Header() http.Header {
+	if b.header == nil {
+		b.header = make(http.Header)
+	}
+	return b.header
+}
+
+func (b *brokenResponseWriter) Write(p []byte) (int, error) {
+	return 0, errors.New("write error")
+}
+
+func (b *brokenResponseWriter) WriteHeader(code int) {
+	b.code = code
+}
+
 func TestGetStats_24h(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
@@ -870,5 +911,347 @@ func TestGetProviderDistribution_Integration(t *testing.T) {
 	}
 	if !found {
 		t.Error("Expected test-provider-dist in provider distribution")
+	}
+}
+
+func TestGetStats_DeletedVirtualKey(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-delvk", "https://api.example.com/v1")
+
+	// Insert request log with a virtual_key_id that doesn't exist in virtual_keys table
+	deletedVKID := uuid.New()
+	logID := uuid.New()
+	insertRichTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID: &deletedVKID,
+	})
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.ByVirtualKey["Deleted"] != 1 {
+		t.Errorf("Expected ByVirtualKey['Deleted']=1, got %d", response.ByVirtualKey["Deleted"])
+	}
+}
+
+func TestGetStats_ChatArenaKeys(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-chat", "https://api.example.com/v1")
+
+	// Insert request logs with chat and arena virtual_key_name
+	chatLogID := uuid.New()
+	insertRichTestRequestLog(t, pool, chatLogID, providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyName: "chat",
+	})
+	arenaLogID := uuid.New()
+	insertRichTestRequestLog(t, pool, arenaLogID, providerID, "test-model", 200, 100, 5, 10, requestLogOpts{
+		VirtualKeyName: "arena",
+	})
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.ByVirtualKey["chat"] != 1 {
+		t.Errorf("Expected ByVirtualKey['chat']=1, got %d", response.ByVirtualKey["chat"])
+	}
+	if response.ByVirtualKey["arena"] != 1 {
+		t.Errorf("Expected ByVirtualKey['arena']=1, got %d", response.ByVirtualKey["arena"])
+	}
+}
+
+func TestGetTimeSeries_ExcludeDeleted(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-ts-del", "https://api.example.com/v1")
+
+	// Insert one log with deleted VK and one without
+	deletedVKID := uuid.New()
+	logID1 := uuid.New()
+	insertRichTestRequestLog(t, pool, logID1, providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID: &deletedVKID,
+	})
+	logID2 := uuid.New()
+	insertTestRequestLog(t, pool, logID2, providerID, "test-model", 200, 100, 5, 10)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h&exclude_deleted=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// With exclude_deleted=true, only the log without a deleted VK should be counted.
+	// Total count across all points should be 1 (logID2), not 2.
+	var totalCount int
+	for _, p := range response.Points {
+		totalCount += p.Count
+	}
+	if totalCount != 1 {
+		t.Errorf("Expected total count=1 (deleted VK excluded), got %d", totalCount)
+	}
+}
+
+func TestGetProviderDistribution_ExcludeDeleted(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-pd-del", "https://api.example.com/v1")
+
+	// Insert one log with deleted VK and one without
+	deletedVKID := uuid.New()
+	logID1 := uuid.New()
+	insertRichTestRequestLog(t, pool, logID1, providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID: &deletedVKID,
+	})
+	logID2 := uuid.New()
+	insertTestRequestLog(t, pool, logID2, providerID, "test-model", 200, 100, 5, 10)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/provider-distribution?period=24h&exclude_deleted=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response ProviderDistributionStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// With exclude_deleted=true, only the log without a deleted VK should be counted.
+	// The provider should have Count=1, not 2.
+	if len(response.Items) == 0 {
+		t.Fatal("Expected provider distribution items")
+	}
+	for _, item := range response.Items {
+		if item.Name == "test-provider-pd-del" {
+			if item.Count != 1 {
+				t.Errorf("Expected Count=1 (deleted VK excluded), got %d", item.Count)
+			}
+			break
+		}
+	}
+}
+
+func TestGetProviderDistribution_TokensMetric(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-pd-tok", "https://api.example.com/v1")
+
+	logID := uuid.New()
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/provider-distribution?period=24h&metric=tokens", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response ProviderDistributionStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.Items) == 0 {
+		t.Fatal("Expected provider distribution items")
+	}
+
+	// With metric=tokens, Count should be 0 and Tokens should be > 0
+	for _, item := range response.Items {
+		if item.Name == "test-provider-pd-tok" {
+			if item.Count != 0 {
+				t.Errorf("Expected Count=0 for tokens metric, got %d", item.Count)
+			}
+			if item.Tokens <= 0 {
+				t.Errorf("Expected Tokens>0 for tokens metric, got %d", item.Tokens)
+			}
+			break
+		}
+	}
+}
+
+func TestGetStats_ClosedPool(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Close pool before making request to trigger query error
+	pool.Close()
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", rec.Code)
+	}
+}
+
+func TestGetTimeSeries_ClosedPool(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	pool.Close()
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", rec.Code)
+	}
+}
+
+func TestGetProviderDistribution_ClosedPool(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	pool.Close()
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/provider-distribution?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", rec.Code)
+	}
+}
+
+func TestGetStats_JSONEncodeError(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Insert data so calculateStats succeeds
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-json", "https://api.example.com/v1")
+	logID := uuid.New()
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	w := &brokenResponseWriter{}
+	r := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	r.Header.Set("Authorization", "Bearer test-admin-token")
+
+	handler.GetStats(w, r)
+
+	if w.code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", w.code)
+	}
+}
+
+func TestGetTimeSeries_JSONEncodeError(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-ts-json", "https://api.example.com/v1")
+	logID := uuid.New()
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	w := &brokenResponseWriter{}
+	r := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	r.Header.Set("Authorization", "Bearer test-admin-token")
+
+	handler.GetTimeSeries(w, r)
+
+	if w.code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", w.code)
+	}
+}
+
+func TestGetProviderDistribution_JSONEncodeError(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-pd-json", "https://api.example.com/v1")
+	logID := uuid.New()
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	w := &brokenResponseWriter{}
+	r := httptest.NewRequest(http.MethodGet, "/stats/provider-distribution?period=24h", http.NoBody)
+	r.Header.Set("Authorization", "Bearer test-admin-token")
+
+	handler.GetProviderDistribution(w, r)
+
+	if w.code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", w.code)
 	}
 }
