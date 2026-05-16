@@ -7,12 +7,31 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+)
+
+// Injectable variables for test overrides.
+var (
+	newDiscoveryService = provider.NewDiscoveryService
+	newModelRepo        = model.NewRepository
+	newFailoverRepo     = failover.NewRepository
+	dbExec              = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+		return pool.Exec(ctx, sql, args...)
+	}
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, modelIDs []string) (int64, error) {
+		return repo.DisableMissingModels(ctx, providerID, modelIDs)
+	}
+	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) error {
+		return repo.SyncForModel(ctx, modelID)
+	}
 )
 
 // RegisterProviderDiscovery mounts provider discovery and usage routes.
@@ -51,7 +70,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	discovery := provider.NewDiscoveryService()
+	discovery := newDiscoveryService()
 	// Use a context decoupled from the HTTP request deadline for discovery.
 	// Provider availability tests (especially for slow/unreachable providers)
 	// can exhaust the 60s chi middleware timeout before DB upserts run.
@@ -85,7 +104,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	modelRepo := model.NewRepository(h.dbPool.Pool())
+	modelRepo := newModelRepo(h.dbPool.Pool())
 
 	existingModelIDs := make([]string, 0, len(models))
 	for _, m := range models {
@@ -96,18 +115,18 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
-	if _, err := modelRepo.DisableMissingModels(provCtx, providerID, existingModelIDs); err != nil {
+	if _, err := modelRepoDisableMissing(modelRepo, provCtx, providerID, existingModelIDs); err != nil {
 		respondError(w, fmt.Sprintf("failed to disable missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 
-	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	failoverRepo := newFailoverRepo(h.dbPool.Pool())
 	seenModelIDs := make(map[string]bool)
 	for _, mid := range existingModelIDs {
 		seenModelIDs[mid] = true
 	}
 	for modelID := range seenModelIDs {
-		if err := failoverRepo.SyncForModel(provCtx, modelID); err != nil {
+		if err := failoverRepoSyncForModel(failoverRepo, provCtx, modelID); err != nil {
 			respondError(w, fmt.Sprintf("failed to sync failover group for model %s", modelID), err, http.StatusInternalServerError)
 			return
 		}
@@ -115,8 +134,8 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	now := time.Now()
 	updateQuery := `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`
-	if _, err := h.dbPool.Pool().Exec(provCtx, updateQuery, now, providerID); err != nil {
-		respondError(w, fmt.Sprintf("failed to update provider %s", providerID), nil, http.StatusInternalServerError)
+	if _, err := dbExec(h.dbPool.Pool(), provCtx, updateQuery, now, providerID); err != nil {
+		respondError(w, fmt.Sprintf("failed to update provider %s", providerID), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -141,7 +160,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := provider.NewDiscoveryService()
+	discovery := newDiscoveryService()
 
 	// Use a context decoupled from the HTTP request deadline for outbound
 	// API calls. Client disconnects (navigation, tab close) cancel r.Context(),
@@ -193,7 +212,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := provider.NewDiscoveryService()
+	discovery := newDiscoveryService()
 
 	// Use a context decoupled from the HTTP request deadline for outbound API calls.
 	balanceCtx, balanceCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
@@ -232,7 +251,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	discovery := provider.NewDiscoveryService()
+	discovery := newDiscoveryService()
 
 	// Use a context decoupled from the HTTP request deadline for outbound API calls.
 	accountCtx, accountCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
@@ -261,9 +280,9 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := provider.NewDiscoveryService()
-	modelRepo := model.NewRepository(h.dbPool.Pool())
-	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	discovery := newDiscoveryService()
+	modelRepo := newModelRepo(h.dbPool.Pool())
+	failoverRepo := newFailoverRepo(h.dbPool.Pool())
 
 	var results []DiscoverAllResult
 	totalDiscovered := 0
@@ -336,7 +355,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 		}
 
-		if _, err := modelRepo.DisableMissingModels(provCtx, prov.ID, existingModelIDs); err != nil {
+		if _, err := modelRepoDisableMissing(modelRepo, provCtx, prov.ID, existingModelIDs); err != nil {
 			debuglog.Debug("discovery: failed to disable missing models", "provider", prov.Name, "error", err)
 		}
 
@@ -345,13 +364,13 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			seenModelIDs[mid] = true
 		}
 		for modelID := range seenModelIDs {
-			if err := failoverRepo.SyncForModel(provCtx, modelID); err != nil {
+			if err := failoverRepoSyncForModel(failoverRepo, provCtx, modelID); err != nil {
 				debuglog.Debug("discovery: failed to sync failover for model", "model_id", modelID, "error", err)
 			}
 		}
 
 		now := time.Now()
-		if _, err := h.dbPool.Pool().Exec(provCtx,
+		if _, err := dbExec(h.dbPool.Pool(), provCtx,
 			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID); err != nil {
 			debuglog.Debug("discovery: failed to update last_discovered_at", "provider_id", prov.ID, "error", err)
 		}
@@ -384,7 +403,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := provider.NewDiscoveryService()
+	discovery := newDiscoveryService()
 
 	var results []QuotaRefreshResult
 	refreshed := 0

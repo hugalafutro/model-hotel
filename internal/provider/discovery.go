@@ -36,6 +36,12 @@ func NewDiscoveryService() *DiscoveryService {
 	}
 }
 
+// NewDiscoveryServiceWithHTTPClient creates a discovery service with a custom
+// HTTP client. This is intended for tests that need to inject a mock transport.
+func NewDiscoveryServiceWithHTTPClient(client *http.Client) *DiscoveryService {
+	return &DiscoveryService{httpClient: client}
+}
+
 // fetchURL makes an HTTP request with the given headers, reads the full
 // response body, and checks for a 200 OK status. Returns the response body
 // bytes on success. The caller is responsible for unmarshaling the result.
