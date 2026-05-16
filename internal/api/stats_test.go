@@ -854,13 +854,12 @@ func TestGetTimeSeries_7d(t *testing.T) {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
 
-	// With 7d period, should have daily buckets (7-8 expected depending on time boundaries)
+	// With 7d period, should have daily buckets (up to 31 for 30d of panning data, inclusive range)
 	if len(response.Points) == 0 {
 		t.Error("Expected time series points for 7d period")
 	}
-	// Check that we have the expected number of buckets (may be 7 or 8 depending on time boundaries)
-	if len(response.Points) < 7 || len(response.Points) > 8 {
-		t.Errorf("Expected 7-8 daily buckets, got %d", len(response.Points))
+	if len(response.Points) > 31 {
+		t.Errorf("Expected at most 31 daily buckets, got %d", len(response.Points))
 	}
 }
 

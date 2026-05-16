@@ -470,26 +470,19 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bucketSize := "5min"
-	expectedBuckets := 12
-	since := now.Add(-period).Truncate(5 * time.Minute)
-
-	// For sub-24h ranges, fetch 24h of 5-min data so the frontend
-	// can offer drag-to-pan across the full day.
-	if period < 24*time.Hour {
-		since = now.Add(-24 * time.Hour).Truncate(5 * time.Minute)
-		expectedBuckets = 288
-	}
+	expectedBuckets := 288
+	since := now.Add(-24 * time.Hour).Truncate(5 * time.Minute)
 
 	if period >= 24*time.Hour {
 		bucketSize = "hour"
-		expectedBuckets = 24
-		since = now.Add(-period).Truncate(time.Hour)
+		expectedBuckets = 168
+		since = now.Add(-7 * 24 * time.Hour).Truncate(time.Hour)
 	}
 
 	if period >= 7*24*time.Hour {
 		bucketSize = "day"
-		expectedBuckets = 7
-		since = now.Add(-period).Truncate(24 * time.Hour)
+		expectedBuckets = 30
+		since = now.Add(-30 * 24 * time.Hour).Truncate(24 * time.Hour)
 	}
 
 	query := ""
@@ -550,10 +543,10 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(result.Points) > 0 && len(result.Points) < expectedBuckets {
-		endTrunc := now.Truncate(time.Hour)
-		if bucketSize == "5min" {
-			endTrunc = now.Truncate(5 * time.Minute)
-		}
+		// Fill up to the last real data point, not "now",
+		// so the frontend doesn't show empty "future" buckets.
+		lastBucket := result.Points[len(result.Points)-1].Bucket
+		endTrunc, _ := time.Parse("2006-01-02T15:04:05Z", lastBucket)
 		result.Points = fillEmptyBuckets(result.Points, since, endTrunc, bucketSize)
 	}
 
@@ -575,14 +568,12 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 	case "5min":
 		step = 5 * time.Minute
 		expected = 288
-		end = end.Truncate(5 * time.Minute)
 	case "day":
 		step = 24 * time.Hour
-		expected = 7
-		end = end.Truncate(24 * time.Hour)
+		expected = 30
 	default: // "hour"
 		step = time.Hour
-		expected = 24
+		expected = 168
 	}
 
 	filled := make([]TimeSeriesPoint, 0, expected)

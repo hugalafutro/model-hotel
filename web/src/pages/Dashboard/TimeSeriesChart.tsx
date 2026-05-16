@@ -12,9 +12,6 @@ import { Spinner } from "../../components/Spinner";
 import { RangeToggle } from "./ToggleGroup";
 import type { GaugeDataKey, Range, TimeSeriesDataPoint } from "./types";
 
-/** Number of 5-min buckets visible in the 1h viewport. */
-const VIEWPORT_SIZE = 12;
-
 export function TimeSeriesChart({
 	data,
 	range,
@@ -54,9 +51,21 @@ export function TimeSeriesChart({
 		};
 	}, []);
 
-	// Drag-to-pan state for 1h range
-	const pannable = range === "1h" && data.length > VIEWPORT_SIZE;
-	const maxStart = Math.max(0, data.length - VIEWPORT_SIZE);
+	// Compute viewport size based on range
+	const viewportSize = range === "1h" ? 12 : range === "24h" ? 24 : 7;
+
+	// Find last index with real data to prevent scrolling into empty "future"
+	const lastRealIndex = (() => {
+		for (let i = data.length - 1; i >= 0; i--) {
+			if (((data[i] as Record<string, unknown>)[dataKey] as number) !== 0)
+				return i;
+		}
+		return data.length - 1;
+	})();
+
+	// Drag-to-pan state: enabled when data exceeds viewport
+	const pannable = data.length > viewportSize;
+	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
 	// Snap to latest data; reset when range changes (keyed state)
 	const [viewportStart, setViewportStart] = useState(maxStart);
 	const [viewportRange, setViewportRange] = useState(range);
@@ -75,7 +84,7 @@ export function TimeSeriesChart({
 	const effectiveStart = Math.max(0, Math.min(viewportStart, maxStart));
 
 	const visibleData = pannable
-		? data.slice(effectiveStart, effectiveStart + VIEWPORT_SIZE)
+		? data.slice(effectiveStart, effectiveStart + viewportSize)
 		: data;
 
 	const canPanLeft = pannable && effectiveStart > 0;
@@ -102,7 +111,7 @@ export function TimeSeriesChart({
 			const { startX, startOffset, containerWidth } = dragRef.current;
 			const dx = e.clientX - startX;
 			// Pixels per bucket: container width / visible points
-			const pxPerBucket = containerWidth / VIEWPORT_SIZE;
+			const pxPerBucket = containerWidth / viewportSize;
 			const bucketShift = Math.round(dx / pxPerBucket);
 			const newStart = Math.max(
 				0,
@@ -110,7 +119,7 @@ export function TimeSeriesChart({
 			);
 			setViewportStart(newStart);
 		},
-		[maxStart],
+		[maxStart, viewportSize],
 	);
 
 	const onPointerUp = useCallback(() => {
@@ -124,8 +133,7 @@ export function TimeSeriesChart({
 				<div className="flex items-center justify-between mb-4">
 					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 						<Icon size={18} style={{ color }} />
-						{metric} /{" "}
-						{range === "7d" ? "Day" : range === "1h" ? "5 min" : "Hour"}
+						{metric} / {range === "7d" ? "Day" : "Hour"}
 						{loading && <Spinner className="ml-1" />}
 					</h3>
 					{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -144,8 +152,7 @@ export function TimeSeriesChart({
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Icon size={18} style={{ color }} />
-					{metric} /{" "}
-					{range === "7d" ? "Day" : range === "1h" ? "5 min" : "Hour"}
+					{metric} / {range === "7d" ? "Day" : "Hour"}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -154,6 +161,11 @@ export function TimeSeriesChart({
 				style={{
 					height,
 					cursor: pannable ? (isDragging ? "grabbing" : "grab") : undefined,
+					opacity: isDragging ? 0.85 : 1,
+					transition: "opacity 0.15s ease",
+					borderRadius: "8px",
+					outline: isDragging ? "2px solid var(--accent)" : "none",
+					outlineOffset: "2px",
 				}}
 				onPointerDown={pannable ? onPointerDown : undefined}
 				onPointerMove={pannable ? onPointerMove : undefined}
@@ -232,6 +244,8 @@ export function TimeSeriesChart({
 							fill={`url(#${gradientId})`}
 							dot={false}
 							activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+							isAnimationActive={!isDragging}
+							animationDuration={0}
 						/>
 					</AreaChart>
 				</ResponsiveContainer>
