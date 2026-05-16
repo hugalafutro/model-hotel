@@ -921,3 +921,245 @@ func TestCgroupMemoryParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestReadCgroupCPU_DeltaGuard(t *testing.T) {
+	resetCPUState()
+
+	dir := t.TempDir()
+	cpuStatFile := filepath.Join(dir, "cpu.stat")
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 1000000\n"), 0o644); err != nil {
+		t.Fatalf("Failed to write cpu.stat file: %v", err)
+	}
+
+	origFile := cgroupCPUStatFile
+	cgroupCPUStatFile = cpuStatFile
+	defer func() { cgroupCPUStatFile = origFile }()
+
+	// First call seeds baseline
+	result1 := ReadCgroupCPU()
+	if result1 != 0 {
+		t.Errorf("First call: got %f, want 0 (baseline)", result1)
+	}
+
+	// Set CPUPrevTime to the future so deltaTime <= 0
+	CPUPrevTime = time.Now().Add(10 * time.Second)
+
+	result2 := ReadCgroupCPU()
+	if result2 != 0 {
+		t.Errorf("Expected 0 when deltaTime <= 0, got %f", result2)
+	}
+}
+
+func TestReadCgroupCPU_NegativeUsageDelta(t *testing.T) {
+	resetCPUState()
+
+	dir := t.TempDir()
+	cpuStatFile := filepath.Join(dir, "cpu.stat")
+
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 2000000\n"), 0o644); err != nil {
+		t.Fatalf("Failed to write cpu.stat file: %v", err)
+	}
+
+	origFile := cgroupCPUStatFile
+	cgroupCPUStatFile = cpuStatFile
+	defer func() { cgroupCPUStatFile = origFile }()
+
+	// First call seeds baseline with high usage
+	result1 := ReadCgroupCPU()
+	if result1 != 0 {
+		t.Errorf("First call: got %f, want 0 (baseline)", result1)
+	}
+
+	// Rewrite with lower usage so deltaUsage < 0
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 1000000\n"), 0o644); err != nil {
+		t.Fatalf("Failed to rewrite cpu.stat file: %v", err)
+	}
+
+	result2 := ReadCgroupCPU()
+	if result2 != 0 {
+		t.Errorf("Expected 0 when deltaUsage < 0, got %f", result2)
+	}
+}
+
+func TestReadCgroupCPU_PercentCap999(t *testing.T) {
+	resetCPUState()
+
+	dir := t.TempDir()
+	cpuStatFile := filepath.Join(dir, "cpu.stat")
+
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 1000\n"), 0o644); err != nil {
+		t.Fatalf("Failed to write cpu.stat file: %v", err)
+	}
+
+	origFile := cgroupCPUStatFile
+	cgroupCPUStatFile = cpuStatFile
+	defer func() { cgroupCPUStatFile = origFile }()
+
+	// First call seeds baseline
+	ReadCgroupCPU()
+
+	// Set CPUPrevTime to very recent (tiny deltaTime) and low prev usage
+	CPUPrevTime = time.Now().Add(-1 * time.Microsecond)
+	CPUPrevUsage = 1000
+
+	// Write huge usage to trigger percent > 999
+	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 999999999999\n"), 0o644); err != nil {
+		t.Fatalf("Failed to rewrite cpu.stat file: %v", err)
+	}
+
+	result := ReadCgroupCPU()
+	if result != 999 {
+		t.Errorf("Expected 999 (capped), got %f", result)
+	}
+}
+
+func TestReadNetworkStats_DeltaGuard(t *testing.T) {
+	resetNetState()
+
+	dir := t.TempDir()
+	netDevFile := filepath.Join(dir, "dev")
+	netDevContent := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast |bytes    packets errs drop fifo colls carrier compressed
+    lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
+  eth0:  500000    5000    0    0    0     0          0         0   250000    2500    0    0    0     0       0          0
+`
+	if err := os.WriteFile(netDevFile, []byte(netDevContent), 0o644); err != nil {
+		t.Fatalf("Failed to write dev file: %v", err)
+	}
+
+	origFile := procNetDevFile
+	procNetDevFile = netDevFile
+	defer func() { procNetDevFile = origFile }()
+
+	// First call seeds baseline
+	rx1, tx1 := ReadNetworkStats()
+	if rx1 != 0 || tx1 != 0 {
+		t.Errorf("First call: got (%f, %f), want (0, 0)", rx1, tx1)
+	}
+
+	// Set NetPrevTime to the future so deltaSec <= 0
+	NetPrevTime = time.Now().Add(10 * time.Second)
+
+	rx2, tx2 := ReadNetworkStats()
+	if rx2 != 0 || tx2 != 0 {
+		t.Errorf("Expected (0, 0) when deltaSec <= 0, got (%f, %f)", rx2, tx2)
+	}
+}
+
+func TestReadNetworkStats_PositiveDeltaRates(t *testing.T) {
+	resetNetState()
+
+	dir := t.TempDir()
+	netDevFile := filepath.Join(dir, "dev")
+	netDevContent1 := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast |bytes    packets errs drop fifo colls carrier compressed
+    lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
+  eth0:  500000    5000    0    0    0     0          0         0   250000    2500    0    0    0     0       0          0
+`
+	if err := os.WriteFile(netDevFile, []byte(netDevContent1), 0o644); err != nil {
+		t.Fatalf("Failed to write dev file: %v", err)
+	}
+
+	origFile := procNetDevFile
+	procNetDevFile = netDevFile
+	defer func() { procNetDevFile = origFile }()
+
+	// First call seeds baseline
+	rx1, tx1 := ReadNetworkStats()
+	if rx1 != 0 || tx1 != 0 {
+		t.Errorf("First call: got (%f, %f), want (0, 0)", rx1, tx1)
+	}
+
+	// Rewrite with higher byte counts to create positive deltas
+	netDevContent2 := `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast |bytes    packets errs drop fifo colls carrier compressed
+    lo:  100000    1000    0    0    0     0          0         0   100000    1000    0    0    0     0       0          0
+  eth0:  1500000    5000    0    0    0     0          0         0   750000    2500    0    0    0     0       0          0
+`
+	if err := os.WriteFile(netDevFile, []byte(netDevContent2), 0o644); err != nil {
+		t.Fatalf("Failed to rewrite dev file: %v", err)
+	}
+
+	rx2, tx2 := ReadNetworkStats()
+	if rx2 <= 0 {
+		t.Errorf("Expected positive rx rate with positive delta, got %f", rx2)
+	}
+	if tx2 <= 0 {
+		t.Errorf("Expected positive tx rate with positive delta, got %f", tx2)
+	}
+}
+
+func TestReadCgroupDiskIO_DeltaGuard(t *testing.T) {
+	resetDiskState()
+
+	dir := t.TempDir()
+	ioStatFile := filepath.Join(dir, "io.stat")
+	ioStatContent := "8:0 rbytes=1048576 wbytes=2097152 rios=100 wios=200\n"
+	if err := os.WriteFile(ioStatFile, []byte(ioStatContent), 0o644); err != nil {
+		t.Fatalf("Failed to write io.stat file: %v", err)
+	}
+
+	origFile := cgroupIOStatFile
+	cgroupIOStatFile = ioStatFile
+	defer func() { cgroupIOStatFile = origFile }()
+
+	// First call seeds baseline
+	r1, w1 := ReadCgroupDiskIO()
+	if r1 != 0 || w1 != 0 {
+		t.Errorf("First call: got (%f, %f), want (0, 0)", r1, w1)
+	}
+
+	// Set DiskPrevTime to the future so deltaSec <= 0
+	DiskPrevTime = time.Now().Add(10 * time.Second)
+
+	r2, w2 := ReadCgroupDiskIO()
+	if r2 != 0 || w2 != 0 {
+		t.Errorf("Expected (0, 0) when deltaSec <= 0, got (%f, %f)", r2, w2)
+	}
+}
+
+func TestReadCgroupDiskIO_PositiveDeltaRates(t *testing.T) {
+	resetDiskState()
+
+	dir := t.TempDir()
+	ioStatFile := filepath.Join(dir, "io.stat")
+	ioStatContent1 := "8:0 rbytes=1048576 wbytes=2097152 rios=100 wios=200\n"
+	if err := os.WriteFile(ioStatFile, []byte(ioStatContent1), 0o644); err != nil {
+		t.Fatalf("Failed to write io.stat file: %v", err)
+	}
+
+	origFile := cgroupIOStatFile
+	cgroupIOStatFile = ioStatFile
+	defer func() { cgroupIOStatFile = origFile }()
+
+	// First call seeds baseline
+	r1, w1 := ReadCgroupDiskIO()
+	if r1 != 0 || w1 != 0 {
+		t.Errorf("First call: got (%f, %f), want (0, 0)", r1, w1)
+	}
+
+	// Rewrite with higher values to create positive deltas
+	ioStatContent2 := "8:0 rbytes=5242880 wbytes=10485760 rios=500 wios=1000\n"
+	if err := os.WriteFile(ioStatFile, []byte(ioStatContent2), 0o644); err != nil {
+		t.Fatalf("Failed to rewrite io.stat file: %v", err)
+	}
+
+	r2, w2 := ReadCgroupDiskIO()
+	if r2 <= 0 {
+		t.Errorf("Expected positive read rate with positive delta, got %f", r2)
+	}
+	if w2 <= 0 {
+		t.Errorf("Expected positive write rate with positive delta, got %f", w2)
+	}
+}
+
+func TestReadCgroupProcs_FileNotFound(t *testing.T) {
+	origFile := cgroupProcsFile
+	cgroupProcsFile = "/nonexistent/path/cgroup.procs"
+	defer func() { cgroupProcsFile = origFile }()
+
+	count := ReadCgroupProcs()
+	if count != 0 {
+		t.Errorf("Expected 0 when file not found, got %d", count)
+	}
+}

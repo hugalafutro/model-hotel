@@ -16,13 +16,19 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-const dockerSocketPath = "/var/run/docker.sock"
+var dockerSocketPath = "/var/run/docker.sock"
 
 var (
 	dockerAvailable  bool
 	dockerCheckMu    sync.Once
 	sharedDockerOnce sync.Once
 	sharedDockerCli  *http.Client
+)
+
+// Overridable in tests for container ID detection.
+var (
+	procSelfCgroup = "/proc/self/cgroup"
+	osHostname     = os.Hostname
 )
 
 // IsDockerAvailable checks if Docker socket is accessible and responsive.
@@ -385,7 +391,7 @@ func CollectDockerStats(composeProject string) AggregatedDockerStats {
 
 func getOwnContainerID() string {
 	// Try /proc/self/cgroup (Docker usually writes the container ID here)
-	data, err := os.ReadFile("/proc/self/cgroup")
+	data, err := os.ReadFile(procSelfCgroup)
 	if err == nil {
 		for _, line := range strings.Split(string(data), "\n") {
 			line = strings.TrimSpace(line)
@@ -406,7 +412,7 @@ func getOwnContainerID() string {
 
 	// In many container setups (e.g. cgroup v2 with compose), the cgroup path is
 	// just "/" but the hostname is set to the container's short ID by Docker.
-	if hostname, err := os.Hostname(); err == nil && len(hostname) >= 12 && isHex(hostname) {
+	if hostname, err := osHostname(); err == nil && len(hostname) >= 12 && isHex(hostname) {
 		return hostname
 	}
 

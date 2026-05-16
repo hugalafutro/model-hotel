@@ -33,4 +33,11 @@ By submitting a pull request or otherwise contributing code, documentation, or o
 - Run `make test` before submitting.
 - Be excellent to each other.
 
+## Running Tests
+
+`make test` runs the full suite. Some tests in `internal/util` expect a
+running Docker daemon (the project is designed for Docker-first deployment).
+These tests pass regardless of whether Docker is available, but they only
+contribute full coverage when the Docker socket is reachable.
+
 That's it. Thanks for helping make ModelHotel better!
