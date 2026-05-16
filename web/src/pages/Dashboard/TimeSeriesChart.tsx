@@ -56,7 +56,14 @@ export function TimeSeriesChart({
 
 	// Drag-to-pan state for 1h range
 	const pannable = range === "1h" && data.length > VIEWPORT_SIZE;
-	const [viewportStart, setViewportStart] = useState(0);
+	const maxStart = Math.max(0, data.length - VIEWPORT_SIZE);
+	// Snap to latest data; reset when range changes (keyed state)
+	const [viewportStart, setViewportStart] = useState(maxStart);
+	const [viewportRange, setViewportRange] = useState(range);
+	if (viewportRange !== range) {
+		setViewportRange(range);
+		setViewportStart(maxStart);
+	}
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
 		startX: number;
@@ -64,11 +71,8 @@ export function TimeSeriesChart({
 		containerWidth: number;
 	} | null>(null);
 
-	// When range or data length changes, snap viewport to latest
-	const maxStart = Math.max(0, data.length - VIEWPORT_SIZE);
-	const clampedStart = Math.min(viewportStart, maxStart);
-	// If viewport is beyond the data (e.g. after range change), snap to end
-	const effectiveStart = clampedStart > maxStart ? maxStart : clampedStart;
+	// Clamp viewport to valid range
+	const effectiveStart = Math.max(0, Math.min(viewportStart, maxStart));
 
 	const visibleData = pannable
 		? data.slice(effectiveStart, effectiveStart + VIEWPORT_SIZE)

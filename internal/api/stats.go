@@ -574,7 +574,7 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 	switch bucketSize {
 	case "5min":
 		step = 5 * time.Minute
-		expected = 12
+		expected = 288
 		end = end.Truncate(5 * time.Minute)
 	case "day":
 		step = 24 * time.Hour
