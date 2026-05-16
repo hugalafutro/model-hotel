@@ -26,7 +26,7 @@ var excludedKeywords = []string{
 	"clip", "codestral-embed", "e5", "bge-", "nomic-embed",
 	"m2m100", "seamless", "faster-whisper", "vl-", "-vl",
 	"computer-use", "robotics", "lyria", "nano-banana",
-	"multimodal", "dall-e", "sdxl",
+	"multimodal", "sdxl",
 }
 
 // apiModel represents a model from the /api/models endpoint.
@@ -72,9 +72,6 @@ func fetchModels(proxyURL, adminToken string, allowedProviders map[string]bool) 
 
 	var result []simulator.ModelInfo
 	for _, m := range apiModels {
-		if !allowedProviders[m.ProviderName] {
-			continue
-		}
 		if !allowedProviders[m.ProviderName] {
 			continue
 		}
@@ -169,7 +166,7 @@ func main() {
 		// Auto-discover from API
 		token := *adminToken
 		if token == "" {
-			token = *key // fallback to virtual key
+			log.Fatal("-admin-token is required when -discover=true (virtual keys cannot access admin endpoints)")
 		}
 		fmt.Printf("Discovering models from %s ...\n", *url)
 		allowedProviders := make(map[string]bool)
