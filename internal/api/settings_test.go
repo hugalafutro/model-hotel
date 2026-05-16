@@ -52,6 +52,38 @@ func TestGetSettings_EncodeError(t *testing.T) {
 	}
 }
 
+// TestGetSettings_AppVersion tests that app_version is injected into the
+// settings response from the Handler's appVersion field.
+func TestGetSettings_AppVersion(t *testing.T) {
+	mockSets := &mockSettingsStore{
+		getAllFn: func(ctx context.Context) (map[string]string, error) {
+			return map[string]string{"key1": "val1"}, nil
+		},
+	}
+	h := testHandler(nil, nil, mockSets, nil, nil)
+	h.appVersion = "v1.2.3"
+
+	req := httptest.NewRequest(http.MethodGet, "/settings", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.GetSettings(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if result["app_version"] != "v1.2.3" {
+		t.Errorf("expected app_version='v1.2.3', got %q", result["app_version"])
+	}
+	if result["key1"] != "val1" {
+		t.Errorf("expected key1='val1', got %q", result["key1"])
+	}
+}
+
 // trackingFailingWriter is a failingResponseWriter that tracks the status code.
 type trackingFailingWriter struct {
 	header     http.Header

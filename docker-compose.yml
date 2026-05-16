@@ -2,7 +2,10 @@ name: model-hotel
 services:
     app:
         # Build from source (default):
-        build: .
+        build:
+            context: .
+            args:
+                VERSION: ${VERSION:-dev}
         # Prebuilt image (uncomment below, comment out build above):
         # image: ghcr.io/hugalafutro/model-hotel:latest
         ports:

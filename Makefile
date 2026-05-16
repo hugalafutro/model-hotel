@@ -1,7 +1,9 @@
 .PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
 
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
 build:
-	go build -o bin/server ./cmd/server/
+	go build -ldflags "-X main.version=$(VERSION)" -o bin/server ./cmd/server/
 
 run: build
 	./bin/server
@@ -27,7 +29,7 @@ docker-up:
 	docker compose up -d
 
 docker-build:
-	docker compose up -d --build
+	VERSION=$(VERSION) docker compose up -d --build
 
 docker-down:
 	docker compose down

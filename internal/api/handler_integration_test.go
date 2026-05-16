@@ -77,7 +77,7 @@ func newTestHandler(t *testing.T) *Handler {
 
 	settingsRepo := settings.NewRepository(pool)
 
-	handler := NewHandler(cfg, providerRepo, database, adminMgr, vkRepo, settingsRepo)
+	handler := NewHandler(cfg, providerRepo, database, adminMgr, vkRepo, settingsRepo, "test")
 	if handler == nil {
 		pool.Close()
 		t.Fatal("handler is nil")

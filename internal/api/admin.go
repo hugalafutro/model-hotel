@@ -69,10 +69,11 @@ type Handler struct {
 	virtualKeyRepo VirtualKeyStore
 	settingsRepo   SettingsStore
 	systemHandler  *SystemHandler
+	appVersion     string
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
-func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore) *Handler {
+func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string) *Handler {
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,
@@ -80,6 +81,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		adminMgr:       adminMgr,
 		virtualKeyRepo: vkRepo,
 		settingsRepo:   settingsRepo,
+		appVersion:     appVersion,
 	}
 }
 

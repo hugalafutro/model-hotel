@@ -675,7 +675,7 @@ export function Layout({ children }: LayoutProps) {
 		setLogsSubMode,
 	} = useSidebarMode();
 
-	const githubVersion = useGitHubVersion();
+	const { running, updateAvailable } = useGitHubVersion();
 
 	const navigation = [
 		{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -851,10 +851,15 @@ export function Layout({ children }: LayoutProps) {
 							target="_blank"
 							rel="noopener noreferrer"
 							aria-label="GitHub repository"
-							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+							title={
+								updateAvailable
+									? `Update available: ${running} → latest`
+									: `Running ${running}`
+							}
+							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5${updateAvailable ? " shadow-[0_0_8px_rgba(251,191,36,0.4)]" : ""}`}
 						>
 							<GitBranch size={14} strokeWidth={2} />
-							{githubVersion}
+							{running}
 						</a>
 					</div>
 					<button

@@ -25,7 +25,8 @@ RUN go mod tidy
 # Copy frontend build into static directory for embedding
 COPY --from=frontend-builder /app/web/dist ./cmd/server/static/
 
-RUN go build -o server ./cmd/server/
+ARG VERSION=dev
+RUN go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 
 # Final stage
 FROM alpine:latest

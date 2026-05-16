@@ -172,6 +172,7 @@ func testHandler(provStore *mockProviderStore, vkStore *mockVirtualKeyStore, set
 		adminMgr:       auth,
 		virtualKeyRepo: vkStore,
 		settingsRepo:   setsStore,
+		appVersion:     "test",
 	}
 }
 

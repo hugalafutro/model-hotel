@@ -38,6 +38,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
+// version is set at build time via -ldflags -X main.version=...
+var version = "dev"
+
 //go:embed all:static
 var staticFiles embed.FS
 
@@ -128,7 +131,7 @@ func main() {
 ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗    ██║  ██║╚██████╔╝   ██║   ███████╗███████╗
 ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`)
 	fmt.Println(cfg)
-	fmt.Println("Model Hotel instance is up and running.")
+	fmt.Println("Model Hotel (" + version + ") instance is up and running.")
 
 	if isNew {
 		token := adminMgr.Token()
@@ -261,7 +264,7 @@ func main() {
 	})
 
 	// Handlers shared across route groups
-	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo)
+	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
 
 	// API routes

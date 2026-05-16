@@ -378,7 +378,7 @@ export const handlers: RequestHandler[] = [
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
-		return HttpResponse.json({});
+		return HttpResponse.json({ app_version: "v0.0.0-test" });
 	}),
 
 	http.put("/api/settings", async ({ request }) => {

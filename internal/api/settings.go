@@ -28,6 +28,14 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Inject running app version (set via ldflags at build time).
+	// Read-only: intentionally excluded from allowedSettings so it
+	// cannot be overwritten via PUT /api/settings.
+	if all == nil {
+		all = make(map[string]string)
+	}
+	all["app_version"] = h.appVersion
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {
 		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
@@ -151,6 +159,12 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	debuglog.Info("settings: updated", "keys", keys)
 
 	all, _ := h.settingsRepo.GetAll(r.Context())
+
+	// Inject read-only app_version (same as GetSettings).
+	if all == nil {
+		all = make(map[string]string)
+	}
+	all["app_version"] = h.appVersion
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {
