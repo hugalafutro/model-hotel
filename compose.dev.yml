@@ -10,6 +10,7 @@
 
 services:
     app:
+        restart: unless-stopped
         environment:
             - DEBUG_LOG=true
         volumes:
