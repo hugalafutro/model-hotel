@@ -23,6 +23,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// newRequestWithContext is injectable for testing request creation errors.
+var newRequestWithContext = http.NewRequestWithContext
+
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
 	defer func() { _ = resp.Body.Close() }()
 	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
@@ -726,11 +729,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/"):
 		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", req.Model)
 		parts := strings.SplitN(req.Model, "/", 2)
-		if len(parts) != 2 {
-			h.failRequest(logData, 400, "invalid model format", 0, startTime, parseMs, timings, 0)
-			writeOpenAIError(w, "invalid model format, expected provider/model", http.StatusBadRequest)
-			return
-		}
 		providerName, modelID := parts[0], parts[1]
 		candidates, timings, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
@@ -741,12 +739,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	default:
 		h.failRequest(logData, 400, "invalid model format: "+req.Model, 0, startTime, parseMs, timings, 0)
 		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
-		return
-	}
-
-	if len(candidates) == 0 {
-		h.failRequest(logData, 404, "model not found or disabled", 0, startTime, parseMs, timings, 0)
-		writeOpenAIError(w, "model not found or disabled", http.StatusNotFound)
 		return
 	}
 
@@ -864,7 +856,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		var retryCancel context.CancelFunc
 		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), failoverTimeout)
 		failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
-		proxyReq, err := http.NewRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
+		proxyReq, err := newRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
 		if err != nil {
 			failoverCancel()
 			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
@@ -986,7 +978,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
 							retryCtx = context.WithValue(retryCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
 							retryCancel = rc
-							retryReq, retryErr := http.NewRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
+							retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 							if retryErr != nil {
 								retryCancel()
 								lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
