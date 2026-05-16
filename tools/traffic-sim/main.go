@@ -50,11 +50,12 @@ func parseDuration(s string) time.Duration {
 	if d, err := time.ParseDuration(s); err == nil {
 		return d
 	}
-	// Support bare number as minutes
-	if mins, err := fmt.Sscanf(s, "%d"); mins == 1 && err == nil {
-		return time.Duration(mustAtoi(s)) * time.Minute
+	// Support bare integer as minutes (e.g. "10" → 10m)
+	var n int
+	if _, err := fmt.Sscanf(s, "%d", &n); err == nil && fmt.Sprintf("%d", n) == s {
+		return time.Duration(n) * time.Minute
 	}
-	log.Fatalf("invalid duration %q (use e.g. 10m, 30s, 1h)", s)
+	log.Fatalf("invalid duration %q (use e.g. 10m, 30s, 1h, or bare integer for minutes)", s)
 	return 0
 }
 

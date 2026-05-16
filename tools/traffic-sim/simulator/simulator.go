@@ -309,6 +309,7 @@ func (s *Simulator) sendCompletion(ctx context.Context, model string, messages [
 
 	if s.Config.Streaming {
 		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "data: [DONE]" {
@@ -322,7 +323,7 @@ func (s *Simulator) sendCompletion(ctx context.Context, model string, messages [
 		io.Copy(io.Discard, resp.Body)
 	}
 
-	return 0, nil
+	return resp.StatusCode, nil
 }
 
 // prompts is a pool of varied conversation starters.
