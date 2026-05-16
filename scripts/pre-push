@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Pre-push hook: full CI suite. Blocks push if anything would fail on GitHub.
+# Install: cp scripts/pre-push .githooks/pre-push
+
+set -euo pipefail
+
+# Cleanup temp files on exit
+cover_out=""
+cover_filtered=""
+cleanup() { rm -f "$cover_out" "$cover_filtered"; }
+trap cleanup EXIT
+
+echo "pre-push: running full CI suite..."
+
+# ── Go Vet ──
+echo "pre-push: go vet ./..."
+if ! go vet ./...; then
+	echo "pre-push: FAILED - go vet" >&2
+	exit 1
+fi
+
+# ── golangci-lint ──
+echo "pre-push: golangci-lint run ./..."
+if ! golangci-lint run ./...; then
+	echo "pre-push: FAILED - golangci-lint" >&2
+	exit 1
+fi
+
+# ── Go Test + Coverage Gate ──
+echo "pre-push: go test ./... (with coverage)..."
+cover_out=$(mktemp)
+if ! go test -count=1 -timeout 5m -coverprofile="$cover_out" -covermode=atomic ./...; then
+	echo "pre-push: FAILED - go test" >&2
+	exit 1
+fi
+
+# Coverage gate: mirrors codecov.yml (80% target, cmd/tools excluded)
+echo "pre-push: checking project coverage (mirrors codecov.yml)..."
+cover_filtered=$(mktemp)
+{ head -1 "$cover_out"; grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' "$cover_out" | tail -n +2; } > "$cover_filtered"
+rm -f "$cover_out"
+
+if [ -s "$cover_filtered" ]; then
+	pct=$(go tool cover -func="$cover_filtered" 2>/dev/null | tail -1 | awk '{print $NF}' | tr -d '%')
+	rm -f "$cover_filtered"
+	if [ -z "$pct" ]; then
+		echo "pre-push: WARNING - could not parse coverage, skipping gate"
+	else
+		pct_int=${pct%%.*}
+		if [ "$pct_int" -lt 80 ]; then
+			echo "pre-push: FAILED - project coverage ${pct}% is below 80% threshold" >&2
+			echo "  This mirrors codecov.yml — add tests for new code" >&2
+			exit 1
+		fi
+		echo "pre-push: project coverage ${pct}% (threshold: 80%)"
+	fi
+else
+	rm -f "$cover_filtered"
+	echo "pre-push: WARNING - empty coverage profile, skipping gate"
+fi
+
+# ── Frontend Lint ──
+echo "pre-push: pnpm lint (web/)..."
+if ! (cd web && pnpm run lint); then
+	echo "pre-push: FAILED - pnpm lint" >&2
+	exit 1
+fi
+
+# ── Frontend Test ──
+echo "pre-push: pnpm vitest run (web/)..."
+if ! (cd web && pnpm vitest run); then
+	echo "pre-push: FAILED - pnpm vitest run" >&2
+	exit 1
+fi
+
+echo "pre-push: all checks passed"

@@ -1,83 +1,75 @@
 #!/usr/bin/env bash
-# Pre-commit hook: mirrors CI exactly to catch failures before pushing.
-# If it would fail on GitHub, it fails here first.
-# Install: cp scripts/pre-commit .git/hooks/pre-commit
+# Pre-commit hook: fast checks on staged files only.
+# Full CI suite runs in pre-push hook (blocks push, not every commit).
+# Install: cp scripts/pre-commit .githooks/pre-commit
 
 set -euo pipefail
 
-# Cleanup temp files on exit
-cover_out=""
-cover_filtered=""
-cleanup() { rm -f "$cover_out" "$cover_filtered"; }
-trap cleanup EXIT
-
-echo "pre-commit: mirroring CI checks..."
-
-# ── Go Vet (mirrors ci.yml: go-vet) ──
-echo "pre-commit: go vet ./..."
-if ! go vet ./...; then
-	echo "pre-commit: FAILED - go vet" >&2
-	exit 1
+# ── gci import formatting on staged Go files ──
+staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
+if [ -n "$staged_go" ]; then
+	echo "pre-commit: running gci import formatting..."
+	echo "$staged_go" | xargs gci write -s standard -s default -s "Prefix(github.com/hugalafutro/model-hotel)"
+	echo "$staged_go" | xargs git add
 fi
 
-# ── golangci-lint (mirrors ci.yml: go-lint) ──
-echo "pre-commit: golangci-lint run ./..."
-if ! golangci-lint run ./...; then
-	echo "pre-commit: FAILED - golangci-lint" >&2
-	exit 1
-fi
+# ── Go vet on staged packages ──
+if [ -n "$staged_go" ]; then
+	go_pkgs=""
+	for f in $staged_go; do
+		pkg_dir="$(dirname "$f")"
+		go_pkgs="$go_pkgs ./$pkg_dir/..."
+	done
+	go_pkgs=$(echo "$go_pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
 
-# ── Go Test + Coverage Gate (mirrors ci.yml: go-test) ──
-# Single run: coverage profile also catches test failures, no need to run twice.
-echo "pre-commit: go test ./... (with coverage)..."
-cover_out=$(mktemp)
-if ! go test -count=1 -timeout 5m -coverprofile="$cover_out" -covermode=atomic ./...; then
-	echo "pre-commit: FAILED - go test" >&2
-	exit 1
-fi
+	echo "pre-commit: go vet (staged packages)..."
+	if ! go vet $go_pkgs; then
+		echo "pre-commit: FAILED - go vet" >&2
+		exit 1
+	fi
 
-# Coverage gate: local-only, stricter than CI.
-# Codecov won't fail CI (fail_ci_if_error: false), but we block locally
-# to avoid coverage regressions. Mirrors codecov.yml: 80% target, ignores cmd/ tools/.
-echo "pre-commit: checking project coverage (mirrors codecov.yml)..."
-cover_filtered=$(mktemp)
-{ head -1 "$cover_out"; grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' "$cover_out" | tail -n +2; } > "$cover_filtered"
-rm -f "$cover_out"
+	# ── golangci-lint on staged packages ──
+	echo "pre-commit: golangci-lint (staged packages)..."
+	if ! golangci-lint run $go_pkgs; then
+		echo "pre-commit: FAILED - golangci-lint" >&2
+		exit 1
+	fi
 
-if [ -s "$cover_filtered" ]; then
-	pct=$(go tool cover -func="$cover_filtered" 2>/dev/null | tail -1 | awk '{print $NF}' | tr -d '%')
-	rm -f "$cover_filtered"
-	if [ -z "$pct" ]; then
-		echo "pre-commit: WARNING - could not parse coverage, skipping gate"
-	else
-		pct_int=${pct%%.*}
-		if [ "$pct_int" -lt 80 ]; then
-			echo "pre-commit: FAILED - project coverage ${pct}% is below 80% threshold" >&2
-			echo "  This mirrors codecov.yml — add tests for new code" >&2
-			exit 1
-		fi
-		echo "pre-commit: project coverage ${pct}% (threshold: 80%)"
+	# ── Go test on staged packages ──
+	echo "pre-commit: go test (staged packages)..."
+	if ! go test -count=1 $go_pkgs; then
+		echo "pre-commit: FAILED - go test" >&2
+		exit 1
 	fi
 else
-	rm -f "$cover_filtered"
-	echo "pre-commit: WARNING - empty coverage profile, skipping gate"
+	echo "pre-commit: no Go files staged, skipping Go checks"
 fi
 
-# ── Frontend Lint (mirrors ci.yml: frontend → pnpm run lint) ──
-echo "pre-commit: pnpm lint (web/)..."
-if ! (cd web && pnpm run lint); then
-	echo "pre-commit: FAILED - pnpm lint" >&2
-	exit 1
+# ── Frontend lint on staged .ts/.tsx files ──
+staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.tsx?$' || true)
+if [ -n "$staged_ts" ]; then
+	lint_targets=""
+	for f in $staged_ts; do
+		rel="${f#web/}"
+		if [ -f "web/$rel" ]; then
+			lint_targets="$lint_targets $rel"
+		fi
+	done
+	if [ -n "$lint_targets" ]; then
+		echo "pre-commit: pnpm lint (staged files)..."
+		if ! (cd web && pnpm lint $lint_targets); then
+			echo "pre-commit: FAILED - pnpm lint" >&2
+			exit 1
+		fi
+
+		echo "pre-commit: biome check (staged files)..."
+		if ! (cd web && pnpm biome check --write $lint_targets); then
+			echo "pre-commit: FAILED - biome check" >&2
+			exit 1
+		fi
+	fi
+else
+	echo "pre-commit: no .ts/.tsx staged, skipping frontend lint"
 fi
 
-# ── Frontend Test (mirrors ci.yml: frontend → pnpm vitest run) ──
-echo "pre-commit: pnpm vitest run (web/)..."
-if ! (cd web && pnpm vitest run); then
-	echo "pre-commit: FAILED - pnpm vitest run" >&2
-	exit 1
-fi
-
-# Note: Vite build is NOT run here per AGENTS.md: "Do NOT run Vite build for pre-commit."
-# CI runs it, but it's slow and rarely catches issues the above checks miss.
-
-echo "pre-commit: all checks passed"
+echo "pre-commit: fast checks passed (full suite runs on push)"
