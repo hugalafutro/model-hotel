@@ -8,10 +8,13 @@ import (
 	"io"
 )
 
+// randReader is the source of cryptographic randomness. Overridable for testing.
+var randReader = cryptoRand.Reader
+
 // Generate creates a new virtual API key and returns the plain text key and its SHA-256 hash.
 func Generate() (string, error) {
 	key := make([]byte, 16)
-	if _, err := io.ReadFull(cryptoRand.Reader, key); err != nil {
+	if _, err := io.ReadFull(randReader, key); err != nil {
 		return "", err
 	}
 	return "sk-" + hex.EncodeToString(key), nil

@@ -47,6 +47,11 @@ type VirtualKeyResponse struct {
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 }
 
+// rowsScan allows tests to override rows.Scan for error-path coverage.
+var rowsScan = func(rows pgx.Rows, dest ...any) error {
+	return rows.Scan(dest...)
+}
+
 // Repository provides database access for virtual keys.
 type Repository struct {
 	pool *pgxpool.Pool
@@ -82,12 +87,12 @@ func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 	var keys []*VirtualKey
 	for rows.Next() {
 		var vk VirtualKey
-		if err := rows.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst); err != nil {
+		if err := rowsScan(rows, &vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst); err != nil {
 			return nil, err
 		}
 		keys = append(keys, &vk)
 	}
-	return keys, nil
+	return keys, rows.Err()
 }
 
 // Get retrieves a virtual key by ID.

@@ -3,6 +3,7 @@ package virtualkey
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -120,6 +121,22 @@ func TestHashAndGenerateCompatible(t *testing.T) {
 	if len(hash) != 64 {
 		t.Errorf("Hash of generated key should be 64 chars, got %d", len(hash))
 	}
+}
+
+func TestGenerate_RandReaderError(t *testing.T) {
+	orig := randReader
+	defer func() { randReader = orig }()
+	randReader = &failReader{}
+	_, err := Generate()
+	if err == nil {
+		t.Error("expected error when rand reader fails")
+	}
+}
+
+type failReader struct{}
+
+func (f *failReader) Read(p []byte) (int, error) {
+	return 0, fmt.Errorf("mock rand error")
 }
 
 func TestHashIsOneWay(t *testing.T) {

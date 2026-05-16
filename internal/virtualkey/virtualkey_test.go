@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
@@ -473,6 +474,78 @@ func TestRepository_Delete_NotFound_NoError(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TestRepository_List edge cases
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// DB error-path tests (canceled context forces errors)
+// ---------------------------------------------------------------------------
+
+func TestRepository_List_ScanError(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+
+	orig := rowsScan
+	defer func() { rowsScan = orig }()
+
+	// Create a key so rows.Next() returns true and rows.Scan is called.
+	suffix := uuid.New().String()[:8]
+	_, err := repo.Create(ctx, "scan-err-"+suffix, "hash-scan-"+suffix, "sk-...sc", nil, nil)
+	if err != nil {
+		t.Fatalf("Create() setup failed: %v", err)
+	}
+
+	rowsScan = func(_ pgx.Rows, _ ...any) error {
+		return errors.New("forced scan error")
+	}
+
+	_, err = repo.List(ctx)
+	if err == nil {
+		t.Error("expected scan error, got nil")
+	}
+}
+
+func TestRepository_List_DBError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately to force DB error
+	repo := NewRepository(testDB.Pool())
+
+	_, err := repo.List(ctx)
+	if err == nil {
+		t.Error("expected error with canceled context, got nil")
+	}
+}
+
+func TestRepository_Delete_DBError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	repo := NewRepository(testDB.Pool())
+
+	err := repo.Delete(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error with canceled context, got nil")
+	}
+}
+
+func TestRepository_TouchLastUsed_DBError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	repo := NewRepository(testDB.Pool())
+
+	err := repo.TouchLastUsed(ctx, "any-hash")
+	if err == nil {
+		t.Error("expected error with canceled context, got nil")
+	}
+}
+
+func TestRepository_Update_DBError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	repo := NewRepository(testDB.Pool())
+
+	_, err := repo.Update(ctx, uuid.New(), "name", nil, nil)
+	if err == nil {
+		t.Error("expected error with canceled context, got nil")
+	}
+}
 
 func TestRepository_List_Empty(t *testing.T) {
 
