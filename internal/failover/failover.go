@@ -14,6 +14,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+var (
+	jsonMarshal   = json.Marshal
+	jsonUnmarshal = json.Unmarshal
+)
+
 // FailoverGroup represents a configured failover group for a model.
 //
 //nolint:revive // stutter and exported are acceptable: FailoverGroup is a domain concept
@@ -62,11 +67,11 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 		return nil, err
 	}
 
-	if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
+	if err := jsonUnmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
+	if err := jsonUnmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
 		return nil, err
 	}
 
@@ -82,12 +87,12 @@ func (r *Repository) Upsert(ctx context.Context, displayModel string, priorityOr
 // UpsertWithConfig creates or updates a failover group with full configuration options.
 func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string, autoCreated *bool) (*FailoverGroup, error) {
-	priorityJSON, err := json.Marshal(priorityOrder)
+	priorityJSON, err := jsonMarshal(priorityOrder)
 	if err != nil {
 		return nil, err
 	}
 
-	entryEnabledJSON, err := json.Marshal(entryEnabled)
+	entryEnabledJSON, err := jsonMarshal(entryEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +144,11 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		return nil, err
 	}
 
-	if err := json.Unmarshal(rawPriority, &fg.PriorityOrder); err != nil {
+	if err := jsonUnmarshal(rawPriority, &fg.PriorityOrder); err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(rawEntryEnabled, &fg.EntryEnabled); err != nil {
+	if err := jsonUnmarshal(rawEntryEnabled, &fg.EntryEnabled); err != nil {
 		return nil, err
 	}
 
@@ -183,11 +188,11 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 		return nil, err
 	}
 
-	if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
+	if err := jsonUnmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
+	if err := jsonUnmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
 		return nil, err
 	}
 
@@ -216,12 +221,12 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 // Update modifies an existing failover group by ID.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string) (*FailoverGroup, error) {
-	priorityJSON, err := json.Marshal(priorityOrder)
+	priorityJSON, err := jsonMarshal(priorityOrder)
 	if err != nil {
 		return nil, err
 	}
 
-	entryEnabledJSON, err := json.Marshal(entryEnabled)
+	entryEnabledJSON, err := jsonMarshal(entryEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -277,11 +282,11 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
-	if err := json.Unmarshal(rawPriority, &fg.PriorityOrder); err != nil {
+	if err := jsonUnmarshal(rawPriority, &fg.PriorityOrder); err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(rawEntryEnabled, &fg.EntryEnabled); err != nil {
+	if err := jsonUnmarshal(rawEntryEnabled, &fg.EntryEnabled); err != nil {
 		return nil, err
 	}
 
@@ -317,10 +322,10 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 			debuglog.Warn("failover: row scan failed", "error", err)
 			return nil, fmt.Errorf("scanFailoverGroups: row scan failed: %w", err)
 		}
-		if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
+		if err := jsonUnmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
 			return nil, fmt.Errorf("scanFailoverGroups: unmarshal priority for %s: %w", fg.DisplayModel, err)
 		}
-		if err := json.Unmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
+		if err := jsonUnmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
 			return nil, fmt.Errorf("scanFailoverGroups: unmarshal entry_enabled for %s: %w", fg.DisplayModel, err)
 		}
 		groups = append(groups, &fg)

@@ -1480,6 +1480,13 @@ func TestRepository_GetEnabled_EmptyList(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
 
+	// Clean up any auto-created groups from previous tests
+	allGroups, _ := repo.List(ctx)
+	for _, g := range allGroups {
+		_ = repo.DeleteByID(ctx, g.ID)
+	}
+	InvalidateFailoverCache()
+
 	// GetEnabled with no groups should return empty list or nil, not error
 	groups, err := repo.GetEnabled(ctx)
 	if err != nil {
@@ -1498,6 +1505,13 @@ func TestRepository_GetEnabled_EmptyList(t *testing.T) {
 func TestRepository_List_Empty(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
+
+	// Clean up any groups from previous tests
+	allGroups, _ := repo.List(ctx)
+	for _, g := range allGroups {
+		_ = repo.DeleteByID(ctx, g.ID)
+	}
+	InvalidateFailoverCache()
 
 	// List with no groups should return empty slice, not error
 	groups, err := repo.List(ctx)
