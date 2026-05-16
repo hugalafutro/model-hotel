@@ -725,3 +725,4 @@ func TestKnownMigrations_ReadDirError(t *testing.T) {
 }
 
 // verify hook
+// hook test
