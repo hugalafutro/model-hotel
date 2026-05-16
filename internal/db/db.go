@@ -86,6 +86,8 @@ func (db *DB) runMigrations(ctx context.Context) error {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
+	var applied, skipped int
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -106,18 +108,33 @@ func (db *DB) runMigrations(ctx context.Context) error {
 			return fmt.Errorf("failed to read migration %s: %w", filename, err)
 		}
 
-		if err := db.runMigration(ctx, filename, string(content)); err != nil {
+		newlyApplied, err := db.runMigration(ctx, filename, string(content))
+		if err != nil {
 			return fmt.Errorf("failed to run migration %s: %w", filename, err)
 		}
+		if newlyApplied {
+			applied++
+		} else {
+			skipped++
+		}
+	}
+
+	switch {
+	case applied > 0 && skipped > 0:
+		debuglog.Info("db: Migrations complete", "applied", applied, "skipped", skipped)
+	case applied > 0:
+		debuglog.Info("db: Migrations complete", "applied", applied)
+	case skipped > 0:
+		debuglog.Info("db: Migrations already applied", "count", skipped)
 	}
 
 	return nil
 }
 
-func (db *DB) runMigration(ctx context.Context, name, sql string) error {
+func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) {
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -131,7 +148,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	`).Scan(&exists)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("failed to check schema_migrations table: %w", err)
+		return false, fmt.Errorf("failed to check schema_migrations table: %w", err)
 	}
 
 	if !exists {
@@ -143,7 +160,7 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 			)
 		`)
 		if err != nil {
-			return fmt.Errorf("failed to create schema_migrations table: %w", err)
+			return false, fmt.Errorf("failed to create schema_migrations table: %w", err)
 		}
 	}
 
@@ -155,33 +172,33 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) error {
 	`, name).Scan(&applied)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("failed to check migration status: %w", err)
+		return false, fmt.Errorf("failed to check migration status: %w", err)
 	}
 
 	if applied {
-		debuglog.Info("db: Migration already applied, skipping", "name", name)
-		return nil
+		debuglog.Debug("db: Migration already applied, skipping", "name", name)
+		return false, nil
 	}
 
 	debuglog.Info("db: Applying migration", "name", name)
 
 	if _, err := tx.Exec(ctx, sql); err != nil {
-		return fmt.Errorf("failed to execute migration SQL: %w", err)
+		return false, fmt.Errorf("failed to execute migration SQL: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO schema_migrations (name) VALUES ($1)
 	`, name)
 	if err != nil {
-		return fmt.Errorf("failed to record migration: %w", err)
+		return false, fmt.Errorf("failed to record migration: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit migration: %w", err)
+		return false, fmt.Errorf("failed to commit migration: %w", err)
 	}
 
 	debuglog.Info("db: Successfully applied migration", "name", name)
-	return nil
+	return true, nil
 }
 
 // WaitForReady polls the database until it responds or maxAttempts is reached.

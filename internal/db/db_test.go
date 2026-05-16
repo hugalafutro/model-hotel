@@ -249,7 +249,7 @@ func TestRunMigration_BeginError(t *testing.T) {
 	d.Close()
 
 	// runMigration should fail when trying to begin a transaction on closed pool
-	err = d.runMigration(ctx, "test.sql", "SELECT 1")
+	_, err = d.runMigration(ctx, "test.sql", "SELECT 1")
 	if err == nil {
 		t.Error("expected error when running migration on closed pool")
 	}
@@ -272,7 +272,7 @@ func TestRunMigration_ExecError(t *testing.T) {
 	defer d.Close()
 
 	// Use invalid SQL to trigger exec error
-	err = d.runMigration(ctx, "bad.sql", "INVALID SQL SYNTAX !!!")
+	_, err = d.runMigration(ctx, "bad.sql", "INVALID SQL SYNTAX !!!")
 	if err == nil {
 		t.Error("expected error for invalid SQL in migration")
 	}
@@ -588,6 +588,66 @@ func TestRunMigrations_DotfileEntry(t *testing.T) {
 	// Call runMigrations directly - should skip dotfile and execute the .sql file
 	if err := d.runMigrations(ctx); err != nil {
 		t.Fatalf("runMigrations failed: %v", err)
+	}
+}
+
+// TestRunMigration_NewlyApplied tests that runMigration returns (true, nil)
+// when a migration is applied for the first time.
+func TestRunMigration_NewlyApplied(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_new_applied")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_new_applied")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Use a unique migration name that hasn't been applied yet
+	migrationName := "test_newly_applied_" + time.Now().Format("20060102150405") + ".sql"
+	newlyApplied, err := d.runMigration(ctx, migrationName, "SELECT 1")
+	if err != nil {
+		t.Fatalf("runMigration failed: %v", err)
+	}
+	if !newlyApplied {
+		t.Error("expected newlyApplied=true for first application")
+	}
+
+	// Running the same migration again should return (false, nil)
+	newlyApplied, err = d.runMigration(ctx, migrationName, "SELECT 1")
+	if err != nil {
+		t.Fatalf("runMigration on second call failed: %v", err)
+	}
+	if newlyApplied {
+		t.Error("expected newlyApplied=false for already-applied migration")
+	}
+}
+
+// TestRunMigrations_AppliedAndSkipped tests that runMigrations correctly
+// counts applied and skipped migrations. First run applies all, second run
+// skips all.
+func TestRunMigrations_AppliedAndSkipped(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_applied_skipped")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_applied_skipped")
+
+	// First DB: applies all migrations
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Second call: all migrations should be skipped (returns no error)
+	if err := d.runMigrations(ctx); err != nil {
+		t.Fatalf("second runMigrations call failed: %v", err)
 	}
 }
 
