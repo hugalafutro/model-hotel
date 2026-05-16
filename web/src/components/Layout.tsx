@@ -551,13 +551,16 @@ function LastErrorPills() {
 		timestamp: string | null,
 		entry?: LogEntry | AppLogEntry,
 	) => (
-		<div className="group relative rounded-md border border-red-500/30 bg-red-950/20 overflow-hidden">
+		<div className="group relative rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] overflow-hidden">
 			{/* Header row with icon, label, and action buttons */}
-			<div className="flex items-center justify-between px-2 py-px bg-red-900/20">
+			<div className="flex items-center justify-between px-2 py-px bg-[var(--error-bg-strong)]">
 				<div className="flex items-center gap-1.5">
-					<AlertTriangle size={10} className="shrink-0 text-red-400" />
+					<AlertTriangle
+						size={10}
+						className="shrink-0 text-[var(--error-icon)]"
+					/>
 					<span
-						className="text-[10px] font-semibold text-red-300 uppercase tracking-wider"
+						className="text-[10px] font-semibold text-[var(--error-text)] uppercase tracking-wider"
 						title={timestamp ? formatTimestamp(timestamp) : undefined}
 					>
 						{timestamp
@@ -573,7 +576,7 @@ function LastErrorPills() {
 							navigator.clipboard.writeText(msg);
 							toast("Copied to clipboard", "info");
 						}}
-						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
 						title="Copy error"
 					>
 						<Copy size={10} />
@@ -589,7 +592,7 @@ function LastErrorPills() {
 								navigate("/logs");
 							}
 						}}
-						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
 						title="View details"
 					>
 						<ExternalLink size={10} />
@@ -601,7 +604,7 @@ function LastErrorPills() {
 							onAcknowledge();
 							toast(`${label} error acknowledged`, "info");
 						}}
-						className="p-0.5 rounded text-red-400/60 hover:text-red-200 hover:bg-red-900/40 transition-colors cursor-pointer"
+						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
 						title="Acknowledge (dismiss)"
 					>
 						<X size={10} />
@@ -611,7 +614,7 @@ function LastErrorPills() {
 			{/* Error message body */}
 			<div className="px-2 py-1">
 				<div
-					className="font-mono text-[9.5px] text-red-300/80 break-words leading-relaxed line-clamp-3"
+					className="font-mono text-[9.5px] text-[var(--error-text-muted)] break-words leading-relaxed line-clamp-3"
 					title={msg}
 				>
 					{msg.length > 200 ? `${msg.slice(0, 200)}…` : msg}

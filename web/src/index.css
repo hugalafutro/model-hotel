@@ -46,6 +46,13 @@ html {
 	--text-secondary: #4a4f5c;
 	--text-tertiary: #7a7e8c;
 	--text-muted: #a5a9b4;
+	--error-bg: rgb(254 242 242);
+	--error-bg-strong: rgb(254 226 226);
+	--error-border: rgb(239 68 68 / 30%);
+	--error-text: #b91c1c;
+	--error-text-muted: rgb(185 28 28 / 60%);
+	--error-icon: #dc2626;
+	--warning-text: #c2410c;
 }
 
 html[data-ui-style="clean-saas"].dark {
@@ -60,6 +67,13 @@ html[data-ui-style="clean-saas"].dark {
 	--text-secondary: #b0b3c0;
 	--text-tertiary: #7a7e8c;
 	--text-muted: #4a4f5c;
+	--error-bg: rgb(127 29 29 / 20%);
+	--error-bg-strong: rgb(127 29 29 / 30%);
+	--error-border: rgb(239 68 68 / 30%);
+	--error-text: #fca5a5;
+	--error-text-muted: rgb(248 113 113 / 60%);
+	--error-icon: #f87171;
+	--warning-text: #fb923c;
 
 	--border-default: rgba(255, 255, 255, 0.06);
 	--border-subtle: rgba(255, 255, 255, 0.03);
@@ -111,6 +125,13 @@ html[data-ui-style="cyber-terminal"].dark {
 	--text-secondary: #a0a5b5;
 	--text-tertiary: #5a6075;
 	--text-muted: #3a4050;
+	--error-bg: rgb(127 29 29 / 20%);
+	--error-bg-strong: rgb(127 29 29 / 30%);
+	--error-border: rgb(239 68 68 / 30%);
+	--error-text: #fca5a5;
+	--error-text-muted: rgb(248 113 113 / 60%);
+	--error-icon: #f87171;
+	--warning-text: #fb923c;
 
 	--border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
 	--border-subtle: rgba(255, 255, 255, 0.03);
@@ -152,6 +173,13 @@ html[data-ui-style="cyber-terminal"].light {
 	--shadow-glow: 0 0 15px rgba(var(--accent-rgb, 129, 140, 248), 0.35);
 
 	--nav-icon: var(--accent);
+	--error-bg: rgb(254 242 242);
+	--error-bg-strong: rgb(254 226 226);
+	--error-border: rgb(239 68 68 / 30%);
+	--error-text: #b91c1c;
+	--error-text-muted: rgb(185 28 28 / 60%);
+	--error-icon: #dc2626;
+	--warning-text: #c2410c;
 }
 
 /* =============================================
@@ -170,6 +198,13 @@ html[data-ui-style="glassmorphism-lite"].dark {
 	--text-secondary: #b8bcd0;
 	--text-tertiary: #7a80a0;
 	--text-muted: #4a5070;
+	--error-bg: rgb(127 29 29 / 20%);
+	--error-bg-strong: rgb(127 29 29 / 30%);
+	--error-border: rgb(239 68 68 / 30%);
+	--error-text: #fca5a5;
+	--error-text-muted: rgb(248 113 113 / 60%);
+	--error-icon: #f87171;
+	--warning-text: #fb923c;
 
 	--border-default: rgba(255, 255, 255, 0.12);
 	--border-subtle: rgba(255, 255, 255, 0.04);
@@ -209,6 +244,13 @@ html[data-ui-style="glassmorphism-lite"].light {
 	--shadow-glow: 0 0 30px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
 
 	--nav-icon: var(--text-secondary);
+	--error-bg: rgb(254 242 242);
+	--error-bg-strong: rgb(254 226 226);
+	--error-border: rgb(239 68 68 / 30%);
+	--error-text: #b91c1c;
+	--error-text-muted: rgb(185 28 28 / 60%);
+	--error-icon: #dc2626;
+	--warning-text: #c2410c;
 }
 
 html[data-ui-style="glassmorphism-lite"] {
@@ -285,6 +327,133 @@ html[data-ui-style="glassmorphism-lite"] {
 }
 
 [data-ui-style] .hover\:bg-gray-750:hover {
+	background-color: var(--surface-elevated-hover);
+}
+
+/* Opacity variants — map to themed surfaces at reduced opacity */
+[data-ui-style] .bg-gray-900\/40 {
+	background-color: color-mix(in srgb, var(--surface-bg) 40%, transparent);
+}
+
+[data-ui-style] .bg-gray-800\/50 {
+	background-color: color-mix(
+		in srgb,
+		var(--surface-elevated) 50%,
+		transparent
+	);
+}
+
+[data-ui-style] .bg-gray-800\/30 {
+	background-color: color-mix(
+		in srgb,
+		var(--surface-elevated) 30%,
+		transparent
+	);
+}
+
+[data-ui-style] .bg-gray-700\/60 {
+	background-color: color-mix(in srgb, var(--surface-input) 60%, transparent);
+}
+
+[data-ui-style] .bg-gray-700\/50 {
+	background-color: color-mix(in srgb, var(--surface-input) 50%, transparent);
+}
+
+[data-ui-style] .bg-gray-700\/30 {
+	background-color: color-mix(in srgb, var(--surface-input) 30%, transparent);
+}
+
+[data-ui-style] .bg-gray-600\/50 {
+	background-color: color-mix(
+		in srgb,
+		var(--surface-elevated-hover) 50%,
+		transparent
+	);
+}
+
+[data-ui-style] .bg-gray-600\/40 {
+	background-color: color-mix(
+		in srgb,
+		var(--surface-elevated-hover) 40%,
+		transparent
+	);
+}
+
+[data-ui-style] .bg-gray-500\/20 {
+	background-color: color-mix(in srgb, var(--text-muted) 20%, transparent);
+}
+
+[data-ui-style] .bg-gray-500\/30 {
+	background-color: color-mix(in srgb, var(--text-muted) 30%, transparent);
+}
+
+/* Text with opacity */
+[data-ui-style] .text-white\/80 {
+	color: color-mix(in srgb, var(--text-primary) 80%, transparent);
+}
+
+[data-ui-style] .text-white\/70 {
+	color: color-mix(in srgb, var(--text-primary) 70%, transparent);
+}
+
+[data-ui-style] .text-white\/60 {
+	color: color-mix(in srgb, var(--text-primary) 60%, transparent);
+}
+
+/* Hover text — map to primary text color */
+[data-ui-style] .hover\:text-white:hover {
+	color: var(--text-primary);
+}
+
+[data-ui-style] .hover\:text-gray-200:hover {
+	color: var(--text-primary);
+}
+
+[data-ui-style] .hover\:text-gray-300:hover {
+	color: var(--text-secondary);
+}
+
+/* Hover bg with opacity */
+[data-ui-style] .hover\:bg-white\/5:hover {
+	background-color: var(--surface-hover);
+}
+
+[data-ui-style] .hover\:bg-white\/15:hover {
+	background-color: var(--surface-elevated-hover);
+}
+
+/* Border with opacity */
+[data-ui-style] .border-gray-700\/50 {
+	border-color: var(--border-default);
+}
+
+[data-ui-style] .border-gray-700\/30 {
+	border-color: var(--border-default);
+}
+
+[data-ui-style] .border-gray-600\/50 {
+	border-color: var(--border-input);
+}
+
+[data-ui-style] .border-gray-500\/30 {
+	border-color: var(--border-input);
+}
+
+[data-ui-style] .border-gray-400\/50 {
+	border-color: var(--border-input);
+}
+
+/* Hover border */
+[data-ui-style] .hover\:border-gray-500:hover {
+	border-color: var(--border-input);
+}
+
+/* Hover bg gray variants */
+[data-ui-style] .hover\:bg-gray-800:hover {
+	background-color: var(--surface-elevated-hover);
+}
+
+[data-ui-style] .hover\:bg-gray-500:hover {
 	background-color: var(--surface-elevated-hover);
 }
 
@@ -1192,6 +1361,10 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
 	background-color: rgb(255 255 255 / 3%);
 }
 
+html.light [data-ui-style] .ui-table tbody tr:nth-child(even) {
+	background-color: rgb(0 0 0 / 3%);
+}
+
 [data-ui-style] .ui-table tbody tr:hover {
 	background-color: var(--surface-hover);
 }
@@ -1587,6 +1760,34 @@ html.light .bg-red-900\/30:hover {
 
 html.light .bg-blue-900\/30:hover {
 	background-color: rgba(37, 99, 235, 0.1);
+}
+
+html.light .bg-red-900\/30 {
+	background-color: rgba(220, 38, 38, 0.1);
+}
+
+html.light .bg-yellow-900\/30 {
+	background-color: rgba(161, 98, 7, 0.1);
+}
+
+html.light .bg-orange-900\/30 {
+	background-color: rgba(154, 52, 18, 0.1);
+}
+
+html.light .bg-blue-900\/30 {
+	background-color: rgba(30, 64, 175, 0.1);
+}
+
+html.light .bg-green-900\/30 {
+	background-color: rgba(6, 78, 59, 0.1);
+}
+
+html.light .bg-gray-700\/30 {
+	background-color: rgba(55, 65, 81, 0.1);
+}
+
+html.light .text-yellow-400 {
+	color: #ca8a04;
 }
 
 /* Darker sky/amber for net/disk rows in light theme */
