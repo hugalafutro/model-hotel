@@ -92,6 +92,18 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Initialize admin manager before DB connection — it only needs the
+	// data directory and env token, no database dependency.
+	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
+	if err != nil {
+		log.Fatalf("Failed to initialize admin manager: %v", err)
+	}
+
+	// Startup banner (direct stdout: slog escapes \n, making ASCII art
+	// unreadable). Printed before DB connection so it appears at the top
+	// of the log, before any DB noise from other containers.
+	printStartupBannerStdout(cfg)
+
 	database, err := db.New(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -109,43 +121,25 @@ func main() {
 	debuglog.SetHandler(api.NewAppSlogHandler(debuglog.Level()))
 
 	debuglog.Info("db: Database connected and migrations applied successfully")
-
-	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
-	if err != nil {
-		log.Fatalf("Failed to initialize admin manager: %v", err)
-	}
-
 	debuglog.Info("startup: admin token %s", func() string {
 		if isNew {
 			return "generated"
 		}
 		return "loaded from file"
 	}())
+	debuglog.Info("config: Config loaded")
 
-	// Startup banner (direct stdout: slog escapes \n, making ASCII art unreadable)
-	fmt.Println()
-	fmt.Println(`███╗   ███╗ ██████╗ ██████╗ ███████╗██╗         ██╗  ██╗ ██████╗ ████████╗███████╗██╗
-████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║         ██║  ██║██╔═══██╗╚══██╔══╝██╔════╝██║
-██╔████╔██║██║   ██║██║  ██║█████╗  ██║         ███████║██║   ██║   ██║   █████╗  ██║
-██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║         ██╔══██║██║   ██║   ██║   ██╔══╝  ██║
-██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗    ██║  ██║╚██████╔╝   ██║   ███████╗███████╗
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`)
-	fmt.Println(cfg)
-	fmt.Println("Model Hotel (" + version + ") instance is up and running.")
-
+	// Admin token box is printed after DB connection succeeds so it's not
+	// exposed in container logs if the DB connection fails and the process
+	// exits. Placed right after the config log so it stays grouped with
+	// the banner output.
 	if isNew {
-		token := adminMgr.Token()
-		log.Printf(`
-╔══════════════════════════════════════════════════════════════╗
-║  ADMIN TOKEN (save now — this will NOT be shown again):     ║
-║                                                              ║
-║  %s                                                         ║
-║                                                              ║
-║  To regenerate: delete the admin-token file and restart.     ║
-╚══════════════════════════════════════════════════════════════╝`, token)
+		printAdminTokenBoxStdout(adminMgr.Token())
 	}
 
-	debuglog.Info("config: Config loaded")
+	// Ready confirmation — printed after DB is connected so it's the
+	// definitive signal that the server is fully operational.
+	printReadyMessageStdout(version)
 
 	// Clean up stale request logs left in "pending" or "streaming" state
 	// from a previous server crash, restart, or unhandled error.
