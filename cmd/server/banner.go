@@ -18,13 +18,17 @@ const asciiBanner = `███╗   ███╗ ██████╗ ███
 ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`
 
 // printStartupBanner prints the ASCII art logo and config summary box.
-// Uses fmt.Println directly (not slog) because slog escapes \n, making
-// ASCII art unreadable. Printed before DB connection so it appears at the
-// top of the log, before any DB noise from other containers.
+// Uses direct stdout (not slog) because slog escapes \n, making ASCII art
+// unreadable. The entire banner is built as a single string and written
+// in one call to minimize the window where Docker Compose can interleave
+// output from other containers between lines.
 func printStartupBanner(w io.Writer, cfg *config.Config) {
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, asciiBanner)
-	_, _ = fmt.Fprintln(w, cfg)
+	var b strings.Builder
+	b.WriteByte('\n')
+	b.WriteString(asciiBanner)
+	b.WriteByte('\n')
+	b.WriteString(cfg.String())
+	_, _ = fmt.Fprint(w, b.String())
 }
 
 // printAdminTokenBox prints the one-time admin token box shown only on
@@ -48,7 +52,10 @@ func printAdminTokenBox(w io.Writer, token string) {
 	extraPad := strings.Repeat("═", extra)
 	extraSpace := strings.Repeat(" ", extra)
 
-	_, _ = fmt.Fprintf(w, `
+	// Build the entire box as one string and write in a single call
+	// to minimize Docker log interleaving.
+	var b strings.Builder
+	fmt.Fprintf(&b, `
 ╔══════════════════════════════════════════════════════════════%s╗
 ║  ADMIN TOKEN (save now — this will NOT be shown again):      %s║
 ║                                                              %s║
@@ -57,6 +64,7 @@ func printAdminTokenBox(w io.Writer, token string) {
 ║  To regenerate: delete the admin-token file and restart.     %s║
 ╚══════════════════════════════════════════════════════════════%s╝
 `, extraPad, extraSpace, extraSpace, token, strings.Repeat(" ", padding), extraSpace, extraSpace, extraPad)
+	_, _ = fmt.Fprint(w, b.String())
 }
 
 // printReadyMessage prints the final "instance is up and running" line.
