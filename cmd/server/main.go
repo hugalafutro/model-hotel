@@ -107,6 +107,18 @@ func main() {
 
 	debuglog.Info("db: Database connected and migrations applied successfully")
 
+	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
+	if err != nil {
+		log.Fatalf("Failed to initialize admin manager: %v", err)
+	}
+
+	debuglog.Info("startup: admin token %s", func() string {
+		if isNew {
+			return "generated"
+		}
+		return "loaded from file"
+	}())
+
 	// Startup banner (direct stdout: slog escapes \n, making ASCII art unreadable)
 	fmt.Println()
 	fmt.Println(`███╗   ███╗ ██████╗ ██████╗ ███████╗██╗         ██╗  ██╗ ██████╗ ████████╗███████╗██╗
@@ -117,6 +129,19 @@ func main() {
 ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚══════╝`)
 	fmt.Println(cfg)
 	fmt.Println("Model Hotel instance is up and running.")
+
+	if isNew {
+		token := adminMgr.Token()
+		log.Printf(`
+╔══════════════════════════════════════════════════════════════╗
+║  ADMIN TOKEN (save now — this will NOT be shown again):     ║
+║                                                              ║
+║  %s                                                         ║
+║                                                              ║
+║  To regenerate: delete the admin-token file and restart.     ║
+╚══════════════════════════════════════════════════════════════╝`, token)
+	}
+
 	debuglog.Info("config: Config loaded")
 
 	// Clean up stale request logs left in "pending" or "streaming" state
@@ -140,26 +165,6 @@ func main() {
 		})
 	} else if err != nil {
 		debuglog.Error("startup: stale log cleanup failed", "error", err)
-	}
-
-	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
-	if err != nil {
-		log.Fatalf("Failed to initialize admin manager: %v", err)
-	}
-
-	if isNew {
-		token := adminMgr.Token()
-		log.Printf(`
-╔══════════════════════════════════════════════════════════════╗
-║  ADMIN TOKEN (save now — this will NOT be shown again):     ║
-║                                                              ║
-║  %s                                                         ║
-║                                                              ║
-║  To regenerate: delete the admin-token file and restart.     ║
-╚══════════════════════════════════════════════════════════════╝`, token)
-		debuglog.Info("startup: admin token generated")
-	} else {
-		debuglog.Info("startup: admin token loaded from file")
 	}
 
 	providerRepo := provider.NewRepository(database.Pool())
