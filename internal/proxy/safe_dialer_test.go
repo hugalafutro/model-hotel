@@ -479,6 +479,59 @@ func TestSafeDialer_DialByIPPublicHostWithDNS(t *testing.T) {
 	}
 }
 
+// TestNewSafeDialerWithResolver_UppercaseAllowedHosts covers lines 47-49
+// (strings.ToLower in the allowedHosts loop of newSafeDialerWithResolver).
+func TestNewSafeDialerWithResolver_UppercaseAllowedHosts(t *testing.T) {
+	t.Parallel()
+
+	mockRes := &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return []net.IPAddr{{IP: net.ParseIP("127.0.0.1")}}, nil
+		},
+	}
+
+	// Pass uppercase host to exercise strings.ToLower
+	sd := newSafeDialerWithResolver([]string{"INTERNAL.CORP.EXAMPLE"}, mockRes)
+	if !sd.hosts["internal.corp.example"] {
+		t.Error("expected lowercase key in hosts map")
+	}
+	if sd.hosts["INTERNAL.CORP.EXAMPLE"] {
+		t.Error("expected uppercase key to be absent from hosts map")
+	}
+}
+
+// TestSafeDialer_MixedBlockedAndAllowedIPs covers lines 113-115
+// (blocked IP skipped in the dial-by-IP loop). When DNS returns both
+// blocked and allowed IPs, the blocked ones are skipped with a debug log.
+func TestSafeDialer_MixedBlockedAndAllowedIPs(t *testing.T) {
+	t.Parallel()
+
+	// Return a blocked IP first, then a public IP.
+	// The blocked IP (127.0.0.1) should be skipped in the dial loop,
+	// and the public IP (8.8.8.8) should be attempted.
+	mockRes := &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return []net.IPAddr{
+				{IP: net.ParseIP("127.0.0.1")}, // blocked — skipped in dial loop
+				{IP: net.ParseIP("8.8.8.8")},   // public — dialled
+			}, nil
+		},
+	}
+
+	sd := newSafeDialerWithResolver(nil, mockRes)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, err := sd.DialContext(ctx, "tcp", "mixed.example.com:80")
+	if err == nil {
+		t.Fatal("expected connection error for non-routable public IP")
+	}
+	// Should NOT be a blocked-IP error since there was a non-blocked IP
+	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
+		t.Errorf("expected connection error (not blocked-IP), got: %v", err)
+	}
+}
+
 func TestSafeDialer_DialByIPForPublicHost(t *testing.T) {
 	t.Parallel()
 	sd := NewSafeDialer(nil)

@@ -1,8 +1,16 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ---------------------------------------------------------------------------
@@ -568,4 +576,329 @@ func TestIsWordChar(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// getAppLogsHistory and getAppLogCounts tests
+// ---------------------------------------------------------------------------
+
+func TestGetAppLogsHistory_NilDBPool(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	w := httptest.NewRecorder()
+	h.getAppLogsHistory(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty entries, got %d", len(resp.Entries))
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected total 0, got %d", resp.Total)
+	}
+}
+
+func TestGetAppLogsHistory_NilDBPool_JSONEncodeError(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	w := &brokenResponseWriter{header: make(http.Header)}
+
+	// Should not panic, just log the error
+	h.getAppLogsHistory(w, req)
+}
+
+func TestGetAppLogsHistory_InvalidPage(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&page=0", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetAppLogsHistory_InvalidPerPage(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&per_page=200", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetAppLogsHistory_ToParam(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&to=2024-12-31T23:59:59Z", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetAppLogsHistory_SortByAndDir(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&sort_by=time&sort_dir=asc", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetAppLogsHistory_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req = req.WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	// The handler returns an error message in the body (status 200)
+	// Note: handler doesn't set 500 status, just returns error JSON
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	// Verify error response is returned
+	var resp map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["error"] == "" {
+		t.Error("expected error message in response")
+	}
+}
+
+func TestGetAppLogCounts_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	// Invalidate cache so the DB query path is exercised
+	appLogCountCache.Lock()
+	appLogCountCache.levelCounts = nil
+	appLogCountCache.sourceCounts = nil
+	appLogCountCache.fetchedAt = time.Time{}
+	appLogCountCache.Unlock()
+
+	h, _ := newTestHandlerWithRouter(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
+
+	// With cancelled context, queries fail and return empty/zeroed maps
+	if levelCounts == nil {
+		t.Error("expected non-nil levelCounts map")
+	}
+	if sourceCounts == nil {
+		t.Error("expected non-nil sourceCounts map")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// dbLogWriter tests
+// ---------------------------------------------------------------------------
+
+func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	defer pool.Close()
+
+	// Clean up before and after test
+	pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'test'")
+	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'test'")
+
+	w := newDBLogWriter(pool)
+	defer w.stop()
+
+	// Send 50 entries to trigger the batch-size flush path (lines 127-130)
+	for i := 0; i < 50; i++ {
+		w.ch <- AppLogEntry{
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    "test",
+			Message:   fmt.Sprintf("batch entry %d", i),
+		}
+	}
+
+	// Give the goroutine time to process
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify entries were written to DB
+	var count int
+	err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM app_logs WHERE source = 'test'").Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query app_logs: %v", err)
+	}
+	if count < 50 {
+		t.Errorf("expected at least 50 entries in DB, got %d", count)
+	}
+}
+
+func TestDBLogWriter_TickerFlush(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	defer pool.Close()
+
+	// Clean up before test
+	pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'ticker-test'")
+
+	w := newDBLogWriter(pool)
+	defer w.stop()
+
+	// Send a few entries (less than 50) and wait for the ticker to flush
+	for i := 0; i < 5; i++ {
+		w.ch <- AppLogEntry{
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    "ticker-test",
+			Message:   fmt.Sprintf("ticker entry %d", i),
+		}
+	}
+
+	// Wait for the 500ms ticker to fire and flush (lines 131-135)
+	time.Sleep(800 * time.Millisecond)
+
+	var count int
+	err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM app_logs WHERE source = 'ticker-test'").Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query app_logs: %v", err)
+	}
+	if count < 5 {
+		t.Errorf("expected at least 5 entries in DB after ticker flush, got %d", count)
+	}
+}
+
+func TestDBLogWriter_FlushDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	// Create a writer with a closed pool to trigger the Exec error path (lines 160-164)
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	pool.Close() // Close immediately to cause DB errors
+
+	w := newDBLogWriter(pool)
+	defer w.stop()
+
+	// Send entries — they'll be flushed but the DB write will fail silently
+	for i := 0; i < 5; i++ {
+		w.ch <- AppLogEntry{
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    "flush-error-test",
+			Message:   fmt.Sprintf("entry %d", i),
+		}
+	}
+
+	// Wait for ticker flush (the batch is small, so ticker will flush it)
+	time.Sleep(800 * time.Millisecond)
+
+	// No panic or hang means the error was handled gracefully
+}
+
+func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	defer pool.Close()
+
+	// Save and restore global dbWriter
+	origDBWriter := dbWriter
+	dbWriter = newDBLogWriter(pool)
+	defer func() {
+		dbWriter.stop()
+		dbWriter = origDBWriter
+	}()
+
+	rb := &ringBuffer{
+		entries: make([]AppLogEntry, appLogBufferSize),
+	}
+
+	// Write via ringBuffer.Write which calls dbWriter.write (lines 241-243)
+	// Use slog-compatible format so parseLogLine extracts source correctly
+	rb.Write([]byte("2026/01/01 00:00:00 INFO  ringbuf-db-test hello from ring buffer\n"))
+
+	// Wait for flush
+	time.Sleep(800 * time.Millisecond)
+
+	// Verify the entry was written — check ring buffer has the entry
+	entries := rb.GetEntries()
+	found := false
+	for _, e := range entries {
+		if strings.Contains(e.Message, "hello from ring buffer") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected entry in ring buffer after Write")
+	}
+}
+
+func TestStderrLogFilter_WriteError(t *testing.T) {
+	// Test the dst.Write error path (lines 47-49)
+	var errWriter errWriterMock
+	f := &stderrLogFilter{dst: &errWriter}
+
+	_, err := f.Write([]byte("level=error source=test message=oops\n"))
+	if err == nil {
+		t.Error("expected error from stderrLogFilter when dst.Write fails")
+	}
+}
+
+type errWriterMock struct{}
+
+func (errWriterMock) Write(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("write error")
 }

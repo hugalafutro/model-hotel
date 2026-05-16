@@ -1095,3 +1095,156 @@ func TestFailoverHandler_GetByModelUUID_RepoError(t *testing.T) {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
 }
+
+func TestFailoverHandler_Create_InvalidDisplayName(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+
+	id1, id2 := uuid.New(), uuid.New()
+	body := `{"display_model":"test-model","display_name":"bad\u0001name","entry_ids":["` + id1.String() + `","` + id2.String() + `"]}`
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
+	h.Create(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid display name") {
+		t.Errorf("expected error about display_name, got: %s", w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Create_InvalidDescription(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+
+	id1, id2 := uuid.New(), uuid.New()
+	longDesc := strings.Repeat("x", 501)
+	body := `{"display_model":"test-model","description":"` + longDesc + `","entry_ids":["` + id1.String() + `","` + id2.String() + `"]}`
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
+	h.Create(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid description") {
+		t.Errorf("expected error about description, got: %s", w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Update_InvalidDisplayName(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-update-invname-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, displayModel) }()
+
+	body := `{"display_name":"bad\u0001name"}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid display name") {
+		t.Errorf("expected error about display_name, got: %s", w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Update_InvalidDescription(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-update-invdesc-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, displayModel) }()
+
+	longDesc := strings.Repeat("x", 501)
+	body := `{"description":"` + longDesc + `"}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid description") {
+		t.Errorf("expected error about description, got: %s", w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Update_InvalidEntryEnabled(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-update-inventry-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, displayModel) }()
+
+	// Build entry_enabled with 101 entries
+	entryEnabled := make(map[string]bool)
+	for i := 0; i < 101; i++ {
+		entryEnabled[uuid.New().String()] = true
+	}
+	eeJSON, _ := json.Marshal(entryEnabled)
+	body := `{"entry_enabled":` + string(eeJSON) + `}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid entry_enabled") {
+		t.Errorf("expected error about entry_enabled, got: %s", w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Sync_CancelledContext(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	modelRepo := model.NewRepository(workingPool)
+	settingsRepo := settings.NewRepository(workingPool)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
+	req = req.WithContext(cancelCtx)
+	h.Sync(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Candidates_CancelledContext(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	modelRepo := model.NewRepository(workingPool)
+	settingsRepo := settings.NewRepository(workingPool)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/candidates", nil)
+	req = req.WithContext(cancelCtx)
+	h.Candidates(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}

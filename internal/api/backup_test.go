@@ -283,3 +283,92 @@ func TestCreateBackup_Success_Integration(t *testing.T) {
 		t.Error("expected non-empty created_at")
 	}
 }
+
+func TestBackupHandler_CreateBackup_PgDumpFailed(t *testing.T) {
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed, skipping pg_dump failure test")
+	}
+
+	r, _ := setupBackupRouter(t)
+
+	req := httptest.NewRequest("POST", "/backups", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBackupHandler_CreateBackup_MkdirAllError(t *testing.T) {
+	// Create a regular file where the backup dir should be
+	file, err := os.CreateTemp(t.TempDir(), "backup-blocker-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filePath := file.Name()
+	file.Close()
+
+	h := NewBackupHandler("postgres://invalid:invalid@localhost/nonexistent", filePath)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("POST", "/backups", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBackupHandler_ListBackups_ReadDirError(t *testing.T) {
+	// Create a regular file where the backup dir should be
+	file, err := os.CreateTemp(t.TempDir(), "not-a-dir-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filePath := file.Name()
+	file.Close()
+
+	h := NewBackupHandler("postgres://invalid:invalid@localhost/nonexistent", filePath)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("GET", "/backups", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBackupHandler_DeleteBackup_RemoveError(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a .dump file
+	dumpPath := filepath.Join(dir, "backup_readonly.dump")
+	if err := os.WriteFile(dumpPath, []byte("test"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Make directory read-only so os.Remove fails
+	//nolint:gosec // test-only: permissive to restrictive is fine
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0o755) // restore for cleanup
+
+	h := NewBackupHandler("postgres://invalid:invalid@localhost/nonexistent", dir)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("DELETE", "/backups/backup_readonly.dump", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}

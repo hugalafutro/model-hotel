@@ -859,3 +859,49 @@ func TestGetZAICodingQuota_Non200Status(t *testing.T) {
 		t.Fatal("Expected error for non-200 status, got nil")
 	}
 }
+
+func TestGetZAICodingQuota_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	// Create test server that returns 200 with invalid JSON
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/monitor/usage/quota/limit" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("this is not valid json"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://api.z.ai",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	_, err = service.GetZAICodingQuota(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON response, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to decode response") {
+		t.Errorf("expected decode error, got: %v", err)
+	}
+}

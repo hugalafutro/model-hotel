@@ -935,3 +935,86 @@ func TestRepository_TouchLastUsed(t *testing.T) {
 		t.Errorf("LastUsedAt = %v, should be around %v", found.LastUsedAt, beforeTouch)
 	}
 }
+
+func TestRepository_Create_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel before query executes
+
+	_, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://cancel-test.example.com", APIKey: "sk-cancel",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err == nil {
+		t.Error("expected error from Create with cancelled context")
+	}
+}
+
+func TestRepository_List_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.List(ctx)
+	if err == nil {
+		t.Error("expected error from List with cancelled context")
+	}
+}
+
+func TestRepository_GetByIDs_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Use a random UUID that won't be in cache, forcing a DB query
+	ids := []uuid.UUID{uuid.New()}
+	_, err := repo.GetByIDs(ctx, ids)
+	if err == nil {
+		t.Error("expected error from GetByIDs with cancelled context")
+	}
+}
+
+func TestRepository_Delete_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := repo.Delete(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error from Delete with cancelled context")
+	}
+}
+
+func TestRepository_TouchLastUsed_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := repo.TouchLastUsed(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error from TouchLastUsed with cancelled context")
+	}
+}
+
+func TestRepository_GetByName_DBHit(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	name := uniqueName(t)
+	created, err := repo.Create(ctx, CreateProviderRequest{
+		Name: name, BaseURL: "https://dbhit-test.example.com", APIKey: "sk-dbhit",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Create caches the provider. Invalidate cache so GetByName hits DB directly.
+	InvalidateProviderCache()
+
+	found, err := repo.GetByName(ctx, name)
+	if err != nil {
+		t.Fatalf("GetByName after cache invalidation: %v", err)
+	}
+	if found.ID != created.ID {
+		t.Errorf("GetByName ID = %v, want %v", found.ID, created.ID)
+	}
+}

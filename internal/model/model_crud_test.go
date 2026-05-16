@@ -1249,3 +1249,178 @@ func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
 		t.Error("model2 should be disabled after DisableMissingModels")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Cancelled context error path tests
+// ---------------------------------------------------------------------------
+
+func TestUpsert_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	providerID := insertTestProvider(context.Background(), t, "test-upsert-cancel")
+	t.Cleanup(func() { cleanupProvider(context.Background(), t, providerID) })
+
+	m := &Model{
+		ID:         uuid.New(),
+		ProviderID: providerID,
+		ModelID:    "test-model-upsert-cancel",
+		Name:       "Test Model Upsert Cancel",
+		Enabled:    true,
+	}
+	err := repo.Upsert(ctx, m)
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestList_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.List(ctx, nil)
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestListEnabled_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.ListEnabled(ctx)
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestGetByIDs_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	InvalidateModelCache()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Use a random UUID that won't be in cache, forcing a DB query
+	_, err := repo.GetByIDs(ctx, []uuid.UUID{uuid.New()})
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestGetByIDs_CacheHitOnly(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx := context.Background()
+
+	providerID := insertTestProvider(ctx, t, "test-getbyids-cache")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	// Insert a model so it gets cached
+	m := &Model{
+		ID:               uuid.New(),
+		ProviderID:       providerID,
+		ModelID:          "test-model-getbyids-cache",
+		Name:             "Test Model GetByIDs Cache",
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		OwnedBy:          "",
+	}
+	err := repo.Upsert(ctx, m)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+
+	// Now GetByIDs with the same ID should hit cache and return early (line 211-213)
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{m.ID})
+	if err != nil {
+		t.Fatalf("GetByIDs failed: %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("expected 1 model, got %d", len(result))
+	}
+	if result[m.ID] == nil {
+		t.Error("expected model in result")
+	}
+}
+
+func TestGetByModelID_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	InvalidateModelCache()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Use a model ID that won't be in cache, forcing a DB query
+	_, err := repo.GetByModelID(ctx, "nonexistent-model-id")
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestGetByProviderAndModelID_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	InvalidateModelCache()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Use IDs that won't be in cache, forcing a DB query
+	_, err := repo.GetByProviderAndModelID(ctx, uuid.New(), "nonexistent-model-id")
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestDisableMissingModels_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.DisableMissingModels(ctx, uuid.New(), []string{"some-model"})
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestSetEnabled_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.SetEnabled(ctx, uuid.New(), false)
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestDeleteByID_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := repo.DeleteByID(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
+
+func TestUpdate_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	displayName := "updated"
+	_, err := repo.Update(ctx, uuid.New(), UpdateModelRequest{
+		DisplayName: &displayName,
+	})
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}

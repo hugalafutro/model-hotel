@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"runtime/metrics"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -298,5 +300,160 @@ func TestGetSystem_DockerStatsCollector(t *testing.T) {
 	}
 	if response.Docker.ContainerCount != mockStats.ContainerCount {
 		t.Errorf("expected Docker.ContainerCount=%d, got %d", mockStats.ContainerCount, response.Docker.ContainerCount)
+	}
+}
+
+func TestGetSystem_CachedJSONEncodeError(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates package-level cache.
+	resetSystemCache()
+	_, r := newTestHandlerWithRouter(t)
+
+	// First call to populate cache
+	req := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rec.Code)
+	}
+
+	// Second call with broken writer — should hit cache and fail to encode
+	w := &brokenResponseWriter{}
+	req2 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(w, req2)
+
+	if w.code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.code)
+	}
+}
+
+func TestGetSystem_FreshJSONEncodeError(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates package-level cache.
+	resetSystemCache()
+	_, r := newTestHandlerWithRouter(t)
+
+	// Call with broken writer — cache miss, collect succeeds, encode fails
+	w := &brokenResponseWriter{}
+	req := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(w, req)
+
+	if w.code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.code)
+	}
+}
+
+func TestGetSystem_ValidSince(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates package-level cache.
+	resetSystemCache()
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/system/?since=2024-01-01T00:00:00Z", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response SystemStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+}
+
+func TestGetSystem_CancelledContext(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates package-level cache.
+	// Tests that DB query errors (from cancelled context) are handled gracefully
+	// by returning zero values instead of failing.
+	resetSystemCache()
+	_, r := newTestHandlerWithRouter(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	req := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody).
+		WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	// Handler returns 200 with zeroed DB values (error handling is graceful)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 (graceful error handling), got %d", rec.Code)
+	}
+
+	var response SystemStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	// DB stats should be zeroed due to cancelled context
+	if response.DB.SizeMB != 0 {
+		t.Errorf("expected DB.SizeMB=0 (cancelled context), got %f", response.DB.SizeMB)
+	}
+	if response.DB.Connections != 0 {
+		t.Errorf("expected DB.Connections=0 (cancelled context), got %d", response.DB.Connections)
+	}
+}
+
+func TestCollect_CancelledContext(t *testing.T) {
+	// Test collect() directly with cancelled context to cover all DB query error paths.
+	// collect() handles errors gracefully by returning zero values, not errors.
+	h, _ := newTestHandlerWithRouter(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	stats, err := h.systemHandler.collect(ctx, "")
+	if err != nil {
+		t.Errorf("unexpected error from collect with cancelled context: %v", err)
+	}
+
+	// All DB stats should be zeroed due to cancelled context
+	if stats.DB.SizeMB != 0 {
+		t.Errorf("expected DB.SizeMB=0 (cancelled context), got %f", stats.DB.SizeMB)
+	}
+	if stats.DB.Connections != 0 {
+		t.Errorf("expected DB.Connections=0 (cancelled context), got %d", stats.DB.Connections)
+	}
+	if stats.DB.CacheHitRatio != 0 {
+		t.Errorf("expected DB.CacheHitRatio=0 (cancelled context), got %f", stats.DB.CacheHitRatio)
+	}
+	if stats.DB.DeadTuples != 0 {
+		t.Errorf("expected DB.DeadTuples=0 (cancelled context), got %d", stats.DB.DeadTuples)
+	}
+	if stats.DB.LockWaits != 0 {
+		t.Errorf("expected DB.LockWaits=0 (cancelled context), got %d", stats.DB.LockWaits)
+	}
+}
+
+func TestCollect_TxPerSecNegative(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates package-level prevTxCount/prevTxTime.
+	// Set prevTxCount to a very high value so that (totalTx - prevTxCount) < 0
+	prevTxMu.Lock()
+	prevTxCount = 1<<62 - 1 // Very high value
+	prevTxTime = time.Now().Add(-1 * time.Second)
+	prevTxMu.Unlock()
+	defer func() {
+		prevTxMu.Lock()
+		prevTxCount = 0
+		prevTxTime = time.Time{}
+		prevTxMu.Unlock()
+	}()
+
+	h, _ := newTestHandlerWithRouter(t)
+
+	stats, err := h.systemHandler.collect(context.Background(), "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// txPerSec should be 0 (reset from negative)
+	if stats.DB.TxPerSec < 0 {
+		t.Errorf("expected txPerSec >= 0, got %f", stats.DB.TxPerSec)
 	}
 }

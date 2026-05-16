@@ -915,3 +915,75 @@ func TestDeleteModel_DBError(t *testing.T) {
 		t.Error("expected error when deleting with closed pool")
 	}
 }
+
+// TestListModels_CancelledContext tests that ListModels returns 500 when
+// the database query fails due to a cancelled context (covers lines 101-104).
+func TestListModels_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/models", http.NoBody)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately to cause DB error
+	req = req.WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestUpdateModel_CancelledContext tests that UpdateModel returns 500 when
+// the database update fails due to a cancelled context (covers lines 164-167).
+func TestUpdateModel_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	_, r := newTestHandlerWithRouter(t)
+
+	id := uuid.New()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/models/"+id.String(), strings.NewReader(`{"enabled":true}`))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately to cause DB error
+	req = req.WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestDeleteModel_CancelledContext tests that DeleteModel returns 500 when
+// the database delete fails due to a cancelled context (covers lines 181-184).
+func TestDeleteModel_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	_, r := newTestHandlerWithRouter(t)
+
+	id := uuid.New()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/models/"+id.String(), http.NoBody)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately to cause DB error
+	req = req.WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

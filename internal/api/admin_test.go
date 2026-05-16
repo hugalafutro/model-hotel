@@ -1083,3 +1083,114 @@ func setChiURLParam(r *http.Request, key, value string) *http.Request {
 	rctx.URLParams.Add(key, value)
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }
+
+// --- Coverage tests for uncovered lines ---
+
+func TestCreateProvider_InvalidJSON(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := strings.NewReader("{invalid json")
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+	h.CreateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+// TestCreateProvider_EncryptError is not implemented because auth.Encrypt uses argon2.IDKey
+// which succeeds even with an empty master key. The error path (lines 216-219) would only be
+// hit if crypto/rand.Read fails (extremely rare) or AES cipher creation fails. Testing this
+// would require refactoring to allow dependency injection of the randReader or cipher functions.
+// The encrypt call itself (line 215) is exercised by TestCreateProvider_Success.
+
+func TestUpdateProvider_InvalidUUID(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	req, w := newChiRequest(http.MethodPut, "/providers/not-a-uuid", strings.NewReader(`{"name":"test"}`))
+	req = setChiURLParam(req, "id", "not-a-uuid")
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestUpdateProvider_BaseURLTooLong(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	longURL := "https://api.example.com/" + strings.Repeat("a", 500)
+	body := bytes.NewReader([]byte(fmt.Sprintf(`{"base_url":"%s"}`, longURL)))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+uuid.New().String(), body)
+	req = setChiURLParam(req, "id", uuid.New().String())
+	h.UpdateProvider(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	got := strings.TrimSpace(w.Body.String())
+	if !strings.Contains(got, "invalid base URL") {
+		t.Errorf("expected error about invalid base URL, got %q", got)
+	}
+}
+
+// TestUpdateProvider_EncryptError is not implemented because auth.Encrypt uses argon2.IDKey
+// which succeeds even with an empty master key. The error path (lines 398-401) would only be
+// hit if crypto/rand.Read fails (extremely rare) or AES cipher creation fails. Testing this
+// would require refactoring to allow dependency injection of the randReader or cipher functions.
+// The encrypt call itself (line 397) is exercised by TestUpdateProvider_Success.
+
+func TestListProviders_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	// Create a real DB connection for the model/token count queries
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := testHandler(&mockProviderStore{
+		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+			return []*provider.Provider{{ID: uuid.New(), Name: "test", BaseURL: "https://api.example.com", Enabled: true}}, nil
+		},
+	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
+
+	// Create request with cancelled context
+	req, w := newChiRequest(http.MethodGet, "/providers", nil)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel() // Cancel immediately to cause query errors
+	req = req.WithContext(ctx)
+
+	h.ListProviders(w, req)
+	// With cancelled context, the model counts query should fail
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestDeleteProvider_SyncFailoverError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	// Create a real DB connection, then close it so SyncAllModels fails.
+	// The deleteFn mock doesn't use the pool, so it succeeds independently.
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	testDB.Close() // Close immediately — SyncAllModels will fail with closed pool
+
+	h := testHandler(&mockProviderStore{
+		deleteFn: func(_ context.Context, _ uuid.UUID) error {
+			return nil // Mock succeeds; SyncAllModels is what we want to fail
+		},
+	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
+
+	req, w := newChiRequest(http.MethodDelete, "/providers/"+uuid.New().String(), nil)
+	req = setChiURLParam(req, "id", uuid.New().String())
+
+	h.DeleteProvider(w, req)
+	// Delete succeeds (mocked), SyncAllModels fails (closed pool),
+	// but handler logs the error and still returns 204 No Content.
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, w.Code)
+	}
+}
