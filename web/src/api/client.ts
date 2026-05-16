@@ -779,5 +779,29 @@ export const api = {
 				throw new Error("Failed to delete backup");
 			}
 		},
+		restore: async (
+			file: File,
+			adminToken: string,
+		): Promise<{ migration_count: number; known_count: number }> => {
+			const formData = new FormData();
+			formData.append("dump", file);
+			formData.append("admin_token", adminToken);
+
+			// Must not set Content-Type: the browser needs to auto-set
+			// multipart/form-data with the correct boundary for FormData.
+			const token = localStorage.getItem("adminToken") || "";
+			const response = await fetch(`${API_BASE}/api/backups/restore`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+				body: formData,
+			});
+			if (!response.ok) {
+				const text = await response.text();
+				throw new Error(`Restore failed: ${response.status} ${text}`);
+			}
+			return response.json();
+		},
 	},
 };

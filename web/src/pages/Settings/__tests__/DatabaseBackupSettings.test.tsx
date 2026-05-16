@@ -62,15 +62,16 @@ describe("DatabaseBackupSettings", () => {
 		});
 	});
 
-	it("shows restore instructions section", async () => {
+	it("shows restore section", async () => {
 		renderWithProviders(
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Restore Instructions")).toBeInTheDocument();
+			expect(screen.getByText("Restore Backup")).toBeInTheDocument();
 		});
-		const restoreTexts = screen.getAllByText(/pg_restore --clean --if-exists/i);
-		expect(restoreTexts[0]).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /upload & restore/i }),
+		).toBeInTheDocument();
 	});
 
 	it("shows restore requirements with MASTER_KEY warning", async () => {

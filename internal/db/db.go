@@ -22,6 +22,24 @@ var embeddedMigrations embed.FS
 // It can be overridden in tests to inject errors.
 var migrationsFS fs.FS
 
+// KnownMigrations returns the list of migration filenames embedded
+// in the binary. Used by the backup restore validation to compare a dump's
+// schema_migrations against the app's expected set.
+func KnownMigrations() []string {
+	entries, err := fs.ReadDir(migrationsFS, "migrations")
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() || !e.Type().IsRegular() || e.Name()[0] == '.' {
+			continue
+		}
+		names = append(names, e.Name())
+	}
+	return names
+}
+
 func init() {
 	migrationsFS = embeddedMigrations
 }

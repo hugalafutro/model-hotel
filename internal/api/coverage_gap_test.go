@@ -103,7 +103,7 @@ func TestCreateBackup_Success(t *testing.T) {
 	}
 
 	backupDir := t.TempDir()
-	bh := NewBackupHandler(apiTestDBURL, backupDir)
+	bh := NewBackupHandler(apiTestDBURL, backupDir, &mockAdminAuth{})
 
 	r := chi.NewRouter()
 	bh.Register(r)

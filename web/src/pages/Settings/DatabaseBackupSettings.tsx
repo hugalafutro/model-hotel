@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, HardDrive, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Download, HardDrive, Plus, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api, getAuthHeaders } from "../../api/client";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
 
@@ -18,6 +19,17 @@ export function DatabaseBackupSettings({
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+	const [restoreFile, setRestoreFile] = useState<File | null>(null);
+	const [showRestoreModal, setShowRestoreModal] = useState(false);
+	const [isRestoring, setIsRestoring] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const pollingRef = useRef(false);
+
+	useEffect(() => {
+		return () => {
+			pollingRef.current = false;
+		};
+	}, []);
 
 	const { data: backups, isLoading } = useQuery({
 		queryKey: ["backups"],
@@ -104,20 +116,18 @@ export function DatabaseBackupSettings({
 					with custom format for efficient compression.
 				</p>
 
-				{/* Restore instructions */}
+				{/* Restore section */}
 				<div className="bg-gray-800/50 rounded-lg p-3 space-y-3">
 					<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-						Restore Instructions
+						Restore Backup
 					</h4>
-					<code className="block text-xs text-green-400 bg-black/30 rounded p-2 overflow-x-auto">
-						pg_restore --clean --if-exists -d YOUR_DB backup_file.dump
-					</code>
 					<p className="text-xs text-gray-500">
-						Or via Docker:{" "}
-						<code className="text-xs text-gray-400">
-							docker exec -i postgres-container pg_restore --clean --if-exists
-							-U user -d dbname {"<"} backup_file.dump
-						</code>
+						Upload a{" "}
+						<code className="text-xs bg-gray-800 px-1 py-0.5 rounded">
+							.dump
+						</code>{" "}
+						file to restore the database. The backup will be validated before
+						restore.
 					</p>
 					<div className="space-y-1.5 border-t border-gray-700/50 pt-2">
 						<h5 className="text-xs font-semibold text-amber-400">
@@ -126,20 +136,14 @@ export function DatabaseBackupSettings({
 						<ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
 							<li>
 								<strong className="text-gray-300">MASTER_KEY must match</strong>
-								: Provider API keys are AES-256-GCM encrypted using a key
-								derived from your MASTER_KEY. Restoring with a different
-								MASTER_KEY will leave all provider keys unrecoverable.
+								: Provider API keys are AES-256-GCM encrypted. Restoring with a
+								different MASTER_KEY will leave all provider keys unrecoverable.
 							</li>
 							<li>
 								<strong className="text-gray-300">
 									Admin token is not in the backup
 								</strong>
-								: It is stored on the filesystem in{" "}
-								<code className="text-xs bg-gray-800 px-1 py-0.5 rounded">
-									DATA_DIR/admin-token
-								</code>
-								. If lost, a new token is auto-generated on next boot (check
-								startup logs).
+								: Your current admin token will continue to work after restore.
 							</li>
 							<li>
 								<strong className="text-gray-300">
@@ -150,7 +154,96 @@ export function DatabaseBackupSettings({
 							</li>
 						</ul>
 					</div>
+					<div className="flex items-center gap-2 pt-1">
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept=".dump"
+							className="hidden"
+							aria-label="Select backup file to restore"
+							onChange={(e) => {
+								const file = e.target.files?.[0];
+								if (file) {
+									setRestoreFile(file);
+									setShowRestoreModal(true);
+								}
+								// Reset so re-selecting the same file triggers onChange
+								e.target.value = "";
+							}}
+						/>
+						<button
+							type="button"
+							onClick={() => fileInputRef.current?.click()}
+							disabled={isRestoring}
+							className="ui-btn ui-btn-secondary flex items-center gap-2"
+						>
+							<Upload size={14} />
+							{isRestoring ? "Restoring…" : "Upload & Restore"}
+						</button>
+						{restoreFile && (
+							<span className="text-xs text-gray-400 truncate">
+								{restoreFile.name}
+							</span>
+						)}
+					</div>
 				</div>
+
+				{showRestoreModal && restoreFile && (
+					<RestoreConfirmModal
+						open={showRestoreModal}
+						onClose={() => {
+							setShowRestoreModal(false);
+							setRestoreFile(null);
+						}}
+						onConfirm={async (adminToken) => {
+							setIsRestoring(true);
+							try {
+								await api.backups.restore(restoreFile, adminToken);
+								toast(
+									"Database restored. The server is restarting…",
+									"success",
+								);
+								// Poll for server to come back
+								setShowRestoreModal(false);
+								setRestoreFile(null);
+								pollingRef.current = true;
+								const checkServer = async () => {
+									let attempts = 0;
+									while (pollingRef.current && attempts < 60) {
+										try {
+											const res = await fetch("/api/backups", {
+												headers: getAuthHeaders(),
+											});
+											if (res.ok) {
+												queryClient.invalidateQueries({
+													queryKey: ["backups"],
+												});
+												toast("Server is back online", "success");
+												return;
+											}
+										} catch {
+											// Server not up yet
+										}
+										await new Promise((r) => setTimeout(r, 2000));
+										attempts++;
+									}
+									if (pollingRef.current) {
+										toast(
+											"Server is taking longer than expected to restart",
+											"warning",
+										);
+									}
+								};
+								checkServer();
+							} catch (err) {
+								toast(`Restore failed: ${(err as Error).message}`, "error");
+							} finally {
+								setIsRestoring(false);
+							}
+						}}
+						isPending={isRestoring}
+					/>
+				)}
 
 				{/* Create button */}
 				<button

@@ -124,7 +124,7 @@ func (h *Handler) Register(r chi.Router) {
 	sh := NewSystemHandler(h.dbPool.Pool())
 	sh.Register(r)
 	h.systemHandler = sh
-	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups")).Register(r)
+	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr).Register(r)
 }
 
 // AuthMiddleware validates admin token authentication for all admin API requests.
