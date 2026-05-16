@@ -16,16 +16,17 @@ import (
 
 // Config holds simulation parameters.
 type Config struct {
-	URL       string
-	Key       string
-	Users     int
-	Duration  time.Duration
-	ConvMin   time.Duration
-	ConvMax   time.Duration
-	Streaming bool
-	MaxTokens int
-	Jitter    bool
-	Models    []ModelInfo
+	URL          string
+	Key          string
+	Users        int
+	Duration     time.Duration
+	ConvMin      time.Duration
+	ConvMax      time.Duration
+	Streaming    bool
+	MaxTokensMin int
+	MaxTokensMax int
+	Jitter       bool
+	Models       []ModelInfo
 }
 
 // ModelInfo represents a model available for simulation.
@@ -190,6 +191,16 @@ func (s *Simulator) RandomJitter() time.Duration {
 	return time.Duration(2+rand.IntN(7)) * time.Second
 }
 
+// RandomMaxTokens returns a random token count between MaxTokensMin and MaxTokensMax.
+func (s *Simulator) RandomMaxTokens() int {
+	min := s.Config.MaxTokensMin
+	max := s.Config.MaxTokensMax
+	if min >= max {
+		return min
+	}
+	return min + rand.IntN(max-min+1)
+}
+
 // RunUser simulates a single user's behavior until the context is cancelled.
 func (s *Simulator) RunUser(ctx context.Context, id int) {
 	for {
@@ -281,7 +292,7 @@ func (s *Simulator) sendCompletion(ctx context.Context, model string, messages [
 		"model":      model,
 		"messages":   messages,
 		"stream":     s.Config.Streaming,
-		"max_tokens": s.Config.MaxTokens,
+		"max_tokens": s.RandomMaxTokens(),
 	}
 
 	jsonBody, err := json.Marshal(body)

@@ -168,6 +168,32 @@ func TestRandomPrompt(t *testing.T) {
 	}
 }
 
+func TestRandomMaxTokens(t *testing.T) {
+	s := New(Config{
+		MaxTokensMin: 10,
+		MaxTokensMax: 500,
+	})
+
+	for range 100 {
+		n := s.RandomMaxTokens()
+		if n < 10 || n > 500 {
+			t.Errorf("RandomMaxTokens() = %d, want between 10 and 500", n)
+		}
+	}
+}
+
+func TestRandomMaxTokens_MinEqualsMax(t *testing.T) {
+	s := New(Config{
+		MaxTokensMin: 150,
+		MaxTokensMax: 150,
+	})
+
+	n := s.RandomMaxTokens()
+	if n != 150 {
+		t.Errorf("RandomMaxTokens() = %d, want 150 when min==max", n)
+	}
+}
+
 func TestRandomJitter(t *testing.T) {
 	s := New(Config{Jitter: true})
 

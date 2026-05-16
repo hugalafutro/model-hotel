@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"math/rand/v2"
+	"net/http"
 	"os"
 	"os/signal"
 	"sort"
@@ -15,35 +19,87 @@ import (
 	"github.com/hugalafutro/model-hotel/tools/traffic-sim/simulator"
 )
 
-var defaultModels = []simulator.ModelInfo{
-	// Ollama Cloud (fast, small models)
-	{Provider: "Ollama Cloud", ID: "gemma3:4b"},
-	{Provider: "Ollama Cloud", ID: "gemma3:12b"},
-	{Provider: "Ollama Cloud", ID: "gemma3:27b"},
-	{Provider: "Ollama Cloud", ID: "gemma4:31b"},
-	{Provider: "Ollama Cloud", ID: "glm-5.1"},
-	{Provider: "Ollama Cloud", ID: "glm-5"},
-	{Provider: "Ollama Cloud", ID: "glm-4.7"},
-	{Provider: "Ollama Cloud", ID: "deepseek-v4-flash"},
-	{Provider: "Ollama Cloud", ID: "ministral-3:3b"},
-	{Provider: "Ollama Cloud", ID: "ministral-3:8b"},
-	{Provider: "Ollama Cloud", ID: "qwen3-coder"},
-	{Provider: "Ollama Cloud", ID: "qwen3-coder-next"},
-	// NanoGPT (popular/reliable)
-	{Provider: "NanoGPT", ID: "deepseek-chat"},
-	{Provider: "NanoGPT", ID: "deepseek-r1"},
-	{Provider: "NanoGPT", ID: "deepseek/deepseek-v4-flash"},
-	{Provider: "NanoGPT", ID: "meta-llama/llama-3.1-8b-instruct"},
-	{Provider: "NanoGPT", ID: "meta-llama/llama-3.2-3b-instruct"},
-	{Provider: "NanoGPT", ID: "qwen/qwen3-14b"},
-	{Provider: "NanoGPT", ID: "qwen/qwen3-32b"},
-	{Provider: "NanoGPT", ID: "qwen/qwen3-coder"},
-	{Provider: "NanoGPT", ID: "google/gemma-4-26b-a4b-it"},
-	{Provider: "NanoGPT", ID: "google/gemma-4-31b-it"},
-	{Provider: "NanoGPT", ID: "mistralai/mistral-tiny"},
-	{Provider: "NanoGPT", ID: "mistralai/mistral-small-31-24b-instruct"},
-	{Provider: "NanoGPT", ID: "zai-org/glm-5.1"},
-	{Provider: "NanoGPT", ID: "zai-org/glm-5"},
+// excludedKeywords identifies model IDs that are not text-only chat models.
+var excludedKeywords = []string{
+	"vision", "embed", "tts", "audio", "speech", "whisper",
+	"dall-e", "stable-diffusion", "midjourney", "image",
+	"clip", "codestral-embed", "e5", "bge-", "nomic-embed",
+	"m2m100", "seamless", "faster-whisper", "vl-", "-vl",
+	"computer-use", "robotics", "lyria", "nano-banana",
+	"multimodal", "dall-e", "sdxl",
+}
+
+// apiModel represents a model from the /api/models endpoint.
+type apiModel struct {
+	ProviderName string `json:"provider_name"`
+	ModelID      string `json:"model_id"`
+}
+
+func isTextOnlyModel(modelID string) bool {
+	lower := strings.ToLower(modelID)
+	for _, kw := range excludedKeywords {
+		if strings.Contains(lower, kw) {
+			return false
+		}
+	}
+	return true
+}
+
+// fetchModels queries the proxy API for available models and filters to text-only.
+func fetchModels(proxyURL, adminToken string, allowedProviders map[string]bool) ([]simulator.ModelInfo, error) {
+	url := proxyURL + "/api/models?limit=500"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("fetch models: HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var apiModels []apiModel
+	if err := json.NewDecoder(resp.Body).Decode(&apiModels); err != nil {
+		return nil, fmt.Errorf("decode models: %w", err)
+	}
+
+	var result []simulator.ModelInfo
+	for _, m := range apiModels {
+		if !allowedProviders[m.ProviderName] {
+			continue
+		}
+		if !allowedProviders[m.ProviderName] {
+			continue
+		}
+		if isTextOnlyModel(m.ModelID) {
+			result = append(result, simulator.ModelInfo{
+				Provider: m.ProviderName,
+				ID:       m.ModelID,
+			})
+		}
+	}
+	return result, nil
+}
+
+// pickRandomSubset shuffles the model list and returns a random subset of size n.
+// Each call produces a different selection.
+func pickRandomSubset(models []simulator.ModelInfo, n int) []simulator.ModelInfo {
+	shuffled := make([]simulator.ModelInfo, len(models))
+	copy(shuffled, models)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+	if n > len(shuffled) {
+		n = len(shuffled)
+	}
+	return shuffled[:n]
 }
 
 func parseDuration(s string) time.Duration {
@@ -59,23 +115,22 @@ func parseDuration(s string) time.Duration {
 	return 0
 }
 
-func mustAtoi(s string) int {
-	var n int
-	fmt.Sscanf(s, "%d", &n)
-	return n
-}
-
 func main() {
 	url := flag.String("url", "http://localhost:8081", "Proxy base URL")
 	key := flag.String("key", "", "Virtual API key (required)")
+	adminToken := flag.String("admin-token", "", "Admin token for model discovery (optional, uses -key if empty)")
 	users := flag.Int("users", 8, "Number of concurrent simulated users")
 	duration := flag.String("duration", "10m", "Total run time (e.g. 10m, 30m, 1h)")
 	convMin := flag.String("conv-min", "1m", "Min conversation duration")
 	convMax := flag.String("conv-max", "3m", "Max conversation duration")
 	streaming := flag.Bool("streaming", true, "Use streaming responses")
-	maxTokens := flag.Int("max-tokens", 150, "Max tokens per response")
+	maxTokensMin := flag.Int("max-tokens-min", 10, "Min tokens per response (>=1)")
+	maxTokensMax := flag.Int("max-tokens-max", 500, "Max tokens per response (<=1000)")
 	jitter := flag.Bool("jitter", true, "Random 2-8s delay between turns")
-	modelsFlag := flag.String("models", "", "Comma-separated model list (overrides defaults, format: Provider/ModelID)")
+	modelsFlag := flag.String("models", "", "Comma-separated model list (overrides discovery, format: Provider/ModelID)")
+	discover := flag.Bool("discover", true, "Auto-discover models from proxy API")
+	pickCount := flag.Int("pick", 30, "Number of models to randomly pick from discovered pool")
+	providersFlag := flag.String("providers", "Ollama Cloud,NanoGPT", "Comma-separated provider names to include in discovery")
 	flag.Parse()
 
 	if *key == "" {
@@ -84,12 +139,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *maxTokensMin < 1 {
+		log.Fatalf("-max-tokens-min must be >= 1, got %d", *maxTokensMin)
+	}
+	if *maxTokensMax > 1000 {
+		log.Fatalf("-max-tokens-max must be <= 1000, got %d", *maxTokensMax)
+	}
+	if *maxTokensMin > *maxTokensMax {
+		log.Fatalf("-max-tokens-min (%d) must be <= -max-tokens-max (%d)", *maxTokensMin, *maxTokensMax)
+	}
+
 	dur := parseDuration(*duration)
 	cMin := parseDuration(*convMin)
 	cMax := parseDuration(*convMax)
 
 	var models []simulator.ModelInfo
+
 	if *modelsFlag != "" {
+		// Explicit model list overrides everything
 		for _, m := range strings.Split(*modelsFlag, ",") {
 			m = strings.TrimSpace(m)
 			parts := strings.SplitN(m, "/", 2)
@@ -98,21 +165,45 @@ func main() {
 			}
 			models = append(models, simulator.ModelInfo{Provider: parts[0], ID: parts[1]})
 		}
+	} else if *discover {
+		// Auto-discover from API
+		token := *adminToken
+		if token == "" {
+			token = *key // fallback to virtual key
+		}
+		fmt.Printf("Discovering models from %s ...\n", *url)
+		allowedProviders := make(map[string]bool)
+		for _, p := range strings.Split(*providersFlag, ",") {
+			allowedProviders[strings.TrimSpace(p)] = true
+		}
+		discovered, err := fetchModels(*url, token, allowedProviders)
+		if err != nil {
+			log.Fatalf("model discovery failed: %v (use -discover=false or -models to override)", err)
+		}
+		fmt.Printf("Discovered %d text-only models\n", len(discovered))
+
+		if len(discovered) == 0 {
+			log.Fatal("no text-only models found")
+		}
+
+		models = pickRandomSubset(discovered, *pickCount)
+		fmt.Printf("Randomly picked %d models for this run\n", len(models))
 	} else {
-		models = defaultModels
+		log.Fatal("no models specified: use -discover or -models")
 	}
 
 	cfg := simulator.Config{
-		URL:       *url,
-		Key:       *key,
-		Users:     *users,
-		Duration:  dur,
-		ConvMin:   cMin,
-		ConvMax:   cMax,
-		Streaming: *streaming,
-		MaxTokens: *maxTokens,
-		Jitter:    *jitter,
-		Models:    models,
+		URL:          *url,
+		Key:          *key,
+		Users:        *users,
+		Duration:     dur,
+		ConvMin:      cMin,
+		ConvMax:      cMax,
+		Streaming:    *streaming,
+		MaxTokensMin: *maxTokensMin,
+		MaxTokensMax: *maxTokensMax,
+		Jitter:       *jitter,
+		Models:       models,
 	}
 
 	sim := simulator.New(cfg)
@@ -131,14 +222,15 @@ func main() {
 
 	fmt.Printf("Traffic Simulator\n")
 	fmt.Printf("=================\n")
-	fmt.Printf("  URL:        %s\n", *url)
-	fmt.Printf("  Users:      %d\n", *users)
-	fmt.Printf("  Duration:   %s\n", dur)
-	fmt.Printf("  Conv range: %s - %s\n", cMin, cMax)
-	fmt.Printf("  Streaming:  %v\n", *streaming)
-	fmt.Printf("  Max tokens: %d\n", *maxTokens)
-	fmt.Printf("  Jitter:     %v\n", *jitter)
-	fmt.Printf("  Models:     %d\n", len(models))
+	fmt.Printf("  URL:            %s\n", *url)
+	fmt.Printf("  Users:          %d\n", *users)
+	fmt.Printf("  Duration:       %s\n", dur)
+	fmt.Printf("  Conv range:     %s - %s\n", cMin, cMax)
+	fmt.Printf("  Streaming:      %v\n", *streaming)
+	fmt.Printf("  Max tokens:     %d - %d\n", *maxTokensMin, *maxTokensMax)
+	fmt.Printf("  Jitter:         %v\n", *jitter)
+	fmt.Printf("  Providers:      %s\n", *providersFlag)
+	fmt.Printf("  Models:         %d\n", len(models))
 	fmt.Printf("=================\n\n")
 
 	// Launch user goroutines
