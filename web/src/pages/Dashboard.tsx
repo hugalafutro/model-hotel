@@ -530,7 +530,7 @@ export function Dashboard() {
 				color={accents.tokens}
 				dataKey="tokens"
 				label="tokens"
-				allowDecimals
+				allowDecimals={false}
 			/>
 
 			{detailModel && (

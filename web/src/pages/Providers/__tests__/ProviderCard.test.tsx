@@ -322,7 +322,16 @@ describe("ProviderCard", () => {
 			mockQuotaData.nanoWeeklyUsed = 1000;
 			mockQuotaData.nanoWeeklyLimit = 10000;
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						base_url: "https://api.nano-gpt.com/v1",
+					}}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const nanoBadge = screen.getByTitle(
 				"NanoGPT weekly token quota - click for details",
@@ -340,7 +349,16 @@ describe("ProviderCard", () => {
 			mockQuotaData.nanoWeeklyUsed = null;
 			mockQuotaData.nanoWeeklyLimit = null;
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						base_url: "https://api.nano-gpt.com/v1",
+					}}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const nanoBadge = screen.queryByTitle(
 				"NanoGPT weekly token quota - click for details",
@@ -358,7 +376,13 @@ describe("ProviderCard", () => {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			mockQuotaData.zaiCodingWeekly = { percentage: 30 } as any;
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, base_url: "https://api.z.ai/v1" }}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const zaiBadge = screen.getByTitle(
 				"Z.ai Coding Plan token quota - click for details",
@@ -377,7 +401,16 @@ describe("ProviderCard", () => {
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			} as any;
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						base_url: "https://api.deepseek.com/v1",
+					}}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const deepseekBadge = screen.getByTitle(/DeepSeek balance/);
 			fireEvent.click(deepseekBadge);
@@ -401,7 +434,16 @@ describe("ProviderCard", () => {
 				.fn()
 				.mockRejectedValue(new Error("fail"));
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						base_url: "https://api.deepseek.com/v1",
+					}}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const deepseekBadge = screen.getByTitle(/DeepSeek balance/);
 			fireEvent.click(deepseekBadge);
@@ -419,7 +461,13 @@ describe("ProviderCard", () => {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			mockQuotaData.openrouterBalance = { credits_remaining: 5.0 } as any;
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, base_url: "https://openrouter.ai/v1" }}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const openrouterBadge = screen.getByTitle(
 				"OpenRouter key balance - click for details",
@@ -436,7 +484,13 @@ describe("ProviderCard", () => {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			mockQuotaData.ollamaCloudAccount = { plan: "pro" } as any;
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, base_url: "https://api.ollama.com/v1" }}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const ollamaBadge = screen.getByTitle(/Ollama Cloud/);
 			fireEvent.click(ollamaBadge);
@@ -458,7 +512,13 @@ describe("ProviderCard", () => {
 				.fn()
 				.mockRejectedValue(new Error("fail"));
 
-			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, base_url: "https://api.ollama.com/v1" }}
+				/>,
+				{ wrapper: AllProviders },
+			);
 
 			const ollamaBadge = screen.getByTitle(/Ollama Cloud/);
 			fireEvent.click(ollamaBadge);

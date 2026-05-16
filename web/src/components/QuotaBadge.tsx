@@ -239,11 +239,17 @@ export function QuotaBadges({
 		? detectQuotaProviderType(providerBaseUrl)
 		: undefined;
 
+	// When providerBaseUrl is given but doesn't match any quota provider,
+	// scope is null → hide all badges (this provider has no quota).
+	// When providerBaseUrl is absent (sidebar), scope is undefined → show all.
+	const showForType = (type: QuotaProviderType) =>
+		scope === undefined || scope === type;
+
 	return (
 		<>
 			{quotaData.showNanoBadge &&
 				quotaData.nanogptUsage &&
-				(scope == null || scope === "nanogpt") && (
+				showForType("nanogpt") && (
 					<QuotaBadge
 						type="nanogpt"
 						variant={variant}
@@ -254,7 +260,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showZaiCodingBadge &&
 				quotaData.zaiCodingUsage &&
-				(scope == null || scope === "zai-coding") && (
+				showForType("zai-coding") && (
 					<QuotaBadge
 						type="zai-coding"
 						variant={variant}
@@ -264,7 +270,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showDsBadge &&
 				quotaData.deepseekBalance &&
-				(scope == null || scope === "deepseek") && (
+				showForType("deepseek") && (
 					<QuotaBadge
 						type="deepseek"
 						variant={variant}
@@ -281,7 +287,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showOrBadge &&
 				quotaData.openrouterBalance &&
-				(scope == null || scope === "openrouter") && (
+				showForType("openrouter") && (
 					<QuotaBadge
 						type="openrouter"
 						variant={variant}
@@ -291,7 +297,7 @@ export function QuotaBadges({
 				)}
 			{quotaData.showOllamaCloudBadge &&
 				quotaData.ollamaCloudAccount &&
-				(scope == null || scope === "ollama-cloud") && (
+				showForType("ollama-cloud") && (
 					<QuotaBadge
 						type="ollama-cloud"
 						variant={variant}
