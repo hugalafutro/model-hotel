@@ -188,7 +188,7 @@ func (c *Config) String() string {
 	for _, l := range contentLines {
 		sb.WriteString("║" + padRight(l, contentW) + "║\n")
 	}
-	sb.WriteString("╚" + border + "╝")
+	sb.WriteString("╚" + border + "╝\n")
 
 	return sb.String()
 }
