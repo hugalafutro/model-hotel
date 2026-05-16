@@ -79,9 +79,7 @@ describe("DatabaseBackupSettings", () => {
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(
-				screen.getByText("Restore Requirements"),
-			).toBeInTheDocument();
+			expect(screen.getByText("Restore Requirements")).toBeInTheDocument();
 		});
 		expect(screen.getByText(/MASTER_KEY must match/i)).toBeInTheDocument();
 		expect(
