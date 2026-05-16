@@ -205,10 +205,10 @@ describe("TimeSeriesChart", () => {
 		expect(screen.getByText("Requests / Hour")).toBeInTheDocument();
 	});
 
-	it("displays hour label for 1h range", () => {
+	it("displays 5 min label for 1h range", () => {
 		renderWithProviders(<TimeSeriesChart {...defaultProps} range="1h" />);
 
-		expect(screen.getByText("Requests / Hour")).toBeInTheDocument();
+		expect(screen.getByText("Requests / 5 min")).toBeInTheDocument();
 	});
 
 	it("applies color to icon", () => {

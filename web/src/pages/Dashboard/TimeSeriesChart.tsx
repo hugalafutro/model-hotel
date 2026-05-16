@@ -57,7 +57,8 @@ export function TimeSeriesChart({
 				<div className="flex items-center justify-between mb-4">
 					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 						<Icon size={18} style={{ color }} />
-						{metric} / {range === "7d" ? "Day" : "Hour"}
+						{metric} /{" "}
+						{range === "7d" ? "Day" : range === "1h" ? "5 min" : "Hour"}
 						{loading && <Spinner className="ml-1" />}
 					</h3>
 					{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -76,7 +77,8 @@ export function TimeSeriesChart({
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Icon size={18} style={{ color }} />
-					{metric} / {range === "7d" ? "Day" : "Hour"}
+					{metric} /{" "}
+					{range === "7d" ? "Day" : range === "1h" ? "5 min" : "Hour"}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -110,11 +112,13 @@ export function TimeSeriesChart({
 							tickLine={false}
 							axisLine={false}
 							allowDecimals={allowDecimals}
-							tickFormatter={(v: number) =>
-								(Number(v) * scale).toLocaleString(undefined, {
+							tickFormatter={(v: number) => {
+								const raw = Number(v) * scale;
+								const val = allowDecimals ? raw : Math.round(raw);
+								return val.toLocaleString(undefined, {
 									maximumFractionDigits: allowDecimals ? 2 : 0,
-								})
-							}
+								});
+							}}
 						/>
 						<Tooltip
 							contentStyle={{
@@ -133,13 +137,16 @@ export function TimeSeriesChart({
 								color: "var(--text-primary)",
 								fontSize: "13px",
 							}}
-							formatter={(value: number | string | unknown) => [
-								(Number(value) * scale).toLocaleString(undefined, {
-									minimumFractionDigits: allowDecimals ? 1 : 0,
-									maximumFractionDigits: allowDecimals ? 2 : 0,
-								}),
-								label,
-							]}
+							formatter={(value: number | string | unknown) => {
+								const raw = Number(value) * scale;
+								const val = allowDecimals ? raw : Math.round(raw);
+								return [
+									val.toLocaleString(undefined, {
+										maximumFractionDigits: allowDecimals ? 2 : 0,
+									}),
+									label,
+								];
+							}}
 						/>
 						<Area
 							type="monotone"

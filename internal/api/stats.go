@@ -469,9 +469,15 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
 
-	bucketSize := "hour"
-	expectedBuckets := 24
-	since := now.Add(-period).Truncate(time.Hour)
+	bucketSize := "5min"
+	expectedBuckets := 12
+	since := now.Add(-period).Truncate(5 * time.Minute)
+
+	if period >= 24*time.Hour {
+		bucketSize = "hour"
+		expectedBuckets = 24
+		since = now.Add(-period).Truncate(time.Hour)
+	}
 
 	if period >= 7*24*time.Hour {
 		bucketSize = "day"
@@ -479,7 +485,26 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		since = now.Add(-period).Truncate(24 * time.Hour)
 	}
 
-	query := `
+	query := ""
+	switch bucketSize {
+	case "5min":
+		query = `
+		SELECT
+			to_char(date_bin('5 minutes', rl.created_at, '2000-01-01'), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
+			COUNT(*) as count,
+			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
+			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
+			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency,
+			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
+			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as provider_latency_ms,
+			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
+			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code >= 200 AND rl.status_code < 400), 0) as avg_ttft_ms
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
+		GROUP BY 1
+		ORDER BY 1`
+	default:
+		query = `
 		SELECT
 			to_char(date_trunc('` + bucketSize + `', rl.created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
@@ -494,6 +519,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1
 		ORDER BY 1`
+	}
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
@@ -517,7 +543,11 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(result.Points) > 0 && len(result.Points) < expectedBuckets {
-		result.Points = fillEmptyBuckets(result.Points, since, now.Truncate(time.Hour), bucketSize)
+		endTrunc := now.Truncate(time.Hour)
+		if bucketSize == "5min" {
+			endTrunc = now.Truncate(5 * time.Minute)
+		}
+		result.Points = fillEmptyBuckets(result.Points, since, endTrunc, bucketSize)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -532,12 +562,20 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 		byBucket[p.Bucket] = p
 	}
 
-	step := time.Hour
-	expected := 24
-	if bucketSize == "day" {
+	var step time.Duration
+	var expected int
+	switch bucketSize {
+	case "5min":
+		step = 5 * time.Minute
+		expected = 12
+		end = end.Truncate(5 * time.Minute)
+	case "day":
 		step = 24 * time.Hour
 		expected = 7
 		end = end.Truncate(24 * time.Hour)
+	default: // "hour"
+		step = time.Hour
+		expected = 24
 	}
 
 	filled := make([]TimeSeriesPoint, 0, expected)

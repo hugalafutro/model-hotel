@@ -46,7 +46,9 @@ export function GaugeModal({
 							month: "short",
 							day: "numeric",
 						})
-					: `${d.getHours().toString().padStart(2, "0")}:00`;
+					: range === "1h"
+						? `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
+						: `${d.getHours().toString().padStart(2, "0")}:00`;
 			return {
 				hour: label,
 				total: p.count,

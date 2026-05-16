@@ -367,7 +367,6 @@ export function Dashboard() {
 							color={accents.tokens}
 							label="Tokens"
 							dataKey="tokens"
-							allowDecimals
 							loading={tokenTsDataLoading}
 						/>
 					</>
@@ -382,7 +381,6 @@ export function Dashboard() {
 							color={accents.tokens}
 							label="Tokens"
 							dataKey="tokens"
-							allowDecimals
 							loading={tokenTsDataLoading}
 						/>
 						<TimeSeriesChart
