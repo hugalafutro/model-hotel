@@ -6,6 +6,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -15,7 +16,15 @@ import (
 )
 
 //go:embed migrations/*.sql
-var migrationFS embed.FS
+var embeddedMigrations embed.FS
+
+// migrationsFS is the filesystem used for reading migration files.
+// It can be overridden in tests to inject errors.
+var migrationsFS fs.FS
+
+func init() {
+	migrationsFS = embeddedMigrations
+}
 
 // DB manages the PostgreSQL connection pool and migrations.
 type DB struct {
@@ -72,7 +81,7 @@ func (db *DB) Begin(ctx context.Context) (pgx.Tx, error) {
 }
 
 func (db *DB) runMigrations(ctx context.Context) error {
-	entries, err := migrationFS.ReadDir("migrations")
+	entries, err := fs.ReadDir(migrationsFS, "migrations")
 	if err != nil {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
@@ -92,7 +101,7 @@ func (db *DB) runMigrations(ctx context.Context) error {
 		}
 
 		migrationPath := "migrations/" + filename
-		content, err := migrationFS.ReadFile(migrationPath)
+		content, err := fs.ReadFile(migrationsFS, migrationPath)
 		if err != nil {
 			return fmt.Errorf("failed to read migration %s: %w", filename, err)
 		}

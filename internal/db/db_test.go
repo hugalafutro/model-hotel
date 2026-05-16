@@ -2,8 +2,11 @@ package db
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"log"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +15,36 @@ import (
 
 var testPool *pgxpool.Pool
 var testDB *DB
+
+// mockMigrationsFS is a test implementation of fs.FS for testing migration errors.
+type mockMigrationsFS struct {
+	readDirFn  func(name string) ([]fs.DirEntry, error)
+	readFileFn func(name string) ([]byte, error)
+}
+
+func (m mockMigrationsFS) Open(name string) (fs.File, error) {
+	return nil, fs.ErrNotExist
+}
+
+func (m mockMigrationsFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return m.readDirFn(name)
+}
+
+func (m mockMigrationsFS) ReadFile(name string) ([]byte, error) {
+	return m.readFileFn(name)
+}
+
+// mockDirEntry is a test implementation of fs.DirEntry.
+type mockDirEntry struct {
+	name  string
+	isDir bool
+	typ   fs.FileMode
+}
+
+func (e mockDirEntry) Name() string               { return e.name }
+func (e mockDirEntry) IsDir() bool                { return e.isDir }
+func (e mockDirEntry) Type() fs.FileMode          { return e.typ }
+func (e mockDirEntry) Info() (fs.FileInfo, error) { return nil, nil }
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -395,5 +428,208 @@ func TestBuildTestDBURL_FallbackDockerHost(t *testing.T) {
 	expected := "postgres://u:p@localhost:5433/testdb?sslmode=disable"
 	if result != expected {
 		t.Errorf("buildTestDBURL() = %q, want %q", result, expected)
+	}
+}
+
+// TestRunMigrations_ReadDirError tests the error path when fs.ReadDir fails.
+func TestRunMigrations_ReadDirError(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_read_dir_err")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_read_dir_err")
+
+	// Save original migrationsFS
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	// Replace with mock that returns ReadDir error
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return nil, errors.New("read dir failed")
+		},
+	}
+
+	// New calls runMigrations internally, which should fail
+	_, err = New(ctx, testURL, 25, 5)
+	if err == nil {
+		t.Fatal("expected error from ReadDir failure")
+	}
+	if got := err.Error(); !strings.Contains(got, "failed to read migrations directory") {
+		t.Errorf("error = %q, want substring %q", got, "failed to read migrations directory")
+	}
+}
+
+// TestRunMigrations_DirEntry tests that directory entries are skipped.
+func TestRunMigrations_DirEntry(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_dir_entry")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_dir_entry")
+
+	// Create DB with real FS first to get a working pool
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Save original migrationsFS
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	// Replace with mock that returns a directory entry and a .sql file
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: "subdir", isDir: true},
+				mockDirEntry{name: "001_test.sql", isDir: false, typ: 0},
+			}, nil
+		},
+		readFileFn: func(name string) ([]byte, error) {
+			if name == "migrations/001_test.sql" {
+				return []byte("SELECT 1"), nil
+			}
+			return nil, fs.ErrNotExist
+		},
+	}
+
+	// Call runMigrations directly - should skip directory and execute the .sql file
+	if err := d.runMigrations(ctx); err != nil {
+		t.Fatalf("runMigrations failed: %v", err)
+	}
+}
+
+// TestRunMigrations_NonRegularFile tests that non-regular files are skipped.
+func TestRunMigrations_NonRegularFile(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_non_regular")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_non_regular")
+
+	// Create DB with real FS first to get a working pool
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Save original migrationsFS
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	// Replace with mock that returns a socket entry and a .sql file
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: "socket", isDir: false, typ: fs.ModeSocket},
+				mockDirEntry{name: "001_test.sql", isDir: false, typ: 0},
+			}, nil
+		},
+		readFileFn: func(name string) ([]byte, error) {
+			if name == "migrations/001_test.sql" {
+				return []byte("SELECT 1"), nil
+			}
+			return nil, fs.ErrNotExist
+		},
+	}
+
+	// Call runMigrations directly - should skip socket and execute the .sql file
+	if err := d.runMigrations(ctx); err != nil {
+		t.Fatalf("runMigrations failed: %v", err)
+	}
+}
+
+// TestRunMigrations_DotfileEntry tests that dotfiles are skipped.
+func TestRunMigrations_DotfileEntry(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_dotfile")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_dotfile")
+
+	// Create DB with real FS first to get a working pool
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Save original migrationsFS
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	// Replace with mock that returns a dotfile entry and a .sql file
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: ".hidden.sql", isDir: false, typ: 0},
+				mockDirEntry{name: "001_test.sql", isDir: false, typ: 0},
+			}, nil
+		},
+		readFileFn: func(name string) ([]byte, error) {
+			if name == "migrations/001_test.sql" {
+				return []byte("SELECT 1"), nil
+			}
+			return nil, fs.ErrNotExist
+		},
+	}
+
+	// Call runMigrations directly - should skip dotfile and execute the .sql file
+	if err := d.runMigrations(ctx); err != nil {
+		t.Fatalf("runMigrations failed: %v", err)
+	}
+}
+
+// TestRunMigrations_ReadFileError tests the error path when fs.ReadFile fails.
+func TestRunMigrations_ReadFileError(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_read_file_err")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_read_file_err")
+
+	// Create DB with real FS first to get a working pool
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Save original migrationsFS
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	// Replace with mock that returns ReadFile error
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: "001_test.sql", isDir: false, typ: 0},
+			}, nil
+		},
+		readFileFn: func(name string) ([]byte, error) {
+			return nil, errors.New("read file failed")
+		},
+	}
+
+	// Call runMigrations directly - should fail on ReadFile
+	err = d.runMigrations(ctx)
+	if err == nil {
+		t.Fatal("expected error from ReadFile failure")
+	}
+	if got := err.Error(); !strings.Contains(got, "failed to read migration") {
+		t.Errorf("error = %q, want substring %q", got, "failed to read migration")
 	}
 }
