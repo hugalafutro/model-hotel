@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -108,7 +109,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 			respondError(w, fmt.Sprintf("failed to build response for failover group %s", g.DisplayModel), err, http.StatusInternalServerError)
 			return
 		}
-		resp.TotalTokens = tokenCounts["hotel/"+g.DisplayModel]
+		resp.TotalTokens = tokenCounts["hotel/"+strings.ToLower(g.DisplayModel)]
 		responses[i] = resp
 	}
 
@@ -127,10 +128,10 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, error) {
 	rows, err := h.dbPool.Query(ctx, `
-		SELECT model_id, SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) as total_tokens
+		SELECT LOWER(model_id), SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) as total_tokens
 		FROM request_logs
-		WHERE model_id LIKE 'hotel/%' AND created_at > now() - interval '30 days'
-		GROUP BY model_id
+		WHERE model_id ILIKE 'hotel/%' AND created_at > now() - interval '30 days'
+		GROUP BY LOWER(model_id)
 	`)
 	if err != nil {
 		return nil, err
@@ -172,7 +173,7 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		tokenCounts = make(map[string]int)
 	}
-	resp.TotalTokens = tokenCounts["hotel/"+g.DisplayModel]
+	resp.TotalTokens = tokenCounts["hotel/"+strings.ToLower(g.DisplayModel)]
 
 	writeJSON(w, resp)
 }
@@ -198,7 +199,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid display model", err)
 		return
 	}
-	req.DisplayModel = trimmedModel
+	req.DisplayModel = strings.ToLower(trimmedModel)
 
 	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
 	if dnErr != nil {

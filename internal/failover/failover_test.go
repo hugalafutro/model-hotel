@@ -40,42 +40,10 @@ func TestMain(m *testing.M) {
 }
 
 // ---------------------------------------------------------------------------
-// stripPrefix tests
+// normalizeBaseModel tests
 // ---------------------------------------------------------------------------
 
-func TestStripPrefix_CommonPrefixes(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"zai-org/llama-3", "llama-3"},
-		{"deepseek/deepseek-r1", "deepseek-r1"},
-		{"meta-llama/llama-3-70b", "llama-3-70b"},
-		{"mistralai/mistral-large", "mistral-large"},
-		{"openai/gpt-4o", "gpt-4o"},
-		{"anthropic/claude-3-opus", "claude-3-opus"},
-		{"google/gemini-pro", "gemini-pro"},
-		{"allenai/olmo", "olmo"},
-		{"bigscience/bloom", "bloom"},
-		{"facebook/opt-66b", "opt-66b"},
-		{"microsoft/phi-3", "phi-3"},
-		{"nvidia/nemotron", "nemotron"},
-		{"stabilityai/stablelm", "stablelm"},
-		{"tiiuae/falcon-180b", "falcon-180b"},
-		{"databricks/dbrx", "dbrx"},
-		{"EleutherAI/gpt-j-6b", "gpt-j-6b"},
-		{"mosaicml/mpt-30b", "mpt-30b"},
-		{"togethercomputer/RedPajama", "RedPajama"},
-	}
-	for _, tt := range tests {
-		got := stripPrefix(tt.input)
-		if got != tt.want {
-			t.Errorf("stripPrefix(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestStripPrefix_NoPrefix(t *testing.T) {
+func TestNormalizeBaseModel_SimpleNames(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -86,46 +54,93 @@ func TestStripPrefix_NoPrefix(t *testing.T) {
 		{"my-custom-model", "my-custom-model"},
 	}
 	for _, tt := range tests {
-		got := stripPrefix(tt.input)
+		got := normalizeBaseModel(tt.input)
 		if got != tt.want {
-			t.Errorf("stripPrefix(%q) = %q, want %q", tt.input, got, tt.want)
+			t.Errorf("normalizeBaseModel(%q) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }
 
-func TestStripPrefix_PartialPrefixDoesNotMatch(t *testing.T) {
+func TestNormalizeBaseModel_SingleSlash(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
 	}{
-		// "open" is a partial prefix of "openai/" but should NOT be stripped
-		{"open-sesame", "open-sesame"},
-		// "deep" is a partial prefix of "deepseek/" but should NOT be stripped
-		{"deep-model", "deep-model"},
-		// "meta" without the dash should NOT be stripped
-		{"meta-model", "meta-model"},
+		{"zai-org/llama-3", "llama-3"},
+		{"deepseek/deepseek-r1", "deepseek-r1"},
+		{"meta-llama/llama-3-70b", "llama-3-70b"},
+		{"openai/gpt-4o", "gpt-4o"},
+		{"anthropic/claude-3-opus", "claude-3-opus"},
+		{"wafer.ai/glm-5.1", "glm-5.1"},
+		{"z-ai/glm-5.1", "glm-5.1"},
 	}
 	for _, tt := range tests {
-		got := stripPrefix(tt.input)
+		got := normalizeBaseModel(tt.input)
 		if got != tt.want {
-			t.Errorf("stripPrefix(%q) = %q, want %q", tt.input, got, tt.want)
+			t.Errorf("normalizeBaseModel(%q) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }
 
-func TestStripPrefix_EmptyString(t *testing.T) {
-	got := stripPrefix("")
-	if got != "" {
-		t.Errorf("stripPrefix(%q) = %q, want %q", "", got, "")
+func TestNormalizeBaseModel_NestedSlashes(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		// Hosting platform + model org prefix: last segment is the model name
+		{"zai-org/anthracite-org/magnum-v4-72b", "magnum-v4-72b"},
+		{"z-ai/anthracite-org/magnum-v4-72b", "magnum-v4-72b"},
+		{"zai-org/arcee-ai/trinity-large-preview", "trinity-large-preview"},
+		// Model org prefix without hosting platform
+		{"anthracite-org/magnum-v4-72b", "magnum-v4-72b"},
+		// Deep nesting
+		{"host/org/sub/magnum-v4-72b", "magnum-v4-72b"},
+	}
+	for _, tt := range tests {
+		got := normalizeBaseModel(tt.input)
+		if got != tt.want {
+			t.Errorf("normalizeBaseModel(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }
 
-func TestStripPrefix_ExactPrefix(t *testing.T) {
-	// If the input is exactly the prefix (no model name after it),
-	// stripPrefix should return the empty string after removing the prefix.
-	got := stripPrefix("openai/")
-	if got != "" {
-		t.Errorf("stripPrefix(%q) = %q, want %q", "openai/", got, "")
+func TestNormalizeBaseModel_CaseInsensitive(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"GLM-5.1", "glm-5.1"},
+		{"glm-5.1", "glm-5.1"},
+		{"zai-org/GLM-5.1", "glm-5.1"},
+		{"wafer.ai/GLM-5.1", "glm-5.1"},
+		{"openai/GPT-4o", "gpt-4o"},
+		{"GPT-4o", "gpt-4o"},
+		{"meta-llama/Llama-3-70B", "llama-3-70b"},
+		{"zai-org/Anthracite-Org/Magnum-V4-72b", "magnum-v4-72b"},
+	}
+	for _, tt := range tests {
+		got := normalizeBaseModel(tt.input)
+		if got != tt.want {
+			t.Errorf("normalizeBaseModel(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeBaseModel_EdgeCases(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", ""},
+		{"openai/", ""},
+		{"/", ""},
+		{"/model", "model"},
+	}
+	for _, tt := range tests {
+		got := normalizeBaseModel(tt.input)
+		if got != tt.want {
+			t.Errorf("normalizeBaseModel(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }
 
@@ -383,19 +398,6 @@ func TestDisabledGroupInfo_JSONEmptyProviderNames(t *testing.T) {
 
 	if dgi2.ProviderCount != 0 {
 		t.Errorf("ProviderCount = %d, want 0", dgi2.ProviderCount)
-	}
-}
-
-func TestStripPrefix_AllCommonPrefixes(t *testing.T) {
-	// Test all the common prefixes defined in the code
-	for _, prefix := range commonPrefixes {
-		modelName := "test-model"
-		input := prefix + modelName
-		want := modelName
-		got := stripPrefix(input)
-		if got != want {
-			t.Errorf("stripPrefix(%q) = %q, want %q", input, got, want)
-		}
 	}
 }
 

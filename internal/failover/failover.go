@@ -347,34 +347,16 @@ type SyncResult struct {
 	SyncErrors     []string            `json:"sync_errors,omitempty"`
 }
 
-var commonPrefixes = []string{
-	"zai-org/",
-	"deepseek/",
-	"meta-llama/",
-	"mistralai/",
-	"openai/",
-	"anthropic/",
-	"google/",
-	"allenai/",
-	"bigscience/",
-	"facebook/",
-	"microsoft/",
-	"nvidia/",
-	"stabilityai/",
-	"tiiuae/",
-	"databricks/",
-	"EleutherAI/",
-	"mosaicml/",
-	"togethercomputer/",
-}
-
-func stripPrefix(modelID string) string {
-	for _, prefix := range commonPrefixes {
-		if strings.HasPrefix(modelID, prefix) {
-			return strings.TrimPrefix(modelID, prefix)
-		}
+// normalizeBaseModel returns the canonical base model name used for failover
+// grouping. It takes the segment after the last "/" (the actual model name)
+// and lowercases it, so that "GLM-5.1", "glm-5.1", "zai-org/glm-5.1",
+// "zai-org/anthracite-org/magnum-v4-72b", and "anthracite-org/magnum-v4-72b"
+// all normalize to their leaf model name for grouping.
+func normalizeBaseModel(modelID string) string {
+	if idx := strings.LastIndex(modelID, "/"); idx >= 0 {
+		return strings.ToLower(modelID[idx+1:])
 	}
-	return modelID
+	return strings.ToLower(modelID)
 }
 
 // SyncAllModels synchronizes all enabled models with providers and updates failover groups.
@@ -407,7 +389,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		if err := rows.Scan(&id, &modelID, &providerID, &providerName); err != nil {
 			continue
 		}
-		base := stripPrefix(modelID)
+		base := normalizeBaseModel(modelID)
 		baseToModels[base] = append(baseToModels[base], modelInfo{
 			uuid:         id,
 			modelID:      modelID,
@@ -494,24 +476,20 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 // SyncForModel syncs the failover group for a specific model.
 func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
-	base := stripPrefix(modelID)
+	base := normalizeBaseModel(modelID)
 
-	args := []interface{}{base}
-	conditions := []string{"m.model_id = $1"}
-	for i, prefix := range commonPrefixes {
-		args = append(args, prefix+base)
-		conditions = append(conditions, fmt.Sprintf("m.model_id = $%d", i+2))
-	}
-
-	query := fmt.Sprintf(`
+	// Match all enabled models whose leaf name (after last "/", lowercased) equals base.
+	// SUBSTRING(... FROM '[^/]+$') extracts the segment after the last "/".
+	// This handles "glm-5.1", "GLM-5.1", "zai-org/glm-5.1",
+	// "zai-org/anthracite-org/magnum-v4-72b", etc.
+	rows, err := r.pool.Query(ctx, `
 		SELECT m.id, m.provider_id
 		FROM models m
 		JOIN providers p ON m.provider_id = p.id
-		WHERE m.enabled = true AND p.enabled = true AND (%s)
+		WHERE m.enabled = true AND p.enabled = true
+		  AND LOWER(SUBSTRING(m.model_id FROM '[^/]+$')) = $1
 		ORDER BY p.created_at ASC
-	`, strings.Join(conditions, " OR "))
-
-	rows, err := r.pool.Query(ctx, query, args...)
+	`, base)
 	if err != nil {
 		return err
 	}

@@ -1532,15 +1532,15 @@ describe("FailoverGroups", () => {
 			await user.click(checkboxes[0]);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 group selected")).toBeInTheDocument();
+				expect(screen.getByText("1 selected")).toBeInTheDocument();
 				expect(
-					screen.getByRole("button", { name: "Enable all entries" }),
+					screen.getByRole("button", { name: "Enable all" }),
 				).toBeInTheDocument();
 				expect(
-					screen.getByRole("button", { name: "Disable all entries" }),
+					screen.getByRole("button", { name: "Disable all" }),
 				).toBeInTheDocument();
 				expect(
-					screen.getByRole("button", { name: "Deselect" }),
+					screen.getByRole("button", { name: "Deselect all" }),
 				).toBeInTheDocument();
 			});
 		});
@@ -1601,12 +1601,10 @@ describe("FailoverGroups", () => {
 			await user.click(checkboxes[1]);
 
 			await waitFor(() => {
-				expect(screen.getByText("2 groups selected")).toBeInTheDocument();
+				expect(screen.getByText("2 selected")).toBeInTheDocument();
 			});
 
-			await user.click(
-				screen.getByRole("button", { name: "Enable all entries" }),
-			);
+			await user.click(screen.getByRole("button", { name: "Enable all" }));
 
 			await waitFor(() => {
 				expect(putCalls.length).toBe(2);
@@ -1657,9 +1655,7 @@ describe("FailoverGroups", () => {
 			const checkboxes = screen.getAllByRole("checkbox");
 			await user.click(checkboxes[0]);
 
-			await user.click(
-				screen.getByRole("button", { name: "Disable all entries" }),
-			);
+			await user.click(screen.getByRole("button", { name: "Disable all" }));
 
 			await waitFor(() => {
 				expect(putCalls.length).toBe(1);
@@ -1707,9 +1703,7 @@ describe("FailoverGroups", () => {
 			const checkboxes = screen.getAllByRole("checkbox");
 			await user.click(checkboxes[0]);
 
-			await user.click(
-				screen.getByRole("button", { name: "Disable all entries" }),
-			);
+			await user.click(screen.getByRole("button", { name: "Disable all" }));
 
 			await waitFor(() => {
 				expect(
@@ -1718,7 +1712,7 @@ describe("FailoverGroups", () => {
 			});
 		});
 
-		it("Deselect clears selection", async () => {
+		it("Checkbox icon deselects all", async () => {
 			const groups = [
 				{
 					...mockFailoverGroup,
@@ -1753,16 +1747,68 @@ describe("FailoverGroups", () => {
 			await user.click(checkboxes[0]);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 group selected")).toBeInTheDocument();
+				expect(screen.getByText("1 selected")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Deselect" }));
+			await user.click(screen.getByRole("button", { name: "Deselect all" }));
 
 			await waitFor(() => {
-				expect(screen.queryByText("1 group selected")).not.toBeInTheDocument();
+				expect(screen.queryByText("1 selected")).not.toBeInTheDocument();
 				expect(
-					screen.queryByRole("button", { name: "Enable all entries" }),
+					screen.queryByRole("button", { name: "Enable all" }),
 				).not.toBeInTheDocument();
+			});
+		});
+
+		it("Checkbox icon selects all groups", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					entries: [
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			// Click the empty checkbox icon to select all
+			await user.click(screen.getByRole("button", { name: "Select all" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("2 selected")).toBeInTheDocument();
 			});
 		});
 	});
@@ -2264,7 +2310,7 @@ describe("FailoverGroups", () => {
 			await user.click(checkboxes[0]);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 group selected")).toBeInTheDocument();
+				expect(screen.getByText("1 selected")).toBeInTheDocument();
 			});
 		});
 	});

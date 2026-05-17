@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Shuffle } from "lucide-react";
+import { CheckSquare, ChevronRight, Shuffle, Square } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { FailoverGroup } from "../api/types";
@@ -20,6 +20,8 @@ export function FailoverGroups() {
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
+	const [bulkDeleteIds, setBulkDeleteIds] = useState<Set<string> | null>(null);
+	const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [providerFilter, setProviderFilter] = useState("");
 	const [enabledFilter, setEnabledFilter] = useState<string>("");
@@ -279,6 +281,29 @@ export function FailoverGroups() {
 		}
 	};
 
+	const confirmBulkDelete = async () => {
+		if (!bulkDeleteIds || bulkDeleteIds.size === 0) return;
+		const ids = [...bulkDeleteIds];
+		setIsBulkDeleting(true);
+		const results = await Promise.allSettled(
+			ids.map((id) => api.failoverGroups.delete(id)),
+		);
+		const succeeded = results.filter((r) => r.status === "fulfilled").length;
+		const failed = results.length - succeeded;
+		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+		if (failed === 0) {
+			toast(`Deleted ${succeeded} group${succeeded > 1 ? "s" : ""}`, "success");
+		} else {
+			toast(
+				`Deleted ${succeeded} of ${ids.length} groups (${failed} failed)`,
+				"warning",
+			);
+		}
+		setIsBulkDeleting(false);
+		setBulkDeleteIds(null);
+		setSelectedGroupIds(new Set());
+	};
+
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center h-64">
@@ -376,32 +401,50 @@ export function FailoverGroups() {
 					]}
 					className="w-[160px] shrink-0"
 				/>
+				<button
+					type="button"
+					onClick={() => {
+						if (selectedGroupIds.size > 0) {
+							setSelectedGroupIds(new Set());
+						} else if (groups) {
+							setSelectedGroupIds(new Set(groups.map((g) => g.id)));
+						}
+					}}
+					className="ml-auto text-gray-400 hover:text-(--accent) transition-colors"
+					aria-label={selectedGroupIds.size > 0 ? "Deselect all" : "Select all"}
+					title={selectedGroupIds.size > 0 ? "Deselect all" : "Select all"}
+				>
+					{selectedGroupIds.size > 0 ? (
+						<CheckSquare size={18} />
+					) : (
+						<Square size={18} />
+					)}
+				</button>
 				{selectedGroupIds.size > 0 && (
 					<>
-						<span className="text-sm text-gray-400 ml-auto">
-							{selectedGroupIds.size} group
-							{selectedGroupIds.size > 1 ? "s" : ""} selected
+						<span className="text-sm text-gray-400">
+							{selectedGroupIds.size} selected
 						</span>
 						<button
 							type="button"
 							onClick={() => handleBulkModelToggle(true)}
 							className="ui-btn ui-btn-secondary text-xs"
 						>
-							Enable all entries
+							Enable all
 						</button>
 						<button
 							type="button"
 							onClick={() => handleBulkModelToggle(false)}
 							className="ui-btn ui-btn-secondary text-xs"
 						>
-							Disable all entries
+							Disable all
 						</button>
 						<button
 							type="button"
-							onClick={() => setSelectedGroupIds(new Set())}
-							className="ui-btn ui-btn-secondary text-xs"
+							onClick={() => setBulkDeleteIds(new Set(selectedGroupIds))}
+							className="ui-btn ui-btn-danger text-xs"
 						>
-							Deselect
+							Delete all
 						</button>
 					</>
 				)}
@@ -559,6 +602,16 @@ export function FailoverGroups() {
 					isPending={deleteMutation.isPending}
 					onConfirm={confirmDelete}
 					onCancel={() => setDeleteGroup(null)}
+				/>
+			)}
+
+			{bulkDeleteIds && (
+				<DeleteConfirmModal
+					entityName={`${bulkDeleteIds.size} failover group${bulkDeleteIds.size > 1 ? "s" : ""}`}
+					entityType="failover groups"
+					isPending={isBulkDeleting}
+					onConfirm={confirmBulkDelete}
+					onCancel={() => setBulkDeleteIds(null)}
 				/>
 			)}
 		</div>

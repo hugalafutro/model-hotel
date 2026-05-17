@@ -714,7 +714,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasPrefix(req.Model, "hotel/"):
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", req.Model)
-		displayModel := strings.TrimPrefix(req.Model, "hotel/")
+		displayModel := strings.ToLower(strings.TrimPrefix(req.Model, "hotel/"))
 		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
 			h.failRequest(logData, 404, err.Error(), 0, startTime, parseMs, timings, 0)
