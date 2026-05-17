@@ -24,6 +24,7 @@ import { PageHeader } from "../components/PageHeader";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { useDebounce } from "../hooks/useDebounce";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { AppLogs } from "./AppLogs";
 import { AccentCalendar } from "./Logs/AccentCalendar";
 
@@ -52,7 +53,7 @@ function RequestLogs() {
 
 	const { logsSubMode, setLogsSubMode } = useSidebarMode();
 	const [page, setPage] = useState(1);
-	const [pageSize, setPageSize] = useState(20);
+	const [pageSize, setPageSize] = useLocalStorage("requestLogsPageSize", 20);
 	const [filters, setFilters] = useState({
 		model_id: "",
 		provider_id: "",

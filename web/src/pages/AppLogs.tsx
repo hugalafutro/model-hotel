@@ -19,6 +19,7 @@ import { PageHeader } from "../components/PageHeader";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { useDebounce } from "../hooks/useDebounce";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -36,7 +37,7 @@ export function AppLogs() {
 	});
 	const [selectedLog, setSelectedLog] = useState<AppLogEntry | null>(null);
 	const [page, setPage] = useState(1);
-	const [pageSize, setPageSize] = useState(20);
+	const [pageSize, setPageSize] = useLocalStorage("appLogsPageSize", 20);
 	const { toast } = useToast();
 
 	const debouncedSearch = useDebounce(searchFilter, 300);
