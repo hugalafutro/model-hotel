@@ -133,7 +133,21 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				lastErrMsg = "stream interrupted: too many empty lines"
 				break
 			}
-			// Pass through empty lines — they're normal SSE event separators.
+			// Forward empty lines — they are SSE event separators required by
+			// the spec. Clients like eventsource-parser dispatch events on
+			// blank lines; omitting them causes all data lines to be
+			// concatenated into one invalid event.
+			var n int
+			var err error
+			if n, err = w.Write([]byte("\n")); err != nil {
+				clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				goto logUpdate
+			}
+			bytesWritten += int64(n)
+			if canFlush {
+				flusher.Flush()
+			}
 			continue
 		}
 		emptyLines = 0
@@ -206,7 +220,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n")); err != nil {
+			if n, err = w.Write([]byte("\n\n")); err != nil {
 				clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
@@ -377,7 +391,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 											goto logUpdate
 										}
-										n, err = w.Write([]byte("\n"))
+										n, err = w.Write([]byte("\n\n"))
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
@@ -521,7 +535,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
 											goto logUpdate
 										}
-										n, err = w.Write([]byte("\n"))
+										n, err = w.Write([]byte("\n\n"))
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
@@ -551,7 +565,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n")); err != nil {
+			if n, err = w.Write([]byte("\n\n")); err != nil {
 				clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
@@ -969,7 +983,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 		upstreamBody := proxyReqBody
-		needsRewrite := req.Model != candidate.model.ModelID || providerType == "anthropic"
+		needsRewrite := req.Model != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType)
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", req.Model, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			var raw map[string]interface{}
@@ -991,6 +1005,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						delete(raw, param)
 					}
 				}
+				// Inject provider-specific params required for reasoning/thinking.
+				// Clients don't know which upstream provider they're talking to,
+				// so the proxy must add these automatically.
+				InjectProviderParams(raw, providerType, candidate.model.ModelID)
 				if b, err := json.Marshal(raw); err == nil {
 					upstreamBody = b
 				}

@@ -1490,9 +1490,7 @@ describe("Arena", () => {
 			// which waits for a Stop button that never appears on error.
 			await waitFor(
 				() => {
-					expect(
-						screen.getByText(mockModel.display_name),
-					).toBeInTheDocument();
+					expect(screen.getByText(mockModel.display_name)).toBeInTheDocument();
 				},
 				{ timeout: 5000 },
 			);

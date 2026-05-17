@@ -1352,8 +1352,9 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 	defer stopUnitHandler(h)
 
 	// Stream with content but no [DONE] sentinel - handler will inject [DONE]
-	// Data line writes: w.Write(line) then w.Write([]byte("\n")) = 2 writes
-	// Then injected [DONE] is the 3rd Write
+	// Data line writes: w.Write(line) then w.Write([]byte("\n\n")) = 2 writes
+	// Empty line forwarded: w.Write([]byte("\n")) = 1 write
+	// Then injected [DONE] is the 4th Write
 	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}]}
 
 `
@@ -1364,7 +1365,7 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 	}
 
 	w := &failingResponseWriter{
-		failAfter: 2, // first 2 Writes succeed (data line + newline), 3rd (injected [DONE]) fails
+		failAfter: 3, // first 3 Writes succeed (data line + \n\n + blank line), 4th (injected [DONE]) fails
 		failErr:   errors.New("injected done write error"),
 	}
 
@@ -1389,6 +1390,64 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 	// because the stream content was successfully written
 	if logData.state != "completed" {
 		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Standard SSE format: each event is a data line followed by a blank line.
+	// eventsource-parser dispatches events on blank lines; without them,
+	// all data lines get concatenated into one invalid event.
+	streamData := "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"}}]}\n\ndata: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"}}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+
+	// Verify each data line is followed by \n\n (SSE event separator).
+	// Split on \n\n to get individual events.
+	lines := strings.Split(body, "\n\n")
+	dataEvents := 0
+	for _, event := range lines {
+		event = strings.TrimSpace(event)
+		if event == "" {
+			continue
+		}
+		if strings.HasPrefix(event, "data: ") {
+			dataEvents++
+		}
+	}
+	if dataEvents < 3 {
+		t.Errorf("expected at least 3 data events (2 content + 1 [DONE]), got %d; body=%q", dataEvents, body)
+	}
+
+	// Verify no two consecutive data lines without a blank line separator.
+	// This would indicate the bug where empty lines were being skipped.
+	if strings.Contains(body, "}\ndata:") {
+		t.Errorf("found consecutive data lines without blank line separator; body=%q", body)
 	}
 }
 
