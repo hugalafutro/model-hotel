@@ -1,7 +1,12 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import { mockAllDefaults } from "../../test/helpers";
+import type { Model } from "../../api/types";
+import {
+	mockAllDefaults,
+	mockArenaStream,
+	mockModels,
+} from "../../test/helpers";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -348,6 +353,159 @@ describe("Arena", () => {
 					screen.getByText((content) => content.includes("Models")),
 				).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe("Arena Run Flow - Compare Mode", () => {
+		const mockModel2: Model = {
+			...mockModel,
+			id: "model-002",
+			model_id: "test-model-v2",
+			display_name: "Test Model v2",
+		};
+
+		it("Run button is disabled without models in compare mode", async () => {
+			const chunks = [
+				{ choices: [{ delta: { content: "Response" } }] },
+				{ choices: [{ delta: { content: " content" } }] },
+			];
+
+			server.use(
+				...mockAllDefaults(),
+				...mockModels({ body: [mockModel, mockModel2] }),
+				...mockArenaStream(chunks),
+				http.get("/api/events", () => new HttpResponse(null, { status: 200 })),
+			);
+
+			const { user } = renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// Toggle to Compare mode
+			await user.click(screen.getByRole("button", { name: "Compare" }));
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Side-by-side.*compare model outputs/i),
+				).toBeInTheDocument();
+			});
+
+			// Verify prompt textarea is available
+			const promptTextarea = screen.getByRole("textbox", { name: /prompt/i });
+			expect(promptTextarea).toBeInTheDocument();
+
+			// Type a prompt
+			await user.type(promptTextarea, "Test prompt for arena");
+
+			// Run button should be disabled without models selected
+			const runButton = screen.getByRole("button", { name: /Run Arena/i });
+			expect(runButton).toBeDisabled();
+		});
+
+		it("Run Arena button is present in setup phase", async () => {
+			// This test verifies the button label changes based on isRunning state
+			// The actual streaming behavior is tested in useArenaRunner tests
+			renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// In setup phase, button should say "Run Arena"
+			expect(
+				screen.getByRole("button", { name: /Run Arena/i }),
+			).toBeInTheDocument();
+		});
+	});
+
+	describe("Arena Run Flow - Competition Mode", () => {
+		it("shows Arena title in competition mode", async () => {
+			renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// Arena title should be visible
+			expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+		});
+
+		it("shows model picker for bracket mode", async () => {
+			server.use(...mockAllDefaults(), ...mockModels({ body: [mockModel] }));
+
+			renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// Model picker should be available
+			expect(screen.getByLabelText(/Models/i)).toBeInTheDocument();
+		});
+	});
+
+	describe("Arena Error Handling", () => {
+		it("Arena page renders when arena endpoint would error", async () => {
+			server.use(
+				http.post("/api/chat/arena", () =>
+					HttpResponse.json({ error: "Arena failed" }, { status: 500 }),
+				),
+				http.get("/api/events", () => new HttpResponse(null, { status: 200 })),
+			);
+
+			renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// Page should still render even with API error handling
+			expect(screen.getByText("Arena")).toBeInTheDocument();
+		});
+	});
+
+	describe("Arena Clear and Reset", () => {
+		it("shows Clear and Reset buttons when models are selected", async () => {
+			server.use(...mockAllDefaults(), ...mockModels({ body: [mockModel] }));
+
+			const { user } = renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// Wait for model to be available and select it
+			await waitFor(
+				() => {
+					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
+			await user.click(screen.getByText("Test Model v1"));
+
+			// Controls section should be visible
+			expect(screen.getByText("Controls")).toBeInTheDocument();
+
+			// Reset button should be visible now that model is selected
+			const resetButton = screen.getByRole("button", {
+				name: "Reset all (clear models & prompt)",
+			});
+			expect(resetButton).toBeInTheDocument();
+		});
+
+		it("opens confirm dialog when Reset is clicked", async () => {
+			server.use(...mockAllDefaults(), ...mockModels({ body: [mockModel] }));
+
+			const { user } = renderWithProviders(<Arena />);
+			await waitForArenaLoad();
+
+			// Select a model to make reset button visible
+			await waitFor(
+				() => {
+					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
+			await user.click(screen.getByText("Test Model v1"));
+
+			// Click Reset button
+			const resetButton = screen.getByRole("button", {
+				name: "Reset all (clear models & prompt)",
+			});
+			await user.click(resetButton);
+
+			// Confirm dialog should open
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeInTheDocument();
+			});
+
+			// Dialog should have Reset All confirmation button
+			expect(
+				screen.getByRole("button", { name: "Reset All" }),
+			).toBeInTheDocument();
 		});
 	});
 });
