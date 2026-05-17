@@ -21,7 +21,7 @@ describe("RestoreConfirmModal", () => {
 			screen.getByRole("heading", { name: "Restore Database Backup" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText("This will permanently destroy all current data"),
+			screen.getByText("This will permanently overwrite all data"),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
 		expect(

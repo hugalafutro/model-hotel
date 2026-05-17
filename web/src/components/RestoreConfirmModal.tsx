@@ -48,7 +48,7 @@ export function RestoreConfirmModal({
 				<div className="flex items-center gap-2 mb-3 text-red-400">
 					<AlertTriangle size={24} />
 					<span className="text-lg font-bold">
-						This will permanently destroy all current data
+						This will permanently overwrite all data
 					</span>
 				</div>
 				<p className="text-amber-400 text-sm mb-4">
@@ -104,7 +104,7 @@ export function RestoreConfirmModal({
 					type="password"
 					value={adminToken}
 					onChange={(e) => setAdminToken(e.target.value)}
-					className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
+					className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
 					placeholder="Enter admin token"
 					disabled={isPending}
 				/>
