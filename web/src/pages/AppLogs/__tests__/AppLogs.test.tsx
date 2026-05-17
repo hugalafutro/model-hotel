@@ -624,15 +624,15 @@ describe("AppLogs", () => {
 		expect(dbBadge).toHaveClass("bg-lime-900/30");
 	});
 
-	it("message text has level-appropriate color", async () => {
+	it("message text uses neutral color regardless of level", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
 			expect(
 				screen.getByText("Request processed successfully"),
 			).toBeInTheDocument();
 		});
-		// Error message should have red color class
+		// Messages use neutral gray, not level-specific colors
 		const errorMessage = screen.getByText("Connection timeout");
-		expect(errorMessage).toHaveClass("text-red-400");
+		expect(errorMessage).toHaveClass("text-gray-400");
 	});
 });

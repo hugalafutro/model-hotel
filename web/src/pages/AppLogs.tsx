@@ -168,17 +168,6 @@ export function AppLogs() {
 		}
 	};
 
-	const getLevelColor = (level: string) => {
-		switch (level) {
-			case "error":
-				return "text-red-400";
-			case "warning":
-				return "text-yellow-400";
-			default:
-				return "text-blue-400";
-		}
-	};
-
 	const formatTimestamp = (ts: string) => {
 		try {
 			const d = new Date(ts);
@@ -387,15 +376,15 @@ export function AppLogs() {
 										key={entry.timestamp}
 										onClick={() => setSelectedLog(entry)}
 									>
-										<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+										<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 											{formatTimestamp(entry.timestamp)}
 										</td>
-										<td className="px-4 py-2">
+										<td className="px-2 py-1">
 											<Badge variant={getLevelBadgeVariant(entry.level)}>
 												{entry.level.toUpperCase()}
 											</Badge>
 										</td>
-										<td className="px-4 py-2">
+										<td className="px-2 py-1">
 											{entry.source ? (
 												<Badge
 													variant="custom"
@@ -407,10 +396,8 @@ export function AppLogs() {
 												<span className="text-gray-600">-</span>
 											)}
 										</td>
-										<td className="px-4 py-2">
-											<div
-												className={`text-xs font-mono line-clamp-2 ${getLevelColor(entry.level)}`}
-											>
+										<td className="px-2 py-1">
+											<div className="text-xs font-mono line-clamp-2 text-gray-400">
 												{entry.message}
 											</div>
 										</td>

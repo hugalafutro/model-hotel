@@ -521,7 +521,7 @@ function RequestLogs() {
 							<col className="w-27" />
 							<col className="w-50" />
 							<col className="w-25" />
-							<col className="w-15" />
+							<col className="w-24" />
 							<col className="w-17.5" />
 							<col className="w-13.75" />
 							<col className="w-16.25" />
@@ -624,19 +624,19 @@ function RequestLogs() {
 											}
 											onClick={() => setSelectedLog(log)}
 										>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 												{log.created_at
 													? new Date(log.created_at).toLocaleString()
 													: "-"}
 											</td>
 											<td
-												className="px-4 py-2 text-xs font-mono text-gray-400 truncate"
+												className="px-2 py-1 text-xs font-mono text-gray-400 truncate"
 												title={log.request_hash}
 											>
 												{log.request_hash ? log.request_hash.slice(0, 16) : "-"}
 											</td>
 											<td
-												className="px-4 py-2 whitespace-nowrap text-xs text-gray-200 truncate"
+												className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"
 												title={log.model_id}
 											>
 												{log.model_id
@@ -649,7 +649,7 @@ function RequestLogs() {
 															: log.model_id
 													: "-"}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-300 truncate">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate">
 												{log.provider_name === "Deleted" ? (
 													<span
 														className="text-red-400 italic"
@@ -665,7 +665,7 @@ function RequestLogs() {
 													log.provider_name || "-"
 												)}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap">
+											<td className="px-2 py-1 whitespace-nowrap">
 												<Badge
 													variant={getStatusBadgeVariant(
 														log.status_code,
@@ -684,22 +684,22 @@ function RequestLogs() {
 													)}
 												</Badge>
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isCancelled(log.error_message)
 													? "Interrupted"
 													: log.tokens_prompt + log.tokens_completion > 0
 														? `${log.tokens_prompt}+${log.tokens_completion}`
 														: "-"}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isCancelled(log.error_message)
 													? "-"
 													: formatTPS(log.tokens_per_second)}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{log.ttft_ms > 0 ? formatMs(log.ttft_ms, 1) : "-"}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400 font-mono">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isInProgress(log) && log.duration_ms === 0 ? (
 													<span className="inline-block animate-pulse text-blue-400">
 														-
@@ -714,7 +714,7 @@ function RequestLogs() {
 													"-"
 												)}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs font-mono">
+											<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
 												{log.proxy_overhead_ms != null &&
 												log.proxy_overhead_ms > 0 ? (
 													<span
@@ -728,7 +728,7 @@ function RequestLogs() {
 													<span className="text-gray-400">-</span>
 												)}
 											</td>
-											<td className="px-4 py-2 whitespace-nowrap text-xs text-gray-400">
+											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 												{log.virtual_key_deleted ? (
 													<span className="text-red-400 italic">Deleted</span>
 												) : log.virtual_key_name &&
