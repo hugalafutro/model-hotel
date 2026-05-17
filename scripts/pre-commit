@@ -37,7 +37,7 @@ if [ -n "$staged_go" ]; then
 
 	# ── Go test on staged packages ──
 	echo "pre-commit: go test (staged packages)..."
-	if ! go test -count=1 $go_pkgs; then
+	if ! go test $go_pkgs; then
 		echo "pre-commit: FAILED - go test" >&2
 		exit 1
 	fi
