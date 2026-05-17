@@ -136,10 +136,17 @@ func TestShouldFailover_SuccessCodes(t *testing.T) {
 
 func TestShouldFailover_Other4xx(t *testing.T) {
 	h := newIntegrationHandler()
-	for _, code := range []int{400, 404, 405, 408, 422} {
+	for _, code := range []int{400, 405, 408, 422} {
 		if h.shouldFailover(context.Background(), code) {
 			t.Errorf("status %d should NOT trigger failover", code)
 		}
+	}
+}
+
+func TestShouldFailover_404(t *testing.T) {
+	h := newIntegrationHandler()
+	if !h.shouldFailover(context.Background(), 404) {
+		t.Error("404 should trigger failover (stale model, overloaded provider)")
 	}
 }
 

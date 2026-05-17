@@ -854,6 +854,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Log the actual model name in the upstream body for debugging rewrite issues.
+		if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
+			debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
+		}
 
 		var retryCancel context.CancelFunc
 		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), failoverTimeout)

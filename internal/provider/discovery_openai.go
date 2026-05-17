@@ -14,13 +14,13 @@ import (
 )
 
 func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	baseURL := util.SanitizeAPIURL(provider.BaseURL)
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+apiKey)
 	headers.Set("Content-Type", "application/json")
 
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/v1/models", headers)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
 		debuglog.Error("discovery: openai fetch models failed", "provider", provider.ID, "error", err)
 		return nil, fmt.Errorf("openai: failed to fetch models for provider %s: %w", provider.ID, err)

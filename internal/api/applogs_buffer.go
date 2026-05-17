@@ -5,17 +5,22 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // stderrLogFilter is an io.Writer that forwards log lines to an underlying
-// writer (os.Stderr) only when they look like errors — this keeps docker logs
-// clean while the ring buffer still captures everything for the DB.
+// writer (os.Stderr). When DEBUG_LOG is enabled, all levels are forwarded so
+// docker logs show the full picture. Otherwise only errors and warnings are
+// forwarded to keep docker logs clean while the ring buffer still captures
+// everything for the DB.
 //
 // Sources listed in stderrSuppressSources are completely suppressed from
 // docker logs (all levels). This is useful for noisy sources whose errors
@@ -35,6 +40,7 @@ var stderrSuppressSources = map[string]bool{}
 
 func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
 	text := string(p)
+	debugEnabled := debuglog.Level() <= slog.LevelDebug
 	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
 		if line == "" {
 			continue
@@ -43,7 +49,7 @@ func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
 		if stderrSuppressSources[src] {
 			continue
 		}
-		if lvl == "error" || lvl == "warning" {
+		if debugEnabled || lvl == "error" || lvl == "warning" {
 			if _, err := f.dst.Write([]byte(line + "\n")); err != nil {
 				return 0, err
 			}

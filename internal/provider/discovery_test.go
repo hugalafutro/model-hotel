@@ -803,7 +803,7 @@ func TestDiscoverModels_KeylessProviderWithEmptyKey(t *testing.T) {
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" {
+		if r.URL.Path == "/models" {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(mockResponse))
 			return
@@ -1234,7 +1234,7 @@ func TestDiscoverModels_UnsupportedProviderTypeFallsBackToOpenAI(t *testing.T) {
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" {
+		if r.URL.Path == "/models" {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(mockResponse))
 			return
@@ -1295,7 +1295,7 @@ func TestDiscoverModels_OpenAIProviderType(t *testing.T) {
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" {
+		if r.URL.Path == "/models" {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(mockResponse))
 			return

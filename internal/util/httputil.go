@@ -115,6 +115,10 @@ func BuildProviderTargetURL(baseURL, providerType string) string {
 		}
 		return sanitized + "/v1/chat/completions"
 	default:
+		// Pass the user's base URL as-is. The user is responsible for
+		// including the correct path prefix (e.g. /v1) in the base URL.
+		// Known providers already have /v1 in their configured base URLs.
+		// Custom providers must be configured with the full path by the user.
 		return sanitized + "/chat/completions"
 	}
 }

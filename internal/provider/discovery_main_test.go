@@ -21,7 +21,7 @@ func TestDiscoverModels(t *testing.T) {
 	t.Run("unknown_provider_type", func(t *testing.T) {
 		// Mock OpenAI server for fallback
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v1/models" {
+			if r.URL.Path == "/models" {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{
 					"data": [
@@ -53,7 +53,7 @@ func TestDiscoverModels(t *testing.T) {
 	t.Run("openai", func(t *testing.T) {
 		// Mock OpenAI server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v1/models" {
+			if r.URL.Path == "/models" {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{
 					"data": [
@@ -262,7 +262,7 @@ func TestDiscoverModels_KeylessProvider(t *testing.T) {
 
 	// Mock OpenAI server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" {
+		if r.URL.Path == "/models" {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"data": [{"id": "gpt-4", "object": "model", "created": 1234567890, "owned_by": "openai"}]}`))
 			return

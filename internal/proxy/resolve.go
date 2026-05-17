@@ -214,5 +214,10 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode == 401 || statusCode == 403 {
 		return true
 	}
+	// 404 from a provider means the model doesn't exist there (stale DB entry,
+	// overloaded provider returning not_found, etc.) — try the next candidate.
+	if statusCode == 404 {
+		return true
+	}
 	return false
 }

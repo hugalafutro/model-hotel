@@ -535,7 +535,7 @@ func TestDiscoverProviderModels_SuccessWithMockServer(t *testing.T) {
 
 	// Create mock OpenAI-compatible server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" && r.Method == "GET" {
+		if r.URL.Path == "/models" && r.Method == "GET" {
 			response := map[string]interface{}{
 				"data": []map[string]interface{}{
 					{"id": "gpt-4-test", "owned_by": "openai"},
@@ -602,7 +602,7 @@ func TestDiscoverAllModels_WithEnabledProvider(t *testing.T) {
 
 	// Create mock OpenAI-compatible server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" && r.Method == "GET" {
+		if r.URL.Path == "/models" && r.Method == "GET" {
 			response := map[string]interface{}{
 				"data": []map[string]interface{}{
 					{"id": "model-1", "owned_by": "test"},
@@ -1226,7 +1226,7 @@ func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
 
 	// Create mock OpenAI-compatible server that returns models matching the cache
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" && r.Method == "GET" {
+		if r.URL.Path == "/models" && r.Method == "GET" {
 			response := map[string]interface{}{
 				"data": []map[string]interface{}{
 					{"id": "gpt-4", "owned_by": "openai"},

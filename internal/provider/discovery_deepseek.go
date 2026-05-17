@@ -16,7 +16,7 @@ import (
 )
 
 func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	baseURL := util.SanitizeAPIURL(provider.BaseURL)
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+apiKey)
@@ -97,7 +97,7 @@ func (d *DiscoveryService) GetDeepSeekBalance(ctx context.Context, provider *Pro
 		return nil, fmt.Errorf("deepseek: failed to decrypt API key for provider %s: %w", provider.ID, err)
 	}
 
-	baseURL := util.SanitizeAPIURL(provider.BaseURL)
+	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	balanceURL := baseURL + "/user/balance"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", balanceURL, http.NoBody)

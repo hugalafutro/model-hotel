@@ -13,7 +13,7 @@ import (
 func TestDiscoverDeepSeek(t *testing.T) {
 	// Create test server with mock DeepSeek response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/models" || r.Method != "GET" {
+		if r.URL.Path != "/v1/models" || r.Method != "GET" {
 			http.NotFound(w, r)
 			return
 		}

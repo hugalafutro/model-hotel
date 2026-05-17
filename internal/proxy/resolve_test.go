@@ -62,7 +62,7 @@ func TestShouldFailover_PureUnit_NoFailoverCodes(t *testing.T) {
 		{"302 Found", 302},
 		{"304 Not Modified", 304},
 		{"400 Bad Request", 400},
-		{"404 Not Found", 404},
+
 		{"405 Method Not Allowed", 405},
 		{"408 Request Timeout", 408},
 		{"415 Unsupported Media Type", 415},
@@ -125,7 +125,7 @@ func TestShouldFailover_Integration_TableDriven(t *testing.T) {
 		{"200 OK", 200, false},
 		{"201 Created", 201, false},
 		{"400 Bad Request", 400, false},
-		{"404 Not Found", 404, false},
+		{"404 Not Found", 404, true},
 		{"422 Unprocessable", 422, false},
 	}
 	for _, tt := range tests {

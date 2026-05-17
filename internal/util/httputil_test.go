@@ -704,10 +704,22 @@ func TestBuildProviderTargetURL(t *testing.T) {
 		expected     string
 	}{
 		{
-			name:         "OpenAI type",
-			baseURL:      "https://api.openai.com",
+			name:         "OpenAI type with /v1 in base URL",
+			baseURL:      "https://api.openai.com/v1",
 			providerType: "openai",
-			expected:     "https://api.openai.com/chat/completions",
+			expected:     "https://api.openai.com/v1/chat/completions",
+		},
+		{
+			name:         "Wafer AI without /v1 (user must include it)",
+			baseURL:      "https://pass.wafer.ai",
+			providerType: "openai",
+			expected:     "https://pass.wafer.ai/chat/completions",
+		},
+		{
+			name:         "Wafer AI with /v1 in base URL",
+			baseURL:      "https://pass.wafer.ai/v1",
+			providerType: "openai",
+			expected:     "https://pass.wafer.ai/v1/chat/completions",
 		},
 		{
 			name:         "Anthropic type",
@@ -722,28 +734,34 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.anthropic.com/v1/chat/completions",
 		},
 		{
-			name:         "DeepSeek type",
-			baseURL:      "https://api.deepseek.com",
+			name:         "DeepSeek with /v1 in base URL",
+			baseURL:      "https://api.deepseek.com/v1",
 			providerType: "deepseek",
-			expected:     "https://api.deepseek.com/chat/completions",
+			expected:     "https://api.deepseek.com/v1/chat/completions",
 		},
 		{
-			name:         "Ollama type",
-			baseURL:      "http://localhost:11434",
-			providerType: "ollama",
-			expected:     "http://localhost:11434/chat/completions",
+			name:         "Ollama Cloud with /v1",
+			baseURL:      "https://ollama.com/v1",
+			providerType: "ollama-cloud",
+			expected:     "https://ollama.com/v1/chat/completions",
+		},
+		{
+			name:         "OpenRouter with /api/v1",
+			baseURL:      "https://openrouter.ai/api/v1",
+			providerType: "openrouter",
+			expected:     "https://openrouter.ai/api/v1/chat/completions",
 		},
 		{
 			name:         "Trailing slash gets sanitized",
-			baseURL:      "https://api.openai.com/",
+			baseURL:      "https://api.openai.com/v1/",
 			providerType: "openai",
-			expected:     "https://api.openai.com/chat/completions",
+			expected:     "https://api.openai.com/v1/chat/completions",
 		},
 		{
 			name:         "Empty provider type (default)",
-			baseURL:      "https://api.example.com",
+			baseURL:      "https://api.example.com/v1",
 			providerType: "",
-			expected:     "https://api.example.com/chat/completions",
+			expected:     "https://api.example.com/v1/chat/completions",
 		},
 	}
 
