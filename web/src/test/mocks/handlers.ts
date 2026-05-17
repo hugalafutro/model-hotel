@@ -21,7 +21,7 @@ import {
 // Helper to check for valid auth header
 function hasValidAuth(request: Request): boolean {
 	const auth = request.headers.get("Authorization");
-	return auth?.startsWith("Bearer ");
+	return auth?.startsWith("Bearer ") ?? false;
 }
 
 // Factory function to create fresh mock data arrays for each test.
@@ -514,6 +514,12 @@ export const handlers: RequestHandler[] = [
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 		return new HttpResponse(null, { status: 204 });
+	}),
+
+	// ── SSE Events ────────────────────────────────────────────────────────
+	http.get("/api/events", () => {
+		// SSE endpoint - return empty response to suppress unhandled request warnings
+		return new HttpResponse(null, { status: 200 });
 	}),
 
 	// ── GitHub API (version check) ────────────────────────────────────────
