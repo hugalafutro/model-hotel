@@ -541,6 +541,7 @@ logUpdate:
 			events.Publish(events.Event{
 				Type:     "tokens.error",
 				Severity: "error",
+				Source:   "proxy",
 				Message:  fmt.Sprintf("Token counting failed for key %q", keyLabel),
 				Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
 			})
@@ -592,6 +593,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 				events.Publish(events.Event{
 					Type:     "tokens.error",
 					Severity: "error",
+					Source:   "proxy",
 					Message:  fmt.Sprintf("Token counting failed for key %q", keyLabel),
 					Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
 				})

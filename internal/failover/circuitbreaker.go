@@ -224,6 +224,7 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, state string, c *ci
 	events.Publish(events.Event{
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
+		Source:   "failover",
 		Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerID, state),
 		Metadata: map[string]interface{}{
 			"provider_id":       providerID.String(),

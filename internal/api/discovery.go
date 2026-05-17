@@ -86,6 +86,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	events.Publish(events.Event{
 		Type:     "discovery.provider_fetched",
 		Severity: "success",
+		Source:   "discovery",
 		Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
 		Metadata: map[string]interface{}{"provider": prov.Name, "count": len(models)},
 	})
@@ -98,6 +99,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 			events.Publish(events.Event{
 				Type:     "discovery.enriched",
 				Severity: "info",
+				Source:   "discovery",
 				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
 				Metadata: map[string]interface{}{"provider": prov.Name, "enriched": enriched, "total": len(models)},
 			})
@@ -297,6 +299,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		events.Publish(events.Event{
 			Type:     "request.discovery.provider_starting",
 			Severity: "info",
+			Source:   "proxy",
 			Message:  fmt.Sprintf("Discovering models from %s…", prov.Name),
 			Metadata: map[string]interface{}{"provider_id": prov.ID, "provider": prov.Name},
 		})
@@ -315,6 +318,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			events.Publish(events.Event{
 				Type:     "discovery.provider_failed",
 				Severity: "error",
+				Source:   "discovery",
 				Message:  fmt.Sprintf("Failed to discover models from %s: %s", prov.Name, discoverErr.Error()),
 				Metadata: map[string]interface{}{"provider": prov.Name, "error": discoverErr.Error()},
 			})
@@ -329,6 +333,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		events.Publish(events.Event{
 			Type:     "discovery.provider_fetched",
 			Severity: "success",
+			Source:   "discovery",
 			Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
 			Metadata: map[string]interface{}{"provider": prov.Name, "count": len(models)},
 		})
@@ -340,6 +345,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 				events.Publish(events.Event{
 					Type:     "discovery.enriched",
 					Severity: "info",
+					Source:   "discovery",
 					Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
 					Metadata: map[string]interface{}{"provider": prov.Name, "enriched": enriched, "total": len(models)},
 				})

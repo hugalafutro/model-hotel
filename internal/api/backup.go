@@ -114,7 +114,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		// Clean up partial file
 		_ = os.Remove(path)
 		// Log full pg_dump output server-side only (may contain connection details)
-		debuglog.Error("pg_dump failed", "output", strings.TrimSpace(string(output)), "error", err)
+		debuglog.Error("backup: pg_dump failed", "output", strings.TrimSpace(string(output)), "error", err)
 		respondError(w, "pg_dump failed - check server logs for details", nil, http.StatusInternalServerError)
 		return
 	}
@@ -126,10 +126,11 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Info("backup created", "filename", filename, "size_bytes", info.Size())
+	debuglog.Info("backup: created", "filename", filename, "size_bytes", info.Size())
 	events.Publish(events.Event{
 		Type:     "backup.created",
 		Severity: "success",
+		Source:   "backup",
 		Message:  fmt.Sprintf("Database backup created: %s (%d bytes)", filename, info.Size()),
 		Metadata: map[string]interface{}{"filename": filename, "size_bytes": info.Size()},
 	})
@@ -209,7 +210,7 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Info("backup downloaded", "filename", filename)
+	debuglog.Info("backup: downloaded", "filename", filename)
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
@@ -237,10 +238,11 @@ func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Info("backup deleted", "filename", filename)
+	debuglog.Info("backup: deleted", "filename", filename)
 	events.Publish(events.Event{
 		Type:     "backup.deleted",
 		Severity: "info",
+		Source:   "backup",
 		Message:  fmt.Sprintf("Backup deleted: %s", filename),
 		Metadata: map[string]interface{}{"filename": filename},
 	})
@@ -580,7 +582,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	entries := parseTOC(listStdout.String())
 	dangerous := checkDangerousObjects(entries)
 	if len(dangerous) > 0 {
-		debuglog.Warn("restore rejected: dangerous objects in dump", "objects", strings.Join(dangerous, ", "))
+		debuglog.Warn("backup: restore rejected - dangerous objects in dump", "objects", strings.Join(dangerous, ", "))
 		respondBadRequest(w, fmt.Sprintf("dump contains dangerous objects: %s", strings.Join(dangerous, ", ")), nil)
 		return
 	}
@@ -588,7 +590,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	// Step 3: Extract and compare migrations
 	schemaEntry := findSchemaMigrationsEntry(entries)
 	if schemaEntry == 0 {
-		debuglog.Warn("restore rejected: no schema_migrations in dump")
+		debuglog.Warn("backup: restore rejected - no schema_migrations in dump")
 		respondBadRequest(w, "dump does not contain schema_migrations table - not a model-hotel backup", nil)
 		return
 	}
@@ -601,7 +603,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	unknownMigrations := compareMigrations(dumpMigrations)
 	if len(unknownMigrations) > 0 {
-		debuglog.Warn("restore rejected: newer version dump", "unknown_migrations", strings.Join(unknownMigrations, ", "))
+		debuglog.Warn("backup: restore rejected - newer version dump", "unknown_migrations", strings.Join(unknownMigrations, ", "))
 		respondBadRequest(w, fmt.Sprintf(
 			"dump is from a newer version (unknown migrations: %s). Downgrade restore is not supported.",
 			strings.Join(unknownMigrations, ", "),
@@ -632,15 +634,16 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	restoreCmd.Stderr = &restoreStderr
 
 	if err := restoreCmd.Run(); err != nil {
-		debuglog.Error("pg_restore failed", "output", strings.TrimSpace(restoreStderr.String()), "error", err)
+		debuglog.Error("backup: pg_restore failed", "output", strings.TrimSpace(restoreStderr.String()), "error", err)
 		respondError(w, "pg_restore failed - check server logs for details", err, http.StatusInternalServerError)
 		return
 	}
 
-	debuglog.Info("database restored from backup", "migrations_in_dump", len(dumpMigrations))
+	debuglog.Info("backup: restored", "migrations_in_dump", len(dumpMigrations))
 	events.Publish(events.Event{
 		Type:     "backup.restored",
 		Severity: "success",
+		Source:   "backup",
 		Message:  "Database restored successfully. Restarting...",
 		Metadata: map[string]interface{}{"migration_count": len(dumpMigrations)},
 	})

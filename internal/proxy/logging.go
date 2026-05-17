@@ -61,6 +61,7 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		events.Publish(events.Event{
 			Type:     "request.started",
 			Severity: "info",
+			Source:   "proxy",
 			Message:  fmt.Sprintf("Request started: %s", modelID),
 			Metadata: map[string]interface{}{
 				"request_id": id,
@@ -168,6 +169,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 		events.Publish(events.Event{
 			Type:     "request.completed",
 			Severity: severity,
+			Source:   "proxy",
 			Message:  msg,
 			Metadata: map[string]interface{}{
 				"request_id":  logEntry.id,
