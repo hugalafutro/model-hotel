@@ -31,7 +31,7 @@ RUN go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates postgresql-client
+RUN apk add --no-cache ca-certificates postgresql16-client
 
 WORKDIR /app
 
