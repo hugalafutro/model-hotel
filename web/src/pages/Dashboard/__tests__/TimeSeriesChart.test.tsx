@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TrendingUp } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,88 +31,88 @@ vi.mock("recharts", () => ({
 	Tooltip: () => <div data-testid="tooltip" />,
 }));
 
+const mockData: TimeSeriesDataPoint[] = [
+	{
+		hour: "00:00",
+		total: 100,
+		errors: 5,
+		tokens: 5000,
+		latency: 200,
+		overhead_ms: 10,
+		provider_latency_ms: 190,
+		rate_limit_hits: 0,
+		avg_ttft_ms: 50,
+	},
+	{
+		hour: "04:00",
+		total: 150,
+		errors: 3,
+		tokens: 7500,
+		latency: 180,
+		overhead_ms: 8,
+		provider_latency_ms: 172,
+		rate_limit_hits: 0,
+		avg_ttft_ms: 45,
+	},
+	{
+		hour: "08:00",
+		total: 200,
+		errors: 10,
+		tokens: 10000,
+		latency: 250,
+		overhead_ms: 15,
+		provider_latency_ms: 235,
+		rate_limit_hits: 2,
+		avg_ttft_ms: 60,
+	},
+	{
+		hour: "12:00",
+		total: 300,
+		errors: 8,
+		tokens: 15000,
+		latency: 220,
+		overhead_ms: 12,
+		provider_latency_ms: 208,
+		rate_limit_hits: 1,
+		avg_ttft_ms: 55,
+	},
+	{
+		hour: "16:00",
+		total: 250,
+		errors: 6,
+		tokens: 12500,
+		latency: 210,
+		overhead_ms: 11,
+		provider_latency_ms: 199,
+		rate_limit_hits: 0,
+		avg_ttft_ms: 52,
+	},
+	{
+		hour: "20:00",
+		total: 180,
+		errors: 4,
+		tokens: 9000,
+		latency: 190,
+		overhead_ms: 9,
+		provider_latency_ms: 181,
+		rate_limit_hits: 0,
+		avg_ttft_ms: 48,
+	},
+];
+
+const defaultProps = {
+	data: mockData,
+	range: "24h" as Range,
+	onRangeChange: vi.fn(),
+	metric: "Requests",
+	icon: TrendingUp,
+	color: "#3b82f6",
+	label: "Total Requests",
+	dataKey: "total" as const,
+	loading: false,
+};
+
 describe("TimeSeriesChart", () => {
-	const mockData: TimeSeriesDataPoint[] = [
-		{
-			hour: "00:00",
-			total: 100,
-			errors: 5,
-			tokens: 5000,
-			latency: 200,
-			overhead_ms: 10,
-			provider_latency_ms: 190,
-			rate_limit_hits: 0,
-			avg_ttft_ms: 50,
-		},
-		{
-			hour: "04:00",
-			total: 150,
-			errors: 3,
-			tokens: 7500,
-			latency: 180,
-			overhead_ms: 8,
-			provider_latency_ms: 172,
-			rate_limit_hits: 0,
-			avg_ttft_ms: 45,
-		},
-		{
-			hour: "08:00",
-			total: 200,
-			errors: 10,
-			tokens: 10000,
-			latency: 250,
-			overhead_ms: 15,
-			provider_latency_ms: 235,
-			rate_limit_hits: 2,
-			avg_ttft_ms: 60,
-		},
-		{
-			hour: "12:00",
-			total: 300,
-			errors: 8,
-			tokens: 15000,
-			latency: 220,
-			overhead_ms: 12,
-			provider_latency_ms: 208,
-			rate_limit_hits: 1,
-			avg_ttft_ms: 55,
-		},
-		{
-			hour: "16:00",
-			total: 250,
-			errors: 6,
-			tokens: 12500,
-			latency: 210,
-			overhead_ms: 11,
-			provider_latency_ms: 199,
-			rate_limit_hits: 0,
-			avg_ttft_ms: 52,
-		},
-		{
-			hour: "20:00",
-			total: 180,
-			errors: 4,
-			tokens: 9000,
-			latency: 190,
-			overhead_ms: 9,
-			provider_latency_ms: 181,
-			rate_limit_hits: 0,
-			avg_ttft_ms: 48,
-		},
-	];
-
-	const defaultProps = {
-		data: mockData,
-		range: "24h" as Range,
-		onRangeChange: vi.fn(),
-		metric: "Requests",
-		icon: TrendingUp,
-		color: "#3b82f6",
-		label: "Total Requests",
-		dataKey: "total" as const,
-		loading: false,
-	};
-
 	it("renders with metric title and icon", () => {
 		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
 
@@ -312,5 +312,382 @@ describe("TimeSeriesChart", () => {
 		);
 
 		expect(screen.getByTestId("area-chart")).toBeInTheDocument();
+	});
+});
+
+// Helper to generate test data with N points
+function generateData(count: number): TimeSeriesDataPoint[] {
+	return Array.from({ length: count }, (_, i) => ({
+		hour: `${String(Math.floor(i / 4) % 24).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`,
+		total: 100 + i * 10,
+		errors: Math.floor(i / 3),
+		tokens: 5000 + i * 500,
+		latency: 200 - i,
+		overhead_ms: 10,
+		provider_latency_ms: 190 - i,
+		rate_limit_hits: 0,
+		avg_ttft_ms: 50,
+	}));
+}
+
+describe("Drag-to-pan and wheel scroll", () => {
+	it("shows grab cursor when data exceeds viewport", () => {
+		const data = generateData(15); // 15 > 12 (viewportSize for 1h)
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// Chart container should have grab cursor
+		const chartContainer = screen.getByTestId("area-chart").parentElement;
+		expect(chartContainer).toHaveStyle("cursor: grab");
+	});
+
+	it("shows default cursor when data fits viewport", () => {
+		// 6 points < 24 (viewportSize for 24h), so not pannable
+		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
+
+		const chartContainer = screen.getByTestId("area-chart").parentElement;
+		// Should not have grab cursor when not pannable
+		expect(chartContainer).not.toHaveStyle("cursor: grab");
+	});
+
+	it("shows drag to pan hint when pannable and not at edges", () => {
+		const data = generateData(15); // pannable for 1h range
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// Should show "drag to pan" text and arrows when pannable
+		expect(screen.getByText("drag to pan")).toBeInTheDocument();
+		// At start, can pan left (toward older data) but not right
+		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+	});
+
+	it("shows right arrow when can pan left (toward older data)", () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// At start position, should show right arrow (can pan left = see older data)
+		expect(screen.getByText("→")).toBeInTheDocument();
+	});
+
+	it("shows left arrow when can pan right (toward newer data)", async () => {
+		const data = generateData(20); // enough data to pan both directions
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// First scroll to older data (positive delta = decrease start = older)
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+
+		// Now we can pan back to newer data, so left arrow appears
+		expect(screen.getByText("←")).toBeInTheDocument();
+	});
+
+	it("sets isDragging on pointer down", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Fire pointer down event
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+
+		// Should show grabbing cursor during drag
+		expect(chartContainer).toHaveStyle("cursor: grabbing");
+	});
+
+	it("updates viewport on pointer move during drag", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Start drag
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+
+		// Move pointer to the right (should see older data)
+		fireEvent.pointerMove(chartContainer, { clientX: 200, pointerId: 1 });
+
+		// Viewport should have shifted - check that drag overlay is still visible
+		expect(chartContainer).toHaveStyle("cursor: grabbing");
+	});
+
+	it("clears isDragging on pointer up", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Start drag
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+		expect(chartContainer).toHaveStyle("cursor: grabbing");
+
+		// End drag
+		fireEvent.pointerUp(chartContainer, { pointerId: 1 });
+
+		// Should return to grab cursor
+		expect(chartContainer).toHaveStyle("cursor: grab");
+
+		// Drag overlay should be gone
+		const dragOverlay = chartContainer.querySelector(
+			'div[style*="position: absolute"]',
+		);
+		expect(dragOverlay).not.toBeInTheDocument();
+	});
+
+	it("scrolls to older data on positive wheel delta", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Positive delta = scroll right = see older data (decrease start)
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+
+		// Should show left arrow now (can pan right toward newer data)
+		expect(screen.getByText("←")).toBeInTheDocument();
+		// Right arrow should still be visible (can still pan left toward older data)
+		expect(screen.getByText("→")).toBeInTheDocument();
+	});
+
+	it("scrolls to newer data on negative wheel delta", async () => {
+		const data = generateData(20);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// First scroll to older data
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+
+		// Then scroll back (negative delta = see newer data)
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+
+		// Should be able to pan left again
+		expect(screen.getByText("→")).toBeInTheDocument();
+	});
+
+	it("handles deltaMode 1 (line mode) for trackpad", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// deltaMode 1 = line mode, uses deltaX * 20
+		fireEvent.wheel(chartContainer, { deltaX: 1, deltaMode: 1 });
+
+		// Should scroll (1 * 20 = 20, which is significant)
+		expect(screen.getByText("←")).toBeInTheDocument();
+	});
+
+	it("does not scroll when not pannable", async () => {
+		// 6 points < 24 (viewportSize for 24h), so not pannable
+		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Try to scroll
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+
+		// Should not show any pan indicators
+		expect(screen.queryByText("drag to pan")).not.toBeInTheDocument();
+		expect(screen.queryByText("→")).not.toBeInTheDocument();
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+	});
+
+	it("clamps viewport at boundaries", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Try to scroll past the start (older data boundary)
+		// Scroll multiple times to try to go past boundary
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+
+		// Should still show left arrow (can pan right) but not right arrow
+		expect(screen.getByText("←")).toBeInTheDocument();
+		expect(screen.queryByText("→")).not.toBeInTheDocument();
+
+		// Now scroll back to the end (newer data boundary)
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+		fireEvent.wheel(chartContainer, { deltaY: -50 });
+
+		// Should be back at start position
+		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+	});
+
+	it("handles pointer cancel", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Start drag
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+		expect(chartContainer).toHaveStyle("cursor: grabbing");
+
+		// Cancel drag
+		fireEvent.pointerCancel(chartContainer, { pointerId: 1 });
+
+		// Should return to grab cursor
+		expect(chartContainer).toHaveStyle("cursor: grab");
+	});
+
+	it("ignores pointer events when not pannable", async () => {
+		// 6 points < 24 (viewportSize for 24h), so not pannable
+		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// Try to start drag
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+
+		// Should not have grabbing cursor
+		expect(chartContainer).not.toHaveStyle("cursor: grabbing");
+		expect(chartContainer).not.toHaveStyle("cursor: grab");
+	});
+
+	it("uses deltaX when it has larger absolute value than deltaY", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// deltaX (100) > deltaY (10), so should use deltaX
+		fireEvent.wheel(chartContainer, { deltaX: 100, deltaY: 10 });
+
+		// Should scroll based on deltaX (positive = older data)
+		expect(screen.getByText("←")).toBeInTheDocument();
+	});
+
+	it("uses deltaY when it has larger absolute value than deltaX", async () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		// deltaY (100) > deltaX (10), so should use deltaY
+		fireEvent.wheel(chartContainer, { deltaX: 10, deltaY: 100 });
+
+		// Should scroll based on deltaY (positive = older data)
+		expect(screen.getByText("←")).toBeInTheDocument();
 	});
 });

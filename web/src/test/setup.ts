@@ -86,6 +86,17 @@ vi.stubGlobal(
 	}),
 );
 
+// Mock Element.setPointerCapture (jsdom doesn't implement it)
+if (typeof Element !== "undefined" && !Element.prototype.setPointerCapture) {
+	Element.prototype.setPointerCapture = () => {};
+}
+if (
+	typeof Element !== "undefined" &&
+	!Element.prototype.releasePointerCapture
+) {
+	Element.prototype.releasePointerCapture = () => {};
+}
+
 beforeAll(() => {
 	server.listen({ onUnhandledRequest: "warn" });
 	setAdminToken("test-admin-token");
