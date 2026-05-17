@@ -54,14 +54,9 @@ export function TimeSeriesChart({
 	// Compute viewport size based on range
 	const viewportSize = range === "1h" ? 12 : range === "24h" ? 24 : 7;
 
-	// Find last index with real data to prevent scrolling into empty "future"
-	const lastRealIndex = (() => {
-		for (let i = data.length - 1; i >= 0; i--) {
-			if (((data[i] as Record<string, unknown>)[dataKey] as number) !== 0)
-				return i;
-		}
-		return data.length - 1;
-	})();
+	// Last bucket is always the current time (backend fills to now),
+	// so panning is bounded by the actual data range.
+	const lastRealIndex = data.length - 1;
 
 	// Drag-to-pan state: enabled when data exceeds viewport
 	const pannable = data.length > viewportSize;
@@ -74,7 +69,6 @@ export function TimeSeriesChart({
 		setUserStart(null);
 	}
 	const [isDragging, setIsDragging] = useState(false);
-	const [dragOffset, setDragOffset] = useState(0);
 	const dragRef = useRef<{
 		startX: number;
 		startOffset: number;
@@ -96,6 +90,7 @@ export function TimeSeriesChart({
 	const onPointerDown = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
 			if (!pannable) return;
+			e.preventDefault();
 			const container = e.currentTarget;
 			container.setPointerCapture(e.pointerId);
 			dragRef.current = {
@@ -113,29 +108,44 @@ export function TimeSeriesChart({
 			if (!dragRef.current) return;
 			const { startX, startOffset, containerWidth } = dragRef.current;
 			const dx = e.clientX - startX;
-			// Smooth sub-pixel drag via CSS transform
 			const pxPerBucket = containerWidth / viewportSize;
-			// Clamp drag so we don't overshoot edges
-			const maxDx = startOffset * pxPerBucket;
-			const minDx = (startOffset - maxStart) * pxPerBucket;
-			const clampedDx = Math.max(minDx, Math.min(maxDx, dx));
-			setDragOffset(-clampedDx);
+			// Drag right = see older data (lower start), drag left = see newer data
+			const bucketShift = Math.round(-dx / pxPerBucket);
+			const newStart = Math.max(
+				0,
+				Math.min(maxStart, startOffset + bucketShift),
+			);
+			setUserStart(newStart);
 		},
 		[maxStart, viewportSize],
 	);
 
 	const onPointerUp = useCallback(() => {
 		if (!dragRef.current) return;
-		const { startOffset, containerWidth } = dragRef.current;
-		// Snap to nearest bucket on release
-		const pxPerBucket = containerWidth / viewportSize;
-		const bucketShift = Math.round(-dragOffset / pxPerBucket);
-		const newStart = Math.max(0, Math.min(maxStart, startOffset + bucketShift));
-		setUserStart(newStart);
-		setDragOffset(0);
 		dragRef.current = null;
 		setIsDragging(false);
-	}, [maxStart, viewportSize, dragOffset]);
+	}, []);
+
+	// Mouse wheel / trackpad horizontal scroll
+	const onWheel = useCallback(
+		(e: React.WheelEvent<HTMLDivElement>) => {
+			if (!pannable) return;
+			// deltaX: trackpad horizontal swipe; deltaMode 1 = lines
+			const rawDelta =
+				e.deltaMode === 1
+					? e.deltaX * 20
+					: Math.abs(e.deltaX) > Math.abs(e.deltaY)
+						? e.deltaX
+						: e.deltaY;
+			if (rawDelta === 0) return;
+			e.preventDefault();
+			// Scroll right (positive delta) = see older data (decrease start)
+			const shift = rawDelta > 0 ? -1 : 1;
+			const newStart = Math.max(0, Math.min(maxStart, effectiveStart + shift));
+			setUserStart(newStart);
+		},
+		[pannable, maxStart, effectiveStart],
+	);
 
 	if (data.length === 0) {
 		return (
@@ -174,11 +184,14 @@ export function TimeSeriesChart({
 					position: "relative",
 					overflow: "hidden",
 					borderRadius: "8px",
+					userSelect: isDragging ? "none" : undefined,
+					WebkitUserSelect: isDragging ? "none" : undefined,
 				}}
 				onPointerDown={pannable ? onPointerDown : undefined}
 				onPointerMove={pannable ? onPointerMove : undefined}
 				onPointerUp={pannable ? onPointerUp : undefined}
 				onPointerCancel={pannable ? onPointerUp : undefined}
+				onWheel={pannable ? onWheel : undefined}
 			>
 				{isDragging && (
 					<div
@@ -197,10 +210,6 @@ export function TimeSeriesChart({
 					<AreaChart
 						data={visibleData}
 						margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
-						style={{
-							transform: isDragging ? `translateX(${dragOffset}px)` : undefined,
-							transition: isDragging ? "none" : "transform 0.15s ease-out",
-						}}
 					>
 						<defs>
 							<linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -277,9 +286,9 @@ export function TimeSeriesChart({
 			</div>
 			{pannable && (canPanLeft || canPanRight) && (
 				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
-					{canPanLeft && <span>←</span>}
+					{canPanLeft && <span>→</span>}
 					<span>drag to pan</span>
-					{canPanRight && <span>→</span>}
+					{canPanRight && <span>←</span>}
 				</div>
 			)}
 		</div>

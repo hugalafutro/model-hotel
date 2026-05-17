@@ -543,10 +543,17 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(result.Points) > 0 && len(result.Points) < expectedBuckets {
-		// Fill up to the last real data point, not "now",
-		// so the frontend doesn't show empty "future" buckets.
-		lastBucket := result.Points[len(result.Points)-1].Bucket
-		endTrunc, _ := time.Parse("2006-01-02T15:04:05Z", lastBucket)
+		// Fill up to the current time bucket so the chart always
+		// shows the present, even with zero-count periods.
+		var endTrunc time.Time
+		switch bucketSize {
+		case "5min":
+			endTrunc = now.Truncate(5 * time.Minute)
+		case "day":
+			endTrunc = now.Truncate(24 * time.Hour)
+		default:
+			endTrunc = now.Truncate(time.Hour)
+		}
 		result.Points = fillEmptyBuckets(result.Points, since, endTrunc, bucketSize)
 	}
 
