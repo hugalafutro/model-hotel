@@ -531,6 +531,12 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	//nolint:errcheck // cleanup: multipart file handle
 	defer file.Close()
 
+	// Ensure backup directory exists
+	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
+		respondError(w, "failed to create backup directory", err, http.StatusInternalServerError)
+		return
+	}
+
 	// Save to temp file
 	tmpFile, err := os.CreateTemp(h.backupDir, "restore-*.dump")
 	if err != nil {
