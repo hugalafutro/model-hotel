@@ -177,16 +177,6 @@ export function mockLogs(options: OverrideOptions = {}): RequestHandler[] {
 	];
 }
 
-/** Create handler for SSE events endpoint (returns empty response). */
-export function mockEvents(): RequestHandler[] {
-	return [
-		http.get("/api/events", () => {
-			// SSE endpoint - return empty response to suppress warnings
-			return new HttpResponse(null, { status: 200 });
-		}),
-	];
-}
-
 // ── Streaming SSE helpers ─────────────────────────────────────────────────
 
 /**
@@ -278,7 +268,13 @@ export function mockArenaStream(
 	];
 }
 
-/** Convenience: return all default handlers for a typical page test. */
+/** Convenience: return all default handlers for a typical page test.
+ *
+ *  Catch-all handlers for /api/chat/chat and /api/chat/arena are registered
+ *  as initial handlers in mocks/handlers.ts (they return 503). Since MSW is
+ *  first-match-wins and server.use() prepends new handlers before initial ones,
+ *  any specific handlers (e.g. mockChatStream, mockArenaStream) registered
+ *  via server.use() will automatically take priority over the catch-alls. */
 export function mockAllDefaults(
 	overrides: Partial<{
 		providers: OverrideOptions | Provider[];

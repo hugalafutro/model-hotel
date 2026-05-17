@@ -529,4 +529,22 @@ export const handlers: RequestHandler[] = [
 			return HttpResponse.json({ tag_name: "v0.2" });
 		},
 	),
+
+	// ── Catch-all handlers (must be last: MSW is first-match-wins) ────────
+	// These return 503 for chat/arena endpoints when no specific handler is
+	// registered via server.use(). They suppress MSW "unhandled request" warnings.
+	// Specific handlers from mockChatStream/mockArenaStream are prepended by
+	// server.use() and will match before these catch-alls.
+	http.post("/api/chat/chat", () =>
+		HttpResponse.json(
+			{ error: "No chat handler configured for this test" },
+			{ status: 503 },
+		),
+	),
+	http.post("/api/chat/arena", () =>
+		HttpResponse.json(
+			{ error: "No arena handler configured for this test" },
+			{ status: 503 },
+		),
+	),
 ];
