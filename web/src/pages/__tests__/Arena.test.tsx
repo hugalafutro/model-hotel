@@ -1486,7 +1486,23 @@ describe("Arena", () => {
 			const { user } = renderWithProviders(<Arena />);
 			await waitForArenaLoad();
 
-			await setupAndRunArena(user);
+			// Select models and run without using setupAndRunArena,
+			// which waits for a Stop button that never appears on error.
+			await waitFor(
+				() => {
+					expect(
+						screen.getByText(mockModel.display_name),
+					).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
+			await user.click(screen.getByText(mockModel.display_name));
+			await user.click(screen.getByText(mockModel2.display_name));
+
+			const textarea = screen.getByRole("textbox", { name: /prompt/i });
+			await user.type(textarea, "Test prompt");
+
+			await user.click(screen.getByRole("button", { name: /Run Arena/i }));
 
 			// Should handle error - page should still be functional
 			await waitFor(
