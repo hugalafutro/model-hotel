@@ -407,10 +407,12 @@ export function AppLogs() {
 												<span className="text-gray-600">-</span>
 											)}
 										</td>
-										<td
-											className={`px-4 py-2 text-xs font-mono line-clamp-2 ${getLevelColor(entry.level)}`}
-										>
-											{entry.message}
+										<td className="px-4 py-2">
+											<div
+												className={`text-xs font-mono line-clamp-2 ${getLevelColor(entry.level)}`}
+											>
+												{entry.message}
+											</div>
 										</td>
 									</Row>
 								))
