@@ -36,6 +36,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 		if m.ContextLength != nil {
 			item["context_length"] = *m.ContextLength
+			item["max_context_length"] = *m.ContextLength
 		}
 		if m.MaxOutputTokens != nil {
 			item["max_output_tokens"] = *m.MaxOutputTokens
@@ -50,6 +51,24 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		}
 		if m.Modality != "" {
 			item["modality"] = m.Modality
+		}
+		if m.Capabilities != "" && m.Capabilities != "{}" {
+			var caps map[string]interface{}
+			if json.Unmarshal([]byte(m.Capabilities), &caps) == nil {
+				item["capabilities"] = caps
+			}
+		}
+		if m.InputModalities != "" && m.InputModalities != "[]" {
+			var modalities []string
+			if json.Unmarshal([]byte(m.InputModalities), &modalities) == nil {
+				item["input_modalities"] = modalities
+			}
+		}
+		if m.OutputModalities != "" && m.OutputModalities != "[]" {
+			var modalities []string
+			if json.Unmarshal([]byte(m.OutputModalities), &modalities) == nil {
+				item["output_modalities"] = modalities
+			}
 		}
 		if m.InputPricePerMillion != nil {
 			item["input_price_per_million"] = *m.InputPricePerMillion
@@ -95,6 +114,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 				if m.ContextLength != nil {
 					item["context_length"] = *m.ContextLength
+					item["max_context_length"] = *m.ContextLength
 				}
 				if m.MaxOutputTokens != nil {
 					item["max_output_tokens"] = *m.MaxOutputTokens
@@ -109,6 +129,24 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 				}
 				if m.Modality != "" {
 					item["modality"] = m.Modality
+				}
+				if m.Capabilities != "" && m.Capabilities != "{}" {
+					var caps map[string]interface{}
+					if json.Unmarshal([]byte(m.Capabilities), &caps) == nil {
+						item["capabilities"] = caps
+					}
+				}
+				if m.InputModalities != "" && m.InputModalities != "[]" {
+					var modalities []string
+					if json.Unmarshal([]byte(m.InputModalities), &modalities) == nil {
+						item["input_modalities"] = modalities
+					}
+				}
+				if m.OutputModalities != "" && m.OutputModalities != "[]" {
+					var modalities []string
+					if json.Unmarshal([]byte(m.OutputModalities), &modalities) == nil {
+						item["output_modalities"] = modalities
+					}
 				}
 				if m.InputPricePerMillion != nil {
 					item["input_price_per_million"] = *m.InputPricePerMillion
