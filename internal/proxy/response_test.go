@@ -405,3 +405,200 @@ func TestHandleNonStreamingResponse_WithReasoningContent(t *testing.T) {
 
 	assert.Equal(t, "completed", logData.state)
 }
+
+// ---------------------------------------------------------------------------
+// Reasoning field normalization tests (non-streaming)
+// ---------------------------------------------------------------------------
+
+// TestHandleNonStreamingResponse_ReasoningFieldNormalized tests that
+// message.reasoning (Ollama-style) is normalized to reasoning_content.
+func TestHandleNonStreamingResponse_ReasoningFieldNormalized(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{
+		"id": "chatcmpl-ollama",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "llama3",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "The answer is 42.",
+				"reasoning": "I thought about it"
+			}
+		}],
+		"usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "llama3",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "chatcmpl-ollama", decodedResp.ID)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "The answer is 42.", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, "I thought about it", decodedResp.Choices[0].Message.ReasoningContent)
+
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleNonStreamingResponse_ReasoningDetailsNormalized tests that
+// message.reasoning_details text entries (OpenRouter-style) are normalized
+// to reasoning_content.
+func TestHandleNonStreamingResponse_ReasoningDetailsNormalized(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{
+		"id": "chatcmpl-openrouter",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "gemini-2.5-pro",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "The answer.",
+				"reasoning_details": [
+					{"type": "reasoning.text", "text": "Step 1: Analyze", "format": "google-gemini-v1"},
+					{"type": "reasoning.encrypted", "text": "", "format": "anthropic-claude-v1"}
+				]
+			}
+		}],
+		"usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gemini-2.5-pro",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "chatcmpl-openrouter", decodedResp.ID)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "The answer.", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, "Step 1: Analyze", decodedResp.Choices[0].Message.ReasoningContent)
+
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleNonStreamingResponse_ThinkingTagsNormalized tests that
+// <thinking> tags in message.content (MiniMax native-style) are extracted
+// to reasoning_content with remaining text in content.
+func TestHandleNonStreamingResponse_ThinkingTagsNormalized(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{
+		"id": "chatcmpl-minimax",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "MiniMax-Text-01",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "<thinking>Hidden reasoning</thinking>Visible answer"
+			}
+		}],
+		"usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "MiniMax-Text-01",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "chatcmpl-minimax", decodedResp.ID)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "Hidden reasoning", decodedResp.Choices[0].Message.ReasoningContent)
+	assert.Equal(t, "Visible answer", decodedResp.Choices[0].Message.Content)
+
+	assert.Equal(t, "completed", logData.state)
+}

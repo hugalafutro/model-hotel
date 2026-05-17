@@ -117,9 +117,11 @@ type Choice struct {
 
 // Message represents a chat message with role and content.
 type Message struct {
-	Role             string      `json:"role"`
-	Content          interface{} `json:"content"`
-	ReasoningContent string      `json:"reasoning_content,omitempty"`
+	Role             string            `json:"role"`
+	Content          interface{}       `json:"content"`
+	ReasoningContent string            `json:"reasoning_content,omitempty"`
+	Reasoning        string            `json:"reasoning,omitempty"`         // Ollama, OpenRouter
+	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
 }
 
 // Usage contains token usage statistics for a request.

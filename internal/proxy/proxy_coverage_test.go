@@ -1477,3 +1477,187 @@ func TestNewRequestWithContextVar(t *testing.T) {
 		t.Error("expected injectable function to be called")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Reasoning field normalization tests (streaming)
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_ReasoningFieldNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Ollama-style: delta.reasoning → reasoning_content
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"Let me think"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	// Assert: response body contains reasoning_content with the value
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "Let me think") {
+		t.Errorf("expected reasoning_content to contain 'Let me think', got: %s", body)
+	}
+}
+
+func TestHandleStreamingResponse_ReasoningDetailsNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// OpenRouter-style: delta.reasoning_details with reasoning.text → reasoning_content
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_details":[{"type":"reasoning.text","text":"Step 1","format":"google-gemini-v1"}]},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	// Assert: response body contains reasoning_content with concatenated text
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "Step 1") {
+		t.Errorf("expected reasoning_content to contain 'Step 1', got: %s", body)
+	}
+}
+
+func TestHandleStreamingResponse_ThinkingTagsNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// MiniMax native-style: <thinking> tags in delta.content → reasoning_content
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"<thinking>My reasoning</thinking>The answer"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	// Assert: response body contains reasoning_content with extracted thinking
+	// and content with remaining text
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "My reasoning") {
+		t.Errorf("expected reasoning_content to contain 'My reasoning', got: %s", body)
+	}
+	if !strings.Contains(body, "The answer") {
+		t.Errorf("expected content to contain 'The answer', got: %s", body)
+	}
+}
+
+func TestHandleStreamingResponse_ReasoningContentAlreadyPresent(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// DeepSeek-style: already has reasoning_content, no double-normalization
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"Already here"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	// Assert: response body contains reasoning_content unchanged
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "Already here") {
+		t.Errorf("expected reasoning_content to contain 'Already here', got: %s", body)
+	}
+}

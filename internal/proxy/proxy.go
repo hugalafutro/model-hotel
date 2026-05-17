@@ -289,6 +289,113 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			Error *struct{ Message string } `json:"error"`
 		}
 		if json.Unmarshal([]byte(payload), &chunk) == nil {
+			// Reasoning field normalization: ensure reasoning_content is
+			// always populated regardless of upstream provider format.
+			// Handles: delta.reasoning (Ollama), delta.reasoning_details
+			// (OpenRouter/MiniMax), <thinking> tags in delta.content.
+			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+				delta := chunk.Choices[0].Delta
+				// Build a map from the delta fields for normalization.
+				deltaMap := make(map[string]interface{})
+				if delta.Content != nil {
+					deltaMap["content"] = *delta.Content
+				}
+				if delta.ReasoningContent != nil {
+					deltaMap["reasoning_content"] = *delta.ReasoningContent
+				}
+				// Parse the raw payload to capture reasoning/reasoning_details
+				// which aren't in the typed struct.
+				var rawDelta map[string]json.RawMessage
+				if json.Unmarshal([]byte(payload), &rawDelta) == nil {
+					if choicesRaw, ok := rawDelta["choices"]; ok {
+						var choices []map[string]json.RawMessage
+						if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
+							if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
+								var deltaFields map[string]json.RawMessage
+								if json.Unmarshal(deltaRaw, &deltaFields) == nil {
+									// Extract reasoning field (Ollama, OpenRouter).
+									if rRaw, ok3 := deltaFields["reasoning"]; ok3 {
+										var rStr string
+										if json.Unmarshal(rRaw, &rStr) == nil && rStr != "" {
+											deltaMap["reasoning"] = rStr
+										}
+									}
+									// Extract reasoning_details (OpenRouter, MiniMax).
+									if rdRaw, ok3 := deltaFields["reasoning_details"]; ok3 {
+										var rdArr []interface{}
+										if json.Unmarshal(rdRaw, &rdArr) == nil {
+											deltaMap["reasoning_details"] = rdArr
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				if NormalizeReasoningFields(deltaMap) {
+					// Re-serialize the chunk with normalized reasoning fields.
+					// Parse the full payload as a raw map, patch the delta,
+					// and write the modified JSON.
+					var raw map[string]json.RawMessage
+					if json.Unmarshal([]byte(payload), &raw) == nil {
+						if choicesRaw, ok := raw["choices"]; ok {
+							var choices []map[string]json.RawMessage
+							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
+								if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
+									var deltaFields map[string]json.RawMessage
+									if json.Unmarshal(deltaRaw, &deltaFields) == nil {
+										// Patch reasoning_content into the delta.
+										if rc, ok3 := deltaMap["reasoning_content"]; ok3 {
+											if rcStr, ok4 := rc.(string); ok4 {
+												escaped, _ := json.Marshal(rcStr)
+												deltaFields["reasoning_content"] = json.RawMessage(escaped)
+											}
+										}
+										// Patch content if it was modified (tag extraction).
+										if c, ok3 := deltaMap["content"]; ok3 {
+											if cStr, ok4 := c.(string); ok4 {
+												escaped, _ := json.Marshal(cStr)
+												deltaFields["content"] = json.RawMessage(escaped)
+											}
+										}
+										newDelta, _ := json.Marshal(deltaFields)
+										choices[0]["delta"] = json.RawMessage(newDelta)
+										newChoices, _ := json.Marshal(choices)
+										raw["choices"] = json.RawMessage(newChoices)
+										newPayload, _ := json.Marshal(raw)
+										n, err := w.Write([]byte("data: "))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											goto logUpdate
+										}
+										n, err = w.Write(newPayload)
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											goto logUpdate
+										}
+										n, err = w.Write([]byte("\n"))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during reasoning normalization (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											goto logUpdate
+										}
+										if canFlush {
+											flusher.Flush()
+										}
+										written = true
+										debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 			if chunk.Usage != nil {
 				promptTokens = chunk.Usage.PromptTokens
 				completionTokens = chunk.Usage.CompletionTokens
@@ -379,7 +486,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 				}
 				lastFinishReason = normalized
-				if normalized != *chunk.Choices[0].FinishReason {
+				if normalized != *chunk.Choices[0].FinishReason && !written {
 					// Rewrite the line with normalized finish_reason.
 					// Re-serialize the entire JSON payload with the fix.
 					// This is the uncommon path — most providers already
@@ -597,6 +704,41 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 					Message:  fmt.Sprintf("Token counting failed for key %q", keyLabel),
 					Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
 				})
+			}
+		}
+
+		// Normalize reasoning fields in the response message so that
+		// reasoning_content is always populated regardless of upstream
+		// provider format (Ollama's reasoning, OpenRouter's reasoning_details,
+		// MiniMax's <thinking> tags in content).
+		for i := range chatResp.Choices {
+			msg := &chatResp.Choices[i].Message
+			// Rule 1: reasoning → reasoning_content
+			if msg.Reasoning != "" && msg.ReasoningContent == "" {
+				msg.ReasoningContent = msg.Reasoning
+			}
+			// Rule 2: reasoning_details text → reasoning_content
+			if msg.ReasoningContent == "" && len(msg.ReasoningDetails) > 0 {
+				var texts []string
+				for _, rd := range msg.ReasoningDetails {
+					if rd.Type == "reasoning.text" && rd.Text != "" {
+						texts = append(texts, rd.Text)
+					}
+				}
+				if len(texts) > 0 {
+					msg.ReasoningContent = strings.Join(texts, "")
+				}
+			}
+			// Rule 3: <thinking> tags in content → reasoning_content
+			if c, ok := msg.Content.(string); ok && c != "" {
+				if thinking, remaining, found := extractThinkingFromContent(c); found {
+					if msg.ReasoningContent == "" {
+						msg.ReasoningContent = thinking
+					} else {
+						msg.ReasoningContent += thinking
+					}
+					msg.Content = remaining
+				}
 			}
 		}
 
