@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -1421,7 +1421,14 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("100+200")).toBeInTheDocument();
+				// Token counts render as 3 separate DOM nodes: "100" "+" "200"
+				// getByText can't match across elements, so find the row and
+				// assert on the cell's full text content instead.
+				const row = screen.getByText("abc123").closest("tr");
+				const tokenCells = within(row!).getAllByRole("cell");
+				// Tokens cell is after Hash, Model, Provider, Status columns
+				const tokenCell = tokenCells.find((c) => c.textContent?.includes("+"));
+				expect(tokenCell).toHaveTextContent("100+200");
 			});
 		});
 

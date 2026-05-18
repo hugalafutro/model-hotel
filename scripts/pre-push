@@ -1,8 +1,24 @@
 #!/usr/bin/env bash
 # Pre-push hook: full CI suite. Blocks push if anything would fail on GitHub.
 # Install: cp scripts/pre-push .githooks/pre-push
+#
+# Branch protection: GitHub should require PRs + passing CI for master.
+# This hook is a local safety net, not a substitute for branch protection.
+# If you can push directly to master, ask a repo admin to enable:
+#   Settings > Branches > master > Require PR, Require status checks
 
 set -euo pipefail
+
+# Warn when pushing directly to master (should go through a PR).
+# Can be removed once GitHub branch protection is enabled.
+remote_ref=""
+local_ref=""
+while [ $# -gt 0 ]; do
+	case "$1" in
+		refs/heads/master) echo "pre-push: WARNING — pushing directly to master." >&2; echo "  Prefer a PR so CI validates before merge." >&2 ;;
+	esac
+	shift
+done
 
 # Cleanup temp files on exit
 cover_out=""

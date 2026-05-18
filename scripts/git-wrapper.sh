@@ -13,6 +13,7 @@
 #   - git commit when staged files include files not added by this session
 #   - git reset --hard (destroys other agents' work)
 #   - git stash (hides other agents' work)
+#   - git push --no-verify / --no-verify (bypasses hooks, lets broken code reach CI)
 #
 # Bypass: GIT_UNSAFE=1 skips all checks (for human operators).
 
@@ -237,6 +238,20 @@ stash)
 	echo "git-wrapper: BLOCKED 'git stash' (parallel-agent safety)." >&2
 	echo "  Stashing hides other agents' uncommitted changes." >&2
 	exit 1
+	;;
+push)
+	shift
+	# Block --no-verify: it bypasses pre-push hooks, letting broken code reach CI.
+	# The pre-push hook runs the full CI suite (go test, lint, vitest) locally.
+	for arg in "$@"; do
+		if [ "$arg" = "--no-verify" ] || [ "$arg" = "-n" ]; then
+			echo "git-wrapper: BLOCKED 'git push --no-verify' (hooks exist for a reason)." >&2
+			echo "  --no-verify skips the pre-push CI suite, letting broken tests reach GitHub." >&2
+			echo "  If a hook is wrong, fix the hook. Set GIT_UNSAFE=1 if you really need this." >&2
+			exit 1
+		fi
+	done
+	command git push "$@"
 	;;
 status|diff)
 	# Pass through read-only commands
