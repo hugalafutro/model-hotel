@@ -83,11 +83,14 @@ export function useDateRangePicker(onFilterChange?: () => void) {
 	const hasDateFilter = !!dateFrom && !!dateTo;
 
 	const now = new Date();
+	// Append T00:00:00 so the date-only string is parsed as local time
+	// rather than UTC (per ECMAScript spec, bare "YYYY-MM-DD" parses as
+	// UTC midnight, which shifts the month on the 1st in UTC-X offsets).
 	const pickerYear = showDatePicker
-		? new Date(pendingFrom || todayISO()).getFullYear()
+		? new Date(`${pendingFrom || todayISO()}T00:00:00`).getFullYear()
 		: now.getFullYear();
 	const pickerMonth = showDatePicker
-		? new Date(pendingFrom || todayISO()).getMonth()
+		? new Date(`${pendingFrom || todayISO()}T00:00:00`).getMonth()
 		: now.getMonth();
 
 	return {

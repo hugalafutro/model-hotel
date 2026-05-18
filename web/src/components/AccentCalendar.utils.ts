@@ -30,17 +30,18 @@ export function pad(n: number): string {
    Date range formatting
    ===================================================== */
 export function formatDateRangeShort(from: string, to: string): string {
-	// Strip time portion from ISO timestamps so parsing uses local date
-	// components (consistent with toISODate/todayISO) rather than UTC,
-	// which would show the wrong date near midnight in UTC-X timezones.
-	const fromDate = new Date(from.includes("T") ? from.split("T")[0] : from);
-	const toDate = new Date(to.includes("T") ? to.split("T")[0] : to);
-	const sameMonth =
-		fromDate.getMonth() === toDate.getMonth() &&
-		fromDate.getFullYear() === toDate.getFullYear();
-	const fd = `${pad(fromDate.getDate())}/${pad(fromDate.getMonth() + 1)}`;
-	const td = `${pad(toDate.getDate())}/${pad(toDate.getMonth() + 1)}/${toDate.getFullYear()}`;
+	// Use toISODate to convert any input (plain date or ISO timestamp)
+	// to local date components, then parse components directly to avoid
+	// any further Date constructor ambiguity (date-only strings parse as
+	// UTC per ECMAScript spec, which shifts dates near midnight).
+	const fromLocal = toISODate(new Date(from));
+	const toLocal = toISODate(new Date(to));
+	const [fy, fm, fd] = fromLocal.split("-").map(Number);
+	const [ty, tm, td] = toLocal.split("-").map(Number);
+	const sameMonth = fm === tm && fy === ty;
+	const fds = `${pad(fd)}/${pad(fm)}`;
+	const tds = `${pad(td)}/${pad(tm)}/${ty}`;
 	return sameMonth
-		? `${fd}-${td}`
-		: `${fd}/${fromDate.getFullYear().toString().slice(2)} - ${td}`;
+		? `${fds}-${tds}`
+		: `${fds}/${fy.toString().slice(2)} - ${tds}`;
 }
