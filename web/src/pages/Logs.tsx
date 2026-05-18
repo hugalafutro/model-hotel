@@ -4,14 +4,11 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { LogEntry } from "../api/types";
 import { AccentCalendar } from "../components/AccentCalendar";
-import {
-	formatDateRangeShort,
-	todayISO,
-} from "../components/AccentCalendar.utils";
+import { formatDateRangeShort } from "../components/AccentCalendar.utils";
 import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
@@ -28,6 +25,7 @@ import { LogDetailModal } from "../components/LogDetailModal";
 import { PageHeader } from "../components/PageHeader";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
+import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { formatNumber } from "../utils/format";
@@ -60,17 +58,27 @@ function RequestLogs() {
 	});
 	const debouncedModelId = useDebounce(filters.model_id, 300);
 	const debouncedProviderId = useDebounce(filters.provider_id, 300);
-	const [dateFrom, setDateFrom] = useState("");
-	const [dateTo, setDateTo] = useState("");
+	const {
+		dateFrom,
+		dateTo,
+		showDatePicker,
+		pendingFrom,
+		pendingTo,
+		datePickerRef,
+		hasDateFilter,
+		pickerYear,
+		pickerMonth,
+		handleCalendarSelect,
+		applyDateFilter,
+		clearDateFilter,
+		toggleDatePicker,
+		closeDatePicker,
+	} = useDateRangePicker(() => setPage(1));
 	const [sort, setSort] = useState<SortState<LogSortField>>({
 		field: "time",
 		dir: "desc",
 	});
-	const [showDatePicker, setShowDatePicker] = useState(false);
-	const [pendingFrom, setPendingFrom] = useState("");
-	const [pendingTo, setPendingTo] = useState("");
 
-	const datePickerRef = useRef<HTMLDivElement>(null);
 	const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 	const [liveEnabled, setLiveEnabled] = useState(true);
 	const [isVisible, setIsVisible] = useState(!document.hidden);
@@ -152,78 +160,6 @@ function RequestLogs() {
 	const displayEntries = logsData?.entries ?? [];
 	const displayTotal = logsData?.total ?? 0;
 
-	useEffect(() => {
-		function handleClickOutside(e: MouseEvent) {
-			if (
-				datePickerRef.current &&
-				!datePickerRef.current.contains(e.target as Node)
-			) {
-				setShowDatePicker(false);
-			}
-		}
-		if (showDatePicker) {
-			document.addEventListener("mousedown", handleClickOutside);
-			return () =>
-				document.removeEventListener("mousedown", handleClickOutside);
-		}
-	}, [showDatePicker]);
-
-	const now = new Date();
-	const pickerYear = showDatePicker
-		? new Date(pendingFrom || todayISO()).getFullYear()
-		: now.getFullYear();
-	const pickerMonth = showDatePicker
-		? new Date(pendingFrom || todayISO()).getMonth()
-		: now.getMonth();
-
-	const handleCalendarSelect = (dStr: string) => {
-		if (!pendingFrom || (pendingFrom && pendingTo)) {
-			setPendingFrom(dStr);
-			setPendingTo("");
-		} else if (dStr < pendingFrom) {
-			setPendingTo(pendingFrom);
-			setPendingFrom(dStr);
-		} else {
-			setPendingTo(dStr);
-		}
-	};
-
-	const applyDateFilter = () => {
-		if (pendingFrom) {
-			// Construct dates in the browser's local timezone so the filter
-			// range matches what the user sees via toLocaleString() rather
-			// than UTC (which would shift near midnight).
-			setDateFrom(new Date(`${pendingFrom}T00:00:00`).toISOString());
-			if (pendingTo && pendingTo >= pendingFrom) {
-				setDateTo(new Date(`${pendingTo}T23:59:59.999`).toISOString());
-			} else {
-				setDateTo(new Date(`${pendingFrom}T23:59:59.999`).toISOString());
-			}
-		} else {
-			setDateFrom("");
-			setDateTo("");
-		}
-		setShowDatePicker(false);
-		setPage(1);
-	};
-
-	const clearDateFilter = () => {
-		setDateFrom("");
-		setDateTo("");
-		setPendingFrom("");
-		setPendingTo("");
-		setShowDatePicker(false);
-		setPage(1);
-	};
-
-	const toggleDatePicker = () => {
-		if (!showDatePicker) {
-			setPendingFrom(dateFrom ? dateFrom.split("T")[0] : "");
-			setPendingTo(dateTo ? dateTo.split("T")[0] : "");
-		}
-		setShowDatePicker((s) => !s);
-	};
-
 	const isCancelled = (errorMessage?: string) => {
 		if (!errorMessage) return false;
 		const msg = errorMessage.toLowerCase();
@@ -279,8 +215,6 @@ function RequestLogs() {
 
 	const isInProgress = (log: LogEntry) =>
 		!isStale(log) && (log.state === "pending" || log.state === "streaming");
-
-	const hasDateFilter = !!dateFrom && !!dateTo;
 
 	return (
 		<div className="space-y-4">
@@ -448,7 +382,7 @@ function RequestLogs() {
 										</span>
 										<button
 											type="button"
-											onClick={() => setShowDatePicker(false)}
+											onClick={() => closeDatePicker()}
 											className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
 											title="Close date picker"
 											aria-label="Close date picker"
@@ -606,7 +540,7 @@ function RequestLogs() {
 								/>
 							</tr>
 						</thead>
-						<tbody>
+						<tbody className="[&_td]:min-h-[2.5rem]">
 							{displayEntries && displayEntries.length > 0 ? (
 								displayEntries.map((log) => {
 									const hasOverhead =

@@ -30,13 +30,17 @@ export function pad(n: number): string {
    Date range formatting
    ===================================================== */
 export function formatDateRangeShort(from: string, to: string): string {
-	const f = new Date(from);
-	const t = new Date(to);
+	// Strip time portion from ISO timestamps so parsing uses local date
+	// components (consistent with toISODate/todayISO) rather than UTC,
+	// which would show the wrong date near midnight in UTC-X timezones.
+	const fromDate = new Date(from.includes("T") ? from.split("T")[0] : from);
+	const toDate = new Date(to.includes("T") ? to.split("T")[0] : to);
 	const sameMonth =
-		f.getMonth() === t.getMonth() && f.getFullYear() === t.getFullYear();
-	const fd = `${pad(f.getDate())}/${pad(f.getMonth() + 1)}`;
-	const td = `${pad(t.getDate())}/${pad(t.getMonth() + 1)}/${t.getFullYear()}`;
+		fromDate.getMonth() === toDate.getMonth() &&
+		fromDate.getFullYear() === toDate.getFullYear();
+	const fd = `${pad(fromDate.getDate())}/${pad(fromDate.getMonth() + 1)}`;
+	const td = `${pad(toDate.getDate())}/${pad(toDate.getMonth() + 1)}/${toDate.getFullYear()}`;
 	return sameMonth
 		? `${fd}-${td}`
-		: `${fd}/${f.getFullYear().toString().slice(2)} - ${td}`;
+		: `${fd}/${fromDate.getFullYear().toString().slice(2)} - ${td}`;
 }
