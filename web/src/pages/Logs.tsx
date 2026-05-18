@@ -540,7 +540,7 @@ function RequestLogs() {
 								/>
 							</tr>
 						</thead>
-						<tbody className="[&_td]:min-h-[2.5rem]">
+						<tbody>
 							{displayEntries && displayEntries.length > 0 ? (
 								displayEntries.map((log) => {
 									const hasOverhead =

@@ -517,7 +517,7 @@ export function AppLogs() {
 											)}
 										</td>
 										<td className="px-2 py-1">
-											<div className="text-xs font-mono line-clamp-2 text-gray-400">
+											<div className="text-xs font-mono line-clamp-2 min-h-[2lh] text-gray-400">
 												{entry.message}
 											</div>
 										</td>
