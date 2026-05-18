@@ -25,6 +25,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { formatNumber } from "../utils/format";
 import { AppLogs } from "./AppLogs";
 import { AccentCalendar } from "./Logs/AccentCalendar";
 
@@ -689,7 +690,7 @@ function RequestLogs() {
 												{isCancelled(log.error_message)
 													? "Interrupted"
 													: log.tokens_prompt + log.tokens_completion > 0
-														? `${log.tokens_prompt}+${log.tokens_completion}`
+														? `${formatNumber(log.tokens_prompt)}+${formatNumber(log.tokens_completion)}`
 														: "-"}
 											</td>
 											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
