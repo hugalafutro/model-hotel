@@ -36,21 +36,21 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          1,584 │
-│Messages                                         55,317 │
-│Days                                                 31 │
+│Sessions                                          1,772 │
+│Messages                                         62,288 │
+│Days                                                 33 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $108.63 │
-│Avg Cost/Day                                      $3.50 │
+│Avg Cost/Day                                      $3.29 │
 │Avg Tokens/Session                                 2.6M │
-│Median Tokens/Session                            562.2K │
-│Input                                           2552.2M │
-│Output                                            14.9M │
-│Cache Read                                      1486.5M │
+│Median Tokens/Session                            566.5K │
+│Input                                           2603.0M │
+│Output                                            16.4M │
+│Cache Read                                      2030.3M │
 │Cache Write                                        3.6M │
 └────────────────────────────────────────────────────────┘
 ```
@@ -180,11 +180,10 @@ You can also set a fixed admin token via the `ADMIN_TOKEN` environment variable.
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
 
-> **Tip:** The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
+> [!TIP]
+> The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
 
 > **Security:** The Docker socket is disabled by default in `docker-compose.yml` (production). The `compose.dev.yml` override enables it for local development. Only use the dev override in trusted environments.
-
-> **ARM:** Prebuilt images include `linux/arm64` (Apple Silicon, Raspberry Pi, AWS Graviton, Oracle Cloud free tier). Built via QEMU emulation; not tested on physical ARM hardware. If you hit an ARM-specific issue, please file a bug.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
 
