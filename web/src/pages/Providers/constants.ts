@@ -1,6 +1,6 @@
 export const baseUrls: Record<string, string> = {
 	nanogpt: "https://nano-gpt.com/api/subscription/v1",
-	"zai-coding": "https://api.z.ai/api/paas/v4",
+	"zai-coding": "https://api.z.ai/api/coding/paas/v4",
 	openai: "https://api.openai.com/v1",
 	anthropic: "https://api.anthropic.com",
 	deepseek: "https://api.deepseek.com/v1",
