@@ -2,7 +2,6 @@ name: Sync docker-compose.yml to README
 
 on:
   push:
-    branches: [main]
     paths:
       - docker-compose.yml
 

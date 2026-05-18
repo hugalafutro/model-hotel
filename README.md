@@ -209,54 +209,59 @@ ADMIN_TOKEN=
 <summary>docker-compose.yml (click to expand, then copy)</summary>
 
 ```yaml
-name: model-hotel
-services:
-    app:
-        # Build from source (default):
-        build: .
-        # Prebuilt image (uncomment below, comment out build above):
-        # image: ghcr.io/hugalafutro/model-hotel:latest
-        ports:
-            - "${HOST_PORT:-8081}:8080"
-        environment:
-            - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
-            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_HOST=db
-            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-            - ADMIN_TOKEN=${ADMIN_TOKEN:-}
-            - ALLOW_HTTP_PROVIDERS=false
-            - DATA_DIR=/data
-            - RATE_LIMIT_ENABLED=true
-            - DEBUG_LOG=true
-            - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
-            - ALLOWED_PROVIDER_HOSTS=
-        volumes:
-            - ./.data:/data
-            # Docker socket (disabled by default for security).
-            # Enable to show container-level stats in the sidebar (CPU, memory per container).
-            # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
-            #     Only enable if you trust the deployment environment.
-            # - /var/run/docker.sock:/var/run/docker.sock:ro
-        depends_on:
-            db:
-                condition: service_healthy
-
-    db:
-        image: postgres:16-alpine
-        environment:
-            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-        volumes:
-            - ./.data/pgdata:/var/lib/postgresql/data
-        ports:
-            - "5432:5432"
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
-            interval: 5s
-            timeout: 5s
-            retries: 5
+    name: model-hotel
+    services:
+        app:
+            # Build from source (default):
+            build:
+                context: .
+                args:
+                    VERSION: ${VERSION:-dev}
+            # Prebuilt image (uncomment below, comment out build above):
+            # image: ghcr.io/hugalafutro/model-hotel:latest
+            ports:
+                - "${HOST_PORT:-8081}:8080"
+            environment:
+                - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
+                - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
+                - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+                - POSTGRES_HOST=db
+                - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
+                - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+                - ALLOW_HTTP_PROVIDERS=false
+                - DATA_DIR=/data
+                - RATE_LIMIT_ENABLED=true
+                - DEBUG_LOG=false
+                - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
+                - ALLOWED_PROVIDER_HOSTS=
+            volumes:
+                - ./.data:/data
+                # Docker socket (disabled by default for security).
+                # Enable to show container-level stats in the sidebar (CPU, memory per container).
+                # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
+                #     Only enable if you trust the deployment environment.
+                # - /var/run/docker.sock:/var/run/docker.sock:ro
+            restart: unless-stopped
+            depends_on:
+                db:
+                    condition: service_healthy
+    
+        db:
+            image: postgres:16-alpine
+            command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
+            environment:
+                - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
+                - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+                - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
+            volumes:
+                - ./.data/pgdata:/var/lib/postgresql/data
+            ports:
+                - "5432:5432"
+            healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
 ```
 
 </details>
