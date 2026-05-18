@@ -978,7 +978,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	proxyOverhead := parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
+	// Initial overhead estimate (excludes dialMs — not yet populated).
+	proxyOverhead := parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.settingsReadMs
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", reqModel, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
 	var proxyReqBody []byte
@@ -1032,7 +1033,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			timings.settingsReadMs = *p
 		}
 	}
-	proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
+	// dialMs is populated inside the failover loop by SafeDialer, so
+	// proxyOverhead is recomputed there before being passed to handlers.
 
 	for attempt, candidate := range candidates {
 		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
@@ -1270,6 +1272,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+
+		// Recompute proxyOverhead now that dialMs is populated by SafeDialer.
+		proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
 
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)

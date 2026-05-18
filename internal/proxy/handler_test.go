@@ -46,7 +46,9 @@ func newUnitHandler() *Handler {
 		ipLimiter:      ipLimiter,
 		upstreamTransport: &http.Transport{
 			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
 		},
 	}
 }
@@ -162,8 +164,14 @@ func TestNewHandler_CreatesTransport(t *testing.T) {
 	if h.upstreamTransport.ResponseHeaderTimeout != 120*time.Second {
 		t.Errorf("ResponseHeaderTimeout = %v, want 120s", h.upstreamTransport.ResponseHeaderTimeout)
 	}
-	if h.upstreamTransport.IdleConnTimeout != 90*time.Second {
-		t.Errorf("IdleConnTimeout = %v, want 90s", h.upstreamTransport.IdleConnTimeout)
+	if h.upstreamTransport.IdleConnTimeout != 120*time.Second {
+		t.Errorf("IdleConnTimeout = %v, want 120s", h.upstreamTransport.IdleConnTimeout)
+	}
+	if h.upstreamTransport.MaxIdleConns != 200 {
+		t.Errorf("MaxIdleConns = %v, want 200", h.upstreamTransport.MaxIdleConns)
+	}
+	if h.upstreamTransport.MaxIdleConnsPerHost != 20 {
+		t.Errorf("MaxIdleConnsPerHost = %v, want 20", h.upstreamTransport.MaxIdleConnsPerHost)
 	}
 }
 

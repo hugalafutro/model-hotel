@@ -74,7 +74,9 @@ func newIntegrationHandler() *Handler {
 		upstreamTransport: &http.Transport{
 			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
 		},
 	}
 }

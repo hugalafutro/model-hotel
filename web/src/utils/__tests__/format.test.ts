@@ -182,8 +182,8 @@ describe("formatDate", () => {
 });
 
 describe("formatPercent", () => {
-	it("shows 0% for zero", () => {
-		expect(formatPercent(0)).toBe("0%");
+	it("shows <0.1% for zero", () => {
+		expect(formatPercent(0)).toBe("<0.1%");
 	});
 
 	it("shows <0.1% for tiny non-zero shares", () => {

@@ -388,7 +388,16 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<div className="flex justify-between text-sm font-semibold">
 								<span className="text-(--text-primary)">Total Overhead</span>
 								<span className="font-mono text-(--accent)">
-									{formatMs(requestLog.proxy_overhead_ms, 3)}
+									{formatMs(
+										(requestLog.parse_ms || 0) +
+											(requestLog.failover_lookup_ms || 0) +
+											(requestLog.model_lookup_ms || 0) +
+											(requestLog.provider_lookup_ms || 0) +
+											(requestLog.key_decrypt_ms || 0) +
+											(requestLog.dial_ms || 0) +
+											(requestLog.settings_read_ms || 0),
+										3,
+									)}
 								</span>
 							</div>
 						</div>

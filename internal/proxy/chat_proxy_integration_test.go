@@ -53,7 +53,9 @@ func TestListModels_FilterByProvider(t *testing.T) {
 		upstreamTransport: &http.Transport{
 			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
 		},
 	}
 
@@ -178,7 +180,9 @@ func TestChatCompletions_ErrorHandling(t *testing.T) {
 		upstreamTransport: &http.Transport{
 			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
 		},
 	}
 
@@ -239,7 +243,9 @@ func TestChatCompletions_InvalidRequestBody(t *testing.T) {
 		upstreamTransport: &http.Transport{
 			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
 		},
 	}
 

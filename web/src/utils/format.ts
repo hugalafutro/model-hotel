@@ -92,15 +92,14 @@ export function dropTrailingZero(v: number, decimals: number): string {
 }
 
 /**
- * Format a percentage value, showing "<0.1%" for small non-zero shares
- * that would otherwise display as "0.0%".
+ * Format a distribution share percentage, showing "<0.1%" for small/zero
+ * shares that would otherwise display as "0.0%" or "0%".
  * - 76.6 → "76.6%"
  * - 0.05 → "0.1%"  (rounds up)
  * - 0.02 → "<0.1%"
- * - 0 → "0%"
+ * - 0 → "<0.1%" (rounding artifact; provider wouldn't appear with zero traffic)
  */
 export function formatPercent(value: number): string {
-	if (value === 0) return "0%";
 	if (value < 0.05) return "<0.1%";
 	return `${value.toFixed(1)}%`;
 }

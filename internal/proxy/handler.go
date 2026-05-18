@@ -131,7 +131,9 @@ func NewHandler(
 		upstreamTransport: &http.Transport{
 			DialContext:           sd.DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
 		},
 	}
 }
