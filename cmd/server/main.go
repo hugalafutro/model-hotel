@@ -121,7 +121,7 @@ func main() {
 	debuglog.SetHandler(api.NewAppSlogHandler(debuglog.Level()))
 
 	debuglog.Info("db: Database connected and migrations applied successfully")
-	debuglog.Info("startup: admin token %s", func() string {
+	debuglog.Info("startup: admin token", "source", func() string {
 		if isNew {
 			return "generated"
 		}
