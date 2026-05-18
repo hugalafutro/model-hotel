@@ -72,3 +72,5 @@ AGENTS.md
 CLAUDE.md
 GEMINI.md
 .tokensave
+# Git wrapper session manifests
+.staged-by
