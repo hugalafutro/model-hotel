@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - docker-compose.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
