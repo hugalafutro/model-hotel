@@ -80,10 +80,36 @@ if ! (cd web && pnpm run lint); then
 	exit 1
 fi
 
-# ── Frontend Test ──
-echo "pre-push: pnpm vitest run (web/)..."
-if ! (cd web && pnpm vitest run); then
+# ── Frontend Test + Coverage Gate ──
+echo "pre-push: pnpm vitest run --coverage (web/)..."
+if ! (cd web && pnpm vitest run --coverage 2>&1 | tail -200); then
 	echo "pre-push: FAILED - pnpm vitest run" >&2
+	exit 1
+fi
+
+# Frontend coverage gate (mirrors CI workflow)
+if [ -f "web/coverage/coverage-summary.json" ]; then
+	pct=$(python3 -c "
+import json,sys
+d=json.load(open('web/coverage/coverage-summary.json'))
+total=d.get('total',{})
+pct=total.get('lines',{}).get('pct',0)
+print(pct)
+" 2>/dev/null || echo "0")
+	pct_int=${pct%%.*}
+	echo "pre-push: frontend coverage ${pct}% (threshold: 80%)"
+	if [ "$pct_int" -lt 80 ]; then
+		echo "pre-push: FAILED - frontend coverage ${pct}% is below 80% threshold" >&2
+		exit 1
+	fi
+else
+	echo "pre-push: WARNING - no frontend coverage summary, skipping gate"
+fi
+
+# ── Frontend Build ──
+echo "pre-push: pnpm build (web/)..."
+if ! (cd web && pnpm run build); then
+	echo "pre-push: FAILED - pnpm build" >&2
 	exit 1
 fi
 

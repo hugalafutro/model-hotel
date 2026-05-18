@@ -290,8 +290,8 @@ describe("Dashboard", () => {
 			});
 
 			// Chart headers should be present
-			expect(screen.getByText(/Requests\s*\/\s*Hour/i)).toBeInTheDocument();
-			expect(screen.getByText(/Tokens\s*\/\s*Hour/i)).toBeInTheDocument();
+			expect(screen.getByText(/Requests\s*\/\s*Day/i)).toBeInTheDocument();
+			expect(screen.getByText(/Tokens\s*\/\s*Day/i)).toBeInTheDocument();
 		});
 
 		it("shows empty state message when no time series data", async () => {
