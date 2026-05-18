@@ -88,7 +88,7 @@ describe("ProviderDoughnut", () => {
 		expect(providerBCell).toHaveStyle({ opacity: "0.2" });
 	});
 
-	it("uses largest-remainder method so every provider gets a cell", () => {
+	it("allocates cells proportionally with minimum 1 for non-zero shares", () => {
 		const tinyItems: ProviderDistItem[] = [
 			{ name: "Big", count: 9990, tokens: 9990000, share: 99.5 },
 			{ name: "Small", count: 10, tokens: 500, share: 0.3 },
@@ -101,13 +101,28 @@ describe("ProviderDoughnut", () => {
 
 		const grid = container.querySelector("[role='img']");
 		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
-		// Total must be exactly 100, even with guaranteed-1 + dominant provider
 		expect(cells).toHaveLength(100);
-		// All 3 providers should have at least 1 cell
+		// Every provider with share > 0 gets at least 1 cell
 		const colors = new Set(
 			Array.from(cells).map((c) => (c as HTMLElement).style.backgroundColor),
 		);
 		expect(colors.size).toBe(3);
+	});
+
+	it("fills to exactly 100 cells when rounding under-allocates", () => {
+		const fractionalItems: ProviderDistItem[] = [
+			{ name: "A", count: 100, tokens: 1000, share: 33.3 },
+			{ name: "B", count: 100, tokens: 1000, share: 33.3 },
+			{ name: "C", count: 100, tokens: 1000, share: 33.4 },
+		];
+
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} items={fractionalItems} />,
+		);
+
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		expect(cells).toHaveLength(100);
 	});
 
 	it("displays item names in the legend", () => {

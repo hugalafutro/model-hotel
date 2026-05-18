@@ -20,51 +20,37 @@ const CELL = 12;
 const GAP = 2;
 const GRID_SIZE = GRID * CELL + (GRID - 1) * GAP;
 
-/**
- * Largest-remainder method with minimum-1 guarantee:
- * every provider with share > 0 gets at least 1 cell, total = exactly 100.
- */
 function buildCells(items: ProviderDistItem[]) {
 	const total = GRID * GRID;
+	const counts = items.map((it) => Math.round(it.share));
 
-	// Guarantee 1 cell per provider with non-zero share, then distribute remainder
-	const guaranteed = items.map((it) => (it.share > 0 ? 1 : 0));
-	const guaranteedSum = guaranteed.reduce((s: number, v) => s + v, 0);
-	const remaining = total - guaranteedSum;
-
-	// Allocate remaining cells by largest fractional part
-	const rawShares = items.map((it) => (it.share / 100) * total);
-	const adjusted = rawShares.map((raw, i) => raw - guaranteed[i]);
-	const floored = adjusted.map((v) => Math.max(0, Math.floor(v)));
-	const remainders = adjusted.map((v, i) => ({
-		index: i,
-		remainder: v - Math.floor(v),
-	}));
-
-	const sumFloor = floored.reduce((s, v) => s + v, 0);
-	const leftover = remaining - sumFloor;
-
-	remainders.sort((a, b) => b.remainder - a.remainder);
-	if (leftover >= 0) {
-		for (let l = 0; l < leftover; l++) {
-			floored[remainders[l].index]++;
-		}
-	} else {
-		// Over-allocated (clipping of negative adjusted): subtract from largest
-		const deficit = -leftover;
-		// Sort by floored count descending to take from the largest
-		const bySize = floored
-			.map((v, i) => ({ index: i, value: v }))
-			.filter((e) => e.value > 0)
-			.sort((a, b) => b.value - a.value);
-		for (let d = 0; d < deficit && d < bySize.length; d++) {
-			floored[bySize[d].index]--;
+	// Guarantee 1 cell for any provider with share > 0 that rounded to 0
+	for (let i = 0; i < counts.length; i++) {
+		if (items[i].share > 0 && counts[i] === 0) {
+			counts[i] = 1;
 		}
 	}
 
-	const counts = items.map((_, i) => guaranteed[i] + floored[i]);
+	// Adjust total to exactly 100
+	const sum = counts.reduce((s, v) => s + v, 0);
+	if (sum > total) {
+		// Over-allocated: subtract excess from providers with largest counts
+		const excess = sum - total;
+		for (let e = 0; e < excess; e++) {
+			const maxIdx = counts.indexOf(Math.max(...counts));
+			counts[maxIdx]--;
+		}
+	} else if (sum < total) {
+		// Under-allocated: give leftover to providers with largest fractional part
+		const shortfall = total - sum;
+		const fractional = items
+			.map((it, i) => ({ index: i, frac: it.share - Math.floor(it.share) }))
+			.sort((a, b) => b.frac - a.frac);
+		for (let l = 0; l < shortfall; l++) {
+			counts[fractional[l % fractional.length].index]++;
+		}
+	}
 
-	// Build cell array
 	const cells: {
 		color: string;
 		providerIndex: number;
