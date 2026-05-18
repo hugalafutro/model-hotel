@@ -44,7 +44,10 @@ staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
 if [ -n "$staged_go" ]; then
 	echo "pre-commit: running gci import formatting..."
 	echo "$staged_go" | xargs gci write -s standard -s default -s "Prefix(github.com/hugalafutro/model-hotel)"
-	echo "$staged_go" | xargs git add
+	if ! git diff --quiet -- $staged_go; then
+		echo "pre-commit: FAILED - gci reformatted files. Re-stage and re-commit." >&2
+		exit 1
+	fi
 fi
 
 # ── Go vet on staged packages ──
@@ -99,6 +102,17 @@ if [ -n "$staged_ts" ]; then
 		echo "pre-commit: biome check (staged files)..."
 		if ! (cd web && pnpm biome check --write $lint_targets); then
 			echo "pre-commit: FAILED - biome check" >&2
+			exit 1
+		fi
+		# If biome fixed anything, the staged content is stale. Block the commit.
+		biome_changed=""
+		for f in $lint_targets; do
+			if ! git diff --quiet -- "web/$f"; then
+				biome_changed="$biome_changed web/$f"
+			fi
+		done
+		if [ -n "$biome_changed" ]; then
+			echo "pre-commit: FAILED - biome reformatted files. Re-stage and re-commit." >&2
 			exit 1
 		fi
 	fi
