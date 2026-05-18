@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -566,11 +568,21 @@ func TestListModels_RepoError(t *testing.T) {
 
 // mockModelRepo is a test mock for model.Repository
 type mockModelRepo struct {
-	listEnabledErr error
+	listEnabledErr    error
+	listEnabledResult []*model.Model
+	getResult         *model.Model
+	getErr            error
 }
 
 func (m *mockModelRepo) ListEnabled(ctx context.Context) ([]*model.Model, error) {
+	if m.listEnabledResult != nil {
+		return m.listEnabledResult, m.listEnabledErr
+	}
 	return nil, m.listEnabledErr
+}
+
+func (m *mockModelRepo) Get(ctx context.Context, id uuid.UUID) (*model.Model, error) {
+	return m.getResult, m.getErr
 }
 
 func (m *mockModelRepo) Upsert(ctx context.Context, model *model.Model) error {
@@ -579,10 +591,6 @@ func (m *mockModelRepo) Upsert(ctx context.Context, model *model.Model) error {
 
 func (m *mockModelRepo) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	return nil
-}
-
-func (m *mockModelRepo) Get(ctx context.Context, id uuid.UUID) (*model.Model, error) {
-	return nil, fmt.Errorf("not implemented")
 }
 
 func (m *mockModelRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error) {
@@ -842,5 +850,528 @@ func TestListModels_EmptyCapabilitiesOmitted(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+// TestListModels_InvalidCapabilitiesJSON tests the else branch when capabilities JSON is invalid.
+// Covers line 60 in models.go (debuglog.Warn for invalid capabilities).
+// Uses unit test with mock repo since DB enforces valid JSONB.
+func TestListModels_InvalidCapabilitiesJSON(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Initialize failoverRepo with a pool that will fail gracefully
+	ctx := context.Background()
+	poolCfg, err := pgxpool.ParseConfig("postgres://invalid:invalid@localhost:59999/testdb?sslmode=disable&connect_timeout=1")
+	if err != nil {
+		t.Fatalf("failed to parse pool config: %v", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	h.failoverRepo = failover.NewRepository(pool)
+	defer pool.Close()
+
+	invalidModel := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       uuid.New(),
+		ModelID:          "invalid-caps-model",
+		Name:             "Invalid Capabilities Model",
+		ProviderName:     "test-provider",
+		Capabilities:     "{invalid json",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+
+	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{invalidModel}}
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	found := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "test-provider/invalid-caps-model" {
+			found = true
+			if _, exists := itemMap["capabilities"]; exists {
+				t.Error("capabilities should be omitted when JSON is invalid")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected to find model in response")
+	}
+}
+
+// TestListModels_InvalidModalitiesJSON tests the else branches when modalities JSON is invalid.
+// Covers lines 68 and 76 in models.go (debuglog.Warn for invalid modalities).
+// Uses unit test with mock repo since DB enforces valid JSONB.
+func TestListModels_InvalidModalitiesJSON(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Initialize failoverRepo with a pool that will fail gracefully
+	ctx := context.Background()
+	poolCfg, err := pgxpool.ParseConfig("postgres://invalid:invalid@localhost:59999/testdb?sslmode=disable&connect_timeout=1")
+	if err != nil {
+		t.Fatalf("failed to parse pool config: %v", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	h.failoverRepo = failover.NewRepository(pool)
+	defer pool.Close()
+
+	invalidModel := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       uuid.New(),
+		ModelID:          "invalid-modalities-model",
+		Name:             "Invalid Modalities Model",
+		ProviderName:     "test-provider",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[invalid",
+		OutputModalities: "[invalid",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+
+	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{invalidModel}}
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	found := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "test-provider/invalid-modalities-model" {
+			found = true
+			if _, exists := itemMap["input_modalities"]; exists {
+				t.Error("input_modalities should be omitted when JSON is invalid")
+			}
+			if _, exists := itemMap["output_modalities"]; exists {
+				t.Error("output_modalities should be omitted when JSON is invalid")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected to find model in response")
+	}
+}
+
+// TestListModels_FailoverGroupWithFullModel tests failover groups with all optional fields populated.
+// Covers lines 121-168 in models.go (all optional fields for failover models).
+func TestListModels_FailoverGroupWithFullModel(t *testing.T) {
+	h := newIntegrationHandler()
+
+	pool := testDB.Pool()
+	if _, err := pool.Exec(context.Background(), "DELETE FROM model_failover_groups WHERE display_model LIKE 'fg-full-model'"); err != nil {
+		t.Logf("Failed to clean up failover groups: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM models WHERE model_id LIKE 'full-model'"); err != nil {
+		t.Logf("Failed to clean up test models: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-fg-full%'"); err != nil {
+		t.Logf("Failed to clean up test providers: %v", err)
+	}
+
+	masterKey := h.cfg.MasterKey
+	kp, err := auth.Encrypt("sk-test-fg-full", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "test-fg-full-provider",
+		BaseURL: "https://api.example.com",
+		APIKey:  "sk-test-fg-full",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	modelID := uuid.New()
+	ctx := context.Background()
+	contextLength := 200000
+	maxOutputTokens := 8192
+	inputPrice := 3.0
+	outputPrice := 12.0
+	m := &model.Model{
+		ID:                    modelID,
+		ProviderID:            prov.ID,
+		ModelID:               "full-model",
+		Name:                  "Full Model Name",
+		DisplayName:           "Full Display Name",
+		Description:           "A model with all fields",
+		Modality:              "text->text",
+		Capabilities:          `{"streaming":true,"vision":false}`,
+		InputModalities:       `["text","image"]`,
+		OutputModalities:      `["text"]`,
+		ContextLength:         &contextLength,
+		MaxOutputTokens:       &maxOutputTokens,
+		InputPricePerMillion:  &inputPrice,
+		OutputPricePerMillion: &outputPrice,
+		Params:                "{}",
+		Enabled:               true,
+		CreatedAt:             time.Now(),
+		LastSeenAt:            time.Now(),
+	}
+	if err := h.modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
+
+	if _, err := h.failoverRepo.UpsertWithConfig(ctx, "fg-full-model", []uuid.UUID{modelID}, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-full-model") }()
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	foundFailover := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "hotel/fg-full-model" {
+			foundFailover = true
+
+			if itemMap["provider"] != "hotel" {
+				t.Errorf("provider = %v, want 'hotel'", itemMap["provider"])
+			}
+
+			if ownedBy, _ := itemMap["owned_by"].(string); ownedBy != "test-fg-full-provider" {
+				t.Errorf("owned_by = %v, want 'test-fg-full-provider'", ownedBy)
+			}
+
+			if cl, _ := itemMap["context_length"].(float64); cl != 200000 {
+				t.Errorf("context_length = %v, want 200000", cl)
+			}
+			if maxCtx, _ := itemMap["max_context_length"].(float64); maxCtx != 200000 {
+				t.Errorf("max_context_length = %v, want 200000", maxCtx)
+			}
+			if mot, _ := itemMap["max_output_tokens"].(float64); mot != 8192 {
+				t.Errorf("max_output_tokens = %v, want 8192", mot)
+			}
+			if name, _ := itemMap["name"].(string); name != "Full Display Name" {
+				t.Errorf("name = %v, want 'Full Display Name'", name)
+			}
+			if desc, _ := itemMap["description"].(string); desc != "A model with all fields" {
+				t.Errorf("description = %v, want 'A model with all fields'", desc)
+			}
+			if mod, _ := itemMap["modality"].(string); mod != "text->text" {
+				t.Errorf("modality = %v, want 'text->text'", mod)
+			}
+
+			caps, ok := itemMap["capabilities"].(map[string]interface{})
+			if !ok {
+				t.Fatal("expected 'capabilities' to be a map")
+			}
+			if streaming, _ := caps["streaming"].(bool); !streaming {
+				t.Error("capabilities.streaming should be true")
+			}
+
+			inputMods, ok := itemMap["input_modalities"].([]interface{})
+			if !ok {
+				t.Fatal("expected 'input_modalities' to be an array")
+			}
+			if len(inputMods) != 2 || inputMods[0] != "text" || inputMods[1] != "image" {
+				t.Errorf("input_modalities = %v, want ['text','image']", inputMods)
+			}
+
+			outputMods, ok := itemMap["output_modalities"].([]interface{})
+			if !ok {
+				t.Fatal("expected 'output_modalities' to be an array")
+			}
+			if len(outputMods) != 1 || outputMods[0] != "text" {
+				t.Errorf("output_modalities = %v, want ['text']", outputMods)
+			}
+
+			if ip, _ := itemMap["input_price_per_million"].(float64); ip != 3.0 {
+				t.Errorf("input_price_per_million = %v, want 3.0", ip)
+			}
+			if op, _ := itemMap["output_price_per_million"].(float64); op != 12.0 {
+				t.Errorf("output_price_per_million = %v, want 12.0", op)
+			}
+
+			break
+		}
+	}
+	if !foundFailover {
+		t.Error("expected to find failover model 'hotel/fg-full-model' in response")
+	}
+}
+
+// TestListModels_FailoverGroupInvalidJSON tests failover groups with invalid JSON fields.
+// Covers lines 143-145, 151-153, 159-161 in models.go (debuglog.Warn for invalid JSON in failover models).
+// Uses mock repo for Get() since DB enforces valid JSONB.
+func TestListModels_FailoverGroupInvalidJSON(t *testing.T) {
+	h := newIntegrationHandler()
+
+	pool := testDB.Pool()
+	if _, err := pool.Exec(context.Background(), "DELETE FROM model_failover_groups WHERE display_model LIKE 'fg-invalid-json'"); err != nil {
+		t.Logf("Failed to clean up failover groups: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM providers WHERE name LIKE 'test-fg-invalid%'"); err != nil {
+		t.Logf("Failed to clean up test providers: %v", err)
+	}
+
+	masterKey := h.cfg.MasterKey
+	kp, err := auth.Encrypt("sk-test-fg-invalid", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "test-fg-invalid-provider",
+		BaseURL: "https://api.example.com",
+		APIKey:  "sk-test-fg-invalid",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	modelID := uuid.New()
+	ctx := context.Background()
+	// Create a valid model in DB (required for failover group FK)
+	validModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       prov.ID,
+		ModelID:          "valid-json-model",
+		Name:             "Valid JSON Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+	if err := h.modelRepo.Upsert(ctx, validModel); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+	defer func() { _ = h.modelRepo.DeleteByID(ctx, modelID) }()
+
+	// Create failover group referencing this model
+	if _, err := h.failoverRepo.UpsertWithConfig(ctx, "fg-invalid-json", []uuid.UUID{modelID}, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-invalid-json") }()
+
+	// Replace modelRepo with mock that returns model with invalid JSON on Get()
+	// ListEnabled returns empty so only failover path is tested
+	invalidModel := &model.Model{
+		ID:               modelID,
+		ProviderID:       prov.ID,
+		ModelID:          "invalid-json-model",
+		Name:             "Invalid JSON Model",
+		ProviderName:     "test-fg-invalid-provider",
+		ProviderEnabled:  true,
+		Capabilities:     "{broken",
+		InputModalities:  "[broken",
+		OutputModalities: "[broken",
+		Params:           "{}",
+		Modality:         "text",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}
+
+	h.modelRepo = &mockModelRepo{
+		listEnabledResult: []*model.Model{},
+		getResult:         invalidModel,
+	}
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+
+	foundFailover := false
+	for _, item := range data {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if id, _ := itemMap["id"].(string); id == "hotel/fg-invalid-json" {
+			foundFailover = true
+
+			if _, exists := itemMap["capabilities"]; exists {
+				t.Error("capabilities should be omitted when JSON is invalid")
+			}
+			if _, exists := itemMap["input_modalities"]; exists {
+				t.Error("input_modalities should be omitted when JSON is invalid")
+			}
+			if _, exists := itemMap["output_modalities"]; exists {
+				t.Error("output_modalities should be omitted when JSON is invalid")
+			}
+
+			break
+		}
+	}
+	if !foundFailover {
+		t.Error("expected to find failover model 'hotel/fg-invalid-json' in response")
+	}
+}
+
+// TestListModels_FailoverRepoError tests the error path when failoverRepo.GetEnabled fails.
+// Covers line 91 in models.go (debuglog.Warn for failover repo error).
+func TestListModels_FailoverRepoError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{}}
+
+	// Create a repository with an invalid connection string that will fail
+	ctx := context.Background()
+	poolCfg, err := pgxpool.ParseConfig("postgres://invalid:invalid@localhost:59999/testdb?sslmode=disable&connect_timeout=1")
+	if err != nil {
+		t.Fatalf("failed to parse pool config: %v", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	h.failoverRepo = failover.NewRepository(pool)
+	defer pool.Close()
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		t.Fatal("response 'data' should be an array")
+	}
+	if len(data) != 0 {
+		t.Errorf("expected empty data array, got %d items", len(data))
+	}
+}
+
+// TestListModels_JSONEncodeError tests the error path when JSON encoding fails.
+// Covers line 183 in models.go (debuglog.Error for encode failure).
+func TestListModels_JSONEncodeError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Initialize failoverRepo with a pool that will fail gracefully
+	ctx := context.Background()
+	poolCfg, err := pgxpool.ParseConfig("postgres://invalid:invalid@localhost:59999/testdb?sslmode=disable&connect_timeout=1")
+	if err != nil {
+		t.Fatalf("failed to parse pool config: %v", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+	h.failoverRepo = failover.NewRepository(pool)
+	defer pool.Close()
+
+	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{}}
+
+	failingWriter := &failingResponseWriter{
+		failAfter: 0,
+		failErr:   fmt.Errorf("write failed"),
+	}
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	h.ListModels(failingWriter, req)
+
+	// Verify the code reached the encoding stage: Content-Type header must be set
+	// and WriteHeader called before the encode attempt.
+	if ct := failingWriter.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	if failingWriter.code != 0 {
+		t.Errorf("expected no explicit WriteHeader call (code=0), got code=%d", failingWriter.code)
 	}
 }
