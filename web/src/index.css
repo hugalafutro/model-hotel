@@ -2007,6 +2007,22 @@ html.light .terminal-titlebar-win11 .win11-icon {
 	animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+/* Waffle Pulse: staggered bounce pop */
+@keyframes waffle-pop {
+	from {
+		transform: scale(0);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+.animate-waffle-pop {
+	animation: waffle-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* Disabled failover entry pill - CSS-only styles */
 .failover-entry-disabled {
 	background-color: #9ca3af;

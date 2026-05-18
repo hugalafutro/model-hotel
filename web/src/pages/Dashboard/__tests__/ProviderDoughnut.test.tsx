@@ -5,31 +5,6 @@ import { renderWithProviders } from "../../../test/utils";
 import { ProviderDoughnut } from "../ProviderDoughnut";
 import type { MetricType, ProviderDistItem, Range } from "../types";
 
-vi.mock("recharts", () => ({
-	ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="responsive-container">{children}</div>
-	),
-	AreaChart: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="area-chart">{children}</div>
-	),
-	PieChart: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="pie-chart">{children}</div>
-	),
-	Pie: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="pie">{children}</div>
-	),
-	Cell: ({ fill }: { fill?: string }) => (
-		<div data-testid="pie-cell" style={{ backgroundColor: fill }} />
-	),
-	Area: ({ dataKey }: { dataKey?: string }) => (
-		<div data-testid="area" data-datakey={dataKey} />
-	),
-	XAxis: () => <div data-testid="x-axis" />,
-	YAxis: () => <div data-testid="y-axis" />,
-	CartesianGrid: () => <div data-testid="cartesian-grid" />,
-	Tooltip: () => <div data-testid="tooltip" />,
-}));
-
 describe("ProviderDoughnut", () => {
 	const mockItems: ProviderDistItem[] = [
 		{ name: "Provider A", count: 100, tokens: 5000, share: 40 },
@@ -52,27 +27,85 @@ describe("ProviderDoughnut", () => {
 		expect(screen.getByRole("heading", { name: /Top \d/ })).toBeInTheDocument();
 	});
 
-	it("renders pie chart when items are provided", () => {
+	it("renders waffle grid when items are provided", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
 
-		expect(screen.getByTestId("pie-chart")).toBeInTheDocument();
-		expect(screen.getByTestId("pie")).toBeInTheDocument();
+		expect(
+			screen.getByRole("img", { name: /Provider distribution/ }),
+		).toBeInTheDocument();
 	});
 
-	it("renders correct number of pie cells for items", () => {
-		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
+	it("renders exactly 100 grid cells", () => {
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} />,
+		);
 
-		const cells = screen.getAllByTestId("pie-cell");
-		expect(cells).toHaveLength(3);
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		expect(cells).toHaveLength(100);
 	});
 
-	it("applies correct colors to pie cells", () => {
-		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
+	it("assigns correct colors to cells by provider share", () => {
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} />,
+		);
 
-		const cells = screen.getAllByTestId("pie-cell");
-		expect(cells[0]).toHaveStyle("background-color: rgb(129, 140, 248)");
-		expect(cells[1]).toHaveStyle("background-color: rgb(5, 150, 105)");
-		expect(cells[2]).toHaveStyle("background-color: rgb(251, 191, 36)");
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		// Provider A = #818cf8 (first color), 40 cells
+		expect(cells[0]).toHaveStyle({ backgroundColor: "rgb(129, 140, 248)" });
+		// Provider B = #34d399 (second color), starts at cell 40
+		expect(cells[40]).toHaveStyle({ backgroundColor: "rgb(52, 211, 153)" });
+		// Provider C = #fbbf24 (third color), starts at cell 72
+		expect(cells[72]).toHaveStyle({ backgroundColor: "rgb(251, 191, 36)" });
+	});
+
+	it("applies staggered animation delays to cells", () => {
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} />,
+		);
+
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		expect(cells[0]).toHaveStyle({ animationDelay: "0ms" });
+		expect(cells[1]).toHaveStyle({ animationDelay: "6ms" });
+		expect(cells[10]).toHaveStyle({ animationDelay: "60ms" });
+	});
+
+	it("dims other providers on legend hover", async () => {
+		const user = userEvent.setup();
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} />,
+		);
+
+		const legendItem = screen.getByText("Provider A");
+		await user.hover(legendItem);
+
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		// Provider B cells should be dimmed
+		const providerBCell = cells[40];
+		expect(providerBCell).toHaveStyle({ opacity: "0.25" });
+	});
+
+	it("uses largest-remainder method so every provider gets a cell", () => {
+		const tinyItems: ProviderDistItem[] = [
+			{ name: "Big", count: 9990, tokens: 9990000, share: 99.5 },
+			{ name: "Small", count: 10, tokens: 500, share: 0.3 },
+			{ name: "Tiny", count: 5, tokens: 200, share: 0.2 },
+		];
+
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} items={tinyItems} />,
+		);
+
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		// All 3 providers should have at least 1 cell
+		const colors = new Set(
+			Array.from(cells).map((c) => (c as HTMLElement).style.backgroundColor),
+		);
+		expect(colors.size).toBe(3);
 	});
 
 	it("displays item names in the legend", () => {
@@ -103,7 +136,6 @@ describe("ProviderDoughnut", () => {
 		);
 
 		expect(screen.getByText("99.9%")).toBeInTheDocument();
-		// Both zero and near-zero shares display as "<0.1%"
 		const lessThan = screen.getAllByText("<0.1%");
 		expect(lessThan).toHaveLength(2);
 	});
@@ -164,10 +196,12 @@ describe("ProviderDoughnut", () => {
 		).toBeInTheDocument();
 	});
 
-	it("does not render pie chart when items are empty", () => {
+	it("does not render grid when items are empty", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} items={[]} />);
 
-		expect(screen.queryByTestId("pie-chart")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("img", { name: /Provider distribution/ }),
+		).not.toBeInTheDocument();
 	});
 
 	it("shows loading spinner when loading is true", () => {
@@ -256,24 +290,25 @@ describe("ProviderDoughnut", () => {
 		expect(screen.getByText(/1\.5M Tokens?/)).toBeInTheDocument();
 	});
 
-	it("cycles colors correctly for more than 5 items", () => {
+	it("uses distinct colors for 6+ providers", () => {
 		const manyItems: ProviderDistItem[] = [
-			{ name: "P1", count: 10, tokens: 100, share: 20 },
-			{ name: "P2", count: 10, tokens: 100, share: 20 },
+			{ name: "P1", count: 10, tokens: 100, share: 30 },
+			{ name: "P2", count: 10, tokens: 100, share: 25 },
 			{ name: "P3", count: 10, tokens: 100, share: 20 },
-			{ name: "P4", count: 10, tokens: 100, share: 20 },
-			{ name: "P5", count: 10, tokens: 100, share: 20 },
-			{ name: "P6", count: 10, tokens: 100, share: 20 },
+			{ name: "P4", count: 10, tokens: 100, share: 10 },
+			{ name: "P5", count: 10, tokens: 100, share: 8 },
+			{ name: "P6", count: 10, tokens: 100, share: 7 },
 		];
 
-		renderWithProviders(
+		const { container } = renderWithProviders(
 			<ProviderDoughnut {...defaultProps} items={manyItems} />,
 		);
 
-		const cells = screen.getAllByTestId("pie-cell");
-		expect(cells).toHaveLength(6);
-		// 6th item should cycle back to first color
-		expect(cells[5]).toHaveStyle("background-color: rgb(129, 140, 248)");
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		// P6 uses COLORS[5] = #c084fc, which is distinct from COLORS[0] = #818cf8
+		const p6StartCell = cells[93]; // 30+25+20+10+8 = 93
+		expect(p6StartCell).toHaveStyle({ backgroundColor: "rgb(192, 132, 252)" });
 	});
 
 	describe("dynamic title", () => {

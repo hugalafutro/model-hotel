@@ -1,9 +1,75 @@
 import { TrendingUp } from "lucide-react";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { useState } from "react";
 import { Spinner } from "../../components/Spinner";
 import { formatCompact, formatPercent } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, ProviderDistItem, Range } from "./types";
+
+const COLORS = [
+	"#818cf8",
+	"#34d399",
+	"#fbbf24",
+	"#f87171",
+	"#38bdf8",
+	"#c084fc",
+	"#fb923c",
+	"#f472b6",
+] as const;
+const GRID = 10;
+const CELL = 12;
+const GAP = 2;
+const GRID_SIZE = GRID * CELL + (GRID - 1) * GAP;
+
+/**
+ * Largest-remainder method with minimum-1 guarantee:
+ * every provider with share > 0 gets at least 1 cell, total = 100.
+ */
+function buildCells(items: ProviderDistItem[]) {
+	const total = GRID * GRID;
+
+	// Guarantee 1 cell per provider with non-zero share, then distribute remainder
+	const guaranteed = items.map((it) => (it.share > 0 ? 1 : 0));
+	const guaranteedSum = guaranteed.reduce((s: number, v) => s + v, 0);
+	const remaining = total - guaranteedSum;
+
+	// Allocate remaining cells by largest fractional part
+	const rawShares = items.map((it) => (it.share / 100) * total);
+	const adjusted = rawShares.map((raw, i) => Math.max(0, raw - guaranteed[i]));
+	const floored = adjusted.map((v) => Math.floor(v));
+	const remainders = adjusted.map((v, i) => ({
+		index: i,
+		remainder: v - floored[i],
+	}));
+
+	const sumFloor = floored.reduce((s, v) => s + v, 0);
+	const leftover = remaining - sumFloor;
+
+	remainders.sort((a, b) => b.remainder - a.remainder);
+	for (let l = 0; l < leftover; l++) {
+		floored[remainders[l].index]++;
+	}
+
+	const counts = items.map((_, i) => guaranteed[i] + floored[i]);
+
+	// Build cell array
+	const cells: {
+		color: string;
+		providerIndex: number;
+		providerName: string;
+	}[] = [];
+
+	for (let i = 0; i < items.length; i++) {
+		for (let s = 0; s < counts[i]; s++) {
+			cells.push({
+				color: COLORS[i % COLORS.length],
+				providerIndex: i,
+				providerName: items[i].name,
+			});
+		}
+	}
+
+	return cells;
+}
 
 export function ProviderDoughnut({
 	items,
@@ -20,7 +86,8 @@ export function ProviderDoughnut({
 	onMetricChange: (m: MetricType) => void;
 	loading?: boolean;
 }) {
-	const colors = ["#818cf8", "#059669", "#fbbf24", "#f87171", "#a78bfa"];
+	const [hoveredProvider, setHoveredProvider] = useState<string | null>(null);
+	const cells = items.length > 0 ? buildCells(items) : [];
 
 	return (
 		<div className="ui-card p-6">
@@ -44,37 +111,52 @@ export function ProviderDoughnut({
 				</p>
 			) : (
 				<div className="flex items-center gap-6">
-					<div className="w-35 h-35">
-						<ResponsiveContainer width="100%" height="100%">
-							<PieChart>
-								<Pie
-									data={items}
-									cx="50%"
-									cy="50%"
-									innerRadius={50}
-									outerRadius={65}
-									paddingAngle={2}
-									dataKey="share"
-									stroke="none"
-								>
-									{items.map((item, i) => (
-										<Cell key={item.name} fill={colors[i % colors.length]} />
-									))}
-								</Pie>
-							</PieChart>
-						</ResponsiveContainer>
+					<div
+						className="relative shrink-0"
+						style={{ width: GRID_SIZE, height: GRID_SIZE }}
+						role="img"
+						aria-label="Provider distribution chart"
+					>
+						{cells.map((cell, i) => {
+							const isDimmed =
+								hoveredProvider !== null &&
+								cell.providerName !== hoveredProvider;
+							const col = i % GRID;
+							const row = Math.floor(i / GRID);
+
+							return (
+								<div
+									// biome-ignore lint/suspicious/noArrayIndexKey: fixed 100-cell grid, order never changes
+									key={i}
+									className="absolute rounded-[2px] animate-waffle-pop"
+									style={{
+										width: CELL,
+										height: CELL,
+										left: col * (CELL + GAP),
+										top: row * (CELL + GAP),
+										backgroundColor: cell.color,
+										animationDelay: `${i * 6}ms`,
+										filter: isDimmed ? "grayscale(1)" : undefined,
+										opacity: isDimmed ? 0.25 : 1,
+										transition: "filter 0.2s, opacity 0.2s",
+									}}
+								/>
+							);
+						})}
 					</div>
-					<div className="flex-1 space-y-2">
+					<ul className="flex-1 space-y-2 list-none m-0 p-0">
 						{items.map((it, i) => (
-							<div
+							<li
 								key={it.name}
 								className="flex items-center justify-between gap-3"
+								onMouseEnter={() => setHoveredProvider(it.name)}
+								onMouseLeave={() => setHoveredProvider(null)}
 							>
 								<div className="flex items-center gap-2 min-w-0">
 									<span
 										className="w-2.5 h-2.5 rounded-full shrink-0"
 										style={{
-											backgroundColor: colors[i % colors.length],
+											backgroundColor: COLORS[i % COLORS.length],
 										}}
 									/>
 									<span className="text-sm text-(--text-secondary) truncate">
@@ -93,9 +175,9 @@ export function ProviderDoughnut({
 										)
 									</span>
 								</div>
-							</div>
+							</li>
 						))}
-					</div>
+					</ul>
 				</div>
 			)}
 		</div>
