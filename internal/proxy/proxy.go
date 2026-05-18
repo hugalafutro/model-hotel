@@ -978,11 +978,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Initial overhead estimate (excludes dialMs — not yet populated).
+	// Initial overhead estimate (dialMs=0 — not yet populated).
 	// proxyOverhead is recomputed after each dial inside the failover loop
 	// so that all exit paths (backoff disconnect, error, failRequest) use
 	// the current accumulated total.
-	proxyOverhead := parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.settingsReadMs
+	proxyOverhead := timings.proxyOverheadMs(parseMs)
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", reqModel, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
 	var proxyReqBody []byte
@@ -1036,8 +1036,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			timings.settingsReadMs = *p
 		}
 	}
-	// dialMs is populated inside the failover loop by SafeDialer, so
-	// proxyOverhead is recomputed there before being passed to handlers.
 
 	for attempt, candidate := range candidates {
 		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
@@ -1149,7 +1147,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		resp, err := upstreamClient.Do(proxyReq)
 		timings.dialMs += dialMs
 		dialMs = 0
-		proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
+		proxyOverhead = timings.proxyOverheadMs(parseMs)
 		if err != nil {
 			failoverCancel() // no body to consume on error
 			// Determine the origin of context cancellation for actionable errors.
@@ -1265,7 +1263,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							// Accumulate retry's dial time into total.
 							timings.dialMs += dialMs
 							dialMs = 0
-							proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
+							proxyOverhead = timings.proxyOverheadMs(parseMs)
 							// retryCancel() must NOT be called here — retry resp.Body is read below.
 							// Store retryCancel for deferred cleanup after body consumption.
 							// Successfully retried — fall through to normal response handling

@@ -21,6 +21,12 @@ type resolveTimings struct {
 	settingsReadMs   float64
 }
 
+// proxyOverheadMs returns the total proxy overhead from accumulated timings.
+// dialMs may be 0 (before the failover loop) or populated after each dial.
+func (t resolveTimings) proxyOverheadMs(parseMs float64) float64 {
+	return parseMs + t.failoverLookupMs + t.modelLookupMs + t.providerLookupMs + t.keyDecryptMs + t.dialMs + t.settingsReadMs
+}
+
 func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {
 	debuglog.Debug("resolve: resolving hotel model", "model", displayModel)
 	var t resolveTimings
