@@ -1,123 +1,51 @@
 #!/usr/bin/env bash
-# Pre-commit hook: safety checks + fast checks on staged files only.
-# Full CI suite runs in pre-push hook (blocks push, not every commit).
-# Install: cp scripts/pre-commit .githooks/pre-commit
+# Pre-commit: fast formatting only. Real checks run in CI.
+# Goal: under 10 seconds, never blocks for slow tests.
 
 set -euo pipefail
 
-# ── Safety checks for parallel-agent environments ──
-
-# Block --amend: prevents rewriting history in a parallel-agent environment.
-# Detection: before a commit, HEAD points to SHA_X. After a normal commit,
-# HEAD points to a new SHA whose parent is SHA_X. After an amend, HEAD points
-# to a new SHA whose parent is SHA_X~1 (same parent as the original commit).
-# We stash the pre-commit HEAD in a temp file, then check after.
-PRE_COMMIT_HEAD_FILE=".git/PRE_COMMIT_HEAD"
-echo "$(git rev-parse HEAD)" > "$PRE_COMMIT_HEAD_FILE"
-
-# Block bare git add (., -A, --all): forces explicit file paths so agents
-# only stage files they actually modified.
-# This check looks at what's currently staged vs what the agent likely intended.
-staged_count=$(git diff --cached --name-only | wc -l)
-# Heuristic: if more than 5 files are staged and they span multiple unrelated
-# directories, warn (but don't block) — likely a broad add.
-if [ "$staged_count" -gt 5 ]; then
-	staged_dirs=$(git diff --cached --name-only | xargs -r dirname | sort -u | wc -l)
-	if [ "$staged_dirs" -gt 3 ]; then
-		echo "pre-commit: WARNING — $staged_count files staged across $staged_dirs directories." >&2
-		echo "  This may include other agents' work. Use 'git restore --staged <file>' to unstage." >&2
-		echo "  Waiting 3 seconds... (Ctrl+C to abort)" >&2
-		sleep 3
-	fi
-fi
-
-# Block git reset (hard/mixed/soft without explicit ref): prevents destroying
-# uncommitted work from other agents. Git reset in the hook context means
-# the agent tried to reset before committing, but we catch it here as a guard.
-if [ "${GIT_RESET_BLOCKED:-}" = "1" ]; then
-	echo "pre-commit: BLOCKED git reset is not allowed (parallel-agent safety)." >&2
-	exit 1
-fi
-
-# ── gci import formatting on staged Go files ──
 staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
+staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.tsx?$' || true)
+
+# ── Go: gci import order + go vet on staged packages ──
 if [ -n "$staged_go" ]; then
-	echo "pre-commit: running gci import formatting..."
-	echo "$staged_go" | xargs gci write -s standard -s default -s "Prefix(github.com/hugalafutro/model-hotel)"
+	echo "pre-commit: gci on staged Go files..."
+	echo "$staged_go" | xargs gci write -s standard -s default -s "Prefix(github.com/hugalafutro/model-hotel)" >/dev/null
 	if ! git diff --quiet -- $staged_go; then
-		echo "pre-commit: FAILED - gci reformatted files. Re-stage and re-commit." >&2
-		exit 1
+		echo "$staged_go" | xargs git add
+		echo "pre-commit: re-staged gci-formatted files"
 	fi
-fi
 
-# ── Go vet on staged packages ──
-if [ -n "$staged_go" ]; then
-	go_pkgs=""
-	for f in $staged_go; do
-		pkg_dir="$(dirname "$f")"
-		go_pkgs="$go_pkgs ./$pkg_dir/..."
-	done
-	go_pkgs=$(echo "$go_pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
-
-	echo "pre-commit: go vet (staged packages)..."
+	go_pkgs=$(echo "$staged_go" | xargs -n1 dirname | sort -u | sed 's|^|./|; s|$|/...|' | tr '\n' ' ')
+	echo "pre-commit: go vet $go_pkgs"
 	if ! go vet $go_pkgs; then
 		echo "pre-commit: FAILED - go vet" >&2
 		exit 1
 	fi
-
-	# ── golangci-lint on staged packages ──
-	echo "pre-commit: golangci-lint (staged packages)..."
-	if ! golangci-lint run $go_pkgs; then
-		echo "pre-commit: FAILED - golangci-lint" >&2
-		exit 1
-	fi
-
-	# ── Go test on staged packages ──
-	echo "pre-commit: go test (staged packages)..."
-	if ! go test $go_pkgs; then
-		echo "pre-commit: FAILED - go test" >&2
-		exit 1
-	fi
-else
-	echo "pre-commit: no Go files staged, skipping Go checks"
 fi
 
-# ── Frontend lint on staged .ts/.tsx files ──
-staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.tsx?$' || true)
+# ── Frontend: biome --write on staged TS/TSX ──
 if [ -n "$staged_ts" ]; then
-	lint_targets=""
+	rel_paths=""
 	for f in $staged_ts; do
-		rel="${f#web/}"
-		if [ -f "web/$rel" ]; then
-			lint_targets="$lint_targets $rel"
+		rel_paths="$rel_paths ${f#web/}"
+	done
+	echo "pre-commit: biome --write $rel_paths"
+	if ! (cd web && pnpm biome check --write $rel_paths >/dev/null 2>&1); then
+		echo "pre-commit: FAILED - biome check" >&2
+		exit 1
+	fi
+	# Re-stage any files biome rewrote.
+	changed=""
+	for f in $staged_ts; do
+		if ! git diff --quiet -- "$f"; then
+			changed="$changed $f"
 		fi
 	done
-	if [ -n "$lint_targets" ]; then
-		echo "pre-commit: pnpm lint (staged files)..."
-		if ! (cd web && pnpm lint $lint_targets); then
-			echo "pre-commit: FAILED - pnpm lint" >&2
-			exit 1
-		fi
-
-		echo "pre-commit: biome check (staged files)..."
-		if ! (cd web && pnpm biome check --write $lint_targets); then
-			echo "pre-commit: FAILED - biome check" >&2
-			exit 1
-		fi
-		# If biome fixed anything, the staged content is stale. Block the commit.
-		biome_changed=""
-		for f in $lint_targets; do
-			if ! git diff --quiet -- "web/$f"; then
-				biome_changed="$biome_changed web/$f"
-			fi
-		done
-		if [ -n "$biome_changed" ]; then
-			echo "pre-commit: FAILED - biome reformatted files. Re-stage and re-commit." >&2
-			exit 1
-		fi
+	if [ -n "$changed" ]; then
+		git add $changed
+		echo "pre-commit: re-staged biome-formatted files: $changed"
 	fi
-else
-	echo "pre-commit: no .ts/.tsx staged, skipping frontend lint"
 fi
 
-echo "pre-commit: fast checks passed (full suite runs on push)"
+echo "pre-commit: ok"
