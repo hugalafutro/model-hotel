@@ -1,7 +1,11 @@
 import { Target } from "lucide-react";
 import { Spinner } from "../../components/Spinner";
 import { RangeToggle } from "./ToggleGroup";
+import { computeTileSegments } from "./tokenTileUtils";
 import type { Range } from "./types";
+
+const PROMPT_COLOR = "#818cf8";
+const COMPLETION_COLOR = "#059669";
 
 export function TokenSplitBar({
 	prompt,
@@ -11,8 +15,11 @@ export function TokenSplitBar({
 	onRangeChange,
 	loading,
 }: {
+	/** Prompt token count. */
 	prompt: number;
+	/** Completion token count. */
 	completion: number;
+	/** Total tokens displayed in the header. Should equal prompt + completion for consistent display. */
 	total: number;
 	range: Range;
 	onRangeChange: (r: Range) => void;
@@ -38,6 +45,7 @@ export function TokenSplitBar({
 	}
 	const promptPct = (prompt / totalPC) * 100;
 	const completionPct = (completion / totalPC) * 100;
+	const tiles = computeTileSegments(promptPct, completionPct);
 
 	return (
 		<div className="ui-card p-6">
@@ -56,45 +64,55 @@ export function TokenSplitBar({
 				{total.toLocaleString()}{" "}
 				<span className="text-sm font-normal text-(--text-muted)">Tokens</span>
 			</p>
-			<div className="flex rounded-lg overflow-hidden h-6">
-				<div
-					className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider overflow-hidden whitespace-nowrap shrink-0"
-					style={{
-						width: `${promptPct}%`,
-						backgroundColor: "#818cf8",
-					}}
-				>
-					{promptPct > 12 ? `${promptPct.toFixed(0)}%` : ""}
-				</div>
-				<div
-					className="flex items-center justify-center text-[10px] font-semibold text-white tracking-wider overflow-hidden whitespace-nowrap shrink-0"
-					style={{
-						width: `${completionPct}%`,
-						backgroundColor: "#059669",
-					}}
-				>
-					{completionPct > 6 ? `${completionPct.toFixed(0)}%` : ""}
-				</div>
+			<div
+				className="flex gap-0.5 h-6"
+				role="img"
+				aria-label={`Token mix: ${promptPct.toFixed(1)}% prompt, ${completionPct.toFixed(1)}% completion`}
+			>
+				{tiles.map((tile, i) => (
+					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: static tile grid, never reordered
+						key={`${tile.type}-${i}`}
+						className="flex-1 rounded-sm"
+						data-tile-type={tile.type}
+						style={{
+							backgroundColor:
+								tile.type === "prompt" ? PROMPT_COLOR : COMPLETION_COLOR,
+							opacity: tile.opacity,
+						}}
+						title={
+							tile.type === "prompt"
+								? `Prompt: ${promptPct.toFixed(1)}% (${prompt.toLocaleString()} tokens)`
+								: `Completion: ${completionPct.toFixed(1)}% (${completion.toLocaleString()} tokens)`
+						}
+					/>
+				))}
 			</div>
 			<div className="flex justify-between mt-3 text-sm">
 				<div className="flex items-center gap-1.5">
 					<span
 						className="w-2 h-2 rounded-full"
-						style={{ backgroundColor: "#818cf8" }}
+						style={{ backgroundColor: PROMPT_COLOR }}
 					/>
 					<span className="text-(--text-tertiary)">Prompt</span>
 					<span className="font-medium text-(--text-primary) ml-1">
 						{prompt.toLocaleString()}
 					</span>
+					<span className="text-(--text-muted) text-xs ml-1">
+						{promptPct.toFixed(0)}%
+					</span>
 				</div>
 				<div className="flex items-center gap-1.5">
 					<span
 						className="w-2 h-2 rounded-full"
-						style={{ backgroundColor: "#059669" }}
+						style={{ backgroundColor: COMPLETION_COLOR }}
 					/>
 					<span className="text-(--text-tertiary)">Completion</span>
 					<span className="font-medium text-(--text-primary) ml-1">
 						{completion.toLocaleString()}
+					</span>
+					<span className="text-(--text-muted) text-xs ml-1">
+						{completionPct.toFixed(0)}%
 					</span>
 				</div>
 			</div>

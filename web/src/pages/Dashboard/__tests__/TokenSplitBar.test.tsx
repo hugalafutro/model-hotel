@@ -46,11 +46,18 @@ describe("TokenSplitBar", () => {
 		expect(screen.getByText("400")).toBeInTheDocument();
 	});
 
-	it("calculates and displays percentages correctly", () => {
+	it("displays percentages in legend", () => {
 		render(<TokenSplitBar {...defaultProps} />);
 
 		expect(screen.getByText("60%")).toBeInTheDocument();
 		expect(screen.getByText("40%")).toBeInTheDocument();
+	});
+
+	it("shows all percentages in legend regardless of split ratio", () => {
+		render(<TokenSplitBar {...defaultProps} prompt={10} completion={990} />);
+
+		expect(screen.getByText("1%")).toBeInTheDocument();
+		expect(screen.getByText("99%")).toBeInTheDocument();
 	});
 
 	it("renders RangeToggle component", () => {
@@ -105,14 +112,32 @@ describe("TokenSplitBar", () => {
 		expect(svg).toBeInTheDocument();
 	});
 
-	it("applies correct colors to prompt bar", () => {
+	it("renders 20 waffle tiles for a balanced split", () => {
 		const { container } = render(<TokenSplitBar {...defaultProps} />);
 
-		const bars = container.querySelectorAll("div[style*='background-color']");
-		expect(bars).toHaveLength(2);
+		const promptTiles = container.querySelectorAll("[data-tile-type='prompt']");
+		const completionTiles = container.querySelectorAll(
+			"[data-tile-type='completion']",
+		);
+		expect(promptTiles).toHaveLength(12);
+		expect(completionTiles).toHaveLength(8);
+		expect(promptTiles.length + completionTiles.length).toBe(20);
+	});
 
-		expect(bars[0]).toHaveStyle("background-color: #818cf8");
-		expect(bars[1]).toHaveStyle("background-color: #059669");
+	it("applies correct colors to tiles", () => {
+		const { container } = render(<TokenSplitBar {...defaultProps} />);
+
+		const promptTiles = container.querySelectorAll("[data-tile-type='prompt']");
+		const completionTiles = container.querySelectorAll(
+			"[data-tile-type='completion']",
+		);
+
+		promptTiles.forEach((tile) => {
+			expect(tile).toHaveStyle({ backgroundColor: "#818cf8" });
+		});
+		completionTiles.forEach((tile) => {
+			expect(tile).toHaveStyle({ backgroundColor: "#059669" });
+		});
 	});
 
 	it("applies correct colors to legend indicators", () => {
@@ -127,11 +152,59 @@ describe("TokenSplitBar", () => {
 		expect(indicators[1]).toHaveStyle("background-color: #059669");
 	});
 
-	it("hides percentage text when bar is too narrow", () => {
-		render(<TokenSplitBar {...defaultProps} prompt={10} completion={990} />);
+	it("gives minority at least 1 tile for extreme split", () => {
+		const { container } = render(
+			<TokenSplitBar
+				{...defaultProps}
+				prompt={223784418}
+				completion={1954511}
+				total={225738929}
+			/>,
+		);
 
-		expect(screen.queryByText("1%")).not.toBeInTheDocument();
-		expect(screen.getByText("99%")).toBeInTheDocument();
+		const completionTiles = container.querySelectorAll(
+			"[data-tile-type='completion']",
+		);
+		expect(completionTiles.length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("shades minority tile with reduced opacity for extreme split", () => {
+		const { container } = render(
+			<TokenSplitBar
+				{...defaultProps}
+				prompt={223784418}
+				completion={1954511}
+				total={225738929}
+			/>,
+		);
+
+		const completionTiles = container.querySelectorAll(
+			"[data-tile-type='completion']",
+		);
+		const minorityTile = completionTiles[0] as HTMLElement;
+		// 0.87% / 5% ≈ 0.17 opacity
+		expect(minorityTile.style.opacity).not.toBe("1");
+		expect(Number.parseFloat(minorityTile.style.opacity)).toBeLessThan(1);
+	});
+
+	it("all tiles have full opacity for moderate splits", () => {
+		const { container } = render(<TokenSplitBar {...defaultProps} />);
+
+		const allTiles = container.querySelectorAll("[data-tile-type]");
+		allTiles.forEach((tile) => {
+			expect((tile as HTMLElement).style.opacity || "1").toBe("1");
+		});
+	});
+
+	it("adds tooltips to tiles", () => {
+		render(<TokenSplitBar {...defaultProps} />);
+
+		const promptTiles = screen.getAllByTitle("Prompt: 60.0% (600 tokens)");
+		const completionTiles = screen.getAllByTitle(
+			"Completion: 40.0% (400 tokens)",
+		);
+		expect(promptTiles).toHaveLength(12);
+		expect(completionTiles).toHaveLength(8);
 	});
 
 	it("formats large token numbers with locale separators", () => {
@@ -157,14 +230,12 @@ describe("TokenSplitBar", () => {
 		expect(card).toHaveClass("p-6");
 	});
 
-	it("renders bar container with correct structure", () => {
+	it("renders tile container with accessible role", () => {
 		const { container } = render(<TokenSplitBar {...defaultProps} />);
 
-		const barContainer = container.querySelector(
-			".flex.rounded-lg.overflow-hidden",
-		);
-		expect(barContainer).toBeInTheDocument();
-		expect(barContainer).toHaveClass("h-6");
+		const tileContainer = container.querySelector("[role='img']");
+		expect(tileContainer).toBeInTheDocument();
+		expect(tileContainer).toHaveClass("h-6");
 	});
 
 	it("handles prompt-only tokens (no completion)", () => {
