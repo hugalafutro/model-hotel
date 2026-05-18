@@ -27,7 +27,15 @@ import (
 var newRequestWithContext = http.NewRequestWithContext
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		// Drain remaining bytes so the Transport reuses the connection.
+		// Skip drain if the client already disconnected: the upstream body
+		// could be large and we'd block the goroutine for no benefit.
+		if r.Context().Err() == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+		}
+		_ = resp.Body.Close()
+	}()
 	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -687,7 +695,12 @@ logUpdate:
 }
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if r.Context().Err() == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+		}
+		_ = resp.Body.Close()
+	}()
 	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
 	w.Header().Set("Content-Type", "application/json")
