@@ -53,7 +53,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
 	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerID)
-	var promptTokens, completionTokens int
+	var promptTokens, completionTokens, reasoningTokens int
 	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
 	clientDisconnected := false
@@ -413,6 +413,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if chunk.Usage != nil {
 				promptTokens = chunk.Usage.PromptTokens
 				completionTokens = chunk.Usage.CompletionTokens
+				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
+					reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
+				}
 				if chunk.Usage.PromptCacheHitTokens > 0 {
 					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
 					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
@@ -589,8 +592,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 logUpdate:
 	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 	var tps float64
-	if completionTokens > 0 && totalDuration > 0 {
-		tps = float64(completionTokens) / float64(totalDuration) * 1000
+	// Use total output tokens (text + reasoning) for TPS numerator,
+	// and generation time (duration minus TTFT) as denominator.
+	// TTFT includes thinking/reasoning time which isn't generation throughput.
+	totalOutputTokens := completionTokens + reasoningTokens
+	generationDuration := totalDuration - ttft
+	if totalOutputTokens > 0 && generationDuration > 0 {
+		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
+	} else if totalOutputTokens > 0 && totalDuration > 0 {
+		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
 	}
 
 	errMsg := lastErrMsg
@@ -632,6 +642,7 @@ logUpdate:
 	logData.tokensPerSecond = tps
 	logData.tokensPrompt = promptTokens
 	logData.tokensCompletion = completionTokens
+	logData.tokensCompletionReasoning = reasoningTokens
 	logData.tokensPromptCacheHit = promptCacheHitTokens
 	logData.tokensPromptCacheMiss = promptCacheMissTokens
 	logData.errorMessage = errMsg
@@ -651,7 +662,7 @@ logUpdate:
 	}
 
 	if vkHash != "" && !clientDisconnected {
-		totalTokens := promptTokens + completionTokens
+		totalTokens := promptTokens + completionTokens + reasoningTokens
 		tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer tokCancel()
 		if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {
@@ -679,8 +690,16 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		var tps float64
-		if chatResp.Usage.CompletionTokens > 0 && totalDuration > 0 {
-			tps = float64(chatResp.Usage.CompletionTokens) / float64(totalDuration) * 1000
+		var reasoningTokens int
+		if chatResp.Usage.CompletionTokensDetails != nil && chatResp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
+			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
+		}
+		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
+		generationDuration := totalDuration - ttft
+		if totalOutputTokens > 0 && generationDuration > 0 {
+			tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
+		} else if totalOutputTokens > 0 && totalDuration > 0 {
+			tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
 		}
 
 		logData.statusCode = resp.StatusCode
@@ -694,6 +713,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPerSecond = tps
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
 		logData.tokensCompletion = chatResp.Usage.CompletionTokens
+		logData.tokensCompletionReasoning = reasoningTokens
 		if chatResp.Usage.PromptCacheHitTokens > 0 {
 			logData.tokensPromptCacheHit = chatResp.Usage.PromptCacheHitTokens
 			logData.tokensPromptCacheMiss = chatResp.Usage.PromptTokens - chatResp.Usage.PromptCacheHitTokens
@@ -703,7 +723,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		h.updateRequestLog(logData)
 
 		if vkHash != "" {
-			totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens
+			totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens + reasoningTokens
 			tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer tokCancel()
 			if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {

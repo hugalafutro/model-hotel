@@ -130,6 +130,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 			tokens_per_second = $11,
 			tokens_prompt = $12,
 			tokens_completion = $13,
+			tokens_completion_reasoning = $22,
 			tokens_prompt_cache_hit = $14,
 			tokens_prompt_cache_miss = $15,
 			error_message = $16,
@@ -141,7 +142,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 		logEntry.keyDecryptMs, logEntry.ttftMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
-		logEntry.safeDialMs, logEntry.settingsReadMs,
+		logEntry.safeDialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning,
 	)
 	if err != nil {
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)

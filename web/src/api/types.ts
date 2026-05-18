@@ -84,6 +84,7 @@ export interface LogEntry {
 	tokens_completion: number;
 	tokens_prompt_cache_hit: number;
 	tokens_prompt_cache_miss: number;
+	tokens_completion_reasoning: number;
 	streaming: boolean;
 	state: string;
 	virtual_key_name: string;

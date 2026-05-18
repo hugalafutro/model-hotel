@@ -55,6 +55,7 @@ interface MockLogEntry {
 	tokens_prompt: number;
 	tokens_completion: number;
 	tokens_per_second: number;
+	tokens_completion_reasoning: number;
 	ttft_ms: number;
 	duration_ms: number;
 	proxy_overhead_ms: number;
@@ -82,6 +83,7 @@ function createMockLogEntry(
 		tokens_prompt: 0,
 		tokens_completion: 0,
 		tokens_per_second: 0,
+		tokens_completion_reasoning: 0,
 		ttft_ms: 0,
 		duration_ms: 0,
 		proxy_overhead_ms: 0,

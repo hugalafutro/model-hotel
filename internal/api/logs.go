@@ -15,33 +15,34 @@ import (
 
 // LogEntry represents a single request log entry.
 type LogEntry struct {
-	ID                string    `json:"id"`
-	ProviderID        string    `json:"provider_id"`
-	ProviderName      string    `json:"provider_name"`
-	ModelID           string    `json:"model_id"`
-	RequestHash       string    `json:"request_hash"`
-	StatusCode        int       `json:"status_code"`
-	LatencyMs         float64   `json:"latency_ms"`
-	DurationMs        float64   `json:"duration_ms"`
-	TTFTMs            float64   `json:"ttft_ms"`
-	ProxyOverheadMs   float64   `json:"proxy_overhead_ms"`
-	ParseMs           float64   `json:"parse_ms"`
-	ModelLookupMs     float64   `json:"model_lookup_ms"`
-	ProviderLookupMs  float64   `json:"provider_lookup_ms"`
-	KeyDecryptMs      float64   `json:"key_decrypt_ms"`
-	SafeDialMs        float64   `json:"safe_dial_ms"`
-	SettingsReadMs    float64   `json:"settings_read_ms"`
-	TokensPerSecond   float64   `json:"tokens_per_second"`
-	TokensPrompt      int       `json:"tokens_prompt"`
-	TokensCompletion  int       `json:"tokens_completion"`
-	Streaming         bool      `json:"streaming"`
-	VirtualKeyName    string    `json:"virtual_key_name"`
-	VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
-	VirtualKeyID      string    `json:"virtual_key_id"`
-	ErrorMessage      string    `json:"error_message"`
-	FailoverAttempt   int       `json:"failover_attempt"`
-	State             string    `json:"state"`
-	CreatedAt         time.Time `json:"created_at"`
+	ID                        string    `json:"id"`
+	ProviderID                string    `json:"provider_id"`
+	ProviderName              string    `json:"provider_name"`
+	ModelID                   string    `json:"model_id"`
+	RequestHash               string    `json:"request_hash"`
+	StatusCode                int       `json:"status_code"`
+	LatencyMs                 float64   `json:"latency_ms"`
+	DurationMs                float64   `json:"duration_ms"`
+	TTFTMs                    float64   `json:"ttft_ms"`
+	ProxyOverheadMs           float64   `json:"proxy_overhead_ms"`
+	ParseMs                   float64   `json:"parse_ms"`
+	ModelLookupMs             float64   `json:"model_lookup_ms"`
+	ProviderLookupMs          float64   `json:"provider_lookup_ms"`
+	KeyDecryptMs              float64   `json:"key_decrypt_ms"`
+	SafeDialMs                float64   `json:"safe_dial_ms"`
+	SettingsReadMs            float64   `json:"settings_read_ms"`
+	TokensPerSecond           float64   `json:"tokens_per_second"`
+	TokensPrompt              int       `json:"tokens_prompt"`
+	TokensCompletion          int       `json:"tokens_completion"`
+	TokensCompletionReasoning int       `json:"tokens_completion_reasoning"`
+	Streaming                 bool      `json:"streaming"`
+	VirtualKeyName            string    `json:"virtual_key_name"`
+	VirtualKeyDeleted         bool      `json:"virtual_key_deleted"`
+	VirtualKeyID              string    `json:"virtual_key_id"`
+	ErrorMessage              string    `json:"error_message"`
+	FailoverAttempt           int       `json:"failover_attempt"`
+	State                     string    `json:"state"`
+	CreatedAt                 time.Time `json:"created_at"`
 }
 
 // LogsResponse is the paginated response for request logs.
@@ -140,7 +141,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		"model":    {"", "rl.model_id"},
 		"provider": {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
 		"status":   {"", "rl.status_code"},
-		"tokens":   {"CASE WHEN rl.tokens_prompt + rl.tokens_completion = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion"},
+		"tokens":   {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
 		"tps":      {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
 		"ttft":     {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
 		"duration": {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
@@ -180,6 +181,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.safe_dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
                COALESCE(rl.tokens_per_second, 0),
                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
+               COALESCE(rl.tokens_completion_reasoning, 0),
 COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
                 CASE
                     WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
@@ -282,7 +284,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
 			&entry.SafeDialMs, &entry.SettingsReadMs,
 			&entry.TokensPerSecond,
-			&entry.TokensPrompt, &entry.TokensCompletion, &entry.Streaming,
+			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+			&entry.Streaming,
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 			&entry.ErrorMessage,
 			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,

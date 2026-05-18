@@ -1088,6 +1088,136 @@ data: [DONE]
 	}
 }
 
+func TestHandleStreamingResponse_ReasoningTokensCaptured(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":800,"completion_tokens_details":{"reasoning_tokens":650}}}
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensCompletion != 50 {
+		t.Errorf("expected completion_tokens=50, got %d", logData.tokensCompletion)
+	}
+	if logData.tokensCompletionReasoning != 650 {
+		t.Errorf("expected reasoning_tokens=650, got %d", logData.tokensCompletionReasoning)
+	}
+}
+
+func TestHandleStreamingResponse_TPSWithReasoningTokens(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Simulate a thinking model: 650 reasoning + 50 completion = 700 total output
+	// TTFT includes reasoning time, generationDuration = totalDuration - ttft
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hello world"}}],"usage":{"prompt_tokens":89000,"completion_tokens":50,"total_tokens":89700,"completion_tokens_details":{"reasoning_tokens":650}}}
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	// Start time 19 seconds ago → totalDuration ≈ 19000ms, no TTFT measured
+	// generationDuration = totalDuration since ttft=0, so TPS = 700/19000*1000 ≈ 36.8
+	startTime := time.Now().Add(-19 * time.Second)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// TPS should use (50 + 650) / totalDuration * 1000 since no TTFT was measured
+	if logData.tokensPerSecond <= 0 {
+		t.Errorf("expected positive TPS, got %f", logData.tokensPerSecond)
+	}
+	// The old (buggy) formula would give: 50/19000*1000 ≈ 2.6 TPS
+	// The new formula includes reasoning tokens (700 total output vs 50)
+	if logData.tokensPerSecond < 10 {
+		t.Errorf("TPS seems too low (%.1f), reasoning tokens may not be included in calculation", logData.tokensPerSecond)
+	}
+}
+
+func TestHandleStreamingResponse_TPSFallbackWhenNoTTFT(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Usage with no reasoning tokens, TTFT=0
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now().Add(-100 * time.Millisecond)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// When generationDuration <= 0, should fallback to totalDuration
+	// TPS = 5 / ~100 * 1000 ≈ 50 (approximate, just verify positive)
+	if logData.tokensPerSecond <= 0 {
+		t.Errorf("expected positive TPS with no TTFT, got %f", logData.tokensPerSecond)
+	}
+	if logData.tokensCompletionReasoning != 0 {
+		t.Errorf("expected reasoning_tokens=0, got %d", logData.tokensCompletionReasoning)
+	}
+}
+
 func TestHandleStreamingResponse_PromptCacheTokens(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)

@@ -163,10 +163,14 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 
 	if (type === "request" && isRequestLog(log)) {
 		const requestLog = log as LogEntry;
-		const totalTokens = requestLog.tokens_prompt + requestLog.tokens_completion;
+		const totalTokens =
+			requestLog.tokens_prompt +
+			requestLog.tokens_completion +
+			requestLog.tokens_completion_reasoning;
 		const hasCache =
 			requestLog.tokens_prompt_cache_hit > 0 ||
 			requestLog.tokens_prompt_cache_miss > 0;
+		const hasReasoning = requestLog.tokens_completion_reasoning > 0;
 
 		return (
 			<Modal
@@ -298,6 +302,16 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 									{requestLog.tokens_completion.toLocaleString()}
 								</div>
 							</div>
+							{hasReasoning && (
+								<div>
+									<div className="text-[11px] uppercase text-(--text-tertiary)">
+										Reasoning
+									</div>
+									<div className="text-sm font-mono text-purple-400">
+										{requestLog.tokens_completion_reasoning.toLocaleString()}
+									</div>
+								</div>
+							)}
 							{hasCache && (
 								<>
 									<div>

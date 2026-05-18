@@ -29,6 +29,7 @@ describe("LogDetailModal", () => {
 		tokens_completion: 300,
 		tokens_prompt_cache_hit: 0,
 		tokens_prompt_cache_miss: 0,
+		tokens_completion_reasoning: 0,
 		streaming: true,
 		state: "completed",
 		virtual_key_name: "test-key",

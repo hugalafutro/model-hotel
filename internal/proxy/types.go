@@ -56,33 +56,34 @@ const virtualKeyIDKey contextKey = "virtual_key_id"
 const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 
 type requestLogData struct {
-	id                    string
-	providerID            uuid.UUID
-	modelID               string
-	requestHash           string
-	statusCode            int
-	durationMs            float64
-	latencyMs             float64
-	proxyOverheadMs       float64
-	parseMs               float64
-	modelLookupMs         float64
-	providerLookupMs      float64
-	keyDecryptMs          float64
-	safeDialMs            float64
-	settingsReadMs        float64
-	ttftMs                float64
-	tokensPerSecond       float64
-	tokensPrompt          int
-	tokensCompletion      int
-	tokensPromptCacheHit  int
-	tokensPromptCacheMiss int
-	streaming             bool
-	virtualKeyName        string
-	virtualKeyID          string
-	errorMessage          string
-	failoverAttempt       int
-	state                 string
-	insertWg              sync.WaitGroup // signals when the async INSERT has completed
+	id                        string
+	providerID                uuid.UUID
+	modelID                   string
+	requestHash               string
+	statusCode                int
+	durationMs                float64
+	latencyMs                 float64
+	proxyOverheadMs           float64
+	parseMs                   float64
+	modelLookupMs             float64
+	providerLookupMs          float64
+	keyDecryptMs              float64
+	safeDialMs                float64
+	settingsReadMs            float64
+	ttftMs                    float64
+	tokensPerSecond           float64
+	tokensPrompt              int
+	tokensCompletion          int
+	tokensCompletionReasoning int
+	tokensPromptCacheHit      int
+	tokensPromptCacheMiss     int
+	streaming                 bool
+	virtualKeyName            string
+	virtualKeyID              string
+	errorMessage              string
+	failoverAttempt           int
+	state                     string
+	insertWg                  sync.WaitGroup // signals when the async INSERT has completed
 }
 
 type modelCandidate struct {
@@ -124,11 +125,19 @@ type Message struct {
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
 }
 
+// CompletionTokensDetails breaks down completion tokens into sub-categories
+// (e.g. reasoning vs text). Providers like Anthropic report reasoning tokens
+// separately from visible text tokens in this nested object.
+type CompletionTokensDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens"`
+}
+
 // Usage contains token usage statistics for a request.
 type Usage struct {
-	PromptTokens          int `json:"prompt_tokens"`
-	CompletionTokens      int `json:"completion_tokens"`
-	TotalTokens           int `json:"total_tokens"`
-	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens,omitempty"`
-	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens,omitempty"`
+	PromptTokens            int                      `json:"prompt_tokens"`
+	CompletionTokens        int                      `json:"completion_tokens"`
+	TotalTokens             int                      `json:"total_tokens"`
+	PromptCacheHitTokens    int                      `json:"prompt_cache_hit_tokens,omitempty"`
+	PromptCacheMissTokens   int                      `json:"prompt_cache_miss_tokens,omitempty"`
+	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
 }
