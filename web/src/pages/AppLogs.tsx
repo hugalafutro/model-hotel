@@ -496,15 +496,15 @@ export function AppLogs() {
 										key={entry.timestamp}
 										onClick={() => setSelectedLog(entry)}
 									>
-										<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 align-middle">
+										<td className="px-2 py-1 min-h-[2lh] flex items-center whitespace-nowrap text-xs text-gray-400">
 											{formatTimestamp(entry.timestamp)}
 										</td>
-										<td className="px-2 py-1 align-middle">
+										<td className="px-2 py-1 min-h-[2lh] flex items-center">
 											<Badge variant={getLevelBadgeVariant(entry.level)}>
 												{entry.level.toUpperCase()}
 											</Badge>
 										</td>
-										<td className="px-2 py-1">
+										<td className="px-2 py-1 min-h-[2lh] flex items-center">
 											{entry.source ? (
 												<Badge
 													variant="custom"
@@ -516,8 +516,8 @@ export function AppLogs() {
 												<span className="text-gray-600">-</span>
 											)}
 										</td>
-										<td className="px-2 py-1 align-middle">
-											<div className="text-xs font-mono line-clamp-2 min-h-[2lh] text-gray-400">
+										<td className="px-2 py-1 min-h-[2lh] flex items-center">
+											<div className="text-xs font-mono line-clamp-2 text-gray-400">
 												{entry.message}
 											</div>
 										</td>
