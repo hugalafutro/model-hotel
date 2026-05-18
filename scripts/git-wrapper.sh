@@ -10,6 +10,13 @@
 
 set -euo pipefail
 
+# Bypass: set GIT_UNSAFE=1 to skip all safety checks (for human operators).
+# Agents should never set this — it exists so repo owners can amend, stash, etc.
+if [ "${GIT_UNSAFE:-0}" = "1" ]; then
+	command git "$@"
+	exit $?
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 
 case "${1:-}" in
