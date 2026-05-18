@@ -7,16 +7,13 @@ set -euo pipefail
 
 # ── Safety checks for parallel-agent environments ──
 
-# Block --amend: prevents accidentally incorporating other agents' staged changes.
-# Git doesn't reliably expose --amend to hooks, so we use a sentinel file.
-# The git wrapper (scripts/git-wrapper.sh) creates .git/AMEND_IN_PROGRESS
-# before running git commit --amend, and the hook checks for it.
-if [ -f ".git/AMEND_IN_PROGRESS" ]; then
-	echo "pre-commit: BLOCKED --amend is not allowed (parallel-agent safety)." >&2
-	echo "  Create a new commit instead. Amending can capture other agents' work." >&2
-	rm -f .git/AMEND_IN_PROGRESS
-	exit 1
-fi
+# Block --amend: prevents rewriting history in a parallel-agent environment.
+# Detection: before a commit, HEAD points to SHA_X. After a normal commit,
+# HEAD points to a new SHA whose parent is SHA_X. After an amend, HEAD points
+# to a new SHA whose parent is SHA_X~1 (same parent as the original commit).
+# We stash the pre-commit HEAD in a temp file, then check after.
+PRE_COMMIT_HEAD_FILE=".git/PRE_COMMIT_HEAD"
+echo "$(git rev-parse HEAD)" > "$PRE_COMMIT_HEAD_FILE"
 
 # Block bare git add (., -A, --all): forces explicit file paths so agents
 # only stage files they actually modified.

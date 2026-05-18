@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# post-commit hook: detects git commit --amend and undoes it.
+# The pre-commit hook stores the pre-amend HEAD in .git/PRE_COMMIT_HEAD.
+# Normal commit: new HEAD's parent == saved HEAD.
+# Amend: new HEAD's parent != saved HEAD (it's the parent of the original commit).
+# When amend is detected, we reset --soft back to the original commit,
+# leaving the changes staged for a fresh commit.
+
+set -euo pipefail
+
+PRE_COMMIT_HEAD_FILE=".git/PRE_COMMIT_HEAD"
+
+if [ -f "$PRE_COMMIT_HEAD_FILE" ]; then
+	pre_head=$(cat "$PRE_COMMIT_HEAD_FILE")
+	rm -f "$PRE_COMMIT_HEAD_FILE"
+
+	current_parent=$(/usr/bin/git rev-parse HEAD~1 2>/dev/null || echo "none")
+
+	if [ "$current_parent" != "$pre_head" ] && [ "$current_parent" != "none" ]; then
+		# HEAD's parent is NOT the previous HEAD — this is an amend.
+		# Undo: move branch pointer back to pre-amend commit,
+		# keep index/working tree as-is (changes stay staged).
+		/usr/bin/git reset --soft "$pre_head" >/dev/null 2>&1
+
+		echo "" >&2
+		echo "BLOCKED: git commit --amend was detected and undone." >&2
+		echo "  The amend replaced $(echo "$pre_head" | cut -c1-7), which may belong to another agent." >&2
+		echo "  HEAD has been restored to $(echo "$pre_head" | cut -c1-7)." >&2
+		echo "  Your changes are still staged. Create a new commit:" >&2
+		echo "    git commit -m \"<message>\"" >&2
+		echo "" >&2
+		exit 1
+	fi
+fi
