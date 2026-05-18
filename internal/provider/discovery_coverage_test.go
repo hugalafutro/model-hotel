@@ -231,18 +231,19 @@ func (e *errorBodyRoundTripper) RoundTrip(_ *http.Request) (*http.Response, erro
 	}, nil
 }
 
-// failingReader returns data once, then errors
-type failingReader struct{}
+// failingReader returns valid JSON once, then returns an error.
+// Without state tracking, the reader would satisfy the entire read in one
+// call (when len(p) >= len(data)), never triggering the error path.
+type failingReader struct{ called bool }
 
 func (f *failingReader) Read(p []byte) (int, error) {
-	// Write valid JSON first
-	data := []byte(`{"models":[],"next_page_token":""}`)
-	if len(p) >= len(data) {
-		copy(p, data)
-		return len(data), nil
+	if f.called {
+		return 0, io.ErrUnexpectedEOF
 	}
-	// On second read, return error
-	return 0, io.ErrUnexpectedEOF
+	f.called = true
+	data := []byte(`{"models":[],"next_page_token":""}`)
+	copy(p, data)
+	return len(data), nil
 }
 
 func TestDiscoverCohere_JSONDecodeError(t *testing.T) {
@@ -343,7 +344,6 @@ func TestDiscoverOllama_ShowModelFailure(t *testing.T) {
 	t.Parallel()
 
 	// Create test server where /api/tags succeeds but /api/show fails for one model
-	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/api/tags" && r.Method == "GET":
@@ -357,7 +357,6 @@ func TestDiscoverOllama_ShowModelFailure(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		case r.URL.Path == "/api/show" && r.Method == "POST":
-			callCount++
 			// Read the request body to get model name
 			body, _ := io.ReadAll(r.Body)
 			if strings.Contains(string(body), "failing-model") {

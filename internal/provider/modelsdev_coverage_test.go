@@ -17,9 +17,15 @@ func TestLoadModelsDev_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := LoadModelsDev(ctx)
+	// Use a mock transport so we don't hit the real network,
+	// even though the cancelled context should prevent any request.
+	client := &http.Client{Transport: &mockTransport{roundTripFunc: func(_ *http.Request) (*http.Response, error) {
+		return nil, context.Canceled
+	}}}
+
+	err := LoadModelsDevWithClient(ctx, client)
 	if err == nil {
-		t.Error("expected error from LoadModelsDev with canceled context")
+		t.Error("expected error from LoadModelsDevWithClient with canceled context")
 	}
 }
 
@@ -30,13 +36,26 @@ func TestLoadModelsDev_CancelledContext(t *testing.T) {
 func TestResetModelsDevCache(t *testing.T) {
 	// Set up a mock server with valid models.dev data
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"test-provider":{"id":"test","name":"Test","api":"openai","models":{"test-model":{"id":"test-model","name":"Test Model","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":0,"output":0},"limit":{"context":1000,"output":100}}}}}`))
+		if r.URL.Path == "/api.json" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"test-provider":{"id":"test","name":"Test","api":"openai","models":{"test-model":{"id":"test-model","name":"Test Model","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":0,"output":0},"limit":{"context":1000,"output":100}}}}}`))
+			return
+		}
+		http.NotFound(w, r)
 	}))
 	defer mockServer.Close()
 
+	// Redirect modelsDevAPIURL to mock server via URL rewriting
+	baseTransport := mockServer.Client().Transport
+	client := mockServer.Client()
+	client.Transport = &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+		req.URL.Scheme = "http"
+		req.URL.Host = mockServer.Listener.Addr().String()
+		req.URL.Path = "/api.json"
+		return baseTransport.RoundTrip(req)
+	}}
+
 	// Load the cache with data
-	client := &http.Client{}
 	ctx := context.Background()
 	err := LoadModelsDevWithClient(ctx, client)
 	if err != nil {
@@ -82,6 +101,7 @@ func TestModelsDevInterleaved_UnmarshalJSON_InvalidJSON(t *testing.T) {
 // Helper to set up cache with specific test data
 func setupCacheWithModels(t *testing.T, models map[string]*ModelsDevModelSpec) {
 	t.Helper()
+	t.Cleanup(func() { ResetModelsDevCache() })
 	modelsDevCache.mu.Lock()
 	defer modelsDevCache.mu.Unlock()
 	modelsDevCache.byID = models
