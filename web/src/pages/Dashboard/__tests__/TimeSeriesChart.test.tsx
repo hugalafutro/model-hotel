@@ -212,13 +212,17 @@ describe("TimeSeriesChart", () => {
 	});
 
 	it("displays correct rate label in empty state for 24h range", () => {
-		renderWithProviders(<TimeSeriesChart {...defaultProps} range="24h" data={[]} />);
+		renderWithProviders(
+			<TimeSeriesChart {...defaultProps} range="24h" data={[]} />,
+		);
 
 		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
 	});
 
 	it("displays correct rate label in empty state for 1h range", () => {
-		renderWithProviders(<TimeSeriesChart {...defaultProps} range="1h" data={[]} />);
+		renderWithProviders(
+			<TimeSeriesChart {...defaultProps} range="1h" data={[]} />,
+		);
 
 		expect(screen.getByText("Requests / Hour")).toBeInTheDocument();
 	});
