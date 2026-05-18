@@ -950,8 +950,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	isFailover := false
+
 	switch {
 	case strings.HasPrefix(reqModel, "hotel/"):
+		isFailover = true
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", reqModel)
 		displayModel := strings.ToLower(strings.TrimPrefix(reqModel, "hotel/"))
 		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
@@ -1366,10 +1369,19 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Error("proxy: all providers exhausted", "model", reqModel, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
+	if isFailover {
+		debuglog.Error("proxy: all providers exhausted", "model", reqModel, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
+	} else {
+		debuglog.Error("proxy: provider request failed", "model", reqModel, "error", lastErr, "request_timeout", failoverTimeout)
+	}
 	logData.providerID = uuid.Nil
-	h.failRequest(logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
-	writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", reqModel), http.StatusBadGateway)
+	if isFailover {
+		h.failRequest(logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
+		writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", reqModel), http.StatusBadGateway)
+	} else {
+		h.failRequest(logData, 502, fmt.Sprintf("provider request failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
+		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", reqModel), http.StatusBadGateway)
+	}
 }
 
 // See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.
