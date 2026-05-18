@@ -215,16 +215,15 @@ describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
 	});
 
 	it("shows loading spinner fallback for lazy components", async () => {
-		// Create a lazy component using React.lazy
-		const LazyComponent = lazy(() => {
-			return new Promise<{ default: React.ComponentType }>((resolve) => {
-				setTimeout(() => {
-					resolve({
-						default: () => <div data-testid="lazy-content">Lazy Loaded</div>,
-					});
-				}, 100);
-			});
-		});
+		// Create a lazy component using React.lazy with a deliberate delay
+		// to ensure the spinner fallback is visible before resolution.
+		let resolveLazy!: (value: { default: React.ComponentType }) => void;
+		const LazyComponent = lazy(
+			() =>
+				new Promise<{ default: React.ComponentType }>((resolve) => {
+					resolveLazy = resolve;
+				}),
+		);
 
 		const { container } = renderWithProviders(
 			<Suspense
@@ -242,12 +241,17 @@ describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
 		const spinner = container.querySelector(".animate-spin");
 		expect(spinner).toBeInTheDocument();
 
-		// Wait for lazy component to resolve (increased timeout for full-suite load)
+		// Manually resolve the lazy component to remove timing dependency
+		resolveLazy({
+			default: () => <div data-testid="lazy-content">Lazy Loaded</div>,
+		});
+
+		// Wait for lazy component to resolve
 		await waitFor(
 			() => {
 				expect(screen.getByTestId("lazy-content")).toBeInTheDocument();
 			},
-			{ timeout: 5000 },
+			{ timeout: 10000 },
 		);
 
 		expect(screen.getByText("Lazy Loaded")).toBeInTheDocument();
