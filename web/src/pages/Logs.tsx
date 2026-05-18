@@ -702,9 +702,7 @@ function RequestLogs() {
 											</td>
 											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isInProgress(log) && log.duration_ms === 0 ? (
-													<span className="inline-block animate-pulse text-blue-400">
-														-
-													</span>
+													<span className="inline-block text-blue-400">-</span>
 												) : log.duration_ms > 0 ? (
 													log.duration_ms >= 1000 ? (
 														`${(log.duration_ms / 1000).toFixed(1)}s`
