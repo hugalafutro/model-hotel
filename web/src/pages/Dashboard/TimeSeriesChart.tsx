@@ -172,7 +172,7 @@ export function TimeSeriesChart({
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Icon size={18} style={{ color }} />
-					{metric} / {range === "7d" ? "Day" : "Hour"}
+					{metric} / {range === "1h" ? "Hour" : "Day"}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}

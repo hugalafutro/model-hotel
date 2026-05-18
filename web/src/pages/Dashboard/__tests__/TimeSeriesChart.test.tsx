@@ -116,7 +116,7 @@ describe("TimeSeriesChart", () => {
 	it("renders with metric title and icon", () => {
 		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
 
-		expect(screen.getByText("Requests / Hour")).toBeInTheDocument();
+		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
 	});
 
 	it("renders area chart when data is provided", () => {
@@ -199,10 +199,10 @@ describe("TimeSeriesChart", () => {
 		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
 	});
 
-	it("displays hour label for 24h range", () => {
+	it("displays day label for 24h range", () => {
 		renderWithProviders(<TimeSeriesChart {...defaultProps} range="24h" />);
 
-		expect(screen.getByText("Requests / Hour")).toBeInTheDocument();
+		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
 	});
 
 	it("displays hour label for 1h range", () => {
