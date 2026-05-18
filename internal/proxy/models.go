@@ -54,20 +54,26 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		}
 		if m.Capabilities != "" && m.Capabilities != "{}" {
 			var caps map[string]interface{}
-			if json.Unmarshal([]byte(m.Capabilities), &caps) == nil {
+			if err := json.Unmarshal([]byte(m.Capabilities), &caps); err == nil {
 				item["capabilities"] = caps
+			} else {
+				debuglog.Warn("proxy: invalid capabilities JSON in model", "model", m.ModelID, "error", err)
 			}
 		}
 		if m.InputModalities != "" && m.InputModalities != "[]" {
 			var modalities []string
-			if json.Unmarshal([]byte(m.InputModalities), &modalities) == nil {
+			if err := json.Unmarshal([]byte(m.InputModalities), &modalities); err == nil {
 				item["input_modalities"] = modalities
+			} else {
+				debuglog.Warn("proxy: invalid input_modalities JSON in model", "model", m.ModelID, "error", err)
 			}
 		}
 		if m.OutputModalities != "" && m.OutputModalities != "[]" {
 			var modalities []string
-			if json.Unmarshal([]byte(m.OutputModalities), &modalities) == nil {
+			if err := json.Unmarshal([]byte(m.OutputModalities), &modalities); err == nil {
 				item["output_modalities"] = modalities
+			} else {
+				debuglog.Warn("proxy: invalid output_modalities JSON in model", "model", m.ModelID, "error", err)
 			}
 		}
 		if m.InputPricePerMillion != nil {
@@ -132,20 +138,26 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 				}
 				if m.Capabilities != "" && m.Capabilities != "{}" {
 					var caps map[string]interface{}
-					if json.Unmarshal([]byte(m.Capabilities), &caps) == nil {
+					if err := json.Unmarshal([]byte(m.Capabilities), &caps); err == nil {
 						item["capabilities"] = caps
+					} else {
+						debuglog.Warn("proxy: invalid capabilities JSON in model", "model", m.ModelID, "error", err)
 					}
 				}
 				if m.InputModalities != "" && m.InputModalities != "[]" {
 					var modalities []string
-					if json.Unmarshal([]byte(m.InputModalities), &modalities) == nil {
+					if err := json.Unmarshal([]byte(m.InputModalities), &modalities); err == nil {
 						item["input_modalities"] = modalities
+					} else {
+						debuglog.Warn("proxy: invalid input_modalities JSON in model", "model", m.ModelID, "error", err)
 					}
 				}
 				if m.OutputModalities != "" && m.OutputModalities != "[]" {
 					var modalities []string
-					if json.Unmarshal([]byte(m.OutputModalities), &modalities) == nil {
+					if err := json.Unmarshal([]byte(m.OutputModalities), &modalities); err == nil {
 						item["output_modalities"] = modalities
+					} else {
+						debuglog.Warn("proxy: invalid output_modalities JSON in model", "model", m.ModelID, "error", err)
 					}
 				}
 				if m.InputPricePerMillion != nil {
