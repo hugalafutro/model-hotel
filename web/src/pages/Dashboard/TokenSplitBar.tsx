@@ -73,12 +73,13 @@ export function TokenSplitBar({
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: static tile grid, never reordered
 						key={`${tile.type}-${i}`}
-						className="flex-1 rounded-sm"
+						className="flex-1 rounded-sm animate-waffle-pop"
 						data-tile-type={tile.type}
 						style={{
 							backgroundColor:
 								tile.type === "prompt" ? PROMPT_COLOR : COMPLETION_COLOR,
 							opacity: tile.opacity,
+							animationDelay: `${i * 20}ms`,
 						}}
 						title={
 							tile.type === "prompt"
