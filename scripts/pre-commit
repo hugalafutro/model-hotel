@@ -1,9 +1,46 @@
 #!/usr/bin/env bash
-# Pre-commit hook: fast checks on staged files only.
+# Pre-commit hook: safety checks + fast checks on staged files only.
 # Full CI suite runs in pre-push hook (blocks push, not every commit).
 # Install: cp scripts/pre-commit .githooks/pre-commit
 
 set -euo pipefail
+
+# ── Safety checks for parallel-agent environments ──
+
+# Block --amend: prevents accidentally incorporating other agents' staged changes.
+# Git doesn't reliably expose --amend to hooks, so we use a sentinel file.
+# The git wrapper (scripts/git-wrapper.sh) creates .git/AMEND_IN_PROGRESS
+# before running git commit --amend, and the hook checks for it.
+if [ -f ".git/AMEND_IN_PROGRESS" ]; then
+	echo "pre-commit: BLOCKED --amend is not allowed (parallel-agent safety)." >&2
+	echo "  Create a new commit instead. Amending can capture other agents' work." >&2
+	rm -f .git/AMEND_IN_PROGRESS
+	exit 1
+fi
+
+# Block bare git add (., -A, --all): forces explicit file paths so agents
+# only stage files they actually modified.
+# This check looks at what's currently staged vs what the agent likely intended.
+staged_count=$(git diff --cached --name-only | wc -l)
+# Heuristic: if more than 5 files are staged and they span multiple unrelated
+# directories, warn (but don't block) — likely a broad add.
+if [ "$staged_count" -gt 5 ]; then
+	staged_dirs=$(git diff --cached --name-only | xargs -r dirname | sort -u | wc -l)
+	if [ "$staged_dirs" -gt 3 ]; then
+		echo "pre-commit: WARNING — $staged_count files staged across $staged_dirs directories." >&2
+		echo "  This may include other agents' work. Use 'git restore --staged <file>' to unstage." >&2
+		echo "  Waiting 3 seconds... (Ctrl+C to abort)" >&2
+		sleep 3
+	fi
+fi
+
+# Block git reset (hard/mixed/soft without explicit ref): prevents destroying
+# uncommitted work from other agents. Git reset in the hook context means
+# the agent tried to reset before committing, but we catch it here as a guard.
+if [ "${GIT_RESET_BLOCKED:-}" = "1" ]; then
+	echo "pre-commit: BLOCKED git reset is not allowed (parallel-agent safety)." >&2
+	exit 1
+fi
 
 # ── gci import formatting on staged Go files ──
 staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
