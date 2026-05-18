@@ -1,8 +1,13 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FileText, ScrollText } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
+import { AccentCalendar } from "../components/AccentCalendar";
+import {
+	formatDateRangeShort,
+	todayISO,
+} from "../components/AccentCalendar.utils";
 import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
@@ -42,6 +47,84 @@ export function AppLogs() {
 
 	const debouncedSearch = useDebounce(searchFilter, 300);
 
+	const [dateFrom, setDateFrom] = useState("");
+	const [dateTo, setDateTo] = useState("");
+	const [showDatePicker, setShowDatePicker] = useState(false);
+	const [pendingFrom, setPendingFrom] = useState("");
+	const [pendingTo, setPendingTo] = useState("");
+	const datePickerRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		function handleClickOutside(e: MouseEvent) {
+			if (
+				datePickerRef.current &&
+				!datePickerRef.current.contains(e.target as Node)
+			) {
+				setShowDatePicker(false);
+			}
+		}
+		if (showDatePicker) {
+			document.addEventListener("mousedown", handleClickOutside);
+			return () =>
+				document.removeEventListener("mousedown", handleClickOutside);
+		}
+	}, [showDatePicker]);
+
+	const handleCalendarSelect = (dStr: string) => {
+		if (!pendingFrom || (pendingFrom && pendingTo)) {
+			setPendingFrom(dStr);
+			setPendingTo("");
+		} else if (dStr < pendingFrom) {
+			setPendingTo(pendingFrom);
+			setPendingFrom(dStr);
+		} else {
+			setPendingTo(dStr);
+		}
+	};
+
+	const applyDateFilter = () => {
+		if (pendingFrom) {
+			setDateFrom(new Date(`${pendingFrom}T00:00:00`).toISOString());
+			if (pendingTo && pendingTo >= pendingFrom) {
+				setDateTo(new Date(`${pendingTo}T23:59:59.999`).toISOString());
+			} else {
+				setDateTo(new Date(`${pendingFrom}T23:59:59.999`).toISOString());
+			}
+		} else {
+			setDateFrom("");
+			setDateTo("");
+		}
+		setShowDatePicker(false);
+		setPage(1);
+	};
+
+	const clearDateFilter = () => {
+		setDateFrom("");
+		setDateTo("");
+		setPendingFrom("");
+		setPendingTo("");
+		setShowDatePicker(false);
+		setPage(1);
+	};
+
+	const toggleDatePicker = () => {
+		if (!showDatePicker) {
+			setPendingFrom(dateFrom ? dateFrom.split("T")[0] : "");
+			setPendingTo(dateTo ? dateTo.split("T")[0] : "");
+		}
+		setShowDatePicker((s) => !s);
+	};
+
+	const hasDateFilter = !!dateFrom && !!dateTo;
+
+	const now = new Date();
+	const pickerYear = showDatePicker
+		? new Date(pendingFrom || todayISO()).getFullYear()
+		: now.getFullYear();
+	const pickerMonth = showDatePicker
+		? new Date(pendingFrom || todayISO()).getMonth()
+		: now.getMonth();
+
 	const handleSort = useCallback((field: AppLogSortField) => {
 		setSort((prev) => ({
 			field,
@@ -62,6 +145,8 @@ export function AppLogs() {
 			levelFilter,
 			sourceFilter,
 			debouncedSearch,
+			dateFrom,
+			dateTo,
 			sort.field,
 			sort.dir,
 		],
@@ -72,6 +157,8 @@ export function AppLogs() {
 				level: levelFilter !== "all" ? levelFilter : undefined,
 				source: sourceFilter !== "all" ? sourceFilter : undefined,
 				search: debouncedSearch || undefined,
+				from: dateFrom || undefined,
+				to: dateTo || undefined,
 				sort_by: sort.field,
 				sort_dir: sort.dir,
 			}),
@@ -319,6 +406,101 @@ export function AppLogs() {
 							className="w-50"
 							autoFocus
 						/>
+
+						{/* Calendar picker */}
+						<div className="relative" ref={datePickerRef}>
+							<div className="flex items-center gap-1">
+								<button
+									type="button"
+									onClick={toggleDatePicker}
+									className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
+										hasDateFilter
+											? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
+											: "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
+									}`}
+									title={
+										hasDateFilter
+											? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
+											: "Filter by date range"
+									}
+									aria-label={
+										hasDateFilter
+											? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
+											: "Filter by date range"
+									}
+								>
+									<CalendarDays size={16} />
+								</button>
+								{hasDateFilter && (
+									<button
+										type="button"
+										className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
+										onClick={clearDateFilter}
+										title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
+										aria-label={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
+									>
+										<X size={14} />
+									</button>
+								)}
+							</div>
+
+							{showDatePicker && (
+								<div className="absolute right-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
+									<div className="flex items-center justify-between mb-3">
+										<span className="text-sm font-semibold text-white">
+											Select date range
+										</span>
+										<button
+											type="button"
+											onClick={() => setShowDatePicker(false)}
+											className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
+											title="Close date picker"
+											aria-label="Close date picker"
+										>
+											<X size={16} />
+										</button>
+									</div>
+
+									<AccentCalendar
+										initialYear={pickerYear}
+										initialMonth={pickerMonth}
+										from={pendingFrom}
+										to={pendingTo}
+										onSelect={handleCalendarSelect}
+									/>
+
+									<div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
+										{pendingFrom && pendingTo ? (
+											<span>
+												{formatDateRangeShort(pendingFrom, pendingTo)}
+											</span>
+										) : pendingFrom ? (
+											<span className="text-(--accent)">Select end date…</span>
+										) : (
+											<span>Select start date</span>
+										)}
+									</div>
+
+									<div className="flex gap-2 mt-3">
+										<button
+											type="button"
+											onClick={clearDateFilter}
+											className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+										>
+											Clear
+										</button>
+										<button
+											type="button"
+											onClick={applyDateFilter}
+											disabled={!pendingFrom}
+											className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+										>
+											Apply
+										</button>
+									</div>
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 			</div>

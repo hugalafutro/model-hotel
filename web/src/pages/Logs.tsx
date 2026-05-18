@@ -7,6 +7,11 @@ import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { LogEntry } from "../api/types";
+import { AccentCalendar } from "../components/AccentCalendar";
+import {
+	formatDateRangeShort,
+	todayISO,
+} from "../components/AccentCalendar.utils";
 import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
@@ -27,14 +32,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { formatNumber } from "../utils/format";
 import { AppLogs } from "./AppLogs";
-import { AccentCalendar } from "./Logs/AccentCalendar";
-
-import {
-	formatDateRangeShort,
-	formatMs,
-	formatTPS,
-	todayISO,
-} from "./Logs/utils";
+import { formatMs, formatTPS } from "./Logs/utils";
 
 /* =========================================================
    Main Logs page

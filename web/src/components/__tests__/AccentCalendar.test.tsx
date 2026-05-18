@@ -1,12 +1,13 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "../../../test/utils";
+import { renderWithProviders } from "../../test/utils";
 import { AccentCalendar } from "../AccentCalendar";
 
 // Mock todayISO to control "today" for consistent tests
-vi.mock("../utils", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../utils")>();
+vi.mock("../AccentCalendar.utils", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../AccentCalendar.utils")>();
 	return {
 		...actual,
 		todayISO: vi.fn(() => "2024-03-15"),

@@ -1,6 +1,11 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { daysInMonth, firstDayOfMonth, pad, todayISO } from "./utils";
+import {
+	daysInMonth,
+	firstDayOfMonth,
+	pad,
+	todayISO,
+} from "./AccentCalendar.utils";
 
 /* =========================================================
    Accent-themed inline calendar

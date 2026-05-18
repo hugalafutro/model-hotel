@@ -24,7 +24,7 @@ vi.mock("../../components/LogDetailModal", () => ({
 }));
 
 // Mock AccentCalendar component
-vi.mock("../Logs/AccentCalendar", () => ({
+vi.mock("../../components/AccentCalendar", () => ({
 	AccentCalendar: ({
 		from,
 		to,
