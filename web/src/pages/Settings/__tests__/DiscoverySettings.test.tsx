@@ -81,9 +81,7 @@ describe("DiscoverySettings", () => {
 	it("shows error toast on mutation failure", async () => {
 		const user = userEvent.setup();
 
-		server.use(
-			http.put("/api/settings", () => HttpResponse.error()),
-		);
+		server.use(http.put("/api/settings", () => HttpResponse.error()));
 
 		renderWithProviders(
 			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
