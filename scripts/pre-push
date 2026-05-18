@@ -9,15 +9,6 @@
 
 set -euo pipefail
 
-# Warn when pushing directly to master (should go through a PR).
-# Can be removed once GitHub branch protection is enabled.
-# Git sends ref info on stdin: <local-ref> <local-sha> <remote-ref> <remote-sha>
-while IFS=' ' read -r local_ref _remote_ref _remote_obj; do
-	case "$local_ref" in
-		refs/heads/master) echo "pre-push: WARNING — pushing directly to master." >&2; echo "  Prefer a PR so CI validates before merge." >&2 ;;
-	esac
-done
-
 # Cleanup temp files on exit
 cover_out=""
 cover_filtered=""
