@@ -4,6 +4,7 @@ import {
 	formatDate,
 	formatDuration,
 	formatNumber,
+	formatPercent,
 	formatRelativeTime,
 	formatTimestamp,
 	formatTimeUntil,
@@ -177,6 +178,31 @@ describe("formatDate", () => {
 		const now = new Date();
 		const result = formatDate(now.toISOString());
 		expect(result).toContain(now.getFullYear().toString());
+	});
+});
+
+describe("formatPercent", () => {
+	it("shows 0% for zero", () => {
+		expect(formatPercent(0)).toBe("0%");
+	});
+
+	it("shows <0.1% for tiny non-zero shares", () => {
+		expect(formatPercent(0.001)).toBe("<0.1%");
+		expect(formatPercent(0.02)).toBe("<0.1%");
+		expect(formatPercent(0.04)).toBe("<0.1%");
+	});
+
+	it("shows 0.1% at the rounding boundary (0.05)", () => {
+		expect(formatPercent(0.05)).toBe("0.1%");
+		expect(formatPercent(0.049)).toBe("<0.1%");
+	});
+
+	it("formats normal percentages with one decimal", () => {
+		expect(formatPercent(0.1)).toBe("0.1%");
+		expect(formatPercent(1)).toBe("1.0%");
+		expect(formatPercent(21.4)).toBe("21.4%");
+		expect(formatPercent(76.6)).toBe("76.6%");
+		expect(formatPercent(100)).toBe("100.0%");
 	});
 });
 

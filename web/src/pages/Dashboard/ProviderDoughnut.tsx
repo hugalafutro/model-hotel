@@ -1,7 +1,7 @@
 import { TrendingUp } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Spinner } from "../../components/Spinner";
-import { formatCompact } from "../../utils/format";
+import { formatCompact, formatPercent } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, ProviderDistItem, Range } from "./types";
 
@@ -83,7 +83,7 @@ export function ProviderDoughnut({
 								</div>
 								<div className="text-right shrink-0 flex items-baseline justify-end tabular-nums">
 									<span className="text-sm font-medium text-(--text-primary) w-14 text-right">
-										{it.share.toFixed(1)}%
+										{formatPercent(it.share)}
 									</span>
 									<span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
 										(

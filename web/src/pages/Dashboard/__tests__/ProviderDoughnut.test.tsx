@@ -91,6 +91,34 @@ describe("ProviderDoughnut", () => {
 		expect(screen.getByText("28.0%")).toBeInTheDocument();
 	});
 
+	it("shows <0.1% for small non-zero shares", () => {
+		const tinyShareItems: ProviderDistItem[] = [
+			{ name: "Big", count: 9990, tokens: 9990000, share: 99.9 },
+			{ name: "Tiny", count: 10, tokens: 11400, share: 0.02 },
+		];
+
+		renderWithProviders(
+			<ProviderDoughnut {...defaultProps} items={tinyShareItems} />,
+		);
+
+		expect(screen.getByText("99.9%")).toBeInTheDocument();
+		expect(screen.getByText("<0.1%")).toBeInTheDocument();
+	});
+
+	it("shows 0% for zero share", () => {
+		const zeroShareItems: ProviderDistItem[] = [
+			{ name: "Big", count: 10000, tokens: 10000000, share: 100 },
+			{ name: "Zero", count: 0, tokens: 0, share: 0 },
+		];
+
+		renderWithProviders(
+			<ProviderDoughnut {...defaultProps} items={zeroShareItems} />,
+		);
+
+		expect(screen.getByText("100.0%")).toBeInTheDocument();
+		expect(screen.getByText("0%")).toBeInTheDocument();
+	});
+
 	it("displays token counts when metric is tokens", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
 

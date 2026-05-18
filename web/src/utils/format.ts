@@ -91,6 +91,20 @@ export function dropTrailingZero(v: number, decimals: number): string {
 	return s;
 }
 
+/**
+ * Format a percentage value, showing "<0.1%" for small non-zero shares
+ * that would otherwise display as "0.0%".
+ * - 76.6 → "76.6%"
+ * - 0.05 → "0.1%"  (rounds up)
+ * - 0.02 → "<0.1%"
+ * - 0 → "0%"
+ */
+export function formatPercent(value: number): string {
+	if (value === 0) return "0%";
+	if (value < 0.05) return "<0.1%";
+	return `${value.toFixed(1)}%`;
+}
+
 export function formatTimeUntil(ts: number): string {
 	const now = Date.now();
 	const diff = ts - now;
