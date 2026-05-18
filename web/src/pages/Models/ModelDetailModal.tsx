@@ -216,7 +216,7 @@ export function ModelDetailModal({
 			scrollable
 		>
 			{model.description && (
-				<p className="text-sm text-gray-300 mb-4">{model.description}</p>
+				<p className="text-sm text-gray-300 mt-2 mb-4">{model.description}</p>
 			)}
 
 			<div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
