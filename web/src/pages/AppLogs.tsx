@@ -517,8 +517,10 @@ export function AppLogs() {
 											)}
 										</td>
 										<td className="px-2 py-1 align-middle">
-											<div className="text-xs font-mono line-clamp-2 min-h-[2lh] text-gray-400">
-												{entry.message}
+											<div className="min-h-[2lh] flex items-center">
+												<div className="text-xs font-mono line-clamp-2 text-gray-400">
+													{entry.message}
+												</div>
 											</div>
 										</td>
 									</Row>
