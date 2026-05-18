@@ -85,7 +85,7 @@ describe("ProviderDoughnut", () => {
 		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
 		// Provider B cells should be dimmed
 		const providerBCell = cells[40];
-		expect(providerBCell).toHaveStyle({ opacity: "0.25" });
+		expect(providerBCell).toHaveStyle({ opacity: "0.2" });
 	});
 
 	it("uses largest-remainder method so every provider gets a cell", () => {

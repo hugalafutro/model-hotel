@@ -121,6 +121,9 @@ export function ProviderDoughnut({
 							const isDimmed =
 								hoveredProvider !== null &&
 								cell.providerName !== hoveredProvider;
+							const isGlowing =
+								hoveredProvider !== null &&
+								cell.providerName === hoveredProvider;
 							const col = i % GRID;
 							const row = Math.floor(i / GRID);
 
@@ -137,46 +140,64 @@ export function ProviderDoughnut({
 										backgroundColor: cell.color,
 										animationDelay: `${i * 6}ms`,
 										filter: isDimmed ? "grayscale(1)" : undefined,
-										opacity: isDimmed ? 0.25 : 1,
-										transition: "filter 0.2s, opacity 0.2s",
+										opacity: isDimmed ? 0.2 : 1,
+										boxShadow: isGlowing
+											? `0 0 6px 1px ${cell.color}90`
+											: undefined,
+										transition: "filter 0.2s, opacity 0.2s, box-shadow 0.2s",
 									}}
 								/>
 							);
 						})}
 					</div>
 					<ul className="flex-1 space-y-2 list-none m-0 p-0">
-						{items.map((it, i) => (
-							<li
-								key={it.name}
-								className="flex items-center justify-between gap-3"
-								onMouseEnter={() => setHoveredProvider(it.name)}
-								onMouseLeave={() => setHoveredProvider(null)}
-							>
-								<div className="flex items-center gap-2 min-w-0">
-									<span
-										className="w-2.5 h-2.5 rounded-full shrink-0"
-										style={{
-											backgroundColor: COLORS[i % COLORS.length],
-										}}
-									/>
-									<span className="text-sm text-(--text-secondary) truncate">
-										{it.name}
-									</span>
-								</div>
-								<div className="text-right shrink-0 flex items-baseline justify-end tabular-nums">
-									<span className="text-sm font-medium text-(--text-primary) w-14 text-right">
-										{formatPercent(it.share)}
-									</span>
-									<span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
-										(
-										{metric === "tokens"
-											? `${formatCompact(it.tokens)} Token${it.tokens !== 1 ? "s" : ""}`
-											: `${it.count} Request${it.count !== 1 ? "s" : ""}`}
-										)
-									</span>
-								</div>
-							</li>
-						))}
+						{items.map((it, i) => {
+							const isHighlighted = hoveredProvider === it.name;
+							return (
+								<li
+									key={it.name}
+									className="flex items-center justify-between gap-3"
+									onMouseEnter={() => setHoveredProvider(it.name)}
+									onMouseLeave={() => setHoveredProvider(null)}
+								>
+									<div className="flex items-center gap-2 min-w-0">
+										<span
+											className="w-2.5 h-2.5 rounded-full shrink-0"
+											style={{
+												backgroundColor: COLORS[i % COLORS.length],
+												boxShadow: isHighlighted
+													? `0 0 8px 2px ${COLORS[i % COLORS.length]}80`
+													: undefined,
+												transition: "box-shadow 0.2s",
+											}}
+										/>
+										<span
+											className="text-sm truncate"
+											style={{
+												color: isHighlighted
+													? COLORS[i % COLORS.length]
+													: undefined,
+												transition: "color 0.2s",
+											}}
+										>
+											{it.name}
+										</span>
+									</div>
+									<div className="text-right shrink-0 flex items-baseline justify-end tabular-nums">
+										<span className="text-sm font-medium text-(--text-primary) w-14 text-right">
+											{formatPercent(it.share)}
+										</span>
+										<span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
+											(
+											{metric === "tokens"
+												? `${formatCompact(it.tokens)} Token${it.tokens !== 1 ? "s" : ""}`
+												: `${it.count} Request${it.count !== 1 ? "s" : ""}`}
+											)
+										</span>
+									</div>
+								</li>
+							);
+						})}
 					</ul>
 				</div>
 			)}
