@@ -37,7 +37,7 @@ services:
 
     db:
         image: postgres:16-alpine
-        command: ["postgres", "-c", "log_min_error_statement=panic"]
+        command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=warning"]
         environment:
             - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
