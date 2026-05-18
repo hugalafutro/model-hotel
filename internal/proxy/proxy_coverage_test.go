@@ -95,7 +95,7 @@ func TestHandleStreamingResponse_WriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// clientDisconnected should be set, state should reflect the error
 	if logData.state != "failed" {
@@ -135,7 +135,7 @@ func TestHandleStreamingResponse_NewlineWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -177,7 +177,7 @@ func TestHandleStreamingResponse_DoneWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// clientDisconnected should be set due to write failure
 	if logData.state != "failed" {
@@ -220,7 +220,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -277,7 +277,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -322,7 +322,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -359,7 +359,7 @@ func TestHandleStreamingResponse_ErrAccumAtEnd(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// Error should be logged and state should be failed
 	if logData.state != "failed" {
@@ -398,7 +398,7 @@ func TestHandleStreamingResponse_ScannerError(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// scanner.Err() should be captured
 	if logData.state != "failed" {
@@ -462,7 +462,7 @@ func TestHandleNonStreamingResponse_EncodeError(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
 
 	// Encode error is logged but not propagated; state was already set to "completed" before the write attempt
 	// State should be completed since JSON parsed successfully
@@ -964,7 +964,7 @@ func TestHandleStreamingResponse_NonDataLineFlushesErrAccum(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// Error should be captured from errAccum
 	if logData.state != "failed" {
@@ -1001,7 +1001,7 @@ func TestHandleStreamingResponse_BOMStripped(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	// BOM should be stripped, response should be valid
@@ -1039,7 +1039,7 @@ func TestHandleStreamingResponse_LeadingWhitespaceTrimmed(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "[DONE]") {
@@ -1078,7 +1078,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.tokensPrompt != 10 {
 		t.Errorf("expected prompt_tokens=10, got %d", logData.tokensPrompt)
@@ -1118,7 +1118,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.tokensCompletion != 50 {
 		t.Errorf("expected completion_tokens=50, got %d", logData.tokensCompletion)
@@ -1162,7 +1162,7 @@ data: [DONE]
 	// Start time 19 seconds ago → totalDuration ≈ 19000ms, no TTFT measured
 	// generationDuration = totalDuration since ttft=0, so TPS = 700/19000*1000 ≈ 36.8
 	startTime := time.Now().Add(-19 * time.Second)
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// TPS should use (50 + 650) / totalDuration * 1000 since no TTFT was measured
 	if logData.tokensPerSecond <= 0 {
@@ -1206,7 +1206,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now().Add(-100 * time.Millisecond)
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// When generationDuration <= 0, should fallback to totalDuration
 	// TPS = 5 / ~100 * 1000 ≈ 50 (approximate, just verify positive)
@@ -1249,7 +1249,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.tokensPromptCacheHit != 80 {
 		t.Errorf("expected prompt_cache_hit=80, got %d", logData.tokensPromptCacheHit)
@@ -1289,7 +1289,7 @@ func TestHandleStreamingResponse_InjectsDoneSentinel(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	// [DONE] should be injected
@@ -1336,7 +1336,7 @@ func TestHandleStreamingResponse_NonDataLineWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -1376,7 +1376,7 @@ func TestHandleStreamingResponse_NonDataLineNewlineWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -1418,7 +1418,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -1466,7 +1466,7 @@ func TestHandleStreamingResponse_ErrAccumAtStreamEnd(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// Error should be captured from errAccum at stream end
 	if logData.state != "failed" {
@@ -1514,7 +1514,7 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	// The injected [DONE] write failure is logged but benign - state should still be completed
 	// because the stream content was successfully written
@@ -1553,7 +1553,7 @@ func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 
@@ -1630,7 +1630,7 @@ func TestHandleNonStreamingResponse_AddTokensCalled(t *testing.T) {
 
 	vkHash := "test-vk-hash"
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, vkHash, 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, vkHash, 1)
 
 	if len(mockVKRepo.addTokensCalls) != 1 {
 		t.Errorf("expected AddTokens to be called once, got %d calls", len(mockVKRepo.addTokensCalls))
@@ -1703,7 +1703,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	// Assert: response body contains reasoning_content with the value
@@ -1747,7 +1747,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	// Assert: response body contains reasoning_content with concatenated text
@@ -1791,7 +1791,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	// Assert: response body contains reasoning_content with extracted thinking
@@ -1839,7 +1839,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, "", 0)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
 
 	body := w.Body.String()
 	// Assert: response body contains reasoning_content unchanged

@@ -58,7 +58,7 @@ func TestHandleStreamingResponse_UpstreamError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -115,7 +115,7 @@ func TestHandleStreamingResponse_MissingDoneSentinel(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -176,7 +176,7 @@ func TestHandleNonStreamingResponse_Success_Integration(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if inner.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, inner.Code)
@@ -240,7 +240,7 @@ func TestHandleNonStreamingResponse_PromptCacheHitTokens(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -302,7 +302,7 @@ func TestHandleStreamingResponse_Basic(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Basic verification - the handler should process the stream
 	if inner.Code != http.StatusOK {
@@ -696,7 +696,7 @@ func TestHandleStreamingResponse_ClientDisconnectMidStream(t *testing.T) {
 	// Start streaming in goroutine
 	done := make(chan struct{})
 	go func() {
-		h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+		h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 		close(done)
 	}()
 
@@ -773,7 +773,7 @@ func TestHandleStreamingResponse_EmptyLinesSSESep(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete successfully
 	if logData.state != "completed" {
@@ -840,7 +840,7 @@ func TestHandleStreamingResponse_TooManyEmptyLines(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -899,7 +899,7 @@ func TestHandleStreamingResponse_UTF8BOM(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete successfully - BOM is stripped for parsing
 	if logData.state != "completed" {
@@ -958,7 +958,7 @@ func TestHandleStreamingResponse_LeadingWhitespace(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete successfully
 	if logData.state != "completed" {
@@ -1018,7 +1018,7 @@ func TestHandleStreamingResponse_UsageExtraction(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=completed, got %q", logData.state)
@@ -1079,7 +1079,7 @@ func TestHandleStreamingResponse_AnthropicErrorEvent(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// The stream captures the Anthropic error and marks the request as failed.
 	if logData.state != "failed" {
@@ -1139,7 +1139,7 @@ func TestHandleStreamingResponse_DuplicateFinishReasonSuppression(t *testing.T) 
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete successfully
 	if logData.state != "completed" {
@@ -1197,7 +1197,7 @@ func TestHandleStreamingResponse_RepeatedContentDetection(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete (repeated content is just logged, not failed)
 	if logData.state != "completed" {
@@ -1252,7 +1252,7 @@ func TestHandleStreamingResponse_DataWithoutSpace(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Verify status code
 	if inner.Code != http.StatusOK {
@@ -1307,7 +1307,7 @@ func TestHandleNonStreamingResponse_NonJSONError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Verify status code is 500 (preserved from upstream)
 	if inner.Code != http.StatusInternalServerError {
@@ -1379,7 +1379,7 @@ func TestHandleStreamingResponse_NonErrorAnthropicEvent(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1443,7 +1443,7 @@ func TestHandleStreamingResponse_ErrAccumFlushOnNonDataLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1503,7 +1503,7 @@ func TestHandleStreamingResponse_ErrAccumFlushOnNonErrorDataLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1563,7 +1563,7 @@ func TestHandleStreamingResponse_PromptCacheHitTokens(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1623,7 +1623,7 @@ func TestHandleStreamingResponse_NativeFinishReason(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1676,7 +1676,7 @@ func TestHandleStreamingResponse_ErrAccumFlushAtStreamEnd(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1733,7 +1733,7 @@ func TestHandleStreamingResponse_FinishReasonNormalization(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1939,7 +1939,7 @@ func TestHandleStreamingResponse_HasContentChecks(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -2003,7 +2003,7 @@ func TestHandleStreamingResponse_RepeatedContentPreviewTruncation(t *testing.T) 
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -2122,7 +2122,7 @@ func TestHandleStreamingResponse_AddTokensError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -2171,7 +2171,7 @@ func TestHandleNonStreamingResponse_AddTokensError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -2227,7 +2227,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnDataLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -2281,7 +2281,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnDoneLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -2339,7 +2339,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnNormalizedChunk(t *testing.
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -2397,7 +2397,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnNonNormalizedChunk(t *testi
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)

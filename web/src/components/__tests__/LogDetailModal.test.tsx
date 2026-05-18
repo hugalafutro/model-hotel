@@ -19,10 +19,11 @@ describe("LogDetailModal", () => {
 		ttft_ms: 250,
 		proxy_overhead_ms: 50,
 		parse_ms: 5,
+		failover_lookup_ms: 3,
 		model_lookup_ms: 10,
 		provider_lookup_ms: 15,
 		key_decrypt_ms: 8,
-		safe_dial_ms: 7,
+		dial_ms: 7,
 		settings_read_ms: 5,
 		tokens_per_second: 45.5,
 		tokens_prompt: 150,
@@ -351,10 +352,11 @@ describe("LogDetailModal", () => {
 
 			expect(screen.getByText("Proxy Overhead Breakdown")).toBeInTheDocument();
 			expect(screen.getByText("Request Parsing")).toBeInTheDocument();
-			expect(screen.getByText("Model/Failover Lookup")).toBeInTheDocument();
+			expect(screen.getByText("Failover Group Lookup")).toBeInTheDocument();
+			expect(screen.getByText("Model Lookup")).toBeInTheDocument();
 			expect(screen.getByText("Provider Lookup")).toBeInTheDocument();
 			expect(screen.getByText("Key Decryption")).toBeInTheDocument();
-			expect(screen.getByText("DNS Safety Check")).toBeInTheDocument();
+			expect(screen.getByText("Dial (DNS+TCP)")).toBeInTheDocument();
 			expect(screen.getByText("Settings Reads")).toBeInTheDocument();
 			expect(screen.getByText("Total Overhead")).toBeInTheDocument();
 		});

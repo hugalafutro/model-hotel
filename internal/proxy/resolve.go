@@ -8,14 +8,16 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 type resolveTimings struct {
+	failoverLookupMs float64
 	modelLookupMs    float64
 	providerLookupMs float64
 	keyDecryptMs     float64
-	safeDialMs       float64
+	dialMs           float64
 	settingsReadMs   float64
 }
 
@@ -39,7 +41,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, fmt.Errorf("no entries in failover group")
 	}
 
-	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	t.failoverLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
 	providerLookupStart := time.Now()
@@ -115,7 +117,9 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		}
 
 		// Circuit breaker: skip providers that are in the open state.
+		cbStart := time.Now()
 		cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
+		ctxkeys.AddSettingsReadMs(ctx, cbStart)
 		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID) {
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
@@ -140,7 +144,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
 
-	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds())/1000.0 - keyDecryptTotal
+	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal)
 	t.keyDecryptMs = keyDecryptTotal
 	if len(candidates) == 0 && decryptFailures > 0 {
 		return nil, t, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
@@ -208,7 +212,9 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 		return true
 	}
 	if statusCode == 429 {
+		sStart := time.Now()
 		enabled := h.settingsRepo.GetBool(ctx, "failover_on_rate_limit", true)
+		ctxkeys.AddSettingsReadMs(ctx, sStart)
 		return enabled
 	}
 	if statusCode == 401 || statusCode == 403 {

@@ -70,16 +70,25 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		port = ""
 	}
 
-	// Allowlisted hosts skip all IP checks.
+	// Allowlisted hosts skip IP checks but are still timed.
 	if s.hosts[strings.ToLower(host)] {
-		return s.d.DialContext(ctx, network, addr)
+		dialStart := time.Now()
+		conn, err := s.d.DialContext(ctx, network, addr)
+		if v := ctx.Value(ctxkeys.DialMsKey); v != nil {
+			if p, ok := v.(*float64); ok {
+				*p = float64(time.Since(dialStart).Microseconds()) / 1000.0
+			}
+		}
+		return conn, err
 	}
 
 	// Resolve the host to IP addresses (timed).
 	dnsStart := time.Now()
 	ips, err := s.resolver.LookupIPAddr(ctx, host)
 	// Write per-request dial timing if the caller provided a pointer.
-	if v := ctx.Value(ctxkeys.SafeDialMsKey); v != nil {
+	// This captures DNS resolution only when the dial fails before TCP;
+	// successful dials overwrite this with the full DNS+TCP time below.
+	if v := ctx.Value(ctxkeys.DialMsKey); v != nil {
 		if p, ok := v.(*float64); ok {
 			*p = float64(time.Since(dnsStart).Microseconds()) / 1000.0
 		}
@@ -121,6 +130,12 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 			continue
 		}
 		debuglog.Debug("proxy: SafeDialer connected", "host", host, "ip", ip.IP, "total_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
+		// Overwrite the timing with full DNS+TCP duration.
+		if v := ctx.Value(ctxkeys.DialMsKey); v != nil {
+			if p, ok := v.(*float64); ok {
+				*p = float64(time.Since(dnsStart).Microseconds()) / 1000.0
+			}
+		}
 		return conn, nil
 	}
 

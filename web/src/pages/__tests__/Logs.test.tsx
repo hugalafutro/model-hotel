@@ -62,9 +62,11 @@ interface MockLogEntry {
 	state: "completed" | "pending";
 	error_message: string;
 	parse_ms: number;
+	failover_lookup_ms: number;
 	model_lookup_ms: number;
 	provider_lookup_ms: number;
 	key_decrypt_ms: number;
+	dial_ms: number;
 	virtual_key_deleted: boolean;
 	virtual_key_id: string;
 	virtual_key_name?: string;
@@ -90,9 +92,11 @@ function createMockLogEntry(
 		state: "completed",
 		error_message: "",
 		parse_ms: 0,
+		failover_lookup_ms: 0,
 		model_lookup_ms: 0,
 		provider_lookup_ms: 0,
 		key_decrypt_ms: 0,
+		dial_ms: 0,
 		virtual_key_deleted: false,
 		virtual_key_id: "",
 	};

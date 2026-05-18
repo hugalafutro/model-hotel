@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"testing"
+	"time"
 )
 
 func TestContextKeyTypePreventsCollisions(t *testing.T) {
@@ -22,10 +23,13 @@ func TestAllKeysAreDistinct(t *testing.T) {
 		VirtualKeyHashKey,
 		RequestBodyKey,
 		SettingsReadMsKey,
-		SafeDialMsKey,
+		DialMsKey,
 		VirtualKeyRateLimitRPSKey,
 		VirtualKeyRateLimitBurstKey,
 		CancelOriginKey,
+		RequestBodyParseMsKey,
+		RequestModelKey,
+		IsStreamingKey,
 	}
 	seen := make(map[contextKey]string, len(keys))
 	for _, k := range keys {
@@ -54,24 +58,52 @@ func TestRequestBodyKeyRoundTrip(t *testing.T) {
 }
 
 func TestSettingsReadMsKeyRoundTrip(t *testing.T) {
-	ctx := context.WithValue(context.Background(), SettingsReadMsKey, float64(3.14))
-	v, ok := ctx.Value(SettingsReadMsKey).(float64)
-	if !ok || v != 3.14 {
-		t.Errorf("SettingsReadMsKey round-trip failed: got %v, ok=%v", v, ok)
+	var val = 3.14
+	ctx := context.WithValue(context.Background(), SettingsReadMsKey, &val)
+	p, ok := ctx.Value(SettingsReadMsKey).(*float64)
+	if !ok || *p != 3.14 {
+		t.Errorf("SettingsReadMsKey round-trip failed: got %v, ok=%v", p, ok)
 	}
 }
 
-func TestSafeDialMsKeyRoundTrip(t *testing.T) {
+func TestDialMsKeyRoundTrip(t *testing.T) {
 	var val float64
-	ctx := context.WithValue(context.Background(), SafeDialMsKey, &val)
-	p, ok := ctx.Value(SafeDialMsKey).(*float64)
+	ctx := context.WithValue(context.Background(), DialMsKey, &val)
+	p, ok := ctx.Value(DialMsKey).(*float64)
 	if !ok {
-		t.Fatalf("SafeDialMsKey round-trip failed: not a *float64")
+		t.Fatalf("DialMsKey round-trip failed: not a *float64")
 	}
 	*p = 42.0
 	if val != 42.0 {
-		t.Errorf("SafeDialMsKey pointer write failed: got %v, want 42.0", val)
+		t.Errorf("DialMsKey pointer write failed: got %v, want 42.0", val)
 	}
+}
+
+func TestAddSettingsReadMs(t *testing.T) {
+	var total float64
+	ctx := context.WithValue(context.Background(), SettingsReadMsKey, &total)
+
+	start := time.Now()
+	time.Sleep(1 * time.Millisecond)
+	AddSettingsReadMs(ctx, start)
+
+	if total <= 0 {
+		t.Errorf("AddSettingsReadMs should add positive duration, got %v", total)
+	}
+
+	previous := total
+	start2 := time.Now()
+	time.Sleep(1 * time.Millisecond)
+	AddSettingsReadMs(ctx, start2)
+	if total <= previous {
+		t.Errorf("AddSettingsReadMs should accumulate, previous=%v total=%v", previous, total)
+	}
+}
+
+func TestAddSettingsReadMsNilPointer(t *testing.T) {
+	ctx := context.Background()
+	start := time.Now()
+	AddSettingsReadMs(ctx, start) // must not panic
 }
 
 func TestVirtualKeyRateLimitRPSKeyRoundTrip(t *testing.T) {
@@ -109,6 +141,32 @@ func TestCancelOriginKeyNilWhenUnset(t *testing.T) {
 	}
 }
 
+func TestRequestBodyParseMsKeyRoundTrip(t *testing.T) {
+	ctx := context.WithValue(context.Background(), RequestBodyParseMsKey, float64(5.5))
+	v, ok := ctx.Value(RequestBodyParseMsKey).(float64)
+	if !ok || v != 5.5 {
+		t.Errorf("RequestBodyParseMsKey round-trip failed: got %v, ok=%v", v, ok)
+	}
+}
+
+func TestRequestModelKeyRoundTrip(t *testing.T) {
+	ctx := context.WithValue(context.Background(), RequestModelKey, "gpt-4")
+	v, ok := ctx.Value(RequestModelKey).(string)
+	if !ok || v != "gpt-4" {
+		t.Errorf("RequestModelKey round-trip failed: got %q, ok=%v", v, ok)
+	}
+}
+
+func TestIsStreamingKeyRoundTrip(t *testing.T) {
+	for _, streaming := range []bool{true, false} {
+		ctx := context.WithValue(context.Background(), IsStreamingKey, streaming)
+		v, ok := ctx.Value(IsStreamingKey).(bool)
+		if !ok || v != streaming {
+			t.Errorf("IsStreamingKey round-trip failed for %v: got %v, ok=%v", streaming, v, ok)
+		}
+	}
+}
+
 func TestContextKeyStringValues(t *testing.T) {
 	// Verify the string values are stable — they're used in cross-package
 	// context lookups and must not change without coordination.
@@ -119,10 +177,13 @@ func TestContextKeyStringValues(t *testing.T) {
 		{VirtualKeyHashKey, "virtual_key_hash"},
 		{RequestBodyKey, "request_body"},
 		{SettingsReadMsKey, "settings_read_ms"},
-		{SafeDialMsKey, "safe_dial_ms"},
+		{DialMsKey, "dial_ms"},
 		{VirtualKeyRateLimitRPSKey, "virtual_key_rate_limit_rps"},
 		{VirtualKeyRateLimitBurstKey, "virtual_key_rate_limit_burst"},
 		{CancelOriginKey, "cancel_origin"},
+		{RequestBodyParseMsKey, "request_body_parse_ms"},
+		{RequestModelKey, "request_model"},
+		{IsStreamingKey, "is_streaming"},
 	}
 	for _, tt := range tests {
 		if string(tt.key) != tt.want {

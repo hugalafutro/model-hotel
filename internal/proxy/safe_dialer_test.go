@@ -240,7 +240,7 @@ func TestSafeDialer_NoPortInAddr(t *testing.T) {
 func TestSafeDialer_DialTimingContext(t *testing.T) {
 	sd := NewSafeDialer(nil)
 	var dialMs float64
-	ctx := context.WithValue(context.Background(), ctxkeys.SafeDialMsKey, &dialMs)
+	ctx := context.WithValue(context.Background(), ctxkeys.DialMsKey, &dialMs)
 
 	// This will fail to connect but should set the timing value
 	_, _ = sd.DialContext(ctx, "tcp", "127.0.0.1:80")
@@ -376,7 +376,7 @@ func TestSafeDialer_DialTimingSetOnRealDNS(t *testing.T) {
 	var dialMs float64
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ctx = context.WithValue(ctx, ctxkeys.SafeDialMsKey, &dialMs)
+	ctx = context.WithValue(ctx, ctxkeys.DialMsKey, &dialMs)
 
 	// Dial a real public host - connection may fail but DNS should resolve
 	_, _ = sd.DialContext(ctx, "tcp", "example.com:80")

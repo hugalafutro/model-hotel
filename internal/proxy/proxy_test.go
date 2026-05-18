@@ -436,7 +436,7 @@ func TestHandleStreamingResponse_ClientWriteFailureMarksDisconnected(t *testing.
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond) // wait for async DB insert
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -535,7 +535,7 @@ func TestHandleStreamingResponse_EmptyStream(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete without error even with empty stream
 	if logData.state != "failed" {
@@ -589,7 +589,7 @@ func TestHandleStreamingResponse_ErrorChunk(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 
 	// Should complete but track error chunks
 	if logData.state != "failed" {

@@ -65,10 +65,11 @@ type requestLogData struct {
 	latencyMs                 float64
 	proxyOverheadMs           float64
 	parseMs                   float64
+	failoverLookupMs          float64
 	modelLookupMs             float64
 	providerLookupMs          float64
 	keyDecryptMs              float64
-	safeDialMs                float64
+	dialMs                    float64
 	settingsReadMs            float64
 	ttftMs                    float64
 	tokensPerSecond           float64

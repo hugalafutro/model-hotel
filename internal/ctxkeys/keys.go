@@ -9,6 +9,11 @@
 // elsewhere.
 package ctxkeys
 
+import (
+	"context"
+	"time"
+)
+
 type contextKey string
 
 // VirtualKeyHashKey is the context key under which the proxy's
@@ -24,16 +29,19 @@ const VirtualKeyHashKey contextKey = "virtual_key_hash"
 const RequestBodyKey contextKey = "request_body"
 
 // SettingsReadMsKey is the context key under which the rate limiter
-// middleware stores the time spent reading settings (float64, in ms).
-// The proxy handler reads this for observability logging.
+// middleware stores a *float64 pointer for accumulating settings read
+// time across the entire request pipeline (in ms). The ratelimiter
+// creates the pointer; downstream code (resolve, proxy) adds to it.
+// Use AddSettingsReadMs to safely add to the accumulated total.
 const SettingsReadMsKey contextKey = "settings_read_ms"
 
-// SafeDialMsKey is the context key under which the proxy handler stores a
-// *float64 pointer for capturing per-request DNS resolution timing.
-// The SafeDialer's DialContext writes dial duration into this pointer
-// so the handler can read it after the upstream request completes,
-// avoiding cross-request race conditions from a shared atomic.
-const SafeDialMsKey contextKey = "safe_dial_ms"
+// DialMsKey is the context key under which the proxy handler stores a
+// *float64 pointer for capturing per-request upstream dial timing
+// (DNS resolution + TCP connect). The SafeDialer's DialContext writes
+// the total dial duration into this pointer so the handler can read it
+// after the upstream request completes, avoiding cross-request race
+// conditions from a shared atomic.
+const DialMsKey contextKey = "dial_ms"
 
 // VirtualKeyRateLimitRPSKey is the context key under which the proxy's
 // ProxyKeyMiddleware stores the per-key RPS override (float64 pointer,
@@ -56,3 +64,37 @@ const VirtualKeyRateLimitBurstKey contextKey = "virtual_key_rate_limit_burst"
 //
 // Values: "client_disconnect", "failover_timeout", "retry_timeout"
 const CancelOriginKey contextKey = "cancel_origin"
+
+// RequestBodyParseMsKey is the context key under which the
+// streamingAwareTimeout middleware stores the time spent reading and
+// parsing the request body (float64, in ms). This covers both the
+// io.ReadAll of the body and the json.Unmarshal to extract model and
+// stream fields. The proxy handler reads this for accurate overhead
+// timing instead of measuring only its own re-unmarshal of cached bytes.
+const RequestBodyParseMsKey contextKey = "request_body_parse_ms"
+
+// RequestModelKey is the context key under which the
+// streamingAwareTimeout middleware stores the model name extracted
+// from the request body (string). This avoids a redundant
+// json.Unmarshal in ChatCompletions when the body bytes are already
+// cached via RequestBodyKey.
+const RequestModelKey contextKey = "request_model"
+
+// IsStreamingKey is the context key under which the
+// streamingAwareTimeout middleware stores the stream flag (bool)
+// extracted from the request body. This avoids a redundant
+// json.Unmarshal in ChatCompletions when the body bytes are already
+// cached via RequestBodyKey.
+const IsStreamingKey contextKey = "is_streaming"
+
+// AddSettingsReadMs adds duration (in ms) to the accumulated settings
+// read time stored under SettingsReadMsKey. Safe to call when the
+// pointer is nil (no-op). Each call site that reads settings should
+// call this to ensure all settings reads are captured in overhead.
+func AddSettingsReadMs(ctx context.Context, start time.Time) {
+	if v := ctx.Value(SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			*p += float64(time.Since(start).Microseconds()) / 1000.0
+		}
+	}
+}

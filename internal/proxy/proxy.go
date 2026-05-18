@@ -26,7 +26,7 @@ import (
 // newRequestWithContext is injectable for testing request creation errors.
 var newRequestWithContext = http.NewRequestWithContext
 
-func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
+func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
 	defer func() { _ = resp.Body.Close() }()
 	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
@@ -40,9 +40,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	logData.statusCode = resp.StatusCode
 	logData.proxyOverheadMs = proxyOverhead
 	logData.parseMs = parseMs
+	logData.failoverLookupMs = failoverLookupMs
 	logData.modelLookupMs = modelLookupMs
 	logData.providerLookupMs = providerLookupMs
 	logData.keyDecryptMs = keyDecryptMs
+	logData.dialMs = dialMs
+	logData.settingsReadMs = settingsReadMs
 	logData.ttftMs = ttft
 	logData.failoverAttempt = attempt
 	logData.state = "streaming"
@@ -635,9 +638,11 @@ logUpdate:
 	logData.durationMs = totalDuration
 	logData.proxyOverheadMs = proxyOverhead
 	logData.parseMs = parseMs
+	logData.failoverLookupMs = failoverLookupMs
 	logData.modelLookupMs = modelLookupMs
 	logData.providerLookupMs = providerLookupMs
 	logData.keyDecryptMs = keyDecryptMs
+	logData.dialMs = dialMs
 	logData.ttftMs = ttft
 	logData.tokensPerSecond = tps
 	logData.tokensPrompt = promptTokens
@@ -681,7 +686,7 @@ logUpdate:
 	}
 }
 
-func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, modelLookupMs, providerLookupMs, keyDecryptMs, ttft float64, vkHash string, attempt int) {
+func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
 	defer func() { _ = resp.Body.Close() }()
 	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
@@ -709,6 +714,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.modelLookupMs = modelLookupMs
 		logData.providerLookupMs = providerLookupMs
 		logData.keyDecryptMs = keyDecryptMs
+		logData.failoverLookupMs = failoverLookupMs
+		logData.dialMs = dialMs
+		logData.settingsReadMs = settingsReadMs
 		logData.ttftMs = ttft
 		logData.tokensPerSecond = tps
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
@@ -791,6 +799,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.modelLookupMs = modelLookupMs
 		logData.providerLookupMs = providerLookupMs
 		logData.keyDecryptMs = keyDecryptMs
+		logData.failoverLookupMs = failoverLookupMs
+		logData.dialMs = dialMs
+		logData.settingsReadMs = settingsReadMs
 		logData.ttftMs = ttft
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
@@ -813,7 +824,8 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg st
 	logData.modelLookupMs = timings.modelLookupMs
 	logData.providerLookupMs = timings.providerLookupMs
 	logData.keyDecryptMs = timings.keyDecryptMs
-	logData.safeDialMs = timings.safeDialMs
+	logData.dialMs = timings.dialMs
+	logData.failoverLookupMs = timings.failoverLookupMs
 	logData.settingsReadMs = timings.settingsReadMs
 	logData.failoverAttempt = attempt
 	logData.state = "failed"
@@ -824,30 +836,65 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg st
 func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
-	parseStart := time.Now()
+	var parseMs float64
+	var reqModel string
+	var isStreaming bool
+
+	// Read pre-parsed values from middleware context when available.
+	// streamingAwareTimeout already read the body and extracted model+stream,
+	// so we skip the redundant json.Unmarshal that previously measured as parseMs.
+	if v := r.Context().Value(ctxkeys.RequestBodyParseMsKey); v != nil {
+		if ms, ok := v.(float64); ok {
+			parseMs = ms
+		}
+	}
+	if v := r.Context().Value(ctxkeys.RequestModelKey); v != nil {
+		if m, ok := v.(string); ok {
+			reqModel = m
+		}
+	}
+	if v := r.Context().Value(ctxkeys.IsStreamingKey); v != nil {
+		if s, ok := v.(bool); ok {
+			isStreaming = s
+		}
+	}
+
+	// Fallback: if middleware did not provide pre-parsed values (e.g. route
+	// not covered by streamingAwareTimeout), parse from body directly.
 	var bodyBytes []byte
-	if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
-		bodyBytes = cached
-	} else {
-		var err error
-		bodyBytes, err = io.ReadAll(r.Body)
-		if err != nil {
-			debuglog.Warn("proxy: failed to read request body", "error", err)
-			writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
+	if reqModel == "" {
+		parseStart := time.Now()
+		if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
+			bodyBytes = cached
+		} else {
+			var err error
+			bodyBytes, err = io.ReadAll(r.Body)
+			if err != nil {
+				debuglog.Warn("proxy: failed to read request body", "error", err)
+				writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
+				return
+			}
+			_ = r.Body.Close()
+		}
+
+		var req ChatCompletionRequest
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			debuglog.Warn("proxy: failed to parse request body", "error", err)
+			writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
-		_ = r.Body.Close()
+		parseMs = float64(time.Since(parseStart).Microseconds()) / 1000.0
+		reqModel = req.Model
+		isStreaming = req.Stream
+	} else {
+		// Middleware provided model+stream; still need body bytes for
+		// stream_options injection and upstream forwarding.
+		if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
+			bodyBytes = cached
+		}
 	}
 
-	var req ChatCompletionRequest
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		debuglog.Warn("proxy: failed to parse request body", "error", err)
-		writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
-
-	if req.Model == "" {
+	if reqModel == "" {
 		writeOpenAIError(w, "model is required", http.StatusBadRequest)
 		return
 	}
@@ -865,12 +912,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		vkHash = v.(string)
 	}
 
-	debuglog.Info("proxy: request start", "model", req.Model, "stream", req.Stream, "key", vkName, "client_ip", r.RemoteAddr)
-	debuglog.Debug("proxy: request details", "model", req.Model, "stream", req.Stream, "key", vkName, "vk_id", vkID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
+	debuglog.Info("proxy: request start", "model", reqModel, "stream", isStreaming, "key", vkName, "client_ip", r.RemoteAddr)
+	debuglog.Debug("proxy: request details", "model", reqModel, "stream", isStreaming, "key", vkName, "vk_id", vkID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
 
 	logData := &requestLogData{
-		modelID:         req.Model,
-		streaming:       req.Stream,
+		modelID:         reqModel,
+		streaming:       isStreaming,
 		virtualKeyName:  vkName,
 		virtualKeyID:    vkID,
 		failoverAttempt: 0,
@@ -882,17 +929,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var timings resolveTimings
 	var err error
 
-	// Capture settings read time from rate limiter middleware (stored in context).
+	// Capture accumulated settings read time (pointer in context, set by
+	// rate limiter middleware and added to by resolve/proxy handlers).
 	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
-		if ms, ok := v.(float64); ok {
-			timings.settingsReadMs = ms
+		if p, ok := v.(*float64); ok {
+			timings.settingsReadMs = *p
 		}
 	}
 
 	switch {
-	case strings.HasPrefix(req.Model, "hotel/"):
-		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", req.Model)
-		displayModel := strings.ToLower(strings.TrimPrefix(req.Model, "hotel/"))
+	case strings.HasPrefix(reqModel, "hotel/"):
+		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", reqModel)
+		displayModel := strings.ToLower(strings.TrimPrefix(reqModel, "hotel/"))
 		candidates, timings, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
 			h.failRequest(logData, 404, err.Error(), 0, startTime, parseMs, timings, 0)
@@ -904,9 +952,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
 			return
 		}
-	case strings.Contains(req.Model, "/") && !strings.HasPrefix(req.Model, "hotel/"):
-		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", req.Model)
-		parts := strings.SplitN(req.Model, "/", 2)
+	case strings.Contains(reqModel, "/") && !strings.HasPrefix(reqModel, "hotel/"):
+		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", reqModel)
+		parts := strings.SplitN(reqModel, "/", 2)
 		providerName, modelID := parts[0], parts[1]
 		candidates, timings, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
@@ -915,16 +963,26 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		h.failRequest(logData, 400, "invalid model format: "+req.Model, 0, startTime, parseMs, timings, 0)
+		h.failRequest(logData, 400, "invalid model format: "+reqModel, 0, startTime, parseMs, timings, 0)
 		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
 		return
 	}
 
-	proxyOverhead := parseMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.safeDialMs + timings.settingsReadMs
-	debuglog.Debug("proxy: model resolved", "model", req.Model, "candidates", len(candidates), "overhead_ms", proxyOverhead)
+	// Re-read accumulated settings read time from context pointer.
+	// The initial read captured the rate limiter's contribution,
+	// but resolve handlers called AddSettingsReadMs for circuit breaker and
+	// failover settings. The pointer now holds the total.
+	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			timings.settingsReadMs = *p
+		}
+	}
+
+	proxyOverhead := parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
+	debuglog.Debug("proxy: model resolved (pre-loop)", "model", reqModel, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
 	var proxyReqBody []byte
-	if req.Stream {
+	if isStreaming {
 		var raw map[string]interface{}
 		if json.Unmarshal(bodyBytes, &raw) == nil {
 			raw["stream_options"] = map[string]interface{}{
@@ -932,7 +990,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 			if b, err := json.Marshal(raw); err == nil {
 				proxyReqBody = b
-				debuglog.Debug("proxy: injected stream_options into request", "model", req.Model)
+				debuglog.Debug("proxy: injected stream_options into request", "model", reqModel)
 			}
 		}
 	}
@@ -943,22 +1001,38 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Per-request DNS resolution timing. SafeDialer's DialContext writes
 	// into this pointer via context, avoiding cross-request races on a
 	// shared atomic field.
-	var safeDialMs float64
+	var dialMs float64
 
 	// Non-streaming timeout is configurable via request_timeout setting (default 1m).
 	// Streaming requests get 10× the non-streaming timeout to accommodate
 	// thinking/reasoning models that can take several minutes before first token.
 	// Read once before the loop so all attempts within a single request use
 	// the same timeout, avoiding inconsistency if the setting changes mid-request.
+	rtStart := time.Now()
 	baseTimeout := h.settingsRepo.GetDuration(r.Context(), "request_timeout", time.Minute)
+	ctxkeys.AddSettingsReadMs(r.Context(), rtStart)
 	failoverTimeout := baseTimeout
-	if req.Stream {
+	if isStreaming {
 		failoverTimeout = baseTimeout * 10
 	}
 
 	var lastErr string
 	// Read circuit_breaker_enabled once before the loop to avoid repeated settings reads.
+	cbStart2 := time.Now()
 	circuitBreakerEnabled := h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
+	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
+
+	// Final re-read of accumulated settings read time. The initial read
+	// captured the rate limiter's contribution, resolve handlers added
+	// circuit breaker/failover settings, and the proxy loop added
+	// request_timeout and circuit_breaker_enabled reads. Recompute
+	// proxyOverhead with the complete total.
+	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			timings.settingsReadMs = *p
+		}
+	}
+	proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
 
 	for attempt, candidate := range candidates {
 		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
@@ -970,7 +1044,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
-				debuglog.Info("proxy: client disconnected during failover backoff", "model", req.Model, "attempt", attempt+1)
+				debuglog.Info("proxy: client disconnected during failover backoff", "model", reqModel, "attempt", attempt+1)
 				h.failRequest(logData, 499, "client disconnected during failover", attempt-1, startTime, parseMs, timings, proxyOverhead)
 				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
 				return
@@ -1003,12 +1077,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 		upstreamBody := proxyReqBody
-		needsRewrite := req.Model != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType)
-		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", req.Model, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
+		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType)
+		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", reqModel, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			var raw map[string]interface{}
 			if json.Unmarshal(proxyReqBody, &raw) == nil {
-				if req.Model != candidate.model.ModelID {
+				if reqModel != candidate.model.ModelID {
 					raw["model"] = candidate.model.ModelID
 				}
 				// Preemptively strip params known to be universally rejected per provider.
@@ -1060,7 +1134,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		// Inject per-request dial timing pointer so SafeDialer writes
 		// DNS resolution time into this request's own variable, avoiding
 		// cross-request race conditions on a shared atomic.
-		dialCtx := context.WithValue(failoverCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
+		dialCtx := context.WithValue(failoverCtx, ctxkeys.DialMsKey, &dialMs)
 		proxyReq = proxyReq.WithContext(dialCtx)
 
 		upstreamClient := &http.Client{
@@ -1068,7 +1142,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err := upstreamClient.Do(proxyReq)
-		timings.safeDialMs = safeDialMs
+		timings.dialMs += dialMs
+		dialMs = 0
 		if err != nil {
 			failoverCancel() // no body to consume on error
 			// Determine the origin of context cancellation for actionable errors.
@@ -1089,7 +1164,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				lastErr = fmt.Sprintf("attempt %d: %s: %v", attempt, cancelOrigin, err)
-				debuglog.Info("proxy: context cancelled during request to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", req.Model, "origin", cancelOrigin, "error", err)
+				debuglog.Info("proxy: context cancelled during request to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", reqModel, "origin", cancelOrigin, "error", err)
 			} else {
 				lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 				debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
@@ -1162,7 +1237,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						if rebuilt, err := json.Marshal(raw); err == nil {
 							retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
 							retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-							retryCtx = context.WithValue(retryCtx, ctxkeys.SafeDialMsKey, &safeDialMs)
+							retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
 							retryCancel = rc
 							retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 							if retryErr != nil {
@@ -1181,6 +1256,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 								continue
 							}
 							failoverCancel() // original 400 body already consumed, original context no longer needed
+							// Accumulate retry's dial time into total.
+							timings.dialMs += dialMs
+							dialMs = 0
 							// retryCancel() must NOT be called here — retry resp.Body is read below.
 							// Store retryCancel for deferred cleanup after body consumption.
 							// Successfully retried — fall through to normal response handling
@@ -1233,8 +1311,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				retryCancel() // retry body consumed, context no longer needed
 			}
 			errMsg := util.SanitizeLogBody(string(body), 2000)
-			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body", errMsg)
-			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
+			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", reqModel, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body", errMsg)
+			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", reqModel, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.ttftMs = ttft
 			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			// Forward the upstream error to the client. If the upstream returned
@@ -1252,9 +1330,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", req.Stream, "model", req.Model, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
-		if req.Stream {
-			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
+		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", reqModel, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+		if isStreaming {
+			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt)
 			failoverCancel() // body consumed by handleStreamingResponse
 			if retryCancel != nil {
 				retryCancel()
@@ -1262,7 +1340,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, ttft, vkHash, attempt)
+		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt)
 		failoverCancel() // body consumed by handleNonStreamingResponse
 		if retryCancel != nil {
 			retryCancel()
@@ -1270,10 +1348,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Error("proxy: all providers exhausted", "model", req.Model, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
+	debuglog.Error("proxy: all providers exhausted", "model", reqModel, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
 	logData.providerID = uuid.Nil
 	h.failRequest(logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
-	writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", req.Model), http.StatusBadGateway)
+	writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", reqModel), http.StatusBadGateway)
 }
 
 // See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.

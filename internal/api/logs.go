@@ -26,10 +26,11 @@ type LogEntry struct {
 	TTFTMs                    float64   `json:"ttft_ms"`
 	ProxyOverheadMs           float64   `json:"proxy_overhead_ms"`
 	ParseMs                   float64   `json:"parse_ms"`
+	FailoverLookupMs          float64   `json:"failover_lookup_ms"`
 	ModelLookupMs             float64   `json:"model_lookup_ms"`
 	ProviderLookupMs          float64   `json:"provider_lookup_ms"`
 	KeyDecryptMs              float64   `json:"key_decrypt_ms"`
-	SafeDialMs                float64   `json:"safe_dial_ms"`
+	DialMs                    float64   `json:"dial_ms"`
 	SettingsReadMs            float64   `json:"settings_read_ms"`
 	TokensPerSecond           float64   `json:"tokens_per_second"`
 	TokensPrompt              int       `json:"tokens_prompt"`
@@ -177,8 +178,8 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
                COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
                COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
-               COALESCE(rl.parse_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-               COALESCE(rl.safe_dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
+               COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
+               COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
                COALESCE(rl.tokens_per_second, 0),
                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
                COALESCE(rl.tokens_completion_reasoning, 0),
@@ -281,8 +282,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
 			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
-			&entry.ParseMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-			&entry.SafeDialMs, &entry.SettingsReadMs,
+			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+			&entry.DialMs, &entry.SettingsReadMs,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
 			&entry.Streaming,

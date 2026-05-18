@@ -138,9 +138,12 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			entry := l.getLimiter(r.Context(), keyHash, perKeyRPS, perKeyBurst)
 
-			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter)
+			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter).
+			// Use a pointer so downstream handlers (resolve, proxy) can accumulate
+			// additional settings reads via ctxkeys.AddSettingsReadMs.
 			settingsReadMs := float64(time.Since(settingsStart).Microseconds()) / 1000.0
-			ctx := context.WithValue(r.Context(), ctxkeys.SettingsReadMsKey, settingsReadMs)
+			var settingsReadMsVal = settingsReadMs
+			ctx := context.WithValue(r.Context(), ctxkeys.SettingsReadMsKey, &settingsReadMsVal)
 
 			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 

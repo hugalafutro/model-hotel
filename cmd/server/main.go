@@ -807,6 +807,7 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 				return
 			}
 
+			parseStart := time.Now()
 			body, err := io.ReadAll(r.Body)
 			_ = r.Body.Close()
 			if err != nil {
@@ -814,19 +815,28 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 				return
 			}
 
-			isStreaming := false
+			// Extract both stream and model in a single unmarshal so
+			// downstream handlers can skip re-parsing cached bytes.
 			var parsed struct {
-				Stream bool `json:"stream"`
+				Stream bool   `json:"stream"`
+				Model  string `json:"model"`
 			}
+			isStreaming := false
+			modelName := ""
 			if json.Unmarshal(body, &parsed) == nil {
 				isStreaming = parsed.Stream
+				modelName = parsed.Model
 			}
+			parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
 
 			// Restore the body so downstream handlers can read it
 			r.Body = io.NopCloser(bytes.NewReader(body))
 
-			// Store body bytes in context so proxy handler can reuse them
+			// Store body bytes + extracted fields + timing in context
 			ctx := context.WithValue(r.Context(), ctxkeys.RequestBodyKey, body)
+			ctx = context.WithValue(ctx, ctxkeys.RequestBodyParseMsKey, parseMs)
+			ctx = context.WithValue(ctx, ctxkeys.RequestModelKey, modelName)
+			ctx = context.WithValue(ctx, ctxkeys.IsStreamingKey, isStreaming)
 
 			if isStreaming {
 				next.ServeHTTP(w, r.WithContext(ctx))

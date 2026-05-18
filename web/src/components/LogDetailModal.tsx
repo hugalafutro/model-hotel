@@ -350,7 +350,11 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 									value: requestLog.parse_ms,
 								},
 								{
-									label: "Model/Failover Lookup",
+									label: "Failover Group Lookup",
+									value: requestLog.failover_lookup_ms,
+								},
+								{
+									label: "Model Lookup",
 									value: requestLog.model_lookup_ms,
 								},
 								{
@@ -362,8 +366,8 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 									value: requestLog.key_decrypt_ms,
 								},
 								{
-									label: "DNS Safety Check",
-									value: requestLog.safe_dial_ms,
+									label: "Dial (DNS+TCP)",
+									value: requestLog.dial_ms,
 								},
 								{
 									label: "Settings Reads",

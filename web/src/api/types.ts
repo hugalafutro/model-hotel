@@ -74,10 +74,11 @@ export interface LogEntry {
 	ttft_ms: number;
 	proxy_overhead_ms: number;
 	parse_ms: number;
+	failover_lookup_ms: number;
 	model_lookup_ms: number;
 	provider_lookup_ms: number;
 	key_decrypt_ms: number;
-	safe_dial_ms: number;
+	dial_ms: number;
 	settings_read_ms: number;
 	tokens_per_second: number | null;
 	tokens_prompt: number;
