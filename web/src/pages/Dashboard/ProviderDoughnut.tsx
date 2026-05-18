@@ -22,7 +22,7 @@ const GRID_SIZE = GRID * CELL + (GRID - 1) * GAP;
 
 /**
  * Largest-remainder method with minimum-1 guarantee:
- * every provider with share > 0 gets at least 1 cell, total = 100.
+ * every provider with share > 0 gets at least 1 cell, total = exactly 100.
  */
 function buildCells(items: ProviderDistItem[]) {
 	const total = GRID * GRID;
@@ -34,19 +34,32 @@ function buildCells(items: ProviderDistItem[]) {
 
 	// Allocate remaining cells by largest fractional part
 	const rawShares = items.map((it) => (it.share / 100) * total);
-	const adjusted = rawShares.map((raw, i) => Math.max(0, raw - guaranteed[i]));
-	const floored = adjusted.map((v) => Math.floor(v));
+	const adjusted = rawShares.map((raw, i) => raw - guaranteed[i]);
+	const floored = adjusted.map((v) => Math.max(0, Math.floor(v)));
 	const remainders = adjusted.map((v, i) => ({
 		index: i,
-		remainder: v - floored[i],
+		remainder: v - Math.floor(v),
 	}));
 
 	const sumFloor = floored.reduce((s, v) => s + v, 0);
 	const leftover = remaining - sumFloor;
 
 	remainders.sort((a, b) => b.remainder - a.remainder);
-	for (let l = 0; l < leftover; l++) {
-		floored[remainders[l].index]++;
+	if (leftover >= 0) {
+		for (let l = 0; l < leftover; l++) {
+			floored[remainders[l].index]++;
+		}
+	} else {
+		// Over-allocated (clipping of negative adjusted): subtract from largest
+		const deficit = -leftover;
+		// Sort by floored count descending to take from the largest
+		const bySize = floored
+			.map((v, i) => ({ index: i, value: v }))
+			.filter((e) => e.value > 0)
+			.sort((a, b) => b.value - a.value);
+		for (let d = 0; d < deficit && d < bySize.length; d++) {
+			floored[bySize[d].index]--;
+		}
 	}
 
 	const counts = items.map((_, i) => guaranteed[i] + floored[i]);
@@ -172,7 +185,7 @@ export function ProviderDoughnut({
 											}}
 										/>
 										<span
-											className="text-sm truncate"
+											className="text-sm text-(--text-secondary) truncate"
 											style={{
 												color: isHighlighted
 													? COLORS[i % COLORS.length]

@@ -101,6 +101,8 @@ describe("ProviderDoughnut", () => {
 
 		const grid = container.querySelector("[role='img']");
 		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		// Total must be exactly 100, even with guaranteed-1 + dominant provider
+		expect(cells).toHaveLength(100);
 		// All 3 providers should have at least 1 cell
 		const colors = new Set(
 			Array.from(cells).map((c) => (c as HTMLElement).style.backgroundColor),
