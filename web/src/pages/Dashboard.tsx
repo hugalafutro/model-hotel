@@ -484,7 +484,7 @@ export function Dashboard() {
 				icon={Timer}
 				color={accents.latency}
 				dataKey="latency"
-				label="s"
+				label="seconds"
 			/>
 			<GaugeModal
 				open={requestsModalOpen}
@@ -505,7 +505,7 @@ export function Dashboard() {
 				icon={GaugeIcon}
 				color={accents.latency}
 				dataKey="avg_ttft_ms"
-				label="s"
+				label="seconds"
 				scale={0.001}
 			/>
 			<GaugeModal
