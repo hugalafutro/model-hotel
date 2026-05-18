@@ -375,11 +375,13 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								},
 							].map(
 								({ label, value }) =>
-									value > 0 && (
+									value >= 0 && (
 										<div key={label} className="flex justify-between text-sm">
 											<span className="text-(--text-secondary)">{label}</span>
 											<span className="font-mono text-(--text-primary)">
-												{formatMs(value, 3)}
+												{label === "Dial (DNS+TCP)" && value === 0
+													? "reused"
+													: formatMs(value, 3)}
 											</span>
 										</div>
 									),
