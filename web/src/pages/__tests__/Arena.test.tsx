@@ -1479,7 +1479,7 @@ describe("Arena", () => {
 			server.use(
 				...mockAllDefaults({ models: [mockModel, mockModel2] }),
 				http.post("/api/chat/arena", () => {
-					throw new Error("Network error");
+					return HttpResponse.error();
 				}),
 			);
 

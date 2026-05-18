@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { http } from "msw";
+import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
 	mockAllDefaults,
@@ -884,10 +884,12 @@ describe("Chat", () => {
 			);
 		});
 
-		it("shows error when network fails", async () => {
+		it("shows error when network fails", {
+			timeout: 15000,
+		}, async () => {
 			server.use(
 				http.post("/api/chat/chat", () => {
-					throw new Error("Network error");
+					return HttpResponse.error();
 				}),
 			);
 

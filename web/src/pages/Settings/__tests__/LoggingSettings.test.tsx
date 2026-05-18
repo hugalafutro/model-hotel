@@ -13,6 +13,9 @@ describe("LoggingSettings", () => {
 	beforeEach(() => {
 		resetStore();
 		server.resetHandlers(
+			http.get("/api/events", () => {
+				return new HttpResponse(null, { status: 200 });
+			}),
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
 					log_retention: "0",

@@ -9,16 +9,24 @@ import { GaugeModal } from "../GaugeModal";
 
 vi.mock("recharts", () => ({
 	ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="responsive-container">{children}</div>
+		<svg data-testid="responsive-container" aria-hidden="true">
+			{children}
+		</svg>
 	),
 	AreaChart: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="area-chart">{children}</div>
+		<svg data-testid="area-chart" aria-hidden="true">
+			{children}
+		</svg>
 	),
 	PieChart: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="pie-chart">{children}</div>
+		<svg data-testid="pie-chart" aria-hidden="true">
+			{children}
+		</svg>
 	),
 	Pie: ({ children }: { children?: React.ReactNode }) => (
-		<div data-testid="pie">{children}</div>
+		<svg data-testid="pie" aria-hidden="true">
+			{children}
+		</svg>
 	),
 	Cell: ({ fill }: { fill?: string }) => (
 		<div data-testid="pie-cell" style={{ backgroundColor: fill }} />

@@ -205,7 +205,7 @@ describe("ProxySettings", () => {
 		const user = userEvent.setup();
 
 		server.use(
-			http.put("/api/settings", () => HttpResponse.error("Network error")),
+			http.put("/api/settings", () => HttpResponse.error()),
 		);
 
 		renderWithProviders(
