@@ -32,10 +32,13 @@ export function pad(n: number): string {
 export function formatDateRangeShort(from: string, to: string): string {
 	// Use toISODate to convert any input (plain date or ISO timestamp)
 	// to local date components, then parse components directly to avoid
-	// any further Date constructor ambiguity (date-only strings parse as
-	// UTC per ECMAScript spec, which shifts dates near midnight).
-	const fromLocal = toISODate(new Date(from));
-	const toLocal = toISODate(new Date(to));
+	// any further Date constructor ambiguity.  Bare "YYYY-MM-DD" strings
+	// parse as UTC per ECMAScript spec, so we append T00:00:00 to force
+	// local-time parsing (same approach as useDateRangePicker).
+	const fromDate = new Date(from.includes("T") ? from : `${from}T00:00:00`);
+	const toDate = new Date(to.includes("T") ? to : `${to}T00:00:00`);
+	const fromLocal = toISODate(fromDate);
+	const toLocal = toISODate(toDate);
 	const [fy, fm, fd] = fromLocal.split("-").map(Number);
 	const [ty, tm, td] = toLocal.split("-").map(Number);
 	const sameMonth = fm === tm && fy === ty;

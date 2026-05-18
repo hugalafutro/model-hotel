@@ -3,12 +3,11 @@ import {
 	daysInMonth,
 	firstDayOfMonth,
 	formatDateRangeShort,
-	formatMs,
-	formatTPS,
 	pad,
 	todayISO,
 	toISODate,
-} from "../utils";
+} from "../../../components/AccentCalendar.utils";
+import { formatMs, formatTPS } from "../utils";
 
 describe("toISODate", () => {
 	it("formats date as YYYY-MM-DD", () => {
@@ -153,6 +152,20 @@ describe("formatDateRangeShort", () => {
 		const from = "2024-03-15";
 		const to = "2024-03-15";
 		expect(formatDateRangeShort(from, to)).toBe("15/03-15/03/2024");
+	});
+
+	it("handles ISO timestamp inputs", () => {
+		// Local-time timestamps (no Z suffix) so toISODate extracts
+		// the same date components regardless of the runner's timezone.
+		const from = "2024-03-05T10:30:00";
+		const to = "2024-03-15T18:00:00";
+		expect(formatDateRangeShort(from, to)).toBe("05/03-15/03/2024");
+	});
+
+	it("handles mixed bare-date and timestamp inputs", () => {
+		const from = "2024-02-25";
+		const to = "2024-03-05T12:00:00";
+		expect(formatDateRangeShort(from, to)).toBe("25/02/24 - 05/03/2024");
 	});
 });
 
