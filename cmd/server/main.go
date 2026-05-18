@@ -423,26 +423,31 @@ func main() {
 		}
 	}
 
-	// Pre-warm caches: key decryption, provider, model, and failover
-	go func() {
+	// Pre-warm caches synchronously before accepting connections.
+	// Provider, model, and failover lookups are fast (simple SELECT queries),
+	// but key warming (Argon2id) can take ~150ms per provider. The total
+	// warm-up cost is typically under 1s for a handful of providers —
+	// far better than letting the first request pay the cold-cache penalty
+	// of ~170ms+ in failover + model + provider + key decryption DB queries.
+	{
 		ctx := context.Background()
 
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
 			debuglog.Error("cache: warm failed to list providers", "error", err)
-			return
-		}
-		enabledProviders := make([]*provider.Provider, 0, len(providers))
-		for _, p := range providers {
-			if !p.Enabled {
-				continue
+		} else {
+			enabledProviders := make([]*provider.Provider, 0, len(providers))
+			for _, p := range providers {
+				if !p.Enabled {
+					continue
+				}
+				if len(p.EncryptedKey) > 0 {
+					auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
+				}
+				enabledProviders = append(enabledProviders, p)
 			}
-			if len(p.EncryptedKey) > 0 {
-				auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
-			}
-			enabledProviders = append(enabledProviders, p)
+			provider.WarmProviderCache(enabledProviders)
 		}
-		provider.WarmProviderCache(enabledProviders)
 
 		enabledModels, err := modelRepo.ListEnabled(ctx)
 		if err != nil {
@@ -459,7 +464,7 @@ func main() {
 		}
 
 		debuglog.Info("cache: key, provider, model, and failover caches warmed")
-	}()
+	}
 
 	// Initialize key cache TTL from settings and react to changes.
 	auth.SetKeyCacheTTL(settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL))
