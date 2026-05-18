@@ -30,7 +30,7 @@ func (t resolveTimings) proxyOverheadMs(parseMs float64) float64 {
 func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {
 	debuglog.Debug("resolve: resolving hotel model", "model", displayModel)
 	var t resolveTimings
-	modelLookupStart := time.Now()
+	failoverLookupStart := time.Now()
 
 	fg, err := h.failoverRepo.GetByModel(ctx, displayModel)
 	if err != nil {
@@ -47,11 +47,10 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, fmt.Errorf("no entries in failover group")
 	}
 
-	t.failoverLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	t.failoverLookupMs = float64(time.Since(failoverLookupStart).Microseconds()) / 1000.0
 	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
-	providerLookupStart := time.Now()
-	var keyDecryptTotal float64
+	modelLookupStart := time.Now()
 
 	// Collect enabled model UUIDs for batch lookup
 	enabledModelIDs := make([]uuid.UUID, 0, len(fg.PriorityOrder))
@@ -70,6 +69,12 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, err
 	}
 
+	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+
+	providerLookupStart := time.Now()
+	var keyDecryptTotal float64
+	var settingsReadInWindow float64
+
 	// Collect unique provider IDs for batch lookup
 	providerIDSet := make(map[uuid.UUID]struct{})
 	for _, modelUUID := range enabledModelIDs {
@@ -85,6 +90,23 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	providers, err := h.providerRepo.GetByIDs(ctx, providerIDs)
 	if err != nil {
 		return nil, t, err
+	}
+
+	// Read circuit_breaker_enabled once before the loop to avoid
+	// per-candidate settings reads. This single read is still accounted
+	// for in both settingsReadMs (via context accumulator) and
+	// settingsReadInWindow (subtracted from providerLookupMs below).
+	cbStart := time.Now()
+	cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
+	cbElapsed := float64(time.Since(cbStart).Microseconds()) / 1000.0
+	settingsReadInWindow += cbElapsed
+	// Add the same pre-computed elapsed value to the context accumulator
+	// to avoid a second time.Since(cbStart) call that would diverge
+	// from settingsReadInWindow (which is subtracted from providerLookupMs).
+	if v := ctx.Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			*p += cbElapsed
+		}
 	}
 
 	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
@@ -123,9 +145,6 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		}
 
 		// Circuit breaker: skip providers that are in the open state.
-		cbStart := time.Now()
-		cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
-		ctxkeys.AddSettingsReadMs(ctx, cbStart)
 		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID) {
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
@@ -150,7 +169,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
 
-	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal)
+	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal-settingsReadInWindow)
 	t.keyDecryptMs = keyDecryptTotal
 	if len(candidates) == 0 && decryptFailures > 0 {
 		return nil, t, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
