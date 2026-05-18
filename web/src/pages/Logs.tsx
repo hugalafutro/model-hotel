@@ -687,11 +687,17 @@ function RequestLogs() {
 												</Badge>
 											</td>
 											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-												{isCancelled(log.error_message)
-													? "Interrupted"
-													: log.tokens_prompt + log.tokens_completion > 0
-														? `${formatNumber(log.tokens_prompt)}+${formatNumber(log.tokens_completion)}`
-														: "-"}
+												{isCancelled(log.error_message) ? (
+													"Interrupted"
+												) : log.tokens_prompt + log.tokens_completion > 0 ? (
+													<>
+														{formatNumber(log.tokens_prompt)}
+														<span className="text-gray-600">+</span>
+														{formatNumber(log.tokens_completion)}
+													</>
+												) : (
+													"-"
+												)}
 											</td>
 											<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 												{isCancelled(log.error_message)
