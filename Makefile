@@ -1,6 +1,6 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down patch minor major
 
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o bin/server ./cmd/server/
@@ -45,3 +45,30 @@ test-db-up:
 
 test-db-down:
 	docker compose -f docker-compose.test.yml down -v
+
+# -- Version bump (updates .version, commits, tags, pushes atomically) --
+
+patch:
+	@$(MAKE) _bump LEVEL=patch
+
+minor:
+	@$(MAKE) _bump LEVEL=minor
+
+major:
+	@$(MAKE) _bump LEVEL=major
+
+_bump:
+	@CURRENT=$$(cat .version) && \
+	IFS='.' read -r MAJ MIN PAT <<<"$$CURRENT" && \
+	case $(LEVEL) in \
+	  patch) PAT=$$((PAT + 1)) ;; \
+	  minor) MIN=$$((MIN + 1)); PAT=0 ;; \
+	  major) MAJ=$$((MAJ + 1)); MIN=0; PAT=0 ;; \
+	esac && \
+	NEW="$$MAJ.$$MIN.$$PAT" && \
+	echo "$$NEW" > .version && \
+	git add -A && \
+	git commit -m "v$$NEW" && \
+	git tag "v$$NEW" && \
+	git push --atomic origin master "v$$NEW" && \
+	echo "Bumped $$CURRENT -> $$NEW and pushed"
