@@ -979,6 +979,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Initial overhead estimate (excludes dialMs — not yet populated).
+	// proxyOverhead is recomputed after each dial inside the failover loop
+	// so that all exit paths (backoff disconnect, error, failRequest) use
+	// the current accumulated total.
 	proxyOverhead := parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.settingsReadMs
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", reqModel, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
@@ -1146,6 +1149,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		resp, err := upstreamClient.Do(proxyReq)
 		timings.dialMs += dialMs
 		dialMs = 0
+		proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
 		if err != nil {
 			failoverCancel() // no body to consume on error
 			// Determine the origin of context cancellation for actionable errors.
@@ -1261,6 +1265,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							// Accumulate retry's dial time into total.
 							timings.dialMs += dialMs
 							dialMs = 0
+							proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
 							// retryCancel() must NOT be called here — retry resp.Body is read below.
 							// Store retryCancel for deferred cleanup after body consumption.
 							// Successfully retried — fall through to normal response handling
@@ -1272,9 +1277,6 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
-
-		// Recompute proxyOverhead now that dialMs is populated by SafeDialer.
-		proxyOverhead = parseMs + timings.failoverLookupMs + timings.modelLookupMs + timings.providerLookupMs + timings.keyDecryptMs + timings.dialMs + timings.settingsReadMs
 
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
