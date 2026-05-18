@@ -59,7 +59,7 @@ describe("baseUrls", () => {
 	});
 
 	it("has entry for zai-coding", () => {
-		expect(baseUrls["zai-coding"]).toBe("https://api.z.ai/api/paas/v4");
+		expect(baseUrls["zai-coding"]).toBe("https://api.z.ai/api/coding/paas/v4");
 	});
 
 	it("has entry for opencode-zen", () => {
