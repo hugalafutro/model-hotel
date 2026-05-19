@@ -205,22 +205,33 @@ export function useChat() {
 		});
 	}, []);
 
-	// Scroll on mount
-	useEffect(() => {
-		scrollToBottom();
-	}, [scrollToBottom]);
+	// Track whether the user deliberately scrolled up to read earlier messages.
+	// Reset on new user messages and when scrolling back to bottom.
+	const userScrolledUpRef = useRef(false);
 
-	// Scroll after layout settles (e.g. when message bubbles render)
+	// Attach scroll listener to detect user scrolling up vs programmatic scroll.
 	useEffect(() => {
-		scrollToBottom();
-		const timer = setTimeout(scrollToBottom, 320);
+		const el = messagesContainerRef.current;
+		if (!el) return;
+		const onScroll = () => {
+			const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+			userScrolledUpRef.current = !atBottom;
+		};
+		el.addEventListener("scroll", onScroll, { passive: true });
+		return () => el.removeEventListener("scroll", onScroll);
+	}, []);
+
+	// Scroll on new messages. Reset userScrolledUp since the user initiated this.
+	const messagesLen = messages.length;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll on new messages
+	useEffect(() => {
+		userScrolledUpRef.current = false;
+		scrollToBottom(true);
+		const timer = setTimeout(() => scrollToBottom(false), 300);
 		return () => clearTimeout(timer);
-	}, [scrollToBottom]);
+	}, [messagesLen, scrollToBottom]);
 
-	// Auto-scroll during streaming - keeps latest content visible
-	// without being jarring if user is reading earlier messages.
-	// Uses instant scroll (not smooth) because Firefox cancels in-progress
-	// smooth scrolls when scrollTo is called again rapidly during streaming.
+	// Smooth auto-scroll during streaming — follows tokens as they arrive.
 	const streamingContentLen = messages.reduce(
 		(sum, m) => sum + m.content.length,
 		0,
@@ -228,13 +239,8 @@ export function useChat() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: streamingContentLen triggers re-scroll on streaming updates
 	useEffect(() => {
 		if (!isStreaming) return;
-		const el = messagesContainerRef.current;
-		if (!el) return;
-		// Only auto-scroll if user is already near the bottom (within 150px)
-		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-		if (nearBottom) {
-			scrollToBottom(false);
-		}
+		if (userScrolledUpRef.current) return;
+		scrollToBottom(true);
 	}, [streamingContentLen, isStreaming, scrollToBottom]);
 
 	// Shared streaming helper: creates abort controller, assistant placeholder,

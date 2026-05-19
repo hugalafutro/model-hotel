@@ -60,7 +60,7 @@ export function Arena() {
 	}, [streamingContentLen, arena.isRunning]);
 
 	return (
-		<div className="flex flex-col gap-6 min-h-[calc(100vh-64px)]">
+		<div className="flex flex-col gap-6 min-h-full">
 			{/* Header */}
 			<PageHeader
 				icon={arena.arenaIcon}

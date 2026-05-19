@@ -32,7 +32,7 @@ export function Chat() {
 
 	return (
 		<div
-			className={`flex flex-col gap-6 min-h-[calc(100vh-64px)] ${chat.chatSubMode === "conversation" ? "" : "lg:h-[calc(100vh-64px)] lg:overflow-hidden"}`}
+			className={`flex flex-col gap-6 ${chat.chatSubMode === "conversation" ? "min-h-full" : "h-full overflow-hidden"}`}
 		>
 			{/* Header */}
 			<PageHeader
@@ -255,14 +255,14 @@ export function Chat() {
 
 			{/* Chat Area: Model Details + Messages */}
 			<div
-				className={`flex gap-4 flex-1 ${chat.chatSubMode === "conversation" ? "overflow-visible" : "min-h-0 lg:overflow-hidden p-1.5"}`}
+				className={`flex gap-4 flex-1 ${chat.chatSubMode === "conversation" ? "overflow-visible" : "min-h-0 overflow-hidden p-1.5"}`}
 			>
 				{/* Sidebar */}
 				<div
 					className={`shrink-0 flex flex-col ${
 						chat.chatSubMode === "conversation"
 							? "w-1/3 gap-3 overflow-visible"
-							: "min-h-0 lg:overflow-y-auto w-1/4"
+							: "min-h-0 overflow-y-auto w-1/4"
 					}`}
 				>
 					{chat.chatSubMode === "chat" ? (
