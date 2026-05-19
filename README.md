@@ -70,12 +70,22 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ## [<img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots](#-screenshots)
 
 <div align="center">
-
-| | | | | |
-|:---:|:---:|:---:|:---:|:---:|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Providers](docs/screenshots/providers.png) | ![Models](docs/screenshots/models.png) | ![Logs](docs/screenshots/logs.png) | ![Failover](docs/screenshots/failover.png) |
-| ![Settings](docs/screenshots/settings.png) | ![Virtual Keys](docs/screenshots/virtual_keys.png) | ![Chat](docs/screenshots/chat.png) | ![Arena](docs/screenshots/arena.png) | ![App Logs](docs/screenshots/applogs.png) |
-
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/dashboard.png" alt="Dashboard"><br><b>Dashboard</b></td>
+<td align="center"><img src="docs/screenshots/providers.png" alt="Providers"><br><b>Providers</b></td>
+<td align="center"><img src="docs/screenshots/models.png" alt="Models"><br><b>Models</b></td>
+<td align="center"><img src="docs/screenshots/logs.png" alt="Logs"><br><b>Logs</b></td>
+<td align="center"><img src="docs/screenshots/failover.png" alt="Failover"><br><b>Failover</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/settings.png" alt="Settings"><br><b>Settings</b></td>
+<td align="center"><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys"><br><b>Virtual Keys</b></td>
+<td align="center"><img src="docs/screenshots/chat.png" alt="Chat"><br><b>Chat</b></td>
+<td align="center"><img src="docs/screenshots/arena.png" alt="Arena"><br><b>Arena</b></td>
+<td align="center"><img src="docs/screenshots/applogs.png" alt="App Logs"><br><b>App Logs</b></td>
+</tr>
+</table>
 </div>
 
 ## What It Does
