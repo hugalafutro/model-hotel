@@ -91,7 +91,9 @@ export function ModelDetailModal({
 	const [discovering, setDiscovering] = useState(false);
 	const [testing, setTesting] = useState(false);
 	const [testError, setTestError] = useState(false);
-	const [snippetTab, setSnippetTab] = useState<"curl" | "zed">("curl");
+	const [snippetTab, setSnippetTab] = useState<"curl" | "zed" | "opencode">(
+		"curl",
+	);
 	const {
 		editing,
 		setEditing,
@@ -176,22 +178,81 @@ export function ModelDetailModal({
 
 	const zedJson = JSON.stringify(
 		{
-			name: pMid,
-			display_name: model.name,
-			max_tokens: model.max_output_tokens,
-			context_length: model.context_length,
-			capabilities: {
-				tools: hasCap(caps, "tool_calling"),
-				images: hasCap(caps, "vision"),
-				parallel_tool_calls: hasCap(caps, "parallel_tool_calls"),
-				prompt_cache_key: false,
+			language_models: {
+				openai_compatible: {
+					"model-hotel": {
+						api_url: `${window.location.origin}/v1`,
+						available_models: [
+							{
+								name: pMid,
+								display_name: model.display_name || model.name,
+								max_tokens: model.context_length,
+								max_output_tokens: model.max_output_tokens,
+								capabilities: {
+									tools: hasCap(caps, "tool_calling"),
+									images: hasCap(caps, "vision"),
+									parallel_tool_calls: hasCap(caps, "parallel_tool_calls"),
+									prompt_cache_key: false,
+									chat_completions: true,
+									interleaved_reasoning: hasCap(caps, "reasoning"),
+								},
+							},
+						],
+					},
+				},
 			},
 		},
 		null,
 		2,
 	);
 
-	const snippetContent = snippetTab === "curl" ? curlCmd : zedJson;
+	const opencodeJson = JSON.stringify(
+		{
+			provider: {
+				"model-hotel": {
+					npm: "@ai-sdk/openai-compatible",
+					name: "Model Hotel",
+					options: {
+						baseURL: `${window.location.origin}/v1`,
+					},
+					models: {
+						[model.display_name || model.name || pMid]: {
+							id: pMid,
+							attachment: inputMods.some((m) => m !== "text"),
+							reasoning: hasCap(caps, "reasoning"),
+							tool_call: hasCap(caps, "tool_calling"),
+							limit: {
+								context: model.context_length,
+								output: model.max_output_tokens,
+							},
+							modalities: {
+								input: inputMods.length > 0 ? inputMods : ["text"],
+								output: outputMods.length > 0 ? outputMods : ["text"],
+							},
+							...(model.input_price_per_million != null &&
+							model.output_price_per_million != null
+								? {
+										cost: {
+											input: model.input_price_per_million,
+											output: model.output_price_per_million,
+										},
+									}
+								: {}),
+						},
+					},
+				},
+			},
+		},
+		null,
+		2,
+	);
+
+	const snippetContent =
+		snippetTab === "curl"
+			? curlCmd
+			: snippetTab === "zed"
+				? zedJson
+				: opencodeJson;
 
 	return (
 		<Modal
@@ -474,7 +535,7 @@ export function ModelDetailModal({
 			<div className="mt-4 pt-4">
 				<div className="flex items-center justify-between mb-3">
 					<div className="flex items-center gap-1">
-						{(["curl", "zed"] as const).map((tab) => (
+						{(["curl", "zed", "opencode"] as const).map((tab) => (
 							<button
 								key={tab}
 								type="button"
@@ -485,7 +546,7 @@ export function ModelDetailModal({
 										: "text-slate-500 hover:text-slate-400 border border-transparent"
 								}`}
 							>
-								{tab === "curl" ? "cURL" : "ZED"}
+								{tab === "curl" ? "cURL" : tab === "zed" ? "ZED" : "OpenCode"}
 							</button>
 						))}
 					</div>
