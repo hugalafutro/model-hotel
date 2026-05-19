@@ -18,48 +18,72 @@ describe("SortableHeader", () => {
 
 	it("renders label", () => {
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "asc" }}
-				onSort={onSort}
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={onSort}
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
 		expect(screen.getByText("Name")).toBeInTheDocument();
 	});
 
 	it("renders sort arrow when active ascending", () => {
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "asc" }}
-				onSort={onSort}
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={onSort}
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
 		expect(screen.getByText("↑")).toBeInTheDocument();
 	});
 
 	it("renders sort arrow when active descending", () => {
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "desc" }}
-				onSort={onSort}
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "desc" }}
+							onSort={onSort}
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
 		expect(screen.getByText("↓")).toBeInTheDocument();
 	});
 
 	it("renders blank space when not active", () => {
 		const { container } = render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "other", dir: "asc" }}
-				onSort={onSort}
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "other", dir: "asc" }}
+							onSort={onSort}
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
 		// When not active, the span contains only a space (no arrow)
 		const span = container.querySelector("button span");
@@ -70,12 +94,18 @@ describe("SortableHeader", () => {
 	it("calls onSort when clicked", async () => {
 		const user = userEvent.setup();
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "asc" }}
-				onSort={onSort}
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={onSort}
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
 		await user.click(screen.getByText("Name"));
 		expect(onSort).toHaveBeenCalledWith("name");
@@ -83,12 +113,18 @@ describe("SortableHeader", () => {
 
 	it("has aria-label for accessible sorting", () => {
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "asc" }}
-				onSort={onSort}
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={onSort}
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
 		expect(
 			screen.getByRole("button", { name: "Sort by Name" }),
@@ -97,28 +133,40 @@ describe("SortableHeader", () => {
 
 	it("applies custom className", () => {
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "asc" }}
-				onSort={onSort}
-				className="custom-header"
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={onSort}
+							className="custom-header"
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
-		expect(screen.getByText("Name").parentElement).toHaveClass("custom-header");
+		expect(screen.getByText("Name").closest("th")).toHaveClass("custom-header");
 	});
 
 	it("shows tooltip when provided", () => {
 		render(
-			<SortableHeader
-				label="Name"
-				field="name"
-				sort={{ field: "name", dir: "asc" }}
-				onSort={onSort}
-				tooltip="Sort by name"
-			/>,
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Name"
+							field="name"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={onSort}
+							tooltip="Sort by name"
+						/>
+					</tr>
+				</thead>
+			</table>,
 		);
-		expect(screen.getByText("Name").parentElement).toHaveAttribute(
+		expect(screen.getByText("Name").closest("th")).toHaveAttribute(
 			"title",
 			"Sort by name",
 		);
@@ -127,12 +175,28 @@ describe("SortableHeader", () => {
 
 describe("StaticHeader", () => {
 	it("renders children", () => {
-		render(<StaticHeader>Actions</StaticHeader>);
+		render(
+			<table>
+				<thead>
+					<tr>
+						<StaticHeader>Actions</StaticHeader>
+					</tr>
+				</thead>
+			</table>,
+		);
 		expect(screen.getByText("Actions")).toBeInTheDocument();
 	});
 
 	it("applies custom className", () => {
-		render(<StaticHeader className="custom-class">Actions</StaticHeader>);
+		render(
+			<table>
+				<thead>
+					<tr>
+						<StaticHeader className="custom-class">Actions</StaticHeader>
+					</tr>
+				</thead>
+			</table>,
+		);
 		// The th element contains both text and a span, so use closest to find the th
 		expect(screen.getByText("Actions").closest("th")).toHaveClass(
 			"custom-class",
@@ -140,7 +204,15 @@ describe("StaticHeader", () => {
 	});
 
 	it("shows tooltip when provided", () => {
-		render(<StaticHeader tooltip="Available actions">Actions</StaticHeader>);
+		render(
+			<table>
+				<thead>
+					<tr>
+						<StaticHeader tooltip="Available actions">Actions</StaticHeader>
+					</tr>
+				</thead>
+			</table>,
+		);
 		// The th element contains both text and a span, so use closest to find the th
 		expect(screen.getByText("Actions").closest("th")).toHaveAttribute(
 			"title",
@@ -151,15 +223,29 @@ describe("StaticHeader", () => {
 
 describe("StaticHeaderNoArrow", () => {
 	it("renders children", () => {
-		render(<StaticHeaderNoArrow>Actions</StaticHeaderNoArrow>);
+		render(
+			<table>
+				<thead>
+					<tr>
+						<StaticHeaderNoArrow>Actions</StaticHeaderNoArrow>
+					</tr>
+				</thead>
+			</table>,
+		);
 		expect(screen.getByText("Actions")).toBeInTheDocument();
 	});
 
 	it("applies custom className", () => {
 		render(
-			<StaticHeaderNoArrow className="custom-class">
-				Actions
-			</StaticHeaderNoArrow>,
+			<table>
+				<thead>
+					<tr>
+						<StaticHeaderNoArrow className="custom-class">
+							Actions
+						</StaticHeaderNoArrow>
+					</tr>
+				</thead>
+			</table>,
 		);
 		// The th element contains the text directly
 		expect(screen.getByText("Actions").closest("th")).toHaveClass(
@@ -169,9 +255,15 @@ describe("StaticHeaderNoArrow", () => {
 
 	it("shows tooltip when provided", () => {
 		render(
-			<StaticHeaderNoArrow tooltip="Available actions">
-				Actions
-			</StaticHeaderNoArrow>,
+			<table>
+				<thead>
+					<tr>
+						<StaticHeaderNoArrow tooltip="Available actions">
+							Actions
+						</StaticHeaderNoArrow>
+					</tr>
+				</thead>
+			</table>,
 		);
 		// The th element contains the text directly
 		expect(screen.getByText("Actions").closest("th")).toHaveAttribute(

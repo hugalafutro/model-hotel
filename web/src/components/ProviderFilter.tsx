@@ -98,17 +98,26 @@ export function ProviderFilter({
 				</span>
 				<span className="flex items-center gap-1 shrink-0">
 					{selected.size > 0 && (
-						<button
-							type="button"
-							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent)"
+						// biome-ignore lint/a11y/useSemanticElements: cannot use <button> inside <button>
+						<span
+							role="button"
+							tabIndex={0}
+							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent) cursor-pointer"
 							onClick={(e) => {
 								e.stopPropagation();
 								clear();
 							}}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									e.stopPropagation();
+									clear();
+								}
+							}}
 							title="Clear filter"
 						>
 							{selected.size}
-						</button>
+						</span>
 					)}
 					<ChevronDown
 						size={14}

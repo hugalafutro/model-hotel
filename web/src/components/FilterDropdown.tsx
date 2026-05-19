@@ -52,17 +52,26 @@ export function FilterDropdown({
 				</span>
 				<span className="flex items-center gap-1 shrink-0">
 					{value !== "" && (
-						<button
-							type="button"
-							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent) hover:bg-(--accent) hover:text-white transition-colors"
+						// biome-ignore lint/a11y/useSemanticElements: cannot use <button> inside <button>
+						<span
+							role="button"
+							tabIndex={0}
+							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent) hover:bg-(--accent) hover:text-white transition-colors cursor-pointer"
 							onClick={(e) => {
 								e.stopPropagation();
 								onChange("");
 							}}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									e.stopPropagation();
+									onChange("");
+								}
+							}}
 							title="Clear filter"
 						>
 							<X size={10} />
-						</button>
+						</span>
 					)}
 					<ChevronDown
 						size={14}

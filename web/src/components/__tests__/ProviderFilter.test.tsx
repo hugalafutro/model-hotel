@@ -336,7 +336,7 @@ describe("ProviderFilter", () => {
 				onChange={mockOnChange}
 			/>,
 		);
-		const clearBadge = screen.getByText("2").closest("button");
+		const clearBadge = screen.getByText("2").closest("[role='button']");
 		if (clearBadge) {
 			await user.click(clearBadge);
 			expect(mockOnChange).toHaveBeenCalledWith(new Set());
