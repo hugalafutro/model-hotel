@@ -1248,3 +1248,111 @@ func TestFailoverHandler_Candidates_CancelledContext(t *testing.T) {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap_test.go
+// ---------------------------------------------------------------------------
+
+// TestGetTokenCounts tests FailoverHandler.getTokenCounts() which queries
+// request_logs for models with hotel/ prefix and sums tokens in the last 30 days.
+func TestGetTokenCounts(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+
+	ctx := context.Background()
+	pool := h.dbPool
+
+	providerID := "00000000-0000-0000-0000-000000000001"
+
+	// Clean slate: remove stale data from previous runs
+	_, _ = pool.Exec(ctx, `DELETE FROM request_logs WHERE request_hash LIKE 'test-gtc-%'`)
+	_, _ = pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert test provider (FK dependency for request_logs)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_salt, masked_key, created_at, updated_at)
+		VALUES ($1, 'test-provider', 'https://api.example.com', '', '', 'sk-***', now(), now())
+	`, providerID)
+	if err != nil {
+		t.Fatalf("failed to insert test provider: %v", err)
+	}
+
+	// Insert test data into request_logs:
+	// - hotel/gpt-4o: (100+50) + (200+100) + (0+0) = 450 total tokens
+	// - hotel/claude-3: (150+75) = 225 total tokens
+	// - openai/gpt-4: should NOT appear (not hotel/ prefix)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO request_logs (provider_id, model_id, request_hash, status_code, tokens_prompt, tokens_completion, streaming, state, created_at)
+		VALUES
+			($1, 'hotel/gpt-4o', 'test-gtc-hash-1', 200, 100, 50, false, 'success', now()),
+			($1, 'hotel/gpt-4o', 'test-gtc-hash-2', 200, 200, 100, false, 'success', now()),
+			($1, 'hotel/claude-3', 'test-gtc-hash-3', 200, 150, 75, false, 'success', now()),
+			($1, 'openai/gpt-4', 'test-gtc-hash-4', 200, 500, 250, false, 'success', now()),
+			($1, 'hotel/gpt-4o', 'test-gtc-hash-5', 200, 0, 0, false, 'success', now())
+	`, providerID)
+	if err != nil {
+		t.Fatalf("failed to insert test data: %v", err)
+	}
+
+	// Clean up after test
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM request_logs WHERE request_hash LIKE 'test-gtc-%'`)
+		_, _ = pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+	})
+
+	// Verify token counts are correct for hotel/ models
+	counts, err := h.getTokenCounts(ctx)
+	if err != nil {
+		t.Fatalf("getTokenCounts failed: %v", err)
+	}
+
+	if counts["hotel/gpt-4o"] != 450 {
+		t.Errorf("hotel/gpt-4o count = %d, want 450", counts["hotel/gpt-4o"])
+	}
+
+	if counts["hotel/claude-3"] != 225 {
+		t.Errorf("hotel/claude-3 count = %d, want 225", counts["hotel/claude-3"])
+	}
+
+	// openai/gpt-4 should NOT be in the map (not hotel/ prefix)
+	if _, exists := counts["openai/gpt-4"]; exists {
+		t.Error("openai/gpt-4 should not be in counts (not hotel/ prefix)")
+	}
+
+	// Empty case: delete hotel/ rows, should return empty map
+	_, err = pool.Exec(ctx, `DELETE FROM request_logs WHERE request_hash LIKE 'test-gtc-%'`)
+	if err != nil {
+		t.Fatalf("failed to delete test rows: %v", err)
+	}
+
+	counts, err = h.getTokenCounts(ctx)
+	if err != nil {
+		t.Fatalf("getTokenCounts failed on empty case: %v", err)
+	}
+
+	if len(counts) != 0 {
+		t.Errorf("expected empty map when no hotel/ rows exist, got %d entries", len(counts))
+	}
+}
+
+// TestFailoverSync_Integration tests the Sync endpoint.
+func TestFailoverSync_Integration(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
+
+	h.Sync(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Verify response has expected structure (DisabledGroups, SyncErrors)
+	if _, ok := response["disabled_groups"]; !ok {
+		t.Error("expected 'disabled_groups' field in sync response")
+	}
+}

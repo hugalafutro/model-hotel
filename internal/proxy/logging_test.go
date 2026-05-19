@@ -280,3 +280,71 @@ func TestUpdateRequestLog_NonexistentID(t *testing.T) {
 	h.updateRequestLog(logEntry)
 	// No panic = pass
 }
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_test.go
+// ---------------------------------------------------------------------------
+
+// TestWaitForInsert_Timeout tests that WaitForInsert returns after timeout
+// when the insert goroutine never completes.
+func TestWaitForInsert_Timeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping timeout test in short mode")
+	}
+	t.Helper()
+	h := &Handler{}
+
+	// Create a requestLogData with a WaitGroup that never gets Done()
+	logData := &requestLogData{
+		id:             "test-timeout-id",
+		modelID:        "test-model",
+		streaming:      false,
+		virtualKeyName: "test-key",
+		state:          "pending",
+	}
+	// Add 1 to the WaitGroup but never call Done()
+	logData.insertWg.Add(1)
+
+	start := time.Now()
+	h.WaitForInsert(logData)
+	elapsed := time.Since(start)
+
+	// Should return within ~6 seconds (5s timeout + small margin)
+	if elapsed < 5*time.Second {
+		t.Errorf("WaitForInsert returned too early: %v (expected ~5s timeout)", elapsed)
+	}
+	if elapsed > 7*time.Second {
+		t.Errorf("WaitForInsert took too long: %v (expected ~5s timeout)", elapsed)
+	}
+}
+
+// TestWaitForInsert_Completes tests that WaitForInsert returns immediately
+// when the insert completes.
+func TestWaitForInsert_Completes(t *testing.T) {
+	t.Helper()
+	h := &Handler{}
+
+	logData := &requestLogData{
+		id:             "test-complete-id",
+		modelID:        "test-model",
+		streaming:      false,
+		virtualKeyName: "test-key",
+		state:          "pending",
+	}
+	logData.insertWg.Add(1)
+
+	// Call Done() in a goroutine after a brief delay
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		logData.insertWg.Done()
+	}()
+
+	start := time.Now()
+	h.WaitForInsert(logData)
+	elapsed := time.Since(start)
+
+	// Should return quickly (within ~100ms, not the 5s timeout)
+	if elapsed > 100*time.Millisecond {
+		t.Errorf("WaitForInsert took too long: %v (expected ~10ms)", elapsed)
+	}
+}

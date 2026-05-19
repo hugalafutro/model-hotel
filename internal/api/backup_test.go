@@ -1784,3 +1784,547 @@ func TestRestoreBackup_UnknownMigrations_Integration(t *testing.T) {
 		t.Errorf("expected error to mention newer version, got: %s", w.Body.String())
 	}
 }
+
+// TestCheckDangerousObjects_AllTypes tests that checkDangerousObjects detects
+// all dangerous object types from the dangerousObjectTypes map.
+func TestCheckDangerousObjects_AllTypes(t *testing.T) {
+	// Test each dangerous type individually
+	dangerousTypes := []string{
+		"FUNCTION", "AGGREGATE", "TRIGGER", "EXTENSION", "PROCEDURE",
+		"OPERATOR", "CAST", "COLLATION", "CONVERSION", "DOMAIN",
+		"EVENT TRIGGER", "FOREIGN DATA", "FOREIGN TABLE", "MATERIALIZED VIEW",
+		"SERVER", "TYPE",
+	}
+
+	for _, objType := range dangerousTypes {
+		entries := []tocEntry{
+			{EntryNumber: 1, ObjectType: "TABLE", Schema: "public", Name: "safe_table"},
+			{EntryNumber: 2, ObjectType: objType, Schema: "public", Name: "dangerous_object"},
+		}
+		found := checkDangerousObjects(entries)
+		if len(found) != 1 {
+			t.Errorf("expected 1 dangerous object for %s, got %d: %v", objType, len(found), found)
+		}
+		if len(found) > 0 && !strings.Contains(found[0], objType) {
+			t.Errorf("expected result to contain %q, got %q", objType, found[0])
+		}
+	}
+
+	// Test mixed slice with both dangerous and safe types
+	mixedEntries := []tocEntry{
+		{EntryNumber: 1, ObjectType: "TABLE", Schema: "public", Name: "providers"},
+		{EntryNumber: 2, ObjectType: "TABLE DATA", Schema: "public", Name: "providers"},
+		{EntryNumber: 3, ObjectType: "FUNCTION", Schema: "public", Name: "malicious_fn"},
+		{EntryNumber: 4, ObjectType: "CONSTRAINT", Schema: "public", Name: "providers_pkey"},
+		{EntryNumber: 5, ObjectType: "TRIGGER", Schema: "public", Name: "bad_trigger"},
+		{EntryNumber: 6, ObjectType: "EXTENSION", Schema: "public", Name: "uuid_ossp"},
+		{EntryNumber: 7, ObjectType: "INDEX", Schema: "public", Name: "idx_name"},
+	}
+
+	found := checkDangerousObjects(mixedEntries)
+	if len(found) != 3 {
+		t.Fatalf("expected 3 dangerous objects, got %d: %v", len(found), found)
+	}
+
+	// Verify the returned strings include the type name
+	expectedTypes := []string{"FUNCTION", "TRIGGER", "EXTENSION"}
+	for i, expected := range expectedTypes {
+		if !strings.Contains(found[i], expected) {
+			t.Errorf("expected result %d to contain %q, got %q", i, expected, found[i])
+		}
+	}
+}
+
+// TestCompareMigrations_EmptyDumpMigrations tests compareMigrations with
+// various scenarios: empty dump, all known, and partial with unknown.
+func TestCompareMigrations_EmptyDumpMigrations(t *testing.T) {
+	known := db.KnownMigrations()
+	if len(known) == 0 {
+		t.Fatal("expected known migrations, got none")
+	}
+
+	// When dumpMigrations is empty, should return empty list (nothing to compare)
+	unknown := compareMigrations([]string{})
+	if len(unknown) != 0 {
+		t.Errorf("expected 0 unknown migrations for empty dump, got %d", len(unknown))
+	}
+
+	// When dumpMigrations has all known migrations, should return empty unknown list
+	unknown = compareMigrations(known)
+	if len(unknown) != 0 {
+		t.Errorf("expected no unknown migrations for complete dump, got %v", unknown)
+	}
+
+	// When dumpMigrations has all known plus one unknown migration, should return only the unknown one
+	newerWithUnknown := make([]string, len(known))
+	copy(newerWithUnknown, known)
+	newerWithUnknown = append(newerWithUnknown, "999_unknown_migration.sql")
+
+	unknown = compareMigrations(newerWithUnknown)
+	if len(unknown) != 1 {
+		t.Fatalf("expected 1 unknown migration, got %d: %v", len(unknown), unknown)
+	}
+	if unknown[0] != "999_unknown_migration.sql" {
+		t.Errorf("expected '999_unknown_migration.sql', got %q", unknown[0])
+	}
+}
+
+// TestParseTOC_MaterializedViewAndSpecialTypes tests parseTOC with various
+// special object types including MATERIALIZED VIEW, FK CONSTRAINT, TABLE DATA,
+// and DEFAULT ACL.
+func TestParseTOC_MaterializedViewAndSpecialTypes(t *testing.T) {
+	input := `;
+; Archive created at 2026-05-16 17:32:57 BST
+;
+100; 1259 16500 MATERIALIZED VIEW public stats_view modelhotel
+200; 2606 16420 FK CONSTRAINT public models models_provider_id_fkey modelhotel
+300; 0 16386 TABLE DATA public schema_migrations modelhotel
+400; 0 0 DEFAULT ACL public - modelhotel
+500; 1259 16593 TABLE public app_logs modelhotel
+`
+
+	entries := parseTOC(input)
+	if len(entries) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(entries))
+	}
+
+	// Check MATERIALIZED VIEW
+	if entries[0].ObjectType != "MATERIALIZED VIEW" {
+		t.Errorf("expected MATERIALIZED VIEW, got %q", entries[0].ObjectType)
+	}
+	if entries[0].Schema != "public" {
+		t.Errorf("expected schema 'public', got %q", entries[0].Schema)
+	}
+	if entries[0].Name != "stats_view" {
+		t.Errorf("expected name 'stats_view', got %q", entries[0].Name)
+	}
+	if entries[0].EntryNumber != 100 {
+		t.Errorf("expected entry number 100, got %d", entries[0].EntryNumber)
+	}
+
+	// Check FK CONSTRAINT
+	if entries[1].ObjectType != "FK CONSTRAINT" {
+		t.Errorf("expected FK CONSTRAINT, got %q", entries[1].ObjectType)
+	}
+	if entries[1].Name != "models_provider_id_fkey" {
+		t.Errorf("expected name 'models_provider_id_fkey', got %q", entries[1].Name)
+	}
+
+	// Check TABLE DATA (two-word prefix)
+	if entries[2].ObjectType != "TABLE DATA" {
+		t.Errorf("expected TABLE DATA, got %q", entries[2].ObjectType)
+	}
+	if entries[2].Name != "schema_migrations" {
+		t.Errorf("expected name 'schema_migrations', got %q", entries[2].Name)
+	}
+
+	// Check DEFAULT ACL (two-word prefix)
+	if entries[3].ObjectType != "DEFAULT ACL" {
+		t.Errorf("expected DEFAULT ACL, got %q", entries[3].ObjectType)
+	}
+}
+
+// TestNewBackupHandler_Constructor tests the NewBackupHandler constructor
+// with various inputs including empty backup dir and long paths.
+func TestNewBackupHandler_Constructor(t *testing.T) {
+	adminAuth := &mockAdminAuth{}
+
+	// Test with normal inputs
+	h := NewBackupHandler("postgres://user:pass@localhost/db", "/tmp/backups", adminAuth)
+	if h == nil {
+		t.Fatal("expected non-nil handler")
+	}
+	if h.databaseURL != "postgres://user:pass@localhost/db" {
+		t.Errorf("expected databaseURL to be set, got %q", h.databaseURL)
+	}
+	if h.adminMgr != adminAuth {
+		t.Error("expected adminMgr to be set")
+	}
+	// backupDir should be absolute path
+	if !filepath.IsAbs(h.backupDir) {
+		t.Errorf("expected backupDir to be absolute, got %q", h.backupDir)
+	}
+
+	// Test with empty backup dir path
+	hEmpty := NewBackupHandler("postgres://user:pass@localhost/db", "", adminAuth)
+	if hEmpty == nil {
+		t.Fatal("expected non-nil handler with empty backup dir")
+	}
+	// Empty string should resolve to current working directory
+	if !filepath.IsAbs(hEmpty.backupDir) {
+		t.Errorf("expected backupDir to be absolute for empty input, got %q", hEmpty.backupDir)
+	}
+
+	// Test with long path
+	longPath := "/tmp/" + strings.Repeat("a", 5000)
+	hLong := NewBackupHandler("postgres://user:pass@localhost/db", longPath, adminAuth)
+	if hLong == nil {
+		t.Fatal("expected non-nil handler with long path")
+	}
+	if hLong.backupDir != longPath {
+		t.Errorf("expected backupDir to be original long path, got %q", hLong.backupDir)
+	}
+}
+
+// TestBackupHandler_Register tests that the Register method correctly
+// registers all backup routes.
+func TestBackupHandler_Register(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{})
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Test GET /backups → 200 (empty list)
+	req := httptest.NewRequest("GET", "/backups", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /backups: expected 200, got %d", w.Code)
+	}
+
+	// Test POST /backups → depends on pg_dump (will be 412 or 500)
+	req = httptest.NewRequest("POST", "/backups", http.NoBody)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	// Either 412 (pg_dump not found) or 500 (pg_dump failed) is acceptable
+	if w.Code != http.StatusPreconditionFailed && w.Code != http.StatusInternalServerError {
+		t.Errorf("POST /backups: expected 412 or 500, got %d", w.Code)
+	}
+
+	// Test POST /backups/restore → depends on auth/multipart (will be 401 or 400)
+	req = httptest.NewRequest("POST", "/backups/restore", http.NoBody)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	// Without admin token or multipart form, should be 401 or 400
+	if w.Code != http.StatusUnauthorized && w.Code != http.StatusBadRequest {
+		t.Errorf("POST /backups/restore: expected 401 or 400, got %d", w.Code)
+	}
+
+	// Test GET /backups/{filename} → 404 (not found)
+	req = httptest.NewRequest("GET", "/backups/nonexistent.dump", http.NoBody)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("GET /backups/{filename}: expected 404, got %d", w.Code)
+	}
+
+	// Test DELETE /backups/{filename} → 404 (not found)
+	req = httptest.NewRequest("DELETE", "/backups/nonexistent.dump", http.NoBody)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("DELETE /backups/{filename}: expected 404, got %d", w.Code)
+	}
+}
+
+// TestParseTOC_WithCommentLines tests that parseTOC correctly skips comment
+// lines, empty lines, and malformed lines while parsing valid entries.
+func TestParseTOC_WithCommentLines(t *testing.T) {
+	input := `;
+; Archive created at 2026-05-16 17:32:57 BST
+;     dbname: modelhotel
+; This is a comment
+
+100; 1259 16593 TABLE public providers modelhotel
+; Another comment in the middle
+
+200; 0 16386 TABLE DATA public schema_migrations modelhotel
+
+; Final comment
+300; 2606 16420 FK CONSTRAINT public models models_provider_id_fkey modelhotel
+`
+
+	entries := parseTOC(input)
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries (skipping comments and empty lines), got %d", len(entries))
+	}
+
+	// Verify all entries are valid
+	if entries[0].ObjectType != "TABLE" || entries[0].Name != "providers" {
+		t.Errorf("expected TABLE providers, got %s %s", entries[0].ObjectType, entries[0].Name)
+	}
+	if entries[1].ObjectType != "TABLE DATA" || entries[1].Name != "schema_migrations" {
+		t.Errorf("expected TABLE DATA schema_migrations, got %s %s", entries[1].ObjectType, entries[1].Name)
+	}
+	if entries[2].ObjectType != "FK CONSTRAINT" || entries[2].Name != "models_provider_id_fkey" {
+		t.Errorf("expected FK CONSTRAINT models_provider_id_fkey, got %s %s", entries[2].ObjectType, entries[2].Name)
+	}
+}
+
+// TestValidateBackupFilename_ValidNames tests validateBackupFilename with
+// various valid filename patterns.
+func TestValidateBackupFilename_ValidNames(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+
+	// Valid names like "backup_20250101_120000.dump" should return the filename
+	validCases := []string{
+		"backup_20250101_120000.dump",
+		"backup-2025-01-01.dump",
+		"backup.v2.2025.dump",
+		"backup.dump",
+		"backup_20250101_120000_123456.dump",
+	}
+
+	for _, filename := range validCases {
+		result := h.validateBackupFilename(filename)
+		if result == "" {
+			t.Errorf("expected non-empty result for valid filename %q", filename)
+		}
+		// Result should be absolute path within backup dir
+		expectedPath := filepath.Join(dir, filename)
+		if result != expectedPath {
+			t.Errorf("for filename %q: expected %q, got %q", filename, expectedPath, result)
+		}
+	}
+
+	// Invalid names should return empty string
+	invalidCases := []string{
+		"backup.sql",         // wrong extension
+		"backup",             // no extension
+		"../etc/passwd.dump", // path traversal
+		"foo/bar.dump",       // contains slash
+		"foo\\bar.dump",      // contains backslash
+		"backup\r\n.dump",    // contains CR/LF
+	}
+
+	for _, filename := range invalidCases {
+		result := h.validateBackupFilename(filename)
+		if result != "" {
+			t.Errorf("expected empty string for invalid filename %q, got %q", filename, result)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap_test.go
+// ---------------------------------------------------------------------------
+
+// TestCreateBackup_Success tests the happy path of BackupHandler.CreateBackup().
+// This test requires pg_dump to be installed on the system.
+func TestCreateBackup_Success(t *testing.T) {
+
+	// Skip if pg_dump is not available
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed, skipping backup integration test")
+	}
+
+	backupDir := t.TempDir()
+	bh := NewBackupHandler(apiTestDBURL, backupDir, &mockAdminAuth{})
+
+	r := chi.NewRouter()
+	bh.Register(r)
+
+	req := httptest.NewRequest(http.MethodPost, "/backups", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 Created, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Filename  string `json:"filename"`
+		SizeBytes int64  `json:"size_bytes"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Filename == "" {
+		t.Error("response should have non-empty filename")
+	}
+
+	if resp.SizeBytes == 0 {
+		t.Error("response should have non-zero size_bytes")
+	}
+
+	// Verify the backup file actually exists on disk
+	backupPath := backupDir + "/" + resp.Filename
+	if _, err := exec.LookPath("stat"); err == nil {
+		//nolint:gosec // test-only subprocess
+		if _, err := exec.Command("stat", backupPath).CombinedOutput(); err != nil {
+			t.Errorf("backup file should exist at %s", backupPath)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap2_test.go
+// ---------------------------------------------------------------------------
+
+// TestExtractMigrationNames_FilterFileWriteError tests extractMigrationNames
+// when os.CreateTemp fails (e.g., TMPDIR points to non-existent directory).
+func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
+	// Save original TMPDIR
+	origTmpdir := os.Getenv("TMPDIR")
+	t.Cleanup(func() {
+		if origTmpdir == "" {
+			os.Unsetenv("TMPDIR")
+		} else {
+			os.Setenv("TMPDIR", origTmpdir)
+		}
+	})
+
+	// Set TMPDIR to non-existent directory to cause os.CreateTemp to fail
+	os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
+
+	// Use any dump path (doesn't need to exist, will fail before pg_restore)
+	dumpPath := "/tmp/test.dump"
+
+	_, err := extractMigrationNames(dumpPath, 100)
+	if err == nil {
+		t.Error("expected error when filter file cannot be created")
+	}
+	if !strings.Contains(err.Error(), "failed to create filter file") {
+		t.Errorf("expected 'failed to create filter file' error, got: %v", err)
+	}
+}
+
+// TestExtractMigrationNames_PgRestoreNotFound tests extractMigrationNames
+// when pg_restore is not found in PATH.
+func TestExtractMigrationNames_PgRestoreNotFound(t *testing.T) {
+	// Create an empty temp file to use as dump path
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test-dump-*.dump")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	// Save original PATH and set it to non-existent directory
+	origPath := os.Getenv("PATH")
+	t.Cleanup(func() {
+		os.Setenv("PATH", origPath)
+	})
+	os.Setenv("PATH", "/nonexistent")
+
+	_, err = extractMigrationNames(tmpFile.Name(), 100)
+	if err == nil {
+		t.Error("expected error when pg_restore is not found")
+	}
+	if !strings.Contains(err.Error(), "pg_restore not found") {
+		t.Errorf("expected 'pg_restore not found' error, got: %v", err)
+	}
+}
+
+// TestNewBackupHandler_PathHandling documents the filepath.Abs fallback
+// behavior. On Linux, filepath.Abs rarely fails, so the fallback path
+// (backup.go:39-41) is not exercised. This test verifies that
+// NewBackupHandler handles various path formats without panicking.
+// The fallback is documented as being exercised in environments where
+// Abs fails (e.g., path length limits on other platforms).
+func TestNewBackupHandler_PathHandling(t *testing.T) {
+	// Test with various path formats
+	testCases := []struct {
+		name      string
+		backupDir string
+	}{
+		{"relative path", "backups"},
+		{"absolute path", "/tmp/backups"},
+		{"long path", "/tmp/" + strings.Repeat("a", 5000)},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := NewBackupHandler("postgres://test", tc.backupDir, &mockAdminAuth{})
+			if h.backupDir == "" {
+				t.Error("expected non-empty backupDir")
+			}
+			if h.adminMgr == nil {
+				t.Error("expected non-nil adminMgr")
+			}
+		})
+	}
+}
+
+// TestBackupHandler_RestoreBackup_FilterFileError tests RestoreBackup
+// with a valid pg_dump but a read-only directory. Note: because
+// os.CreateTemp uses the system temp dir, not the backup dir, this
+// test primarily exercises the pg_restore path rather than the filter
+// file error branch. It documents an untested edge case.
+func TestBackupHandler_RestoreBackup_FilterFileError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed")
+	}
+	if _, err := exec.LookPath("pg_restore"); err != nil {
+		t.Skip("pg_restore not installed")
+	}
+
+	// Create a valid dump file
+	dir := t.TempDir()
+	dumpPath := filepath.Join(dir, "test.dump")
+
+	u, err := url.Parse(apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to parse DB URL: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pgDumpPath, _ := exec.LookPath("pg_dump")
+	cmd := exec.CommandContext(ctx, pgDumpPath,
+		"--format=custom",
+		"--no-password",
+		"--file="+dumpPath,
+		apiTestDBURL,
+	)
+	if u.User != nil {
+		if pass, ok := u.User.Password(); ok {
+			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
+		}
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("pg_dump failed: %v", err)
+	}
+
+	// Create handler with read-only backup dir to cause filter file creation to fail
+	readonlyDir := t.TempDir()
+	// Make directory read-only
+	if err := os.Chmod(readonlyDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(readonlyDir, 0o755)
+
+	h := NewBackupHandler(apiTestDBURL, readonlyDir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			next.ServeHTTP(w, r)
+		})
+	})
+	h.Register(r)
+
+	// Read the dump file and upload via restore endpoint
+	dumpContent, err := os.ReadFile(dumpPath)
+	if err != nil {
+		t.Fatalf("failed to read dump file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "test.dump")
+	part.Write(dumpContent)
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// The filter file is created in /tmp (system temp), not backup dir,
+	// so this test actually exercises the pg_restore path, not filter file error.
+	// To test filter file error, we'd need to make /tmp read-only which is not feasible.
+	// This test documents that the filter file error path exists but requires
+	// system-level conditions to trigger.
+	if w.Code != http.StatusInternalServerError && w.Code != http.StatusOK {
+		t.Logf("restore returned %d: %s", w.Code, w.Body.String())
+	}
+}

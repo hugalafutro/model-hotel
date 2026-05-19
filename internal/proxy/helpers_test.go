@@ -461,3 +461,38 @@ func TestGenerateRequestHash_MultipleCallsDiffer(t *testing.T) {
 		t.Errorf("two consecutive hashes should be different: %q == %q", hash1, hash2)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_test.go
+// ---------------------------------------------------------------------------
+
+// TestParseAccumulatedError_Nil tests that parseAccumulatedError with nil
+// error returns nil.
+func TestParseAccumulatedError_Nil(t *testing.T) {
+	t.Helper()
+	result := parseAccumulatedError(nil)
+	if result != "" {
+		t.Errorf("expected empty string for nil input, got %q", result)
+	}
+}
+
+// TestParseAccumulatedError_NonAccumulated tests that parseAccumulatedError
+// with a regular error (not from accumulation) handles various inputs.
+func TestParseAccumulatedError_NonAccumulated(t *testing.T) {
+	t.Helper()
+	// Regular error that doesn't match OpenAI or Anthropic error formats
+	data := []byte("some random error message")
+	result := parseAccumulatedError(data)
+	// Should return empty string since it doesn't start with {
+	if result != "" {
+		t.Errorf("expected empty string for non-JSON error, got %q", result)
+	}
+
+	// Test with JSON that doesn't match error formats - returns raw JSON
+	jsonData := []byte(`{"foo":"bar"}`)
+	result = parseAccumulatedError(jsonData)
+	// Function returns raw bytes if they start with { (heuristic for truncated JSON)
+	if result != `{"foo":"bar"}` {
+		t.Errorf("expected raw JSON string, got %q", result)
+	}
+}

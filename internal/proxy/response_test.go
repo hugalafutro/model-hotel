@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +17,46 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// failingResponseWriter implements http.ResponseWriter and http.Flusher
+// that fails after N successful writes.
+type failingResponseWriter struct {
+	header    http.Header
+	code      int
+	writes    int
+	failAfter int
+	failErr   error
+}
+
+func (w *failingResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *failingResponseWriter) Write(b []byte) (int, error) {
+	w.writes++
+	if w.writes > w.failAfter {
+		return 0, w.failErr
+	}
+	return len(b), nil
+}
+
+func (w *failingResponseWriter) WriteHeader(code int) {
+	w.code = code
+}
+
+func (w *failingResponseWriter) Flush() {}
+
+// errorReader implements io.Reader that always returns an error.
+type errorReader struct {
+	err error
+}
+
+func (r *errorReader) Read(p []byte) (n int, err error) {
+	return 0, r.err
+}
 
 // mockVirtualKeyRepo is a simple in-memory mock for testing AddTokens calls
 type mockVirtualKeyRepo struct {
@@ -601,4 +644,1333 @@ func TestHandleNonStreamingResponse_ThinkingTagsNormalized(t *testing.T) {
 	assert.Equal(t, "Visible answer", decodedResp.Choices[0].Message.Content)
 
 	assert.Equal(t, "completed", logData.state)
+}
+
+// ---------------------------------------------------------------------------
+// handleStreamingResponse tests - write error paths
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_WriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := &failingResponseWriter{
+		failAfter: 0, // fails on first Write
+		failErr:   errors.New("client write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// clientDisconnected should be set, state should reflect the error
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_NewlineWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with one data line - first Write succeeds, newline Write fails
+	streamData := "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := &failingResponseWriter{
+		failAfter: 1, // first Write succeeds, second (newline) fails
+		failErr:   errors.New("newline write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_DoneWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with [DONE] - fails on newline after [DONE]
+	// Code writes: "data: [DONE]" then "\n" then breaks (doesn't write second "\n")
+	// So we need to fail on the "\n" write (second Write)
+	streamData := "data: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// Fail on the newline Write after [DONE] (second Write call)
+	w := &failingResponseWriter{
+		failAfter: 1,
+		failErr:   errors.New("done newline write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// clientDisconnected should be set due to write failure
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_ReasoningContentHasContent(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Two chunks with same finish_reason. Second has reasoning_content,
+	// so it should NOT be suppressed (hasContent=true).
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"stop"}]}
+
+data: {"id":"2","choices":[{"index":0,"delta":{"reasoning_content":"thinking..."},"finish_reason":"stop"}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	body := w.Body.String()
+	// Should contain both chunks (not suppressed)
+	if !strings.Contains(body, "content") {
+		t.Error("expected first chunk with content")
+	}
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected second chunk with reasoning_content (not suppressed)")
+	}
+	if !strings.Contains(body, "[DONE]") {
+		t.Error("expected [DONE] sentinel")
+	}
+}
+
+func TestHandleStreamingResponse_NormalizedWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Chunk with non-OpenAI finish_reason that needs normalization.
+	// "end_turn" (Anthropic) normalizes to "stop".
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"end_turn"}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// The rewrite path writes: "data: ", then newPayload, then "\n"
+	// Fail on the newline Write (third Write: "data: "=0, newPayload=1, "\n"=2)
+	w := &failingResponseWriter{
+		failAfter: 2,
+		failErr:   errors.New("normalized newline write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_NormalizedPayloadWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Chunk with non-OpenAI finish_reason that needs normalization.
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"end_turn"}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// The rewrite path writes: "data: " (Write 0), newPayload (Write 1), "\n" (Write 2)
+	// Fail on the newPayload Write (second Write)
+	w := &failingResponseWriter{
+		failAfter: 1,
+		failErr:   errors.New("normalized payload write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_ErrAccumAtEnd(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream that ends with accumulated error bytes (no non-error line to flush)
+	streamData := `data: {"error":{"message":"rate limit"}}
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// Error should be logged and state should be failed
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "rate limit") {
+		t.Errorf("expected error message to contain 'rate limit', got %q", logData.errorMessage)
+	}
+}
+
+func TestHandleStreamingResponse_ScannerError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Body reader that returns an error
+	errReader := &errorReader{err: errors.New("scanner read error")}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(errReader),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// scanner.Err() should be captured
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "scanner read error") {
+		t.Errorf("expected error message to contain 'scanner read error', got %q", logData.errorMessage)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// handleNonStreamingResponse tests
+// ---------------------------------------------------------------------------
+
+func TestHandleNonStreamingResponse_EncodeError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{
+		"id": "chatcmpl-test",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "gpt-3.5-turbo",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 10,
+			"completion_tokens": 5,
+			"total_tokens": 15
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := &failingResponseWriter{
+		failAfter: 0,
+		failErr:   errors.New("encode write error"),
+	}
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "gpt-3.5-turbo",
+		providerID:     uuid.New(),
+		streaming:      false,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	// Encode error is logged but not propagated; state was already set to "completed" before the write attempt
+	// State should be completed since JSON parsed successfully
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ChatCompletions tests
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_NonDataLineFlushesErrAccum(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Error line followed by non-data line (comment)
+	streamData := `data: {"error":{"message":"rate limit"}}
+
+: comment line
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// Error should be captured from errAccum
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_BOMStripped(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with UTF-8 BOM at start
+	streamData := "\uFEFFdata: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	// BOM should be stripped, response should be valid
+	if !strings.Contains(body, "[DONE]") {
+		t.Error("expected [DONE] sentinel")
+	}
+}
+
+func TestHandleStreamingResponse_LeadingWhitespaceTrimmed(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with leading whitespace on data lines (Gemini-style)
+	streamData := "\r\n\r\ndata: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "[DONE]") {
+		t.Error("expected [DONE] sentinel")
+	}
+}
+
+func TestHandleStreamingResponse_UsageCaptured(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPrompt != 10 {
+		t.Errorf("expected prompt_tokens=10, got %d", logData.tokensPrompt)
+	}
+	if logData.tokensCompletion != 5 {
+		t.Errorf("expected completion_tokens=5, got %d", logData.tokensCompletion)
+	}
+}
+
+func TestHandleStreamingResponse_ReasoningTokensCaptured(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":800,"completion_tokens_details":{"reasoning_tokens":650}}}
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensCompletion != 50 {
+		t.Errorf("expected completion_tokens=50, got %d", logData.tokensCompletion)
+	}
+	if logData.tokensCompletionReasoning != 650 {
+		t.Errorf("expected reasoning_tokens=650, got %d", logData.tokensCompletionReasoning)
+	}
+}
+
+func TestHandleStreamingResponse_TPSWithReasoningTokens(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Simulate a thinking model: 650 reasoning + 50 completion = 700 total output
+	// TTFT includes reasoning time, generationDuration = totalDuration - ttft
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hello world"}}],"usage":{"prompt_tokens":89000,"completion_tokens":50,"total_tokens":89700,"completion_tokens_details":{"reasoning_tokens":650}}}
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	// Start time 19 seconds ago → totalDuration ≈ 19000ms, no TTFT measured
+	// generationDuration = totalDuration since ttft=0, so TPS = 700/19000*1000 ≈ 36.8
+	startTime := time.Now().Add(-19 * time.Second)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// TPS should use (50 + 650) / totalDuration * 1000 since no TTFT was measured
+	if logData.tokensPerSecond <= 0 {
+		t.Errorf("expected positive TPS, got %f", logData.tokensPerSecond)
+	}
+	// The old (buggy) formula would give: 50/19000*1000 ≈ 2.6 TPS
+	// The new formula includes reasoning tokens (700 total output vs 50)
+	if logData.tokensPerSecond < 10 {
+		t.Errorf("TPS seems too low (%.1f), reasoning tokens may not be included in calculation", logData.tokensPerSecond)
+	}
+}
+
+func TestHandleStreamingResponse_TPSFallbackWhenNoTTFT(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Usage with no reasoning tokens, TTFT=0
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now().Add(-100 * time.Millisecond)
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// When generationDuration <= 0, should fallback to totalDuration
+	// TPS = 5 / ~100 * 1000 ≈ 50 (approximate, just verify positive)
+	if logData.tokensPerSecond <= 0 {
+		t.Errorf("expected positive TPS with no TTFT, got %f", logData.tokensPerSecond)
+	}
+	if logData.tokensCompletionReasoning != 0 {
+		t.Errorf("expected reasoning_tokens=0, got %d", logData.tokensCompletionReasoning)
+	}
+}
+
+func TestHandleStreamingResponse_PromptCacheTokens(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"prompt_cache_hit_tokens":80,"prompt_cache_miss_tokens":20}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 80 {
+		t.Errorf("expected prompt_cache_hit=80, got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 20 {
+		t.Errorf("expected prompt_cache_miss=20, got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleStreamingResponse_InjectsDoneSentinel(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream without [DONE] sentinel
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}]}
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	// [DONE] should be injected
+	if !strings.Contains(body, "[DONE]") {
+		t.Error("expected [DONE] to be injected")
+	}
+	// State should be completed (injected sentinel is benign)
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_NonDataLineWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with non-data line (SSE comment) followed by [DONE]
+	// Scanner splits on \n, so lines are: ": comment", "" (empty), "data: [DONE]", "" (empty)
+	// First non-empty non-data line is ": comment". L181 does w.Write(line) where line = ": comment"
+	streamData := ": comment\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := &failingResponseWriter{
+		failAfter: 0, // fails on first Write (the comment line)
+		failErr:   errors.New("non-data line write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_NonDataLineNewlineWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Same stream as above, but fail on the newline Write after the comment line
+	// L187 does w.Write([]byte("\n")) after successfully writing the comment line
+	streamData := ": comment\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := &failingResponseWriter{
+		failAfter: 1, // first Write (comment line) succeeds, second Write (newline) fails
+		failErr:   errors.New("non-data line newline write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_ContentHasContent(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Two chunks with same finish_reason. Second has non-empty content,
+	// so it should NOT be suppressed (hasContent=true via L368-370).
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"first"},"finish_reason":"stop"}]}
+
+data: {"id":"2","choices":[{"index":0,"delta":{"content":"second"},"finish_reason":"stop"}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	body := w.Body.String()
+	// Should contain both chunks (second not suppressed because hasContent=true)
+	if !strings.Contains(body, "first") {
+		t.Error("expected first chunk with content")
+	}
+	if !strings.Contains(body, "second") {
+		t.Error("expected second chunk with content (not suppressed)")
+	}
+	if !strings.Contains(body, "[DONE]") {
+		t.Error("expected [DONE] sentinel")
+	}
+}
+
+func TestHandleStreamingResponse_ErrAccumAtStreamEnd(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with malformed error JSON that starts with {"error" but is invalid
+	// so chunk.Error doesn't fire, leaving errAccum non-empty at stream end (L460-465)
+	streamData := `data: {"error":{"message":"rate`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// Error should be captured from errAccum at stream end
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "rate") {
+		t.Errorf("expected error message to contain 'rate', got %q", logData.errorMessage)
+	}
+}
+
+func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with content but no [DONE] sentinel - handler will inject [DONE]
+	// Data line writes: w.Write(line) then w.Write([]byte("\n\n")) = 2 writes
+	// Empty line forwarded: w.Write([]byte("\n")) = 1 write
+	// Then injected [DONE] is the 4th Write
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}]}
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := &failingResponseWriter{
+		failAfter: 3, // first 3 Writes succeed (data line + \n\n + blank line), 4th (injected [DONE]) fails
+		failErr:   errors.New("injected done write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// The injected [DONE] write failure is logged but benign - state should still be completed
+	// because the stream content was successfully written
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+}
+
+func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Standard SSE format: each event is a data line followed by a blank line.
+	// eventsource-parser dispatches events on blank lines; without them,
+	// all data lines get concatenated into one invalid event.
+	streamData := "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"}}]}\n\ndata: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"}}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+
+	// Verify each data line is followed by \n\n (SSE event separator).
+	// Split on \n\n to get individual events.
+	lines := strings.Split(body, "\n\n")
+	dataEvents := 0
+	for _, event := range lines {
+		event = strings.TrimSpace(event)
+		if event == "" {
+			continue
+		}
+		if strings.HasPrefix(event, "data: ") {
+			dataEvents++
+		}
+	}
+	if dataEvents < 3 {
+		t.Errorf("expected at least 3 data events (2 content + 1 [DONE]), got %d; body=%q", dataEvents, body)
+	}
+
+	// Verify no two consecutive data lines without a blank line separator.
+	// This would indicate the bug where empty lines were being skipped.
+	if strings.Contains(body, "}\ndata:") {
+		t.Errorf("found consecutive data lines without blank line separator; body=%q", body)
+	}
+}
+
+func TestHandleNonStreamingResponse_AddTokensCalled(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	mockVKRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = mockVKRepo
+
+	upstreamBody := `{
+		"id": "chatcmpl-test",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "gpt-3.5-turbo",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 10,
+			"completion_tokens": 5,
+			"total_tokens": 15
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "gpt-3.5-turbo",
+		providerID:     uuid.New(),
+		streaming:      false,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	vkHash := "test-vk-hash"
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, vkHash, 1)
+
+	if len(mockVKRepo.addTokensCalls) != 1 {
+		t.Errorf("expected AddTokens to be called once, got %d calls", len(mockVKRepo.addTokensCalls))
+	} else {
+		if mockVKRepo.addTokensCalls[0].keyHash != vkHash {
+			t.Errorf("expected keyHash=%q, got %q", vkHash, mockVKRepo.addTokensCalls[0].keyHash)
+		}
+		if mockVKRepo.addTokensCalls[0].tokens != 15 {
+			t.Errorf("expected tokens=15, got %d", mockVKRepo.addTokensCalls[0].tokens)
+		}
+	}
+}
+
+func TestNewRequestWithContextVar(t *testing.T) {
+	// Test that the injectable var can be overridden
+	origNewRequestWithContext := newRequestWithContext
+	defer func() { newRequestWithContext = origNewRequestWithContext }()
+
+	called := false
+	newRequestWithContext = func(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+		called = true
+		return http.NewRequestWithContext(ctx, method, url, body)
+	}
+
+	req, err := newRequestWithContext(context.Background(), "GET", "http://example.com", http.NoBody)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req == nil {
+		t.Fatal("expected non-nil request")
+	}
+	if !called {
+		t.Error("expected injectable function to be called")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Streaming reasoning normalization tests (moved from proxy_coverage_test.go)
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_ReasoningFieldNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Ollama-style: delta.reasoning → reasoning_content
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"Let me think"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "Let me think") {
+		t.Errorf("expected reasoning_content to contain 'Let me think', got: %s", body)
+	}
+}
+
+func TestHandleStreamingResponse_ReasoningDetailsNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// OpenRouter-style: delta.reasoning_details with reasoning.text → reasoning_content
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_details":[{"type":"reasoning.text","text":"Step 1","format":"google-gemini-v1"}]},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "Step 1") {
+		t.Errorf("expected reasoning_content to contain 'Step 1', got: %s", body)
+	}
+}
+
+func TestHandleStreamingResponse_ThinkingTagsNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// MiniMax native-style: <thinking> tags in delta.content → reasoning_content
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"<thinking>My reasoning</thinking>The answer"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "My reasoning") {
+		t.Errorf("expected reasoning_content to contain 'My reasoning', got: %s", body)
+	}
+	if !strings.Contains(body, "The answer") {
+		t.Errorf("expected content to contain 'The answer', got: %s", body)
+	}
+}
+
+func TestHandleStreamingResponse_ReasoningContentAlreadyPresent(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// DeepSeek-style: already has reasoning_content, no double-normalization
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"Already here"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "reasoning_content") {
+		t.Error("expected response to contain reasoning_content")
+	}
+	if !strings.Contains(body, "Already here") {
+		t.Errorf("expected reasoning_content to contain 'Already here', got: %s", body)
+	}
 }

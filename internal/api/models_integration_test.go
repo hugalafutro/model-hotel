@@ -9,9 +9,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
 // TestListModels_InvalidProviderID tests that ListModels returns 400 for
@@ -985,5 +993,183 @@ func TestDeleteModel_CancelledContext(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap3_test.go
+// ---------------------------------------------------------------------------
+
+// TestListModels_ValidProviderIDFilter tests ListModels with valid UUID provider_id
+// to cover the providerID filter path.
+func TestListModels_ValidProviderIDFilter(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	defer pool.Close()
+
+	// Clean test data
+	pool.Exec(ctx, `TRUNCATE models, providers CASCADE`)
+
+	// Create admin manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	// Create handler
+	cfg := &config.Config{
+		MasterKey:          "testmasterkey1234567890abcdef",
+		AllowHTTPProviders: true,
+		DataDir:            tmpDir,
+	}
+	providerRepo := provider.NewRepository(pool)
+	vkRepo := virtualkey.NewRepository(pool)
+	settingsRepo := settings.NewRepository(pool)
+	dbInst, err := db.New(ctx, apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create db instance: %v", err)
+	}
+	defer dbInst.Close()
+
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test")
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+
+	// Create two providers
+	createBody1 := `{"name":"provider-filter-1","base_url":"https://api.example.com/v1","provider_type":"openai","api_key":"sk-testkey1234567890abcdef"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody1))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider 1: expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var created1 struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&created1); err != nil {
+		t.Fatalf("failed to decode created provider: %v", err)
+	}
+
+	createBody2 := `{"name":"provider-filter-2","base_url":"https://api.example.com/v2","provider_type":"openai","api_key":"sk-testkey1234567890abcdef"}`
+	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody2))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider 2: expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var created2 struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&created2); err != nil {
+		t.Fatalf("failed to decode created provider: %v", err)
+	}
+
+	providerUUID1, _ := uuid.Parse(created1.ID)
+	providerUUID2, _ := uuid.Parse(created2.ID)
+
+	// Insert models for each provider
+	_, err = pool.Exec(ctx, `
+		INSERT INTO models (id, model_id, name, provider_id, enabled, created_at, last_seen_at)
+		VALUES ($1, 'model-1', 'Model 1', $2, true, NOW(), NOW()),
+		       ($3, 'model-2', 'Model 2', $4, true, NOW(), NOW())`,
+		uuid.New(), providerUUID1,
+		uuid.New(), providerUUID2)
+	if err != nil {
+		t.Fatalf("Failed to insert models: %v", err)
+	}
+
+	// Request with provider_id filter for provider 1
+	req = httptest.NewRequest(http.MethodGet, "/models?provider_id="+created1.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("list models: expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var models []ModelResponse
+	if err := json.NewDecoder(w.Body).Decode(&models); err != nil {
+		t.Fatalf("failed to decode models: %v", err)
+	}
+
+	// Should only return models for provider 1
+	if len(models) != 1 {
+		t.Errorf("Expected 1 model, got %d", len(models))
+	}
+	if len(models) > 0 && models[0].ProviderID != created1.ID {
+		t.Errorf("Expected provider_id=%s, got %s", created1.ID, models[0].ProviderID)
+	}
+}
+
+// TestListModels_RepoError tests ListModels when modelRepo.List returns an error
+// (using closed pool) to cover the repository error path.
+func TestListModels_RepoError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	ctx := context.Background()
+
+	// Create a closed pool to trigger query errors
+	closedPool, err := pgxpool.New(ctx, apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	closedPool.Close()
+
+	// Create admin manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	// Create handler with closed pool
+	cfg := &config.Config{
+		MasterKey:          "testmasterkey1234567890abcdef",
+		AllowHTTPProviders: true,
+		DataDir:            tmpDir,
+	}
+
+	// Create db.DB with closed pool
+	dbInst, err := db.New(ctx, apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create db instance: %v", err)
+	}
+	dbInst.Close()
+
+	providerRepo := provider.NewRepository(closedPool)
+	vkRepo := virtualkey.NewRepository(closedPool)
+	settingsRepo := settings.NewRepository(closedPool)
+
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test")
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+
+	// Request should fail with 500
+	req := httptest.NewRequest(http.MethodGet, "/models", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d: %s", w.Code, w.Body.String())
 	}
 }

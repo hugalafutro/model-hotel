@@ -489,3 +489,182 @@ func TestPurgeLogs_DBError(t *testing.T) {
 		t.Error("expected error when executing with closed pool")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap2_test.go
+// ---------------------------------------------------------------------------
+
+// TestPurgeLogs_InvalidBody tests that PurgeLogs returns 400 when
+// the request body is not valid JSON.
+func TestPurgeLogs_InvalidBody(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Send invalid JSON
+	body := strings.NewReader(`{invalid json}`)
+	req := httptest.NewRequest("DELETE", "/logs/purge", body)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestPurgeLogs_InvalidOlderThan tests that PurgeLogs returns 400 when
+// the older_than value is invalid (e.g., "2x").
+func TestPurgeLogs_InvalidOlderThan(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := strings.NewReader(`{"older_than":"2x"}`)
+	req := httptest.NewRequest("DELETE", "/logs/purge", body)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestPurgeLogs_RepositoryDBError tests the repository-level DB error
+// path when the database is unavailable. This complements the existing
+// TestPurgeLogs_DBError in logs_test.go by testing the repository
+// directly with a closed pool.
+func TestPurgeLogs_RepositoryDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	closedPool := newClosedPool(t)
+	defer closedPool.Close()
+
+	// Test the repository directly since Handler requires a working pool
+	ctx := context.Background()
+	_, err := closedPool.Exec(ctx, `DELETE FROM request_logs`)
+	if err == nil {
+		t.Error("expected error when executing DELETE with closed pool")
+	}
+}
+
+// TestListLogs_CacheHit tests that the second identical request returns
+// X-Cache: HIT header.
+func TestListLogs_CacheHit(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Clear cache first
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	// First request - should be MISS
+	req := httptest.NewRequest("GET", "/logs/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	cacheHeader := w.Header().Get("X-Cache")
+	if cacheHeader != "MISS" {
+		t.Errorf("first request: expected X-Cache: MISS, got %q", cacheHeader)
+	}
+
+	// Second identical request - should be HIT
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second request: expected 200, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	cacheHeader2 := w2.Header().Get("X-Cache")
+	if cacheHeader2 != "HIT" {
+		t.Errorf("second request: expected X-Cache: HIT, got %q", cacheHeader2)
+	}
+}
+
+// TestListLogs_FilterByProviderID tests ListLogs with valid and invalid
+// UUID provider_id parameters.
+func TestListLogs_FilterByProviderID(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Valid UUID - should add SQL filter
+	validUUID := uuid.New().String()
+	req := httptest.NewRequest("GET", "/logs/?provider_id="+validUUID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("valid UUID: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Invalid UUID - should be silently ignored (no SQL filter added)
+	invalidUUID := "not-a-uuid"
+	req2 := httptest.NewRequest("GET", "/logs/?provider_id="+invalidUUID, http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Errorf("invalid UUID: expected 200, got %d: %s", w2.Code, w2.Body.String())
+	}
+}
+
+// TestListLogs_FilterBySpecificStatusCode tests ListLogs with a specific
+// numeric status code (e.g., ?status_code=200).
+func TestListLogs_FilterBySpecificStatusCode(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest("GET", "/logs/?status_code=200", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestListLogs_SortDirAsc tests ListLogs with ascending sort direction.
+func TestListLogs_SortDirAsc(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest("GET", "/logs/?sort_by=time&sort_dir=asc", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestListLogs_DateFilterInvalidFormat tests that invalid date formats
+// are silently ignored (not added to query).
+func TestListLogs_DateFilterInvalidFormat(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Invalid date format - should be silently ignored
+	req := httptest.NewRequest("GET", "/logs/?from=invalid-date", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}

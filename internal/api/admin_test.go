@@ -17,10 +17,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -1194,4 +1197,452 @@ func TestDeleteProvider_SyncFailoverError(t *testing.T) {
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", http.StatusNoContent, w.Code)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap_test.go
+// ---------------------------------------------------------------------------
+
+// TestListProviders_Integration tests the ListProviders handler with an empty database.
+func TestListProviders_Integration(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response []map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(response) != 0 {
+		t.Errorf("expected empty provider list, got %d providers", len(response))
+	}
+}
+
+// TestListProviders_WithProviders tests listing providers when database has entries.
+func TestListProviders_WithProviders(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create two providers
+	provider1 := `{"name": "test-list-1", "base_url": "https://api.openai.com", "api_key": "sk-test1"}`
+	provider2 := `{"name": "test-list-2", "base_url": "https://api.anthropic.com", "api_key": "sk-ant-test"}`
+
+	for _, body := range []string{provider1, provider2} {
+		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
+		}
+	}
+
+	// List all providers
+	req := httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(response) != 2 {
+		t.Errorf("expected 2 providers, got %d", len(response))
+	}
+}
+
+// TestCreateProvider_Integration_Success tests creating a provider with valid data.
+func TestCreateProvider_Integration_Success(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"name": "test-create-success", "base_url": "https://api.openai.com", "api_key": "sk-test123"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 Created, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		BaseURL string `json:"base_url"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response.Name != "test-create-success" {
+		t.Errorf("expected name 'test-create-success', got %s", response.Name)
+	}
+	if response.BaseURL != "https://api.openai.com" {
+		t.Errorf("expected base_url 'https://api.openai.com', got %s", response.BaseURL)
+	}
+	if response.ID == "" {
+		t.Error("expected non-empty ID")
+	}
+}
+
+// TestUpdateProvider_Integration_Success tests updating a provider's fields.
+func TestUpdateProvider_Integration_Success(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create provider first
+	createBody := `{"name": "test-update-original", "base_url": "https://api.openai.com", "api_key": "sk-test"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+
+	// Update the provider
+	updateBody := `{"name": "test-update-new", "base_url": "https://api.anthropic.com"}`
+	req = httptest.NewRequest(http.MethodPut, "/providers/"+createResp.ID, strings.NewReader(updateBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var updateResp struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		BaseURL string `json:"base_url"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&updateResp); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+
+	if updateResp.Name != "test-update-new" {
+		t.Errorf("expected name 'test-update-new', got %s", updateResp.Name)
+	}
+	if updateResp.BaseURL != "https://api.anthropic.com" {
+		t.Errorf("expected base_url 'https://api.anthropic.com', got %s", updateResp.BaseURL)
+	}
+}
+
+// TestUpdateProvider_NotFound tests updating a non-existent provider.
+func TestUpdateProvider_NotFound(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	unknownID := "00000000-0000-0000-0000-000000000000"
+	body := `{"name": "test-update-notfound"}`
+	req := httptest.NewRequest(http.MethodPut, "/providers/"+unknownID, strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404 Not Found, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestDeleteProvider_Integration_Success tests deleting an existing provider.
+func TestDeleteProvider_Integration_Success(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create provider first
+	createBody := `{"name": "test-delete-success", "base_url": "https://api.openai.com", "api_key": "sk-test"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider: %d: %s", w.Code, w.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+
+	// Delete the provider
+	req = httptest.NewRequest(http.MethodDelete, "/providers/"+createResp.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204 No Content, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify it's gone
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 Not Found after delete, got %d", w.Code)
+	}
+}
+
+// TestListProviders_WithModelCounts tests ListProviders with providers that have models
+// to cover the model count query and rows.Scan paths.
+func TestListProviders_WithModelCounts(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	defer pool.Close()
+
+	// Clean test data
+	pool.Exec(ctx, `TRUNCATE request_logs, models, providers CASCADE`)
+
+	// Create admin manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	// Create handler
+	cfg := &config.Config{
+		MasterKey:          "testmasterkey1234567890abcdef",
+		AllowHTTPProviders: true,
+		DataDir:            tmpDir,
+	}
+	providerRepo := provider.NewRepository(pool)
+	vkRepo := virtualkey.NewRepository(pool)
+	settingsRepo := settings.NewRepository(pool)
+	dbInst, err := db.New(ctx, apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create db instance: %v", err)
+	}
+	defer dbInst.Close()
+
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test")
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+
+	// Create a provider
+	createBody := `{"name":"test-provider-models","base_url":"https://api.example.com/v1","provider_type":"openai","api_key":"sk-testkey1234567890abcdef"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var created struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
+		t.Fatalf("failed to decode created provider: %v", err)
+	}
+
+	// Insert models for this provider
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO models (id, model_id, name, provider_id, enabled, created_at, last_seen_at)
+		VALUES ($1, $2, $3, $4, true, NOW(), NOW()),
+		       ($5, $6, $7, $4, true, NOW(), NOW())`,
+		uuid.New(), modelID1, "model-1", created.ID,
+		uuid.New(), modelID2, "model-2")
+	if err != nil {
+		t.Fatalf("Failed to insert models: %v", err)
+	}
+
+	// List providers
+	req = httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("list providers: expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var providers []provider.ProviderResponse
+	if err := json.NewDecoder(w.Body).Decode(&providers); err != nil {
+		t.Fatalf("failed to decode providers: %v", err)
+	}
+
+	// Find our test provider
+	var found bool
+	for _, p := range providers {
+		if p.Name == "test-provider-models" {
+			found = true
+			if p.ModelCount != 2 {
+				t.Errorf("Expected ModelCount=2, got %d", p.ModelCount)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected to find test-provider-models in list")
+	}
+}
+
+// TestListProviders_WithTokenCounts tests ListProviders with request logs
+// to cover the token count query and rows.Scan paths.
+func TestListProviders_WithTokenCounts(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	defer pool.Close()
+
+	// Clean test data
+	pool.Exec(ctx, `TRUNCATE request_logs, models, providers CASCADE`)
+
+	// Create admin manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	// Create handler
+	cfg := &config.Config{
+		MasterKey:          "testmasterkey1234567890abcdef",
+		AllowHTTPProviders: true,
+		DataDir:            tmpDir,
+	}
+	providerRepo := provider.NewRepository(pool)
+	vkRepo := virtualkey.NewRepository(pool)
+	settingsRepo := settings.NewRepository(pool)
+	dbInst, err := db.New(ctx, apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create db instance: %v", err)
+	}
+	defer dbInst.Close()
+
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test")
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+
+	// Create a provider
+	createBody := `{"name":"test-provider-tokens","base_url":"https://api.example.com/v1","provider_type":"openai","api_key":"sk-testkey1234567890abcdef"}`
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(createBody))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
+		t.Fatalf("failed to decode created provider: %v", err)
+	}
+
+	providerUUID, _ := uuid.Parse(created.ID)
+
+	// Insert request logs with token counts for this provider
+	logID := uuid.New()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, 'test-model', 200, 100, 50, 75, NOW())`,
+		logID, providerUUID)
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// List providers
+	req = httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("list providers: expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var providers []provider.ProviderResponse
+	if err := json.NewDecoder(w.Body).Decode(&providers); err != nil {
+		t.Fatalf("failed to decode providers: %v", err)
+	}
+
+	// Find our test provider
+	var found bool
+	for _, p := range providers {
+		if p.Name == "test-provider-tokens" {
+			found = true
+			if p.TotalTokens != 125 {
+				t.Errorf("Expected TotalTokens=125, got %d", p.TotalTokens)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected to find test-provider-tokens in list")
+	}
+}
+
+// TestListProviders_ModelCountQueryError tests ListProviders when the model count query fails
+// (using closed pool) to cover the model count query error path.
+func TestListProviders_ModelCountQueryError(t *testing.T) {
+	// Skip this test as it requires internal access to db.DB fields
+	// The error path is covered by TestListProviders_CancelledContext in admin_test.go
+	t.Skip("requires internal db.DB manipulation - covered by TestListProviders_CancelledContext")
 }

@@ -2228,3 +2228,34 @@ func TestDetectComposeProject_Non200Status(t *testing.T) {
 		t.Errorf("Expected empty string on non-200 status, got %q", result)
 	}
 }
+
+// ===========================================================================
+// Tests moved from coverage_test.go
+// ===========================================================================
+
+// TestIsDockerAvailable_SocketNotExist tests that IsDockerAvailable returns
+// false when the Docker socket doesn't exist.
+func TestIsDockerAvailable_SocketNotExist(t *testing.T) {
+	// Save original values
+	origSocketPath := dockerSocketPath
+	origDockerAvailable := dockerAvailable
+
+	// Reset for test
+	dockerCheckMu = sync.Once{}
+	dockerAvailable = false
+
+	// Override socket path to non-existent location
+	dockerSocketPath = "/nonexistent/docker.sock"
+
+	// Restore original values after test
+	defer func() {
+		dockerSocketPath = origSocketPath
+		dockerCheckMu = sync.Once{}
+		dockerAvailable = origDockerAvailable
+	}()
+
+	result := IsDockerAvailable()
+	if result {
+		t.Error("Expected false when Docker socket doesn't exist")
+	}
+}

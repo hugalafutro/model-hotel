@@ -598,3 +598,109 @@ func TestHandleStreamingResponse_ErrorChunk(t *testing.T) {
 		t.Errorf("expected state=failed (error chunk), got %q", logData.state)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// writeOpenAIError unit tests (additional status codes not in provider_helpers_test.go)
+// ---------------------------------------------------------------------------
+
+func TestWriteOpenAIError_429WithType(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeOpenAIError(rec, "rate limit exceeded", http.StatusTooManyRequests)
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("expected status %d, got %d", http.StatusTooManyRequests, rec.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	errObj := resp["error"].(map[string]interface{})
+	if errObj["message"] != "rate limit exceeded" {
+		t.Errorf("expected message 'rate limit exceeded', got %q", errObj["message"])
+	}
+	if errObj["type"] != "rate_limit_error" {
+		t.Errorf("expected type 'rate_limit_error', got %q", errObj["type"])
+	}
+}
+
+func TestWriteOpenAIError_500WithType(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeOpenAIError(rec, "internal server error", http.StatusInternalServerError)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	errObj := resp["error"].(map[string]interface{})
+	if errObj["message"] != "internal server error" {
+		t.Errorf("expected message 'internal server error', got %q", errObj["message"])
+	}
+	if errObj["type"] != "server_error" {
+		t.Errorf("expected type 'server_error', got %q", errObj["type"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// failRequest integration tests
+// ---------------------------------------------------------------------------
+
+func TestFailRequest_PopulatesLogData(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	startTime := time.Now()
+	timings := resolveTimings{
+		modelLookupMs:    2.0,
+		providerLookupMs: 3.0,
+		keyDecryptMs:     1.0,
+		dialMs:           0.5,
+		failoverLookupMs: 4.0,
+		settingsReadMs:   0.2,
+	}
+
+	logData := &requestLogData{
+		modelID:         "test-model",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.failRequest(logData, 502, "test error", 1, startTime, 1.5, timings, 0.5)
+
+	if logData.statusCode != 502 {
+		t.Errorf("expected statusCode=502, got %d", logData.statusCode)
+	}
+	if logData.errorMessage != "test error" {
+		t.Errorf("expected errorMessage='test error', got %q", logData.errorMessage)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state='failed', got %q", logData.state)
+	}
+	if logData.failoverAttempt != 1 {
+		t.Errorf("expected failoverAttempt=1, got %d", logData.failoverAttempt)
+	}
+	if logData.parseMs != 1.5 {
+		t.Errorf("expected parseMs=1.5, got %f", logData.parseMs)
+	}
+	if logData.modelLookupMs != 2.0 {
+		t.Errorf("expected modelLookupMs=2.0, got %f", logData.modelLookupMs)
+	}
+	if logData.providerLookupMs != 3.0 {
+		t.Errorf("expected providerLookupMs=3.0, got %f", logData.providerLookupMs)
+	}
+	if logData.proxyOverheadMs != 0.5 {
+		t.Errorf("expected proxyOverheadMs=0.5, got %f", logData.proxyOverheadMs)
+	}
+}
+
+// ---------------------------------------------------------------------------

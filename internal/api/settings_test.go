@@ -170,3 +170,184 @@ func TestUpdateSettings_SetTxError(t *testing.T) {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, rr.Code, rr.Body.String())
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap_test.go
+// ---------------------------------------------------------------------------
+
+// TestUpdateSettings_Integration_MultipleKeys tests updating multiple settings at once.
+func TestUpdateSettings_Integration_MultipleKeys(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"rate_limit_enabled": "true", "rate_limit_rps": "50", "rate_limit_burst": "30"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response["rate_limit_enabled"] != "true" {
+		t.Errorf("expected rate_limit_enabled='true', got %s", response["rate_limit_enabled"])
+	}
+	if response["rate_limit_rps"] != "50" {
+		t.Errorf("expected rate_limit_rps='50', got %s", response["rate_limit_rps"])
+	}
+	if response["rate_limit_burst"] != "30" {
+		t.Errorf("expected rate_limit_burst='30', got %s", response["rate_limit_burst"])
+	}
+}
+
+// TestUpdateSettings_FloatValue tests updating a float-type setting.
+func TestUpdateSettings_FloatValue(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"rate_limit_rps": "25.5"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response["rate_limit_rps"] != "25.5" {
+		t.Errorf("expected rate_limit_rps='25.5', got %s", response["rate_limit_rps"])
+	}
+}
+
+// TestUpdateSettings_OutOfRangeInt tests updating with an integer value out of range.
+func TestUpdateSettings_OutOfRangeInt(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_burst max is 10000
+	body := `{"rate_limit_burst": "99999"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be between") {
+		t.Errorf("expected error about range, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_OutOfRangeFloat tests updating with a float value out of range.
+func TestUpdateSettings_OutOfRangeFloat(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_rps max is 10000
+	body := `{"rate_limit_rps": "99999"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be between") {
+		t.Errorf("expected error about range, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_TooManyKeys tests the limit on number of settings in one request.
+func TestUpdateSettings_TooManyKeys(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Build a request with more than 50 unique keys
+	// The >50 check happens before key validation, so keys don't need to be valid
+	body := `{`
+	for i := 0; i < 55; i++ {
+		if i > 0 {
+			body += `,`
+		}
+		body += `"setting_key_` + string(rune('a'+(i/26))) + string(rune('a'+(i%26))) + `":"value"`
+	}
+	body += `}`
+
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "too many settings") {
+		t.Errorf("expected error about too many settings, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_NonNumericInt tests that updating an int-type setting with non-numeric value returns 400.
+func TestUpdateSettings_NonNumericInt(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_ip_burst is an int-type setting
+	body := `{"rate_limit_ip_burst": "not-a-number"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be a number") {
+		t.Errorf("expected error about numeric value, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateSettings_NonNumericFloat tests that updating a float-type setting with non-numeric value returns 400.
+func TestUpdateSettings_NonNumericFloat(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_ip_rps is a float-type setting
+	body := `{"rate_limit_ip_rps": "not-a-number"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be a number") {
+		t.Errorf("expected error about numeric value, got: %s", w.Body.String())
+	}
+}

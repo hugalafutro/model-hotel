@@ -2,15 +2,20 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -715,5 +720,856 @@ func TestVirtualKeyRepoAdapter_CreateDelete_RoundTrip(t *testing.T) {
 	_, err = h.virtualKeyRepo.FindByKeyHash(context.Background(), created.KeyHash)
 	if err == nil {
 		t.Error("expected error after delete, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_test.go
+// ---------------------------------------------------------------------------
+
+// coverageMockVirtualKeyRepo implements VirtualKeyRepository for coverage tests.
+type coverageMockVirtualKeyRepo struct {
+	findByKeyHashFunc func(ctx context.Context, keyHash string) (*VirtualKeyInfo, error)
+}
+
+func (m *coverageMockVirtualKeyRepo) AddTokens(ctx context.Context, keyHash string, tokens int) error {
+	return nil
+}
+
+func (m *coverageMockVirtualKeyRepo) TouchLastUsed(ctx context.Context, keyHash string) error {
+	return nil
+}
+
+func (m *coverageMockVirtualKeyRepo) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error) {
+	if m.findByKeyHashFunc != nil {
+		return m.findByKeyHashFunc(ctx, keyHash)
+	}
+	return nil, nil
+}
+
+func (m *coverageMockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
+	return nil, nil
+}
+
+func (m *coverageMockVirtualKeyRepo) Delete(ctx context.Context, id string) error {
+	return nil
+}
+
+// coverageMockModelRepo implements ModelRepository for coverage tests.
+type coverageMockModelRepo struct {
+	listEnabledFunc func(ctx context.Context) ([]*model.Model, error)
+}
+
+func (m *coverageMockModelRepo) ListEnabled(ctx context.Context) ([]*model.Model, error) {
+	if m.listEnabledFunc != nil {
+		return m.listEnabledFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *coverageMockModelRepo) Upsert(ctx context.Context, model *model.Model) error {
+	return nil
+}
+
+func (m *coverageMockModelRepo) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+
+func (m *coverageMockModelRepo) Get(ctx context.Context, id uuid.UUID) (*model.Model, error) {
+	return nil, nil
+}
+
+func (m *coverageMockModelRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error) {
+	return nil, nil
+}
+
+func (m *coverageMockModelRepo) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error) {
+	return nil, nil
+}
+
+// TestProxyKeyMiddleware_MissingAuth tests that when no Authorization header
+// is provided, the middleware returns 401 with a JSON error.
+func TestProxyKeyMiddleware_MissingAuth(t *testing.T) {
+	t.Helper()
+	h := &Handler{
+		cfg:       &config.Config{MasterKey: "test"},
+		ipLimiter: ratelimit.NewIPLimiter(30, 60, nil, nil),
+	}
+	called := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	handler := h.ProxyKeyMiddleware(next)
+
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
+	// No Authorization header
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if called {
+		t.Error("next handler should NOT be called without auth header")
+	}
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", rr.Code)
+	}
+
+	// Verify response is JSON
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Errorf("response should be valid JSON: %v", err)
+	}
+}
+
+// TestProxyKeyMiddleware_InvalidAuth tests that when Authorization header
+// has an invalid key, the middleware returns 401 with JSON error.
+func TestProxyKeyMiddleware_InvalidAuth(t *testing.T) {
+	t.Helper()
+	mockRepo := &coverageMockVirtualKeyRepo{
+		findByKeyHashFunc: func(ctx context.Context, keyHash string) (*VirtualKeyInfo, error) {
+			return nil, virtualkey.ErrNotFound
+		},
+	}
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
+		virtualKeyRepo: mockRepo,
+	}
+	called := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	handler := h.ProxyKeyMiddleware(next)
+
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer invalid-key")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if called {
+		t.Error("next handler should NOT be called with invalid key")
+	}
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", rr.Code)
+	}
+
+	// Verify response is JSON with expected message
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Errorf("response should be valid JSON: %v", err)
+	}
+	if msg, ok := resp["error"].(map[string]interface{}); !ok {
+		t.Error("response should have error object")
+	} else if msg["message"] != "Invalid virtual key" {
+		t.Errorf("expected error message 'Invalid virtual key', got %v", msg["message"])
+	}
+}
+
+// TestProxyKeyMiddleware_DBError tests that when virtual key repo returns
+// a non-ErrNotFound error, the middleware returns 500 with JSON error.
+func TestProxyKeyMiddleware_DBError(t *testing.T) {
+	t.Helper()
+	dbErr := errors.New("database connection failed")
+	mockRepo := &coverageMockVirtualKeyRepo{
+		findByKeyHashFunc: func(ctx context.Context, keyHash string) (*VirtualKeyInfo, error) {
+			return nil, dbErr
+		},
+	}
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
+		virtualKeyRepo: mockRepo,
+	}
+	called := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	handler := h.ProxyKeyMiddleware(next)
+
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer some-key")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if called {
+		t.Error("next handler should NOT be called on DB error")
+	}
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rr.Code)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap2_test.go
+// ---------------------------------------------------------------------------
+
+// TestRegisterAdminChat_ChatKey verifies that calling h.RegisterAdminChat
+// and making a POST to /api/chat/chat exercises the middleware that sets
+// virtualKeyNameKey to "chat". The middleware runs even if ChatCompletions errors.
+func TestRegisterAdminChat_ChatKey(t *testing.T) {
+	t.Helper()
+
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.cfg.RateLimitEnabled = false
+
+	mux := chi.NewMux()
+	// Actually call RegisterAdminChat on a subrouter
+	mux.Route("/api/chat", func(r chi.Router) {
+		// Add recover middleware to catch panic from ChatCompletions (nil DB)
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer func() {
+					if rec := recover(); rec != nil {
+						// Expected: ChatCompletions panics on DB access with nil pool
+						// Middleware already executed, coverage counted
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				}()
+				next.ServeHTTP(w, r)
+			})
+		})
+		h.RegisterAdminChat(r)
+	})
+
+	// Make a POST request - the middleware will run and set context key
+	// ChatCompletions will error (no DB) but middleware coverage is counted
+	body := `{"model":"test","messages":[]}`
+	req := httptest.NewRequest("POST", "/api/chat/chat", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// We can't easily verify the context key since ChatCompletions errors,
+	// but the middleware DID run (coverage counts it). Verify request was processed.
+	if rr.Code == 0 {
+		t.Error("request was not processed")
+	}
+}
+
+// TestRegisterAdminChat_ArenaKey verifies that calling h.RegisterAdminChat
+// and making a POST to /api/chat/arena exercises the middleware that sets
+// virtualKeyNameKey to "arena".
+func TestRegisterAdminChat_ArenaKey(t *testing.T) {
+	t.Helper()
+
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.cfg.RateLimitEnabled = false
+
+	mux := chi.NewMux()
+	mux.Route("/api/chat", func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer func() {
+					if rec := recover(); rec != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				}()
+				next.ServeHTTP(w, r)
+			})
+		})
+		h.RegisterAdminChat(r)
+	})
+
+	body := `{"model":"test","messages":[]}`
+	req := httptest.NewRequest("POST", "/api/chat/arena", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code == 0 {
+		t.Error("request was not processed")
+	}
+}
+
+// TestRegisterAdminChat_CompletionsKey verifies that calling h.RegisterAdminChat
+// and making a POST to /api/chat/completions exercises the middleware that sets
+// virtualKeyNameKey to "completions".
+func TestRegisterAdminChat_CompletionsKey(t *testing.T) {
+	t.Helper()
+
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.cfg.RateLimitEnabled = false
+
+	mux := chi.NewMux()
+	mux.Route("/api/chat", func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer func() {
+					if rec := recover(); rec != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				}()
+				next.ServeHTTP(w, r)
+			})
+		})
+		h.RegisterAdminChat(r)
+	})
+
+	body := `{"model":"test","messages":[]}`
+	req := httptest.NewRequest("POST", "/api/chat/completions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code == 0 {
+		t.Error("request was not processed")
+	}
+}
+
+// TestRegisterAdminChat_RateLimiterMiddleware verifies that the rate limiter
+// middleware is applied when RateLimitEnabled is true.
+func TestRegisterAdminChat_RateLimiterMiddleware(t *testing.T) {
+	t.Helper()
+
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.cfg.RateLimitEnabled = true
+
+	mux := chi.NewMux()
+	mux.Route("/api/chat", func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer func() {
+					if rec := recover(); rec != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				}()
+				next.ServeHTTP(w, r)
+			})
+		})
+		h.RegisterAdminChat(r)
+	})
+
+	body := `{"model":"test","messages":[]}`
+	req := httptest.NewRequest("POST", "/api/chat/chat", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	// Request should be processed (may be rate limited or error from ChatCompletions)
+	// The important thing is that RegisterAdminChat was called with RateLimitEnabled=true
+	if rr.Code == 0 {
+		t.Error("request was not processed")
+	}
+}
+
+func TestChatCompletions_RequestBodyNotCached(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Create a mock upstream server
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"test-model","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}`))
+	}))
+	defer upstream.Close()
+
+	// Create provider + model
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-uncached", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       prov.ID,
+		ModelID:          "test-model",
+		Name:             "Test Model",
+		DisplayName:      "Test Model Display",
+		Description:      "A test model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "text",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		Enabled:          true,
+		CreatedAt:        time.Now(),
+		LastSeenAt:       time.Now(),
+	}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	// Request WITHOUT RequestBodyKey in context (normal path)
+	body := `{"model":"test-provider-uncached/test-model","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+	// Do NOT add ctxkeys.RequestBodyKey to context
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestChatCompletions_ReadBodyError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Create request with body reader that errors
+	errReader := &errorReader{err: errors.New("body read error")}
+	req := httptest.NewRequest("POST", "/v1/chat/completions", errReader)
+	req = withAuthContext(req)
+	// Ensure RequestBodyKey is NOT in context
+
+	w := httptest.NewRecorder()
+
+	h.ChatCompletions(w, req)
+
+	// Should return 400 with error message
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "failed to read request body") {
+		t.Errorf("expected error about reading body, got %q", body)
+	}
+}
+
+func TestChatCompletions_NoCandidatesAfterResolve(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Create provider WITHOUT any model
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	_, err = h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-nomodel", BaseURL: "http://localhost:9999", APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	// No model created for this provider
+
+	body := `{"model":"test-provider-nomodel/nonexistent-model","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestChatCompletions_NewRequestWithContextError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-reqerr", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	// Override newRequestWithContext to fail
+	origNewReq := newRequestWithContext
+	defer func() { newRequestWithContext = origNewReq }()
+	newRequestWithContext = func(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+		return nil, errors.New("request creation failed")
+	}
+
+	body := `{"model":"test-provider-reqerr/test-model","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestChatCompletions_ContextErrorHandling(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Server that delays response to trigger timeout
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(5 * time.Second):
+		case <-r.Context().Done():
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-ctxerr", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	// Set very short request timeout
+	if err := h.settingsRepo.Set(ctx, "request_timeout", "100ms"); err != nil {
+		t.Fatalf("failed to set timeout: %v", err)
+	}
+	defer func() {
+		_ = h.settingsRepo.Set(ctx, "request_timeout", "60000")
+	}()
+	h.settingsRepo.InvalidateCache("request_timeout")
+
+	body := `{"model":"test-provider-ctxerr/test-model","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestChatCompletions_RetryRequestCreationError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	callCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			// First request: 400 with param rejection
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\":{\"message\":\"Unrecognized parameter \\\"temperature\\\" is not supported\",\"type\":\"invalid_request_error\"}}"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-retrycreate", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	// Override newRequestWithContext: succeed on first call, fail on retry
+	origNewReq := newRequestWithContext
+	defer func() { newRequestWithContext = origNewReq }()
+	reqCallCount := 0
+	newRequestWithContext = func(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+		reqCallCount++
+		if reqCallCount > 1 {
+			return nil, errors.New("retry request creation failed")
+		}
+		return http.NewRequestWithContext(ctx, method, url, body)
+	}
+
+	body := `{"model":"test-provider-retrycreate/test-model","messages":[{"role":"user","content":"hi"}],"temperature":0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	// When retry request creation fails, all providers exhausted → 502
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestChatCompletions_RetryRequestDoError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	callCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			// First request: 400 with param rejection
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\":{\"message\":\"Unrecognized parameter \\\"temperature\\\" is not supported\",\"type\":\"invalid_request_error\"}}"))
+			return
+		}
+		// Second request (retry): hijack and close connection to cause Do error
+		hj, ok := w.(http.Hijacker)
+		if ok {
+			conn, _, _ := hj.Hijack()
+			conn.Close()
+		}
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-retrydo", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	body := `{"model":"test-provider-retrydo/test-model","messages":[{"role":"user","content":"hi"}],"temperature":0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	// When retry Do fails, all providers exhausted → 502
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestChatCompletions_RetryCancelFailoverPath(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	callCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\":{\"message\":\"Unrecognized parameter \\\"temperature\\\" is not supported\",\"type\":\"invalid_request_error\"}}"))
+			return
+		}
+		// Retry: return 500 (failover-eligible status)
+		// With single candidate, failover won't trigger but non-200 path
+		// will call retryCancel at L1052-1054
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":{"message":"internal server error"}}`))
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-retry-failover", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	body := `{"model":"test-provider-retry-failover/test-model","messages":[{"role":"user","content":"hi"}],"temperature":0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	// Retry returns 500, single candidate so no failover, 500 forwarded
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestChatCompletions_RetryCancelNon200Path(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	callCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			// First request: 400 with param rejection
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\":{\"message\":\"Unrecognized parameter \\\"temperature\\\" is not supported\",\"type\":\"invalid_request_error\"}}"))
+			return
+		}
+		// Retry: return 400 (non-failover-eligible, non-200)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":{"message":"bad request after retry"}}`))
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-retrycancel-non200", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	body := `{"model":"test-provider-retrycancel-non200/test-model","messages":[{"role":"user","content":"hi"}],"temperature":0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestChatCompletions_RetryCancelStreamingPath(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	callCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			// First request: 400 with param rejection
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{\"error\":{\"message\":\"Unrecognized parameter \\\"temperature\\\" is not supported\",\"type\":\"invalid_request_error\"}}"))
+			return
+		}
+		// Retry: return 200 streaming
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
+		fmt.Fprintf(w, "data: [DONE]\n\n")
+	}))
+	defer upstream.Close()
+
+	ctx := context.Background()
+	kp, err := auth.Encrypt("test-api-key", "test-master-key-for-proxy-tests")
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "test-provider-stream", BaseURL: upstream.URL, APIKey: "test-api-key",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	if err := h.modelRepo.Upsert(ctx, &model.Model{ID: uuid.New(), ProviderID: prov.ID, ModelID: "test-model", Name: "Test Model", DisplayName: "Test Model Display", Description: "A test model", Capabilities: "{}", Params: "{}", Modality: "text", InputModalities: "[]", OutputModalities: "[]", Enabled: true, CreatedAt: time.Now(), LastSeenAt: time.Now()}); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	body := `{"model":"test-provider-stream/test-model","messages":[{"role":"user","content":"hi"}],"stream":true,"temperature":0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	w := httptest.NewRecorder()
+	h.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from context_skip_test.go
+// ---------------------------------------------------------------------------
+
+// TestContextErrorsNotCountedAsProviderFailures verifies that context
+// cancellation and deadline errors are correctly identified so the proxy
+// handler can skip circuit breaker RecordFailure calls for them.
+//
+// The actual skip logic lives in ChatCompletions (proxy.go:446-460).
+// This test validates the error classification on which that logic depends.
+func TestContextErrorsNotCountedAsProviderFailures(t *testing.T) {
+	tests := []struct {
+		name            string
+		err             error
+		shouldBeSkipped bool
+	}{
+		{
+			name:            "context.Canceled is skipped",
+			err:             context.Canceled,
+			shouldBeSkipped: true,
+		},
+		{
+			name:            "context.DeadlineExceeded is skipped",
+			err:             context.DeadlineExceeded,
+			shouldBeSkipped: true,
+		},
+		{
+			name:            "wrapped context.Canceled is skipped",
+			err:             fmt.Errorf("upstream: %w", context.Canceled),
+			shouldBeSkipped: true,
+		},
+		{
+			name:            "wrapped context.DeadlineExceeded is skipped",
+			err:             fmt.Errorf("upstream: %w", context.DeadlineExceeded),
+			shouldBeSkipped: true,
+		},
+		{
+			name:            "connection refused is NOT skipped",
+			err:             errors.New("connection refused"),
+			shouldBeSkipped: false,
+		},
+		{
+			name:            "DNS error is NOT skipped",
+			err:             errors.New("lookup: no such host"),
+			shouldBeSkipped: false,
+		},
+		{
+			name:            "nil error is NOT skipped (shouldn't happen but test)",
+			err:             nil,
+			shouldBeSkipped: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var skipped bool
+			if tc.err != nil {
+				skipped = errors.Is(tc.err, context.Canceled) || errors.Is(tc.err, context.DeadlineExceeded)
+			}
+			if skipped != tc.shouldBeSkipped {
+				t.Errorf("errors.Is classification: skipped=%v, want skipped=%v for err=%v", skipped, tc.shouldBeSkipped, tc.err)
+			}
+		})
 	}
 }

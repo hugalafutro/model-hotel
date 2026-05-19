@@ -1254,3 +1254,749 @@ func TestGetProviderDistribution_JSONEncodeError(t *testing.T) {
 		t.Errorf("Expected 500, got %d", w.code)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Additional test coverage for stats.go
+// ---------------------------------------------------------------------------
+
+func TestGetStats_MultipleProviders(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Insert 3 providers
+	providerA := uuid.New()
+	providerB := uuid.New()
+	providerC := uuid.New()
+	insertTestProvider(t, pool, providerA, "provider-a", "https://api.a.com/v1")
+	insertTestProvider(t, pool, providerB, "provider-b", "https://api.b.com/v1")
+	insertTestProvider(t, pool, providerC, "provider-c", "https://api.c.com/v1")
+
+	// Insert request logs: 2 for A, 3 for B, 5 for C (total=10)
+	for i := 0; i < 2; i++ {
+		insertTestRequestLog(t, pool, uuid.New(), providerA, "model-a", 200, 100, 10, 20)
+	}
+	for i := 0; i < 3; i++ {
+		insertTestRequestLog(t, pool, uuid.New(), providerB, "model-b", 200, 100, 10, 20)
+	}
+	for i := 0; i < 5; i++ {
+		insertTestRequestLog(t, pool, uuid.New(), providerC, "model-c", 200, 100, 10, 20)
+	}
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.TotalRequestsLast24h != 10 {
+		t.Errorf("Expected TotalRequestsLast24h=10, got %d", response.TotalRequestsLast24h)
+	}
+
+	if len(response.ByProvider) != 3 {
+		t.Errorf("Expected ByProvider to have 3 entries, got %d", len(response.ByProvider))
+	}
+
+	// Check individual provider counts
+	expectedCounts := map[string]int64{
+		"provider-a": 2,
+		"provider-b": 3,
+		"provider-c": 5,
+	}
+	for name, expected := range expectedCounts {
+		if response.ByProvider[name] != int64(expected) {
+			t.Errorf("Expected ByProvider[%q]=%d, got %d", name, expected, response.ByProvider[name])
+		}
+	}
+}
+
+func TestGetStats_MultipleModels(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert request logs for 3 different models
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-b", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-c", 200, 100, 10, 20)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.ByModel) != 3 {
+		t.Errorf("Expected ByModel to have 3 entries, got %d", len(response.ByModel))
+	}
+
+	// ByModel uses format "provider_name/model_id"
+	expectedModels := map[string]bool{
+		"test-provider/model-a": true,
+		"test-provider/model-b": true,
+		"test-provider/model-c": true,
+	}
+	for model := range expectedModels {
+		if _, ok := response.ByModel[model]; !ok {
+			t.Errorf("Expected ByModel to contain %q, got keys: %v", model, response.ByModel)
+		}
+	}
+}
+
+func TestGetStats_RateLimitHits(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert 3 request logs: 2 with status 200, 1 with status 429
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 429, 100, 0, 0)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.TotalRequestsLast24h != 3 {
+		t.Errorf("Expected TotalRequestsLast24h=3, got %d", response.TotalRequestsLast24h)
+	}
+
+	if response.RateLimitHits != 1 {
+		t.Errorf("Expected RateLimitHits=1, got %d", response.RateLimitHits)
+	}
+}
+
+func TestGetStats_ErrorRate(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert request logs: 3 with status 200, 1 with status 400, 1 with status 500
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 400, 100, 0, 0)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 500, 100, 0, 0)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// ErrorRate should be 0.4 (2 errors out of 5 requests)
+	if response.ErrorRate <= 0 {
+		t.Errorf("Expected ErrorRate > 0, got %f", response.ErrorRate)
+	}
+	// Allow some tolerance for floating point
+	if response.ErrorRate < 0.35 || response.ErrorRate > 0.45 {
+		t.Errorf("Expected ErrorRate around 0.4, got %f", response.ErrorRate)
+	}
+}
+
+func TestGetStats_TTFTAndOverhead(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert rich request logs with TTFT and overhead values
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		TTFTMs:          50.0,
+		ProxyOverheadMs: 5.0,
+	})
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		TTFTMs:          100.0,
+		ProxyOverheadMs: 10.0,
+	})
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		TTFTMs:          75.0,
+		ProxyOverheadMs: 7.5,
+	})
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.AvgTTFTMs <= 0 {
+		t.Errorf("Expected AvgTTFTMs > 0, got %f", response.AvgTTFTMs)
+	}
+
+	if response.AvgOverheadMs <= 0 {
+		t.Errorf("Expected AvgOverheadMs > 0, got %f", response.AvgOverheadMs)
+	}
+}
+
+func TestGetProviderDistribution_MultipleProviders_ShareRounding(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Insert 3 providers
+	providerA := uuid.New()
+	providerB := uuid.New()
+	providerC := uuid.New()
+	insertTestProvider(t, pool, providerA, "provider-a", "https://api.a.com/v1")
+	insertTestProvider(t, pool, providerB, "provider-b", "https://api.b.com/v1")
+	insertTestProvider(t, pool, providerC, "provider-c", "https://api.c.com/v1")
+
+	// Insert request logs: 7 for A, 2 for B, 1 for C (total=10)
+	for i := 0; i < 7; i++ {
+		insertTestRequestLog(t, pool, uuid.New(), providerA, "model-a", 200, 100, 10, 20)
+	}
+	for i := 0; i < 2; i++ {
+		insertTestRequestLog(t, pool, uuid.New(), providerB, "model-b", 200, 100, 10, 20)
+	}
+	insertTestRequestLog(t, pool, uuid.New(), providerC, "model-c", 200, 100, 10, 20)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/provider-distribution?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response ProviderDistributionStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.Items) != 3 {
+		t.Errorf("Expected 3 items, got %d", len(response.Items))
+	}
+
+	// Check share values sum to approximately 100.0
+	var totalShare float64
+	for _, item := range response.Items {
+		totalShare += item.Share
+	}
+	if totalShare < 99.9 || totalShare > 100.1 {
+		t.Errorf("Expected shares to sum to ~100.0, got %f", totalShare)
+	}
+
+	// Find provider-a and verify it has the largest share (~70%)
+	var providerAShare float64
+	for _, item := range response.Items {
+		if item.Name == "provider-a" {
+			providerAShare = item.Share
+			if item.Count != 7 {
+				t.Errorf("Expected provider-a Count=7, got %d", item.Count)
+			}
+			// Verify Count field for requests metric (Count > 0, Tokens == 0)
+			if item.Tokens != 0 {
+				t.Errorf("Expected provider-a Tokens=0 for requests metric, got %d", item.Tokens)
+			}
+			break
+		}
+	}
+	if providerAShare < 65 || providerAShare > 75 {
+		t.Errorf("Expected provider-a share around 70%%, got %f%%", providerAShare)
+	}
+}
+
+func TestGetTimeSeries_TokensMetric(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert request logs with prompt/completion tokens
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 100, 200)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 150, 250)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 50, 100)
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h&metric=tokens", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.Points) == 0 {
+		t.Fatal("Expected response.Points to have entries")
+	}
+
+	// Verify some points have Tokens > 0
+	var hasTokens bool
+	for _, p := range response.Points {
+		if p.Tokens > 0 {
+			hasTokens = true
+			break
+		}
+	}
+	if !hasTokens {
+		t.Error("Expected some points to have Tokens > 0")
+	}
+}
+
+func TestGetStats_VirtualKeyAggregation(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert a virtual key
+	vkID := uuid.New()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO virtual_keys (id, name, key_hash, key_preview, tokens_used, last_used_at, created_at)
+		VALUES ($1, $2, $3, $4, 0, NOW(), NOW())`,
+		vkID, "test-vk-name", "fakehash123", "preview...")
+	if err != nil {
+		t.Fatalf("Failed to insert virtual key: %v", err)
+	}
+
+	// Insert request logs: some with VK, some without
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID: &vkID,
+	})
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID: &vkID,
+	})
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20) // no VK
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.ByVirtualKey) == 0 {
+		t.Error("Expected ByVirtualKey to have entries")
+	}
+}
+
+func TestNewStatsHandler_Constructor(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	defer pool.Close()
+
+	// Create admin manager
+	tmpDir := t.TempDir()
+	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
+	if err != nil {
+		t.Fatalf("failed to create admin manager: %v", err)
+	}
+
+	handler := NewStatsHandler(pool, adminMgr)
+	if handler == nil {
+		t.Fatal("Expected handler to be non-nil")
+	}
+}
+
+func TestGetStats_MultipleVirtualKeys(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
+
+	// Insert 2 virtual keys
+	vk1ID := uuid.New()
+	vk2ID := uuid.New()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO virtual_keys (id, name, key_hash, key_preview, tokens_used, last_used_at, created_at)
+		VALUES ($1, $2, $3, $4, 0, NOW(), NOW())`,
+		vk1ID, "vk-one", "hash1", "pre1")
+	if err != nil {
+		t.Fatalf("Failed to insert virtual key 1: %v", err)
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO virtual_keys (id, name, key_hash, key_preview, tokens_used, last_used_at, created_at)
+		VALUES ($1, $2, $3, $4, 0, NOW(), NOW())`,
+		vk2ID, "vk-two", "hash2", "pre2")
+	if err != nil {
+		t.Fatalf("Failed to insert virtual key 2: %v", err)
+	}
+
+	// Insert request logs for each VK
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID:   &vk1ID,
+		VirtualKeyName: "vk-one",
+	})
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID:   &vk2ID,
+		VirtualKeyName: "vk-two",
+	})
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Verify both VKs are in ByVirtualKey
+	if response.ByVirtualKey["vk-one"] != 1 {
+		t.Errorf("Expected ByVirtualKey['vk-one']=1, got %d", response.ByVirtualKey["vk-one"])
+	}
+	if response.ByVirtualKey["vk-two"] != 1 {
+		t.Errorf("Expected ByVirtualKey['vk-two']=1, got %d", response.ByVirtualKey["vk-two"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from coverage_gap3_test.go
+// ---------------------------------------------------------------------------
+
+// TestCalculateStats_TokensMetric tests calculateStats with metric=tokens
+// to cover the token aggregation branches in by_model, by_provider, by_virtual_key queries.
+func TestCalculateStats_TokensMetric(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data with token counts
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-tokens-metric", "https://api.example.com/v1")
+	// Insert request log with significant token counts
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 100, 200)
+
+	ctx := context.Background()
+
+	// Call calculateStats with metric=tokens
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// With metric=tokens, ByModel and ByProvider should contain token counts
+	if len(stats.ByModel) == 0 {
+		t.Error("Expected ByModel to have entries with metric=tokens")
+	}
+	if len(stats.ByProvider) == 0 {
+		t.Error("Expected ByProvider to have entries with metric=tokens")
+	}
+
+	// Check token totals
+	if stats.TotalTokensPrompt != 100 {
+		t.Errorf("Expected TotalTokensPrompt=100, got %d", stats.TotalTokensPrompt)
+	}
+	if stats.TotalTokensCompletion != 200 {
+		t.Errorf("Expected TotalTokensCompletion=200, got %d", stats.TotalTokensCompletion)
+	}
+}
+
+// TestCalculateStats_TokensMetric_ByVirtualKey tests calculateStats with metric=tokens
+// for the by_virtual_key query path.
+func TestCalculateStats_TokensMetric_ByVirtualKey(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Create a virtual key
+	vkID := uuid.New()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO virtual_keys (id, name, key_hash, key_preview, created_at)
+		VALUES ($1, 'test-vk-tokens', 'hash', 'sk-...ab', NOW())`,
+		vkID)
+	if err != nil {
+		t.Fatalf("Failed to insert virtual key: %v", err)
+	}
+
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-vk-tokens", "https://api.example.com/v1")
+
+	// Insert request log with virtual key and token counts
+	insertRichTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 50, 75, requestLogOpts{
+		VirtualKeyID: &vkID,
+	})
+
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// ByVirtualKey should contain the virtual key name with token count
+	if stats.ByVirtualKey["test-vk-tokens"] != 125 {
+		t.Errorf("Expected ByVirtualKey['test-vk-tokens']=125, got %d", stats.ByVirtualKey["test-vk-tokens"])
+	}
+}
+
+// TestCalculateStats_ExcludeDeletedFalse tests calculateStats with excludeDeleted=false
+// to cover the deleted virtual keys aggregate query path.
+func TestCalculateStats_ExcludeDeletedFalse(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-del-false", "https://api.example.com/v1")
+
+	// Insert request log with a virtual_key_id that doesn't exist in virtual_keys table
+	// This simulates a deleted virtual key
+	deletedVKID := uuid.New()
+	logID := uuid.New()
+	insertRichTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
+		VirtualKeyID: &deletedVKID,
+	})
+
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// With excludeDeleted=false, deleted VK requests should appear in ByVirtualKey["Deleted"]
+	if stats.ByVirtualKey["Deleted"] != 1 {
+		t.Errorf("Expected ByVirtualKey['Deleted']=1, got %d", stats.ByVirtualKey["Deleted"])
+	}
+}
+
+// TestCalculateStats_ExcludeDeletedFalse_Tokens tests calculateStats with excludeDeleted=false
+// and metric=tokens to cover the deleted VK path with token aggregation.
+func TestCalculateStats_ExcludeDeletedFalse_Tokens(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-del-tok", "https://api.example.com/v1")
+
+	// Insert request log with deleted VK and token counts
+	deletedVKID := uuid.New()
+	logID := uuid.New()
+	insertRichTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 30, 40, requestLogOpts{
+		VirtualKeyID: &deletedVKID,
+	})
+
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, false, "tokens")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// Deleted VK should have token count (30+40=70)
+	if stats.ByVirtualKey["Deleted"] != 70 {
+		t.Errorf("Expected ByVirtualKey['Deleted']=70, got %d", stats.ByVirtualKey["Deleted"])
+	}
+}
+
+// TestCalculateStats_7dPeriod tests calculateStats with period=7d
+// to cover the else branch for non-24h secondary queries.
+func TestCalculateStats_7dPeriod(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-7d-period", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	stats, err := handler.calculateStats(ctx, 7*24*time.Hour, true, "requests")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// With 7d period, TotalRequestsLast7d should be set
+	if stats.TotalRequestsLast7d != 1 {
+		t.Errorf("Expected TotalRequestsLast7d=1, got %d", stats.TotalRequestsLast7d)
+	}
+
+	// The else branch should have queried for 24h ago
+	// TotalRequestsLast24h should also be set (from the secondary query)
+	if stats.TotalRequestsLast24h != 1 {
+		t.Errorf("Expected TotalRequestsLast24h=1, got %d", stats.TotalRequestsLast24h)
+	}
+}
+
+// TestCalculateStats_1hPeriod tests calculateStats with period=1h
+// to cover the else branch for non-7d initial period.
+func TestCalculateStats_1hPeriod(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	providerID := uuid.New()
+	logID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-1h-period", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
+
+	stats, err := handler.calculateStats(ctx, 1*time.Hour, true, "requests")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// With 1h period, TotalRequestsLast24h is populated by the secondary query
+	// (since period != 7d, the else branch queries 24h). Logs exist within 24h.
+	// The else branch sets TotalRequestsLast24h = 0 initially
+	// Then the secondary query for _24hAgo should populate it
+	if stats.TotalRequestsLast24h < 1 {
+		t.Errorf("Expected TotalRequestsLast24h>=1, got %d", stats.TotalRequestsLast24h)
+	}
+}
+
+// TestCalculateStats_ChatArenaKeys_Tokens tests calculateStats with chat/arena virtual_key_name
+// and metric=tokens to cover the token aggregation path for chat/arena queries.
+func TestCalculateStats_ChatArenaKeys_Tokens(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-chat-tok", "https://api.example.com/v1")
+
+	// Insert request logs with chat and arena virtual_key_name and token counts
+	chatLogID := uuid.New()
+	insertRichTestRequestLog(t, pool, chatLogID, providerID, "test-model", 200, 100, 100, 150, requestLogOpts{
+		VirtualKeyName: "chat",
+	})
+	arenaLogID := uuid.New()
+	insertRichTestRequestLog(t, pool, arenaLogID, providerID, "test-model", 200, 100, 80, 120, requestLogOpts{
+		VirtualKeyName: "arena",
+	})
+
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	// Chat should have token count (100+150=250)
+	if stats.ByVirtualKey["chat"] != 250 {
+		t.Errorf("Expected ByVirtualKey['chat']=250, got %d", stats.ByVirtualKey["chat"])
+	}
+	// Arena should have token count (80+120=200)
+	if stats.ByVirtualKey["arena"] != 200 {
+		t.Errorf("Expected ByVirtualKey['arena']=200, got %d", stats.ByVirtualKey["arena"])
+	}
+}
+
+// TestCalculateStats_QueryError tests calculateStats with a closed pool
+// to cover the error paths for various queries beyond the first one.
+func TestCalculateStats_QueryError(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Close pool before calling calculateStats
+	pool.Close()
+
+	ctx := context.Background()
+	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests")
+	if err == nil {
+		t.Error("Expected error when pool is closed")
+	}
+}

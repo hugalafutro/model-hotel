@@ -436,6 +436,7 @@ func TestIntToStr(t *testing.T) {
 		{42, "42"},
 		{-1, "-1"},
 		{999999, "999999"},
+		{-12345, "-12345"},
 	}
 	for _, tc := range tests {
 		result := IntToStr(tc.input)

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -496,3 +497,270 @@ func TestWriteOpenAIError_502(t *testing.T) {
 		t.Errorf("unexpected message: %v", errObj["message"])
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests moved from build_url_test.go
+// ---------------------------------------------------------------------------
+
+func TestSanitizeBaseURL(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "trailing slash",
+			raw:  "https://api.example.com/",
+			want: "https://api.example.com",
+		},
+		{
+			name: "no trailing slash",
+			raw:  "https://api.example.com",
+			want: "https://api.example.com",
+		},
+		{
+			name: "double trailing slash - only strips one",
+			raw:  "https://api.example.com//",
+			want: "https://api.example.com/",
+		},
+		{
+			name: "empty string",
+			raw:  "",
+			want: "",
+		},
+		{
+			name: "just slash",
+			raw:  "/",
+			want: "",
+		},
+		{
+			name: "path with trailing slash",
+			raw:  "https://api.example.com/v1/",
+			want: "https://api.example.com/v1",
+		},
+		{
+			name: "path without trailing slash",
+			raw:  "https://api.example.com/v1",
+			want: "https://api.example.com/v1",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := util.SanitizeBaseURL(tc.raw)
+			if got != tc.want {
+				t.Errorf("SanitizeBaseURL(%q) = %q, want %q", tc.raw, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildProviderTargetURL_AnthropicEdgeCases(t *testing.T) {
+	tests := []struct {
+		name         string
+		baseURL      string
+		providerType string
+		want         string
+	}{
+		{
+			name:         "anthropic with /v1 and trailing slash",
+			baseURL:      "https://api.anthropic.com/v1/",
+			providerType: "anthropic",
+			want:         "https://api.anthropic.com/v1/chat/completions",
+		},
+		{
+			name:         "anthropic with double slash then v1",
+			baseURL:      "https://api.anthropic.com//v1",
+			providerType: "anthropic",
+			want:         "https://api.anthropic.com//v1/chat/completions",
+		},
+		{
+			name:         "anthropic empty baseURL",
+			baseURL:      "",
+			providerType: "anthropic",
+			want:         "/v1/chat/completions",
+		},
+		{
+			name:         "anthropic just slash",
+			baseURL:      "/",
+			providerType: "anthropic",
+			want:         "/v1/chat/completions",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType)
+			if got != tc.want {
+				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tc.baseURL, tc.providerType, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildProviderTargetURL_VariousProviders(t *testing.T) {
+	providers := []string{"openai", "google", "cohere", "xai", "unknown"}
+	baseURL := "https://api.example.com"
+	expected := "https://api.example.com/chat/completions"
+
+	for _, provider := range providers {
+		t.Run(provider, func(t *testing.T) {
+			got := util.BuildProviderTargetURL(baseURL, provider)
+			if got != expected {
+				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", baseURL, provider, got, expected)
+			}
+		})
+	}
+}
+
+func TestBuildProviderTargetURL_HasSuffixCheck(t *testing.T) {
+	tests := []struct {
+		name         string
+		baseURL      string
+		providerType string
+		description  string
+	}{
+		{
+			name:         "anthropic with /v1 suffix",
+			baseURL:      "https://api.anthropic.com/v1",
+			providerType: "anthropic",
+			description:  "should detect /v1 suffix and not double it",
+		},
+		{
+			name:         "anthropic with /v1/ suffix (becomes /v1 after sanitize)",
+			baseURL:      "https://api.anthropic.com/v1/",
+			providerType: "anthropic",
+			description:  "SanitizeBaseURL strips trailing slash, then HasSuffix matches /v1",
+		},
+		{
+			name:         "anthropic without /v1 suffix",
+			baseURL:      "https://api.anthropic.com",
+			providerType: "anthropic",
+			description:  "should add /v1 prefix",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sanitized := util.SanitizeBaseURL(tc.baseURL)
+			hasV1Suffix := strings.HasSuffix(sanitized, "/v1")
+
+			switch tc.name {
+			case "anthropic with /v1 suffix":
+				if !hasV1Suffix {
+					t.Errorf("expected sanitized URL %q to have /v1 suffix", sanitized)
+				}
+			case "anthropic with /v1/ suffix (becomes /v1 after sanitize)":
+				if !hasV1Suffix {
+					t.Errorf("expected sanitized URL %q to have /v1 suffix after stripping trailing slash", sanitized)
+				}
+			case "anthropic without /v1 suffix":
+				if hasV1Suffix {
+					t.Errorf("did not expect sanitized URL %q to have /v1 suffix", sanitized)
+				}
+			}
+
+			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType)
+			if tc.providerType == "anthropic" && hasV1Suffix {
+				if strings.Contains(got, "/v1/v1/") {
+					t.Errorf("double /v1 detected in result: %q", got)
+				}
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests moved from param_error_test.go
+// ---------------------------------------------------------------------------
+
+func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
+	// Providers that should strip reasoning_effort
+	providersWithReasoningEffort := []string{
+		"anthropic",
+		"google",
+		"cohere",
+		"deepseek",
+		"ollama",
+		"ollama-cloud",
+		"koboldcpp",
+		"lmstudio",
+		"nanogpt",
+		"zai-coding",
+		"openrouter",
+		"opencode-zen",
+		"opencode-go",
+	}
+
+	for _, provider := range providersWithReasoningEffort {
+		params, ok := providerUnsupportedParams[provider]
+		if !ok {
+			t.Errorf("provider %q: missing from providerUnsupportedParams", provider)
+			continue
+		}
+		found := false
+		for _, p := range params {
+			if p == "reasoning_effort" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("provider %q: reasoning_effort not listed in unsupported params", provider)
+		}
+	}
+}
+
+func TestProviderUnsupportedParams_OpenAISupportsReasoningEffort(t *testing.T) {
+	// OpenAI and xAI support reasoning_effort — it should NOT be in their unsupported list
+	for _, provider := range []string{"openai", "xai"} {
+		params, ok := providerUnsupportedParams[provider]
+		if !ok {
+			continue // no entry is fine (means nothing is unsupported)
+		}
+		for _, p := range params {
+			if p == "reasoning_effort" {
+				t.Errorf("provider %q: reasoning_effort should NOT be in unsupported params (this provider supports it)", provider)
+			}
+		}
+	}
+}
+
+func TestProviderUnsupportedParams_StripsFromRequestBody(t *testing.T) {
+	// Verify that the stripping logic actually removes reasoning_effort from a request body
+	body := map[string]any{
+		"model":            "gpt-4",
+		"messages":         []any{"hello"},
+		"reasoning_effort": "high",
+		"temperature":      0.7,
+	}
+
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("failed to marshal body: %v", err)
+	}
+
+	// Simulate the stripping logic from proxy.go
+	var rawMap map[string]any
+	if err := json.Unmarshal(raw, &rawMap); err != nil {
+		t.Fatalf("failed to unmarshal body: %v", err)
+	}
+
+	// Strip anthropic-unsupported params (includes reasoning_effort)
+	if params, ok := providerUnsupportedParams["anthropic"]; ok {
+		for _, p := range params {
+			delete(rawMap, p)
+		}
+	}
+
+	// reasoning_effort should be gone
+	if _, exists := rawMap["reasoning_effort"]; exists {
+		t.Error("reasoning_effort should have been stripped for anthropic provider")
+	}
+	// temperature should remain
+	if _, exists := rawMap["temperature"]; !exists {
+		t.Error("temperature should NOT have been stripped for anthropic provider")
+	}
+}
+
+// Note: TestParseProviderParamError_ReasoningEffort was a duplicate and was dropped
