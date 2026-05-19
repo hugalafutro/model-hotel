@@ -68,22 +68,21 @@ Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
 
 ## [<img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots](#-screenshots)
-
 <div align="center">
-<table>
+<table border="0" cellpadding="0" cellspacing="0">
 <tr>
-<td align="center"><img src="docs/screenshots/dashboard.png" alt="Dashboard"><br><b>Dashboard</b></td>
-<td align="center"><img src="docs/screenshots/providers.png" alt="Providers"><br><b>Providers</b></td>
-<td align="center"><img src="docs/screenshots/models.png" alt="Models"><br><b>Models</b></td>
-<td align="center"><img src="docs/screenshots/logs.png" alt="Logs"><br><b>Logs</b></td>
-<td align="center"><img src="docs/screenshots/failover.png" alt="Failover"><br><b>Failover</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/dashboard.png" alt="Dashboard" width="240"><br><b>Dashboard</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/providers.png" alt="Providers" width="240"><br><b>Providers</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/models.png" alt="Models" width="240"><br><b>Models</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/logs.png" alt="Logs" width="240"><br><b>Logs</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/failover.png" alt="Failover" width="240"><br><b>Failover</b></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/settings.png" alt="Settings"><br><b>Settings</b></td>
-<td align="center"><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys"><br><b>Virtual Keys</b></td>
-<td align="center"><img src="docs/screenshots/chat.png" alt="Chat"><br><b>Chat</b></td>
-<td align="center"><img src="docs/screenshots/arena.png" alt="Arena"><br><b>Arena</b></td>
-<td align="center"><img src="docs/screenshots/applogs.png" alt="App Logs"><br><b>App Logs</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/settings.png" alt="Settings" width="240"><br><b>Settings</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="240"><br><b>Virtual Keys</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/chat.png" alt="Chat" width="240"><br><b>Chat</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/arena.png" alt="Arena" width="240"><br><b>Arena</b></td>
+<td align="center" style="padding:8px"><img src="docs/screenshots/applogs.png" alt="App Logs" width="240"><br><b>App Logs</b></td>
 </tr>
 </table>
 </div>
