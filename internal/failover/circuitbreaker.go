@@ -118,7 +118,7 @@ func (cb *CircuitBreaker) getOrCreate(providerID string) *circuit {
 //
 // Fast path: most calls hit the Closed state, which only needs a read lock.
 // Only the Open→HalfOpen transition requires a write lock.
-func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID) bool {
+func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName string) bool {
 	// Fast path: read lock for the common case (StateClosed or unknown).
 	cb.mu.RLock()
 	c, ok := cb.circuits[providerID.String()]
@@ -151,7 +151,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID) bool {
 		if time.Since(c.openedAt) >= cb.effectiveCooldown() {
 			c.state = StateHalfOpen
 			c.halfOpenProbes = 0
-			debuglog.Info("circuit-breaker: provider state=open→half-open (cooldown elapsed)", "provider", providerID)
+			debuglog.Info("circuit-breaker: provider state=open→half-open (cooldown elapsed)", "provider", providerName, "provider_id", providerID)
 			return false // allow probe through
 		}
 		return true
@@ -167,7 +167,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID) bool {
 //     threshold is reached.
 //   - Half-open: immediately re-opens the circuit with a fresh cooldown.
 //   - Open: no-op.
-func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID) {
+func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName string) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -179,15 +179,15 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID) {
 		if c.consecutiveFails >= cb.effectiveThreshold() {
 			c.state = StateOpen
 			c.openedAt = time.Now()
-			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerID, "consecutive_failures", c.consecutiveFails)
-			cb.publishEvent(providerID, "open", c)
+			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails)
+			cb.publishEvent(providerID, providerName, "open", c)
 		}
 	case StateHalfOpen:
 		c.state = StateOpen
 		c.openedAt = time.Now()
 		c.consecutiveFails = cb.effectiveThreshold()
-		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerID)
-		cb.publishEvent(providerID, "open", c)
+		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerName, "provider_id", providerID)
+		cb.publishEvent(providerID, providerName, "open", c)
 	case StateOpen:
 		// Already open — no-op.
 	}
@@ -197,7 +197,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID) {
 //   - Closed: resets the failure counter.
 //   - Half-open: increments the probe counter. Closes the circuit if
 //     enough probes succeed.
-func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID) {
+func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName string) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -212,22 +212,23 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID) {
 			c.state = StateClosed
 			c.consecutiveFails = 0
 			c.halfOpenProbes = 0
-			debuglog.Info("circuit-breaker: provider state=half-open→closed (probe succeeded)", "provider", providerID)
-			cb.publishEvent(providerID, "closed", c)
+			debuglog.Info("circuit-breaker: provider state=half-open→closed (probe succeeded)", "provider", providerName, "provider_id", providerID)
+			cb.publishEvent(providerID, providerName, "closed", c)
 		}
 	}
 }
 
 // publishEvent fires an SSE event for circuit breaker state transitions.
 // Must be called with cb.mu held.
-func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, state string, c *circuit) {
+func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName string, state string, c *circuit) {
 	events.Publish(events.Event{
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
 		Source:   "failover",
-		Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerID, state),
+		Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerName, state),
 		Metadata: map[string]interface{}{
 			"provider_id":       providerID.String(),
+			"provider":          providerName,
 			"state":             state,
 			"consecutive_fails": c.consecutiveFails,
 		},

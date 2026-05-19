@@ -1195,7 +1195,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			// the circuit breaker for that.
 			if !isContextErr {
 				if circuitBreakerEnabled {
-					h.circuitBreaker.RecordFailure(candidate.provider.ID)
+					h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 				}
 			}
 			continue
@@ -1298,13 +1298,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if isFailoverEligible {
 			// Upstream is unhealthy — record failure for circuit breaker.
 			if circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID)
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}
 		} else {
 			// Provider responded (even with a non-failover error like 400) —
 			// it's alive from a health perspective.
 			if circuitBreakerEnabled {
-				h.circuitBreaker.RecordSuccess(candidate.provider.ID)
+				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 			}
 		}
 

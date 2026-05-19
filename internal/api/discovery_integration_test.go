@@ -1473,7 +1473,7 @@ func TestDiscoverProviderModels_DisableMissingError(t *testing.T) {
 	origModelRepoDisableMissing := modelRepoDisableMissing
 	defer func() { modelRepoDisableMissing = origModelRepoDisableMissing }()
 
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, modelIDs []string) (int64, error) {
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {
 		return 0, errors.New("disable missing models error")
 	}
 
@@ -2128,7 +2128,7 @@ func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
 	origModelRepoDisableMissing := modelRepoDisableMissing
 	defer func() { modelRepoDisableMissing = origModelRepoDisableMissing }()
 
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, modelIDs []string) (int64, error) {
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {
 		return 0, errors.New("disable missing models error")
 	}
 

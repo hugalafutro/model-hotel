@@ -31,7 +31,7 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 	url := baseURL + "/models"
 	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to create request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("lmstudio: failed to create request for provider %s: %w", provider.Name, err)
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -39,19 +39,19 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		debuglog.Error("discovery: lmstudio http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("lmstudio: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: lmstudio http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("lmstudio: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("lmstudio: unexpected status %d for provider %s: %s", resp.StatusCode, provider.ID, string(body))
+		return nil, fmt.Errorf("lmstudio: unexpected status %d for provider %s: %s", resp.StatusCode, provider.Name, string(body))
 	}
 
 	var modelsResp LMStudioModelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to decode response for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("lmstudio: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	models := make([]*model.Model, 0, len(modelsResp.Data))
@@ -89,6 +89,6 @@ func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provi
 		models = append(models, model)
 	}
 
-	debuglog.Info("discovery: lmstudio discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: lmstudio discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }

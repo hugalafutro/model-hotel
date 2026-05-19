@@ -1221,7 +1221,7 @@ func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
 	}
 
 	// Call DisableMissingModels with only modelID1 in the list - should disable modelID2
-	count, err := repo.DisableMissingModels(ctx, providerID, []string{"keep-this-model"})
+	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", []string{"keep-this-model"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels failed: %v", err)
 	}
@@ -1383,7 +1383,7 @@ func TestDisableMissingModels_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := repo.DisableMissingModels(ctx, uuid.New(), []string{"some-model"})
+	_, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
 	if err == nil {
 		t.Error("expected error with cancelled context, got nil")
 	}

@@ -27,14 +27,14 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
 	if err != nil {
-		debuglog.Error("discovery: openrouter http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("openrouter: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: openrouter http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("openrouter: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var orResp OpenRouterModelsResponse
 	if err := json.Unmarshal(bodyBytes, &orResp); err != nil {
-		debuglog.Error("discovery: openrouter failed to decode response", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("openrouter: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: openrouter failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("openrouter: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	models := make([]*model.Model, 0, len(orResp.Data))
@@ -105,7 +105,7 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 		models = append(models, modelEntry)
 	}
 
-	debuglog.Info("discovery: openrouter discovered models", "models", len(models), "provider", provider.ID, "total", len(orResp.Data))
+	debuglog.Info("discovery: openrouter discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID, "total", len(orResp.Data))
 	return models, nil
 }
 
@@ -132,7 +132,7 @@ func parseOpenRouterPricing(pricing OpenRouterPricing) (float64, float64) {
 func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterBalance, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to decrypt API key for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to decrypt API key for provider %s: %w", provider.Name, err)
 	}
 
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
@@ -141,52 +141,52 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 	creditsURL := baseURL + "/credits"
 	creditsReq, err := http.NewRequestWithContext(ctx, "GET", creditsURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to create credits request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to create credits request for provider %s: %w", provider.Name, err)
 	}
 	creditsReq.Header.Set("Authorization", "Bearer "+apiKey)
 	creditsReq.Header.Set("Content-Type", "application/json")
 
-	creditsResp, err := d.doQuotaRequestWithRetry(ctx, creditsReq, provider.ID.String(), "openrouter")
+	creditsResp, err := d.doQuotaRequestWithRetry(ctx, creditsReq, provider.ID.String(), provider.Name, "openrouter")
 	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to fetch credits for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to fetch credits for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = creditsResp.Body.Close() }()
 
 	if creditsResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(creditsResp.Body)
-		debuglog.Error("discovery: openrouter credits non-200 status", "status", creditsResp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("openrouter: unexpected status code %d from credits endpoint for provider %s", creditsResp.StatusCode, provider.ID)
+		debuglog.Error("discovery: openrouter credits non-200 status", "status", creditsResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("openrouter: unexpected status code %d from credits endpoint for provider %s", creditsResp.StatusCode, provider.Name)
 	}
 
 	var creditsData OpenRouterCreditsResponse
 	if err := json.NewDecoder(creditsResp.Body).Decode(&creditsData); err != nil {
-		return nil, fmt.Errorf("openrouter: failed to decode credits response for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to decode credits response for provider %s: %w", provider.Name, err)
 	}
 
 	// Fetch key info (limits, usage) from /api/v1/key
 	keyURL := baseURL + "/key"
 	keyReq, err := http.NewRequestWithContext(ctx, "GET", keyURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to create key request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to create key request for provider %s: %w", provider.Name, err)
 	}
 	keyReq.Header.Set("Authorization", "Bearer "+apiKey)
 	keyReq.Header.Set("Content-Type", "application/json")
 
-	keyResp, err := d.doQuotaRequestWithRetry(ctx, keyReq, provider.ID.String(), "openrouter")
+	keyResp, err := d.doQuotaRequestWithRetry(ctx, keyReq, provider.ID.String(), provider.Name, "openrouter")
 	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to fetch key info for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to fetch key info for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = keyResp.Body.Close() }()
 
 	if keyResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(keyResp.Body)
-		debuglog.Error("discovery: openrouter key info non-200 status", "status", keyResp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("openrouter: unexpected status code %d from key endpoint for provider %s", keyResp.StatusCode, provider.ID)
+		debuglog.Error("discovery: openrouter key info non-200 status", "status", keyResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("openrouter: unexpected status code %d from key endpoint for provider %s", keyResp.StatusCode, provider.Name)
 	}
 
 	var keyData OpenRouterKeyResponse
 	if err := json.NewDecoder(keyResp.Body).Decode(&keyData); err != nil {
-		return nil, fmt.Errorf("openrouter: failed to decode key response for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("openrouter: failed to decode key response for provider %s: %w", provider.Name, err)
 	}
 
 	remaining := creditsData.Data.TotalCredits - creditsData.Data.TotalUsage

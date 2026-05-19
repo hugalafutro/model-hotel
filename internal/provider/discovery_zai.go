@@ -58,7 +58,7 @@ func (d *DiscoveryService) discoverZAICoding(_ context.Context, provider *Provid
 		})
 	}
 
-	debuglog.Info("discovery: zai-coding discovered models from catalog", "provider", provider.ID, "models", len(catalog))
+	debuglog.Info("discovery: zai-coding discovered models from catalog", "provider", provider.Name, "provider_id", provider.ID, "models", len(catalog))
 
 	return models, nil
 }
@@ -67,36 +67,36 @@ func (d *DiscoveryService) discoverZAICoding(_ context.Context, provider *Provid
 func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Provider, masterKey string) (*ZAICodingQuotaResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to decrypt API key for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("zai-coding: failed to decrypt API key for provider %s: %w", provider.Name, err)
 	}
 
 	quotaURL := "https://api.z.ai/api/monitor/usage/quota/limit"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to create request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("zai-coding: failed to create request for provider %s: %w", provider.Name, err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "zai-coding")
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "zai-coding")
 	if err != nil {
-		debuglog.Error("discovery: zai-coding quota fetch failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("zai-coding: failed to fetch quota for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: zai-coding quota fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("zai-coding: failed to fetch quota for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: zai-coding quota fetch non-200 status", "provider", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("zai-coding: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
+		debuglog.Error("discovery: zai-coding quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("zai-coding: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
 	var quota ZAICodingQuotaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
-		debuglog.Error("discovery: zai-coding quota decode failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("zai-coding: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: zai-coding quota decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("zai-coding: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	return &quota, nil

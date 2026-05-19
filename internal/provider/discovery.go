@@ -182,7 +182,7 @@ func DetectProviderType(baseURL string) string {
 // DiscoverModels discovers available models from a provider.
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
 	providerType := DetectProviderType(provider.BaseURL)
-	debuglog.Info("discovery: starting discovery", "provider", provider.ID, "type", providerType)
+	debuglog.Info("discovery: starting discovery", "provider", provider.Name, "provider_id", provider.ID, "type", providerType)
 
 	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
 	// key bytes. When the key is empty, skip decryption and use empty string.
@@ -193,7 +193,7 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		var err error
 		apiKey, err = auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 		if err != nil {
-			debuglog.Error("discovery: failed to decrypt API key", "provider", provider.ID, "error", err)
+			debuglog.Error("discovery: failed to decrypt API key", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to decrypt API key: %w", err)
 		}
 	}
@@ -236,11 +236,11 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		}
 	}()
 	if err != nil {
-		debuglog.Error("discovery: discovery failed", "provider", provider.ID, "type", providerType, "error", err)
+		debuglog.Error("discovery: discovery failed", "provider", provider.Name, "provider_id", provider.ID, "type", providerType, "error", err)
 		return nil, err
 	}
 
-	debuglog.Info("discovery: completed", "provider", provider.ID, "models", len(models))
+	debuglog.Info("discovery: completed", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
 	return models, nil
 }
 
@@ -362,18 +362,18 @@ func retryBackoff(base time.Duration, attempt int) time.Duration {
 // providers that have failed consecutively beyond the threshold.
 // On success, the circuit breaker is reset automatically.
 // On final failure, the circuit breaker failure counter is incremented.
-func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *http.Request, providerID, providerType string) (*http.Response, error) {
+func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *http.Request, providerID, providerName, providerType string) (*http.Response, error) {
 	circuit := d.getOrCreateCircuit(providerID)
 	if circuit.isCircuitOpen() {
-		debuglog.Warn("discovery: circuit breaker open, skipping quota fetch", "type", providerType, "provider", providerID)
-		return nil, fmt.Errorf("quota fetch circuit breaker open for provider %s (consecutive failures threshold reached)", providerID)
+		debuglog.Warn("discovery: circuit breaker open, skipping quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID)
+		return nil, fmt.Errorf("quota fetch circuit breaker open for provider %s (consecutive failures threshold reached)", providerName)
 	}
 
 	var lastErr error
 	for attempt := range maxQuotaRetries {
 		if attempt > 0 {
 			backoff := retryBackoff(3*time.Second, attempt)
-			debuglog.Info("discovery: retrying quota fetch", "type", providerType, "provider", providerID, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxQuotaRetries)
+			debuglog.Info("discovery: retrying quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxQuotaRetries)
 			select {
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled during retry: %w", lastErr)
@@ -395,7 +395,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			lastErr = fmt.Errorf("retryable HTTP %d: %s", resp.StatusCode, util.SanitizeLogBody(string(body), 200))
-			debuglog.Info("discovery: retryable HTTP status for quota fetch", "type", providerType, "provider", providerID, "status", resp.StatusCode, "attempt", attempt+1)
+			debuglog.Info("discovery: retryable HTTP status for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "status", resp.StatusCode, "attempt", attempt+1)
 			continue
 		}
 		// Success or non-retryable status — return as-is.
@@ -403,7 +403,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 		return resp, nil
 	}
 	if opened := circuit.recordFailure(); opened {
-		debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerID, "threshold", quotaBreakerThreshold)
+		debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "threshold", quotaBreakerThreshold)
 	}
-	return nil, fmt.Errorf("quota fetch failed for provider %s (type=%s) after %d attempts: %w", providerID, providerType, maxQuotaRetries, lastErr)
+	return nil, fmt.Errorf("quota fetch failed for provider %s (type=%s) after %d attempts: %w", providerName, providerType, maxQuotaRetries, lastErr)
 }

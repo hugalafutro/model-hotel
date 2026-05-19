@@ -22,14 +22,14 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
-		debuglog.Error("discovery: openai fetch models failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("openai: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: openai fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("openai: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		debuglog.Error("discovery: openai json decode failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("openai: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: openai json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("openai: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	catalog := GetOpenAIModels()
@@ -98,6 +98,6 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		}
 	}
 
-	debuglog.Info("discovery: openai discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: openai discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }

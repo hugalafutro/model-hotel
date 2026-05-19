@@ -16,7 +16,7 @@ import (
 )
 
 func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	debuglog.Info("discovery: starting nanogpt discovery", "provider", provider.ID)
+	debuglog.Info("discovery: starting nanogpt discovery", "provider", provider.Name, "provider_id", provider.ID)
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
 	headers := http.Header{}
@@ -25,14 +25,14 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models?detailed=true", headers)
 	if err != nil {
-		debuglog.Error("discovery: nanogpt http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("nanogpt: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: nanogpt http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("nanogpt: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var nanoResp NanoGPTDetailedResponse
 	if err := json.Unmarshal(bodyBytes, &nanoResp); err != nil {
-		debuglog.Error("discovery: nanogpt decode response failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("nanogpt: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: nanogpt decode response failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("nanogpt: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	models := make([]*model.Model, 0, len(nanoResp.Data))
@@ -97,7 +97,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		})
 	}
 
-	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }
 
@@ -105,7 +105,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provider, masterKey string) (*NanoGPTUsageResponse, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to decrypt API key for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("nanogpt: failed to decrypt API key for provider %s: %w", provider.Name, err)
 	}
 
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
@@ -113,27 +113,27 @@ func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provid
 
 	req, err := http.NewRequestWithContext(ctx, "GET", usageURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to create request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("nanogpt: failed to create request for provider %s: %w", provider.Name, err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "nanogpt")
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "nanogpt")
 	if err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to fetch usage for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("nanogpt: failed to fetch usage for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: nanogpt usage non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("nanogpt: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
+		debuglog.Error("discovery: nanogpt usage non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("nanogpt: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
 	var usage NanoGPTUsageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to decode usage response for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("nanogpt: failed to decode usage response for provider %s: %w", provider.Name, err)
 	}
 
 	return &usage, nil

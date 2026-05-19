@@ -674,7 +674,7 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 
 	// Open the circuit breaker for the provider (threshold=5 by default)
 	for i := 0; i < 5; i++ {
-		h.circuitBreaker.RecordFailure(createdProvider.ID)
+		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name)
 	}
 
 	candidates, _, err := h.resolveHotelModel(context.Background(), "cb-fg")

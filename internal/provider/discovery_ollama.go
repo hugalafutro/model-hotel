@@ -24,27 +24,27 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	tagsURL := apiBase + "/api/tags"
 	req, err := http.NewRequestWithContext(ctx, "GET", tagsURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("ollama: failed to create request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("ollama: failed to create request for provider %s: %w", provider.Name, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		debuglog.Error("discovery: ollama http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: ollama http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: ollama unexpected status", "provider", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("ollama: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
+		debuglog.Error("discovery: ollama unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("ollama: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
 	var tagsResp OllamaTagsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
-		debuglog.Error("discovery: ollama json decode failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("ollama: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: ollama json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("ollama: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	type showResult struct {
@@ -78,7 +78,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	skipped := 0
 	for _, r := range results {
 		if r.err != nil {
-			debuglog.Warn("discovery: ollama show model failed", "provider", provider.ID, "model", r.modelID, "error", r.err)
+			debuglog.Warn("discovery: ollama show model failed", "provider", provider.Name, "provider_id", provider.ID, "model", r.modelID, "error", r.err)
 			skipped++
 			continue
 		}
@@ -88,9 +88,9 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	}
 
 	if skipped > 0 {
-		debuglog.Info("discovery: ollama discovered models with skips", "provider", provider.ID, "models", len(models), "skipped", skipped)
+		debuglog.Info("discovery: ollama discovered models with skips", "provider", provider.Name, "provider_id", provider.ID, "models", len(models), "skipped", skipped)
 	} else {
-		debuglog.Info("discovery: ollama discovered models", "provider", provider.ID, "models", len(models))
+		debuglog.Info("discovery: ollama discovered models", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
 	}
 
 	return models, nil
@@ -182,7 +182,7 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *Provider, masterKey string) (*OllamaCloudAccount, error) {
 	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
 	if err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to decrypt API key for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("ollama-cloud: failed to decrypt API key for provider %s: %w", provider.Name, err)
 	}
 
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
@@ -193,28 +193,28 @@ func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *
 	req, err := http.NewRequestWithContext(ctx, "POST", accountURL, http.NoBody)
 	// Ollama Cloud requires POST for /api/me despite being a read operation.
 	if err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to create account request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("ollama-cloud: failed to create account request for provider %s: %w", provider.Name, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), "ollama-cloud")
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "ollama-cloud")
 	if err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to fetch account for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("ollama-cloud: failed to fetch account for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("ollama-cloud: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
+		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("ollama-cloud: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
 	var account OllamaCloudAccount
 	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to decode account response for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("ollama-cloud: failed to decode account response for provider %s: %w", provider.Name, err)
 	}
 
-	debuglog.Info("discovery: ollama cloud account fetched", "provider", provider.ID, "plan", account.Plan)
+	debuglog.Info("discovery: ollama cloud account fetched", "provider", provider.Name, "provider_id", provider.ID, "plan", account.Plan)
 	return &account, nil
 }

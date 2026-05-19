@@ -38,7 +38,7 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
-			debuglog.Error("discovery: anthropic fetch models failed", "provider", provider.ID, "error", err)
+			debuglog.Error("discovery: anthropic fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
 		}
 
@@ -49,13 +49,13 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			debuglog.Error("discovery: anthropic returned non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
+			debuglog.Error("discovery: anthropic returned non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 			return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 		}
 
 		var pageResp AnthropicModelsResponse
 		if err := json.Unmarshal(bodyBytes, &pageResp); err != nil {
-			debuglog.Error("discovery: anthropic json decode failed", "provider", provider.ID, "error", err)
+			debuglog.Error("discovery: anthropic json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
@@ -133,6 +133,6 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 		models = append(models, modelEntry)
 	}
 
-	debuglog.Info("discovery: anthropic discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: anthropic discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }

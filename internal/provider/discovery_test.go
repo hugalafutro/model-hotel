@@ -1129,7 +1129,7 @@ func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "http://example.com/quota", http.NoBody)
 	ctx := context.Background()
-	_, err := svc.doQuotaRequestWithRetry(ctx, req, providerID, "zai-coding")
+	_, err := svc.doQuotaRequestWithRetry(ctx, req, providerID, "test-provider", "zai-coding")
 	if err == nil {
 		t.Fatal("expected error when circuit breaker is open")
 	}
@@ -1157,7 +1157,7 @@ func TestDoQuotaRequestWithRetry_Retries429(t *testing.T) {
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
-	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-429", "zai-coding")
+	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-429", "test", "zai-coding")
 	if err != nil {
 		t.Fatalf("expected success after retries, got: %v", err)
 	}
@@ -1185,7 +1185,7 @@ func TestDoQuotaRequestWithRetry_Retries5xx(t *testing.T) {
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
-	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-5xx", "zai-coding")
+	_, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-5xx", "test", "zai-coding")
 	if err != nil {
 		t.Fatalf("expected success after retries, got: %v", err)
 	}
@@ -1207,7 +1207,7 @@ func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
-	resp, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-403", "zai-coding")
+	resp, err := svc.doQuotaRequestWithRetry(ctx, req, "test-provider-403", "test", "zai-coding")
 	if err != nil {
 		t.Fatalf("expected no error for non-retryable status, got: %v", err)
 	}

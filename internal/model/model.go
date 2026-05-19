@@ -104,7 +104,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	)
 
 	if err != nil {
-		debuglog.Error("model: upsert failed", "model_id", m.ModelID, "provider_id", m.ProviderID, "error", err)
+		debuglog.Error("model: upsert failed", "model_id", m.ModelID, "provider", m.ProviderName, "provider_id", m.ProviderID, "error", err)
 	}
 	InvalidateModelCache()
 	return err
@@ -283,7 +283,7 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 }
 
 // DisableMissingModels disables models not present in the current discovery result.
-func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, existingModelIDs []string) (int64, error) {
+func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, providerName string, existingModelIDs []string) (int64, error) {
 	if len(existingModelIDs) == 0 {
 		return 0, nil
 	}
@@ -295,11 +295,11 @@ func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.U
 
 	tag, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
 	if err != nil {
-		debuglog.Error("model: disable missing failed", "provider_id", providerID, "error", err)
+		debuglog.Error("model: disable missing failed", "provider", providerName, "provider_id", providerID, "error", err)
 		return 0, err
 	}
 	rowsAffected := tag.RowsAffected()
-	debuglog.Info("model: disabled missing models", "provider_id", providerID, "count", rowsAffected)
+	debuglog.Info("model: disabled missing models", "provider", providerName, "provider_id", providerID, "count", rowsAffected)
 	InvalidateModelCache()
 	return rowsAffected, nil
 }

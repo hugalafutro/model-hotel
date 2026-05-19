@@ -330,7 +330,7 @@ func main() {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
 				}
 			}
-			disabledCount, err := modelRepo.DisableMissingModels(ctx, p.ID, existingModelIDs)
+			disabledCount, err := modelRepo.DisableMissingModels(ctx, p.ID, p.Name, existingModelIDs)
 			if err != nil {
 				debuglog.Error("discovery: failed to disable missing models", "provider", p.Name, "error", err)
 			} else if disabledCount > 0 {

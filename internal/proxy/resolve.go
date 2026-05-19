@@ -145,7 +145,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		}
 
 		// Circuit breaker: skip providers that are in the open state.
-		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID) {
+		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name) {
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}

@@ -28,31 +28,31 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("google: failed to create request for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("google: failed to create request for provider %s: %w", provider.Name, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		debuglog.Error("discovery: google http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("google: failed to read response for provider %s: %w", provider.ID, err)
+		return nil, fmt.Errorf("google: failed to read response for provider %s: %w", provider.Name, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
-		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.ID)
+		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
+		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
 	var googleResp GoogleModelsResponse
 	if err := json.Unmarshal(bodyBytes, &googleResp); err != nil {
-		debuglog.Error("discovery: google failed to decode response", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("google: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: google failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("google: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	pricingCatalog := GetGooglePricingCatalog()
@@ -139,7 +139,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 		models = append(models, m)
 	}
 
-	debuglog.Info("discovery: google discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: google discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }
 

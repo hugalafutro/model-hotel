@@ -99,7 +99,7 @@ func TestDisableMissingModels_EmptyList(t *testing.T) {
 	repo := NewRepository(testPool)
 
 	// Empty list should return (0, nil) without executing any query.
-	count, err := repo.DisableMissingModels(ctx, uuid.New(), nil)
+	count, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", nil)
 	if err != nil {
 		t.Fatalf("DisableMissingModels with nil list: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestDisableMissingModels_EmptyList(t *testing.T) {
 		t.Errorf("expected 0 rows affected, got %d", count)
 	}
 
-	count, err = repo.DisableMissingModels(ctx, uuid.New(), []string{})
+	count, err = repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{})
 	if err != nil {
 		t.Fatalf("DisableMissingModels with empty list: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestDisableMissingModels_DisablesMissing(t *testing.T) {
 	// Mark "model-b" and "model-d" as still existing. "model-a" and "model-c" are missing.
 	existing := []string{"model-b", "model-d"}
 
-	count, err := repo.DisableMissingModels(ctx, providerID, existing)
+	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestDisableMissingModels_AllPresent(t *testing.T) {
 	// All models are "still existing".
 	existing := []string{"alpha", "beta", "gamma"}
 
-	count, err := repo.DisableMissingModels(ctx, providerID, existing)
+	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestDisableMissingModels_IgnoresOtherProviders(t *testing.T) {
 	insertTestModel(ctx, t, providerB, "model-b2")
 
 	// Disable missing on provider A, saying only model-a1 still exists.
-	count, err := repo.DisableMissingModels(ctx, providerA, []string{"model-a1"})
+	count, err := repo.DisableMissingModels(ctx, providerA, "test-provider-a", []string{"model-a1"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestDisableMissingModels_AlreadyDisabledUnaffected(t *testing.T) {
 	// returns the number of rows matched, not actually changed.
 	existing := []string{"active-1", "active-2"}
 
-	count, err := repo.DisableMissingModels(ctx, providerID, existing)
+	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestDisableMissingModels_NonExistentProvider(t *testing.T) {
 	repo := NewRepository(testPool)
 
 	// A provider UUID that does not exist should result in 0 rows affected.
-	count, err := repo.DisableMissingModels(ctx, uuid.New(), []string{"some-model"})
+	count, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels with non-existent provider: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestDisableMissingModels_InvalidatesCache(t *testing.T) {
 	}
 
 	// Now run DisableMissingModels — should invalidate the cache.
-	_, err = repo.DisableMissingModels(ctx, providerID, []string{"cache-model-a"})
+	_, err = repo.DisableMissingModels(ctx, providerID, "test-provider", []string{"cache-model-a"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}

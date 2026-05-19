@@ -22,14 +22,14 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
-		debuglog.Error("discovery: opencode-zen http request failed", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("opencode-zen: failed to fetch models for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: opencode-zen http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("opencode-zen: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		debuglog.Error("discovery: opencode-zen failed to decode response", "provider", provider.ID, "error", err)
-		return nil, fmt.Errorf("opencode-zen: failed to decode response for provider %s: %w", provider.ID, err)
+		debuglog.Error("discovery: opencode-zen failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("opencode-zen: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
 	catalog := GetOpenCodeZenCatalog()
@@ -41,7 +41,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 
 		if keyless {
 			if spec == nil || spec.InputPricePerMillion > 0 || spec.OutputPricePerMillion > 0 {
-				debuglog.Info("discovery: opencode-zen skipping paid model", "model", m.ID, "provider", provider.ID)
+				debuglog.Info("discovery: opencode-zen skipping paid model", "model", m.ID, "provider", provider.Name, "provider_id", provider.ID)
 				continue
 			}
 		}
@@ -68,6 +68,6 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
 	}
 
-	debuglog.Info("discovery: opencode-zen discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: opencode-zen discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }

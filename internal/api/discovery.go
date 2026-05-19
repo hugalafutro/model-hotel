@@ -26,8 +26,8 @@ var (
 	dbExec              = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 		return pool.Exec(ctx, sql, args...)
 	}
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, modelIDs []string) (int64, error) {
-		return repo.DisableMissingModels(ctx, providerID, modelIDs)
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {
+		return repo.DisableMissingModels(ctx, providerID, providerName, modelIDs)
 	}
 	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) error {
 		return repo.SyncForModel(ctx, modelID)
@@ -117,7 +117,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
-	if _, err := modelRepoDisableMissing(modelRepo, provCtx, providerID, existingModelIDs); err != nil {
+	if _, err := modelRepoDisableMissing(modelRepo, provCtx, providerID, prov.Name, existingModelIDs); err != nil {
 		respondError(w, fmt.Sprintf("failed to disable missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
@@ -137,7 +137,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	now := time.Now()
 	updateQuery := `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`
 	if _, err := dbExec(h.dbPool.Pool(), provCtx, updateQuery, now, providerID); err != nil {
-		respondError(w, fmt.Sprintf("failed to update provider %s", providerID), err, http.StatusInternalServerError)
+		respondError(w, fmt.Sprintf("failed to update provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -361,7 +361,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 		}
 
-		if _, err := modelRepoDisableMissing(modelRepo, provCtx, prov.ID, existingModelIDs); err != nil {
+		if _, err := modelRepoDisableMissing(modelRepo, provCtx, prov.ID, prov.Name, existingModelIDs); err != nil {
 			debuglog.Debug("discovery: failed to disable missing models", "provider", prov.Name, "error", err)
 		}
 

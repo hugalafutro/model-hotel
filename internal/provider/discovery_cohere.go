@@ -44,7 +44,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
-			debuglog.Error("discovery: cohere http request failed", "provider", provider.ID, "error", err)
+			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
 		}
 
@@ -55,13 +55,13 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
+			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		var cohereResp CohereModelsResponse
 		if err := json.Unmarshal(bodyBytes, &cohereResp); err != nil {
-			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.ID, "error", err)
+			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
@@ -128,7 +128,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 		pageToken = cohereResp.NextPageToken
 	}
 
-	debuglog.Info("discovery: cohere discovered models", "models", len(models), "provider", provider.ID)
+	debuglog.Info("discovery: cohere discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }
 
