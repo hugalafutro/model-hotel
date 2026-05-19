@@ -36,22 +36,22 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          1,772 │
-│Messages                                         62,288 │
-│Days                                                 33 │
+│Sessions                                          1,861 │
+│Messages                                         65,153 │
+│Days                                                 34 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
-│Total Cost                                      $108.63 │
-│Avg Cost/Day                                      $3.29 │
+│Total Cost                                      $112.90 │
+│Avg Cost/Day                                      $3.32 │
 │Avg Tokens/Session                                 2.6M │
-│Median Tokens/Session                            566.5K │
-│Input                                           2603.0M │
-│Output                                            16.4M │
-│Cache Read                                      2030.3M │
-│Cache Write                                        3.6M │
+│Median Tokens/Session                            574.5K │
+│Input                                           2641.3M │
+│Output                                            17.1M │
+│Cache Read                                      2252.0M │
+│Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```
 </details><br>
@@ -69,9 +69,10 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 
 ## [<img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots](#-screenshots)
 <div align="center">
-<table border="0" cellpadding="0" cellspacing="0">
+<img src="docs/screenshots/dashboard.png" alt="Dashboard"><br>
+</div>
+<table>
 <tr>
-<td align="center" style="padding:8px"><img src="docs/screenshots/dashboard.png" alt="Dashboard" width="240"><br><b>Dashboard</b></td>
 <td align="center" style="padding:8px"><img src="docs/screenshots/providers.png" alt="Providers" width="240"><br><b>Providers</b></td>
 <td align="center" style="padding:8px"><img src="docs/screenshots/models.png" alt="Models" width="240"><br><b>Models</b></td>
 <td align="center" style="padding:8px"><img src="docs/screenshots/logs.png" alt="Logs" width="240"><br><b>Logs</b></td>
@@ -82,10 +83,10 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 <td align="center" style="padding:8px"><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="240"><br><b>Virtual Keys</b></td>
 <td align="center" style="padding:8px"><img src="docs/screenshots/chat.png" alt="Chat" width="240"><br><b>Chat</b></td>
 <td align="center" style="padding:8px"><img src="docs/screenshots/arena.png" alt="Arena" width="240"><br><b>Arena</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/applogs.png" alt="App Logs" width="240"><br><b>App Logs</b></td>
 </tr>
 </table>
-</div>
+
+
 
 ## What It Does
 
