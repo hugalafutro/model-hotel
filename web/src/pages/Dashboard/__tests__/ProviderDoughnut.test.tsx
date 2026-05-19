@@ -157,6 +157,29 @@ describe("ProviderDoughnut", () => {
 		expect(lessThan).toHaveLength(2);
 	});
 
+	it("gives a cell to providers with share 0 but non-zero count/tokens", () => {
+		const backendRoundedItems: ProviderDistItem[] = [
+			{ name: "Wafer AI", count: 8650, tokens: 313200000, share: 86.5 },
+			{ name: "Ollama Cloud", count: 1320, tokens: 47900000, share: 13.2 },
+			{ name: "NanoGPT", count: 30, tokens: 997900, share: 0.3 },
+			{ name: "OpenRouter", count: 5, tokens: 113300, share: 0 },
+			{ name: "OpenAI", count: 1, tokens: 11400, share: 0 },
+		];
+
+		const { container } = renderWithProviders(
+			<ProviderDoughnut {...defaultProps} items={backendRoundedItems} />,
+		);
+
+		const grid = container.querySelector("[role='img']");
+		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
+		expect(cells).toHaveLength(100);
+		// All 5 providers should appear in the grid
+		const colors = new Set(
+			Array.from(cells).map((c) => (c as HTMLElement).style.backgroundColor),
+		);
+		expect(colors.size).toBe(5);
+	});
+
 	it("displays token counts when metric is tokens", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
 

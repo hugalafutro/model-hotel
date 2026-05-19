@@ -24,9 +24,10 @@ function buildCells(items: ProviderDistItem[]) {
 	const total = GRID * GRID;
 	const counts = items.map((it) => Math.round(it.share));
 
-	// Guarantee 1 cell for any provider with share > 0 that rounded to 0
+	// Guarantee 1 cell for any provider present in the data (share may be 0
+	// after backend rounding of <0.1% values, but count/tokens prove existence)
 	for (let i = 0; i < counts.length; i++) {
-		if (items[i].share > 0 && counts[i] === 0) {
+		if (counts[i] === 0 && (items[i].count > 0 || items[i].tokens > 0)) {
 			counts[i] = 1;
 		}
 	}
