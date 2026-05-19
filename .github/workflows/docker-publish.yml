@@ -2,7 +2,7 @@ name: Publish Docker Image
 
 on:
   push:
-    tags: ['v*']
+    branches: [master]
   workflow_dispatch:
     inputs:
       tag:
@@ -11,7 +11,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -26,7 +26,34 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "skip_existing=false" >> "$GITHUB_OUTPUT"
+          else
+            ver=$(tr -d '[:space:]' < .version)
+            tag="v${ver}"
+            if git ls-remote --tags origin "refs/tags/${tag}" | grep -q .; then
+              echo "Tag ${tag} already exists, skipping build"
+              echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+              echo "skip_existing=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "New version: ${tag}"
+              echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+              echo "skip_existing=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Create git tag
+        if: steps.version.outputs.skip_existing == 'false' && github.event_name != 'workflow_dispatch'
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
       - name: Log in to GHCR
+        if: steps.version.outputs.skip_existing == 'false'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -34,28 +61,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
+        if: steps.version.outputs.skip_existing == 'false'
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.tag }}
+            type=raw,value=latest
             type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=sha,prefix=sha-
 
       - name: Set up Docker Buildx
+        if: steps.version.outputs.skip_existing == 'false'
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push
+        if: steps.version.outputs.skip_existing == 'false'
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ github.event_name == 'workflow_dispatch' && inputs.tag || format('v{0}', steps.meta.outputs.version) }}
+          build-args: VERSION=${{ steps.version.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
