@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import type { GenerationParams } from "../api/types";
-import { formatDuration } from "../utils/format";
+import { formatDuration, formatNumber } from "../utils/format";
 import { is5xxError } from "../utils/model";
 import { MARKDOWN_PROSE_CLASSES, MarkdownContent } from "./MarkdownContent";
 import { Modal } from "./Modal";
@@ -367,7 +367,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								)}
 								{metrics.promptTokens + metrics.completionTokens > 0 && (
 									<span>
-										{metrics.promptTokens + metrics.completionTokens} tok
+										{formatNumber(
+											metrics.promptTokens + metrics.completionTokens,
+										)}{" "}
+										tok
 									</span>
 								)}
 							</>
@@ -427,7 +430,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									)}
 									{metrics.promptTokens + metrics.completionTokens > 0 && (
 										<span className="text-xs text-(--text-tertiary)">
-											{metrics.promptTokens + metrics.completionTokens} tok
+											{formatNumber(
+												metrics.promptTokens + metrics.completionTokens,
+											)}{" "}
+											tok
 										</span>
 									)}
 								</>

@@ -128,7 +128,7 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			expect(screen.getAllByLabelText("Close")).toHaveLength(2);
+			expect(screen.getAllByLabelText("Close")).toHaveLength(1);
 		});
 		// Click the modal header close button (first one)
 		const closeButtons = screen.getAllByLabelText("Close");
@@ -511,8 +511,8 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			// Footer shows "2 entries" count - use getAllBy since pagination also shows "entries"
-			expect(screen.getAllByText(/entries/)).toHaveLength(2);
+			// Footer shows "2 entries" count
+			expect(screen.getAllByText(/entries/)).toHaveLength(1);
 		});
 	});
 
@@ -577,13 +577,13 @@ describe("ArenaHistoryModal", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 		});
-		// First page shows "1 to 10 of 25 entries"
-		expect(screen.getByText(/1 to 10 of 25 entries/)).toBeInTheDocument();
+		// Navigation to page 2
 		const nextButton = screen.getByRole("button", { name: "Next" });
 		await user.click(nextButton);
 		await waitFor(() => {
-			// Second page shows "11 to 20 of 25 entries"
-			expect(screen.getByText(/11 to 20 of 25 entries/)).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "2" })).toHaveClass(
+				"bg-(--accent)",
+			);
 		});
 	});
 

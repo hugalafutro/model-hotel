@@ -458,7 +458,7 @@ export function Arena() {
 											<div
 												// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in compare mode
 												key={`compare-${roundIdx}-${matchupIdx}`}
-												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 min-h-[22rem]"
+												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 h-[29rem] overflow-hidden"
 											>
 												{mu.slotA === null &&
 												roundIdx === arena.currentRound ? (
@@ -472,7 +472,7 @@ export function Arena() {
 															return ids;
 														})}
 														onSelect={(modelId) =>
-															arena.handleSwapComplete(
+															arena.handleSwapCompleteAndUpdate(
 																roundIdx,
 																matchupIdx,
 																"A",
@@ -507,14 +507,14 @@ export function Arena() {
 										<div
 											// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in competition mode
 											key={`comp-${roundIdx}-${matchupIdx}`}
-											className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4"
+											className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 h-[31rem] overflow-hidden flex flex-col"
 										>
 											{round.matchups.length > 1 && (
-												<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-3">
+												<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-3 shrink-0">
 													Match {matchupIdx + 1}
 												</div>
 											)}
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
 												{mu.slotA === null &&
 												roundIdx === arena.currentRound ? (
 													<SwapPicker
@@ -531,7 +531,7 @@ export function Arena() {
 															...(mu.slotB ? [mu.slotB.modelId] : []),
 														]}
 														onSelect={(modelId) =>
-															arena.handleSwapComplete(
+															arena.handleSwapCompleteAndUpdate(
 																roundIdx,
 																matchupIdx,
 																"A",
@@ -577,7 +577,7 @@ export function Arena() {
 															...(mu.slotA ? [mu.slotA.modelId] : []),
 														]}
 														onSelect={(modelId) =>
-															arena.handleSwapComplete(
+															arena.handleSwapCompleteAndUpdate(
 																roundIdx,
 																matchupIdx,
 																"B",

@@ -170,7 +170,7 @@ export const ARENA_PROMPTS: ArenaPromptPreset[] = [
 		id: "cipher",
 		icon: "🔐",
 		label: "Cipher",
-		prompt: `A historian finds a 17th-century diary containing the following encrypted passage: "Uifsf jt op cfspj bsf - cfspjt bsf gbdfe mjoft uibu tff npsf uibop uifz bsf." The diary's owner was a mathematician who corresponded with Pascal. Decrypt the message, explain your method step by step, then write a 200-word analysis of what the decrypted message reveals about the diary's owner - but frame your analysis as if you are the historian presenting this finding to a skeptical academic conference. Anticipate and address at least one objection.`,
+		prompt: `A historian finds a 17th-century diary containing the following encrypted passage: "Uifsf jt op tfdsfu - obuvsf jt b cppl sfbmmz, boe uif djqifs jt jut hmptt." The diary's owner was a mathematician who corresponded with Pascal. Decrypt the message, explain your method step by step, then write a 200-word analysis of what the decrypted message reveals about the diary's owner - but frame your analysis as if you are the historian presenting this finding to a skeptical academic conference. Anticipate and address at least one objection.`,
 	},
 	{
 		id: "eulogy",

@@ -11,6 +11,7 @@ import {
 	Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 import {
@@ -24,7 +25,6 @@ import {
 	type HistoryMode,
 	type HistoryResponse,
 } from "../utils/arenaHistory";
-import { PaginationBar } from "./DataTable";
 
 interface ArenaHistoryModalProps {
 	onClose: () => void;
@@ -502,12 +502,13 @@ export function ArenaHistoryModal({
 						onPageChange={handlePageChange}
 						onPageSizeChange={handlePageSizeChange}
 						label="entries"
+						hideCount
 					/>
 				</div>
 			)}
 
 			{/* Footer */}
-			<div className="mt-4 pt-3 border-t border-(--border-subtle) flex items-center justify-between">
+			<div className="mt-4 pt-3 flex items-center justify-between">
 				<button
 					type="button"
 					onClick={handleClearAll}

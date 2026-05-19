@@ -1,6 +1,6 @@
 import { produce } from "immer";
 import { GitCompare, Swords } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
 	getArenaHistoryEnabled,
 	saveCompetitionToHistory,
@@ -106,6 +106,32 @@ export function useArena() {
 		toast,
 	});
 
+	// Tracks which model is being swapped out so bracketModels can be updated
+	const swapOutMapRef = useRef<Map<string, string>>(new Map());
+
+	// Wrap handleSwapComplete to also update bracketModels with the replacement
+	const handleSwapCompleteAndUpdate = useCallback(
+		(
+			roundIdx: number,
+			matchupIdx: number,
+			slotKey: "A" | "B",
+			newModelId: string,
+		) => {
+			const key = `${roundIdx}-${matchupIdx}-${slotKey}`;
+			const oldModelId = swapOutMapRef.current.get(key);
+			swapOutMapRef.current.delete(key);
+
+			if (oldModelId) {
+				setBracketModels((prev) =>
+					prev.map((id) => (id === oldModelId ? newModelId : id)),
+				);
+			}
+
+			handleSwapComplete(roundIdx, matchupIdx, slotKey, newModelId);
+		},
+		[handleSwapComplete, setBracketModels],
+	);
+
 	const handleRunArena = useCallback(() => {
 		if (!canRun) return;
 
@@ -182,50 +208,47 @@ export function useArena() {
 			let advanceRoundIdx = -1;
 			let shouldDeclareWinner = false;
 
-			setRounds(
-				produce((draft) => {
-					const mu = draft[roundIdx]?.matchups[matchupIdx];
-					if (mu) {
-						mu.vote = mu.vote === vote ? null : vote;
-					}
+			const nextRounds = produce(roundsRef.current, (draft) => {
+				const mu = draft[roundIdx]?.matchups[matchupIdx];
+				if (mu) {
+					mu.vote = mu.vote === vote ? null : vote;
+				}
 
-					if (
-						roundIdx === currentRoundRef.current &&
-						mu?.vote !== null &&
-						draft[roundIdx].matchups.every((m: Matchup) => m.vote !== null)
-					) {
-						if (roundIdx < draft.length - 1) {
-							shouldAdvance = true;
-							advanceRoundIdx = roundIdx;
+				if (
+					roundIdx === currentRoundRef.current &&
+					mu?.vote !== null &&
+					draft[roundIdx].matchups.every((m: Matchup) => m.vote !== null)
+				) {
+					if (roundIdx < draft.length - 1) {
+						shouldAdvance = true;
+						advanceRoundIdx = roundIdx;
 
-							const winners = draft[roundIdx].matchups.map((m: Matchup) =>
-								m.vote === "A" ? m.slotA : m.slotB,
-							);
-							const nextRoundIdx = roundIdx + 1;
-							if (draft[nextRoundIdx]) {
-								for (let i = 0; i < winners.length; i += 2) {
-									const matchupIdx = i / 2;
-									draft[nextRoundIdx].matchups[matchupIdx] = {
-										slotA: winners[i]
-											? { ...(winners[i] as MatchupSlot) }
-											: null,
-										slotB: winners[i + 1]
-											? { ...(winners[i + 1] as MatchupSlot) }
-											: null,
-										responseA: null,
-										responseB: null,
-										vote: null,
-									};
-								}
+						const winners = draft[roundIdx].matchups.map((m: Matchup) =>
+							m.vote === "A" ? m.slotA : m.slotB,
+						);
+						const nextRoundIdx = roundIdx + 1;
+						if (draft[nextRoundIdx]) {
+							for (let i = 0; i < winners.length; i += 2) {
+								const matchupIdx = i / 2;
+								draft[nextRoundIdx].matchups[matchupIdx] = {
+									slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
+									slotB: winners[i + 1]
+										? { ...(winners[i + 1] as MatchupSlot) }
+										: null,
+									responseA: null,
+									responseB: null,
+									vote: null,
+								};
 							}
-						} else {
-							shouldDeclareWinner = true;
 						}
+					} else {
+						shouldDeclareWinner = true;
 					}
+				}
+			});
 
-					roundsRef.current = draft as BracketRound[];
-				}),
-			);
+			setRounds(nextRounds);
+			roundsRef.current = nextRounds;
 
 			if (shouldAdvance) {
 				const nextRI = advanceRoundIdx + 1;
@@ -277,6 +300,12 @@ export function useArena() {
 			failedModelId: string,
 		) => {
 			setDisabledModels((prev) => new Set(prev).add(failedModelId));
+
+			// Track which model is being swapped out so bracketModels can be updated
+			swapOutMapRef.current.set(
+				`${roundIdx}-${matchupIdx}-${slotKey}`,
+				failedModelId,
+			);
 
 			setRounds(
 				produce((draft) => {
@@ -396,7 +425,7 @@ export function useArena() {
 		handleRetrySlot,
 		handleSwapModel,
 		handleCancelSlot,
-		handleSwapComplete,
+		handleSwapCompleteAndUpdate,
 		handlePersonaChange,
 		handleRandomComparePersona,
 		handleRandomBracketModel,

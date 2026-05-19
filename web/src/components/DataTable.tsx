@@ -135,6 +135,7 @@ export function PaginationBar({
 	onPageChange,
 	onPageSizeChange,
 	label = "entries",
+	hideCount = false,
 }: {
 	page: number;
 	totalPages: number;
@@ -143,6 +144,7 @@ export function PaginationBar({
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (size: number) => void;
 	label?: string;
+	hideCount?: boolean;
 }) {
 	const setPage = useCallback(
 		(p: number) => onPageChange(Math.max(1, Math.min(totalPages, p))),
@@ -153,19 +155,20 @@ export function PaginationBar({
 
 	return (
 		<div className="flex items-center gap-3">
-			{totalItems === 0 ? (
-				<div className="text-sm text-gray-500" />
-			) : totalItems === 1 ? (
-				<div className="text-sm text-gray-500">1 {singular}</div>
-			) : (
-				<div className="text-sm text-gray-500">
-					{(page - 1) * pageSize + 1}
-					{totalItems > pageSize ? (
-						<> to {Math.min(page * pageSize, totalItems)}</>
-					) : null}{" "}
-					of {totalItems} {label}
-				</div>
-			)}
+			{!hideCount &&
+				(totalItems === 0 ? (
+					<div className="text-sm text-gray-500" />
+				) : totalItems === 1 ? (
+					<div className="text-sm text-gray-500">1 {singular}</div>
+				) : (
+					<div className="text-sm text-gray-500">
+						{(page - 1) * pageSize + 1}
+						{totalItems > pageSize ? (
+							<> to {Math.min(page * pageSize, totalItems)}</>
+						) : null}{" "}
+						of {totalItems} {label}
+					</div>
+				))}
 			{totalItems > 0 && (
 				<select
 					value={pageSize}
