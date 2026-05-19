@@ -56,48 +56,32 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ```
 </details><br>
 
-Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4.3-code_review-FF4500?style=flat" alt="Grok 4.3"><br><br>
+Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4.3-code_review-FF4500?style=flat" alt="Grok 4.3"><br>
 
 Powered by <a href="https://github.com/aovestdipaperino/tokensave">tokensave<br>
 ![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800)</a>
-</div>
-<br>
-
-## Model Hotel
+</div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
-
-## [<img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots](#-screenshots)
 <div align="center">
-<img src="docs/screenshots/dashboard.png" alt="Dashboard"><br>
+<img src="docs/screenshots/dashboard.png" alt="Dashboard" width="720"><br>
 </div>
-<table>
-<tr>
-<td align="center" style="padding:8px"><img src="docs/screenshots/providers.png" alt="Providers" width="240"><br><b>Providers</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/models.png" alt="Models" width="240"><br><b>Models</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/logs.png" alt="Logs" width="240"><br><b>Logs</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/failover.png" alt="Failover" width="240"><br><b>Failover</b></td>
-</tr>
-<tr>
-<td align="center" style="padding:8px"><img src="docs/screenshots/settings.png" alt="Settings" width="240"><br><b>Settings</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="240"><br><b>Virtual Keys</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/chat.png" alt="Chat" width="240"><br><b>Chat</b></td>
-<td align="center" style="padding:8px"><img src="docs/screenshots/arena.png" alt="Arena" width="240"><br><b>Arena</b></td>
-</tr>
-</table>
-
-
-
-## What It Does
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [DeepSeek](https://deepseek.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [NanoGPT](https://docs.nano-gpt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required).
+<div align="center">
+<img src="docs/screenshots/providers.png" alt="Providers" width="720">
+</div>
 
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
 When a provider returns a 5xx, a 429 (rate limit, configurable via `failover_on_rate_limit`), an auth error (401/403), or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a provider that returned a non-2xx status. An exponential backoff (100ms base, capped at 2s) is applied between attempts to avoid hammering slow providers; client disconnects during backoff are detected immediately. The final request record logs the attempt number that succeeded (or the last one that failed), along with the error code and total duration. Per-attempt failover events (attempt number, provider, status code) are also written to the application log for real-time debugging.
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
 Prefix a model with `hotel/` to route through its failover group: an ordered list of providers that expose the same base model. Example: `hotel/gpt-4o` resolves to all providers whose model ID matches `gpt-4o` exactly (after stripping the org prefix, e.g. `openai/gpt-4o` → `gpt-4o`). Models with different base names like `gpt-4o-mini` are separate groups. A failover group is auto-created only when 2+ providers offer the same base model; if only one provider has the model, no group exists and `hotel/model` will return 404. To route to a single provider without failover, use `provider/model` as the model name in your request (e.g. `{"model": "openai/gpt-4o", ...}`).
+
+<div align="center">
+<img src="docs/screenshots/failover.png" alt="Failover" width="720">
+</div>
 
 Requests are sent to each provider in priority order. If a provider responds with a server error (5xx), an auth error (401/403), or a rate-limit error (429, configurable), the next provider in the list is tried. Failover does **not** trigger on slow responses or client errors (4xx other than 401/403/429).
 
@@ -107,6 +91,9 @@ Failover groups are auto-generated when models are discovered, but only when **2
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
+<div align="center">
+<img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720">
+</div>
 
 ### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged: Privacy by Design](#-no-prompts-logged)
 > **Prompts and request content are never captured, logged, or inspected.**
@@ -129,10 +116,22 @@ Every request is logged with full latency decomposition:
 - **Proxy overhead** split into request parsing, model/failover lookup, provider lookup, and key decryption
 - **Tokens per second**, prompt / completion counts
 
+<div align="center">
+<img src="docs/screenshots/logs.png" alt="Requests" width="720"><br>
+</div>
+
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
+
+<div align="center">
+<img src="docs/screenshots/logs.png" alt="Logs" width="720">
+</div>
 
 ### [<img src="docs/icons/discovery.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Built-In Model Discovery](#-built-in-model-discovery)
 Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). The following providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
+
+<div align="center">
+<img src="docs/screenshots/models.png" alt="Models" width="720">
+</div><br>
 
 | Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
 |---|---|---|---|---|---|
@@ -159,10 +158,22 @@ Test any model from the Models page with a single click. The test sends a minima
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Interactive Chat & Arena](#-interactive-chat--arena)
 The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Vision-capable models show an image upload button: attach a photo for the model to describe or analyze. Audio-capable models show an audio upload button for sending audio input. Attachments are sent as OpenAI-compatible multimodal content parts (`image_url`, `input_audio`). Switch to **Conversation** mode to watch two models talk to each other: enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics (duration, tokens, chars/sec).
 
+<div align="center">
+<img src="docs/screenshots/chat.png" alt="Chat" width="720">
+</div>
+
 **Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups. Vote for winners, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with per-slot personas and voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics. Past sessions are saved to an arena history modal for review and restoration.
+
+<div align="center">
+<img src="docs/screenshots/arena.png" alt="Arena" width="720">
+</div>
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Real-Time Events & System Status](#-real-time-events--system-status)
 A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, circuit breaker state transitions, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
+
+<div align="center">
+<img src="docs/screenshots/settings.png" alt="Settings" width="720">
+</div>
 
 ## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
 
