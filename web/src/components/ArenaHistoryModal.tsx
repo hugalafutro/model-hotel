@@ -9,7 +9,6 @@ import {
 	Swords,
 	Trash2,
 	Trophy,
-	X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Modal } from "../components/Modal";
@@ -343,42 +342,32 @@ export function ArenaHistoryModal({
 	};
 
 	const header = (
-		<div className="flex items-center justify-between mb-4">
-			<div className="flex items-center gap-3">
-				<h2 className="text-xl font-bold text-white flex items-center gap-2">
-					<History size={20} className="text-(--accent)" />
-					Match History
-				</h2>
-				<div className="flex items-center gap-1 ml-2">
-					{filterButtons.map(({ label, value, icon: Icon }) => (
-						<button
-							key={value}
-							type="button"
-							onClick={() => {
-								setActiveFilter(value);
-								setPage(1);
-								setExpandedId(null);
-							}}
-							className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-								activeFilter === value
-									? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-									: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
-							}`}
-						>
-							<Icon size={12} className="inline mr-1 -mt-0.5" />
-							{label}
-						</button>
-					))}
-				</div>
+		<div className="flex items-center gap-3 mb-4">
+			<h2 className="text-xl font-bold text-white flex items-center gap-2">
+				<History size={20} className="text-(--accent)" />
+				Match History
+			</h2>
+			<div className="flex items-center gap-1 ml-2">
+				{filterButtons.map(({ label, value, icon: Icon }) => (
+					<button
+						key={value}
+						type="button"
+						onClick={() => {
+							setActiveFilter(value);
+							setPage(1);
+							setExpandedId(null);
+						}}
+						className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+							activeFilter === value
+								? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+								: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+						}`}
+					>
+						<Icon size={12} className="inline mr-1 -mt-0.5" />
+						{label}
+					</button>
+				))}
 			</div>
-			<button
-				type="button"
-				onClick={onClose}
-				className="text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-				aria-label="Close"
-			>
-				<X size={20} />
-			</button>
 		</div>
 	);
 
