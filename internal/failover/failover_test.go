@@ -1790,6 +1790,332 @@ func TestRepository_SyncAllModels_PreservesDisabledEntries(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Integration tests — Sync priority order preservation
+// ---------------------------------------------------------------------------
+
+func TestMergePriorityOrder(t *testing.T) {
+	a := uuid.New()
+	b := uuid.New()
+	c := uuid.New()
+	d := uuid.New()
+
+	tests := []struct {
+		name          string
+		existingOrder []uuid.UUID
+		currentIDs    []uuid.UUID
+		want          []uuid.UUID
+	}{
+		{
+			name:          "empty existing, new entries",
+			existingOrder: nil,
+			currentIDs:    []uuid.UUID{a, b, c},
+			want:          []uuid.UUID{a, b, c},
+		},
+		{
+			name:          "existing order preserved when all present",
+			existingOrder: []uuid.UUID{c, a, b},
+			currentIDs:    []uuid.UUID{a, b, c},
+			want:          []uuid.UUID{c, a, b},
+		},
+		{
+			name:          "removed entries dropped, new entries appended",
+			existingOrder: []uuid.UUID{d, a, b},
+			currentIDs:    []uuid.UUID{a, b, c},
+			want:          []uuid.UUID{a, b, c},
+		},
+		{
+			name:          "new entries appended at end",
+			existingOrder: []uuid.UUID{b, a},
+			currentIDs:    []uuid.UUID{a, b, c, d},
+			want:          []uuid.UUID{b, a, c, d},
+		},
+		{
+			name:          "all entries removed",
+			existingOrder: []uuid.UUID{d},
+			currentIDs:    []uuid.UUID{a, b},
+			want:          []uuid.UUID{a, b},
+		},
+		{
+			name:          "same order no change",
+			existingOrder: []uuid.UUID{a, b, c},
+			currentIDs:    []uuid.UUID{a, b, c},
+			want:          []uuid.UUID{a, b, c},
+		},
+		{
+			name:          "both inputs empty",
+			existingOrder: nil,
+			currentIDs:    nil,
+			want:          nil,
+		},
+		{
+			name:          "empty currentIDs removes all existing",
+			existingOrder: []uuid.UUID{a, b},
+			currentIDs:    nil,
+			want:          nil,
+		},
+		{
+			name:          "duplicate in existingOrder deduplicated",
+			existingOrder: []uuid.UUID{a, a, b},
+			currentIDs:    []uuid.UUID{a, b},
+			want:          []uuid.UUID{a, b},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mergePriorityOrder(tt.existingOrder, tt.currentIDs)
+			if len(got) != len(tt.want) {
+				t.Fatalf("mergePriorityOrder() length = %d, want %d", len(got), len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("mergePriorityOrder()[%d] = %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestRepository_SyncAllModels_PreservesPriorityOrder(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	baseModel := "test-sync-priority-" + uuid.New().String()[:8]
+	provider1Name := "test-provider-1-" + uuid.New().String()[:8]
+	provider2Name := "test-provider-2-" + uuid.New().String()[:8]
+	provider3Name := "test-provider-3-" + uuid.New().String()[:8]
+
+	// Create 3 providers
+	provider1ID := uuid.New()
+	provider2ID := uuid.New()
+	provider3ID := uuid.New()
+
+	for _, p := range []struct {
+		id   uuid.UUID
+		name string
+	}{
+		{provider1ID, provider1Name},
+		{provider2ID, provider2Name},
+		{provider3ID, provider3Name},
+	} {
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+			VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+		`, p.id, p.name)
+		if err != nil {
+			t.Fatalf("Failed to insert provider %s: %v", p.name, err)
+		}
+		defer func(id uuid.UUID) {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", id)
+		}(p.id)
+	}
+
+	// Create 3 models (one per provider)
+	model1ID := uuid.New()
+	model2ID := uuid.New()
+	model3ID := uuid.New()
+
+	for _, m := range []struct {
+		id         uuid.UUID
+		providerID uuid.UUID
+	}{
+		{model1ID, provider1ID},
+		{model2ID, provider2ID},
+		{model3ID, provider3ID},
+	} {
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+			VALUES ($1, $2, $3, true, now())
+		`, m.id, baseModel, m.providerID)
+		if err != nil {
+			t.Fatalf("Failed to insert model: %v", err)
+		}
+		defer func(id uuid.UUID) {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", id)
+		}(m.id)
+	}
+
+	// Pre-create a failover group with a CUSTOM priority order: [model3, model1, model2]
+	// This is deliberately different from the DB query order (which would be alphabetical by model_id)
+	customPriorityOrder := []uuid.UUID{model3ID, model1ID, model2ID}
+	entryEnabled := map[string]bool{
+		model1ID.String(): true,
+		model2ID.String(): true,
+		model3ID.String(): true,
+	}
+	groupEnabled := true
+	autoCreated := false
+
+	_, err := repo.UpsertWithConfig(ctx, baseModel, customPriorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+	if err != nil {
+		t.Fatalf("Failed to create initial group: %v", err)
+	}
+	defer func() {
+		InvalidateFailoverCache()
+		_ = repo.Delete(ctx, baseModel)
+	}()
+
+	// Call SyncAllModels
+	result, err := repo.SyncAllModels(ctx)
+	if err != nil {
+		t.Fatalf("SyncAllModels failed: %v", err)
+	}
+
+	if len(result.SyncErrors) != 0 {
+		t.Errorf("Expected 0 sync errors, got %d: %v", len(result.SyncErrors), result.SyncErrors)
+	}
+
+	// Verify the group's priority order was NOT overwritten
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("Failed to get group after sync: %v", err)
+	}
+
+	// Verify the custom order was preserved: [model3, model1, model2]
+	if len(group.PriorityOrder) != 3 {
+		t.Errorf("Expected 3 models in priority order, got %d", len(group.PriorityOrder))
+	}
+	for i, expectedID := range customPriorityOrder {
+		if i >= len(group.PriorityOrder) {
+			t.Errorf("PriorityOrder[%d] missing, expected %v", i, expectedID)
+			continue
+		}
+		if group.PriorityOrder[i] != expectedID {
+			t.Errorf("PriorityOrder[%d] = %v, want %v", i, group.PriorityOrder[i], expectedID)
+		}
+	}
+}
+
+func TestRepository_SyncAllModels_PreservesPriorityOrderWithNewModel(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	baseModel := "test-sync-priority-new-" + uuid.New().String()[:8]
+	provider1Name := "test-provider-1-" + uuid.New().String()[:8]
+	provider2Name := "test-provider-2-" + uuid.New().String()[:8]
+
+	// Create 2 providers initially
+	provider1ID := uuid.New()
+	provider2ID := uuid.New()
+
+	for _, p := range []struct {
+		id   uuid.UUID
+		name string
+	}{
+		{provider1ID, provider1Name},
+		{provider2ID, provider2Name},
+	} {
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+			VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+		`, p.id, p.name)
+		if err != nil {
+			t.Fatalf("Failed to insert provider %s: %v", p.name, err)
+		}
+		defer func(id uuid.UUID) {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", id)
+		}(p.id)
+	}
+
+	// Create 2 models initially
+	model1ID := uuid.New()
+	model2ID := uuid.New()
+
+	for _, m := range []struct {
+		id         uuid.UUID
+		providerID uuid.UUID
+	}{
+		{model1ID, provider1ID},
+		{model2ID, provider2ID},
+	} {
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+			VALUES ($1, $2, $3, true, now())
+		`, m.id, baseModel, m.providerID)
+		if err != nil {
+			t.Fatalf("Failed to insert model: %v", err)
+		}
+		defer func(id uuid.UUID) {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", id)
+		}(m.id)
+	}
+
+	// Pre-create a failover group with a CUSTOM priority order: [model2, model1]
+	customPriorityOrder := []uuid.UUID{model2ID, model1ID}
+	entryEnabled := map[string]bool{
+		model1ID.String(): true,
+		model2ID.String(): true,
+	}
+	groupEnabled := true
+	autoCreated := false
+
+	_, err := repo.UpsertWithConfig(ctx, baseModel, customPriorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+	if err != nil {
+		t.Fatalf("Failed to create initial group: %v", err)
+	}
+	defer func() {
+		InvalidateFailoverCache()
+		_ = repo.Delete(ctx, baseModel)
+	}()
+
+	// Add a 3rd provider and model
+	provider3Name := "test-provider-3-" + uuid.New().String()[:8]
+	provider3ID := uuid.New()
+	model3ID := uuid.New()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+	`, provider3ID, provider3Name)
+	if err != nil {
+		t.Fatalf("Failed to insert provider3: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider3ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+		VALUES ($1, $2, $3, true, now())
+	`, model3ID, baseModel, provider3ID)
+	if err != nil {
+		t.Fatalf("Failed to insert model3: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model3ID)
+	}()
+
+	// Call SyncAllModels
+	_, err = repo.SyncAllModels(ctx)
+	if err != nil {
+		t.Fatalf("SyncAllModels failed: %v", err)
+	}
+
+	// Verify the existing user order was preserved, with new model appended
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("Failed to get group after sync: %v", err)
+	}
+
+	// Expected order: [model2, model1, model3] - existing user order preserved, new model appended
+	expectedOrder := []uuid.UUID{model2ID, model1ID, model3ID}
+	if len(group.PriorityOrder) != 3 {
+		t.Errorf("Expected 3 models in priority order, got %d", len(group.PriorityOrder))
+	}
+	for i, expectedID := range expectedOrder {
+		if i >= len(group.PriorityOrder) {
+			t.Errorf("PriorityOrder[%d] missing, expected %v", i, expectedID)
+			continue
+		}
+		if group.PriorityOrder[i] != expectedID {
+			t.Errorf("PriorityOrder[%d] = %v, want %v", i, group.PriorityOrder[i], expectedID)
+		}
+	}
+}
+
 func TestRepository_SyncForModel_PreservesDisabledEntries(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
@@ -2273,6 +2599,163 @@ func TestRepository_SyncForModel_ValidRowScan(t *testing.T) {
 
 	// Cleanup
 	_ = repo.Delete(ctx, baseModel)
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests — SyncForModel priority order preservation
+// ---------------------------------------------------------------------------
+
+func TestRepository_SyncForModel_PreservesPriorityOrder(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	baseModel := "test-syncformodel-priority-" + uuid.New().String()[:8]
+	provider1Name := "test-provider-1-" + uuid.New().String()[:8]
+	provider2Name := "test-provider-2-" + uuid.New().String()[:8]
+
+	// Create 2 providers initially
+	provider1ID := uuid.New()
+	provider2ID := uuid.New()
+
+	for _, p := range []struct {
+		id   uuid.UUID
+		name string
+	}{
+		{provider1ID, provider1Name},
+		{provider2ID, provider2Name},
+	} {
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+			VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+		`, p.id, p.name)
+		if err != nil {
+			t.Fatalf("Failed to insert provider %s: %v", p.name, err)
+		}
+		defer func(id uuid.UUID) {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", id)
+		}(p.id)
+	}
+
+	// Create 2 models initially
+	model1ID := uuid.New()
+	model2ID := uuid.New()
+
+	for _, m := range []struct {
+		id         uuid.UUID
+		providerID uuid.UUID
+	}{
+		{model1ID, provider1ID},
+		{model2ID, provider2ID},
+	} {
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+			VALUES ($1, $2, $3, true, now())
+		`, m.id, baseModel, m.providerID)
+		if err != nil {
+			t.Fatalf("Failed to insert model: %v", err)
+		}
+		defer func(id uuid.UUID) {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", id)
+		}(m.id)
+	}
+
+	// Pre-create a failover group with custom priority order: [model2, model1] (reversed)
+	customPriorityOrder := []uuid.UUID{model2ID, model1ID}
+	entryEnabled := map[string]bool{
+		model1ID.String(): true,
+		model2ID.String(): true,
+	}
+	groupEnabled := true
+	autoCreated := false
+
+	_, err := repo.UpsertWithConfig(ctx, baseModel, customPriorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+	if err != nil {
+		t.Fatalf("Failed to create initial group: %v", err)
+	}
+	defer func() {
+		InvalidateFailoverCache()
+		_ = repo.Delete(ctx, baseModel)
+	}()
+
+	// Call SyncForModel - should preserve the custom order
+	err = repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel failed: %v", err)
+	}
+
+	// Verify the custom order was preserved: [model2, model1]
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("Failed to get group after sync: %v", err)
+	}
+
+	if len(group.PriorityOrder) != 2 {
+		t.Errorf("Expected 2 models in priority order, got %d", len(group.PriorityOrder))
+	}
+	for i, expectedID := range customPriorityOrder {
+		if i >= len(group.PriorityOrder) {
+			t.Errorf("PriorityOrder[%d] missing, expected %v", i, expectedID)
+			continue
+		}
+		if group.PriorityOrder[i] != expectedID {
+			t.Errorf("PriorityOrder[%d] = %v, want %v", i, group.PriorityOrder[i], expectedID)
+		}
+	}
+
+	// Add a 3rd provider and model
+	provider3Name := "test-provider-3-" + uuid.New().String()[:8]
+	provider3ID := uuid.New()
+	model3ID := uuid.New()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+	`, provider3ID, provider3Name)
+	if err != nil {
+		t.Fatalf("Failed to insert provider3: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider3ID)
+	}()
+
+	_, err = testDB.Pool().Exec(ctx, `
+		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+		VALUES ($1, $2, $3, true, now())
+	`, model3ID, baseModel, provider3ID)
+	if err != nil {
+		t.Fatalf("Failed to insert model3: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model3ID)
+	}()
+
+	// Call SyncForModel again - should preserve existing order and append new model
+	err = repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel failed on second call: %v", err)
+	}
+
+	// Verify the existing order was preserved with new model appended: [model2, model1, model3]
+	InvalidateFailoverCache()
+	group, err = repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("Failed to get group after second sync: %v", err)
+	}
+
+	expectedOrder := []uuid.UUID{model2ID, model1ID, model3ID}
+	if len(group.PriorityOrder) != 3 {
+		t.Errorf("Expected 3 models in priority order, got %d", len(group.PriorityOrder))
+	}
+	for i, expectedID := range expectedOrder {
+		if i >= len(group.PriorityOrder) {
+			t.Errorf("PriorityOrder[%d] missing, expected %v", i, expectedID)
+			continue
+		}
+		if group.PriorityOrder[i] != expectedID {
+			t.Errorf("PriorityOrder[%d] = %v, want %v", i, group.PriorityOrder[i], expectedID)
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

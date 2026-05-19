@@ -347,6 +347,41 @@ type SyncResult struct {
 	SyncErrors     []string            `json:"sync_errors,omitempty"`
 }
 
+// mergePriorityOrder preserves the user's existing priority order while
+// incorporating new models and dropping removed ones.
+// Entries already in existingOrder (and still present in currentIDs) keep
+// their relative position. New entries not in existingOrder are appended at
+// the end in the order they appear in currentIDs.
+func mergePriorityOrder(existingOrder, currentIDs []uuid.UUID) []uuid.UUID {
+	currentSet := make(map[uuid.UUID]struct{}, len(currentIDs))
+	for _, id := range currentIDs {
+		currentSet[id] = struct{}{}
+	}
+
+	seen := make(map[uuid.UUID]struct{})
+	merged := make([]uuid.UUID, 0, len(currentIDs))
+
+	// First: keep existing entries that are still present (preserves user order).
+	// Guard against duplicate UUIDs in existingOrder.
+	for _, id := range existingOrder {
+		if _, ok := currentSet[id]; ok {
+			if _, already := seen[id]; !already {
+				merged = append(merged, id)
+				seen[id] = struct{}{}
+			}
+		}
+	}
+
+	// Then: append new entries not seen before
+	for _, id := range currentIDs {
+		if _, ok := seen[id]; !ok {
+			merged = append(merged, id)
+		}
+	}
+
+	return merged
+}
+
 // normalizeBaseModel returns the canonical base model name used for failover
 // grouping. It takes the segment after the last "/" (the actual model name)
 // and lowercases it, so that "GLM-5.1", "glm-5.1", "zai-org/glm-5.1",
@@ -420,10 +455,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 			continue
 		}
 
-		priorityOrder := make([]uuid.UUID, len(models))
+		currentIDs := make([]uuid.UUID, len(models))
 		entryEnabled := make(map[string]bool)
 		for i, m := range models {
-			priorityOrder[i] = m.uuid
+			currentIDs[i] = m.uuid
 			entryEnabled[m.uuid.String()] = true
 		}
 
@@ -434,6 +469,13 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 					entryEnabled[uuidStr] = enabled
 				}
 			}
+		}
+
+		var priorityOrder []uuid.UUID
+		if existing != nil {
+			priorityOrder = mergePriorityOrder(existing.PriorityOrder, currentIDs)
+		} else {
+			priorityOrder = currentIDs
 		}
 
 		syncedBases[base] = true
@@ -495,22 +537,22 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 	defer rows.Close()
 
-	var modelUUIDs []uuid.UUID
+	var currentIDs []uuid.UUID
 	for rows.Next() {
 		var id, providerID uuid.UUID
 		if err := rows.Scan(&id, &providerID); err != nil {
 			continue
 		}
-		modelUUIDs = append(modelUUIDs, id)
+		currentIDs = append(currentIDs, id)
 	}
 
-	if len(modelUUIDs) <= 1 {
+	if len(currentIDs) <= 1 {
 		r.disableAutoGroup(ctx, base)
 		return nil
 	}
 
 	entryEnabled := make(map[string]bool)
-	for _, id := range modelUUIDs {
+	for _, id := range currentIDs {
 		entryEnabled[id.String()] = true
 	}
 
@@ -523,6 +565,13 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 		}
 	}
 
+	var priorityOrder []uuid.UUID
+	if existing != nil {
+		priorityOrder = mergePriorityOrder(existing.PriorityOrder, currentIDs)
+	} else {
+		priorityOrder = currentIDs
+	}
+
 	groupEnabled := true
 	autoCreated := true
 	var syncDisplayName, syncDescription *string
@@ -532,12 +581,12 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 			syncDescription = &existing.Description
 		}
 	}
-	_, err = r.UpsertWithConfig(ctx, base, modelUUIDs, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
+	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
 	if err != nil {
 		debuglog.Error("failover: failed to sync group", "display_model", base, "error", err)
 		return err
 	}
-	debuglog.Info("failover: synced group", "display_model", base, "providers", len(modelUUIDs))
+	debuglog.Info("failover: synced group", "display_model", base, "providers", len(priorityOrder))
 	return err
 }
 
