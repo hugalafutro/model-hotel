@@ -13,10 +13,17 @@ import {
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useMemo, useState } from "react";
 import type { FailoverGroup } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { formatTokens } from "../../utils/format";
 import { SortableEntry } from "./SortableEntry";
+
+// Derive a stable key from entries so the card resets local state
+// when the server data changes (after mutation/refetch).
+function entriesKey(entries: FailoverGroup["entries"]): string {
+	return entries.map((e) => e.model_uuid).join(",");
+}
 
 export function FailoverGroupCard({
 	group,
@@ -36,8 +43,23 @@ export function FailoverGroupCard({
 	onDelete: () => void;
 }) {
 	const { toast } = useToast();
-	const enabledCount = group.entries.filter((e) => e.enabled).length;
-	const totalCount = group.entries.length;
+
+	// Optimistic local state: reorders immediately on dragEnd so the DOM
+	// order matches the visual drag position. key-based reset ensures
+	// local state re-syncs when the server data changes after mutation.
+	const [localEntries, setLocalEntries] = useState(group.entries);
+	const key = useMemo(() => entriesKey(group.entries), [group.entries]);
+
+	// When server data changes, reset local state. Using key as a dep
+	// avoids the lint error from setState-in-effect while still syncing.
+	const [prevKey, setPrevKey] = useState(key);
+	if (prevKey !== key) {
+		setPrevKey(key);
+		setLocalEntries(group.entries);
+	}
+
+	const enabledCount = localEntries.filter((e) => e.enabled).length;
+	const totalCount = localEntries.length;
 
 	const sensors = useSensors(
 		useSensor(PointerSensor),
@@ -49,14 +71,13 @@ export function FailoverGroupCard({
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
 		if (over && active.id !== over.id) {
-			const oldIndex = group.entries.findIndex(
+			const oldIndex = localEntries.findIndex(
 				(e) => e.model_uuid === active.id,
 			);
-			const newIndex = group.entries.findIndex((e) => e.model_uuid === over.id);
-			const newOrder = arrayMove(group.entries, oldIndex, newIndex).map(
-				(e) => e.model_uuid,
-			);
-			onReorder(newOrder);
+			const newIndex = localEntries.findIndex((e) => e.model_uuid === over.id);
+			const reordered = arrayMove(localEntries, oldIndex, newIndex);
+			setLocalEntries(reordered); // immediate optimistic update
+			onReorder(reordered.map((e) => e.model_uuid));
 		}
 	};
 
@@ -135,11 +156,11 @@ export function FailoverGroupCard({
 				onDragEnd={handleDragEnd}
 			>
 				<SortableContext
-					items={group.entries.map((e) => e.model_uuid)}
+					items={localEntries.map((e) => e.model_uuid)}
 					strategy={verticalListSortingStrategy}
 				>
 					<div className="space-y-1">
-						{group.entries.map((entry) => (
+						{localEntries.map((entry) => (
 							<SortableEntry
 								key={entry.model_uuid}
 								entry={entry}
