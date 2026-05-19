@@ -54,7 +54,7 @@ export function Settings() {
 	}
 
 	return (
-		<div className="space-y-8 max-w-5xl">
+		<div className="space-y-8 max-w-5xl pb-8">
 			<PageHeader
 				icon={SettingsIcon}
 				title="Settings"

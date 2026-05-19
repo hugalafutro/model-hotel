@@ -220,7 +220,7 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName strin
 
 // publishEvent fires an SSE event for circuit breaker state transitions.
 // Must be called with cb.mu held.
-func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName string, state string, c *circuit) {
+func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state string, c *circuit) {
 	events.Publish(events.Event{
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
