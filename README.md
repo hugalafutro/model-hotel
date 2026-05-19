@@ -63,24 +63,26 @@ Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-sli
 </div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
+
 <div align="center">
-<img src="docs/screenshots/dashboard.png" alt="Dashboard" width="720"><br>
+<br><img src="docs/screenshots/dashboard.png" alt="Dashboard" width="720"><br>
 </div>
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [DeepSeek](https://deepseek.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [NanoGPT](https://docs.nano-gpt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required).
+
 <div align="center">
-<img src="docs/screenshots/providers.png" alt="Providers" width="720">
+<br><img src="docs/screenshots/providers.png" alt="Providers" width="720"><br>
 </div>
 
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
 When a provider returns a 5xx, a 429 (rate limit, configurable via `failover_on_rate_limit`), an auth error (401/403), or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a provider that returned a non-2xx status. An exponential backoff (100ms base, capped at 2s) is applied between attempts to avoid hammering slow providers; client disconnects during backoff are detected immediately. The final request record logs the attempt number that succeeded (or the last one that failed), along with the error code and total duration. Per-attempt failover events (attempt number, provider, status code) are also written to the application log for real-time debugging.
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
-Prefix a model with `hotel/` to route through its failover group: an ordered list of providers that expose the same base model. Example: `hotel/gpt-4o` resolves to all providers whose model ID matches `gpt-4o` exactly (after stripping the org prefix, e.g. `openai/gpt-4o` → `gpt-4o`). Models with different base names like `gpt-4o-mini` are separate groups. A failover group is auto-created only when 2+ providers offer the same base model; if only one provider has the model, no group exists and `hotel/model` will return 404. To route to a single provider without failover, use `provider/model` as the model name in your request (e.g. `{"model": "openai/gpt-4o", ...}`).
+Prefix a model with `hotel/` to route through its failover group: an ordered list of providers that expose the same base model. Example: `hotel/gpt-4o` resolves to all providers whose model ID matches `gpt-4o` exactly (after stripping the org prefix, e.g. `openai/gpt-4o` → `gpt-4o`). Models with different base names like `gpt-4o-mini` are separate groups. A failover group is auto-created only when 2+ providers offer the same base model; if only one provider has the model, no group exists and `hotel/model` will return 404. To route to a single provider without failover, use Model Hotel `proxy id` as the model name in your request.
 
 <div align="center">
-<img src="docs/screenshots/failover.png" alt="Failover" width="720">
+<br><img src="docs/screenshots/failover.png" alt="Failover" width="720"><br><br>
 </div>
 
 Requests are sent to each provider in priority order. If a provider responds with a server error (5xx), an auth error (401/403), or a rate-limit error (429, configurable), the next provider in the list is tried. Failover does **not** trigger on slow responses or client errors (4xx other than 401/403/429).
@@ -91,11 +93,13 @@ Failover groups are auto-generated when models are discovered, but only when **2
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
+
 <div align="center">
-<img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720">
+<br><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720"><br>
 </div>
 
 ### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged](#-no-prompts-logged)
+> [!TIP]
 > **Prompts and request content are never captured, logged, or inspected.**
 > The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
 >
@@ -117,7 +121,7 @@ Every request is logged with full latency decomposition:
 - **Tokens per second**, prompt / completion counts
 
 <div align="center">
-<img src="docs/screenshots/logs.png" alt="Requests" width="720"><br>
+<br><img src="docs/screenshots/logs.png" alt="Requests" width="720"><br><br>
 </div>
 
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
@@ -126,8 +130,8 @@ Streaming requests are captured as they start and updated as they finish, so you
 Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). The following providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
 
 <div align="center">
-<img src="docs/screenshots/models.png" alt="Models" width="720">
-</div><br>
+<br><img src="docs/screenshots/models.png" alt="Models" width="720"><br><br>
+</div>
 
 | Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
 |---|---|---|---|---|---|
@@ -155,28 +159,26 @@ Test any model from the Models page with a single click. The test sends a minima
 The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Vision-capable models show an image upload button: attach a photo for the model to describe or analyze. Audio-capable models show an audio upload button for sending audio input. Attachments are sent as OpenAI-compatible multimodal content parts (`image_url`, `input_audio`). Switch to **Conversation** mode to watch two models talk to each other: enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics (duration, tokens, chars/sec).
 
 <div align="center">
-<img src="docs/screenshots/chat.png" alt="Chat" width="720">
+<br><img src="docs/screenshots/chat.png" alt="Chat" width="720"><br><br>
 </div>
 
 **Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups. Vote for winners, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with per-slot personas and voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics. Past sessions are saved to an arena history modal for review and restoration.
 
 <div align="center">
-<img src="docs/screenshots/arena.png" alt="Arena" width="720">
+<br><img src="docs/screenshots/arena.png" alt="Arena" width="720"><br>
 </div>
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Real-Time Events & System Status](#-real-time-events--system-status)
 A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, circuit breaker state transitions, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
 
 <div align="center">
-<img src="docs/screenshots/settings.png" alt="Settings" width="720">
+<br><img src="docs/screenshots/settings.png" alt="Settings" width="720"><br>
 </div>
 
-## [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
-
+### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
 Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage: the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Standard security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Strict-Transport-Security (when TLS is active), Content-Security-Policy) are applied to all responses. Decrypted provider keys are cached in memory for up to 10 minutes (configurable via the `key_cache_ttl` setting) to avoid repeated key derivation overhead.
 
-## [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
-
+### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 ```bash
 git clone <repository-url>
 cd model-hotel
@@ -207,7 +209,6 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 > **Security:** The Docker socket is disabled by default in `docker-compose.yml` (production). The `compose.dev.yml` override enables it for local development. Only use the dev override in trusted environments.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
-
 No `git clone` needed. Create two files and go:
 
 **1.** Create `.env` with your secrets:
@@ -296,8 +297,7 @@ docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
 
 > **Note:** The `docker-compose.yml` content above is the production compose (auto-synced by a GitHub Action). For development, layer the `compose.dev.yml` override: `docker compose -f docker-compose.yml -f compose.dev.yml up -d`. If you want the prebuilt image instead of building from source, uncomment the `image:` line and comment out `build: .` in the compose file.
 
-## API Example
-
+### API Example
 ```bash
 # List available models
 curl http://localhost:8081/v1/models \
@@ -312,8 +312,7 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 
 See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint listing.
 
-## Full Documentation
-
+### Full Documentation
 - [Configuration](model-hotel.wiki/Configuration.md): Environment variables, runtime settings, Docker Compose
 - [API Reference](model-hotel.wiki/API-Reference.md): Proxy and admin endpoints
 - [Security](model-hotel.wiki/Security.md): AES-256-GCM encryption, Argon2id key derivation, hashing, URL validation
@@ -325,12 +324,10 @@ See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint
 - [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
 - [Development](model-hotel.wiki/Development.md): Local setup, build commands, contributing
 
-## [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
-
+### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
 Backups are created via the Settings page or the admin API (`POST /api/backups`) using `pg_dump --format=custom`. The resulting `.dump` files contain all database tables: providers, models, virtual keys, failover groups, and settings.
 
 ### Restoring a backup
-
 ```bash
 # Direct
 pg_restore --clean --if-exists -d YOUR_DB backup_file.dump
@@ -340,7 +337,6 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 ```
 
 ### Critical requirements for a working restore
-
 | Requirement | Details |
 |---|---|
 | **MASTER_KEY must match** | Provider API keys are AES-256-GCM encrypted using a key derived from `MASTER_KEY` via Argon2id. Restoring with a different `MASTER_KEY` will leave all provider keys unrecoverable. The app will start, but key decryption will fail. |
@@ -348,15 +344,13 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 | **Virtual keys are irrecoverable** | Virtual keys are stored as SHA-256 hashes only. Plaintext virtual keys are never persisted. If you lose the plaintext keys, they cannot be recovered from the backup (by design). |
 
 ### What is and isn't in the backup
-
 **Included** (in the database, captured by `pg_dump`): providers (encrypted keys, nonces, salts), models, virtual keys (hashes only), failover groups, settings.
 
 **Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
 
-## Known Limitations
-
+### Known Limitations
 - **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable
 
-## [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
+### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
