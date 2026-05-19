@@ -37,7 +37,7 @@ export function SwapPicker({
 				placeholder="Search models…"
 				className="w-full max-w-xs mb-2 shrink-0"
 			/>
-			<div className="flex flex-wrap gap-1 overflow-y-auto w-full justify-center content-start px-2 min-h-0 flex-1">
+			<div className="flex flex-wrap gap-0.5 overflow-y-auto w-full justify-center content-start px-2 min-h-0 flex-1">
 				{available.map((m) => {
 					const id = proxyModelID(m.provider_name, m.model_id);
 					return (
