@@ -16,4 +16,22 @@ if ! (cd web && pnpm run lint); then
 	exit 1
 fi
 
-echo "pre-push: smoke ok (full CI runs on GitHub)"
+echo "pre-push: smoke ok"
+
+# ── Auto-tag from .version ──
+# After smoke tests pass, ensure the v* tag matching .version exists.
+# Pushing the tag also pushes the commit it points to, so the remote stays
+# consistent even if the main push hasn't completed yet.
+# Skip with: git push --no-verify
+version_file=".version"
+if [ -f "$version_file" ]; then
+	ver=$(tr -d '[:space:]' < "$version_file")
+	tag="v${ver}"
+	if [ -n "$ver" ] && ! git rev-parse "$tag" >/dev/null 2>&1; then
+		echo "pre-push: creating tag $tag (from .version)"
+		git tag "$tag"
+		remote="${1:-origin}"
+		echo "pre-push: pushing tag $tag to $remote"
+		git push "$remote" "$tag"
+	fi
+fi
