@@ -69,10 +69,14 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 
 ## [<img src="docs/icons/screenshots.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Screenshots](#-screenshots)
 
+<div align="center">
+
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|
-| ![Dashboard](docs/screenshots/placeholder-1.png) | ![Providers](docs/screenshots/placeholder-2.png) | ![Models](docs/screenshots/placeholder-3.png) | ![Logs](docs/screenshots/placeholder-4.png) | ![Failover](docs/screenshots/placeholder-5.png) |
-| ![Settings](docs/screenshots/placeholder-6.png) | ![Virtual Keys](docs/screenshots/placeholder-7.png) | ![Chat](docs/screenshots/placeholder-8.png) | ![Arena](docs/screenshots/placeholder-9.png) | ![App Logs](docs/screenshots/placeholder-10.png) |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Providers](docs/screenshots/providers.png) | ![Models](docs/screenshots/models.png) | ![Logs](docs/screenshots/logs.png) | ![Failover](docs/screenshots/failover.png) |
+| ![Settings](docs/screenshots/settings.png) | ![Virtual Keys](docs/screenshots/virtual_keys.png) | ![Chat](docs/screenshots/chat.png) | ![Arena](docs/screenshots/arena.png) | ![App Logs](docs/screenshots/applogs.png) |
+
+</div>
 
 ## What It Does
 
