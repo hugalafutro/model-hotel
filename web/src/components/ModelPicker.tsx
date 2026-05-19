@@ -330,11 +330,11 @@ export function ModelPicker({
 					{[...groupedModels].map(([providerName, providerModels]) => {
 						const isCollapsed = collapsedProviders.has(providerName);
 						return (
-							<div key={providerName} className="mb-2">
+							<div key={providerName} className="mt-px">
 								<button
 									type="button"
 									onClick={() => toggleCollapse(providerName)}
-									className={`flex items-center gap-1.5 w-full py-0.5 text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
+									className={`flex items-center gap-1.5 w-full text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)}`}
 								>
 									<ChevronDown
 										size={10}
@@ -349,7 +349,7 @@ export function ModelPicker({
 									className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
 								>
 									<div
-										className={`flex flex-wrap gap-0.5 pl-5 mt-0.5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
+										className={`flex flex-wrap gap-0.5 pl-5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
 									>
 										{providerModels.map((m) => {
 											const val = proxyModelID(m.provider_name, m.model_id);
