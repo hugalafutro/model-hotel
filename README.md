@@ -58,7 +58,7 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ```
 </details><br>
 
-![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&link=https://github.com/aovestdipaperino/tokensave&cacheSeconds=1800)<br><br>
+<a href="https://github.com/aovestdipaperino/tokensave">![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&cacheSeconds=1800)<a><br><br>
 Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4.3-code_review-FF4500?style=flat" alt="Grok 4.3"><br>
 </div><br>
 
