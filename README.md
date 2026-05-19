@@ -4,7 +4,7 @@
 
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
 <p align="center"><em>"Because we have LiteLLM at home"</em></p>
-<br><br>
+<br>
 
 <p align="center">
 <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
