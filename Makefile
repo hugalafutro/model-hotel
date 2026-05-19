@@ -1,4 +1,4 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down release patch minor major
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -45,55 +45,3 @@ test-db-up:
 
 test-db-down:
 	docker compose -f docker-compose.test.yml down -v
-
-# -- Release: bump version, commit, tag, atomic-push commit+tag together --
-#
-# Usage:
-#   make release          # patch bump (default)
-#   make release LEVEL=minor
-#   make release LEVEL=major
-#   make patch / minor / major   # shortcuts
-#
-# All paths land in `_bump`, which guarantees commit + tag ship in ONE push.
-# Docker workflow triggers on the tag and builds from the same commit.
-
-LEVEL ?= patch
-
-release: _bump
-
-patch:
-	@$(MAKE) _bump LEVEL=patch
-
-minor:
-	@$(MAKE) _bump LEVEL=minor
-
-major:
-	@$(MAKE) _bump LEVEL=major
-
-_bump:
-	@if [ -n "$$(git status --porcelain)" ]; then \
-	  echo "release: working tree not clean. Commit or stash other changes first:"; \
-	  git status --short; \
-	  exit 1; \
-	fi
-	@BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
-	if [ "$$BRANCH" != "master" ]; then \
-	  echo "release: refusing to bump from branch '$$BRANCH' (must be master)"; \
-	  exit 1; \
-	fi
-	@CURRENT=$$(cat .version) && \
-	IFS='.' read -r MAJ MIN PAT <<<"$$CURRENT" && \
-	case "$(LEVEL)" in \
-	  patch) PAT=$$((PAT + 1)) ;; \
-	  minor) MIN=$$((MIN + 1)); PAT=0 ;; \
-	  major) MAJ=$$((MAJ + 1)); MIN=0; PAT=0 ;; \
-	  *) echo "release: invalid LEVEL=$(LEVEL) (use patch|minor|major)"; exit 1 ;; \
-	esac && \
-	NEW="$$MAJ.$$MIN.$$PAT" && \
-	echo "release: $$CURRENT -> $$NEW" && \
-	echo "$$NEW" > .version && \
-	git add .version && \
-	git commit -m "v$$NEW" && \
-	git tag "v$$NEW" && \
-	git push --atomic origin master "v$$NEW" && \
-	echo "release: pushed v$$NEW (commit + tag in one push)"
