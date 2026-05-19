@@ -1,55 +1,39 @@
 package main
 
 import (
-	"embed"
 	"io/fs"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-var _ embed.FS
-
 type SPAHandler struct {
 	fileServer http.Handler
 	indexHTML  []byte
-	staticDir  string
-	useEmbed   bool
 }
 
 func NewSPAHandler() *SPAHandler {
 	subFS, err := fs.Sub(staticFiles, "static")
-	if err == nil {
-		indexHTML, readErr := fs.ReadFile(subFS, "index.html")
-		if readErr == nil && len(indexHTML) > 0 {
-			debuglog.Info("server: using embedded static files")
-			return &SPAHandler{
-				fileServer: http.FileServer(http.FS(subFS)),
-				indexHTML:  indexHTML,
-				useEmbed:   true,
-			}
-		}
-	}
-
-	staticDir := "./web/dist"
-	indexHTML, err := os.ReadFile(staticDir + "/index.html")
 	if err != nil {
-		debuglog.Error("server: could not read frontend files", "error", err)
+		debuglog.Error("server: embedded static files not found", "error", err)
 		return &SPAHandler{
-			indexHTML: []byte("<!DOCTYPE html><html><body><h1>Model Hotel</h1><p>Frontend not available. Run <code>cd web && npm run build</code></p></body></html>"),
-			useEmbed:  false,
-			staticDir: staticDir,
+			indexHTML: []byte("<!DOCTYPE html><html><body><h1>Model Hotel</h1><p>Frontend not available.</p></body></html>"),
 		}
 	}
 
-	debuglog.Info("server: using filesystem static files", "path", staticDir)
+	indexHTML, err := fs.ReadFile(subFS, "index.html")
+	if err != nil || len(indexHTML) == 0 {
+		debuglog.Error("server: embedded index.html not found", "error", err)
+		return &SPAHandler{
+			indexHTML: []byte("<!DOCTYPE html><html><body><h1>Model Hotel</h1><p>Frontend not available.</p></body></html>"),
+		}
+	}
+
+	debuglog.Info("server: serving frontend from embedded files")
 	return &SPAHandler{
-		fileServer: http.FileServer(http.Dir(staticDir)),
+		fileServer: http.FileServer(http.FS(subFS)),
 		indexHTML:  indexHTML,
-		useEmbed:   false,
-		staticDir:  staticDir,
 	}
 }
 
@@ -64,20 +48,8 @@ func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if path != "/" {
 		cleanPath := strings.TrimPrefix(path, "/")
 		if cleanPath != "" {
-			var exists bool
-			if h.useEmbed {
-				subFS, _ := fs.Sub(staticFiles, "static")
-				if f, err := fs.Stat(subFS, cleanPath); err == nil && !f.IsDir() {
-					exists = true
-				}
-			} else {
-				//nolint:gosec // spaHandler sanitizes paths before use
-				if _, err := os.Stat(h.staticDir + "/" + cleanPath); err == nil {
-					exists = true
-				}
-			}
-
-			if exists {
+			subFS, _ := fs.Sub(staticFiles, "static")
+			if f, err := fs.Stat(subFS, cleanPath); err == nil && !f.IsDir() {
 				if strings.Contains(cleanPath, "-") && (strings.HasSuffix(cleanPath, ".js") || strings.HasSuffix(cleanPath, ".css")) {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 				}

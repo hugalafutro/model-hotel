@@ -99,11 +99,6 @@ func main() {
 		log.Fatalf("Failed to initialize admin manager: %v", err)
 	}
 
-	// Startup banner (direct stdout: slog escapes \n, making ASCII art
-	// unreadable). Printed before DB connection so it appears at the top
-	// of the log, before any DB noise from other containers.
-	printStartupBannerStdout(cfg)
-
 	database, err := db.New(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -128,18 +123,6 @@ func main() {
 		return "loaded from file"
 	}())
 	debuglog.Info("config: Config loaded")
-
-	// Admin token box is printed after DB connection succeeds so it's not
-	// exposed in container logs if the DB connection fails and the process
-	// exits. Placed right after the config log so it stays grouped with
-	// the banner output.
-	if isNew {
-		printAdminTokenBoxStdout(adminMgr.Token())
-	}
-
-	// Ready confirmation — printed after DB is connected so it's the
-	// definitive signal that the server is fully operational.
-	printReadyMessageStdout(version)
 
 	// Clean up stale request logs left in "pending" or "streaming" state
 	// from a previous server crash, restart, or unhandled error.
@@ -700,6 +683,16 @@ func main() {
 	}
 
 	go func() {
+		// Startup banner (direct stdout: slog escapes \n, making ASCII art
+		// unreadable). Printed as the very last startup output so Docker
+		// Compose log interleaving from other containers (e.g. postgres)
+		// can't split the banner, config table, and ready message.
+		printStartupBannerStdout(cfg)
+		if isNew {
+			printAdminTokenBoxStdout(adminMgr.Token())
+		}
+		printReadyMessageStdout(version)
+
 		debuglog.Info("server: listening", "port", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)

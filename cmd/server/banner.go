@@ -22,6 +22,8 @@ const asciiBanner = `███╗   ███╗ ██████╗ ███
 // unreadable. The entire banner is built as a single string and written
 // in one call to minimize the window where Docker Compose can interleave
 // output from other containers between lines.
+// Printed after all other startup output so Docker log interleaving
+// from other containers (e.g. postgres) cannot split the banner.
 func printStartupBanner(w io.Writer, cfg *config.Config) {
 	var b strings.Builder
 	b.WriteByte('\n')

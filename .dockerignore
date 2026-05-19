@@ -6,3 +6,7 @@
 web/node_modules/
 web/dist/
 web/package-lock.json
+
+# Frontend assets are built by the frontend-builder stage and copied into cmd/server/static/.
+# Never copy the repo's version — it may contain stale files or just .gitkeep.
+cmd/server/static/

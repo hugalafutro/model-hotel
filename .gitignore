@@ -28,8 +28,9 @@
 /web/dist/
 /web/.vite/
 
-# Generated frontend assets (built by Docker or manually with cd web && npm run build)
-/cmd/server/static/assets/
+# Populated by Docker build or make build; only .gitkeep tracked to keep directory alive for go:embed
+/cmd/server/static/*
+!/cmd/server/static/.gitkeep
 
 # Data (root-only — leading slash prevents matching data/ in subdirectories)
 /data/
