@@ -122,10 +122,6 @@ Every request is logged with full latency decomposition:
 
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
 
-<div align="center">
-<img src="docs/screenshots/logs.png" alt="Logs" width="720">
-</div>
-
 ### [<img src="docs/icons/discovery.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Built-In Model Discovery](#-built-in-model-discovery)
 Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). The following providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
 
