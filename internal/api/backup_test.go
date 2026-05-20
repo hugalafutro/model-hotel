@@ -2158,28 +2158,29 @@ func TestCreateBackup_Success(t *testing.T) {
 // TestExtractMigrationNames_FilterFileWriteError tests extractMigrationNames
 // when os.CreateTemp fails (e.g., TMPDIR points to non-existent directory).
 func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
-	// Save original TMPDIR
-	origTmpdir := os.Getenv("TMPDIR")
-	t.Cleanup(func() {
-		if origTmpdir == "" {
-			os.Unsetenv("TMPDIR")
-		} else {
-			os.Setenv("TMPDIR", origTmpdir)
+	// This test runs itself as a subprocess to safely manipulate TMPDIR
+	// without affecting other tests running in parallel.
+	if os.Getenv("TEST_FILTER_FILE_WRITE_ERROR") == "1" {
+		os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
+		dumpPath := "/tmp/test.dump"
+
+		_, err := extractMigrationNames(dumpPath, 100)
+		if err == nil {
+			fmt.Printf("FILTER_WRITE: expected error when filter file cannot be created\n")
+			os.Exit(1)
 		}
-	})
-
-	// Set TMPDIR to non-existent directory to cause os.CreateTemp to fail
-	os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
-
-	// Use any dump path (doesn't need to exist, will fail before pg_restore)
-	dumpPath := "/tmp/test.dump"
-
-	_, err := extractMigrationNames(dumpPath, 100)
-	if err == nil {
-		t.Error("expected error when filter file cannot be created")
+		if !strings.Contains(err.Error(), "failed to create filter file") {
+			fmt.Printf("FILTER_WRITE: expected 'failed to create filter file', got: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
-	if !strings.Contains(err.Error(), "failed to create filter file") {
-		t.Errorf("expected 'failed to create filter file' error, got: %v", err)
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_FilterFileWriteError")
+	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1", "TMPDIR=/nonexistent/path/that/does/not/exist")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
 	}
 }
 
@@ -2365,77 +2366,85 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 		t.Skip("pg_restore not installed")
 	}
 
-	dir := t.TempDir()
+	// This test runs itself as a subprocess to safely manipulate TMPDIR
+	// without affecting other tests running in parallel.
+	if os.Getenv("TEST_EXTRACT_MIGRATIONS_ERROR") == "1" {
+		dir := t.TempDir()
 
-	// Create a valid dump so RestoreBackup passes pg_restore --list validation.
-	u, err := url.Parse(apiTestDBURL)
-	if err != nil {
-		t.Fatalf("failed to parse DB URL: %v", err)
-	}
-	dumpPath := filepath.Join(dir, "test.dump")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+dumpPath,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
+		// Create a valid dump so RestoreBackup passes pg_restore --list validation.
+		u, err := url.Parse(apiTestDBURL)
+		if err != nil {
+			fmt.Printf("EXTRACT_MIG: failed to parse DB URL: %v\n", err)
+			os.Exit(1)
 		}
-	}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("pg_dump failed: %v", err)
-	}
+		dumpPath := filepath.Join(dir, "test.dump")
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		pgDumpPath, _ := exec.LookPath("pg_dump")
+		cmd := exec.CommandContext(ctx, pgDumpPath,
+			"--format=custom",
+			"--no-password",
+			"--file="+dumpPath,
+			apiTestDBURL,
+		)
+		if u.User != nil {
+			if pass, ok := u.User.Password(); ok {
+				cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
+			}
+		}
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("EXTRACT_MIG: pg_dump failed: %v\n", err)
+			os.Exit(1)
+		}
 
-	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
-	r := chi.NewRouter()
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			next.ServeHTTP(w, r)
+		h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+		r := chi.NewRouter()
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				next.ServeHTTP(w, r)
+			})
 		})
-	})
-	h.Register(r)
+		h.Register(r)
 
-	dumpContent, err := os.ReadFile(dumpPath)
-	if err != nil {
-		t.Fatalf("failed to read dump file: %v", err)
-	}
-
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-	writer.WriteField("admin_token", "valid-token")
-	part, _ := writer.CreateFormFile("dump", "test.dump")
-	part.Write(dumpContent)
-	writer.Close()
-
-	// Set TMPDIR to non-existent path so extractMigrationNames' filter file
-	// creation fails. Must be done after t.TempDir() and os.ReadFile since
-	// those also use TMPDIR.
-	origTmpdir := os.Getenv("TMPDIR")
-	t.Cleanup(func() {
-		if origTmpdir == "" {
-			os.Unsetenv("TMPDIR")
-		} else {
-			os.Setenv("TMPDIR", origTmpdir)
+		dumpContent, err := os.ReadFile(dumpPath)
+		if err != nil {
+			fmt.Printf("EXTRACT_MIG: failed to read dump file: %v\n", err)
+			os.Exit(1)
 		}
-	})
-	os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
 
-	req := httptest.NewRequest("POST", "/backups/restore", &buf)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("admin_token", "valid-token")
+		part, _ := writer.CreateFormFile("dump", "test.dump")
+		part.Write(dumpContent)
+		writer.Close()
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+		// Set TMPDIR to non-existent path so extractMigrationNames' filter file
+		// creation fails. Safe to do here since we're in an isolated subprocess.
+		os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
+
+		req := httptest.NewRequest("POST", "/backups/restore", &buf)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			fmt.Printf("EXTRACT_MIG: expected 500, got %d: %s\n", w.Code, w.Body.String())
+			os.Exit(1)
+		}
+		if !strings.Contains(w.Body.String(), "failed to extract migration info") {
+			fmt.Printf("EXTRACT_MIG: expected error to mention extraction failure, got: %s\n", w.Body.String())
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
-	if !strings.Contains(w.Body.String(), "failed to extract migration info") {
-		t.Errorf("expected error to mention extraction failure, got: %s", w.Body.String())
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_ExtractMigrationsError")
+	cmd.Env = append(os.Environ(), "TEST_EXTRACT_MIGRATIONS_ERROR=1")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
 	}
 }
 
