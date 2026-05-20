@@ -1,4 +1,4 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down setup
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -45,3 +45,8 @@ test-db-up:
 
 test-db-down:
 	docker compose -f docker-compose.test.yml down -v
+
+# -- One-time setup after cloning --
+
+setup:
+	git config core.hooksPath scripts
