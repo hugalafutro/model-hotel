@@ -77,23 +77,25 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 	// Give time for event to be delivered
 	time.Sleep(100 * time.Millisecond)
 
-	// The handler should have received the event
+	// Cancel the request context to unblock the handler goroutine.
+	cancel()
+
+	// Wait for the handler goroutine to finish BEFORE reading the body
+	// to avoid a race between the goroutine writing to rec.Body and
+	// the test goroutine reading from it.
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler goroutine did not exit after context cancellation")
+	}
+
+	// Now safe to read the body — the handler goroutine is done writing.
 	body := rec.Body.String()
 	if !strings.Contains(body, "test.event") {
 		t.Errorf("Expected event in SSE stream, got: %s", body)
 	}
 	if !strings.Contains(body, "Test message") {
 		t.Errorf("Expected message in SSE stream, got: %s", body)
-	}
-
-	// Cancel the request context to unblock the handler goroutine.
-	cancel()
-
-	// Wait for the handler goroutine to finish.
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Error("handler goroutine did not exit after context cancellation")
 	}
 }
 
@@ -129,8 +131,6 @@ func TestStreamEvents_Heartbeat(t *testing.T) {
 // TestStreamEvents_FlusherNotSupported tests that the SSE handler returns
 // a 500 error when the ResponseWriter doesn't implement http.Flusher.
 func TestStreamEvents_FlusherNotSupported(t *testing.T) {
-	t.Parallel()
-
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
@@ -161,8 +161,6 @@ func TestStreamEvents_FlusherNotSupported(t *testing.T) {
 // TestStreamEvents_MarshalError tests that the SSE handler continues
 // processing when an event cannot be marshaled to JSON.
 func TestStreamEvents_MarshalError(t *testing.T) {
-	t.Parallel()
-
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
@@ -209,26 +207,25 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 	// Give time for the good event to be delivered
 	time.Sleep(100 * time.Millisecond)
 
-	// Verify the good event appears in the output (proving handler continued past marshal error)
+	// Cancel the request context to unblock the handler goroutine.
+	cancel()
+
+	// Wait for the handler goroutine to finish BEFORE reading the body
+	// to avoid a race between the goroutine writing to rec.Body and
+	// the test goroutine reading from it.
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler goroutine did not exit after context cancellation")
+	}
+
+	// Now safe to read the body — the handler goroutine is done writing.
 	body := rec.Body.String()
 	if !strings.Contains(body, "test.good_event") {
 		t.Errorf("Expected good event in SSE stream after marshal error, got: %s", body)
 	}
 	if !strings.Contains(body, "Good event after bad") {
 		t.Errorf("Expected good event message in SSE stream, got: %s", body)
-	}
-
-	// The bad event should not appear (it was skipped due to marshal error)
-	// but we can't easily verify this since the handler just continues
-
-	// Cancel the request context to unblock the handler goroutine.
-	cancel()
-
-	// Wait for the handler goroutine to finish.
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Error("handler goroutine did not exit after context cancellation")
 	}
 }
 

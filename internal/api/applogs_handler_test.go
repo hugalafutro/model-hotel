@@ -476,6 +476,14 @@ func TestRingBufferWrite_EmptyLines(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGetAppLogCounts_Cache(t *testing.T) {
+	// Reset the global cache so this test isn't affected by other tests
+	// that may have populated it via a real DB connection.
+	appLogCountCache.Lock()
+	appLogCountCache.levelCounts = nil
+	appLogCountCache.sourceCounts = nil
+	appLogCountCache.fetchedAt = time.Time{}
+	appLogCountCache.Unlock()
+
 	h := &Handler{dbPool: nil}
 
 	// First call should return default counts
@@ -491,7 +499,6 @@ func TestGetAppLogCounts_Cache(t *testing.T) {
 	}
 
 	// With nil dbPool, cache is NOT populated (returns early)
-	// This is the current behavior - cache only populates when there's a real DB connection
 	appLogCountCache.RLock()
 	cacheEmpty := appLogCountCache.levelCounts == nil
 	appLogCountCache.RUnlock()
