@@ -7,7 +7,7 @@ import {
 	Swords,
 	X,
 } from "lucide-react";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
@@ -357,55 +357,68 @@ export function Arena() {
 						</div>
 					)}
 
-					{/* Run Button */}
-					<div className="flex flex-col">
-						{arena.buttonLabel && (
-							<button
-								type="button"
-								onClick={
-									arena.isRunning ? arena.handleStopAll : arena.handleRunArena
-								}
-								disabled={arena.phase === "setup" && !arena.canRun}
-								className={`ui-btn flex items-center gap-2 shrink-0 ${
-									arena.isRunning ? "ui-btn-danger" : "ui-btn-primary"
-								} disabled:opacity-40`}
-							>
-								{arena.isRunning ? (
-									<>
-										<X size={16} />
-										{arena.buttonLabel}
-									</>
-								) : (
-									<>
-										<Play size={16} />
-										{arena.buttonLabel}
-									</>
-								)}
-							</button>
-						)}
-						{arena.phase === "setup" &&
-							!arena.canRun &&
-							arena.disabledReason && (
-								<p className="text-xs text-amber-400 mt-1.5">
-									{arena.disabledReason}
-								</p>
+					{/* Run/Stop Button — always rendered to reserve space */}
+					<div className="flex flex-col min-h-[3.5rem]">
+						<button
+							type="button"
+							onClick={
+								arena.isRunning ? arena.handleStopAll : arena.handleRunArena
+							}
+							disabled={
+								!arena.buttonLabel || (arena.phase === "setup" && !arena.canRun)
+							}
+							className={`ui-btn flex items-center gap-2 shrink-0 min-h-8 ${
+								arena.isRunning ? "ui-btn-danger" : "ui-btn-primary"
+							} disabled:opacity-40 ${!arena.buttonLabel ? "invisible pointer-events-none" : ""}`}
+							tabIndex={!arena.buttonLabel ? -1 : undefined}
+						>
+							{arena.isRunning ? (
+								<>
+									<X size={16} />
+									{arena.buttonLabel}
+								</>
+							) : (
+								<>
+									<Play size={16} />
+									{arena.buttonLabel}
+								</>
 							)}
-						{arena.phase === "running" && arena.isRunning && (
-							<p className="text-xs text-(--text-muted) mt-1.5">
-								<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse inline-block mr-1.5 align-middle" />
-								Models are generating - click Stop to cancel
-							</p>
-						)}
-						{arena.phase === "voting" && (
-							<p className="text-xs text-amber-400 mt-1.5">
-								Vote on all matchups to continue to the next round
-							</p>
-						)}
-						{arena.phase === "next_round_ready" && !arena.canRun && (
-							<p className="text-xs text-amber-400 mt-1.5">
-								{arena.disabledReason || "Start the next round when ready"}
-							</p>
-						)}
+						</button>
+						{(() => {
+							let msg: ReactNode = null;
+							let muted = false;
+							if (
+								arena.phase === "setup" &&
+								!arena.canRun &&
+								arena.disabledReason
+							) {
+								msg = arena.disabledReason;
+							} else if (arena.phase === "running" && arena.isRunning) {
+								muted = true;
+								msg = (
+									<>
+										<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse inline-block mr-1.5 align-middle" />
+										Models are generating - click Stop to cancel
+									</>
+								);
+							} else if (
+								arena.phase === "voting" &&
+								!arena.rounds[arena.currentRound]?.matchups.every(
+									(m) => m.vote !== null,
+								)
+							) {
+								msg = "Vote on all matchups to continue to the next round";
+							} else if (arena.phase === "next_round_ready" && !arena.canRun) {
+								msg = arena.disabledReason || "Start the next round when ready";
+							}
+							return (
+								<p
+									className={`text-xs leading-4 mt-1.5 min-h-4 ${msg ? (muted ? "text-(--text-muted)" : "text-amber-400") : "invisible"}`}
+								>
+									{msg ?? "\u00A0"}
+								</p>
+							);
+						})()}
 					</div>
 				</div>
 

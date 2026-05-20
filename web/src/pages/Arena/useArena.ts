@@ -1,6 +1,6 @@
 import { produce } from "immer";
 import { GitCompare, Swords } from "lucide-react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
 	getArenaHistoryEnabled,
 	saveCompetitionToHistory,
@@ -105,6 +105,77 @@ export function useArena() {
 		enabledModels,
 		toast,
 	});
+
+	// Correct stale "voting" phase after page reload.
+	// When rounds and phase are persisted independently, the page may reload
+	// with phase="voting" even though all matchups already have votes.
+	const phaseCorrectedRef = useRef(false);
+	useEffect(() => {
+		if (phaseCorrectedRef.current) return;
+		if (phase !== "voting") {
+			phaseCorrectedRef.current = true;
+			return;
+		}
+		const round = rounds[currentRound];
+		if (!round) {
+			phaseCorrectedRef.current = true;
+			return;
+		}
+		if (!round.matchups.every((m: Matchup) => m.vote !== null)) {
+			phaseCorrectedRef.current = true;
+			return;
+		}
+
+		phaseCorrectedRef.current = true;
+
+		if (currentRound >= rounds.length - 1) {
+			// Last round — declare winner
+			const finalMu = round.matchups[0];
+			const winner =
+				finalMu?.vote === "A" ? finalMu.slotA?.modelId : finalMu.slotB?.modelId;
+			if (winner) {
+				setWinnerModal({ winner, rounds });
+			}
+			setPhase("finished");
+		} else {
+			// Not last round — build next round matchups and advance
+			const nextRounds = produce(rounds, (draft) => {
+				const winners = draft[currentRound].matchups.map((m: Matchup) =>
+					m.vote === "A" ? m.slotA : m.slotB,
+				);
+				const nextRI = currentRound + 1;
+				if (draft[nextRI]) {
+					for (let i = 0; i < winners.length; i += 2) {
+						const muIdx = i / 2;
+						draft[nextRI].matchups[muIdx] = {
+							slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
+							slotB: winners[i + 1]
+								? { ...(winners[i + 1] as MatchupSlot) }
+								: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						};
+					}
+				}
+			});
+			setRounds(nextRounds);
+			roundsRef.current = nextRounds;
+			setCurrentRound(currentRound + 1);
+			currentRoundRef.current = currentRound + 1;
+			setPhase("next_round_ready");
+		}
+	}, [
+		phase,
+		rounds,
+		currentRound,
+		setPhase,
+		setRounds,
+		setWinnerModal,
+		setCurrentRound,
+		roundsRef,
+		currentRoundRef,
+	]);
 
 	// Tracks which model is being swapped out so bracketModels can be updated
 	const swapOutMapRef = useRef<Map<string, string>>(new Map());
