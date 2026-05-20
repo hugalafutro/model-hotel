@@ -224,7 +224,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							>
 								{onModelNameClick ? (
 									<span
-										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:[text-shadow:var(--glow-text-accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
 										title={model}
 									>
 										{displayName}

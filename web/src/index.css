@@ -26,6 +26,9 @@ html {
 	--glow-accent-sm: 0 0 8px var(--accent);
 	--glow-accent: 0 0 12px var(--accent);
 	--glow-accent-lg: 0 0 16px var(--accent);
+	--glow-text-accent:
+		0 0 2px var(--accent),
+		0 0 4px color-mix(in srgb, var(--accent) 60%, transparent);
 	--glow-red: 0 0 12px var(--color-red-500, red);
 	--glow-amber: 0 0 12px var(--color-amber-400, amber);
 	--glow-white: 0 0 8px white;
