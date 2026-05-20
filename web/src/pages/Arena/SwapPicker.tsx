@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FilterInput } from "../../components/FilterInput";
 import { proxyModelID } from "../../utils/model";
 import type { SwapPickerProps } from "./types";
@@ -43,17 +43,14 @@ export function SwapPicker({
 		return groups;
 	}, [available]);
 
-	// Prune stale entries when search filtering removes providers
-	const currentProviders = groupedModels;
-	useEffect(() => {
-		setCollapsedProviders((prev) => {
-			const pruned = new Set<string>();
-			for (const p of prev) {
-				if (currentProviders.has(p)) pruned.add(p);
-			}
-			return pruned;
-		});
-	}, [currentProviders]);
+	// Derive effective collapsed set: only keep entries for providers currently in view
+	const effectiveCollapsed = useMemo(() => {
+		const result = new Set<string>();
+		for (const p of collapsedProviders) {
+			if (groupedModels.has(p)) result.add(p);
+		}
+		return result;
+	}, [collapsedProviders, groupedModels]);
 
 	const toggleCollapse = (provider: string) => {
 		setCollapsedProviders((prev) => {
@@ -88,18 +85,18 @@ export function SwapPicker({
 					<button
 						type="button"
 						onClick={
-							collapsedProviders.size === groupedModels.size
+							effectiveCollapsed.size === groupedModels.size
 								? expandAll
 								: collapseAll
 						}
 						title={
-							collapsedProviders.size === groupedModels.size
+							effectiveCollapsed.size === groupedModels.size
 								? "Expand all providers"
 								: "Collapse all providers"
 						}
 						className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 					>
-						{collapsedProviders.size === groupedModels.size ? (
+						{effectiveCollapsed.size === groupedModels.size ? (
 							<ChevronsUpDown size={13} />
 						) : (
 							<ChevronsDownUp size={13} />
@@ -109,7 +106,7 @@ export function SwapPicker({
 			</div>
 			<div className="flex flex-col gap-1 overflow-y-auto w-full px-2 min-h-0 flex-1">
 				{[...groupedModels].map(([providerName, providerModels]) => {
-					const isCollapsed = collapsedProviders.has(providerName);
+					const isCollapsed = effectiveCollapsed.has(providerName);
 					return (
 						<div key={providerName}>
 							<button
