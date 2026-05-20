@@ -58,6 +58,7 @@ const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 type requestLogData struct {
 	id                        string
 	providerID                uuid.UUID
+	providerName              string
 	modelID                   string
 	requestHash               string
 	statusCode                int

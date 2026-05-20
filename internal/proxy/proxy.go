@@ -36,14 +36,14 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		_ = resp.Body.Close()
 	}()
-	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
+	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
-	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerID)
+	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerName)
 
 	logData.statusCode = resp.StatusCode
 	logData.proxyOverheadMs = proxyOverhead
@@ -63,7 +63,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
-	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerID)
+	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName)
 	var promptTokens, completionTokens, reasoningTokens int
 	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
@@ -113,7 +113,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
-			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
+			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
 		}
 
 		select {
@@ -140,7 +140,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// go-openai uses ErrTooManyEmptyStreamMessages for this.
 			emptyLines++
 			if emptyLines > emptyMessagesLimit {
-				debuglog.Warn("proxy: too many empty SSE lines, aborting stream", "model", logData.modelID, "provider", logData.providerID, "limit", emptyMessagesLimit, "chunks", chunkCount)
+				debuglog.Warn("proxy: too many empty SSE lines, aborting stream", "model", logData.modelID, "provider", logData.providerName, "limit", emptyMessagesLimit, "chunks", chunkCount)
 				lastErrMsg = "stream interrupted: too many empty lines"
 				break
 			}
@@ -152,7 +152,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			var err error
 			if n, err = w.Write([]byte("\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
@@ -197,7 +197,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
 					lastErrMsg = accumulatedMsg
 					errorChunkCount++
-					debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+					debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 				}
 				errAccum = nil
 			}
@@ -205,13 +205,13 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			var err error
 			if n, err = w.Write(line); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
 			if n, err = w.Write([]byte("\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
@@ -227,20 +227,20 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			var err error
 			if n, err = w.Write(line); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
 			if n, err = w.Write([]byte("\n\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
 			if canFlush {
 				flusher.Flush()
 			}
-			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 			break
 		}
 
@@ -270,7 +270,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
 				lastErrMsg = accumulatedMsg
 				errorChunkCount++
-				debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+				debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
 			errAccum = nil
 		}
@@ -296,7 +296,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				lastErrMsg = anthErr.Error.Message
 				anthropicErrorCounted = true
 				errorChunkCount++
-				debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+				debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
 		}
 
@@ -392,28 +392,28 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
 										n, err = w.Write(newPayload)
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
 										n, err = w.Write([]byte("\n\n"))
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning normalization (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											debuglog.Warn("proxy: client write failed during reasoning normalization (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
 										if canFlush {
 											flusher.Flush()
 										}
 										written = true
-										debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+										debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 									}
 								}
 							}
@@ -438,7 +438,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
 				if *chunk.Choices[0].NativeFinishReason != lastNativeFinishReason {
 					lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
-					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerID)
+					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
 				}
 			}
 			// P2-5: Detect repeated identical content. Some models (notably
@@ -456,7 +456,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					currentContent = *delta.ReasoningContent
 					if !sawThinking {
 						sawThinking = true
-						debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+						debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				}
 				if currentContent == lastContent && currentContent != "" {
@@ -466,7 +466,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						if len(preview) > 50 {
 							preview = preview[:50] + "..."
 						}
-						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				} else {
 					repeatedCount = 0
@@ -478,7 +478,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				// Anthropic error event (which shares the same data line).
 				lastErrMsg = chunk.Error.Message
 				errorChunkCount++
-				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerID, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
+				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
 				// Clear errAccum: chunk.Error already captured this error,
 				// so P1-B's next flush must not re-count it.
 				errAccum = nil
@@ -508,7 +508,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						}
 					}
 					if !hasContent && chunk.Usage == nil {
-						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerID, "chunk_number", chunkCount)
+						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 						// Skip writing this chunk — it's a bare duplicate.
 						continue
 					}
@@ -539,28 +539,28 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
 										n, err = w.Write(newPayload)
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
 										n, err = w.Write([]byte("\n\n"))
 										bytesWritten += int64(n)
 										if err != nil {
 											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+											debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 											goto logUpdate
 										}
 										if canFlush {
 											flusher.Flush()
 										}
 										written = true
-										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerID)
+										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
 									}
 								}
 							}
@@ -575,13 +575,13 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			var err error
 			if n, err = w.Write(line); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
 			if n, err = w.Write([]byte("\n\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 				goto logUpdate
 			}
 			bytesWritten += int64(n)
@@ -596,7 +596,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
 			lastErrMsg = accumulatedMsg
 			errorChunkCount++
-			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 		}
 	}
 
@@ -627,18 +627,18 @@ logUpdate:
 		// the scanner didn't error, inject the sentinel for the downstream
 		// client so the frontend knows the stream completed normally.
 		if !clientDisconnected && scanner.Err() == nil && chunkCount > 0 {
-			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
-				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerID, "error", err)
+				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)
 			} else if canFlush {
 				flusher.Flush()
 			}
 			// Stream was complete; the missing sentinel is benign.
-			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 		} else {
 			// No content received or scanner error - genuinely truncated.
 			errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
-			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerID, "chunks", chunkCount)
+			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 		}
 	}
 
@@ -667,11 +667,11 @@ logUpdate:
 	}
 	h.updateRequestLog(logData)
 
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
+	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {
-		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerID, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", attempt, "duration_ms", totalDuration)
+		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", attempt, "duration_ms", totalDuration)
 	} else {
-		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
+		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
 	}
 
 	if vkHash != "" && !clientDisconnected {
@@ -701,7 +701,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		_ = resp.Body.Close()
 	}()
-	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerID, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
+	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
 
 	w.Header().Set("Content-Type", "application/json")
 	var chatResp ChatCompletionResponse
@@ -798,9 +798,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
-			debuglog.Error("proxy: failed to encode response", "model", logData.modelID, "provider", logData.providerID, "error", err)
+			debuglog.Error("proxy: failed to encode response", "model", logData.modelID, "provider", logData.providerName, "error", err)
 		}
-		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerID, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
+		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {
 		body, _ := io.ReadAll(resp.Body)
 		errMsg := util.SanitizeLogBody(string(body), 500)
@@ -820,8 +820,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		h.updateRequestLog(logData)
-		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID)
-		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerID, "error", errMsg, "duration_ms", totalDuration)
+		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName)
+		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "duration_ms", totalDuration)
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
 }
@@ -984,6 +984,16 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Normalize logData fields after resolution: split the raw request model
+	// (e.g. "NanoGPT/deepseek-ai/DeepSeek-R1-0528") into provider name and
+	// model-only components so log lines are human-readable.
+	if idx := strings.Index(reqModel, "/"); idx >= 0 && !strings.HasPrefix(reqModel, "hotel/") {
+		logData.providerName = reqModel[:idx]
+		logData.modelID = reqModel[idx+1:]
+	} else {
+		logData.providerName = "hotel"
+	}
+
 	// Re-read accumulated settings read time from context pointer.
 	// The initial read captured the rate limiter's contribution,
 	// but resolve handlers called AddSettingsReadMs for circuit breaker and
@@ -999,7 +1009,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// so that all exit paths (backoff disconnect, error, failRequest) use
 	// the current accumulated total.
 	proxyOverhead := timings.proxyOverheadMs(parseMs)
-	debuglog.Debug("proxy: model resolved (pre-loop)", "model", reqModel, "candidates", len(candidates), "overhead_ms", proxyOverhead)
+	debuglog.Debug("proxy: model resolved (pre-loop)", "model", logData.modelID, "provider", logData.providerName, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
 	var proxyReqBody []byte
 	if isStreaming {
@@ -1010,7 +1020,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 			if b, err := json.Marshal(raw); err == nil {
 				proxyReqBody = b
-				debuglog.Debug("proxy: injected stream_options into request", "model", reqModel)
+				debuglog.Debug("proxy: injected stream_options into request", "model", logData.modelID, "provider", logData.providerName)
 			}
 		}
 	}
@@ -1063,7 +1073,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
-				debuglog.Info("proxy: client disconnected during failover backoff", "model", reqModel, "attempt", attempt+1)
+				debuglog.Info("proxy: client disconnected during failover backoff", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt+1)
 				h.failRequest(logData, 499, "client disconnected during failover", attempt-1, startTime, parseMs, timings, proxyOverhead)
 				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
 				return
@@ -1097,7 +1107,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		upstreamBody := proxyReqBody
 		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType)
-		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", reqModel, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
+		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			var raw map[string]interface{}
 			if json.Unmarshal(proxyReqBody, &raw) == nil {
@@ -1184,7 +1194,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				lastErr = fmt.Sprintf("attempt %d: %s: %v", attempt, cancelOrigin, err)
-				debuglog.Info("proxy: context cancelled during request to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", reqModel, "origin", cancelOrigin, "error", err)
+				debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err)
 			} else {
 				lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
 				debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
@@ -1332,8 +1342,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				retryCancel() // retry body consumed, context no longer needed
 			}
 			errMsg := util.SanitizeLogBody(string(body), 2000)
-			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", reqModel, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body", errMsg)
-			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", reqModel, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
+			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
+			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.ttftMs = ttft
 			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			// Forward the upstream error to the client. If the upstream returned
@@ -1351,7 +1361,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", reqModel, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		if isStreaming {
 			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt)
 			failoverCancel() // body consumed by handleStreamingResponse
@@ -1370,9 +1380,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isFailover {
-		debuglog.Error("proxy: all providers exhausted", "model", reqModel, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
+		debuglog.Error("proxy: all providers exhausted", "model", logData.modelID, "provider", logData.providerName, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
 	} else {
-		debuglog.Error("proxy: provider request failed", "model", reqModel, "error", lastErr, "request_timeout", failoverTimeout)
+		debuglog.Error("proxy: provider request failed", "model", logData.modelID, "provider", logData.providerName, "error", lastErr, "request_timeout", failoverTimeout)
 	}
 	logData.providerID = uuid.Nil
 	if isFailover {

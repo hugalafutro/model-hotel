@@ -174,10 +174,11 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 			Source:   "proxy",
 			Message:  msg,
 			Metadata: map[string]interface{}{
-				"request_id":  logEntry.id,
-				"model_id":    logEntry.modelID,
-				"state":       logEntry.state,
-				"status_code": logEntry.statusCode,
+				"request_id":    logEntry.id,
+				"model_id":      logEntry.modelID,
+				"provider_name": logEntry.providerName,
+				"state":         logEntry.state,
+				"status_code":   logEntry.statusCode,
 			},
 		})
 	}
