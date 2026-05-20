@@ -411,6 +411,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			setRunningModels((prev) => {
 				const next = new Set(prev);
 				next.delete(modelId);
+				if (next.size === 0) {
+					setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
+				}
 				return next;
 			});
 
@@ -425,7 +428,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				}),
 			);
 		},
-		[setRunningModels, setRounds],
+		[setRunningModels, setRounds, setPhase, arenaModeRef],
 	);
 
 	const handleSwapComplete = useCallback(

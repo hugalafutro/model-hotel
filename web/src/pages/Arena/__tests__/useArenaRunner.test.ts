@@ -576,6 +576,82 @@ describe("useArenaRunner", () => {
 			expect(setRoundsMock).toHaveBeenCalled();
 		});
 
+		it("handleCancelSlot transitions phase when last model is cancelled", () => {
+			const abortCtrl = new AbortController();
+			const setPhaseMock = vi.fn();
+			// Simulate cancelling the only running model (set becomes empty after delete)
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["model-a"])));
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
+				setRunningModels: setRunningModelsMock,
+				setPhase: setPhaseMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.abortMapRef.current.set("model-a", abortCtrl);
+			});
+
+			act(() => {
+				result.current.handleCancelSlot(0, 0, "A", "model-a");
+			});
+
+			// Phase should transition because runningModels becomes empty
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+		});
+
+		it("handleCancelSlot does not transition phase when other models still running", () => {
+			const abortCtrl = new AbortController();
+			const setPhaseMock = vi.fn();
+			// Simulate cancelling one model while another is still running
+			const setRunningModelsMock = vi.fn((fn) =>
+				fn(new Set(["model-a", "model-b"])),
+			);
+
+			const deps = createMockDeps({
+				setRunningModels: setRunningModelsMock,
+				setPhase: setPhaseMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.abortMapRef.current.set("model-a", abortCtrl);
+			});
+
+			act(() => {
+				result.current.handleCancelSlot(0, 0, "A", "model-a");
+			});
+
+			// Phase should NOT transition because model-b is still running
+			expect(setPhaseMock).not.toHaveBeenCalled();
+		});
+
 		it("handleCancelSlot nulls slot and response", () => {
 			const abortCtrl = new AbortController();
 			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["model-a"])));

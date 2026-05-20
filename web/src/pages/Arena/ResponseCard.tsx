@@ -124,19 +124,19 @@ export function ResponseCard({
 								</button>
 							</>
 						)}
-						{!response.done && (
-							<button
-								type="button"
-								onClick={() =>
-									onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
-								}
-								className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer"
-								title="Cancel"
-								aria-label="Cancel"
-							>
-								<CircleStop size={14} />
-							</button>
-						)}
+						<button
+							type="button"
+							onClick={() =>
+								onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
+							}
+							className={`text-red-400/60 hover:text-red-400 transition-colors ${response.done ? "invisible pointer-events-none" : "cursor-pointer"}`}
+							title="Cancel"
+							aria-label="Cancel"
+							disabled={response.done}
+							tabIndex={response.done ? -1 : undefined}
+						>
+							<CircleStop size={14} />
+						</button>
 						{isWinner && (
 							<span title="Winner">
 								<Trophy size={14} className="text-amber-400" />

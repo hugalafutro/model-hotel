@@ -1,4 +1,5 @@
 import type { GenerationParams } from "../api/types";
+import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 
 // Storage keys
 const ARENA_HISTORY_KEY = "arenaMatchHistory";
@@ -109,31 +110,9 @@ interface BracketRoundInput {
 // Known preset IDs - used to determine whether a personaId is a preset or custom
 // ---------------------------------------------------------------------------
 
-const KNOWN_PERSONA_IDS = new Set([
-	"merlin",
-	"madame-vex",
-	"sarge",
-	"auntie-wei",
-	"grimm",
-	"kairos",
-	"phreak",
-	"roux",
-	"unit-734",
-	"bramble",
-]);
+const KNOWN_PERSONA_IDS = new Set(CHAT_PERSONAS.map((p) => p.id));
 
-const KNOWN_PROMPT_IDS = new Set([
-	"dilemma",
-	"lore",
-	"hook",
-	"blueprint",
-	"spiral",
-	"trolley",
-	"algorithm",
-	"paradox",
-	"integral",
-	"contract",
-]);
+const KNOWN_PROMPT_IDS = new Set(ARENA_PROMPTS.map((p) => p.id));
 
 // ---------------------------------------------------------------------------
 // Helpers

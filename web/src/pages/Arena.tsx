@@ -390,7 +390,7 @@ export function Arena() {
 									{arena.disabledReason}
 								</p>
 							)}
-						{arena.phase === "running" && (
+						{arena.phase === "running" && arena.isRunning && (
 							<p className="text-xs text-(--text-muted) mt-1.5">
 								<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse inline-block mr-1.5 align-middle" />
 								Models are generating - click Stop to cancel

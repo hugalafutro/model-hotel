@@ -510,6 +510,21 @@ describe("arenaHistory", () => {
 			expect(round2.matchups[0].slotA?.personaId).toBe(null); // Non-preset stripped
 		});
 
+		it("preserves all prompt preset IDs from ARENA_PROMPTS", () => {
+			setArenaHistoryEnabled(true);
+
+			// "cipher" was missing from the old hardcoded set
+			saveCompetitionToHistory({
+				rounds: [],
+				winner: null,
+				promptPresetId: "cipher",
+				comparePersonaId: null,
+			});
+
+			const entry = getArenaHistory()[0];
+			expect(entry.promptPresetId).toBe("cipher");
+		});
+
 		it("strips non-preset prompt IDs", () => {
 			setArenaHistoryEnabled(true);
 
