@@ -218,7 +218,7 @@ export function ModelTable({
 				</div>
 			</div>
 
-			<div className="ui-card">
+			<div className="ui-card overflow-hidden">
 				<table className="min-w-full table-fixed ui-table">
 					<colgroup>
 						{showProviderCol ? (
