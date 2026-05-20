@@ -30,21 +30,6 @@ import { useChat } from "./Chat/useChat";
 export function Chat() {
 	const chat = useChat();
 
-	const handleKeyDownWithControls = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			if (chat.chatSubMode === "chat") {
-				if (chat.isStreaming) {
-					chat.setControlsCollapsed(false);
-					chat.handleStop();
-				} else {
-					chat.setControlsCollapsed(true);
-					chat.handleSend();
-				}
-			}
-		}
-	};
-
 	return (
 		<div
 			className={`flex flex-col gap-6 ${chat.chatSubMode === "conversation" ? "min-h-full" : "h-full overflow-hidden"}`}
@@ -529,7 +514,7 @@ export function Chat() {
 										el.style.height = `${el.scrollHeight}px`;
 									});
 								}}
-								onKeyDown={handleKeyDownWithControls}
+								onKeyDown={chat.handleKeyDown}
 								onPaste={chat.handlePaste}
 								placeholder={
 									!chat.selectedModel

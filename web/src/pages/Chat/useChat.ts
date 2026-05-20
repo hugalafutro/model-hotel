@@ -603,8 +603,13 @@ export function useChat() {
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			if (chatSubMode === "chat") {
-				if (isStreaming) handleStop();
-				else handleSend();
+				if (isStreaming) {
+					setControlsCollapsed(false);
+					handleStop();
+				} else {
+					setControlsCollapsed(true);
+					handleSend();
+				}
 			}
 			// In conversation mode, Enter doesn't auto-submit
 		}

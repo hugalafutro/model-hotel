@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { mockAllDefaults, mockChatStream } from "../../../test/helpers";
@@ -373,6 +373,272 @@ describe("Chat controls collapse/expand", () => {
 
 			// Controls should stay collapsed (error state doesn't auto-expand)
 			expect(isControlsCollapsed()).toBe(true);
+		});
+	});
+
+	describe("Conversation mode", () => {
+		const mockModelB = {
+			...mockModel,
+			id: "model-002",
+			model_id: "model-b-v1",
+			name: "Test Model B",
+			display_name: "Test Model v2",
+			provider_id: "provider-002",
+			provider_name: "Other Provider",
+		};
+
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		const selectModelA = async (
+			user: ReturnType<typeof renderWithProviders>["user"],
+			displayName: string,
+		) => {
+			// Find the Model A section by its label
+			const modelASection = screen
+				.getByLabelText("Model A")
+				.closest(".space-y-3") as HTMLElement;
+			if (!modelASection) {
+				throw new Error("Model A section not found");
+			}
+
+			// Click the model button within Model A's container
+			const modelButton = within(modelASection).getByRole("button", {
+				name: displayName,
+			});
+			await user.click(modelButton);
+		};
+
+		const selectModelB = async (
+			user: ReturnType<typeof renderWithProviders>["user"],
+			displayName: string,
+		) => {
+			// Find the Model B section by its label
+			const modelBSection = screen
+				.getByLabelText("Model B")
+				.closest(".space-y-3") as HTMLElement;
+			if (!modelBSection) {
+				throw new Error("Model B section not found");
+			}
+
+			// Click the model button within Model B's container
+			const modelButton = within(modelBSection).getByRole("button", {
+				name: displayName,
+			});
+			await user.click(modelButton);
+		};
+
+		it("Pressing Start in conversation mode collapses controls", async () => {
+			// Setup two different models
+			server.use(...mockAllDefaults({ models: [mockModel, mockModelB] }));
+
+			const chunks = [
+				{ choices: [{ delta: { content: "Hello from A" }, index: 0 }] },
+				{ choices: [{ delta: { content: "Hello from B" }, index: 0 }] },
+			];
+			server.use(...mockChatStream(chunks, { delay: 200 }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			// Wait for models to load
+			await waitFor(() => {
+				expect(
+					screen.getAllByPlaceholderText("Filter models…")[0],
+				).toBeInTheDocument();
+			});
+
+			// Switch to conversation mode
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
+
+			// Select Model A
+			await selectModelA(user, mockModel.display_name);
+
+			// Select Model B
+			await selectModelB(user, mockModelB.display_name);
+
+			// Type a prompt
+			const promptInput = screen.getByLabelText("Prompt");
+			await user.type(promptInput, "Compare these models");
+
+			// Verify controls are expanded initially
+			expect(isControlsExpanded()).toBe(true);
+
+			// Click Start
+			await user.click(screen.getByRole("button", { name: "Start" }));
+
+			// Controls should collapse after starting
+			await waitFor(() => {
+				expect(isControlsCollapsed()).toBe(true);
+			});
+		});
+
+		it("Pressing Stop (ConversationConfig) in conversation mode expands controls", async () => {
+			// Setup two different models
+			server.use(...mockAllDefaults({ models: [mockModel, mockModelB] }));
+
+			const chunks = [
+				{ choices: [{ delta: { content: "Hello from A" }, index: 0 }] },
+				{ choices: [{ delta: { content: "Hello from B" }, index: 0 }] },
+			];
+			server.use(...mockChatStream(chunks, { delay: 500 }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			// Wait for models to load
+			await waitFor(() => {
+				expect(
+					screen.getAllByPlaceholderText("Filter models…")[0],
+				).toBeInTheDocument();
+			});
+
+			// Switch to conversation mode
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
+
+			// Select Model A
+			await selectModelA(user, mockModel.display_name);
+
+			// Select Model B
+			await selectModelB(user, mockModelB.display_name);
+
+			// Type a prompt
+			const promptInput = screen.getByLabelText("Prompt");
+			await user.type(promptInput, "Compare these models");
+
+			// Click Start
+			await user.click(screen.getByRole("button", { name: "Start" }));
+
+			// Wait for controls to collapse
+			await waitFor(() => {
+				expect(isControlsCollapsed()).toBe(true);
+			});
+
+			// Find ConversationConfig section and click Stop within it
+			const conversationConfig = screen
+				.getByText("Conversation Config")
+				.closest(".ui-card");
+			if (!conversationConfig) {
+				throw new Error("ConversationConfig not found");
+			}
+			const stopButton = within(conversationConfig as HTMLElement).getByRole(
+				"button",
+				{
+					name: "Stop",
+				},
+			);
+			await user.click(stopButton);
+
+			// Controls should expand after stopping
+			await waitFor(() => {
+				expect(isControlsExpanded()).toBe(true);
+			});
+		});
+
+		it("Pressing Reset All expands controls", async () => {
+			// Setup two different models
+			server.use(...mockAllDefaults({ models: [mockModel, mockModelB] }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			// Wait for models to load
+			await waitFor(() => {
+				expect(
+					screen.getAllByPlaceholderText("Filter models…")[0],
+				).toBeInTheDocument();
+			});
+
+			// Switch to conversation mode
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
+
+			// Select Model A
+			await selectModelA(user, mockModel.display_name);
+
+			// Select Model B
+			await selectModelB(user, mockModelB.display_name);
+
+			// Manually collapse controls first
+			const collapseToggle = getControlsCollapseToggle();
+			await user.click(collapseToggle);
+
+			// Verify controls are collapsed
+			await waitFor(() => {
+				expect(isControlsCollapsed()).toBe(true);
+			});
+
+			// Click Reset All in the conversation stats bar
+			await user.click(
+				screen.getByRole("button", {
+					name: "Reset all (clear model & settings)",
+				}),
+			);
+
+			// Confirm in dialog
+			await user.click(screen.getByRole("button", { name: "Reset All" }));
+
+			// Controls should expand after reset
+			await waitFor(() => {
+				expect(isControlsExpanded()).toBe(true);
+			});
+		});
+
+		it("Soft reset (Eraser/Clear) does NOT expand controls in conversation mode", async () => {
+			// Setup two different models
+			server.use(...mockAllDefaults({ models: [mockModel, mockModelB] }));
+
+			const chunks = [
+				{ choices: [{ delta: { content: "Response from A" }, index: 0 }] },
+				{ choices: [{ delta: { content: "Response from B" }, index: 0 }] },
+			];
+			server.use(...mockChatStream(chunks, { delay: 200 }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			// Wait for models to load
+			await waitFor(() => {
+				expect(
+					screen.getAllByPlaceholderText("Filter models…")[0],
+				).toBeInTheDocument();
+			});
+
+			// Switch to conversation mode
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
+
+			// Select Model A
+			await selectModelA(user, mockModel.display_name);
+
+			// Select Model B
+			await selectModelB(user, mockModelB.display_name);
+
+			// Type a prompt
+			const promptInput = screen.getByLabelText("Prompt");
+			await user.type(promptInput, "Compare these models");
+
+			// Click Start
+			await user.click(screen.getByRole("button", { name: "Start" }));
+
+			// Wait for controls to collapse and response to appear
+			await waitFor(() => {
+				expect(isControlsCollapsed()).toBe(true);
+			});
+
+			// Wait for some response content
+			await waitFor(() => {
+				expect(screen.getByText("Response from A")).toBeInTheDocument();
+			});
+
+			// Click soft reset (Eraser) in the conversation stats bar
+			const softResetButton = screen.getByRole("button", {
+				name: "Clear messages (keep model & settings)",
+			});
+			await user.click(softResetButton);
+
+			// Controls should stay collapsed
+			await waitFor(
+				() => {
+					expect(isControlsCollapsed()).toBe(true);
+				},
+				{ timeout: 1000 },
+			);
 		});
 	});
 });
