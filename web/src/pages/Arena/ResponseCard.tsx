@@ -174,7 +174,7 @@ export function ResponseCard({
 					</>
 				}
 				footerEnd={null}
-				className="flex flex-col"
+				className="flex flex-col h-full"
 				headerClassName="px-4 py-1.5 border-b border-(--border-subtle)"
 				bodyClassName="px-4 pt-0 overflow-y-auto flex-1 min-h-0"
 				footerClassName="px-4 py-0.5 border-t border-(--border-subtle)"
