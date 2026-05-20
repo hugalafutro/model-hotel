@@ -145,12 +145,11 @@ export function ModelDetailPanel({
 			</div>
 			{!collapsed && <div className="mt-2" />}
 			{!collapsed && model.description && (
-				<p
-					className="text-(--text-secondary) line-clamp-10 text-[11px] text-justify"
-					title={model.description}
-				>
-					{model.description}
-				</p>
+				<div className="max-h-[48px] overflow-y-auto">
+					<p className="text-(--text-secondary) leading-[16px] m-0 text-[11px] text-justify">
+						{model.description}
+					</p>
+				</div>
 			)}
 
 			<div
