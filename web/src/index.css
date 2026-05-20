@@ -1985,14 +1985,14 @@ html.light .terminal-titlebar-win11 .win11-icon {
 @keyframes pulse-border {
 	0%,
 	100% {
-		box-shadow:
-			0 0 0 1px var(--accent),
-			0 0 4px 0px var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 50%, var(--border-default));
+		box-shadow: inset 0 0 0 1px
+			color-mix(in srgb, var(--accent) 15%, transparent);
 	}
 	50% {
-		box-shadow:
-			0 0 0 1px var(--accent),
-			0 0 12px 2px var(--accent);
+		border-color: var(--accent);
+		box-shadow: inset 0 0 12px 1px
+			color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 }
 
