@@ -145,4 +145,14 @@ describe("BracketPreviewPill", () => {
 		expect(screen.getByText("TBD")).toBeInTheDocument();
 		expect(screen.queryByText("model")).not.toBeInTheDocument();
 	});
+
+	it("uses displayName when provided", () => {
+		renderWithProviders(
+			<BracketPreviewPill
+				modelId="provider/model-name"
+				displayName="Friendly Name"
+			/>,
+		);
+		expect(screen.getByText("Friendly Name")).toBeInTheDocument();
+	});
 });

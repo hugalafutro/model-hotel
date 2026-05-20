@@ -58,9 +58,11 @@ export function SlotParamsTooltip({ params }: { params?: GenerationParams }) {
 
 export function BracketPreviewPill({
 	modelId,
+	displayName,
 	isTbd = false,
 }: {
 	modelId: string;
+	displayName?: string;
 	isTbd?: boolean;
 }) {
 	if (isTbd || !modelId) {
@@ -72,7 +74,7 @@ export function BracketPreviewPill({
 	}
 	return (
 		<div className="px-3 py-2 rounded-lg border bg-(--accent)/15 border-(--accent)/40 text-(--accent) text-xs font-medium truncate max-w-40">
-			{modelId.split("/").pop()}
+			{displayName || modelId.split("/").pop()}
 		</div>
 	);
 }

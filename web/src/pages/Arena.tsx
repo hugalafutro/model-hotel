@@ -7,7 +7,7 @@ import {
 	Swords,
 	X,
 } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
@@ -18,7 +18,7 @@ import { PersonaPicker } from "../components/PersonaPicker";
 import { PromptPicker } from "../components/PromptPicker";
 import { SubModeToggle } from "../components/SubModeToggle";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
-import { parseCapabilities } from "../utils/model";
+import { parseCapabilities, proxyModelID } from "../utils/model";
 import { MatchupCard } from "./Arena/MatchupCard";
 import { ParamEditorModal } from "./Arena/ParamEditorModal";
 import { ResponseCard } from "./Arena/ResponseCard";
@@ -29,6 +29,16 @@ import { WinnerSummaryModal } from "./Arena/WinnerSummaryModal";
 
 export function Arena() {
 	const arena = useArena();
+
+	const displayNameMap = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const m of arena.enabledModels) {
+			const key = proxyModelID(m.provider_name, m.model_id);
+			const name = m.display_name || m.name || m.model_id;
+			if (name && name !== m.model_id) map.set(key, name);
+		}
+		return map;
+	}, [arena.enabledModels]);
 
 	// Auto-scroll the page viewport during streaming so response cards stay visible.
 	// Uses instant scroll because Firefox cancels in-progress smooth scrolls
@@ -258,11 +268,19 @@ export function Arena() {
 											key={`preview-mu-${i}`}
 											className="flex items-center gap-2"
 										>
-											<BracketPreviewPill modelId={p.a} isTbd={p.a === ""} />
+											<BracketPreviewPill
+												modelId={p.a}
+												displayName={displayNameMap.get(p.a)}
+												isTbd={p.a === ""}
+											/>
 											<span className="text-(--accent) font-bold text-xs px-1">
 												VS
 											</span>
-											<BracketPreviewPill modelId={p.b} isTbd={p.b === ""} />
+											<BracketPreviewPill
+												modelId={p.b}
+												displayName={displayNameMap.get(p.b)}
+												isTbd={p.b === ""}
+											/>
 										</div>
 									))}
 								</div>
@@ -275,8 +293,12 @@ export function Arena() {
 							<div className="flex flex-col gap-2 flex-1 min-w-0">
 								<div className="flex items-center gap-2 flex-wrap">
 									{arena.compareModels.map((m, i) => (
-										// biome-ignore lint/suspicious/noArrayIndexKey: preview list order matches model order
-										<BracketPreviewPill key={`preview-cmp-${i}`} modelId={m} />
+										<BracketPreviewPill
+											// biome-ignore lint/suspicious/noArrayIndexKey: preview list order matches model order
+											key={`preview-cmp-${i}`}
+											modelId={m}
+											displayName={displayNameMap.get(m)}
+										/>
 									))}
 								</div>
 							</div>
