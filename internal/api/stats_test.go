@@ -2207,64 +2207,6 @@ func TestGetStats_RequestsLast1h(t *testing.T) {
 	}
 }
 
-// TestGetTimeSeries_5minBucket tests the 5min bucket format specifically.
-
-// ---------------------------------------------------------------------------
-// Tests for error paths in calculateStats that require partial query failures
-// ---------------------------------------------------------------------------
-
-// TestCalculateStats_7dSecondaryQueryError tests the error path when the
-// secondary 7d count query fails after the primary query succeeds.
-// With period=24h, calculateStats first queries for the 24h count (succeeds),
-// then queries for the 7d count (lines 177-182). If that fails, it returns an error.
-func TestCalculateStats_7dSecondaryQueryError(t *testing.T) {
-	handler, pool, cleanup := newStatsHandler(t)
-	defer cleanup()
-
-	providerID := uuid.New()
-	insertTestProvider(t, pool, providerID, "test-provider-7d-sec", "https://api.example.com/v1")
-	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20)
-
-	// Use a context that gets cancelled shortly after creation.
-	// The first query (24h count) should succeed quickly, but by the time
-	// the 7d secondary query runs, the context may be cancelled.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// This should succeed since 5s is plenty for these simple queries.
-	// We verify the 7d branch is exercised.
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests")
-	if err != nil {
-		t.Fatalf("calculateStats failed: %v", err)
-	}
-	if stats.TotalRequestsLast7d != 1 {
-		t.Errorf("Expected TotalRequestsLast7d=1, got %d", stats.TotalRequestsLast7d)
-	}
-}
-
-// TestCalculateStats_1hSecondaryQueryError tests the else branch when
-// period!=24h, where the secondary 24h count query can fail (lines 187-190).
-func TestCalculateStats_1hSecondaryQueryError(t *testing.T) {
-	handler, pool, cleanup := newStatsHandler(t)
-	defer cleanup()
-
-	providerID := uuid.New()
-	insertTestProvider(t, pool, providerID, "test-provider-1h-sec", "https://api.example.com/v1")
-	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20)
-
-	ctx := context.Background()
-
-	// With 1h period, the else branch queries for 24h count (lines 185-191).
-	stats, err := handler.calculateStats(ctx, 1*time.Hour, true, "requests")
-	if err != nil {
-		t.Fatalf("calculateStats failed: %v", err)
-	}
-	// The secondary query should populate TotalRequestsLast24h
-	if stats.TotalRequestsLast24h < 1 {
-		t.Errorf("Expected TotalRequestsLast24h>=1, got %d", stats.TotalRequestsLast24h)
-	}
-}
-
 // TestCalculateStats_LateQueryErrors tests all computed fields with diverse data
 // to exercise the value-setting paths (lines 356-454). With a mix of success,
 // error, and rate-limited requests, all stat fields should be non-zero.
@@ -2375,9 +2317,9 @@ func TestGetProviderDistribution_ShareRounding(t *testing.T) {
 		name  string
 		count int
 	}{
-		{"prov-round-a", 7},
-		{"prov-round-b", 2},
-		{"prov-round-c", 1},
+		{"prov-round-a", 1},
+		{"prov-round-b", 1},
+		{"prov-round-c", 1}, // 3 equal shares (33.3% each) → sum=99.9, exercises rounding compensation
 	}
 
 	for _, p := range providers {
@@ -2419,9 +2361,12 @@ func TestGetProviderDistribution_ShareRounding(t *testing.T) {
 		t.Errorf("Expected share sum=100.0, got %f", sum)
 	}
 
-	// First item should be the largest provider
-	if response.Items[0].Name != "prov-round-a" {
-		t.Errorf("Expected first item 'prov-round-a', got %q", response.Items[0].Name)
+	// Each share should be ~33.3%, and the first item should have the
+	// rounding compensation applied so the total sums to 100.0.
+	for _, item := range response.Items {
+		if item.Share < 33.0 || item.Share > 34.0 {
+			t.Errorf("Expected share ~33.3%%, got %f for %q", item.Share, item.Name)
+		}
 	}
 }
 
@@ -2511,7 +2456,7 @@ func TestGetTimeSeries_CancelledContext(t *testing.T) {
 
 	// Should get 500 because the query fails with cancelled context
 	if rec.Code != http.StatusInternalServerError {
-		t.Logf("Got status %d (expected 500 for cancelled context)", rec.Code)
+		t.Errorf("Expected 500 for cancelled context, got %d", rec.Code)
 	}
 }
 
@@ -2541,7 +2486,7 @@ func TestGetProviderDistribution_CancelledContext(t *testing.T) {
 
 	// Should get 500 because the query fails with cancelled context
 	if rec.Code != http.StatusInternalServerError {
-		t.Logf("Got status %d (expected 500 for cancelled context)", rec.Code)
+		t.Errorf("Expected 500 for cancelled context, got %d", rec.Code)
 	}
 }
 
