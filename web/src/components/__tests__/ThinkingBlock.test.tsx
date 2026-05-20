@@ -48,6 +48,16 @@ describe("ThinkingBlock", () => {
 		expect(button).toHaveClass("animate-pulse");
 	});
 
+	it("uses inline-flex for toggle button (only text+chevron is clickable area)", () => {
+		renderWithProviders(
+			<ThinkingBlock thinking={thinkingText} isStreaming={false} />,
+		);
+
+		const button = screen.getByText("Thinking").closest("button");
+		expect(button).toHaveClass("inline-flex");
+		expect(button).not.toHaveClass("w-full");
+	});
+
 	it("collapses when clicked again after expanding", () => {
 		renderWithProviders(
 			<ThinkingBlock thinking={thinkingText} isStreaming={false} />,

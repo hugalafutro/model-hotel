@@ -8,7 +8,7 @@ import { convertLatexDelimiters } from "../utils/latexDelimiters";
 import { markdownComponents } from "./markdownComponents";
 
 export const MARKDOWN_PROSE_CLASSES =
-	"prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs text-justify " +
+	"prose prose-invert prose-xs max-w-none text-(--text-primary) text-xs " +
 	"[&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 " +
 	"[&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs " +
 	"[&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[11px] " +

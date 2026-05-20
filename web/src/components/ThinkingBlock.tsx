@@ -1,5 +1,5 @@
 import { Brain, ChevronDown, ChevronRight } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 export const ThinkingBlock = memo(function ThinkingBlock({
 	thinking,
@@ -9,13 +9,27 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 	isStreaming: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	const contentRef = useRef<HTMLDivElement>(null);
+
+	// Auto-scroll thinking content during streaming
+	const thinkingLen = thinking.length;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: thinkingLen triggers re-scroll on streaming updates
+	useEffect(() => {
+		if (!isStreaming || !open) return;
+		const el = contentRef.current;
+		if (!el) return;
+		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+		if (nearBottom) {
+			el.scrollTop = el.scrollHeight;
+		}
+	}, [thinkingLen, isStreaming, open]);
 
 	return (
 		<>
 			<button
 				type="button"
 				onClick={() => setOpen(!open)}
-				className={`flex items-center gap-1.5 text-xs transition-colors mb-2 w-full text-left ${
+				className={`inline-flex items-center gap-1.5 text-xs transition-colors mb-2 ${
 					isStreaming
 						? "text-(--accent) animate-pulse cursor-pointer"
 						: "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
@@ -26,7 +40,10 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 				{open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
 			</button>
 			{open && (
-				<div className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto">
+				<div
+					ref={contentRef}
+					className="mb-3 px-3 py-2 rounded-lg bg-(--accent)/5 border border-(--accent)/10 text-xs text-(--text-secondary) whitespace-pre-wrap max-h-60 overflow-y-auto"
+				>
 					{thinking.replace(/^\n+/, "")}
 				</div>
 			)}

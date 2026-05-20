@@ -177,7 +177,7 @@ export function ResponseCard({
 				className="flex flex-col"
 				headerClassName="px-4 pt-4 pb-2 border-b border-(--border-subtle)"
 				bodyClassName="px-4 pb-4 pt-0 overflow-y-auto h-85"
-				footerClassName="px-4 py-2 border-t border-(--border-subtle)"
+				footerClassName="px-4 py-0.5 border-t border-(--border-subtle)"
 			/>
 			{detailModel && (
 				<ModelDetailModal
