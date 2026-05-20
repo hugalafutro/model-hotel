@@ -987,9 +987,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Normalize logData fields after resolution: split the raw request model
 	// (e.g. "NanoGPT/deepseek-ai/DeepSeek-R1-0528") into provider name and
 	// model-only components so log lines are human-readable.
-	if idx := strings.Index(reqModel, "/"); idx >= 0 && !strings.HasPrefix(reqModel, "hotel/") {
-		logData.providerName = reqModel[:idx]
-		logData.modelID = reqModel[idx+1:]
+	if parts := strings.SplitN(reqModel, "/", 2); len(parts) == 2 && !strings.HasPrefix(reqModel, "hotel/") {
+		logData.providerName = parts[0]
+		logData.modelID = parts[1]
 	} else {
 		logData.providerName = "hotel"
 	}
@@ -1081,6 +1081,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logData.providerID = candidate.provider.ID
+		logData.providerName = candidate.provider.Name
 		if attempt == 0 {
 			debuglog.Info("proxy: routing to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", len(candidates))
 		} else {
