@@ -751,306 +751,6 @@ func TestChatCompletions_MiddlewareContextWithBodyBytes(t *testing.T) {
 	}
 }
 
-func TestChatCompletions_SettingsReadFromContext(t *testing.T) {
-	h := newIntegrationHandler()
-	body := `{"model":"unknown-provider/model","stream":false,"messages":[]}`
-	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
-	// Set settings read time in context
-	settingsReadMs := 0.5
-	ctx := context.WithValue(req.Context(), ctxkeys.SettingsReadMsKey, &settingsReadMs)
-	ctx = context.WithValue(ctx, ctxkeys.RequestBodyKey, []byte(body))
-	ctx = context.WithValue(ctx, virtualKeyNameKey, "test-key")
-	ctx = context.WithValue(ctx, virtualKeyIDKey, "00000000-0000-0000-0000-000000000001")
-	ctx = context.WithValue(ctx, VirtualKeyHashKey, "abc123")
-	req = req.WithContext(ctx)
-	rr := httptest.NewRecorder()
-	h.ChatCompletions(rr, req)
-	// Provider "unknown-provider" should 404
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// handleStreamingResponse tests
-// ---------------------------------------------------------------------------
-
-func TestProxy_HandleStreamingResponse_DoneWriteFailure(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	// Upstream sends one valid chunk then [DONE]
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.WriteHeader(http.StatusOK)
-		flusher, _ := w.(http.Flusher)
-		fmt.Fprint(w, `data: {"id":"1","choices":[{"delta":{"content":"hi"}}]}`+"\n\n")
-		flusher.Flush()
-		fmt.Fprint(w, "data: [DONE]\n\n")
-		flusher.Flush()
-	}))
-	defer upstream.Close()
-
-	req, _ := http.NewRequest("POST", upstream.URL, strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
-	req = withAuthContext(req)
-	resp, err := upstream.Client().Do(req)
-	if err != nil {
-		t.Fatalf("failed to contact upstream: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// failAfterNWriter: allow 2 writes (chunk line + newline), fail on [DONE] line write
-	inner := httptest.NewRecorder()
-	failWriter := &failAfterNWriter{inner: inner, maxWrites: 2}
-
-	logData := &requestLogData{
-		modelID:         "test-model",
-		streaming:       true,
-		virtualKeyName:  "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		failoverAttempt: 0,
-		state:           "streaming",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-
-	if logData.state != "failed" {
-		t.Errorf("expected state=failed, got %q", logData.state)
-	}
-	if logData.errorMessage != "client disconnected" {
-		t.Errorf("expected errorMessage=%q, got %q", "client disconnected", logData.errorMessage)
-	}
-}
-
-func TestHandleStreamingResponse_TPSFallback(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	// Upstream sends a chunk with usage and [DONE]
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.WriteHeader(http.StatusOK)
-		flusher, _ := w.(http.Flusher)
-		fmt.Fprint(w, `data: {"id":"1","choices":[{"delta":{"content":"hi"},"finish_reason":"stop"}]}`+"\n\n")
-		flusher.Flush()
-		fmt.Fprint(w, `data: {"id":"1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}`+"\n\n")
-		flusher.Flush()
-		fmt.Fprint(w, "data: [DONE]\n\n")
-		flusher.Flush()
-	}))
-	defer upstream.Close()
-
-	req, _ := http.NewRequest("POST", upstream.URL, strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
-	req = withAuthContext(req)
-	resp, err := upstream.Client().Do(req)
-	if err != nil {
-		t.Fatalf("failed to contact upstream: %v", err)
-	}
-	defer resp.Body.Close()
-
-	inner := httptest.NewRecorder()
-	logData := &requestLogData{
-		modelID:         "test-model",
-		streaming:       true,
-		virtualKeyName:  "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		failoverAttempt: 0,
-		state:           "streaming",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	// Use ttft equal to start time so generationDuration will be <= 0, triggering fallback
-	startTime := time.Now()
-	// Small sleep to ensure totalDuration > 0
-	time.Sleep(2 * time.Millisecond)
-	h.handleStreamingResponse(inner, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-
-	// TPS should be computed via fallback (totalDuration path)
-	if logData.tokensPerSecond <= 0 {
-		t.Errorf("expected positive TPS via fallback, got %f", logData.tokensPerSecond)
-	}
-	if logData.state != "completed" {
-		t.Errorf("expected state=completed, got %q", logData.state)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// handleNonStreamingResponse tests
-// ---------------------------------------------------------------------------
-
-func TestHandleNonStreamingResponse_ReasoningTokensAndTPSFallback(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(ChatCompletionResponse{
-			ID:      "chatcmpl-1",
-			Object:  "chat.completion",
-			Created: 1234,
-			Model:   "test-model",
-			Choices: []Choice{{Index: 0, Message: Message{Role: "assistant", Content: "hello"}}},
-			Usage: Usage{
-				PromptTokens:            10,
-				CompletionTokens:        20,
-				TotalTokens:             30,
-				CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: 5},
-			},
-		})
-	}))
-	defer upstream.Close()
-
-	req, _ := http.NewRequest("POST", upstream.URL, strings.NewReader(`{"model":"test"}`))
-	req = withAuthContext(req)
-	resp, err := upstream.Client().Do(req)
-	if err != nil {
-		t.Fatalf("failed to contact upstream: %v", err)
-	}
-	defer resp.Body.Close()
-
-	inner := httptest.NewRecorder()
-	logData := &requestLogData{
-		modelID:         "test-model",
-		streaming:       false,
-		virtualKeyName:  "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		failoverAttempt: 0,
-		state:           "pending",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	// Use ttft equal to total duration to make generationDuration = 0, triggering fallback TPS path
-	startTime := time.Now()
-	totalDurationMs := 0.001 // very small, will be approximately equal to time.Since(startTime)
-	h.handleNonStreamingResponse(inner, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, totalDurationMs, "", 1)
-
-	if logData.tokensCompletionReasoning != 5 {
-		t.Errorf("expected tokensCompletionReasoning=5, got %d", logData.tokensCompletionReasoning)
-	}
-	// TPS should still be computed (either via generationDuration or fallback)
-	if logData.tokensPerSecond <= 0 {
-		t.Errorf("expected positive TPS, got %f", logData.tokensPerSecond)
-	}
-	if logData.state != "completed" {
-		t.Errorf("expected state=completed, got %q", logData.state)
-	}
-}
-
-func TestHandleNonStreamingResponse_ThinkingTagsMergeWithReasoningContent(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	thinkingText := "<thinking>Step 1: reason</thinking>"
-	mainContent := "The answer is 42."
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(ChatCompletionResponse{
-			ID:      "chatcmpl-1",
-			Object:  "chat.completion",
-			Created: 1234,
-			Model:   "test-model",
-			Choices: []Choice{{
-				Index: 0,
-				Message: Message{
-					Role:             "assistant",
-					Content:          thinkingText + mainContent,
-					ReasoningContent: "existing reasoning",
-				},
-			}},
-			Usage: Usage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30},
-		})
-	}))
-	defer upstream.Close()
-
-	req, _ := http.NewRequest("POST", upstream.URL, strings.NewReader(`{"model":"test"}`))
-	req = withAuthContext(req)
-	resp, err := upstream.Client().Do(req)
-	if err != nil {
-		t.Fatalf("failed to contact upstream: %v", err)
-	}
-	defer resp.Body.Close()
-
-	inner := httptest.NewRecorder()
-	logData := &requestLogData{
-		modelID:         "test-model",
-		streaming:       false,
-		virtualKeyName:  "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		failoverAttempt: 0,
-		state:           "pending",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
-
-	// The response should have reasoning_content with both existing + extracted thinking
-	var respBody ChatCompletionResponse
-	if err := json.Unmarshal(inner.Body.Bytes(), &respBody); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if len(respBody.Choices) == 0 {
-		t.Fatal("expected at least one choice")
-	}
-	// ReasoningContent should contain "existing reasoning" + the extracted thinking text
-	if !strings.Contains(respBody.Choices[0].Message.ReasoningContent, "existing reasoning") {
-		t.Errorf("expected reasoning_content to contain 'existing reasoning', got %q", respBody.Choices[0].Message.ReasoningContent)
-	}
-	// Content should no longer contain <thinking> tags
-	if c, ok := respBody.Choices[0].Message.Content.(string); ok {
-		if strings.Contains(c, "<thinking>") {
-			t.Errorf("expected content to have thinking tags removed, got %q", c)
-		}
-	}
-}
-
-func TestHandleNonStreamingResponse_DecodeError(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("this is not valid json"))
-	}))
-	defer upstream.Close()
-
-	req, _ := http.NewRequest("POST", upstream.URL, strings.NewReader(`{"model":"test"}`))
-	req = withAuthContext(req)
-	resp, err := upstream.Client().Do(req)
-	if err != nil {
-		t.Fatalf("failed to contact upstream: %v", err)
-	}
-	defer resp.Body.Close()
-
-	inner := httptest.NewRecorder()
-	logData := &requestLogData{
-		modelID:         "test-model",
-		streaming:       false,
-		virtualKeyName:  "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		failoverAttempt: 0,
-		state:           "pending",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
-
-	if logData.state != "failed" {
-		t.Errorf("expected state=failed for decode error, got %q", logData.state)
-	}
-	if !strings.Contains(logData.errorMessage, "response decode error") {
-		t.Errorf("expected errorMessage to contain 'response decode error', got %q", logData.errorMessage)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // handleStreamingResponse [DONE] write failure (line 228)
 // ---------------------------------------------------------------------------
@@ -1371,9 +1071,10 @@ func TestHandleNonStreamingResponse_TPSFallbackWhenTTFTExceedsDuration(t *testin
 			Model:   "test-model",
 			Choices: []Choice{{Index: 0, Message: Message{Role: "assistant", Content: "hello"}}},
 			Usage: Usage{
-				PromptTokens:     10,
-				CompletionTokens: 20,
-				TotalTokens:      30,
+				PromptTokens:            10,
+				CompletionTokens:        20,
+				TotalTokens:             30,
+				CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: 5},
 			},
 		})
 	}))
@@ -1409,60 +1110,6 @@ func TestHandleNonStreamingResponse_TPSFallbackWhenTTFTExceedsDuration(t *testin
 	// TPS should be computed via the fallback (totalDuration path)
 	if logData.tokensPerSecond <= 0 {
 		t.Errorf("expected positive TPS from fallback path, got %f", logData.tokensPerSecond)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// handleNonStreamingResponse reasoning tokens (lines 712-714)
-// ---------------------------------------------------------------------------
-
-func TestHandleNonStreamingResponse_ReasoningTokensInResponse(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(ChatCompletionResponse{
-			ID:      "chatcmpl-1",
-			Object:  "chat.completion",
-			Created: 1234,
-			Model:   "test-model",
-			Choices: []Choice{{Index: 0, Message: Message{Role: "assistant", Content: "hello"}}},
-			Usage: Usage{
-				PromptTokens:            10,
-				CompletionTokens:        20,
-				TotalTokens:             30,
-				CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: 8},
-			},
-		})
-	}))
-	defer upstream.Close()
-
-	req, _ := http.NewRequest("POST", upstream.URL, strings.NewReader(`{"model":"test"}`))
-	req = withAuthContext(req)
-	resp, err := upstream.Client().Do(req)
-	if err != nil {
-		t.Fatalf("failed to contact upstream: %v", err)
-	}
-	defer resp.Body.Close()
-
-	inner := httptest.NewRecorder()
-	logData := &requestLogData{
-		modelID: "test-model", streaming: false, virtualKeyName: "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		failoverAttempt: 0, state: "pending",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
-
-	if logData.tokensCompletionReasoning != 8 {
-		t.Errorf("expected tokensCompletionReasoning=8, got %d", logData.tokensCompletionReasoning)
-	}
-	if logData.state != "completed" {
-		t.Errorf("expected state=completed, got %q", logData.state)
 	}
 }
 
@@ -1581,10 +1228,11 @@ func TestHandleNonStreamingResponse_UpstreamNonJSONResponse(t *testing.T) {
 	if !strings.Contains(logData.errorMessage, "response decode error") {
 		t.Errorf("expected errorMessage containing 'response decode error', got %q", logData.errorMessage)
 	}
-	// Should return an OpenAI error envelope
+	// Non-JSON upstream body on a 200 response causes handleNonStreamingResponse
+	// to wrap it in an OpenAI error envelope at proxy.go line 825.
+	// The upstream status (200) is forwarded, so client gets 200 with error JSON.
 	if inner.Code != http.StatusOK {
-		// The non-streaming error path writes the upstream status to the client
-		t.Logf("response code: %d", inner.Code)
+		t.Errorf("expected 200 (upstream status forwarded), got %d", inner.Code)
 	}
 }
 
@@ -1621,29 +1269,6 @@ func TestChatCompletions_AllProvidersFail(t *testing.T) {
 	// Should return 500 (the upstream's error forwarded to client)
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500, got %d", w.Code)
-	}
-}
-
-func TestChatCompletions_SpecificProviderRequestFailed(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	// Model that resolves to a single provider with an unreachable URL
-	// (connection refused) → enters the "provider request failed" path at line 1378.
-	body := `{"model":"127.0.0.1:1/nonexistent-model","stream":false,"messages":[{"role":"user","content":"hi"}]}`
-	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
-	req = withAuthContext(req)
-
-	rr := httptest.NewRecorder()
-	h.ChatCompletions(rr, req)
-
-	// Provider not found → 404 (won't reach the request-failed path)
-	// To reach the request-failed path, we need a real provider with a bad URL.
-	// The "specific provider" path at line 971 tries to look up the provider first.
-	// If the provider doesn't exist, it returns 404 before the failover loop.
-	if rr.Code == http.StatusBadGateway {
-		// If we somehow get 502, the "provider request failed" path was hit
-		t.Logf("got 502 as expected for all-providers-failed path")
 	}
 }
 
