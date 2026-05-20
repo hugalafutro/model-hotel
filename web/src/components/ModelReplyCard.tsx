@@ -336,7 +336,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 
 				{/* ── Footer ── */}
 				<div
-					className={`flex items-center justify-between text-[11px] leading-none text-(--text-tertiary) shrink-0 py-0.5 -mt-2 ${footerClassName || ""}`}
+					className={`flex items-center justify-between text-[11px] text-(--text-tertiary) shrink-0 py-0.5 ${footerClassName || ""}`}
 				>
 					<div className="flex items-center gap-3">
 						{footerStart}
