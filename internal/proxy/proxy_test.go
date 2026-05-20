@@ -1111,6 +1111,9 @@ func TestHandleNonStreamingResponse_TPSFallbackWhenTTFTExceedsDuration(t *testin
 	if logData.tokensPerSecond <= 0 {
 		t.Errorf("expected positive TPS from fallback path, got %f", logData.tokensPerSecond)
 	}
+	if logData.tokensCompletionReasoning != 5 {
+		t.Errorf("expected tokensCompletionReasoning=5, got %d", logData.tokensCompletionReasoning)
+	}
 }
 
 // ---------------------------------------------------------------------------
