@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { Model, Provider } from "../api/types";
 import { formatRelativeTime, formatTokens } from "../utils/format";
@@ -42,10 +41,7 @@ export function ModelTable({
 		dir: "asc",
 	});
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
-	const [statusFilter, setStatusFilter] = useState<Set<"enabled" | "disabled">>(
-		new Set(),
-	);
-	const showAllStatus = statusFilter.size === 0 || statusFilter.size === 2;
+
 	const [pageSize, setPageSize] = useState(20);
 	const [currentPage, setCurrentPage] = useState(1);
 
@@ -66,6 +62,7 @@ export function ModelTable({
 			field,
 			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
 		}));
+		setCurrentPage(1);
 	};
 
 	const { sortedAndFiltered, pillAvailability, existingCaps } = useMemo(() => {
@@ -103,12 +100,6 @@ export function ModelTable({
 		if (capFilter.size > 0) {
 			filtered = filtered.filter((m) =>
 				matchesAllCaps(parseCapabilities(m.capabilities), capFilter),
-			);
-		}
-
-		if (!showAllStatus) {
-			filtered = filtered.filter((m) =>
-				statusFilter.has("enabled") ? m.enabled : !m.enabled,
 			);
 		}
 
@@ -167,15 +158,7 @@ export function ModelTable({
 			pillAvailability: availability,
 			existingCaps: capsInData,
 		};
-	}, [
-		models,
-		searchQuery,
-		sort,
-		capFilter,
-		selectedProviders,
-		statusFilter,
-		showAllStatus,
-	]);
+	}, [models, searchQuery, sort, capFilter, selectedProviders]);
 
 	const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
 	const paginatedModels = sortedAndFiltered.slice(
@@ -255,9 +238,13 @@ export function ModelTable({
 								Capabilities
 							</th>
 							{showProviderCol && (
-								<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ui-table-header-text select-none hover:text-gray-200">
-									Provider
-								</th>
+								<SortableHeader
+									label="Provider"
+									field="provider"
+									sort={sort}
+									onSort={handleSort}
+									tooltip="Provider name"
+								/>
 							)}
 							<SortableHeader
 								label="Discovered"
@@ -280,9 +267,14 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip="Maximum output tokens"
 							/>
-							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ui-table-header-text select-none hover:text-gray-200">
-								Status
-							</th>
+							<SortableHeader
+								label="Status"
+								field="status"
+								sort={sort}
+								onSort={handleSort}
+								tooltip="Model status"
+								className="pl-6"
+							/>
 						</tr>
 						<tr className="ui-table-row-filter">
 							<th className="px-4 py-2" />
@@ -333,66 +325,7 @@ export function ModelTable({
 							<th className="px-4 py-2" />
 							<th className="px-4 py-2" />
 							<th className="px-4 py-2" />
-							<th className="px-4 py-2">
-								<span className="flex flex-wrap items-center gap-1">
-									<button
-										type="button"
-										onClick={() => {
-											setStatusFilter((prev) => {
-												const next = new Set(prev);
-												if (next.has("enabled")) {
-													next.delete("enabled");
-												} else {
-													next.add("enabled");
-												}
-												return next;
-											});
-											setCurrentPage(1);
-										}}
-										className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-											statusFilter.has("enabled")
-												? "bg-green-900/40 text-green-300 border-green-700/50 shadow-[0_0_6px_1px_rgba(34,197,94,0.35)]"
-												: "bg-green-900/15 text-green-500/60 border-green-700/25 hover:bg-green-900/25 hover:text-green-400"
-										}`}
-									>
-										Enabled
-									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setStatusFilter((prev) => {
-												const next = new Set(prev);
-												if (next.has("disabled")) {
-													next.delete("disabled");
-												} else {
-													next.add("disabled");
-												}
-												return next;
-											});
-											setCurrentPage(1);
-										}}
-										className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-											statusFilter.has("disabled")
-												? "bg-red-900/40 text-red-300 border-red-700/50 shadow-[0_0_6px_1px_rgba(239,68,68,0.35)]"
-												: "bg-red-900/15 text-red-500/60 border-red-700/25 hover:bg-red-900/25 hover:text-red-400"
-										}`}
-									>
-										Disabled
-									</button>
-									{statusFilter.size === 2 && (
-										<button
-											type="button"
-											onClick={() => {
-												setStatusFilter(new Set());
-												setCurrentPage(1);
-											}}
-											className="inline-flex items-center justify-center w-4 h-4 rounded text-gray-400 hover:text-gray-200 transition-colors"
-										>
-											<X size={10} />
-										</button>
-									)}
-								</span>
-							</th>
+							<th className="px-4 py-2" />
 						</tr>
 					</thead>
 					<tbody>
@@ -438,7 +371,7 @@ export function ModelTable({
 										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
 											{formatTokens(model.max_output_tokens)}
 										</td>
-										<td className="px-4 py-1.5 whitespace-nowrap">
+										<td className="pl-6 pr-4 py-1.5 whitespace-nowrap">
 											<span
 												className={`px-2 py-0.5 text-xs rounded-full ${model.enabled ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"}`}
 											>
