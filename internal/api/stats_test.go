@@ -2312,7 +2312,8 @@ func TestGetProviderDistribution_ShareRounding(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
 
-	// Insert 3 providers with different request counts to test share rounding
+	// Insert 3 providers with equal request counts so each share is 33.3%,
+	// which rounds to sum=99.9 and exercises the compensation logic
 	providers := []struct {
 		name  string
 		count int
