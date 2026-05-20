@@ -2,8 +2,7 @@
 /bin/
 /server
 /llm-proxy
-/discovery_test
-/tools/stress-test/stress-test
+/tools/
 *.exe
 *.exe~
 *.bak
