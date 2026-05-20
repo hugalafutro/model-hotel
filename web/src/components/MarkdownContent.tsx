@@ -1,9 +1,10 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import "katex/dist/katex.min.css";
+import { convertLatexDelimiters } from "../utils/latexDelimiters";
 import { markdownComponents } from "./markdownComponents";
 
 export const MARKDOWN_PROSE_CLASSES =
@@ -29,6 +30,8 @@ export const MarkdownContent = memo(function MarkdownContent({
 	children,
 	className,
 }: MarkdownContentProps) {
+	const processed = useMemo(() => convertLatexDelimiters(children), [children]);
+
 	return (
 		<div className={`${MARKDOWN_PROSE_CLASSES} ${className || ""}`}>
 			<ReactMarkdown
@@ -36,7 +39,7 @@ export const MarkdownContent = memo(function MarkdownContent({
 				rehypePlugins={[rehypeKatex]}
 				components={markdownComponents}
 			>
-				{children}
+				{processed}
 			</ReactMarkdown>
 		</div>
 	);
