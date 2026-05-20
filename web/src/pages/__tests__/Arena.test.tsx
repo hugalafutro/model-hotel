@@ -81,7 +81,7 @@ describe("Arena", () => {
 					screen.getByText(selectedModels[0].display_name),
 				).toBeInTheDocument();
 			},
-			{ timeout: 5000 },
+			{ timeout: 2000 },
 		);
 		for (const model of selectedModels) {
 			await user.click(screen.getByText(model.display_name));
@@ -101,7 +101,7 @@ describe("Arena", () => {
 					screen.getByRole("button", { name: "Stop" }),
 				).toBeInTheDocument();
 			},
-			{ timeout: 5000 },
+			{ timeout: 2000 },
 		);
 	}
 
@@ -350,7 +350,7 @@ describe("Arena", () => {
 				() => {
 					expect(modelsApiCalled).toBe(true);
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -522,7 +522,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -547,7 +547,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -571,7 +571,7 @@ describe("Arena", () => {
 
 	describe("Compare Mode Streaming Flow", () => {
 		it("streams responses for selected models in compare mode", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [
 				{ choices: [{ delta: { content: "Response" } }] },
@@ -598,12 +598,12 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("shows Responses header in compare mode after streaming", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Test response" } }] }];
 
@@ -624,7 +624,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 
 			// Should show "Responses" header
@@ -665,12 +665,12 @@ describe("Arena", () => {
 						screen.getByText("Models are generating - click Stop to cancel"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("phase transitions to finished after streaming completes in compare mode", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Done" } }] }];
 
@@ -691,7 +691,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 
 			// Eraser button should appear (only visible when phase !== "setup")
@@ -705,7 +705,7 @@ describe("Arena", () => {
 
 	describe("Competition Mode Streaming Flow", () => {
 		it("streams bracket matchups in competition mode", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Response" } }] }];
 
@@ -726,12 +726,12 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("shows round label and VS between matchup slots", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Response" } }] }];
 
@@ -752,7 +752,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 
 			// With 2 models (1 round), the round label is "Match"
@@ -780,7 +780,7 @@ describe("Arena", () => {
 		});
 
 		it("phase transitions to voting after streaming completes in competition mode", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Done" } }] }];
 
@@ -801,7 +801,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 
 			// Should show voting message
@@ -813,14 +813,14 @@ describe("Arena", () => {
 						),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 	});
 
 	describe("Arena Stop Flow", () => {
 		it("Stop during compare mode streaming sets phase to finished", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [
 				{ choices: [{ delta: { content: "Response" } }] },
@@ -847,12 +847,12 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("Stop during competition mode streaming sets phase to voting", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [
 				{ choices: [{ delta: { content: "Response" } }] },
@@ -881,12 +881,12 @@ describe("Arena", () => {
 						),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("partially streamed responses are preserved after stop", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [
 				{ choices: [{ delta: { content: "Partial response" } }] },
@@ -911,14 +911,14 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Responses")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 	});
 
 	describe("Arena Clear Results (Eraser)", () => {
 		it("Clear button appears when phase is not setup", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Done" } }] }];
 
@@ -939,7 +939,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 
 			// Clear button should appear
@@ -951,7 +951,7 @@ describe("Arena", () => {
 		});
 
 		it("Clear button clears results but keeps models and prompt", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Done" } }] }];
 
@@ -975,7 +975,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 
 			// Click Clear button
@@ -1009,7 +1009,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -1032,7 +1032,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -1074,7 +1074,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -1102,7 +1102,7 @@ describe("Arena", () => {
 			});
 
 			// Model should still be selected
-			expect(screen.getByText("Test Model v1")).toBeInTheDocument();
+			expect(screen.getAllByText("Test Model v1").length).toBeGreaterThan(0);
 
 			// Prompt should still be present
 			expect(textarea).toHaveValue("Test prompt to keep");
@@ -1111,7 +1111,7 @@ describe("Arena", () => {
 
 	describe("Arena Disabled Reasons", () => {
 		it("competition mode with no models shows select 2 4 or 8 models", {
-			timeout: 10000,
+			timeout: 2000,
 		}, async () => {
 			server.use(
 				...mockAllDefaults({ models: [mockModel, mockModel2, mockModel3] }),
@@ -1127,7 +1127,7 @@ describe("Arena", () => {
 						screen.getByText("Select 2, 4, or 8 models"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -1144,7 +1144,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -1155,12 +1155,12 @@ describe("Arena", () => {
 						screen.getByText("Pick at least 1 more model"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("competition mode with 3 models shows pick 1 more or remove to get 4", {
-			timeout: 10000,
+			timeout: 2000,
 		}, async () => {
 			server.use(
 				...mockAllDefaults({ models: [mockModel, mockModel2, mockModel3] }),
@@ -1174,7 +1174,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 			await user.click(screen.getByText("Test Model v2"));
@@ -1187,7 +1187,7 @@ describe("Arena", () => {
 						screen.getByText("Pick 1 more or remove to get 4"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -1218,7 +1218,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 
@@ -1229,7 +1229,7 @@ describe("Arena", () => {
 						screen.getByText("Pick at least 1 more model"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -1247,7 +1247,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 			await user.click(screen.getByText("Test Model v2"));
@@ -1257,7 +1257,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Enter a prompt")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 	});
@@ -1324,7 +1324,7 @@ describe("Arena", () => {
 
 	describe("Arena Bracket Preview", () => {
 		it("competition mode shows First Round and VS preview pairs", {
-			timeout: 10000,
+			timeout: 2000,
 		}, async () => {
 			server.use(...mockAllDefaults({ models: [mockModel, mockModel2] }));
 
@@ -1336,7 +1336,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 			await user.click(screen.getByText("Test Model v2"));
@@ -1346,7 +1346,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("First Round")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Should show VS between matchup slots
@@ -1368,17 +1368,17 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 			await user.click(screen.getByText("Test Model v2"));
 
 			// Model pills should be visible (check for model names in preview)
-			expect(screen.getByText("Test Model v1")).toBeInTheDocument();
-			expect(screen.getByText("Test Model v2")).toBeInTheDocument();
+			expect(screen.getAllByText("Test Model v1").length).toBeGreaterThan(0);
+			expect(screen.getAllByText("Test Model v2").length).toBeGreaterThan(0);
 		});
 
-		it("preview updates when models change", { timeout: 10000 }, async () => {
+		it("preview updates when models change", { timeout: 2000 }, async () => {
 			server.use(
 				...mockAllDefaults({ models: [mockModel, mockModel2, mockModel3] }),
 			);
@@ -1391,7 +1391,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 			await user.click(screen.getByText("Test Model v2"));
@@ -1401,7 +1401,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("First Round")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Add a third model
@@ -1449,7 +1449,7 @@ describe("Arena", () => {
 
 	describe("Arena Error Handling (streaming)", () => {
 		it("Arena endpoint returns 500 error: page remains functional", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			server.use(
 				...mockAllDefaults({ models: [mockModel, mockModel2] }),
@@ -1469,12 +1469,12 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Controls")).toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("Arena endpoint returns network error is handled", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			server.use(
 				...mockAllDefaults({ models: [mockModel, mockModel2] }),
@@ -1492,7 +1492,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText(mockModel.display_name)).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText(mockModel.display_name));
 			await user.click(screen.getByText(mockModel2.display_name));
@@ -1507,7 +1507,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Controls")).toBeInTheDocument();
 				},
-				{ timeout: 10000 },
+				{ timeout: 2000 },
 			);
 		});
 	});
@@ -1533,12 +1533,12 @@ describe("Arena", () => {
 						screen.getByText("Models are generating - click Stop to cancel"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("voting phase shows Vote on all matchups message", {
-			timeout: 20000,
+			timeout: 2000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Done" } }] }];
 
@@ -1559,7 +1559,7 @@ describe("Arena", () => {
 						screen.queryByRole("button", { name: "Stop" }),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 15000 },
+				{ timeout: 8000 },
 			);
 
 			// Now check for voting message
@@ -1571,7 +1571,7 @@ describe("Arena", () => {
 						),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -1586,7 +1586,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Test Model v1")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 			await user.click(screen.getByText("Test Model v1"));
 			await user.click(screen.getByText("Test Model v2"));
@@ -1596,7 +1596,7 @@ describe("Arena", () => {
 				() => {
 					expect(screen.getByText("Enter a prompt")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 	});

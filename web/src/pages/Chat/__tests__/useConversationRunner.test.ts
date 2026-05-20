@@ -25,7 +25,7 @@ const createMockParams = (
 		},
 		currentTurn: 0,
 		maxTurns: 2,
-		turnDelayMs: 1000,
+		turnDelayMs: 100,
 		systemPrompt: "System prompt A",
 		systemPromptB: "System prompt B",
 		messageParams: {},
@@ -448,7 +448,7 @@ describe("useConversationRunner", () => {
 
 		const params = createMockParams({
 			maxTurns: 2,
-			turnDelayMs: 100,
+			turnDelayMs: 1,
 		});
 		const setTurnCountdownMock = vi.fn();
 		params.setTurnCountdown = setTurnCountdownMock;
@@ -554,7 +554,7 @@ describe("useConversationRunner", () => {
 			}),
 		);
 
-		const params = createMockParams({ maxTurns: 2 });
+		const params = createMockParams({ maxTurns: 2, turnDelayMs: 1 });
 		const { result } = renderHook(() => useConversationRunner(params), {
 			wrapper: createWrapper(),
 		});
@@ -598,7 +598,7 @@ describe("useConversationRunner", () => {
 			}),
 		);
 
-		const params = createMockParams({ maxTurns: 2 });
+		const params = createMockParams({ maxTurns: 2, turnDelayMs: 1 });
 		const { result } = renderHook(() => useConversationRunner(params), {
 			wrapper: createWrapper(),
 		});
@@ -641,7 +641,7 @@ describe("useConversationRunner", () => {
 			}),
 		);
 
-		const params = createMockParams({ maxTurns: 2 });
+		const params = createMockParams({ maxTurns: 2, turnDelayMs: 1 });
 		const { result } = renderHook(() => useConversationRunner(params), {
 			wrapper: createWrapper(),
 		});

@@ -242,23 +242,30 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 				if (turn < maxTurns * 2 && !abortCtrl.signal.aborted) {
 					const countdownSeconds = Math.ceil(turnDelayMs / 1000);
 					setTurnCountdown(countdownSeconds);
-					await new Promise<void>((resolve) => {
+					let countdownInterval: ReturnType<typeof setInterval> | null = null;
+					if (countdownSeconds > 1) {
 						let remaining = countdownSeconds;
-						const interval = setInterval(() => {
+						countdownInterval = setInterval(() => {
 							remaining--;
-							if (remaining <= 0) {
-								clearInterval(interval);
-								setTurnCountdown(0);
-								resolve();
+							if (remaining <= 0 && countdownInterval) {
+								clearInterval(countdownInterval);
 							} else {
 								setTurnCountdown(remaining);
 							}
 						}, 1000);
+					}
+					await new Promise<void>((resolve) => {
+						const timer = setTimeout(() => {
+							if (countdownInterval) clearInterval(countdownInterval);
+							setTurnCountdown(0);
+							resolve();
+						}, turnDelayMs);
 						// Resolve immediately on abort so the loop can exit cleanly
 						abortCtrl.signal.addEventListener(
 							"abort",
 							() => {
-								clearInterval(interval);
+								clearTimeout(timer);
+								if (countdownInterval) clearInterval(countdownInterval);
 								setTurnCountdown(0);
 								resolve();
 							},

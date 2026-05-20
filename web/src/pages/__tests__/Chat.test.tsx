@@ -204,7 +204,7 @@ describe("Chat", () => {
 					const buttons = screen.queryAllByRole("button", { name: "Collapse" });
 					expect(buttons.length).toBeGreaterThan(0);
 				},
-				{ timeout: 3000 },
+				{ timeout: 2000 },
 			);
 		});
 	});
@@ -464,7 +464,7 @@ describe("Chat", () => {
 				() => {
 					expect(screen.getByText("Hi there")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Wait for assistant response to appear
@@ -472,7 +472,7 @@ describe("Chat", () => {
 				() => {
 					expect(screen.getByText("Hello there!")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -533,7 +533,7 @@ describe("Chat", () => {
 					});
 					expect(input).not.toBeDisabled();
 				},
-				{ timeout: 10000 },
+				{ timeout: 5000 },
 			);
 
 			// Send button should be back
@@ -573,7 +573,7 @@ describe("Chat", () => {
 						screen.queryByText("Chat will appear here"),
 					).not.toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Verify user message is visible
@@ -675,7 +675,7 @@ describe("Chat", () => {
 					const sendButtons = screen.queryAllByRole("button", { name: "Send" });
 					expect(sendButtons.length).toBeGreaterThan(0);
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
@@ -769,7 +769,7 @@ describe("Chat", () => {
 						screen.getByText("Response after regenerate"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Click Regenerate button on the last assistant message
@@ -787,7 +787,7 @@ describe("Chat", () => {
 						screen.getByText("Response after regenerate"),
 					).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 	});
@@ -825,7 +825,7 @@ describe("Chat", () => {
 				() => {
 					expect(screen.getByText("Response")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Click Delete button on the assistant message
@@ -880,12 +880,12 @@ describe("Chat", () => {
 				() => {
 					expect(screen.getByText(/try Regenerate/i)).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 		});
 
 		it("shows error when network fails", {
-			timeout: 15000,
+			timeout: 8000,
 		}, async () => {
 			server.use(
 				http.post("/api/chat/chat", () => {
@@ -963,7 +963,7 @@ describe("Chat", () => {
 				() => {
 					expect(screen.getByText("Response")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Click Clear button
@@ -989,7 +989,7 @@ describe("Chat", () => {
 		});
 
 		it("resets everything including model selection", {
-			timeout: 10000,
+			timeout: 5000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Response" } }] }];
 			server.use(...mockChatStream(chunks, { delay: 10 }));
@@ -1020,7 +1020,7 @@ describe("Chat", () => {
 				() => {
 					expect(screen.getByText("Response")).toBeInTheDocument();
 				},
-				{ timeout: 5000 },
+				{ timeout: 2000 },
 			);
 
 			// Click Reset button

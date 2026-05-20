@@ -141,7 +141,7 @@ describe("Chat controls collapse/expand", () => {
 				{ choices: [{ delta: { content: "Hello" }, index: 0 }] },
 				{ choices: [{ delta: { content: " world" }, index: 0 }] },
 			];
-			server.use(...mockChatStream(chunks, { delay: 100 }));
+			server.use(...mockChatStream(chunks, { delay: 50 }));
 
 			const { user } = renderWithProviders(<Chat />);
 
@@ -216,7 +216,7 @@ describe("Chat controls collapse/expand", () => {
 				{ choices: [{ delta: { content: "Hello" }, index: 0 }] },
 				{ choices: [{ delta: { content: " world" }, index: 0 }] },
 			];
-			server.use(...mockChatStream(chunks, { delay: 100 }));
+			server.use(...mockChatStream(chunks, { delay: 50 }));
 
 			const { user } = renderWithProviders(<Chat />);
 
@@ -437,7 +437,7 @@ describe("Chat controls collapse/expand", () => {
 				{ choices: [{ delta: { content: "Hello from A" }, index: 0 }] },
 				{ choices: [{ delta: { content: "Hello from B" }, index: 0 }] },
 			];
-			server.use(...mockChatStream(chunks, { delay: 200 }));
+			server.use(...mockChatStream(chunks, { delay: 10 }));
 
 			const { user } = renderWithProviders(<Chat />);
 
@@ -481,7 +481,7 @@ describe("Chat controls collapse/expand", () => {
 				{ choices: [{ delta: { content: "Hello from A" }, index: 0 }] },
 				{ choices: [{ delta: { content: "Hello from B" }, index: 0 }] },
 			];
-			server.use(...mockChatStream(chunks, { delay: 500 }));
+			server.use(...mockChatStream(chunks, { delay: 10 }));
 
 			const { user } = renderWithProviders(<Chat />);
 
@@ -589,7 +589,7 @@ describe("Chat controls collapse/expand", () => {
 				{ choices: [{ delta: { content: "Response from A" }, index: 0 }] },
 				{ choices: [{ delta: { content: "Response from B" }, index: 0 }] },
 			];
-			server.use(...mockChatStream(chunks, { delay: 200 }));
+			server.use(...mockChatStream(chunks, { delay: 10 }));
 
 			const { user } = renderWithProviders(<Chat />);
 
