@@ -338,6 +338,11 @@ export function VirtualKeys() {
 		setCurrentPage(1);
 	}, []);
 
+	const proxyOrigin =
+		typeof window !== "undefined"
+			? window.location.origin
+			: "http://localhost:8080";
+
 	const sortedKeys = useMemo(() => {
 		if (!keys) return [];
 		const dir = sort.dir === "asc" ? 1 : -1;
@@ -379,7 +384,19 @@ export function VirtualKeys() {
 			<PageHeader
 				icon={KeyRound}
 				title={countLabel(keys?.length, "Virtual Key", "Virtual Keys")}
-				description="Issue keys for clients to access the proxy at /v1"
+				description={
+					<span>
+						Issue keys for clients to access the proxy at{" "}
+						<CopyablePill
+							text={`${proxyOrigin}/v1`}
+							displayText={`${proxyOrigin}/v1`}
+							textClassName="text-(--accent) text-sm font-medium"
+							iconClassName="w-3 h-3"
+							className="inline-flex"
+							tooltip="Click to copy proxy URL"
+						/>
+					</span>
+				}
 				actions={
 					<button
 						type="button"
