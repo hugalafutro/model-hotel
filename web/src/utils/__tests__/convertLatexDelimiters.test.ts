@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertLatexDelimiters } from "../../utils/latexDelimiters";
+import { convertLatexDelimiters } from "../latexDelimiters";
 
 describe("convertLatexDelimiters", () => {
 	it("converts display math \\[...\\] to $$...$$", () => {
@@ -77,5 +77,10 @@ describe("convertLatexDelimiters", () => {
 		expect(
 			convertLatexDelimiters("\\[\\int_0^1 f(x)\\,dx = \\frac{1}{2}\\]"),
 		).toBe("$$\\int_0^1 f(x)\\,dx = \\frac{1}{2}$$");
+	});
+
+	it("does not convert multi-line inline math (remark-math requires single-line inline)", () => {
+		const input = "\\(a\nb\\)";
+		expect(convertLatexDelimiters(input)).toBe(input);
 	});
 });

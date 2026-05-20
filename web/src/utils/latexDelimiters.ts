@@ -15,6 +15,7 @@ export function convertLatexDelimiters(text: string): string {
 	let result = text;
 	result = result.replace(/(?<!\\)\\\[([\s\S]*?)\\\]/g, "$$$$" + "$1" + "$$$$");
 	// Inline math: \(...\) → $...$
-	result = result.replace(/(?<!\\)\\\(([\s\S]*?)\\\)/g, "$$$1$$");
+	// Use [^\n] to match single-line only — remark-math inline math cannot span lines
+	result = result.replace(/(?<!\\)\\\(([^\n]*?)\\\)/g, "$$$1$$");
 	return result;
 }
