@@ -13,6 +13,7 @@ import {
 	parseCapabilities,
 	proxyModelID,
 } from "../../utils/model";
+import { snippetCurl, snippetOpencode, snippetZed } from "../../utils/snippets";
 import { useModelEditor } from "./useModelEditor";
 
 /** Small revert button that restores a field to its discovered default value. */
@@ -174,85 +175,30 @@ export function ModelDetailModal({
 
 	const pMid = proxyModelID(model.provider_name, model.model_id);
 
-	const curlCmd = `curl -X POST ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${pMid}","messages":[{"role":"user","content":"Hello"}]}'`;
-
-	const zedJson = JSON.stringify(
-		{
-			language_models: {
-				openai_compatible: {
-					"model-hotel": {
-						api_url: `${window.location.origin}/v1`,
-						available_models: [
-							{
-								name: pMid,
-								display_name: model.display_name || model.name,
-								max_tokens: model.context_length,
-								max_output_tokens: model.max_output_tokens,
-								capabilities: {
-									tools: hasCap(caps, "tool_calling"),
-									images: hasCap(caps, "vision"),
-									parallel_tool_calls: hasCap(caps, "parallel_tool_calls"),
-									prompt_cache_key: false,
-									chat_completions: true,
-									interleaved_reasoning: hasCap(caps, "reasoning"),
-								},
-							},
-						],
-					},
-				},
-			},
-		},
-		null,
-		2,
-	);
-
-	const opencodeJson = JSON.stringify(
-		{
-			provider: {
-				"model-hotel": {
-					npm: "@ai-sdk/openai-compatible",
-					name: "Model Hotel",
-					options: {
-						baseURL: `${window.location.origin}/v1`,
-					},
-					models: {
-						[model.display_name || model.name || pMid]: {
-							id: pMid,
-							attachment: inputMods.some((m) => m !== "text"),
-							reasoning: hasCap(caps, "reasoning"),
-							tool_call: hasCap(caps, "tool_calling"),
-							limit: {
-								context: model.context_length,
-								output: model.max_output_tokens,
-							},
-							modalities: {
-								input: inputMods.length > 0 ? inputMods : ["text"],
-								output: outputMods.length > 0 ? outputMods : ["text"],
-							},
-							...(model.input_price_per_million != null &&
-							model.output_price_per_million != null
-								? {
-										cost: {
-											input: model.input_price_per_million,
-											output: model.output_price_per_million,
-										},
-									}
-								: {}),
-						},
-					},
-				},
-			},
-		},
-		null,
-		2,
-	);
-
 	const snippetContent =
 		snippetTab === "curl"
-			? curlCmd
+			? snippetCurl({ proxyModelId: pMid, origin: window.location.origin })
 			: snippetTab === "zed"
-				? zedJson
-				: opencodeJson;
+				? snippetZed({
+						proxyModelId: pMid,
+						displayName: model.display_name || model.name,
+						contextLength: model.context_length,
+						maxOutputTokens: model.max_output_tokens,
+						capabilities: caps,
+						origin: window.location.origin,
+					})
+				: snippetOpencode({
+						proxyModelId: pMid,
+						displayName: model.display_name || model.name || pMid,
+						contextLength: model.context_length,
+						maxOutputTokens: model.max_output_tokens,
+						capabilities: caps,
+						inputModalities: inputMods,
+						outputModalities: outputMods,
+						inputPricePerMillion: model.input_price_per_million,
+						outputPricePerMillion: model.output_price_per_million,
+						origin: window.location.origin,
+					});
 
 	return (
 		<Modal

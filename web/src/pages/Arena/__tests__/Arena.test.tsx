@@ -105,6 +105,7 @@ const baseArena = {
 	runningModels: new Set<string>(),
 	modelParams: {} as Record<string, unknown>,
 	paramEditorModel: null as string | null,
+	enabledModels: [] as unknown[],
 	setCompareModels: vi.fn(),
 	setBracketModels: vi.fn(),
 	setComparePersonaId: vi.fn(),

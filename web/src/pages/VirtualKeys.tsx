@@ -22,6 +22,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../context/ToastContext";
 import { countLabel, formatNumber, formatRelativeTime } from "../utils/format";
+import { snippetBash, snippetPowershell } from "../utils/snippets";
 
 type VKSortField = "name" | "key" | "created" | "tokens" | "last_used";
 
@@ -618,30 +619,12 @@ export function VirtualKeys() {
 										</div>
 										<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
 											<code className="terminal-code">
-												{"curl -X POST "}
-												<span className="text-white font-semibold terminal-highlight">
-													{typeof window !== "undefined"
-														? `${window.location.origin}`
-														: "http://localhost:8080"}
-													{"/v1/chat/completions"}
-												</span>
-												{" \\\n"}
-												{'  -H "Authorization: Bearer '}
-												<span className="text-white font-semibold terminal-highlight">
-													YOUR_API_KEY
-												</span>
-												{'" \\\n'}
-												{'  -H "Content-Type: application/json" \\\n'}
-												{"  -d '{\n"}
-												{'    "model": "'}
-												<span className="text-white font-semibold terminal-highlight">
-													model
-												</span>
-												{'",\n'}
-												{'    "messages": [\n'}
-												{'      { "role": "user", "content": "Hello!" }\n'}
-												{"    ]\n"}
-												{"  }'"}
+												{snippetBash({
+													origin:
+														typeof window !== "undefined"
+															? window.location.origin
+															: "http://localhost:8080",
+												})}
 											</code>
 										</pre>
 									</div>
@@ -682,65 +665,12 @@ export function VirtualKeys() {
 										</div>
 										<pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
 											<code className="terminal-win11-code">
-												{"Invoke-RestMethod "}
-												{"-Uri "}
-												<span className="ps-uri text-[#569cd6]">
-													{typeof window !== "undefined"
-														? `"${window.location.origin}/v1/chat/completions"`
-														: '"http://localhost:8080/v1/chat/completions"'}
-												</span>
-												{"\n"}
-												{"  -Method Post\n"}
-												{"  -Headers @{\n"}
-												{"    "}
-												<span className="ps-key text-[#9cdcfe]">
-													{'"Authorization"'}
-												</span>
-												{" = "}
-												<span className="ps-str text-[#ce9178]">
-													{'"Bearer YOUR_API_KEY"'}
-												</span>
-												{"\n"}
-												{"    "}
-												<span className="ps-key text-[#9cdcfe]">
-													{'"Content-Type"'}
-												</span>
-												{" = "}
-												<span className="ps-str text-[#ce9178]">
-													{'"application/json"'}
-												</span>
-												{"\n"}
-												{"  }\n"}
-												{"  -Body (ConvertTo-Json @{\n"}
-												{"    "}
-												<span className="ps-key text-[#9cdcfe]">{"model"}</span>
-												{" = "}
-												<span className="ps-str text-[#ce9178]">
-													{'"model"'}
-												</span>
-												{"\n"}
-												{"    "}
-												<span className="ps-key text-[#9cdcfe]">
-													{"messages"}
-												</span>
-												{" = @(\n"}
-												{"      @{ "}
-												<span className="ps-key text-[#9cdcfe]">{"role"}</span>
-												{" = "}
-												<span className="ps-str text-[#ce9178]">
-													{'"user"'}
-												</span>
-												{"; "}
-												<span className="ps-key text-[#9cdcfe]">
-													{"content"}
-												</span>
-												{" = "}
-												<span className="ps-str text-[#ce9178]">
-													{'"Hello!"'}
-												</span>
-												{" }\n"}
-												{"    )\n"}
-												{"  })"}
+												{snippetPowershell({
+													origin:
+														typeof window !== "undefined"
+															? window.location.origin
+															: "http://localhost:8080",
+												})}
 											</code>
 										</pre>
 									</div>
