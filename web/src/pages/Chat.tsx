@@ -30,6 +30,21 @@ import { useChat } from "./Chat/useChat";
 export function Chat() {
 	const chat = useChat();
 
+	const handleKeyDownWithControls = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			if (chat.chatSubMode === "chat") {
+				if (chat.isStreaming) {
+					chat.setControlsCollapsed(false);
+					chat.handleStop();
+				} else {
+					chat.setControlsCollapsed(true);
+					chat.handleSend();
+				}
+			}
+		}
+	};
+
 	return (
 		<div
 			className={`flex flex-col gap-6 ${chat.chatSubMode === "conversation" ? "min-h-full" : "h-full overflow-hidden"}`}
@@ -85,7 +100,10 @@ export function Chat() {
 								{chat.isStreaming && chat.chatSubMode === "chat" && (
 									<ActionIconButton
 										icon={CircleStop}
-										onClick={chat.handleStop}
+										onClick={() => {
+											chat.setControlsCollapsed(false);
+											chat.handleStop();
+										}}
 										title="Stop"
 										color="red"
 									/>
@@ -241,10 +259,22 @@ export function Chat() {
 					onToggleCollapsed={() => chat.setConfigCollapsed((c) => !c)}
 					input={chat.input}
 					onInputChange={chat.setInput}
-					onStart={() => chat.runConversation(false)}
-					onContinue={() => chat.runConversation(true)}
-					onRetry={chat.handleRetryConversation}
-					onStop={chat.handleStopConversation}
+					onStart={() => {
+						chat.setControlsCollapsed(true);
+						chat.runConversation(false);
+					}}
+					onContinue={() => {
+						chat.setControlsCollapsed(true);
+						chat.runConversation(true);
+					}}
+					onRetry={() => {
+						chat.setControlsCollapsed(true);
+						chat.handleRetryConversation();
+					}}
+					onStop={() => {
+						chat.setControlsCollapsed(false);
+						chat.handleStopConversation();
+					}}
 					canStart={chat.canStartConversation}
 					disabledReason={chat.conversationDisabledReason}
 					selectedModel={chat.selectedModel}
@@ -499,7 +529,7 @@ export function Chat() {
 										el.style.height = `${el.scrollHeight}px`;
 									});
 								}}
-								onKeyDown={chat.handleKeyDown}
+								onKeyDown={handleKeyDownWithControls}
 								onPaste={chat.handlePaste}
 								placeholder={
 									!chat.selectedModel
@@ -524,7 +554,17 @@ export function Chat() {
 							/>
 							<button
 								type="button"
-								onClick={chat.isStreaming ? chat.handleStop : chat.handleSend}
+								onClick={
+									chat.isStreaming
+										? () => {
+												chat.setControlsCollapsed(false);
+												chat.handleStop();
+											}
+										: () => {
+												chat.setControlsCollapsed(true);
+												chat.handleSend();
+											}
+								}
 								disabled={!chat.selectedModel}
 								title={
 									!chat.selectedModel
@@ -594,7 +634,10 @@ export function Chat() {
 									{chat.isStreaming && (
 										<ActionIconButton
 											icon={CircleStop}
-											onClick={chat.handleStopConversation}
+											onClick={() => {
+												chat.setControlsCollapsed(false);
+												chat.handleStopConversation();
+											}}
 											title="Stop"
 											color="red"
 											size={16}
@@ -674,6 +717,7 @@ export function Chat() {
 					onConfirm={() => {
 						// Abort any running conversation
 						chat.clearConversationAbort();
+						chat.setControlsCollapsed(false);
 						chat.setMessages([]);
 						chat.setInput("");
 						chat.setConversationState("idle");
