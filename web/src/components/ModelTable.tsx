@@ -166,7 +166,7 @@ export function ModelTable({
 		currentPage * pageSize,
 	);
 
-	const colSpan = showProviderCol ? 7 : 6;
+	const colSpan = showProviderCol ? 10 : 9;
 
 	return (
 		<div className="space-y-4">
@@ -206,22 +206,28 @@ export function ModelTable({
 					<colgroup>
 						{showProviderCol ? (
 							<>
-								<col className="w-[32%]" />
-								<col className="w-[26%]" />
-								<col className="w-[17%]" />
+								<col className="w-[30%]" />
+								<col className="w-[24%]" />
+								<col className="w-[16%]" />
 								<col className="w-[6%]" />
+								<col className="w-[2%]" />
 								<col className="w-[4%]" />
+								<col className="w-[2%]" />
 								<col className="w-[4%]" />
-								<col className="w-[11%]" />
+								<col className="w-[2%]" />
+								<col className="w-[8%]" />
 							</>
 						) : (
 							<>
-								<col className="w-[40%]" />
-								<col className="w-[30%]" />
+								<col className="w-[38%]" />
+								<col className="w-[28%]" />
 								<col className="w-[10%]" />
+								<col className="w-[2%]" />
 								<col className="w-[6%]" />
+								<col className="w-[2%]" />
 								<col className="w-[6%]" />
-								<col className="w-[8%]" />
+								<col className="w-[2%]" />
+								<col className="w-[6%]" />
 							</>
 						)}
 					</colgroup>
@@ -253,6 +259,7 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip="When the model was last seen/discovered"
 							/>
+							<th aria-hidden />
 							<SortableHeader
 								label="Ctx"
 								field="context"
@@ -260,6 +267,7 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip="Maximum context length in tokens"
 							/>
+							<th aria-hidden />
 							<SortableHeader
 								label="Max Out"
 								field="output"
@@ -267,13 +275,13 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip="Maximum output tokens"
 							/>
+							<th aria-hidden />
 							<SortableHeader
 								label="Status"
 								field="status"
 								sort={sort}
 								onSort={handleSort}
 								tooltip="Model status"
-								className="pl-6"
 							/>
 						</tr>
 						<tr className="ui-table-row-filter">
@@ -323,8 +331,11 @@ export function ModelTable({
 								</th>
 							)}
 							<th className="px-4 py-2" />
+							<th aria-hidden />
 							<th className="px-4 py-2" />
+							<th aria-hidden />
 							<th className="px-4 py-2" />
+							<th aria-hidden />
 							<th className="px-4 py-2" />
 						</tr>
 					</thead>
@@ -365,13 +376,16 @@ export function ModelTable({
 										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-400">
 											{formatRelativeTime(model.last_seen_at)}
 										</td>
+										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
 											{formatTokens(model.context_length)}
 										</td>
+										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
 											{formatTokens(model.max_output_tokens)}
 										</td>
-										<td className="pl-6 pr-4 py-1.5 whitespace-nowrap">
+										<td aria-hidden />
+										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
 												className={`px-2 py-0.5 text-xs rounded-full ${model.enabled ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"}`}
 											>

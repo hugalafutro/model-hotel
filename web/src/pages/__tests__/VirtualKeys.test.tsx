@@ -98,6 +98,22 @@ describe("VirtualKeys", () => {
 			});
 		});
 
+		it("renders proxy URL as copyable pill in header subtitle", async () => {
+			server.use(...mockVirtualKeys());
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				const copyBtn = screen.getByRole("button", {
+					name: "Click to copy proxy URL",
+				});
+				expect(copyBtn).toBeInTheDocument();
+				expect(copyBtn.querySelector("span")).toHaveTextContent(
+					/^http:\/\/localhost:\d+\/v1$/,
+				);
+			});
+		});
+
 		it("renders create key button", async () => {
 			server.use(...mockVirtualKeys());
 

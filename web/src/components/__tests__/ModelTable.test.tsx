@@ -142,7 +142,7 @@ describe("ModelTable", () => {
 				<ModelTable models={[enabledModel]} providers={[mockProvider]} />,
 			);
 
-			// Status badge in the status column - scope to table body to avoid filter buttons
+			// Status badge in the status column - scope to table body
 			const table = screen.getByRole("table");
 			const enabledBadges = within(table).getAllByText("Enabled");
 			expect(enabledBadges.length).toBeGreaterThan(0);
@@ -158,7 +158,7 @@ describe("ModelTable", () => {
 				<ModelTable models={[disabledModel]} providers={[mockProvider]} />,
 			);
 
-			// Status badge in the status column - scope to table body to avoid filter buttons
+			// Status badge in the status column - scope to table body
 			const table = screen.getByRole("table");
 			const disabledBadges = within(table).getAllByText("Disabled");
 			expect(disabledBadges.length).toBeGreaterThan(0);
@@ -441,14 +441,19 @@ describe("ModelTable", () => {
 			});
 		});
 
-		it("filters by status (enabled)", async () => {
+		it("sorts by status (enabled first ascending)", async () => {
 			const models = [
-				{ ...mockModel, id: "model-001", name: "Enabled Model", enabled: true },
+				{
+					...mockModel,
+					id: "model-001",
+					name: "Disabled Model",
+					enabled: false,
+				},
 				{
 					...mockModel,
 					id: "model-002",
-					name: "Disabled Model",
-					enabled: false,
+					name: "Enabled Model",
+					enabled: true,
 				},
 			];
 
@@ -456,25 +461,30 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			// Click enabled status filter button
-			const enabledFilter = screen.getByRole("button", { name: "Enabled" });
-			await user.click(enabledFilter);
+			const statusHeader = screen.getByRole("button", { name: /Status/ });
+			await user.click(statusHeader);
 
 			await waitFor(() => {
-				// Only Enabled Model should be visible in tbody
 				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-				expect(rows.length).toBe(1);
+				expect(rows.length).toBe(2);
+				expect(rows[0].textContent).toContain("Enabled Model");
+				expect(rows[1].textContent).toContain("Disabled Model");
 			});
 		});
 
-		it("filters by status (disabled)", async () => {
+		it("sorts by status (disabled first descending)", async () => {
 			const models = [
-				{ ...mockModel, id: "model-001", name: "Enabled Model", enabled: true },
+				{
+					...mockModel,
+					id: "model-001",
+					name: "Disabled Model",
+					enabled: false,
+				},
 				{
 					...mockModel,
 					id: "model-002",
-					name: "Disabled Model",
-					enabled: false,
+					name: "Enabled Model",
+					enabled: true,
 				},
 			];
 
@@ -482,14 +492,15 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			// Click disabled status filter button
-			const disabledFilter = screen.getByRole("button", { name: "Disabled" });
-			await user.click(disabledFilter);
+			const statusHeader = screen.getByRole("button", { name: /Status/ });
+			await user.click(statusHeader);
+			await user.click(statusHeader);
 
 			await waitFor(() => {
-				// Only Disabled Model should be visible in tbody
 				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-				expect(rows.length).toBe(1);
+				expect(rows.length).toBe(2);
+				expect(rows[0].textContent).toContain("Disabled Model");
+				expect(rows[1].textContent).toContain("Enabled Model");
 			});
 		});
 
@@ -520,14 +531,19 @@ describe("ModelTable", () => {
 			});
 		});
 
-		it("clears status filter when clicking X button", async () => {
+		it("toggles status sort direction on repeated clicks", async () => {
 			const models = [
-				{ ...mockModel, id: "model-001", name: "Enabled Model", enabled: true },
+				{
+					...mockModel,
+					id: "model-001",
+					name: "Disabled Model",
+					enabled: false,
+				},
 				{
 					...mockModel,
 					id: "model-002",
-					name: "Disabled Model",
-					enabled: false,
+					name: "Enabled Model",
+					enabled: true,
 				},
 			];
 
@@ -535,28 +551,25 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			// Initially both models should be visible (no filters)
+			// Initially both models should be visible
 			expect(
 				screen.getByRole("table").querySelectorAll("tbody tr").length,
 			).toBe(2);
 
-			// Click enabled filter to show only enabled models
-			await user.click(screen.getByRole("button", { name: "Enabled" }));
+			const statusHeader = screen.getByRole("button", { name: /Status/ });
 
-			// Only Enabled Model should be visible
+			// Click once: ascending (enabled first)
+			await user.click(statusHeader);
 			await waitFor(() => {
 				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-				expect(rows.length).toBe(1);
 				expect(rows[0].textContent).toContain("Enabled Model");
 			});
 
-			// Click the enabled button again to toggle it off (clear filter)
-			await user.click(screen.getByRole("button", { name: "Enabled" }));
-
-			// Both models should be visible again
+			// Click again: descending (disabled first)
+			await user.click(statusHeader);
 			await waitFor(() => {
 				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-				expect(rows.length).toBe(2);
+				expect(rows[0].textContent).toContain("Disabled Model");
 			});
 		});
 	});
@@ -632,7 +645,9 @@ describe("ModelTable", () => {
 			);
 
 			// First page - prev should be disabled
-			expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
+			await waitFor(() => {
+				expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
+			});
 
 			// Go to next page
 			await user.click(screen.getByRole("button", { name: "Next" }));

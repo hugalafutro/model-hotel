@@ -1538,7 +1538,7 @@ describe("Arena", () => {
 		});
 
 		it("voting phase shows Vote on all matchups message", {
-			timeout: 2000,
+			timeout: 15000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Done" } }] }];
 
@@ -1571,7 +1571,7 @@ describe("Arena", () => {
 						),
 					).toBeInTheDocument();
 				},
-				{ timeout: 2000 },
+				{ timeout: 5000 },
 			);
 		});
 

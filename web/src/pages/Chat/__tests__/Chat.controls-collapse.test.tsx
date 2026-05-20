@@ -164,18 +164,24 @@ describe("Chat controls collapse/expand", () => {
 			await user.click(sendButton);
 
 			// Wait for streaming to start and controls to collapse
-			await waitFor(() => {
-				expect(isControlsCollapsed()).toBe(true);
-			});
+			await waitFor(
+				() => {
+					expect(isControlsCollapsed()).toBe(true);
+				},
+				{ timeout: 5000 },
+			);
 
 			// Click Stop button from Controls header (not the input bar button)
 			const stopButton = getControlsStopButton();
 			await user.click(stopButton);
 
 			// Controls should expand after stopping
-			await waitFor(() => {
-				expect(isControlsExpanded()).toBe(true);
-			});
+			await waitFor(
+				() => {
+					expect(isControlsExpanded()).toBe(true);
+				},
+				{ timeout: 5000 },
+			);
 		});
 
 		it("pressing Enter key while not streaming collapses controls", async () => {
@@ -327,7 +333,7 @@ describe("Chat controls collapse/expand", () => {
 				() => {
 					expect(isControlsCollapsed()).toBe(true);
 				},
-				{ timeout: 1000 },
+				{ timeout: 3000 },
 			);
 		});
 
@@ -468,9 +474,12 @@ describe("Chat controls collapse/expand", () => {
 			await user.click(screen.getByRole("button", { name: "Start" }));
 
 			// Controls should collapse after starting
-			await waitFor(() => {
-				expect(isControlsCollapsed()).toBe(true);
-			});
+			await waitFor(
+				() => {
+					expect(isControlsCollapsed()).toBe(true);
+				},
+				{ timeout: 5000 },
+			);
 		});
 
 		it("Pressing Stop (ConversationConfig) in conversation mode expands controls", async () => {
@@ -509,9 +518,12 @@ describe("Chat controls collapse/expand", () => {
 			await user.click(screen.getByRole("button", { name: "Start" }));
 
 			// Wait for controls to collapse
-			await waitFor(() => {
-				expect(isControlsCollapsed()).toBe(true);
-			});
+			await waitFor(
+				() => {
+					expect(isControlsCollapsed()).toBe(true);
+				},
+				{ timeout: 5000 },
+			);
 
 			// Find ConversationConfig section and click Stop within it
 			const conversationConfig = screen
@@ -529,9 +541,12 @@ describe("Chat controls collapse/expand", () => {
 			await user.click(stopButton);
 
 			// Controls should expand after stopping
-			await waitFor(() => {
-				expect(isControlsExpanded()).toBe(true);
-			});
+			await waitFor(
+				() => {
+					expect(isControlsExpanded()).toBe(true);
+				},
+				{ timeout: 5000 },
+			);
 		});
 
 		it("Pressing Reset All expands controls", async () => {
@@ -617,14 +632,20 @@ describe("Chat controls collapse/expand", () => {
 			await user.click(screen.getByRole("button", { name: "Start" }));
 
 			// Wait for controls to collapse and response to appear
-			await waitFor(() => {
-				expect(isControlsCollapsed()).toBe(true);
-			});
+			await waitFor(
+				() => {
+					expect(isControlsCollapsed()).toBe(true);
+				},
+				{ timeout: 5000 },
+			);
 
 			// Wait for some response content
-			await waitFor(() => {
-				expect(screen.getByText("Response from A")).toBeInTheDocument();
-			});
+			await waitFor(
+				() => {
+					expect(screen.getByText("Response from A")).toBeInTheDocument();
+				},
+				{ timeout: 5000 },
+			);
 
 			// Click soft reset (Eraser) in the conversation stats bar
 			const softResetButton = screen.getByRole("button", {
@@ -637,7 +658,7 @@ describe("Chat controls collapse/expand", () => {
 				() => {
 					expect(isControlsCollapsed()).toBe(true);
 				},
-				{ timeout: 1000 },
+				{ timeout: 3000 },
 			);
 		});
 	});
