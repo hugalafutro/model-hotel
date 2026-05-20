@@ -82,4 +82,87 @@ describe("ThinkingBlock", () => {
 		fireEvent.click(screen.getByText("Thinking"));
 		expect(screen.getByText("Actual content here")).toBeInTheDocument();
 	});
+
+	it("scrolls to bottom when unrolled during streaming", async () => {
+		// jsdom doesn't compute layout, so we mock scroll dimensions.
+		// We intercept scrollTop assignments to verify the scroll-to-bottom behavior.
+		const longThinking = Array(200).fill("Line of thinking text").join("\n");
+
+		// Track scrollTop assignments on the scrollable container
+		const scrollTopCalls: number[] = [];
+		const origDescriptor = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"scrollTop",
+		);
+
+		Object.defineProperty(HTMLElement.prototype, "scrollTop", {
+			get(this: HTMLDivElement) {
+				// Return a mock value if the element has the overflow-y-auto class
+				if (this.className?.includes("overflow-y-auto")) {
+					return scrollTopCalls.length > 0
+						? scrollTopCalls[scrollTopCalls.length - 1]
+						: 0;
+				}
+				return origDescriptor?.get?.call(this) ?? 0;
+			},
+			set(this: HTMLDivElement, v: number) {
+				if (this.className?.includes("overflow-y-auto")) {
+					scrollTopCalls.push(v);
+					return;
+				}
+				origDescriptor?.set?.call(this, v);
+			},
+			configurable: true,
+		});
+
+		// Also mock scrollHeight/clientHeight for the nearBottom check
+		const origSH = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"scrollHeight",
+		);
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+			get(this: HTMLDivElement) {
+				if (this.className?.includes("overflow-y-auto")) return 600;
+				return origSH?.get?.call(this) ?? 0;
+			},
+			configurable: true,
+		});
+		const origCH = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"clientHeight",
+		);
+		Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+			get(this: HTMLDivElement) {
+				if (this.className?.includes("overflow-y-auto")) return 240;
+				return origCH?.get?.call(this) ?? 0;
+			},
+			configurable: true,
+		});
+
+		try {
+			renderWithProviders(
+				<ThinkingBlock thinking={longThinking} isStreaming={true} />,
+			);
+
+			// Unroll — should trigger scroll to bottom via rAF
+			fireEvent.click(screen.getByText("Thinking"));
+
+			await vi.waitFor(() => {
+				// The scroll-on-unroll effect should have set scrollTop = scrollHeight (600)
+				expect(scrollTopCalls.some((v) => v === 600)).toBe(true);
+			});
+		} finally {
+			// Restore original descriptors
+			if (origDescriptor)
+				Object.defineProperty(
+					HTMLElement.prototype,
+					"scrollTop",
+					origDescriptor,
+				);
+			if (origSH)
+				Object.defineProperty(HTMLElement.prototype, "scrollHeight", origSH);
+			if (origCH)
+				Object.defineProperty(HTMLElement.prototype, "clientHeight", origCH);
+		}
+	});
 });

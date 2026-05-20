@@ -24,6 +24,24 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 		}
 	}, [thinkingLen, isStreaming, open]);
 
+	// On unroll during streaming, scroll to the bottom immediately
+	// so the user sees the latest content instead of staring at the top.
+	const wasOpenRef = useRef(false);
+	useEffect(() => {
+		if (!open || !isStreaming) {
+			wasOpenRef.current = !!open;
+			return;
+		}
+		if (!wasOpenRef.current) {
+			// Just opened while streaming — scroll to bottom
+			requestAnimationFrame(() => {
+				const el = contentRef.current;
+				if (el) el.scrollTop = el.scrollHeight;
+			});
+		}
+		wasOpenRef.current = true;
+	}, [open, isStreaming]);
+
 	return (
 		<>
 			<button
