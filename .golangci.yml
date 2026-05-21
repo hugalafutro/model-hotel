@@ -46,6 +46,7 @@ linters:
           - errcheck
           - bodyclose
           - gosec
+          - gocyclo
 
       # The recover() return value is intentionally discarded in panic-safety guards
       - linters:
