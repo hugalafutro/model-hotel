@@ -10,9 +10,9 @@
 <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 <a href="/commits/master"><img src="https://img.shields.io/github/last-commit/hugalafutro/model-hotel" alt="Last Commit"></a>
 <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
-<a href="https://github.com/hugalafutro/model-hotel/pkgs/container/model-hotel"><img src="https://img.shields.io/badge/ghcr.io-hugalafutro%2Fmodel--hotel-2496ED?logo=docker&logoColor=white" alt="Docker"></a>
 <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
 <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
+<a href="https://github.com/hugalafutro/model-hotel/pkgs/container/model-hotel"><img src="https://img.shields.io/badge/ghcr.io-hugalafutro%2Fmodel--hotel-2496ED?logo=docker&logoColor=white" alt="Docker"></a>
   <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
