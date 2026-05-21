@@ -425,7 +425,9 @@ export function VirtualModelTable({
 							<th className="px-4 py-2" />
 							<th className="px-4 py-2">
 								<span className="flex flex-wrap gap-1">
-									{CAP_META.filter((m) => existingCaps.has(m.key)).map((m) => {
+									{CAP_META.filter(
+										(m) => existingCaps.has(m.key) || capFilter.has(m.key),
+									).map((m) => {
 										const isActive = capFilter.has(m.key);
 										return (
 											<button
