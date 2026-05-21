@@ -91,6 +91,9 @@ const formatTimestamp = (ts: string) => {
 	}
 };
 
+const HEADER_BASE =
+	"px-2 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
+
 const EDGE_THRESHOLD_PX = 500; // pixels from edge to trigger fetch
 
 export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
@@ -228,20 +231,14 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 					<thead className="sticky top-0 z-10 bg-(--surface)">
 						<tr>
 							<th
-								className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer"
+								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
 							>
 								Time/Date {sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Level
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Source
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Message
-							</th>
+							<th className={HEADER_BASE}>Level</th>
+							<th className={HEADER_BASE}>Source</th>
+							<th className={HEADER_BASE}>Message</th>
 						</tr>
 					</thead>
 					<tbody>

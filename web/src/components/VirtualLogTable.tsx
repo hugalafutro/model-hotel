@@ -41,6 +41,9 @@ const getStatusBadgeVariant = (
 	return "muted";
 };
 
+const HEADER_BASE =
+	"px-2 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
+
 const EDGE_THRESHOLD_PX = 500; // pixels from edge to trigger fetch
 
 export function VirtualLogTable(props: VirtualLogTableProps) {
@@ -189,41 +192,21 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					<thead className="sticky top-0 z-10 bg-(--surface)">
 						<tr>
 							<th
-								className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer"
+								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
 							>
 								Time/Date {sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Hash
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Model
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Provider
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Status
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Tokens
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								T/s
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								TTFT
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Duration
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Overhead
-							</th>
-							<th className="px-2 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-								Key
-							</th>
+							<th className={HEADER_BASE}>Hash</th>
+							<th className={HEADER_BASE}>Model</th>
+							<th className={HEADER_BASE}>Provider</th>
+							<th className={HEADER_BASE}>Status</th>
+							<th className={HEADER_BASE}>Tokens</th>
+							<th className={HEADER_BASE}>T/s</th>
+							<th className={HEADER_BASE}>TTFT</th>
+							<th className={HEADER_BASE}>Duration</th>
+							<th className={HEADER_BASE}>Overhead</th>
+							<th className={HEADER_BASE}>Key</th>
 						</tr>
 					</thead>
 					<tbody>
