@@ -61,11 +61,6 @@ function formatTime(timestamp: number): string {
 	});
 }
 
-function truncate(str: string, maxLen: number): string {
-	if (str.length <= maxLen) return str;
-	return `${str.slice(0, maxLen)}…`;
-}
-
 function findPromptPreset(id: string | null) {
 	if (!id) return null;
 	return ARENA_PROMPTS.find((p) => p.id === id) ?? null;
@@ -275,9 +270,9 @@ export function ArenaHistoryModal({
 									Error: {resp.error}
 								</p>
 							) : (
-								<p className="text-xs text-(--text-tertiary) whitespace-pre-wrap wrap-break-word">
-									{truncate(resp.content, 200)}
-								</p>
+								<div className="max-h-40 overflow-y-auto text-xs text-(--text-tertiary) whitespace-pre-wrap wrap-break-word pr-1">
+									{resp.content}
+								</div>
 							)}
 						</div>
 					);
