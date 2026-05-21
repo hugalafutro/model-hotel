@@ -338,6 +338,12 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
+	// Date range filters use created_at (DB insertion time), not timestamp (event time),
+	// for consistency with the cursor endpoint's keyset pagination on created_at.
+	// App logs are ingested in real-time via the ring buffer, so timestamp and
+	// created_at are typically within the same second. The date picker only provides
+	// day-level granularity (start/end of day), so the two columns will always fall
+	// within the same filter window in practice.
 	if from := q.Get("from"); from != "" {
 		if t, err := time.Parse(time.RFC3339, from); err == nil {
 			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
@@ -354,6 +360,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sort
+	// "time" maps to created_at for consistency with the cursor endpoint.
+	// The timestamp column (event time) is still returned for display.
 	allowedSortCols := map[string]string{
 		"time":    "created_at",
 		"level":   "level",
