@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
 import { AccentCalendar } from "../components/AccentCalendar";
@@ -32,6 +32,12 @@ type AppLogSortField = "time" | "level" | "source" | "message";
 export function AppLogs() {
 	const { logsSubMode, setLogsSubMode } = useSidebarMode();
 	const [liveEnabled, setLiveEnabled] = useState(true);
+	const [isVisible, setIsVisible] = useState(!document.hidden);
+	useEffect(() => {
+		const handler = () => setIsVisible(!document.hidden);
+		document.addEventListener("visibilitychange", handler);
+		return () => document.removeEventListener("visibilitychange", handler);
+	}, []);
 	const [searchFilter, setSearchFilter] = useState("");
 	const [levelFilter, setLevelFilter] = useState<
 		"all" | "info" | "warning" | "error"
@@ -106,7 +112,8 @@ export function AppLogs() {
 				sort_by: sort.field,
 				sort_dir: sort.dir,
 			}),
-		refetchInterval: liveEnabled ? 2000 : false,
+		refetchInterval:
+			viewMode === "paginate" && liveEnabled && isVisible ? 2000 : false,
 		placeholderData: keepPreviousData,
 	});
 
@@ -159,6 +166,29 @@ export function AppLogs() {
 			entry.id ??
 			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
 	});
+
+	// Slow poll for scroll mode (no SSE events exist for app logs)
+	useEffect(() => {
+		if (viewMode !== "scroll" || !liveEnabled) return;
+		const interval = setInterval(() => {
+			if (!document.hidden) {
+				scrollFetchNewer();
+			}
+		}, 5000);
+		return () => clearInterval(interval);
+	}, [viewMode, liveEnabled, scrollFetchNewer]);
+
+	// Visibility/focus refresh for scroll mode
+	useEffect(() => {
+		if (viewMode !== "scroll" || !liveEnabled) return;
+		const handler = () => {
+			if (!document.hidden) {
+				scrollFetchNewer();
+			}
+		};
+		document.addEventListener("visibilitychange", handler);
+		return () => document.removeEventListener("visibilitychange", handler);
+	}, [viewMode, liveEnabled, scrollFetchNewer]);
 
 	const entries = useMemo(
 		() => historyData?.entries ?? [],

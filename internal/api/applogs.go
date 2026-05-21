@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -596,10 +597,20 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// Fetch entries (limit+1 to detect has_more)
+	// When paginating backward, invert the sort direction so LIMIT picks from
+	// the correct end of the result set, then reverse the slice before returning.
 	fetchLimit := limit + 1
+	fetchSortDir := sortDir
+	if direction == "before" {
+		if fetchSortDir == "DESC" {
+			fetchSortDir = "ASC"
+		} else {
+			fetchSortDir = "DESC"
+		}
+	}
 	dataSQL := fmt.Sprintf(
 		"SELECT id, created_at, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
-		whereClause, sortDir, sortDir, argIdx,
+		whereClause, fetchSortDir, fetchSortDir, argIdx,
 	)
 	args = append(args, fetchLimit)
 
@@ -645,6 +656,16 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 			hasBefore = true
 			entries = entries[:limit]
 		}
+		// Items exist after the cursor by definition
+		if cursorStr != "" {
+			hasAfter = true
+		}
+	}
+
+	// Reverse entries for backward pagination: we fetched in inverted sort order
+	// to get the correct window, but must return in the user's requested sort order.
+	if direction == "before" {
+		slices.Reverse(entries)
 	}
 
 	// Get cached counts
