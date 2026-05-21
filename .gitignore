@@ -26,6 +26,8 @@
 /web/node_modules/
 /web/dist/
 /web/.vite/
+/web/.coverage-result.json
+/web/.test-result.json
 
 # Populated by Docker build or make build; only .gitkeep tracked to keep directory alive for go:embed
 /cmd/server/static/*
