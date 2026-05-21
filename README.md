@@ -27,7 +27,7 @@
 > **AI-Assisted Project Disclaimer:**<br>Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.<br>
 
 
-Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai). From around version 0.4 the app was used as opencode model provider for its own development.
+Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>From around version 0.4 the app was used as opencode model provider for its own development.
 
 <details>
 <summary>📊 opencode stats (click to expand)</summary>
