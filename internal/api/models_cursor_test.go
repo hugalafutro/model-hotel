@@ -839,3 +839,146 @@ func TestListModelsCursor_ProviderIDFilter(t *testing.T) {
 		t.Errorf("expected p1-model, got %s", resp.Entries[0].ModelID)
 	}
 }
+
+// TestListModelsCursor_BackwardPagination tests that direction=before returns
+// the items immediately preceding the cursor (not items from the start of the
+// dataset) and that results are in the requested sort order.
+func TestListModelsCursor_BackwardPagination(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider
+	providerData := fmt.Sprintf(`{"name": "backward-page-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert 10 models with distinct names
+	pool := h.Pool().Pool()
+	names := []string{"m01", "m02", "m03", "m04", "m05", "m06", "m07", "m08", "m09", "m10"}
+	for _, name := range names {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, capabilities, enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+			uuid.New(), providerResp.ID, name, name, `{}`, true)
+		if err != nil {
+			t.Fatalf("Failed to insert model %s: %v", name, err)
+		}
+	}
+
+	// Fetch forward with limit=3 to get page at m07-m09
+	// Page 1: m01, m02, m03 (cursor at m03)
+	req = httptest.NewRequest(http.MethodGet, "/models/cursor?limit=3&sort_by=name&sort_dir=asc", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var page1 ModelsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &page1); err != nil {
+		t.Fatalf("failed to decode page1: %v", err)
+	}
+
+	// Use last entry of page1 as cursor to get page 2 (m04-m06)
+	page1Last := page1.Entries[len(page1.Entries)-1]
+	page1Cursor := modelCursor{SortBy: "name", Name: page1Last.Name, ID: page1Last.ID}
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/models/cursor?limit=3&sort_by=name&sort_dir=asc&cursor=%s&direction=after", url.QueryEscape(page1Cursor.encode())), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var page2 ModelsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &page2); err != nil {
+		t.Fatalf("failed to decode page2: %v", err)
+	}
+
+	if len(page2.Entries) != 3 {
+		t.Fatalf("expected 3 entries on page2, got %d", len(page2.Entries))
+	}
+
+	// Use last entry of page2 as cursor to get page 3 (m07-m09)
+	page2Last := page2.Entries[len(page2.Entries)-1]
+	page2Cursor := modelCursor{SortBy: "name", Name: page2Last.Name, ID: page2Last.ID}
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/models/cursor?limit=3&sort_by=name&sort_dir=asc&cursor=%s&direction=after", url.QueryEscape(page2Cursor.encode())), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var page3 ModelsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &page3); err != nil {
+		t.Fatalf("failed to decode page3: %v", err)
+	}
+
+	if len(page3.Entries) != 3 {
+		t.Fatalf("expected 3 entries on page3, got %d", len(page3.Entries))
+	}
+
+	// Now use page3's first entry as cursor with direction=before, limit=3
+	// This should return the 3 items immediately before page3: m04, m05, m06
+	backwardCursor := modelCursor{
+		SortBy: "name",
+		Name:   page3.Entries[0].Name,
+		ID:     page3.Entries[0].ID,
+	}
+
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/models/cursor?limit=3&sort_by=name&sort_dir=asc&cursor=%s&direction=before", url.QueryEscape(backwardCursor.encode())), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var beforePage ModelsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &beforePage); err != nil {
+		t.Fatalf("failed to decode before page: %v", err)
+	}
+
+	if len(beforePage.Entries) != 3 {
+		t.Fatalf("expected 3 entries for backward page, got %d", len(beforePage.Entries))
+	}
+
+	// Results must be in ASC order (the requested sort_dir)
+	if beforePage.Entries[0].Name != "m04" {
+		t.Errorf("expected first entry 'm04', got '%s'", beforePage.Entries[0].Name)
+	}
+	if beforePage.Entries[1].Name != "m05" {
+		t.Errorf("expected second entry 'm05', got '%s'", beforePage.Entries[1].Name)
+	}
+	if beforePage.Entries[2].Name != "m06" {
+		t.Errorf("expected third entry 'm06', got '%s'", beforePage.Entries[2].Name)
+	}
+
+	// Must have has_after=true (items exist after the cursor by definition)
+	if !beforePage.HasAfter {
+		t.Error("expected HasAfter=true for backward page with cursor")
+	}
+
+	// Must have has_before=true since m01-m03 still precede this page
+	if !beforePage.HasBefore {
+		t.Error("expected HasBefore=true for backward page (more items precede)")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -142,8 +143,18 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	fetchLimit := limit + 1
 
 	// Build ORDER BY based on sort_by
+	// When paginating backward, invert the sort direction so LIMIT picks from
+	// the correct end of the result set, then reverse the slice before returning.
 	orderCol := modelSortColumn(sortBy)
-	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", orderCol, sortDir, sortDir)
+	fetchSortDir := sortDir
+	if direction == "before" {
+		if fetchSortDir == "ASC" {
+			fetchSortDir = "DESC"
+		} else {
+			fetchSortDir = "ASC"
+		}
+	}
+	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", orderCol, fetchSortDir, fetchSortDir)
 
 	dataSQL := "SELECT m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name FROM models m JOIN providers p ON m.provider_id = p.id" +
 		whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
@@ -236,6 +247,12 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		if cursorStr != "" {
 			hasAfter = true
 		}
+	}
+
+	// Reverse entries for backward pagination: we fetched in inverted sort order
+	// to get the correct window, but must return in the user's requested sort order.
+	if direction == "before" {
+		slices.Reverse(entries)
 	}
 
 	// Get total count (separate lightweight query)
