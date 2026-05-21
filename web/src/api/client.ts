@@ -10,6 +10,7 @@ import type {
 	LogsCursorResponse,
 	LogsResponse,
 	Model,
+	ModelsCursorResponse,
 	NanoGPTUsage,
 	OllamaCloudAccount,
 	OpenRouterBalance,
@@ -273,6 +274,31 @@ export const api = {
 					headers: getAuthHeaders(),
 				},
 				"Failed to fetch models",
+			);
+		},
+		cursor: async (params: {
+			cursor?: string;
+			direction: "after" | "before";
+			limit: number;
+			sort_by?: string;
+			sort_dir?: string;
+			provider_id?: string;
+			search?: string;
+			capabilities?: string;
+		}): Promise<ModelsCursorResponse> => {
+			const sp = new URLSearchParams();
+			if (params.cursor) sp.set("cursor", params.cursor);
+			sp.set("direction", params.direction);
+			sp.set("limit", String(params.limit));
+			if (params.sort_by) sp.set("sort_by", params.sort_by);
+			if (params.sort_dir) sp.set("sort_dir", params.sort_dir);
+			if (params.provider_id) sp.set("provider_id", params.provider_id);
+			if (params.search) sp.set("search", params.search);
+			if (params.capabilities) sp.set("capabilities", params.capabilities);
+			return fetchJSON<ModelsCursorResponse>(
+				`${API_BASE}/api/models/cursor?${sp.toString()}`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch models (cursor)",
 			);
 		},
 		update: async (

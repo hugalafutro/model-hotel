@@ -1,3 +1,13 @@
+/** Encode a value as base64, handling Unicode characters safely. */
+export function encodeCursor(obj: unknown): string {
+	const json = JSON.stringify(obj);
+	return btoa(
+		encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+			String.fromCharCode(Number.parseInt(p1, 16)),
+		),
+	);
+}
+
 export function formatDuration(ms: number): string {
 	if (ms < 1000) return `${ms}ms`;
 	return `${(ms / 1000).toFixed(1)}s`;

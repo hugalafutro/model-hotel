@@ -240,7 +240,7 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip="Model name and ID"
 							/>
-							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text select-none hover:text-gray-200">
+							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text">
 								Capabilities
 							</th>
 							{showProviderCol && (
@@ -387,9 +387,13 @@ export function ModelTable({
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
-												className={`px-2 py-0.5 text-xs rounded-full ${model.enabled ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"}`}
+												className={`px-2 py-0.5 text-xs rounded-full ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
 											>
-												{model.enabled ? "Enabled" : "Disabled"}
+												{model.enabled && !model.disabled_manually
+													? "Enabled"
+													: model.enabled && model.disabled_manually
+														? "Manually Disabled"
+														: "Disabled"}
 											</span>
 										</td>
 									</Row>
