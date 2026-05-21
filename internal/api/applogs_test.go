@@ -916,16 +916,20 @@ func TestGetAppLogsCursor_Default(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.Pool().Pool()
 
-	// Insert test app logs
+	// Insert test app logs with different timestamp and created_at values
 	for i := 0; i < 5; i++ {
+		logID := uuid.New().String()
+		eventTs := time.Now().Add(-time.Duration(i) * time.Minute).UTC()
+		createdAt := eventTs.Add(time.Duration(i) * time.Second)
 		_, err := pool.Exec(context.Background(),
-			fmt.Sprintf(`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
-			 VALUES ($1, $2, $3, $4, $5, NOW() - INTERVAL '%d minutes')`, i*10),
-			uuid.New().String(),
-			time.Now().Add(-time.Duration(i)*time.Minute).UTC().Format(time.RFC3339Nano),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			logID,
+			eventTs.Format(time.RFC3339Nano),
 			"info",
 			"test",
-			fmt.Sprintf("test message %d", i))
+			fmt.Sprintf("test message %d", i),
+			createdAt)
 		if err != nil {
 			t.Fatalf("Failed to insert app log: %v", err)
 		}
@@ -974,19 +978,22 @@ func TestGetAppLogsCursor_WithCursor(t *testing.T) {
 	pool := h.Pool().Pool()
 
 	// Insert test app logs with distinct timestamps (1 day apart)
+	// Use different values for timestamp (event time) and created_at (insertion time)
+	// to ensure cursor pagination uses created_at, not timestamp
 	now := time.Now().UTC()
 	for i := 0; i < 5; i++ {
 		logID := uuid.New().String()
-		ts := now.Add(-time.Duration(i) * 24 * time.Hour)
+		eventTs := now.Add(-time.Duration(i) * 24 * time.Hour)
+		createdAt := eventTs.Add(time.Duration(i) * time.Second)
 		_, err := pool.Exec(context.Background(),
 			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
 			 VALUES ($1, $2, $3, $4, $5, $6)`,
 			logID,
-			ts.Format(time.RFC3339Nano),
+			eventTs.Format(time.RFC3339Nano),
 			"info",
 			"test",
 			fmt.Sprintf("test message %d", i),
-			ts)
+			createdAt)
 		if err != nil {
 			t.Fatalf("Failed to insert app log: %v", err)
 		}
@@ -1014,15 +1021,15 @@ func TestGetAppLogsCursor_WithCursor(t *testing.T) {
 		t.Error("expected HasBefore=false for first page (no cursor)")
 	}
 
-	// Build a cursor manually from the last entry's timestamp
-	// Use the timestamp directly from the response to avoid precision issues
-	cursorTs, err := time.Parse(time.RFC3339Nano, firstResp.Entries[len(firstResp.Entries)-1].Timestamp)
+	// Build a cursor from the last entry's created_at (insertion time, not event timestamp)
+	lastEntry := firstResp.Entries[len(firstResp.Entries)-1]
+	cursorCat, err := time.Parse(time.RFC3339Nano, lastEntry.CreatedAt)
 	if err != nil {
-		t.Fatalf("failed to parse cursor timestamp: %v", err)
+		t.Fatalf("failed to parse cursor created_at: %v", err)
 	}
 	cursor := appLogCursor{
-		CreatedAt: cursorTs,
-		ID:        "synthetic-id",
+		CreatedAt: cursorCat,
+		ID:        lastEntry.ID,
 	}
 	cursorStr := cursor.encode()
 

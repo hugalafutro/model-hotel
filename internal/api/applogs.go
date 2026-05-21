@@ -340,14 +340,14 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	if from := q.Get("from"); from != "" {
 		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			conditions = append(conditions, fmt.Sprintf("timestamp >= $%d", argIdx))
+			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
 			args = append(args, t.UTC())
 			argIdx++
 		}
 	}
 	if to := q.Get("to"); to != "" {
 		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			conditions = append(conditions, fmt.Sprintf("timestamp <= $%d", argIdx))
+			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
 			args = append(args, t.UTC())
 			argIdx++
 		}
@@ -355,12 +355,12 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 
 	// Sort
 	allowedSortCols := map[string]string{
-		"time":    "timestamp",
+		"time":    "created_at",
 		"level":   "level",
 		"source":  "source",
 		"message": "message",
 	}
-	sortCol := "timestamp"
+	sortCol := "created_at"
 	if v := q.Get("sort_by"); v != "" {
 		if col, ok := allowedSortCols[v]; ok {
 			sortCol = col
