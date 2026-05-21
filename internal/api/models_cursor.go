@@ -218,7 +218,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM models m"+totalWhereClause, totalCountArgs...).Scan(&total)
+	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM models m JOIN providers p ON m.provider_id = p.id"+totalWhereClause, totalCountArgs...).Scan(&total)
 
 	writeJSON(w, ModelsCursorResponse{
 		Entries:   entries,
