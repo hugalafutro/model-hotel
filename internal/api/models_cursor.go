@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -70,58 +71,11 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build WHERE clause
-	conditions := []string{}
-	args := []interface{}{}
-	argIdx := 1
-
-	if search := q.Get("search"); search != "" {
-		conditions = append(conditions, fmt.Sprintf(
-			"(m.model_id ILIKE $%d OR COALESCE(m.name, '') ILIKE $%d OR COALESCE(m.display_name, '') ILIKE $%d)",
-			argIdx, argIdx, argIdx,
-		))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-	if providerIDs := q.Get("provider_id"); providerIDs != "" {
-		pids := splitComma(providerIDs)
-		if len(pids) > 0 {
-			validPids := make([]uuid.UUID, 0, len(pids))
-			for _, pidStr := range pids {
-				if pid, err := uuid.Parse(pidStr); err == nil {
-					validPids = append(validPids, pid)
-				}
-			}
-			if len(validPids) == 1 {
-				conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", argIdx))
-				args = append(args, validPids[0])
-				argIdx++
-			} else if len(validPids) > 1 {
-				placeholders := make([]string, 0, len(validPids))
-				for _, pid := range validPids {
-					placeholders = append(placeholders, fmt.Sprintf("$%d", argIdx))
-					args = append(args, pid)
-					argIdx++
-				}
-				conditions = append(conditions, fmt.Sprintf("m.provider_id IN (%s)", strings.Join(placeholders, ", ")))
-			}
-		}
-	}
-	if caps := q.Get("capabilities"); caps != "" {
-		// Build a JSON object for @> containment check
-		capMap := map[string]bool{}
-		for _, c := range splitComma(caps) {
-			if c != "" {
-				capMap[c] = true
-			}
-		}
-		if len(capMap) > 0 {
-			capJSON, _ := json.Marshal(capMap)
-			conditions = append(conditions, fmt.Sprintf("COALESCE(m.capabilities, '{}')::jsonb @> $%d::jsonb", argIdx))
-			args = append(args, string(capJSON))
-			argIdx++
-		}
-	}
+	// Build WHERE clause (shared with count query)
+	filterConds, filterArgs := buildModelFilterConditions(q)
+	conditions := filterConds
+	args := filterArgs
+	argIdx := len(args) + 1
 
 	// Apply cursor keyset predicate
 	if cursorStr != "" {
@@ -255,54 +209,8 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		slices.Reverse(entries)
 	}
 
-	// Get total count (separate lightweight query)
-	totalCountConditions := []string{}
-	totalCountArgs := []interface{}{}
-	totalCountArgIdx := 1
-
-	if search := q.Get("search"); search != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf(
-			"(m.model_id ILIKE $%d OR COALESCE(m.name, '') ILIKE $%d OR COALESCE(m.display_name, '') ILIKE $%d)",
-			totalCountArgIdx, totalCountArgIdx, totalCountArgIdx,
-		))
-		totalCountArgs = append(totalCountArgs, "%"+search+"%")
-		totalCountArgIdx++
-	}
-	if providerIDs := q.Get("provider_id"); providerIDs != "" {
-		pids := splitComma(providerIDs)
-		validPids := make([]uuid.UUID, 0, len(pids))
-		for _, pidStr := range pids {
-			if pid, err := uuid.Parse(pidStr); err == nil {
-				validPids = append(validPids, pid)
-			}
-		}
-		if len(validPids) == 1 {
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("m.provider_id = $%d", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, validPids[0])
-			totalCountArgIdx++
-		} else if len(validPids) > 1 {
-			placeholders := make([]string, 0, len(validPids))
-			for _, pid := range validPids {
-				placeholders = append(placeholders, fmt.Sprintf("$%d", totalCountArgIdx))
-				totalCountArgs = append(totalCountArgs, pid)
-				totalCountArgIdx++
-			}
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("m.provider_id IN (%s)", strings.Join(placeholders, ", ")))
-		}
-	}
-	if caps := q.Get("capabilities"); caps != "" {
-		capMap := map[string]bool{}
-		for _, c := range splitComma(caps) {
-			if c != "" {
-				capMap[c] = true
-			}
-		}
-		if len(capMap) > 0 {
-			capJSON, _ := json.Marshal(capMap)
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("COALESCE(m.capabilities, '{}')::jsonb @> $%d::jsonb", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, string(capJSON))
-		}
-	}
+	// Get total count (reuses same filter conditions, minus cursor predicate)
+	totalCountConditions, totalCountArgs := buildModelFilterConditions(q)
 
 	totalWhereClause := ""
 	if len(totalCountConditions) > 0 {
@@ -424,4 +332,61 @@ func joinAnd(conditions []string) string {
 		return ""
 	}
 	return strings.Join(conditions, " AND ")
+}
+
+// buildModelFilterConditions builds the WHERE clause conditions and args for
+// search, provider_id, and capabilities filters. Shared between the main data
+// query and the count query to avoid duplication.
+func buildModelFilterConditions(q url.Values) ([]string, []interface{}) {
+	conditions := []string{}
+	args := []interface{}{}
+	argIdx := 1
+
+	if search := q.Get("search"); search != "" {
+		conditions = append(conditions, fmt.Sprintf(
+			"(m.model_id ILIKE $%d OR COALESCE(m.name, '') ILIKE $%d OR COALESCE(m.display_name, '') ILIKE $%d)",
+			argIdx, argIdx, argIdx,
+		))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+	if providerIDs := q.Get("provider_id"); providerIDs != "" {
+		pids := splitComma(providerIDs)
+		if len(pids) > 0 {
+			validPids := make([]uuid.UUID, 0, len(pids))
+			for _, pidStr := range pids {
+				if pid, err := uuid.Parse(pidStr); err == nil {
+					validPids = append(validPids, pid)
+				}
+			}
+			if len(validPids) == 1 {
+				conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", argIdx))
+				args = append(args, validPids[0])
+				argIdx++
+			} else if len(validPids) > 1 {
+				placeholders := make([]string, 0, len(validPids))
+				for _, pid := range validPids {
+					placeholders = append(placeholders, fmt.Sprintf("$%d", argIdx))
+					args = append(args, pid)
+					argIdx++
+				}
+				conditions = append(conditions, fmt.Sprintf("m.provider_id IN (%s)", strings.Join(placeholders, ", ")))
+			}
+		}
+	}
+	if caps := q.Get("capabilities"); caps != "" {
+		capMap := map[string]bool{}
+		for _, c := range splitComma(caps) {
+			if c != "" {
+				capMap[c] = true
+			}
+		}
+		if len(capMap) > 0 {
+			capJSON, _ := json.Marshal(capMap)
+			conditions = append(conditions, fmt.Sprintf("COALESCE(m.capabilities, '{}')::jsonb @> $%d::jsonb", argIdx))
+			args = append(args, string(capJSON))
+		}
+	}
+
+	return conditions, args
 }

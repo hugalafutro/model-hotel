@@ -192,8 +192,6 @@ export function VirtualModelTable({
 	const pillAvailability = useMemo(() => {
 		const availability = new Map<CapKey, boolean>();
 		for (const m of CAP_META) {
-			const testFilter = new Set(capFilter);
-			testFilter.add(m.key);
 			const hasMatch = entries.some((model) => {
 				const caps = parseCapabilities(model.capabilities);
 				return hasCap(caps, m.key);
@@ -201,7 +199,7 @@ export function VirtualModelTable({
 			availability.set(m.key, hasMatch);
 		}
 		return availability;
-	}, [entries, capFilter]);
+	}, [entries]);
 
 	const virtualizer = useVirtualizer({
 		count: entries.length,
