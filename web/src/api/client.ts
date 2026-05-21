@@ -1,4 +1,5 @@
 import type {
+	AppLogsCursorResponse,
 	BackupEntry,
 	CandidateModel,
 	CreateFailoverGroupRequest,
@@ -6,6 +7,7 @@ import type {
 	DeepSeekBalance,
 	FailoverGroup,
 	FailoverListResponse,
+	LogsCursorResponse,
 	LogsResponse,
 	Model,
 	NanoGPTUsage,
@@ -370,6 +372,33 @@ export const api = {
 				throw new Error(`Failed to purge logs: ${response.status} ${text}`);
 			}
 		},
+		cursor: async (params: {
+			cursor?: string;
+			direction?: "after" | "before";
+			limit?: number;
+			model_id?: string;
+			provider_id?: string;
+			status_code?: string;
+			from?: string;
+			to?: string;
+			sort_dir?: string;
+		}): Promise<LogsCursorResponse> => {
+			return fetchJSON<LogsCursorResponse>(
+				buildUrl("/api/logs/cursor", {
+					cursor: params.cursor,
+					direction: params.direction,
+					limit: params.limit,
+					model_id: params.model_id,
+					provider_id: params.provider_id,
+					status_code: params.status_code,
+					from: params.from,
+					to: params.to,
+					sort_dir: params.sort_dir,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch logs (cursor)",
+			);
+		},
 	},
 
 	appLogs: {
@@ -436,6 +465,33 @@ export const api = {
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch app log history",
+			);
+		},
+		cursor: async (params?: {
+			cursor?: string;
+			direction?: "after" | "before";
+			limit?: number;
+			level?: string;
+			source?: string;
+			search?: string;
+			from?: string;
+			to?: string;
+			sort_dir?: string;
+		}): Promise<AppLogsCursorResponse> => {
+			return fetchJSON<AppLogsCursorResponse>(
+				buildUrl("/api/logs/app/cursor", {
+					cursor: params?.cursor,
+					direction: params?.direction,
+					limit: params?.limit,
+					level: params?.level,
+					source: params?.source,
+					search: params?.search,
+					from: params?.from,
+					to: params?.to,
+					sort_dir: params?.sort_dir,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch app logs (cursor)",
 			);
 		},
 	},

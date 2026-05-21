@@ -4,7 +4,7 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { LogEntry } from "../api/types";
 import { AccentCalendar } from "../components/AccentCalendar";
@@ -23,8 +23,10 @@ import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { PageHeader } from "../components/PageHeader";
+import { VirtualLogTable } from "../components/VirtualLogTable";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
+import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -80,6 +82,10 @@ function RequestLogs() {
 	});
 
 	const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+	const [viewMode, setViewMode] = useLocalStorage<"paginate" | "scroll">(
+		"requestLogsViewMode",
+		"scroll",
+	);
 	const [liveEnabled, setLiveEnabled] = useState(true);
 	const [isVisible, setIsVisible] = useState(!document.hidden);
 	useEffect(() => {
@@ -151,6 +157,57 @@ function RequestLogs() {
 		refetchIntervalInBackground: false,
 		refetchOnWindowFocus: "always",
 		placeholderData: keepPreviousData,
+	});
+
+	// --- Virtual scroll mode data ---
+	const scrollSortDir = sort.dir; // same sort direction as pagination
+
+	const cursorFilters = useMemo(
+		() => ({
+			model_id: debouncedModelId || undefined,
+			provider_id: debouncedProviderId || undefined,
+			status_code: filters.status_code || undefined,
+			from: dateFrom || undefined,
+			to: dateTo || undefined,
+		}),
+		[
+			debouncedModelId,
+			debouncedProviderId,
+			filters.status_code,
+			dateFrom,
+			dateTo,
+		],
+	);
+
+	const {
+		entries: scrollEntries,
+		total: scrollTotal,
+		hasBefore,
+		hasAfter,
+		isLoadingInitial: isScrollLoading,
+		isLoadingBefore,
+		isLoadingAfter,
+		fetchNewer: scrollFetchNewer,
+		fetchOlder: scrollFetchOlder,
+		error: scrollError,
+	} = useBidirectionalFetch<LogEntry>({
+		fetchFn: (params) =>
+			api.logs.cursor({
+				cursor: params.cursor,
+				direction: params.direction,
+				limit: params.limit,
+				sort_dir: params.sort_dir,
+				model_id: params.model_id as string | undefined,
+				provider_id: params.provider_id as string | undefined,
+				status_code: params.status_code as string | undefined,
+				from: params.from as string | undefined,
+				to: params.to as string | undefined,
+			}),
+		filters: cursorFilters,
+		sortDir: scrollSortDir,
+		getCursor: (entry) =>
+			btoa(JSON.stringify({ created_at: entry.created_at, id: entry.id })),
+		getId: (entry) => entry.id,
 	});
 
 	// Distinguish between "no data has arrived yet" (loading) and
@@ -226,7 +283,9 @@ function RequestLogs() {
 				/>
 			)}
 
-			<div className="space-y-4">
+			<div
+				className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden h-[calc(100dvh-1rem)]" : "flex-1 min-h-0"}`}
+			>
 				<PageHeader
 					icon={ScrollText}
 					title="Requests"
@@ -256,7 +315,7 @@ function RequestLogs() {
 						</button>
 					}
 					actions={
-						displayTotal > 0 ? (
+						viewMode === "paginate" && displayTotal > 0 ? (
 							<PaginationBar
 								page={page}
 								totalPages={Math.ceil(displayTotal / pageSize)}
@@ -303,6 +362,30 @@ function RequestLogs() {
 							</button>
 						</div>
 						<div className="flex items-center gap-2">
+							{/* View mode toggle */}
+							<button
+								type="button"
+								onClick={() =>
+									setViewMode(viewMode === "paginate" ? "scroll" : "paginate")
+								}
+								className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border cursor-pointer ${
+									viewMode === "scroll"
+										? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
+										: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
+								}`}
+								title={
+									viewMode === "paginate"
+										? "Switch to scroll mode"
+										: "Switch to pagination mode"
+								}
+								aria-label={
+									viewMode === "paginate"
+										? "Switch to scroll mode"
+										: "Switch to pagination mode"
+								}
+							>
+								{viewMode === "paginate" ? "⇊ Scroll" : "⬡ Pages"}
+							</button>
 							<FilterInput
 								value={filters.model_id}
 								onChange={(v) => {
@@ -450,7 +533,7 @@ function RequestLogs() {
 					</div>
 				)}
 
-				{(!isLoading || logsData) && (
+				{viewMode === "paginate" && (!isLoading || logsData) && (
 					<div className="ui-card overflow-x-auto">
 						<table className="w-full table-fixed ui-table min-w-250">
 							<colgroup>
@@ -696,6 +779,41 @@ function RequestLogs() {
 								)}
 							</tbody>
 						</table>
+					</div>
+				)}
+
+				{viewMode === "scroll" && (
+					<div className="flex flex-col flex-1 min-h-0">
+						{isScrollLoading && scrollEntries.length === 0 && (
+							<LoadingSpinner />
+						)}
+						{scrollError && scrollEntries.length === 0 && (
+							<div className="ui-card p-8 text-center">
+								<p className="text-red-400 text-sm">
+									Failed to load logs: {scrollError}
+								</p>
+							</div>
+						)}
+						{(!isScrollLoading || scrollEntries.length > 0) && (
+							<VirtualLogTable
+								entries={scrollEntries}
+								total={scrollTotal}
+								hasBefore={hasBefore}
+								hasAfter={hasAfter}
+								isLoadingBefore={isLoadingBefore}
+								isLoadingAfter={isLoadingAfter}
+								onFetchNewer={scrollFetchNewer}
+								onFetchOlder={scrollFetchOlder}
+								onRowClick={(entry) => setSelectedLog(entry)}
+								sortDir={scrollSortDir}
+								onSortToggle={() =>
+									setSort((prev) => ({
+										field: prev.field,
+										dir: prev.dir === "asc" ? "desc" : "asc",
+									}))
+								}
+							/>
+						)}
 					</div>
 				)}
 			</div>

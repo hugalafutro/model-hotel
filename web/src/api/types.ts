@@ -97,6 +97,7 @@ export interface LogEntry {
 }
 
 export interface AppLogEntry {
+	id?: string;
 	timestamp: string;
 	level: "info" | "warning" | "error";
 	source: string;
@@ -108,6 +109,22 @@ export interface LogsResponse {
 	total: number;
 	page: number;
 	per_page: number;
+}
+
+export interface LogsCursorResponse {
+	entries: LogEntry[];
+	total: number;
+	has_before: boolean;
+	has_after: boolean;
+}
+
+export interface AppLogsCursorResponse {
+	entries: AppLogEntry[];
+	total: number;
+	has_before: boolean;
+	has_after: boolean;
+	level_counts?: Record<string, number>;
+	source_counts?: Record<string, number>;
 }
 
 export interface Stats {
