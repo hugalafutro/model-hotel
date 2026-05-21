@@ -82,11 +82,28 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
-	if providerID := q.Get("provider_id"); providerID != "" {
-		if pid, err := uuid.Parse(providerID); err == nil {
-			conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", argIdx))
-			args = append(args, pid)
-			argIdx++
+	if providerIDs := q.Get("provider_id"); providerIDs != "" {
+		pids := splitComma(providerIDs)
+		if len(pids) > 0 {
+			validPids := make([]uuid.UUID, 0, len(pids))
+			for _, pidStr := range pids {
+				if pid, err := uuid.Parse(pidStr); err == nil {
+					validPids = append(validPids, pid)
+				}
+			}
+			if len(validPids) == 1 {
+				conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", argIdx))
+				args = append(args, validPids[0])
+				argIdx++
+			} else if len(validPids) > 1 {
+				placeholders := make([]string, 0, len(validPids))
+				for _, pid := range validPids {
+					placeholders = append(placeholders, fmt.Sprintf("$%d", argIdx))
+					args = append(args, pid)
+					argIdx++
+				}
+				conditions = append(conditions, fmt.Sprintf("m.provider_id IN (%s)", strings.Join(placeholders, ", ")))
+			}
 		}
 	}
 	if caps := q.Get("capabilities"); caps != "" {
@@ -128,7 +145,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	orderCol := modelSortColumn(sortBy)
 	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", orderCol, sortDir, sortDir)
 
-	dataSQL := "SELECT m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled FROM models m JOIN providers p ON m.provider_id = p.id" +
+	dataSQL := "SELECT m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name FROM models m JOIN providers p ON m.provider_id = p.id" +
 		whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
 	args = append(args, fetchLimit)
 
@@ -164,13 +181,12 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 			CreatedAt                    time.Time
 			LastSeenAt                   time.Time
 			ProviderName                 string
-			ProviderEnabled              bool
 		}
 		if err := rows.Scan(
 			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
 			&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
 		); err != nil {
 			debuglog.Error("cursor row scan failed", "error", err)
 			continue
@@ -217,6 +233,9 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 			hasBefore = true
 			entries = entries[:limit]
 		}
+		if cursorStr != "" {
+			hasAfter = true
+		}
 	}
 
 	// Get total count (separate lightweight query)
@@ -232,11 +251,26 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		totalCountArgs = append(totalCountArgs, "%"+search+"%")
 		totalCountArgIdx++
 	}
-	if providerID := q.Get("provider_id"); providerID != "" {
-		if pid, err := uuid.Parse(providerID); err == nil {
+	if providerIDs := q.Get("provider_id"); providerIDs != "" {
+		pids := splitComma(providerIDs)
+		validPids := make([]uuid.UUID, 0, len(pids))
+		for _, pidStr := range pids {
+			if pid, err := uuid.Parse(pidStr); err == nil {
+				validPids = append(validPids, pid)
+			}
+		}
+		if len(validPids) == 1 {
 			totalCountConditions = append(totalCountConditions, fmt.Sprintf("m.provider_id = $%d", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, pid)
+			totalCountArgs = append(totalCountArgs, validPids[0])
 			totalCountArgIdx++
+		} else if len(validPids) > 1 {
+			placeholders := make([]string, 0, len(validPids))
+			for _, pid := range validPids {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", totalCountArgIdx))
+				totalCountArgs = append(totalCountArgs, pid)
+				totalCountArgIdx++
+			}
+			totalCountConditions = append(totalCountConditions, fmt.Sprintf("m.provider_id IN (%s)", strings.Join(placeholders, ", ")))
 		}
 	}
 	if caps := q.Get("capabilities"); caps != "" {

@@ -436,6 +436,112 @@ func TestListModelsCursor_SortByContext(t *testing.T) {
 
 // TestListModelsCursor_ProviderIDFilter tests cursor pagination with provider_id filter.
 
+// TestListModelsCursor_MultiProviderFilter tests cursor pagination with comma-separated provider_id filter.
+func TestListModelsCursor_MultiProviderFilter(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create three providers
+	provider1Data := fmt.Sprintf(`{"name": "multi-prov1-%s", "base_url": "https://api.example.com", "api_key": "test-key1"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(provider1Data))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider1: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var provider1Resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &provider1Resp); err != nil {
+		t.Fatalf("Failed to parse provider1 response: %v", err)
+	}
+
+	provider2Data := fmt.Sprintf(`{"name": "multi-prov2-%s", "base_url": "https://api.anthropic.com", "api_key": "test-key2"}`, uuid.New().String()[:8])
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(provider2Data))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider2: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var provider2Resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &provider2Resp); err != nil {
+		t.Fatalf("Failed to parse provider2 response: %v", err)
+	}
+
+	provider3Data := fmt.Sprintf(`{"name": "multi-prov3-%s", "base_url": "https://api.example.com/3", "api_key": "test-key3"}`, uuid.New().String()[:8])
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(provider3Data))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider3: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var provider3Resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &provider3Resp); err != nil {
+		t.Fatalf("Failed to parse provider3 response: %v", err)
+	}
+
+	// Insert models for all three providers
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, capabilities, enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+		uuid.New(), provider1Resp.ID, "p1-model", "P1 Model", `{}`, true)
+	if err != nil {
+		t.Fatalf("Failed to insert p1 model: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, capabilities, enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+		uuid.New(), provider2Resp.ID, "p2-model", "P2 Model", `{}`, true)
+	if err != nil {
+		t.Fatalf("Failed to insert p2 model: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, capabilities, enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+		uuid.New(), provider3Resp.ID, "p3-model", "P3 Model", `{}`, true)
+	if err != nil {
+		t.Fatalf("Failed to insert p3 model: %v", err)
+	}
+
+	// Filter by both provider1 AND provider2 (comma-separated)
+	req = httptest.NewRequest(http.MethodGet, "/models/cursor?provider_id="+provider1Resp.ID+","+provider2Resp.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp ModelsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Entries) != 2 {
+		t.Errorf("expected 2 entries for provider1+provider2, got %d", len(resp.Entries))
+	}
+	// Verify provider3's model is excluded
+	for _, entry := range resp.Entries {
+		if entry.ModelID == "p3-model" {
+			t.Error("p3-model should not appear in filtered results")
+		}
+	}
+}
+
 // TestListModelsCursor_SortByProvider tests cursor pagination sorted by provider name.
 func TestListModelsCursor_SortByProvider(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)

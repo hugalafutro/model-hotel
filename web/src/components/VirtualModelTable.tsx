@@ -91,9 +91,9 @@ export function VirtualModelTable({
 			search: searchQuery || undefined,
 			sort_by: sort.field,
 		};
-		// Only pass provider_id if exactly one provider is selected
-		if (selectedProviders.size === 1) {
-			result.provider_id = Array.from(selectedProviders)[0];
+		// Pass provider_id(s): comma-separated for multiple selection
+		if (selectedProviders.size > 0) {
+			result.provider_id = Array.from(selectedProviders).join(",");
 		}
 		if (capFilter.size > 0) {
 			result.capabilities = Array.from(capFilter).join(",");
@@ -253,84 +253,9 @@ export function VirtualModelTable({
 			? virtualItems[virtualItems.length - 1].index + 1
 			: 0;
 
-	if (entries.length === 0 && !isLoadingInitial) {
-		return (
-			<div className="flex flex-col">
-				<div className="flex items-center gap-4 mb-4">
-					<div className="flex items-center gap-2 shrink-0">
-						<FilterInput
-							value={searchQuery}
-							onChange={setSearchQuery}
-							placeholder="Search models…"
-							className="w-[320px]"
-							autoFocus
-						/>
-					</div>
-				</div>
-				<div
-					ref={scrollRef}
-					className="ui-card overflow-y-auto overflow-x-auto"
-					style={{
-						overflowAnchor: "none",
-						height: "calc(100dvh - 242px)",
-						minHeight: "200px",
-					}}
-				>
-					<table className="w-full table-fixed ui-table min-w-250">
-						<colgroup>
-							{showProviderCol ? (
-								<>
-									<col className="w-[30%]" />
-									<col className="w-[24%]" />
-									<col className="w-[16%]" />
-									<col className="w-[6%]" />
-									<col className="w-[2%]" />
-									<col className="w-[4%]" />
-									<col className="w-[2%]" />
-									<col className="w-[4%]" />
-									<col className="w-[2%]" />
-									<col className="w-[8%]" />
-								</>
-							) : (
-								<>
-									<col className="w-[38%]" />
-									<col className="w-[28%]" />
-									<col className="w-[10%]" />
-									<col className="w-[2%]" />
-									<col className="w-[6%]" />
-									<col className="w-[2%]" />
-									<col className="w-[6%]" />
-									<col className="w-[2%]" />
-									<col className="w-[6%]" />
-								</>
-							)}
-						</colgroup>
-						<tbody>
-							<tr>
-								<td
-									colSpan={showProviderCol ? 10 : 9}
-									className="px-4 py-8 text-center text-gray-500 text-sm"
-								>
-									No models found
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-				<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
-					<span>0 / {formatNumber(total)}</span>
-					<span className="flex items-center gap-2">
-						{isLoadingBefore && (
-							<span className="text-(--accent)">↻ Loading newer…</span>
-						)}
-						{isLoadingAfter && (
-							<span className="text-(--accent)">↻ Loading older…</span>
-						)}
-					</span>
-				</div>
-			</div>
-		);
-	}
+	// Render the full table (including filter controls) even when empty,
+	// so users can clear/change filters when they get zero results.
+	const isEmpty = entries.length === 0 && !isLoadingInitial;
 
 	return (
 		<div className="flex flex-col min-h-0">
@@ -562,88 +487,107 @@ export function VirtualModelTable({
 						</tr>
 					</thead>
 					<tbody>
-						{paddingTop > 0 && (
+						{isEmpty ? (
 							<tr>
 								<td
 									colSpan={showProviderCol ? 10 : 9}
-									style={{ height: paddingTop, padding: 0, border: "none" }}
-								/>
-							</tr>
-						)}
-						{virtualItems.map((vItem) => {
-							const model = entries[vItem.index];
-							const caps = parseCapabilities(model.capabilities);
-							const isEnabled = model.enabled;
-							return (
-								<tr
-									key={model.id}
-									data-index={vItem.index}
-									className={`hover:bg-(--surface-hover) transition-colors ${onModelClick ? "cursor-pointer" : ""}`}
-									onClick={() => onModelClick?.(model)}
+									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
-									<td className="px-4 py-1.5">
-										<div className="flex flex-col">
-											<span
-												className={`text-left text-sm ${isEnabled ? "font-medium text-white" : "text-gray-500"}`}
-											>
-												{model.name ||
-													proxyModelID(model.provider_name, model.model_id)}
-											</span>
-											<span className="text-[11px] text-gray-500 font-mono leading-tight truncate">
-												{proxyModelID(model.provider_name, model.model_id)}
-											</span>
-										</div>
-									</td>
-									<td className="px-4 py-1.5">
-										<div className="flex flex-wrap gap-1">
-											{CAP_META.filter((m) => hasCap(caps, m.key)).map((m) => (
-												<span
-													key={m.key}
-													className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${m.style}`}
-												>
-													{m.label}
-												</span>
-											))}
-										</div>
-									</td>
-									{showProviderCol && (
-										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300 truncate">
-											{model.provider_name}
-										</td>
-									)}
-									<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-400">
-										{formatRelativeTime(model.last_seen_at)}
-									</td>
-									<td aria-hidden />
-									<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
-										{formatNumber(model.context_length)}
-									</td>
-									<td aria-hidden />
-									<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
-										{formatNumber(model.max_output_tokens)}
-									</td>
-									<td aria-hidden />
-									<td className="px-4 py-1.5 whitespace-nowrap">
-										<span
-											className={`px-2 py-0.5 text-xs rounded-full ${
-												isEnabled
-													? "bg-green-900/50 text-green-400"
-													: "bg-red-900/50 text-red-400"
-											}`}
-										>
-											{isEnabled ? "Enabled" : "Disabled"}
-										</span>
-									</td>
-								</tr>
-							);
-						})}
-						{paddingBottom > 0 && (
-							<tr>
-								<td
-									colSpan={showProviderCol ? 10 : 9}
-									style={{ height: paddingBottom, padding: 0, border: "none" }}
-								/>
+									No models found
+								</td>
 							</tr>
+						) : (
+							<>
+								{paddingTop > 0 && (
+									<tr>
+										<td
+											colSpan={showProviderCol ? 10 : 9}
+											style={{ height: paddingTop, padding: 0, border: "none" }}
+										/>
+									</tr>
+								)}
+								{virtualItems.map((vItem) => {
+									const model = entries[vItem.index];
+									const caps = parseCapabilities(model.capabilities);
+									const isEnabled = model.enabled;
+									return (
+										<tr
+											key={model.id}
+											data-index={vItem.index}
+											className={`hover:bg-(--surface-hover) transition-colors ${onModelClick ? "cursor-pointer" : ""}`}
+											onClick={() => onModelClick?.(model)}
+										>
+											<td className="px-4 py-1.5">
+												<div className="flex flex-col">
+													<span
+														className={`text-left text-sm ${isEnabled ? "font-medium text-white" : "text-gray-500"}`}
+													>
+														{model.name ||
+															proxyModelID(model.provider_name, model.model_id)}
+													</span>
+													<span className="text-[11px] text-gray-500 font-mono leading-tight truncate">
+														{proxyModelID(model.provider_name, model.model_id)}
+													</span>
+												</div>
+											</td>
+											<td className="px-4 py-1.5">
+												<div className="flex flex-wrap gap-1">
+													{CAP_META.filter((m) => hasCap(caps, m.key)).map(
+														(m) => (
+															<span
+																key={m.key}
+																className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${m.style}`}
+															>
+																{m.label}
+															</span>
+														),
+													)}
+												</div>
+											</td>
+											{showProviderCol && (
+												<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300 truncate">
+													{model.provider_name}
+												</td>
+											)}
+											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-400">
+												{formatRelativeTime(model.last_seen_at)}
+											</td>
+											<td aria-hidden />
+											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
+												{formatNumber(model.context_length)}
+											</td>
+											<td aria-hidden />
+											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
+												{formatNumber(model.max_output_tokens)}
+											</td>
+											<td aria-hidden />
+											<td className="px-4 py-1.5 whitespace-nowrap">
+												<span
+													className={`px-2 py-0.5 text-xs rounded-full ${
+														isEnabled
+															? "bg-green-900/50 text-green-400"
+															: "bg-red-900/50 text-red-400"
+													}`}
+												>
+													{isEnabled ? "Enabled" : "Disabled"}
+												</span>
+											</td>
+										</tr>
+									);
+								})}
+								{paddingBottom > 0 && (
+									<tr>
+										<td
+											colSpan={showProviderCol ? 10 : 9}
+											style={{
+												height: paddingBottom,
+												padding: 0,
+												border: "none",
+											}}
+										/>
+									</tr>
+								)}
+							</>
 						)}
 					</tbody>
 				</table>
