@@ -98,6 +98,7 @@ export interface LogEntry {
 
 export interface AppLogEntry {
 	id?: string;
+	created_at?: string;
 	timestamp: string;
 	level: "info" | "warning" | "error";
 	source: string;

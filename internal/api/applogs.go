@@ -19,9 +19,10 @@ import (
 // AppLogEntry represents a single captured application log line.
 type AppLogEntry struct {
 	ID        string `json:"id,omitempty"`
-	Timestamp string `json:"timestamp"` // RFC3339Nano
-	Level     string `json:"level"`     // "info", "warning", "error"
-	Source    string `json:"source"`    // "proxy", "auth", "discovery", etc. (without brackets)
+	CreatedAt string `json:"created_at,omitempty"` // RFC3339Nano, DB insertion time (keyset sort key)
+	Timestamp string `json:"timestamp"`            // RFC3339Nano, event time
+	Level     string `json:"level"`                // "info", "warning", "error"
+	Source    string `json:"source"`               // "proxy", "auth", "discovery", etc. (without brackets)
 	Message   string `json:"message"`
 }
 
@@ -589,7 +590,7 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	// Fetch entries (limit+1 to detect has_more)
 	fetchLimit := limit + 1
 	dataSQL := fmt.Sprintf(
-		"SELECT id, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
+		"SELECT id, created_at, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
 		whereClause, sortDir, sortDir, argIdx,
 	)
 	args = append(args, fetchLimit)
@@ -606,10 +607,12 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		var id string
 		var e AppLogEntry
 		var ts time.Time
-		if err := rows.Scan(&id, &ts, &e.Level, &e.Source, &e.Message); err != nil {
+		var cat time.Time
+		if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message); err != nil {
 			continue
 		}
 		e.ID = id
+		e.CreatedAt = cat.UTC().Format(time.RFC3339Nano)
 		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 		entries = append(entries, e)
 	}

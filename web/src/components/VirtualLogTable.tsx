@@ -112,7 +112,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					className="ui-card overflow-y-auto overflow-x-auto"
 					style={{
 						overflowAnchor: "none",
-						height: "calc(100dvh - 210px)",
+						height: "calc(100dvh - 242px)",
 						minHeight: "200px",
 					}}
 				>

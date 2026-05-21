@@ -152,7 +152,7 @@ export function AppLogs() {
 		getCursor: (entry) =>
 			btoa(
 				JSON.stringify({
-					created_at: entry.timestamp,
+					created_at: entry.created_at,
 					id: entry.id ?? "",
 				}),
 			),

@@ -73,6 +73,11 @@ export function useBidirectionalFetch<T>({
 	const isLoadingAfterRef = useRef<boolean>(false);
 	const isLoadingInitialRef = useRef<boolean>(false);
 
+	// Generation counter: incremented on every reset/filter change.
+	// Each fetch captures the current generation at start and discards
+	// results if the generation has moved on (stale in-flight request).
+	const generationRef = useRef<number>(0);
+
 	// Ref to track previous filter values for change detection
 	const prevFiltersRef = useRef<Record<string, string | undefined> | null>(
 		null,
@@ -80,6 +85,7 @@ export function useBidirectionalFetch<T>({
 	const prevSortDirRef = useRef<string | null>(null);
 
 	const reset = useCallback(() => {
+		generationRef.current++;
 		setEntries([]);
 		setTotal(0);
 		setHasBefore(false);
@@ -97,6 +103,8 @@ export function useBidirectionalFetch<T>({
 		setIsLoadingInitial(true);
 		setError(null);
 
+		const gen = generationRef.current;
+
 		try {
 			const response = await fetchFn({
 				direction: "after",
@@ -105,23 +113,30 @@ export function useBidirectionalFetch<T>({
 				...filters,
 			});
 
+			// Discard if a newer fetch was triggered (filter change, etc.)
+			if (gen !== generationRef.current) return;
+
 			setEntries(response.entries);
 			setTotal(response.total);
 			setHasBefore(response.has_before);
 			setHasAfter(response.has_after);
 		} catch (err) {
+			if (gen !== generationRef.current) return;
 			setError(
 				err instanceof Error ? err.message : "Failed to fetch initial data",
 			);
 		} finally {
-			isLoadingInitialRef.current = false;
-			setIsLoadingInitial(false);
+			if (gen === generationRef.current) {
+				isLoadingInitialRef.current = false;
+				setIsLoadingInitial(false);
+			}
 		}
 	}, [fetchFn, filters, sortDir]);
 
 	const fetchNewer = useCallback(async () => {
 		if (
 			isLoadingBeforeRef.current ||
+			isLoadingInitialRef.current ||
 			entries.length === 0 ||
 			entries.length >= MAX_ROWS
 		) {
@@ -135,6 +150,8 @@ export function useBidirectionalFetch<T>({
 		setIsLoadingBefore(true);
 		setError(null);
 
+		const gen = generationRef.current;
+
 		try {
 			const response = await fetchFn({
 				cursor,
@@ -143,6 +160,8 @@ export function useBidirectionalFetch<T>({
 				sort_dir: sortDir,
 				...filters,
 			});
+
+			if (gen !== generationRef.current) return;
 
 			if (response.entries.length === 0) {
 				setHasBefore(false);
@@ -160,18 +179,22 @@ export function useBidirectionalFetch<T>({
 
 			setHasBefore(response.has_before);
 		} catch (err) {
+			if (gen !== generationRef.current) return;
 			setError(
 				err instanceof Error ? err.message : "Failed to fetch newer entries",
 			);
 		} finally {
-			isLoadingBeforeRef.current = false;
-			setIsLoadingBefore(false);
+			if (gen === generationRef.current) {
+				isLoadingBeforeRef.current = false;
+				setIsLoadingBefore(false);
+			}
 		}
 	}, [fetchFn, filters, sortDir, entries, getCursor, getId]);
 
 	const fetchOlder = useCallback(async () => {
 		if (
 			isLoadingAfterRef.current ||
+			isLoadingInitialRef.current ||
 			entries.length === 0 ||
 			entries.length >= MAX_ROWS
 		) {
@@ -185,6 +208,8 @@ export function useBidirectionalFetch<T>({
 		setIsLoadingAfter(true);
 		setError(null);
 
+		const gen = generationRef.current;
+
 		try {
 			const response = await fetchFn({
 				cursor,
@@ -193,6 +218,8 @@ export function useBidirectionalFetch<T>({
 				sort_dir: sortDir,
 				...filters,
 			});
+
+			if (gen !== generationRef.current) return;
 
 			if (response.entries.length === 0) {
 				setHasAfter(false);
@@ -210,12 +237,15 @@ export function useBidirectionalFetch<T>({
 
 			setHasAfter(response.has_after);
 		} catch (err) {
+			if (gen !== generationRef.current) return;
 			setError(
 				err instanceof Error ? err.message : "Failed to fetch older entries",
 			);
 		} finally {
-			isLoadingAfterRef.current = false;
-			setIsLoadingAfter(false);
+			if (gen === generationRef.current) {
+				isLoadingAfterRef.current = false;
+				setIsLoadingAfter(false);
+			}
 		}
 	}, [fetchFn, filters, sortDir, entries, getCursor, getId]);
 
