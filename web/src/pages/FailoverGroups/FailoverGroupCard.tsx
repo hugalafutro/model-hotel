@@ -159,7 +159,7 @@ export function FailoverGroupCard({
 					items={localEntries.map((e) => e.model_uuid)}
 					strategy={verticalListSortingStrategy}
 				>
-					<div className="space-y-1">
+					<div className="space-y-0.5">
 						{localEntries.map((entry) => (
 							<SortableEntry
 								key={entry.model_uuid}
