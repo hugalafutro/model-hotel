@@ -500,7 +500,7 @@ export function FailoverGroups() {
 			)}
 
 			{groups && groups.length === 0 ? (
-				originFilter ? (
+				originFilter && !searchQuery && !providerFilter && !enabledFilter ? (
 					<EmptyState
 						message={`No ${originFilter === "auto" ? "auto-discovered" : "manually created"} groups found`}
 						action={{
@@ -514,7 +514,7 @@ export function FailoverGroups() {
 									: setOriginFilter(""),
 						}}
 					/>
-				) : searchQuery || providerFilter || enabledFilter ? (
+				) : searchQuery || providerFilter || enabledFilter || originFilter ? (
 					<EmptyState
 						message="No groups matching filters"
 						action={{
