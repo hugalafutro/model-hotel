@@ -189,18 +189,6 @@ export function VirtualModelTable({
 		return caps;
 	}, [entries]);
 
-	const pillAvailability = useMemo(() => {
-		const availability = new Map<CapKey, boolean>();
-		for (const m of CAP_META) {
-			const hasMatch = entries.some((model) => {
-				const caps = parseCapabilities(model.capabilities);
-				return hasCap(caps, m.key);
-			});
-			availability.set(m.key, hasMatch);
-		}
-		return availability;
-	}, [entries]);
-
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
@@ -439,16 +427,13 @@ export function VirtualModelTable({
 								<span className="flex flex-wrap gap-1">
 									{CAP_META.filter((m) => existingCaps.has(m.key)).map((m) => {
 										const isActive = capFilter.has(m.key);
-										const isAvailable = pillAvailability.get(m.key) ?? false;
-										const isDisabled = !isActive && !isAvailable;
 										return (
 											<button
 												key={m.key}
 												type="button"
-												disabled={isDisabled}
 												onClick={() => toggleCapFilter(m.key)}
 												className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-													isActive ? m.style : isDisabled ? m.disabled : m.muted
+													isActive ? m.style : m.muted
 												}`}
 											>
 												{m.label}
