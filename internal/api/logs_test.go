@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -666,5 +667,273 @@ func TestListLogs_DateFilterInvalidFormat(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListLogsCursor Tests
+// ---------------------------------------------------------------------------
+
+func TestListLogsCursor_Default(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	providerData := fmt.Sprintf(`{"name": "test-cursor-provider-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert test request logs
+	pool := h.Pool().Pool()
+	for i := 0; i < 5; i++ {
+		_, err := pool.Exec(context.Background(),
+			fmt.Sprintf(`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+			 VALUES ($1, $2, $3, $4, $5, NOW() - INTERVAL '%d minutes')`, i*10),
+			uuid.New(), providerResp.ID, "test-model", 200, 100)
+		if err != nil {
+			t.Fatalf("Failed to insert request log: %v", err)
+		}
+	}
+
+	// Clear cache to ensure fresh data
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	// Test default cursor request (no cursor)
+	req = httptest.NewRequest("GET", "/logs/cursor", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Entries) == 0 {
+		t.Error("expected entries to be returned")
+	}
+	if resp.Total < 5 {
+		t.Errorf("expected total >= 5, got %d", resp.Total)
+	}
+	// First page should have has_before=false (nothing newer)
+	if resp.HasBefore {
+		t.Error("expected HasBefore=false for first page")
+	}
+	// has_after depends on whether we have more entries than the limit
+}
+
+func TestListLogsCursor_WithCursor(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	providerData := fmt.Sprintf(`{"name": "test-cursor2-provider-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert test request logs with known timestamps
+	pool := h.Pool().Pool()
+	for i := 0; i < 10; i++ {
+		logID := uuid.New()
+		// Stagger timestamps
+		ts := time.Now().Add(-time.Duration(i) * time.Minute)
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			logID, providerResp.ID, "test-model", 200, 100, ts)
+		if err != nil {
+			t.Fatalf("Failed to insert request log: %v", err)
+		}
+	}
+
+	// Clear cache
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	// First request to get cursor
+	req = httptest.NewRequest("GET", "/logs/cursor?limit=3", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var firstResp LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &firstResp); err != nil {
+		t.Fatalf("failed to decode first response: %v", err)
+	}
+
+	if len(firstResp.Entries) != 3 {
+		t.Errorf("expected 3 entries, got %d", len(firstResp.Entries))
+	}
+
+	// Encode cursor from last entry
+	cursor := logCursor{
+		CreatedAt: firstResp.Entries[len(firstResp.Entries)-1].CreatedAt,
+		ID:        firstResp.Entries[len(firstResp.Entries)-1].ID,
+	}
+	cursorStr := cursor.encode()
+
+	// Second request with cursor - should have has_before=true
+	req = httptest.NewRequest("GET", "/logs/cursor?cursor="+cursorStr+"&limit=3", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second request: expected 200, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	var secondResp LogsCursorResponse
+	if err := json.Unmarshal(w2.Body.Bytes(), &secondResp); err != nil {
+		t.Fatalf("failed to decode second response: %v", err)
+	}
+
+	if !secondResp.HasBefore {
+		t.Error("expected HasBefore=true when using cursor")
+	}
+	if len(secondResp.Entries) == 0 {
+		t.Error("expected entries in second page")
+	}
+}
+
+func TestListLogsCursor_Filters(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create providers
+	providerData1 := fmt.Sprintf(`{"name": "test-filter-provider1-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData1))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	var providerResp1 struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp1); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	providerData2 := fmt.Sprintf(`{"name": "test-filter-provider2-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData2))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	var providerResp2 struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp2); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert logs with different models and status codes
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())`,
+		uuid.New(), providerResp1.ID, "model-a", 200, 100)
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())`,
+		uuid.New(), providerResp1.ID, "model-b", 404, 150)
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())`,
+		uuid.New(), providerResp2.ID, "model-a", 500, 200)
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Clear cache
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	// Test model_id filter
+	req = httptest.NewRequest("GET", "/logs/cursor?model_id=model-a", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("model_id filter: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Should have 2 entries with model-a
+	for _, entry := range resp.Entries {
+		if !strings.Contains(entry.ModelID, "model-a") {
+			t.Errorf("expected model_id to contain 'model-a', got %q", entry.ModelID)
+		}
+	}
+
+	// Test status_code filter (4xx)
+	req = httptest.NewRequest("GET", "/logs/cursor?status_code=4xx", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status_code filter: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	for _, entry := range resp.Entries {
+		if entry.StatusCode < 400 || entry.StatusCode >= 500 {
+			t.Errorf("expected status_code in 4xx range, got %d", entry.StatusCode)
+		}
 	}
 }

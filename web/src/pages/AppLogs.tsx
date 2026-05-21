@@ -18,8 +18,10 @@ import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
 import { PageHeader } from "../components/PageHeader";
+import { VirtualAppLogTable } from "../components/VirtualAppLogTable";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useToast } from "../context/ToastContext";
+import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -41,6 +43,10 @@ export function AppLogs() {
 	const [selectedLog, setSelectedLog] = useState<AppLogEntry | null>(null);
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useLocalStorage("appLogsPageSize", 20);
+	const [viewMode, setViewMode] = useLocalStorage<"paginate" | "scroll">(
+		"appLogsViewMode",
+		"scroll",
+	);
 	const { toast } = useToast();
 
 	const debouncedSearch = useDebounce(searchFilter, 300);
@@ -101,6 +107,58 @@ export function AppLogs() {
 			}),
 		refetchInterval: liveEnabled ? 2000 : false,
 		placeholderData: keepPreviousData,
+	});
+
+	// --- Virtual scroll mode data ---
+	const scrollSortDir = sort.dir;
+
+	const cursorFilters = useMemo(
+		() => ({
+			level: levelFilter !== "all" ? levelFilter : undefined,
+			source: sourceFilter !== "all" ? sourceFilter : undefined,
+			search: debouncedSearch || undefined,
+			from: dateFrom || undefined,
+			to: dateTo || undefined,
+		}),
+		[levelFilter, sourceFilter, debouncedSearch, dateFrom, dateTo],
+	);
+
+	const {
+		entries: scrollEntries,
+		total: scrollTotal,
+		hasBefore,
+		hasAfter,
+		isLoadingInitial: isScrollLoading,
+		isLoadingBefore,
+		isLoadingAfter,
+		fetchNewer: scrollFetchNewer,
+		fetchOlder: scrollFetchOlder,
+		error: scrollError,
+	} = useBidirectionalFetch<AppLogEntry>({
+		fetchFn: (params) =>
+			api.appLogs.cursor({
+				cursor: params.cursor,
+				direction: params.direction,
+				limit: params.limit,
+				sort_dir: params.sort_dir,
+				level: params.level as string | undefined,
+				source: params.source as string | undefined,
+				search: params.search as string | undefined,
+				from: params.from as string | undefined,
+				to: params.to as string | undefined,
+			}),
+		filters: cursorFilters,
+		sortDir: scrollSortDir,
+		getCursor: (entry) =>
+			btoa(
+				JSON.stringify({
+					created_at: entry.created_at,
+					id: entry.id ?? "",
+				}),
+			),
+		getId: (entry) =>
+			entry.id ??
+			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
 	});
 
 	const entries = useMemo(
@@ -220,7 +278,9 @@ export function AppLogs() {
 				/>
 			)}
 
-			<div className="space-y-4">
+			<div
+				className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden h-[calc(100dvh-1rem)]" : "flex-1 min-h-0"}`}
+			>
 				<PageHeader
 					icon={FileText}
 					title="Logs"
@@ -251,7 +311,7 @@ export function AppLogs() {
 						</button>
 					}
 					actions={
-						totalItems > 0 ? (
+						viewMode === "paginate" && totalItems > 0 ? (
 							<PaginationBar
 								page={safePage}
 								totalPages={totalPages}
@@ -303,6 +363,30 @@ export function AppLogs() {
 							</button>
 						</div>
 						<div className="flex items-center gap-2">
+							{/* View mode toggle */}
+							<button
+								type="button"
+								onClick={() =>
+									setViewMode(viewMode === "paginate" ? "scroll" : "paginate")
+								}
+								className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border cursor-pointer ${
+									viewMode === "scroll"
+										? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
+										: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
+								}`}
+								title={
+									viewMode === "paginate"
+										? "Switch to scroll mode"
+										: "Switch to pagination mode"
+								}
+								aria-label={
+									viewMode === "paginate"
+										? "Switch to scroll mode"
+										: "Switch to pagination mode"
+								}
+							>
+								{viewMode === "paginate" ? "⇊ Scroll" : "⬡ Pages"}
+							</button>
 							<FilterDropdown
 								value={levelFilter === "all" ? "" : levelFilter}
 								onChange={(v) => {
@@ -455,7 +539,7 @@ export function AppLogs() {
 					</div>
 				)}
 
-				{(!isLoading || historyData) && (
+				{viewMode === "paginate" && (!isLoading || historyData) && (
 					<div className="ui-card overflow-x-auto">
 						<table className="w-full table-fixed ui-table">
 							<colgroup>
@@ -540,6 +624,41 @@ export function AppLogs() {
 								)}
 							</tbody>
 						</table>
+					</div>
+				)}
+
+				{viewMode === "scroll" && (
+					<div className="flex flex-col flex-1 min-h-0">
+						{isScrollLoading && scrollEntries.length === 0 && (
+							<LoadingSpinner />
+						)}
+						{scrollError && scrollEntries.length === 0 && (
+							<div className="ui-card p-8 text-center">
+								<p className="text-red-400 text-sm">
+									Failed to load logs: {scrollError}
+								</p>
+							</div>
+						)}
+						{(!isScrollLoading || scrollEntries.length > 0) && (
+							<VirtualAppLogTable
+								entries={scrollEntries}
+								total={scrollTotal}
+								hasBefore={hasBefore}
+								hasAfter={hasAfter}
+								isLoadingBefore={isLoadingBefore}
+								isLoadingAfter={isLoadingAfter}
+								onFetchNewer={scrollFetchNewer}
+								onFetchOlder={scrollFetchOlder}
+								onRowClick={(entry) => setSelectedLog(entry)}
+								sortDir={scrollSortDir}
+								onSortToggle={() =>
+									setSort((prev) => ({
+										field: prev.field,
+										dir: prev.dir === "asc" ? "desc" : "asc",
+									}))
+								}
+							/>
+						)}
 					</div>
 				)}
 			</div>

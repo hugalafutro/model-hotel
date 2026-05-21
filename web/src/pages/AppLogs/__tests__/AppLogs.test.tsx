@@ -31,6 +31,8 @@ const mockAppLogs = [
 describe("AppLogs", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// Default to paginate mode so existing assertions match
+		localStorage.setItem("appLogsViewMode", "paginate");
 		server.use(
 			http.get("/api/logs/app", ({ request }) => {
 				const url = new URL(request.url);

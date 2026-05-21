@@ -122,6 +122,8 @@ describe("Logs", () => {
 		server.resetHandlers();
 		vi.clearAllMocks();
 		localStorage.clear();
+		// Default to paginate mode so existing assertions match
+		localStorage.setItem("requestLogsViewMode", "paginate");
 	});
 
 	describe("Initial Rendering", () => {

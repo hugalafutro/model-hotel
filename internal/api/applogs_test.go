@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -901,4 +902,265 @@ type errWriterMock struct{}
 
 func (errWriterMock) Write(p []byte) (n int, err error) {
 	return 0, fmt.Errorf("write error")
+}
+
+// ---------------------------------------------------------------------------
+// GetAppLogsCursor Tests
+// ---------------------------------------------------------------------------
+
+func TestGetAppLogsCursor_Default(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Insert test app logs with different timestamp and created_at values
+	for i := 0; i < 5; i++ {
+		logID := uuid.New().String()
+		eventTs := time.Now().Add(-time.Duration(i) * time.Minute).UTC()
+		createdAt := eventTs.Add(time.Duration(i) * time.Second)
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			logID,
+			eventTs.Format(time.RFC3339Nano),
+			"info",
+			"test",
+			fmt.Sprintf("test message %d", i),
+			createdAt)
+		if err != nil {
+			t.Fatalf("Failed to insert app log: %v", err)
+		}
+	}
+
+	// Test default cursor request (no cursor)
+	req := httptest.NewRequest("GET", "/logs/app/cursor", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp AppLogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Entries) == 0 {
+		t.Error("expected entries to be returned")
+	}
+	if resp.Total < 5 {
+		t.Errorf("expected total >= 5, got %d", resp.Total)
+	}
+	// First page should have has_before=false (nothing newer)
+	if resp.HasBefore {
+		t.Error("expected HasBefore=false for first page")
+	}
+	// Verify level_counts and source_counts are present
+	if resp.LevelCounts == nil {
+		t.Error("expected LevelCounts to be non-nil")
+	}
+	if resp.SourceCounts == nil {
+		t.Error("expected SourceCounts to be non-nil")
+	}
+}
+
+func TestGetAppLogsCursor_WithCursor(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Insert test app logs with distinct timestamps (1 day apart)
+	// Use different values for timestamp (event time) and created_at (insertion time)
+	// to ensure cursor pagination uses created_at, not timestamp
+	now := time.Now().UTC()
+	for i := 0; i < 5; i++ {
+		logID := uuid.New().String()
+		eventTs := now.Add(-time.Duration(i) * 24 * time.Hour)
+		createdAt := eventTs.Add(time.Duration(i) * time.Second)
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			logID,
+			eventTs.Format(time.RFC3339Nano),
+			"info",
+			"test",
+			fmt.Sprintf("test message %d", i),
+			createdAt)
+		if err != nil {
+			t.Fatalf("Failed to insert app log: %v", err)
+		}
+	}
+
+	// First request to get initial page
+	req := httptest.NewRequest("GET", "/logs/app/cursor?limit=2", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var firstResp AppLogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &firstResp); err != nil {
+		t.Fatalf("failed to decode first response: %v", err)
+	}
+
+	if len(firstResp.Entries) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(firstResp.Entries))
+	}
+	if firstResp.HasBefore {
+		t.Error("expected HasBefore=false for first page (no cursor)")
+	}
+
+	// Build a cursor from the last entry's created_at (insertion time, not event timestamp)
+	lastEntry := firstResp.Entries[len(firstResp.Entries)-1]
+	cursorCat, err := time.Parse(time.RFC3339Nano, lastEntry.CreatedAt)
+	if err != nil {
+		t.Fatalf("failed to parse cursor created_at: %v", err)
+	}
+	cursor := appLogCursor{
+		CreatedAt: cursorCat,
+		ID:        lastEntry.ID,
+	}
+	cursorStr := cursor.encode()
+
+	// Second request with cursor - verify has_before is set
+	req = httptest.NewRequest("GET", "/logs/app/cursor?cursor="+cursorStr+"&limit=2", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second request: expected 200, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	var secondResp AppLogsCursorResponse
+	if err := json.Unmarshal(w2.Body.Bytes(), &secondResp); err != nil {
+		t.Fatalf("failed to decode second response: %v", err)
+	}
+
+	// Key assertion: has_before should be true when cursor is provided
+	if !secondResp.HasBefore {
+		t.Error("expected HasBefore=true when using cursor")
+	}
+	// Response should still have valid structure
+	if secondResp.LevelCounts == nil {
+		t.Error("expected LevelCounts to be non-nil")
+	}
+	if secondResp.SourceCounts == nil {
+		t.Error("expected SourceCounts to be non-nil")
+	}
+}
+
+func TestGetAppLogsCursor_InvalidCursor(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	_, r := newTestHandlerWithRouter(t)
+
+	// Test with invalid base64 cursor
+	req := httptest.NewRequest("GET", "/logs/app/cursor?cursor=not-valid-base64", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid cursor, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		// respondBadRequest returns plain text, not JSON
+		if w.Body.String() == "" {
+			t.Error("expected error message for invalid cursor")
+		}
+	} else if resp["error"] == "" && resp["message"] == "" {
+		t.Error("expected error message for invalid cursor")
+	}
+}
+
+func TestGetAppLogsCursor_WithFilters(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Insert test app logs with different levels and sources
+	testCases := []struct {
+		level  string
+		source string
+		msg    string
+	}{
+		{"info", "proxy", "proxy info message"},
+		{"warning", "auth", "auth warning message"},
+		{"error", "proxy", "proxy error message"},
+		{"info", "discovery", "discovery info message"},
+	}
+
+	for _, tc := range testCases {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, $2, $3, $4, $5, NOW())`,
+			uuid.New().String(),
+			time.Now().UTC().Format(time.RFC3339Nano),
+			tc.level,
+			tc.source,
+			tc.msg)
+		if err != nil {
+			t.Fatalf("Failed to insert app log: %v", err)
+		}
+	}
+
+	// Test level filter
+	req := httptest.NewRequest("GET", "/logs/app/cursor?level=error", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("level filter: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp AppLogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	for _, entry := range resp.Entries {
+		if entry.Level != "error" {
+			t.Errorf("expected level 'error', got %q", entry.Level)
+		}
+	}
+
+	// Test source filter
+	req = httptest.NewRequest("GET", "/logs/app/cursor?source=proxy", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("source filter: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	for _, entry := range resp.Entries {
+		if entry.Source != "proxy" {
+			t.Errorf("expected source 'proxy', got %q", entry.Source)
+		}
+	}
 }
