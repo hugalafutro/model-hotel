@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="docs/logo.svg" alt="Model Hotel">
+  <img src="docs/logo.svg" alt="Model Hotel"><br>
+  <em>"Because we have LiteLLM at home"</em>
 </p>
+<br>
 
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
-<p align="center"><em>"Because we have LiteLLM at home"</em></p>
-<br>
 
 <p align="center">
 <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
