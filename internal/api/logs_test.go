@@ -765,14 +765,10 @@ func TestListLogsCursor_WithCursor(t *testing.T) {
 
 	// Insert test request logs with known timestamps
 	pool := h.Pool().Pool()
-	var logIDs []string
-	var logTimestamps []time.Time
 	for i := 0; i < 10; i++ {
 		logID := uuid.New()
-		logIDs = append(logIDs, logID.String())
 		// Stagger timestamps
 		ts := time.Now().Add(-time.Duration(i) * time.Minute)
-		logTimestamps = append(logTimestamps, ts)
 		_, err := pool.Exec(context.Background(),
 			`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
 			 VALUES ($1, $2, $3, $4, $5, $6)`,

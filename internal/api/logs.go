@@ -278,7 +278,8 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 
 	// Determine has_after / has_before based on direction and fetched rows
 	var hasAfter, hasBefore bool
-	if direction == "after" {
+	switch direction {
+	case "after":
 		// Fetching older entries (scroll down or initial load)
 		if len(entries) > limit {
 			hasAfter = true
@@ -290,8 +291,8 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 		if cursorStr != "" {
 			hasBefore = true
 		}
-	} else {
-		// direction=before: fetching newer entries (scroll up)
+	case "before":
+		// Fetching newer entries (scroll up)
 		if len(entries) > limit {
 			hasBefore = true
 			entries = entries[:limit]
@@ -344,7 +345,6 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 		if parsedTo, err := time.Parse(time.RFC3339, toDate); err == nil {
 			countQuery += " AND rl.created_at <= $" + util.IntToStr(countArgIdx)
 			countArgs = append(countArgs, parsedTo)
-			countArgIdx++
 		}
 	}
 	_ = h.dbPool.Pool().QueryRow(ctx, countQuery, countArgs...).Scan(&total)
