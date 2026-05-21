@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -240,8 +241,18 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ORDER BY + LIMIT (fetch limit+1 to detect has_more)
+	// When paginating backward, invert the sort direction so LIMIT picks from
+	// the correct end of the result set, then reverse the slice before returning.
 	fetchLimit := limit + 1
-	query += " ORDER BY rl.created_at " + sortDir + ", rl.id " + sortDir
+	fetchSortDir := sortDir
+	if direction == "before" {
+		if fetchSortDir == "desc" {
+			fetchSortDir = "asc"
+		} else {
+			fetchSortDir = "desc"
+		}
+	}
+	query += " ORDER BY rl.created_at " + fetchSortDir + ", rl.id " + fetchSortDir
 	query += " LIMIT $" + util.IntToStr(argIndex)
 	args = append(args, fetchLimit)
 
@@ -297,8 +308,16 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 			hasBefore = true
 			entries = entries[:limit]
 		}
-		// If we got 0 or fewer-than-limit entries, there are no newer entries
-		// hasAfter stays as set by previous fetch — client manages this
+		// Items exist after the cursor by definition
+		if cursorStr != "" {
+			hasAfter = true
+		}
+	}
+
+	// Reverse entries for backward pagination: we fetched in inverted sort order
+	// to get the correct window, but must return in the user's requested sort order.
+	if direction == "before" {
+		slices.Reverse(entries)
 	}
 
 	// Get total count for display (separate lightweight query)

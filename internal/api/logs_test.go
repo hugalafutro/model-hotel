@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -810,7 +811,7 @@ func TestListLogsCursor_WithCursor(t *testing.T) {
 	cursorStr := cursor.encode()
 
 	// Second request with cursor - should have has_before=true
-	req = httptest.NewRequest("GET", "/logs/cursor?cursor="+cursorStr+"&limit=3", http.NoBody)
+	req = httptest.NewRequest("GET", "/logs/cursor?cursor="+url.QueryEscape(cursorStr)+"&limit=3", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req)
@@ -935,5 +936,154 @@ func TestListLogsCursor_Filters(t *testing.T) {
 		if entry.StatusCode < 400 || entry.StatusCode >= 500 {
 			t.Errorf("expected status_code in 4xx range, got %d", entry.StatusCode)
 		}
+	}
+}
+
+// TestListLogsCursor_BackwardPagination tests that direction=before returns
+// the items immediately preceding the cursor, not items from the start of
+// the dataset, and that results are in the requested sort order.
+func TestListLogsCursor_BackwardPagination(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	providerData := fmt.Sprintf(`{"name": "backward-log-provider-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert 10 request logs with staggered timestamps (newest first for DESC)
+	pool := h.Pool().Pool()
+	ids := make([]string, 10)
+	for i := 0; i < 10; i++ {
+		ids[i] = uuid.New().String()
+		ts := time.Now().Add(-time.Duration(i) * time.Minute)
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			ids[i], providerResp.ID, "test-model", 200, 100, ts)
+		if err != nil {
+			t.Fatalf("Failed to insert request log %d: %v", i, err)
+		}
+	}
+
+	// Clear cache
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	// Page 1 DESC (newest 3): entries 0,1,2
+	req = httptest.NewRequest("GET", "/logs/cursor?limit=3&sort_dir=desc", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("page1: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var page1 LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &page1); err != nil {
+		t.Fatalf("failed to decode page1: %v", err)
+	}
+	if len(page1.Entries) != 3 {
+		t.Fatalf("expected 3 entries on page1, got %d", len(page1.Entries))
+	}
+
+	// Page 2 (next 3): entries 3,4,5
+	page1Last := page1.Entries[len(page1.Entries)-1]
+	cursor1 := logCursor{CreatedAt: page1Last.CreatedAt, ID: page1Last.ID}
+	req = httptest.NewRequest("GET", fmt.Sprintf("/logs/cursor?limit=3&sort_dir=desc&cursor=%s&direction=after", url.QueryEscape(cursor1.encode())), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("page2: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var page2 LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &page2); err != nil {
+		t.Fatalf("failed to decode page2: %v", err)
+	}
+	if len(page2.Entries) != 3 {
+		t.Fatalf("expected 3 entries on page2, got %d", len(page2.Entries))
+	}
+
+	// Page 3 (entries 6,7,8)
+	page2Last := page2.Entries[len(page2.Entries)-1]
+	cursor2 := logCursor{CreatedAt: page2Last.CreatedAt, ID: page2Last.ID}
+	req = httptest.NewRequest("GET", fmt.Sprintf("/logs/cursor?limit=3&sort_dir=desc&cursor=%s&direction=after", url.QueryEscape(cursor2.encode())), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("page3: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var page3 LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &page3); err != nil {
+		t.Fatalf("failed to decode page3: %v", err)
+	}
+	if len(page3.Entries) != 3 {
+		t.Fatalf("expected 3 entries on page3, got %d", len(page3.Entries))
+	}
+
+	// Now use page3's first entry as cursor with direction=before, limit=3
+	// This should return entries 3,4,5 (the items immediately before page3)
+	backwardCursor := logCursor{
+		CreatedAt: page3.Entries[0].CreatedAt,
+		ID:        page3.Entries[0].ID,
+	}
+	req = httptest.NewRequest("GET", fmt.Sprintf("/logs/cursor?limit=3&sort_dir=desc&cursor=%s&direction=before", url.QueryEscape(backwardCursor.encode())), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("backward page: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var beforePage LogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &beforePage); err != nil {
+		t.Fatalf("failed to decode backward page: %v", err)
+	}
+
+	if len(beforePage.Entries) != 3 {
+		t.Fatalf("expected 3 entries for backward page, got %d", len(beforePage.Entries))
+	}
+
+	// Results must be in DESC order (newest first)
+	// The backward page should return entries 3,4,5 which are page2's entries
+	if beforePage.Entries[0].ID != page2.Entries[0].ID {
+		t.Errorf("expected first entry ID %s, got %s", page2.Entries[0].ID, beforePage.Entries[0].ID)
+	}
+	if beforePage.Entries[1].ID != page2.Entries[1].ID {
+		t.Errorf("expected second entry ID %s, got %s", page2.Entries[1].ID, beforePage.Entries[1].ID)
+	}
+	if beforePage.Entries[2].ID != page2.Entries[2].ID {
+		t.Errorf("expected third entry ID %s, got %s", page2.Entries[2].ID, beforePage.Entries[2].ID)
+	}
+
+	// Must have has_after=true (items exist after the cursor by definition)
+	if !beforePage.HasAfter {
+		t.Error("expected HasAfter=true for backward page with cursor")
+	}
+
+	// Must have has_before=true since page1 entries still precede this page
+	if !beforePage.HasBefore {
+		t.Error("expected HasBefore=true for backward page (more items precede)")
 	}
 }

@@ -104,12 +104,14 @@ function RequestLogs() {
 				event.type === "request.started" ||
 				event.type === "request.completed"
 			) {
-				queryClient.invalidateQueries({ queryKey: ["logs"] });
+				if (viewMode === "paginate") {
+					queryClient.invalidateQueries({ queryKey: ["logs"] });
+				}
 			}
 		};
 		window.addEventListener("server-event", handler);
 		return () => window.removeEventListener("server-event", handler);
-	}, [liveEnabled, queryClient]);
+	}, [liveEnabled, queryClient, viewMode]);
 	const { toast } = useToast();
 
 	const handleSort = useCallback((field: LogSortField) => {
@@ -153,7 +155,8 @@ function RequestLogs() {
 				sort_by: sort.field,
 				sort_dir: sort.dir,
 			}),
-		refetchInterval: liveEnabled && isVisible ? 30000 : false,
+		refetchInterval:
+			viewMode === "paginate" && liveEnabled && isVisible ? 30000 : false,
 		refetchIntervalInBackground: false,
 		refetchOnWindowFocus: "always",
 		placeholderData: keepPreviousData,
@@ -209,6 +212,45 @@ function RequestLogs() {
 			encodeCursor({ created_at: entry.created_at, id: entry.id }),
 		getId: (entry) => entry.id,
 	});
+
+	// Slow poll fallback for scroll mode (catches SSE disconnects)
+	useEffect(() => {
+		if (viewMode !== "scroll" || !liveEnabled) return;
+		const interval = setInterval(() => {
+			if (!document.hidden) {
+				scrollFetchNewer();
+			}
+		}, 60000);
+		return () => clearInterval(interval);
+	}, [viewMode, liveEnabled, scrollFetchNewer]);
+
+	// Visibility/focus refresh for scroll mode
+	useEffect(() => {
+		if (viewMode !== "scroll" || !liveEnabled) return;
+		const handler = () => {
+			if (!document.hidden) {
+				scrollFetchNewer();
+			}
+		};
+		document.addEventListener("visibilitychange", handler);
+		return () => document.removeEventListener("visibilitychange", handler);
+	}, [viewMode, liveEnabled, scrollFetchNewer]);
+
+	// SSE-driven fetchNewer for scroll mode
+	useEffect(() => {
+		if (viewMode !== "scroll" || !liveEnabled) return;
+		const handler = (e: Event) => {
+			const event = (e as CustomEvent).detail;
+			if (
+				event.type === "request.started" ||
+				event.type === "request.completed"
+			) {
+				scrollFetchNewer();
+			}
+		};
+		window.addEventListener("server-event", handler);
+		return () => window.removeEventListener("server-event", handler);
+	}, [viewMode, liveEnabled, scrollFetchNewer]);
 
 	// Distinguish between "no data has arrived yet" (loading) and
 	// "data arrived but the result set is empty" (0 matching rows).
