@@ -128,6 +128,13 @@ export interface AppLogsCursorResponse {
 	source_counts?: Record<string, number>;
 }
 
+export interface ModelsCursorResponse {
+	entries: Model[];
+	total: number;
+	has_before: boolean;
+	has_after: boolean;
+}
+
 export interface Stats {
 	total_requests_last_24h: number;
 	total_requests_last_7d: number;

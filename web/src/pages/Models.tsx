@@ -6,7 +6,9 @@ import type { Model } from "../api/types";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelTable } from "../components/ModelTable";
 import { PageHeader } from "../components/PageHeader";
+import { VirtualModelTable } from "../components/VirtualModelTable";
 import { useToast } from "../context/ToastContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 
@@ -14,6 +16,10 @@ export function Models() {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
+	const [viewMode, setViewMode] = useLocalStorage<"scroll" | "paginate">(
+		"modelsViewMode",
+		"scroll",
+	);
 
 	const { data: models, isLoading } = useQuery({
 		queryKey: ["models"],
@@ -128,13 +134,45 @@ export function Models() {
 				title={countLabel(models?.length, "Model", "Models")}
 				description="Discovered models from your providers"
 				badge={modelBadge}
+				actions={
+					<button
+						type="button"
+						onClick={() =>
+							setViewMode(viewMode === "scroll" ? "paginate" : "scroll")
+						}
+						className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border cursor-pointer ${
+							viewMode === "scroll"
+								? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
+								: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
+						}`}
+						title={
+							viewMode === "scroll"
+								? "Switch to pagination mode"
+								: "Switch to scroll mode"
+						}
+						aria-label={
+							viewMode === "scroll"
+								? "Switch to pagination mode"
+								: "Switch to scroll mode"
+						}
+					>
+						{viewMode === "scroll" ? "⬡ Pages" : "⇊ Scroll"}
+					</button>
+				}
 			/>
 
-			<ModelTable
-				models={models ?? []}
-				providers={providers}
-				onModelClick={setDetailModel}
-			/>
+			{viewMode === "scroll" ? (
+				<VirtualModelTable
+					providers={providers}
+					onModelClick={setDetailModel}
+				/>
+			) : (
+				<ModelTable
+					models={models ?? []}
+					providers={providers}
+					onModelClick={setDetailModel}
+				/>
+			)}
 
 			{detailModel && (
 				<ModelDetailModal

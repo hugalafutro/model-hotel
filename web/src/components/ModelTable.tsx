@@ -240,7 +240,7 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip="Model name and ID"
 							/>
-							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text select-none hover:text-gray-200">
+							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text">
 								Capabilities
 							</th>
 							{showProviderCol && (

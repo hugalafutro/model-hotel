@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -41,6 +42,7 @@ type ModelResponse struct {
 	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
 	OwnedBy                      string   `json:"owned_by"`
 	Enabled                      bool     `json:"enabled"`
+	DisabledManually             bool     `json:"disabled_manually"`
 	CreatedAt                    string   `json:"created_at"`
 	LastSeenAt                   string   `json:"last_seen_at"`
 }
@@ -66,15 +68,60 @@ func modelToResponse(m model.Model) ModelResponse {
 		OutputPricePerMillion:        m.OutputPricePerMillion,
 		OwnedBy:                      m.OwnedBy,
 		Enabled:                      m.Enabled,
+		DisabledManually:             m.DisabledManually,
 		CreatedAt:                    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		LastSeenAt:                   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+}
+
+// modelCursor is the keyset cursor for cursor-based model pagination.
+// The cursor fields depend on the sort_by parameter:
+//   - name: uses Name + ModelID for keyset
+//   - discovered: uses LastSeenAt for keyset
+//   - context: uses ContextLength for keyset
+//   - output: uses MaxOutputTokens for keyset
+//   - provider: uses ProviderName for keyset
+//   - status: uses StatusSort (0=active, 1=manually disabled, 2=disabled) for keyset
+//
+// All sorts include ID as a tiebreaker.
+type modelCursor struct {
+	SortBy        string    `json:"sort_by"`
+	Name          string    `json:"name,omitempty"`
+	ModelID       string    `json:"model_id,omitempty"`
+	LastSeenAt    time.Time `json:"last_seen_at,omitempty"`
+	ContextLength *int      `json:"context_length,omitempty"`
+	MaxOutput     *int      `json:"max_output_tokens,omitempty"`
+	ProviderName  string    `json:"provider_name,omitempty"`
+	StatusSort    *int      `json:"status_sort,omitempty"`
+	ID            string    `json:"id"`
+}
+
+func (c *modelCursor) encode() string {
+	b, _ := json.Marshal(c)
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+func (c *modelCursor) decode(s string) error {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("invalid base64: %w", err)
+	}
+	return json.Unmarshal(b, c)
+}
+
+// ModelsCursorResponse is the cursor-based paginated response for models.
+type ModelsCursorResponse struct {
+	Entries   []ModelResponse `json:"entries"`
+	Total     int             `json:"total"`
+	HasBefore bool            `json:"has_before"`
+	HasAfter  bool            `json:"has_after"`
 }
 
 // RegisterModels mounts model management routes.
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
 		r.Get("/", h.ListModels)
+		r.Get("/cursor", h.ListModelsCursor)
 		r.Patch("/{id}", h.UpdateModel)
 		r.Delete("/{id}", h.DeleteModel)
 		r.Post("/{id}/test", h.TestModel)

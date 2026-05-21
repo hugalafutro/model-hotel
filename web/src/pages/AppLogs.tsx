@@ -25,6 +25,7 @@ import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { encodeCursor } from "../utils/format";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -150,12 +151,10 @@ export function AppLogs() {
 		filters: cursorFilters,
 		sortDir: scrollSortDir,
 		getCursor: (entry) =>
-			btoa(
-				JSON.stringify({
-					created_at: entry.created_at,
-					id: entry.id ?? "",
-				}),
-			),
+			encodeCursor({
+				created_at: entry.created_at,
+				id: entry.id ?? "",
+			}),
 		getId: (entry) =>
 			entry.id ??
 			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,

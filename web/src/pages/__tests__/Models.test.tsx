@@ -9,6 +9,7 @@ import { Models } from "../Models";
 describe("Models", () => {
 	beforeEach(() => {
 		server.resetHandlers();
+		localStorage.setItem("modelsViewMode", "paginate");
 	});
 
 	describe("Loading State", () => {

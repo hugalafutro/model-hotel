@@ -1442,6 +1442,13 @@ html[data-ui-style="cyber-terminal"] .ui-table-header-text {
 	text-transform: uppercase;
 }
 
+.ui-table-header-text button {
+	text-transform: inherit;
+	font-family: inherit;
+	font-size: inherit;
+	letter-spacing: inherit;
+}
+
 /* =============================================
    STATUS BADGES
    ============================================= */
