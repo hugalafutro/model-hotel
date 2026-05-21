@@ -24,6 +24,7 @@ export function Models() {
 	const { data: models, isLoading } = useQuery({
 		queryKey: ["models"],
 		queryFn: () => api.models.list(),
+		enabled: viewMode === "paginate",
 	});
 
 	const { data: providers } = useQuery({
@@ -111,7 +112,7 @@ export function Models() {
 		},
 	});
 
-	if (isLoading) {
+	if (isLoading && viewMode === "paginate") {
 		return <LoadingSpinner />;
 	}
 
@@ -119,19 +120,24 @@ export function Models() {
 	const totalDisabled = (models?.length ?? 0) - totalEnabled;
 	const allSameState = totalEnabled === 0 || totalDisabled === 0;
 
-	const modelBadge = !allSameState ? (
-		<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
-			<span className="text-green-400">{totalEnabled} enabled</span>
-			<span className="text-gray-600">/</span>
-			<span className="text-red-400">{totalDisabled} disabled</span>
-		</span>
-	) : undefined;
+	const modelBadge =
+		!allSameState && viewMode === "paginate" ? (
+			<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+				<span className="text-green-400">{totalEnabled} enabled</span>
+				<span className="text-gray-600">/</span>
+				<span className="text-red-400">{totalDisabled} disabled</span>
+			</span>
+		) : undefined;
 
 	return (
 		<div className="space-y-4">
 			<PageHeader
 				icon={Bot}
-				title={countLabel(models?.length, "Model", "Models")}
+				title={
+					viewMode === "paginate"
+						? countLabel(models?.length, "Model", "Models")
+						: "Models"
+				}
 				description="Discovered models from your providers"
 				badge={modelBadge}
 				actions={
