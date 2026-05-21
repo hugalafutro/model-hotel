@@ -376,7 +376,6 @@ When contributing to the frontend:
 
 - [Main Project README](../README.md)
 - [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference)
-- [Architecture](https://github.com/hugalafutro/model-hotel/wiki/Architecture)
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration)
 ```
 

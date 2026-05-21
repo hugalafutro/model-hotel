@@ -308,19 +308,19 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
-See the [API Reference](model-hotel.wiki/API-Reference.md) for the full endpoint listing.
+See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
 
 ### Full Documentation
-- [Configuration](model-hotel.wiki/Configuration.md): Environment variables, runtime settings, Docker Compose
-- [API Reference](model-hotel.wiki/API-Reference.md): Proxy and admin endpoints
-- [Security](model-hotel.wiki/Security.md): AES-256-GCM encryption, Argon2id key derivation, hashing, URL validation
-- [Privacy](model-hotel.wiki/Privacy.md): What is and isn't captured, data retention, local deployment
-- [Failover & Hotel Routing](model-hotel.wiki/Failover-and-Hotel-Routing.md): Failover groups, circuit breaker, backoff
-- [Model Discovery](model-hotel.wiki/Model-Discovery.md): Automatic sync, provider-specific metadata, enrichment
-- [Virtual Keys](model-hotel.wiki/Virtual-Keys.md): Creating, using, and deleting client keys
-- [Request Logging](model-hotel.wiki/Request-Logging.md): Log fields, overhead breakdown, retention
+- [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose
+- [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference): Proxy and admin endpoints
+- [Security](https://github.com/hugalafutro/model-hotel/wiki/Security): AES-256-GCM encryption, Argon2id key derivation, hashing, URL validation
+- [Privacy](https://github.com/hugalafutro/model-hotel/wiki/Privacy): What is and isn't captured, data retention, local deployment
+- [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing): Failover groups, circuit breaker, backoff
+- [Model Discovery](https://github.com/hugalafutro/model-hotel/wiki/Model-Discovery): Automatic sync, provider-specific metadata, enrichment
+- [Virtual Keys](https://github.com/hugalafutro/model-hotel/wiki/Virtual-Keys): Creating, using, and deleting client keys
+- [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging): Log fields, overhead breakdown, retention
 - [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
-- [Development](model-hotel.wiki/Development.md): Local setup, build commands, contributing
+- [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
 
 ### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
 Backups are created via the Settings page or the admin API (`POST /api/backups`) using `pg_dump --format=custom`. The resulting `.dump` files contain all database tables: providers, models, virtual keys, failover groups, and settings.
