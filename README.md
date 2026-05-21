@@ -8,13 +8,11 @@
 
 <p align="center">
 <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-<a href="/LICENSE"><img src="https://img.shields.io/github/license/hugalafutro/model-hotel" alt="License"></a>
 <a href="/commits/master"><img src="https://img.shields.io/github/last-commit/hugalafutro/model-hotel" alt="Last Commit"></a>
 <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
 <a href="https://github.com/hugalafutro/model-hotel/pkgs/container/model-hotel"><img src="https://img.shields.io/badge/ghcr.io-hugalafutro%2Fmodel--hotel-2496ED?logo=docker&logoColor=white" alt="Docker"></a>
 <a href="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
-<a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg?token=P4HJTYS75O" alt="Coverage"></a>
-<a href="/stargazers"><img src="https://img.shields.io/github/stars/hugalafutro/model-hotel?style=social" alt="Stars"></a>
+<a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
   <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
@@ -29,7 +27,7 @@
 > **AI-Assisted Project Disclaimer:**<br>Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.<br>
 
 
-Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>
+Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai). From around version 0.4 the app was used as opencode model provider for its own development.
 
 <details>
 <summary>📊 opencode stats (click to expand)</summary>
@@ -38,25 +36,25 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          1,924 │
-│Messages                                         67,747 │
-│Days                                                 35 │
+│Sessions                                          1,962 │
+│Messages                                         69,115 │
+│Days                                                 36 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $112.90 │
-│Avg Cost/Day                                      $3.23 │
+│Avg Cost/Day                                      $3.14 │
 │Avg Tokens/Session                                 2.7M │
-│Median Tokens/Session                            580.3K │
-│Input                                           2656.2M │
-│Output                                            17.5M │
-│Cache Read                                      2481.4M │
+│Median Tokens/Session                            581.9K │
+│Input                                           2671.5M │
+│Output                                            17.8M │
+│Cache Read                                      2583.8M │
 │Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```
-</details><br>
+</details>
 
 <a href="https://github.com/aovestdipaperino/tokensave">![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&cacheSeconds=1800)<a><br><br>
 Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4.3-code_review-FF4500?style=flat" alt="Grok 4.3"><br>
