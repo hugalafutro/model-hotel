@@ -509,7 +509,9 @@ export function VirtualModelTable({
 								{virtualItems.map((vItem) => {
 									const model = entries[vItem.index];
 									const caps = parseCapabilities(model.capabilities);
-									const isEnabled = model.enabled;
+									const isActive = model.enabled && !model.disabled_manually;
+									const isManuallyDisabled =
+										model.enabled && model.disabled_manually;
 									return (
 										<tr
 											key={model.id}
@@ -520,7 +522,7 @@ export function VirtualModelTable({
 											<td className="px-4 py-1.5">
 												<div className="flex flex-col">
 													<span
-														className={`text-left text-sm ${isEnabled ? "font-medium text-white" : "text-gray-500"}`}
+														className={`text-left text-sm ${isActive ? "font-medium text-white" : "text-gray-500"}`}
 													>
 														{model.name ||
 															proxyModelID(model.provider_name, model.model_id)}
@@ -564,12 +566,18 @@ export function VirtualModelTable({
 											<td className="px-4 py-1.5 whitespace-nowrap">
 												<span
 													className={`px-2 py-0.5 text-xs rounded-full ${
-														isEnabled
+														isActive
 															? "bg-green-900/50 text-green-400"
-															: "bg-red-900/50 text-red-400"
+															: isManuallyDisabled
+																? "bg-yellow-900/50 text-yellow-400"
+																: "bg-red-900/50 text-red-400"
 													}`}
 												>
-													{isEnabled ? "Enabled" : "Disabled"}
+													{isActive
+														? "Enabled"
+														: isManuallyDisabled
+															? "Manually Disabled"
+															: "Disabled"}
 												</span>
 											</td>
 										</tr>

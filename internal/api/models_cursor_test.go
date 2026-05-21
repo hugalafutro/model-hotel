@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -149,7 +150,7 @@ func TestListModelsCursor_WithCursor(t *testing.T) {
 	}
 
 	// Fetch next page
-	nextURL := fmt.Sprintf("/models/cursor?limit=2&sort_by=name&sort_dir=asc&cursor=%s&direction=after", cursor.encode())
+	nextURL := fmt.Sprintf("/models/cursor?limit=2&sort_by=name&sort_dir=asc&cursor=%s&direction=after", url.QueryEscape(cursor.encode()))
 	req = httptest.NewRequest(http.MethodGet, nextURL, http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
