@@ -3,6 +3,8 @@ name: Publish Docker Image
 on:
   push:
     branches: [master]
+    paths:
+      - .version
   workflow_dispatch:
     inputs:
       tag:
