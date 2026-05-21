@@ -28,7 +28,7 @@ export function SortableEntry({ entry, onToggle }: SortableEntryProps) {
 		<div
 			ref={setNodeRef}
 			style={style}
-			className={`relative flex items-center justify-between px-2 py-1.5 rounded group text-sm ${
+			className={`relative flex items-center justify-between px-2 py-1 rounded group text-sm ${
 				entry.enabled ? "bg-gray-700" : "failover-entry-disabled"
 			}`}
 		>

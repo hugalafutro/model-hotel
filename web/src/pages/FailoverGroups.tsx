@@ -25,6 +25,7 @@ export function FailoverGroups() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [providerFilter, setProviderFilter] = useState("");
 	const [enabledFilter, setEnabledFilter] = useState<string>("");
+	const [originFilter, setOriginFilter] = useState<string>("");
 	const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -70,7 +71,11 @@ export function FailoverGroups() {
 			enabledFilter === "" ||
 			(enabledFilter === "enabled" && g.group_enabled) ||
 			(enabledFilter === "disabled" && !g.group_enabled);
-		return matchesModel && matchesProvider && matchesEnabled;
+		const matchesOrigin =
+			originFilter === "" ||
+			(originFilter === "auto" && g.auto_created) ||
+			(originFilter === "manual" && !g.auto_created);
+		return matchesModel && matchesProvider && matchesEnabled && matchesOrigin;
 	});
 	const lastSyncedAt = listData?.last_synced_at;
 
@@ -401,6 +406,17 @@ export function FailoverGroups() {
 					]}
 					className="w-[160px] shrink-0"
 				/>
+				<FilterDropdown
+					value={originFilter}
+					onChange={setOriginFilter}
+					placeholder="All origins"
+					allLabel="All origins"
+					options={[
+						{ value: "auto", label: "Auto" },
+						{ value: "manual", label: "Manual" },
+					]}
+					className="w-[160px] shrink-0"
+				/>
 				<button
 					type="button"
 					onClick={() => {
@@ -410,7 +426,7 @@ export function FailoverGroups() {
 							setSelectedGroupIds(new Set(groups.map((g) => g.id)));
 						}
 					}}
-					className="ml-auto text-gray-400 hover:text-(--accent) transition-colors"
+					className="ml-auto text-gray-400 hover:text-(--accent) hover:drop-shadow-[0_0_8px_var(--accent)] transition-all cursor-pointer"
 					aria-label={selectedGroupIds.size > 0 ? "Deselect all" : "Select all"}
 					title={selectedGroupIds.size > 0 ? "Deselect all" : "Select all"}
 				>
@@ -484,7 +500,21 @@ export function FailoverGroups() {
 			)}
 
 			{groups && groups.length === 0 ? (
-				searchQuery || providerFilter || enabledFilter ? (
+				originFilter && !searchQuery && !providerFilter && !enabledFilter ? (
+					<EmptyState
+						message={`No ${originFilter === "auto" ? "auto-discovered" : "manually created"} groups found`}
+						action={{
+							label:
+								originFilter === "manual"
+									? "Create New Group"
+									: "Clear filters",
+							onClick: () =>
+								originFilter === "manual"
+									? setShowCreateModal(true)
+									: setOriginFilter(""),
+						}}
+					/>
+				) : searchQuery || providerFilter || enabledFilter || originFilter ? (
 					<EmptyState
 						message="No groups matching filters"
 						action={{
@@ -493,6 +523,7 @@ export function FailoverGroups() {
 								setSearchQuery("");
 								setProviderFilter("");
 								setEnabledFilter("");
+								setOriginFilter("");
 							},
 						}}
 					/>
@@ -513,13 +544,13 @@ export function FailoverGroups() {
 								<button
 									type="button"
 									onClick={() => toggleLetterCollapse(letter)}
-									className="flex items-center gap-3 mb-3 w-full text-left group"
+									className="flex items-center gap-3 mb-3 w-full text-left group cursor-pointer"
 								>
 									<ChevronRight
 										size={16}
-										className={`text-gray-500 transition-transform ${collapsedLetters.has(letter) ? "" : "rotate-90"}`}
+										className={`text-gray-500 transition-transform group-hover:text-(--accent) group-hover:drop-shadow-[0_0_8px_var(--accent)] ${collapsedLetters.has(letter) ? "" : "rotate-90"}`}
 									/>
-									<span className="text-lg font-bold text-(--accent)">
+									<span className="text-lg font-bold text-(--accent) group-hover:[text-shadow:0_0_8px_var(--accent)]">
 										{letter}
 									</span>
 									<div className="flex-1 h-px bg-gray-700/50" />
@@ -577,7 +608,7 @@ export function FailoverGroups() {
 											.getElementById(`failover-section-${letter}`)
 											?.scrollIntoView({ behavior: "smooth", block: "start" })
 									}
-									className="text-xs font-medium text-gray-500 hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all px-1.5 py-0.5 rounded"
+									className="text-xs font-medium text-gray-500 hover:text-(--accent) hover:[text-shadow:0_0_8px_var(--accent)] transition-all cursor-pointer px-1.5 py-0.5 rounded"
 								>
 									{letter}
 								</button>
