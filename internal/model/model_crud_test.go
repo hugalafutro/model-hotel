@@ -139,14 +139,141 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 	}
 
 	// Verify second version overwrote first
-	var name string
-	err = testPool.QueryRow(ctx, `SELECT name FROM models WHERE provider_id = $1 AND model_id = $2`,
-		providerID, "overwrite-model").Scan(&name)
+	var name, displayName string
+	err = testPool.QueryRow(ctx, `SELECT name, display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "overwrite-model").Scan(&name, &displayName)
 	if err != nil {
 		t.Fatalf("failed to query model: %v", err)
 	}
 	if name != "Second Version" {
 		t.Errorf("expected 'Second Version', got %q", name)
+	}
+	// display_name was NULL initially (not customized), so upsert should set it to EXCLUDED value
+	if displayName != "Overwritten" {
+		t.Errorf("display_name: expected 'Overwritten', got %q", displayName)
+	}
+}
+
+func TestUpsert_PreservesCustomDisplayName(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-preserve-dn")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	// Insert model with name = display_name (provider default)
+	model := &Model{
+		ProviderID:       providerID,
+		ModelID:          "preserve-dn-model",
+		Name:             "very-long-provider-model-name-v2",
+		DisplayName:      "very-long-provider-model-name-v2",
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+	err := repo.Upsert(ctx, model)
+	if err != nil {
+		t.Fatalf("initial upsert failed: %v", err)
+	}
+
+	// User customizes display_name via Update
+	_, err = repo.Update(ctx, model.ID, UpdateModelRequest{
+		DisplayName: strPtr("short-name"),
+	})
+	if err != nil {
+		t.Fatalf("update display_name failed: %v", err)
+	}
+
+	// Simulate re-discovery: upsert with same name but default display_name
+	rediscovered := &Model{
+		ProviderID:       providerID,
+		ModelID:          "preserve-dn-model",
+		Name:             "very-long-provider-model-name-v2",
+		DisplayName:      "very-long-provider-model-name-v2", // provider's original
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+	err = repo.Upsert(ctx, rediscovered)
+	if err != nil {
+		t.Fatalf("re-discovery upsert failed: %v", err)
+	}
+
+	// Custom display_name should be preserved (differs from name)
+	var displayName string
+	err = testPool.QueryRow(ctx,
+		`SELECT display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "preserve-dn-model").Scan(&displayName)
+	if err != nil {
+		t.Fatalf("failed to query display_name: %v", err)
+	}
+	if displayName != "short-name" {
+		t.Errorf("custom display_name should be preserved, got %q", displayName)
+	}
+}
+
+func TestUpsert_UpdatesDisplayNameWhenNotCustom(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-update-dn")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	// Insert model with name = display_name (not customized)
+	model := &Model{
+		ProviderID:       providerID,
+		ModelID:          "update-dn-model",
+		Name:             "original-name",
+		DisplayName:      "original-name", // same as name = not customized
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+	err := repo.Upsert(ctx, model)
+	if err != nil {
+		t.Fatalf("initial upsert failed: %v", err)
+	}
+
+	// Re-discover with a new name (provider renamed the model)
+	rediscovered := &Model{
+		ProviderID:       providerID,
+		ModelID:          "update-dn-model",
+		Name:             "renamed-model",
+		DisplayName:      "renamed-model", // matches new name
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+	err = repo.Upsert(ctx, rediscovered)
+	if err != nil {
+		t.Fatalf("re-discovery upsert failed: %v", err)
+	}
+
+	// display_name should follow name since it wasn't customized
+	var name, displayName string
+	err = testPool.QueryRow(ctx,
+		`SELECT name, display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "update-dn-model").Scan(&name, &displayName)
+	if err != nil {
+		t.Fatalf("failed to query model: %v", err)
+	}
+	if name != "renamed-model" {
+		t.Errorf("name: expected 'renamed-model', got %q", name)
+	}
+	if displayName != "renamed-model" {
+		t.Errorf("display_name should follow name when not customized, got %q", displayName)
 	}
 }
 

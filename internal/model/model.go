@@ -76,7 +76,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
-			display_name = EXCLUDED.display_name,
+			display_name = CASE WHEN models.display_name != models.name THEN models.display_name ELSE EXCLUDED.display_name END,
 			capabilities = EXCLUDED.capabilities,
 			params = EXCLUDED.params,
 			modality = EXCLUDED.modality,

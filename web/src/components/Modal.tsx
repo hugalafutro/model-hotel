@@ -69,10 +69,15 @@ export function Modal({
 					<X size={20} />
 				</button>
 				{header ? (
-					<div id={headingId}>{header}</div>
+					<div id={headingId} className="pr-10">
+						{header}
+					</div>
 				) : (
 					title && (
-						<h2 id={headingId} className="text-xl font-bold text-white mb-4">
+						<h2
+							id={headingId}
+							className="text-xl font-bold text-white mb-4 pr-10"
+						>
 							{title}
 						</h2>
 					)

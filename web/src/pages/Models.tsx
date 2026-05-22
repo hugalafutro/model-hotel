@@ -16,6 +16,7 @@ export function Models() {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
+	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
 	const [viewMode, setViewMode] = useLocalStorage<"scroll" | "paginate">(
 		"modelsViewMode",
 		"scroll",
@@ -80,6 +81,7 @@ export function Models() {
 				{
 					onSuccess: () => {
 						setDetailModel((prev) => (prev ? { ...prev, ...updates } : null));
+						setModelRefreshTrigger((n) => n + 1);
 					},
 				},
 			);
@@ -171,6 +173,7 @@ export function Models() {
 				<VirtualModelTable
 					providers={providers}
 					onModelClick={setDetailModel}
+					refreshTrigger={modelRefreshTrigger}
 				/>
 			) : (
 				<ModelTable
