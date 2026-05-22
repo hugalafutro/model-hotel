@@ -230,6 +230,33 @@ describe("LoginScreen", () => {
 			expect(screen.queryByText("Invalid admin token")).not.toBeInTheDocument();
 		});
 	});
+
+	it("does not submit on Enter while already validating", async () => {
+		let callCount = 0;
+		server.use(
+			http.get("/api/system", async () => {
+				callCount++;
+				await new Promise((r) => setTimeout(r, 500));
+				return HttpResponse.json({});
+			}),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "test-admin-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		// Now in loading state — pressing Enter should not trigger another request
+		await user.type(input, "{enter}");
+
+		await waitFor(() => {
+			expect(callCount).toBe(1);
+		});
+	});
 });
 
 describe("AppContent", () => {
