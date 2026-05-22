@@ -661,7 +661,10 @@ export function FailoverGroups() {
 
 					{/* Alphabet sidebar */}
 					{(sortedLetters.length > 3 || customGroups.length > 0) && (
-						<nav className="hidden xl:flex flex-col items-center gap-1 pt-2 sticky top-4 self-start">
+						<nav
+							aria-label="Alphabet sidebar"
+							className="hidden xl:flex flex-col items-center gap-1 pt-2 sticky top-4 self-start"
+						>
 							{customGroups.length > 0 && (
 								<button
 									type="button"

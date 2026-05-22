@@ -2836,9 +2836,23 @@ describe("FailoverGroups", () => {
 
 		it("Does not show alphabet sidebar with 3 or fewer letter groups", async () => {
 			const groups = [
-				{ ...mockFailoverGroup, display_model: "alpha-model" },
-				{ ...mockFailoverGroup, id: "fg-002", display_model: "beta-model" },
-				{ ...mockFailoverGroup, id: "fg-003", display_model: "gamma-model" },
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					auto_created: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					auto_created: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-003",
+					display_model: "gamma-model",
+					auto_created: true,
+				},
 			];
 
 			server.use(
@@ -2854,6 +2868,11 @@ describe("FailoverGroups", () => {
 					screen.queryByRole("button", { name: "A" }),
 				).not.toBeInTheDocument();
 			});
+
+			// Sidebar should not render at all (no custom groups + ≤3 letter sections)
+			expect(
+				screen.queryByRole("navigation", { name: /alphabet/i }),
+			).not.toBeInTheDocument();
 		});
 	});
 
