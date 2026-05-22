@@ -10,12 +10,14 @@ vi.mock("../../hooks/useBidirectionalFetch", () => ({
 }));
 
 // Mock the API client
-vi.mock("../api/client", () => ({
+vi.mock("../../api/client", () => ({
 	api: {
 		models: {
 			cursor: vi.fn(),
 		},
 	},
+	getAdminToken: vi.fn(() => "test-admin-token"),
+	API_BASE: "",
 }));
 
 const { useBidirectionalFetch } = await import(

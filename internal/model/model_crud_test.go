@@ -140,8 +140,9 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 
 	// Verify second version overwrote first
 	var name, displayName string
-	err = testPool.QueryRow(ctx, `SELECT name, display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
-		providerID, "overwrite-model").Scan(&name, &displayName)
+	var displayNameCustomized bool
+	err = testPool.QueryRow(ctx, `SELECT name, display_name, display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "overwrite-model").Scan(&name, &displayName, &displayNameCustomized)
 	if err != nil {
 		t.Fatalf("failed to query model: %v", err)
 	}
@@ -151,6 +152,10 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 	// display_name was NULL initially (not customized), so upsert should set it to EXCLUDED value
 	if displayName != "Overwritten" {
 		t.Errorf("display_name: expected 'Overwritten', got %q", displayName)
+	}
+	// display_name_customized should be false (fresh row, never customized)
+	if displayNameCustomized {
+		t.Error("display_name_customized should be false after overwrite (never customized)")
 	}
 }
 
@@ -187,6 +192,18 @@ func TestUpsert_PreservesCustomDisplayName(t *testing.T) {
 		t.Fatalf("update display_name failed: %v", err)
 	}
 
+	// Verify display_name_customized = true after Update
+	var displayNameCustomized bool
+	err = testPool.QueryRow(ctx,
+		`SELECT display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "preserve-dn-model").Scan(&displayNameCustomized)
+	if err != nil {
+		t.Fatalf("failed to query display_name_customized: %v", err)
+	}
+	if !displayNameCustomized {
+		t.Error("display_name_customized should be true after Update")
+	}
+
 	// Simulate re-discovery: upsert with same name but default display_name
 	rediscovered := &Model{
 		ProviderID:       providerID,
@@ -206,15 +223,19 @@ func TestUpsert_PreservesCustomDisplayName(t *testing.T) {
 	}
 
 	// Custom display_name should be preserved (differs from name)
+	// display_name_customized should remain true
 	var displayName string
 	err = testPool.QueryRow(ctx,
-		`SELECT display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
-		providerID, "preserve-dn-model").Scan(&displayName)
+		`SELECT display_name, display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "preserve-dn-model").Scan(&displayName, &displayNameCustomized)
 	if err != nil {
 		t.Fatalf("failed to query display_name: %v", err)
 	}
 	if displayName != "short-name" {
 		t.Errorf("custom display_name should be preserved, got %q", displayName)
+	}
+	if !displayNameCustomized {
+		t.Error("display_name_customized should remain true after re-discovery Upsert")
 	}
 }
 
@@ -243,6 +264,18 @@ func TestUpsert_UpdatesDisplayNameWhenNotCustom(t *testing.T) {
 		t.Fatalf("initial upsert failed: %v", err)
 	}
 
+	// Verify display_name_customized = false after initial upsert
+	var displayNameCustomized bool
+	err = testPool.QueryRow(ctx,
+		`SELECT display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "update-dn-model").Scan(&displayNameCustomized)
+	if err != nil {
+		t.Fatalf("failed to query display_name_customized: %v", err)
+	}
+	if displayNameCustomized {
+		t.Error("display_name_customized should be false after initial upsert")
+	}
+
 	// Re-discover with a new name (provider renamed the model)
 	rediscovered := &Model{
 		ProviderID:       providerID,
@@ -262,10 +295,11 @@ func TestUpsert_UpdatesDisplayNameWhenNotCustom(t *testing.T) {
 	}
 
 	// display_name should follow name since it wasn't customized
+	// display_name_customized should remain false
 	var name, displayName string
 	err = testPool.QueryRow(ctx,
-		`SELECT name, display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
-		providerID, "update-dn-model").Scan(&name, &displayName)
+		`SELECT name, display_name, display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "update-dn-model").Scan(&name, &displayName, &displayNameCustomized)
 	if err != nil {
 		t.Fatalf("failed to query model: %v", err)
 	}
@@ -274,6 +308,94 @@ func TestUpsert_UpdatesDisplayNameWhenNotCustom(t *testing.T) {
 	}
 	if displayName != "renamed-model" {
 		t.Errorf("display_name should follow name when not customized, got %q", displayName)
+	}
+	if displayNameCustomized {
+		t.Error("display_name_customized should remain false after re-discovery Upsert")
+	}
+}
+
+func TestUpsert_CatalogProviderDoesNotSetCustomizedFlag(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-catalog")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	// Simulate catalog provider (like OpenAI) that sets DisplayName != Name on first upsert
+	model := &Model{
+		ProviderID:       providerID,
+		ModelID:          "catalog-model",
+		Name:             "gpt-4-turbo-preview",
+		DisplayName:      "GPT-4 Turbo Preview", // different from name, but still catalog default
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+	err := repo.Upsert(ctx, model)
+	if err != nil {
+		t.Fatalf("initial upsert failed: %v", err)
+	}
+
+	// Verify display_name_customized = false even though display_name != name
+	var displayNameCustomized bool
+	err = testPool.QueryRow(ctx,
+		`SELECT display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "catalog-model").Scan(&displayNameCustomized)
+	if err != nil {
+		t.Fatalf("failed to query display_name_customized: %v", err)
+	}
+	if displayNameCustomized {
+		t.Error("display_name_customized should be false for catalog provider default")
+	}
+
+	// Verify display_name was set to the catalog value
+	var name, displayName string
+	err = testPool.QueryRow(ctx,
+		`SELECT name, display_name FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "catalog-model").Scan(&name, &displayName)
+	if err != nil {
+		t.Fatalf("failed to query model: %v", err)
+	}
+	if displayName != "GPT-4 Turbo Preview" {
+		t.Errorf("display_name: expected 'GPT-4 Turbo Preview', got %q", displayName)
+	}
+
+	// Simulate re-discovery with a new catalog name (provider updated their catalog)
+	rediscovered := &Model{
+		ProviderID:       providerID,
+		ModelID:          "catalog-model",
+		Name:             "gpt-4-turbo",
+		DisplayName:      "GPT-4 Turbo", // new catalog name
+		Enabled:          true,
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "",
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+	}
+	err = repo.Upsert(ctx, rediscovered)
+	if err != nil {
+		t.Fatalf("re-discovery upsert failed: %v", err)
+	}
+
+	// display_name should be updated because display_name_customized was false
+	err = testPool.QueryRow(ctx,
+		`SELECT name, display_name, display_name_customized FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "catalog-model").Scan(&name, &displayName, &displayNameCustomized)
+	if err != nil {
+		t.Fatalf("failed to query model: %v", err)
+	}
+	if name != "gpt-4-turbo" {
+		t.Errorf("name: expected 'gpt-4-turbo', got %q", name)
+	}
+	if displayName != "GPT-4 Turbo" {
+		t.Errorf("display_name should be updated from catalog, got %q", displayName)
+	}
+	if displayNameCustomized {
+		t.Error("display_name_customized should remain false")
 	}
 }
 

@@ -67,11 +67,12 @@ export function Models() {
 							enabled ? "success" : "error",
 						);
 						setDetailModel((prev) => (prev ? { ...prev, enabled } : null));
+						setModelRefreshTrigger((n) => n + 1);
 					},
 				},
 			);
 		},
-		[toggleMutation, toast],
+		[toggleMutation, toast, setModelRefreshTrigger],
 	);
 
 	const handleUpdateModel = useCallback(
