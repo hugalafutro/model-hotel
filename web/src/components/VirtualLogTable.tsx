@@ -71,6 +71,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		getScrollElement: () => scrollRef.current,
 		estimateSize: () => 29, // approximate row height
 		overscan: 20,
+		getItemKey: (index) => entries[index].id,
 	});
 
 	const virtualItems = virtualizer.getVirtualItems();
@@ -251,7 +252,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							const log = entries[vItem.index];
 							return (
 								<tr
-									key={log.id}
+									key={vItem.key}
 									data-index={vItem.index}
 									ref={virtualizer.measureElement}
 									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}

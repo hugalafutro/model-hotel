@@ -121,6 +121,9 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		getScrollElement: () => scrollRef.current,
 		estimateSize: () => 48, // AppLog rows are taller due to min-h-[2lh] and flex layout
 		overscan: 20,
+		getItemKey: (index) =>
+			entries[index].id ??
+			`${entries[index].timestamp}-${entries[index].source}-${entries[index].message.slice(0, 20)}`,
 	});
 
 	const virtualItems = virtualizer.getVirtualItems();
@@ -280,7 +283,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 							const entry = entries[vItem.index];
 							return (
 								<tr
-									key={entry.id ?? `${vItem.index}`}
+									key={vItem.key}
 									data-index={vItem.index}
 									ref={virtualizer.measureElement}
 									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}

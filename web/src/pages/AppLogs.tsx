@@ -159,12 +159,10 @@ export function AppLogs() {
 		sortDir: scrollSortDir,
 		getCursor: (entry) =>
 			encodeCursor({
-				created_at: entry.created_at,
+				created_at: entry.created_at ?? "",
 				id: entry.id ?? "",
 			}),
-		getId: (entry) =>
-			entry.id ??
-			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
+		getId: (entry) => entry.id ?? `${entry.timestamp}-${entry.source}`,
 	});
 
 	// Slow poll for scroll mode (no SSE events exist for app logs)
