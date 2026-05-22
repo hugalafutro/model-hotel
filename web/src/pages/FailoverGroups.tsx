@@ -83,11 +83,16 @@ export function FailoverGroups() {
 	const totalDisabled = (allGroups?.length ?? 0) - totalEnabled;
 	const allSameState = totalEnabled === 0 || totalDisabled === 0;
 
-	// Sort groups alphabetically by display_model and group by first letter
-	const sortedGroups = [...(groups ?? [])].sort((a, b) =>
-		a.display_model.localeCompare(b.display_model),
-	);
-	const letterGroups = sortedGroups.reduce<Record<string, typeof sortedGroups>>(
+	// Separate custom groups (manually created) from auto groups
+	const customGroups = [...(groups ?? [])]
+		.filter((g) => !g.auto_created)
+		.sort((a, b) => a.display_model.localeCompare(b.display_model));
+	const autoGroups = [...(groups ?? [])]
+		.filter((g) => g.auto_created)
+		.sort((a, b) => a.display_model.localeCompare(b.display_model));
+
+	// Auto groups grouped by first letter
+	const letterGroups = autoGroups.reduce<Record<string, typeof autoGroups>>(
 		(acc, group) => {
 			const letter = group.display_model.charAt(0).toUpperCase();
 			if (!acc[letter]) acc[letter] = [];
@@ -539,6 +544,64 @@ export function FailoverGroups() {
 			) : (
 				<div className="relative flex gap-4">
 					<div className="flex-1 space-y-6">
+						{/* Custom groups section (manually created) */}
+						{customGroups.length > 0 && (
+							<section id="failover-section-custom">
+								<button
+									type="button"
+									onClick={() => toggleLetterCollapse("custom")}
+									className="flex items-center gap-3 mb-3 w-full text-left group cursor-pointer"
+								>
+									<ChevronRight
+										size={16}
+										className={`text-gray-500 transition-transform group-hover:text-(--accent) group-hover:drop-shadow-[0_0_8px_var(--accent)] ${collapsedLetters.has("custom") ? "" : "rotate-90"}`}
+									/>
+									<span className="text-lg font-bold text-(--accent) group-hover:[text-shadow:0_0_8px_var(--accent)]">
+										Custom
+									</span>
+									<div className="flex-1 h-px bg-gray-700/50" />
+									<span className="text-xs text-gray-500">
+										{customGroups.length} group
+										{customGroups.length > 1 ? "s" : ""}
+									</span>
+								</button>
+								<div
+									className="grid transition-[grid-template-rows] duration-200 ease-in-out"
+									style={{
+										gridTemplateRows: collapsedLetters.has("custom")
+											? "0fr"
+											: "1fr",
+									}}
+								>
+									<div className="overflow-hidden">
+										<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+											{customGroups.map((group) => (
+												<FailoverGroupCard
+													key={group.id}
+													group={group}
+													selected={selectedGroupIds.has(group.id)}
+													onToggleSelect={(checked) =>
+														toggleGroupSelect(group.id, checked)
+													}
+													onToggleGroup={(enabled) =>
+														handleToggleGroup(group, enabled)
+													}
+													onToggleEntry={(uuid, enabled) =>
+														handleToggleEntry(group, uuid, enabled)
+													}
+													onReorder={(newOrder) =>
+														handleReorder(group, newOrder)
+													}
+													onDelete={() => handleDelete(group)}
+												/>
+											))}
+										</div>
+									</div>
+								</div>
+							</section>
+						)}
+
+						{/* Auto groups grouped by first letter */}
 						{sortedLetters.map((letter) => (
 							<section key={letter} id={`failover-section-${letter}`}>
 								<button
@@ -597,8 +660,22 @@ export function FailoverGroups() {
 					</div>
 
 					{/* Alphabet sidebar */}
-					{sortedLetters.length > 3 && (
+					{(sortedLetters.length > 3 || customGroups.length > 0) && (
 						<nav className="hidden xl:flex flex-col items-center gap-1 pt-2 sticky top-4 self-start">
+							{customGroups.length > 0 && (
+								<button
+									type="button"
+									onClick={() =>
+										document
+											.getElementById("failover-section-custom")
+											?.scrollIntoView({ behavior: "smooth", block: "start" })
+									}
+									className="text-xs font-medium text-(--accent) hover:[text-shadow:0_0_8px_var(--accent)] transition-all cursor-pointer px-1.5 py-0.5 rounded"
+									aria-label="Jump to custom groups"
+								>
+									★
+								</button>
+							)}
 							{sortedLetters.map((letter) => (
 								<button
 									key={letter}
