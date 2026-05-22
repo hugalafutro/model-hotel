@@ -34,6 +34,7 @@ type Model struct {
 	OwnedBy                      string    `json:"owned_by"`
 	Enabled                      bool      `json:"enabled"`
 	DisabledManually             bool      `json:"disabled_manually"`
+	DisplayNameCustomized        bool      `json:"display_name_customized"`
 	CreatedAt                    time.Time `json:"created_at"`
 	LastSeenAt                   time.Time `json:"last_seen_at"`
 	ProviderName                 string    `json:"provider_name"`
@@ -63,9 +64,9 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, created_at, COALESCE(last_seen_at, created_at)`
 
 // Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
@@ -76,7 +77,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
-			display_name = EXCLUDED.display_name,
+			display_name = CASE WHEN models.display_name_customized THEN models.display_name ELSE EXCLUDED.display_name END,
 			capabilities = EXCLUDED.capabilities,
 			params = EXCLUDED.params,
 			modality = EXCLUDED.modality,
@@ -100,7 +101,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	if err != nil {
@@ -118,7 +119,7 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -180,7 +181,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {
@@ -270,7 +271,7 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {
@@ -346,6 +347,9 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	if req.DisplayName != nil {
 		setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
 		args = append(args, *req.DisplayName)
+		argIdx++
+		setClauses = append(setClauses, fmt.Sprintf("display_name_customized = $%d", argIdx))
+		args = append(args, true)
 		argIdx++
 	}
 	if req.ContextLength != nil {

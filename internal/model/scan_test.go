@@ -129,7 +129,7 @@ func assignToDest(dest, val any) {
 }
 
 // ---------------------------------------------------------------------------
-// buildRow builds a single row of 22 values in scan order from a Model
+// buildRow builds a single row of 24 values in scan order from a Model
 // ---------------------------------------------------------------------------
 
 func buildRow(t *testing.T, m *Model) []any {
@@ -154,10 +154,11 @@ func buildRow(t *testing.T, m *Model) []any {
 		m.OwnedBy,                      // 16 - OwnedBy
 		m.Enabled,                      // 17 - Enabled
 		m.DisabledManually,             // 18 - DisabledManually
-		m.CreatedAt,                    // 19 - CreatedAt
-		m.LastSeenAt,                   // 20 - LastSeenAt
-		m.ProviderName,                 // 21 - ProviderName
-		m.ProviderEnabled,              // 22 - ProviderEnabled
+		m.DisplayNameCustomized,        // 19 - DisplayNameCustomized
+		m.CreatedAt,                    // 20 - CreatedAt
+		m.LastSeenAt,                   // 21 - LastSeenAt
+		m.ProviderName,                 // 22 - ProviderName
+		m.ProviderEnabled,              // 23 - ProviderEnabled
 	}
 }
 
@@ -190,6 +191,7 @@ func TestScanModels_SingleRow(t *testing.T) {
 		OwnedBy:                      "openai",
 		Enabled:                      true,
 		DisabledManually:             false,
+		DisplayNameCustomized:        false,
 		CreatedAt:                    now,
 		LastSeenAt:                   now,
 		ProviderName:                 "OpenAI",
@@ -350,6 +352,7 @@ func TestScanModels_NilableFields(t *testing.T) {
 		OwnedBy:                      "test",
 		Enabled:                      true,
 		DisabledManually:             false,
+		DisplayNameCustomized:        false,
 		CreatedAt:                    now,
 		LastSeenAt:                   now,
 		ProviderName:                 "TestProvider",
@@ -444,6 +447,9 @@ func assertModelEqual(t *testing.T, expected, got *Model) {
 	}
 	if expected.DisabledManually != got.DisabledManually {
 		t.Errorf("DisabledManually: expected %v, got %v", expected.DisabledManually, got.DisabledManually)
+	}
+	if expected.DisplayNameCustomized != got.DisplayNameCustomized {
+		t.Errorf("DisplayNameCustomized: expected %v, got %v", expected.DisplayNameCustomized, got.DisplayNameCustomized)
 	}
 	if !expected.CreatedAt.Equal(got.CreatedAt) {
 		t.Errorf("CreatedAt: expected %v, got %v", expected.CreatedAt, got.CreatedAt)

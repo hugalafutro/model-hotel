@@ -1,5 +1,12 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { api } from "../api/client";
 import type { Model, ModelsCursorResponse, Provider } from "../api/types";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
@@ -17,6 +24,7 @@ interface VirtualModelTableProps {
 	providers?: Provider[];
 	initialProviderFilter?: Set<string>;
 	onModelClick?: (model: Model) => void;
+	refreshTrigger?: number;
 }
 
 interface SortState {
@@ -33,6 +41,7 @@ export function VirtualModelTable({
 	providers,
 	initialProviderFilter,
 	onModelClick,
+	refreshTrigger,
 }: VirtualModelTableProps) {
 	"use no memo";
 	const [searchQuery, setSearchQuery] = useState("");
@@ -167,6 +176,8 @@ export function VirtualModelTable({
 		isLoadingAfter,
 		fetchNewer,
 		fetchOlder,
+		reset,
+		fetchInitial,
 	} = useBidirectionalFetch<Model>({
 		fetchFn,
 		filters,
@@ -189,6 +200,19 @@ export function VirtualModelTable({
 		});
 		return caps;
 	}, [entries]);
+
+	// Re-fetch when parent signals data changed (e.g. after model update)
+	const prevRefreshRef = useRef(refreshTrigger);
+	useEffect(() => {
+		if (
+			refreshTrigger !== undefined &&
+			refreshTrigger !== prevRefreshRef.current
+		) {
+			prevRefreshRef.current = refreshTrigger;
+			reset();
+			fetchInitial();
+		}
+	}, [refreshTrigger, reset, fetchInitial]);
 
 	// eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns mutable functions; compiler skips memoization
 	const virtualizer = useVirtualizer({

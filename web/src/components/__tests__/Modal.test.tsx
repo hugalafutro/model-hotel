@@ -136,4 +136,35 @@ describe("Modal", () => {
 		const modal = getByDialogName("Z-Index Test");
 		expect(modal.className).toContain("z-60");
 	});
+
+	it("applies pr-10 padding to h2 when title prop is provided", () => {
+		render(
+			<Modal onClose={onClose} title="Padding Test">
+				Content
+			</Modal>,
+		);
+		const dialog = getByDialogName("Padding Test");
+		const titleElement = dialog.querySelector("h2");
+		expect(titleElement).toHaveClass("pr-10");
+	});
+
+	it("applies pr-10 padding to div when header prop is provided", () => {
+		render(
+			<Modal onClose={onClose} header={<h3>Custom Header</h3>}>
+				Content
+			</Modal>,
+		);
+		const dialog = getByDialogName("Custom Header");
+		const headerDiv = dialog.querySelector(
+			`div[id="${dialog.getAttribute("aria-labelledby")}"]`,
+		);
+		expect(headerDiv).toHaveClass("pr-10");
+	});
+
+	it("does not apply pr-10 padding when neither title nor header is provided", () => {
+		render(<Modal onClose={onClose}>Content</Modal>);
+		const dialog = screen.getByRole("dialog");
+		const pr10Element = dialog.querySelector(".pr-10");
+		expect(pr10Element).not.toBeInTheDocument();
+	});
 });
