@@ -610,13 +610,23 @@ describe("FailoverGroups", () => {
 
 		it("groups are grouped by first letter with collapse toggle", async () => {
 			const groups = [
-				{ ...mockFailoverGroup, display_model: "alpha-one" },
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-one",
+					auto_created: true,
+				},
 				{
 					...mockFailoverGroup,
 					display_model: "alpha-two",
 					id: "fg-002",
+					auto_created: true,
 				},
-				{ ...mockFailoverGroup, display_model: "beta-one", id: "fg-003" },
+				{
+					...mockFailoverGroup,
+					display_model: "beta-one",
+					id: "fg-003",
+					auto_created: true,
+				},
 			];
 
 			server.use(
@@ -655,8 +665,13 @@ describe("FailoverGroups", () => {
 
 		it("toggling letter collapse expands/collapses groups", async () => {
 			const groups = [
-				{ ...mockFailoverGroup, display_model: "test-one" },
-				{ ...mockFailoverGroup, display_model: "test-two", id: "fg-002" },
+				{ ...mockFailoverGroup, display_model: "test-one", auto_created: true },
+				{
+					...mockFailoverGroup,
+					display_model: "test-two",
+					id: "fg-002",
+					auto_created: true,
+				},
 			];
 
 			server.use(
@@ -692,6 +707,152 @@ describe("FailoverGroups", () => {
 				await waitFor(() => {
 					expect(screen.getByText("hotel/test-one")).toBeInTheDocument();
 					expect(screen.getByText("hotel/test-two")).toBeInTheDocument();
+				});
+			}
+		});
+
+		it("custom groups appear in a Custom section above letter sections", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "custom-model",
+					auto_created: false,
+				},
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					id: "fg-002",
+					auto_created: true,
+				},
+				{
+					...mockFailoverGroup,
+					display_model: "beta-model",
+					id: "fg-003",
+					auto_created: true,
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () => {
+					return HttpResponse.json({
+						groups,
+						last_synced_at: null,
+					});
+				}),
+			);
+
+			renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				// Custom section header should appear
+				expect(screen.getByText("Custom")).toBeInTheDocument();
+				// Custom group should be in Custom section
+				expect(screen.getByText("hotel/custom-model")).toBeInTheDocument();
+				// Auto groups should be in their letter sections
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+				expect(screen.getByText("hotel/beta-model")).toBeInTheDocument();
+				// Letter section headers should exist (use query to avoid multiple match error)
+				expect(screen.queryAllByText("A").length).toBeGreaterThan(0);
+				expect(screen.queryAllByText("B").length).toBeGreaterThan(0);
+			});
+		});
+
+		it("★ symbol appears in alphabet strip when custom groups exist", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "custom-model",
+					auto_created: false,
+				},
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					id: "fg-002",
+					auto_created: true,
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () => {
+					return HttpResponse.json({
+						groups,
+						last_synced_at: null,
+					});
+				}),
+			);
+
+			renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				// ★ button should appear in alphabet strip
+				// The ★ button has aria-label "Jump to custom groups"
+				expect(
+					screen.getByRole("button", { name: /Jump to custom groups/i }),
+				).toBeInTheDocument();
+				// Verify it contains the ★ symbol
+				expect(screen.getByText("★")).toBeInTheDocument();
+			});
+		});
+
+		it("Custom section is collapsible", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "custom-model",
+					auto_created: false,
+				},
+				{
+					...mockFailoverGroup,
+					display_model: "another-custom",
+					id: "fg-002",
+					auto_created: false,
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () => {
+					return HttpResponse.json({
+						groups,
+						last_synced_at: null,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Custom")).toBeInTheDocument();
+				expect(screen.getByText("hotel/custom-model")).toBeInTheDocument();
+			});
+
+			// Find the Custom section collapse toggle button
+			// The button contains the "Custom" text and a ChevronRight icon
+			const customText = screen.getByText("Custom");
+			const customToggle = customText.closest("button");
+			expect(customToggle).toBeTruthy();
+
+			if (customToggle) {
+				// Collapse
+				await user.click(customToggle);
+
+				// Wait for the collapse animation to complete
+				await new Promise((resolve) => setTimeout(resolve, 300));
+
+				// After collapse, the custom groups should not be visible
+				// The content is hidden via gridTemplateRows: 0fr
+				const customSection = customText.closest("section");
+				expect(customSection).toBeTruthy();
+				const contentDiv = customSection?.querySelector(
+					'[style*="grid-template-rows: 0fr"]',
+				);
+				expect(contentDiv).toBeTruthy();
+
+				// Expand again
+				await user.click(customToggle);
+
+				await waitFor(() => {
+					expect(screen.getByText("hotel/custom-model")).toBeInTheDocument();
+					expect(screen.getByText("hotel/another-custom")).toBeInTheDocument();
 				});
 			}
 		});
@@ -2632,10 +2793,29 @@ describe("FailoverGroups", () => {
 	describe("Alphabet Sidebar", () => {
 		it("Shows alphabet sidebar when more than 3 letter groups", async () => {
 			const groups = [
-				{ ...mockFailoverGroup, display_model: "alpha-model" },
-				{ ...mockFailoverGroup, id: "fg-002", display_model: "beta-model" },
-				{ ...mockFailoverGroup, id: "fg-003", display_model: "gamma-model" },
-				{ ...mockFailoverGroup, id: "fg-004", display_model: "delta-model" },
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					auto_created: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					auto_created: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-003",
+					display_model: "gamma-model",
+					auto_created: true,
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-004",
+					display_model: "delta-model",
+					auto_created: true,
+				},
 			];
 
 			server.use(
