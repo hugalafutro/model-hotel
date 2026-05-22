@@ -7,6 +7,8 @@ import { Modal } from "../../components/Modal";
 import {
 	baseUrls,
 	getProviderType,
+	isLocalProviderType,
+	localProviderDefaults,
 	providerTypeAllowsEmptyKey,
 	providerTypeDisplayNames,
 	providerTypeHasFreeModels,
@@ -162,7 +164,7 @@ export function AddProviderModal({
 		setFormData((prev) => ({
 			...prev,
 			provider_type: type,
-			base_url: baseUrls[type] || prev.base_url,
+			base_url: localProviderDefaults[type] || baseUrls[type] || prev.base_url,
 			name: newName,
 		}));
 	};
@@ -272,17 +274,28 @@ export function AddProviderModal({
 								base_url: e.target.value,
 							})
 						}
-						readOnly={formData.provider_type !== "custom"}
+						readOnly={
+							formData.provider_type !== "custom" &&
+							!isLocalProviderType(formData.provider_type)
+						}
 						className={
-							formData.provider_type !== "custom"
+							formData.provider_type !== "custom" &&
+							!isLocalProviderType(formData.provider_type)
 								? "ui-input opacity-60 cursor-not-allowed"
 								: "ui-input"
 						}
 						placeholder="https://api.openai.com/v1"
 					/>
-					{formData.provider_type !== "custom" && (
+					{formData.provider_type !== "custom" &&
+						!isLocalProviderType(formData.provider_type) && (
+							<p className="text-gray-500 text-xs mt-1">
+								Base URL is preset for this provider type
+							</p>
+						)}
+					{isLocalProviderType(formData.provider_type) && (
 						<p className="text-gray-500 text-xs mt-1">
-							Base URL is preset for this provider type
+							Default URL pre-filled; edit if your server runs on a different
+							address. Type is detected from the port number.
 						</p>
 					)}
 					{formData.provider_type === "custom" && (

@@ -5,25 +5,59 @@ export const baseUrls: Record<string, string> = {
 	anthropic: "https://api.anthropic.com",
 	deepseek: "https://api.deepseek.com/v1",
 	"ollama-cloud": "https://ollama.com/v1",
-	ollama: "http://localhost:11434",
 	"opencode-zen": "https://opencode.ai/zen/v1",
 	"opencode-go": "https://opencode.ai/zen/go/v1",
 	xai: "https://api.x.ai/v1",
 	google: "https://generativelanguage.googleapis.com/v1beta/openai",
 	cohere: "https://api.cohere.ai/compatibility/v1",
 	openrouter: "https://openrouter.ai/api/v1",
+};
+
+/** Default URLs for self-hosted providers. Pre-filled but user-editable. */
+export const localProviderDefaults: Record<string, string> = {
+	ollama: "http://localhost:11434",
 	koboldcpp: "http://localhost:5001/v1",
 	lmstudio: "http://localhost:1234/v1",
 };
 
+/** Self-hosted provider types whose base URL is editable (not locked). */
+export const localProviderTypes = new Set(["ollama", "koboldcpp", "lmstudio"]);
+
+/** Returns true for provider types whose base URL defaults to localhost but may run elsewhere. */
+export function isLocalProviderType(type: string): boolean {
+	return localProviderTypes.has(type);
+}
+
 export function isKnownProviderUrl(url: string): boolean {
 	return Object.values(baseUrls).includes(url);
+}
+
+/** Detect provider type from a base URL using port-based heuristics for self-hosted providers. */
+function detectLocalProviderType(url: string): string | null {
+	try {
+		const u = new URL(url);
+		const port = u.port;
+		switch (port) {
+			case "11434":
+				return "ollama";
+			case "5001":
+				return "koboldcpp";
+			case "1234":
+				return "lmstudio";
+		}
+	} catch {
+		// ignore malformed URLs
+	}
+	return null;
 }
 
 export function getProviderType(baseUrl: string): string {
 	for (const [type, url] of Object.entries(baseUrls)) {
 		if (baseUrl === url) return type;
 	}
+	// Port-based detection for self-hosted providers on any host
+	const localType = detectLocalProviderType(baseUrl);
+	if (localType) return localType;
 	return "custom";
 }
 
@@ -42,8 +76,8 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	google: "Google AI Studio (Gemini)",
 	cohere: "Cohere",
 	openrouter: "OpenRouter",
-	koboldcpp: "KoboldCPP (Local)",
-	lmstudio: "LM Studio (Local)",
+	koboldcpp: "KoboldCPP",
+	lmstudio: "LM Studio",
 };
 
 export function providerTypeAllowsEmptyKey(type: string): boolean {
