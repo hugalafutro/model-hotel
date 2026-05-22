@@ -45,15 +45,31 @@ function LoginScreen() {
 	const [token, setToken] = useState("");
 	const [showToken, setShowToken] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [loading, setLoading] = useState(false);
 
-	const handleLogin = () => {
+	const handleLogin = async () => {
 		if (!token.trim()) {
 			setError("Please enter an admin token");
 			return;
 		}
-		localStorage.setItem("adminToken", token.trim());
-		setAdminToken(token.trim());
-		window.location.reload();
+		setLoading(true);
+		setError(null);
+		try {
+			const res = await fetch("/api/system", {
+				headers: { Authorization: `Bearer ${token.trim()}` },
+			});
+			if (!res.ok) {
+				setError("Invalid admin token");
+				return;
+			}
+			localStorage.setItem("adminToken", token.trim());
+			setAdminToken(token.trim());
+			window.location.reload();
+		} catch {
+			setError("Failed to connect to server");
+		} finally {
+			setLoading(false);
+		}
 	};
 
 	return (
@@ -89,7 +105,9 @@ function LoginScreen() {
 								type={showToken ? "text" : "password"}
 								value={token}
 								onChange={(e) => setToken(e.target.value)}
-								onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+								onKeyDown={(e) =>
+									e.key === "Enter" && !loading && handleLogin()
+								}
 								className="ui-input pr-10! overflow-hidden"
 								placeholder="Enter your admin token"
 							/>
@@ -107,9 +125,10 @@ function LoginScreen() {
 					<button
 						type="button"
 						onClick={handleLogin}
-						className="w-full bg-(--accent) text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium"
+						disabled={loading}
+						className="w-full bg-(--accent) text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						Sign In
+						{loading ? "Signing in…" : "Sign In"}
 					</button>
 					<p className="text-sm text-gray-500 text-center">
 						Get your admin token from the server logs
