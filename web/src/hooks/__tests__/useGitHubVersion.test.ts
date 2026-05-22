@@ -1,26 +1,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockSettings } from "../../test/helpers";
+import { mockSettings, mockVersionLatest } from "../../test/helpers";
 import { server } from "../../test/mocks/server";
 import { useGitHubVersion } from "../useGitHubVersion";
 
 const STORAGE_KEY = "github-latest-version";
-const REPO_API =
-	"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest";
-
-/** Mock fetch only for the GitHub releases API; let MSW handle /api/* */
-function mockGitHubFetch(
-	impl: (url: string, init?: RequestInit) => Promise<Response>,
-) {
-	const realFetch = globalThis.fetch;
-	vi.spyOn(globalThis, "fetch").mockImplementation((url, init) => {
-		if (typeof url === "string" && url.startsWith(REPO_API)) {
-			return impl(url, init);
-		}
-		// Fall through to real fetch (MSW intercepts /api/* requests)
-		return realFetch(url, init);
-	});
-}
 
 describe("useGitHubVersion", () => {
 	beforeEach(() => {
@@ -30,7 +14,7 @@ describe("useGitHubVersion", () => {
 
 	it("returns dev running version when settings fetch fails", async () => {
 		server.use(...mockSettings({ status: 500 }));
-		mockGitHubFetch(() => Promise.reject(new Error("offline")));
+		server.use(...mockVersionLatest({ status: 500 }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 		expect(result.current.running).toBe("dev");
@@ -40,7 +24,7 @@ describe("useGitHubVersion", () => {
 
 	it("returns running version from settings API", async () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
-		mockGitHubFetch(() => Promise.reject(new Error("offline")));
+		server.use(...mockVersionLatest({ status: 500 }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -55,7 +39,7 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		mockGitHubFetch(() => Promise.reject(new Error("offline")));
+		server.use(...mockVersionLatest({ status: 500 }));
 		const { result } = renderHook(() => useGitHubVersion());
 		expect(result.current.latest).toBe("v0.1.2");
 	});
@@ -71,7 +55,11 @@ describe("useGitHubVersion", () => {
 			await new Promise((r) => setTimeout(r, 0));
 		});
 
-		expect(fetchSpy).not.toHaveBeenCalledWith(REPO_API, expect.anything());
+		// Should not call /api/version/latest when cache is fresh
+		expect(fetchSpy).not.toHaveBeenCalledWith(
+			expect.stringContaining("/api/version/latest"),
+			expect.anything(),
+		);
 	});
 
 	it("fetches when cache is stale", async () => {
@@ -79,9 +67,7 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.1", timestamp: staleTimestamp });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ tag_name: "v0.2" }))),
-		);
+		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
 		renderHook(() => useGitHubVersion());
 
@@ -91,9 +77,7 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("updates latest from API response", async () => {
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ tag_name: "v0.2" }))),
-		);
+		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 		expect(result.current.latest).toBe("GitHub");
@@ -106,9 +90,7 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("caches fetched version in localStorage", async () => {
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ tag_name: "v0.2" }))),
-		);
+		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
 		renderHook(() => useGitHubVersion());
 
@@ -126,9 +108,14 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response("rate limited", { status: 403 })),
+		// Make cache stale so it tries to fetch
+		const staleTimestamp = Date.now() - 31 * 60 * 1000;
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ tag: "v0.1.2", timestamp: staleTimestamp }),
 		);
+
+		server.use(...mockVersionLatest({ status: 403 }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 		expect(result.current.latest).toBe("v0.1.2");
@@ -144,7 +131,14 @@ describe("useGitHubVersion", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);
 
-		mockGitHubFetch(() => Promise.reject(new Error("network error")));
+		// Make cache stale
+		const staleTimestamp = Date.now() - 31 * 60 * 1000;
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ tag: "v0.1.2", timestamp: staleTimestamp }),
+		);
+
+		server.use(...mockVersionLatest({ status: 500 }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -156,9 +150,7 @@ describe("useGitHubVersion", () => {
 	});
 
 	it("ignores response without tag_name", async () => {
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ message: "Not Found" }))),
-		);
+		server.use(...mockVersionLatest({ body: { message: "Not Found" } }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -171,9 +163,7 @@ describe("useGitHubVersion", () => {
 
 	it("sets updateAvailable=true when latest > running", async () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ tag_name: "v1.1.0" }))),
-		);
+		server.use(...mockVersionLatest({ body: { tag_name: "v1.1.0" } }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -188,9 +178,7 @@ describe("useGitHubVersion", () => {
 
 	it("sets updateAvailable=false when versions match", async () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ tag_name: "v1.0.0" }))),
-		);
+		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 
@@ -203,9 +191,7 @@ describe("useGitHubVersion", () => {
 
 	it("sets updateAvailable=true when running is dev", async () => {
 		server.use(...mockSettings({ body: { app_version: "dev" } }));
-		mockGitHubFetch(() =>
-			Promise.resolve(new Response(JSON.stringify({ tag_name: "v1.0.0" }))),
-		);
+		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
 
 		const { result } = renderHook(() => useGitHubVersion());
 

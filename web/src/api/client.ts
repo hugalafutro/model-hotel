@@ -593,6 +593,16 @@ export const api = {
 		},
 	},
 
+	version: {
+		getLatest: async (): Promise<{ tag_name: string }> => {
+			return fetchJSON<{ tag_name: string }>(
+				`${API_BASE}/api/version/latest`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch latest version",
+			);
+		},
+	},
+
 	virtualKeys: {
 		list: async (): Promise<VirtualKey[]> => {
 			return fetchJSON<VirtualKey[]>(

@@ -70,6 +70,7 @@ type Handler struct {
 	settingsRepo   SettingsStore
 	systemHandler  *SystemHandler
 	appVersion     string
+	ghReleasesURL  string // injectable for testing; defaults to githubReleasesURL const
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -82,6 +83,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		virtualKeyRepo: vkRepo,
 		settingsRepo:   settingsRepo,
 		appVersion:     appVersion,
+		ghReleasesURL:  githubReleasesURL,
 	}
 }
 
@@ -115,6 +117,7 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterAppLogs(r)
 	h.RegisterSettings(r)
 	h.RegisterVirtualKeys(r)
+	h.RegisterVersion(r)
 
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
 	modelRepo := model.NewRepository(h.dbPool.Pool())
