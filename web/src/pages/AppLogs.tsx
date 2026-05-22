@@ -162,7 +162,9 @@ export function AppLogs() {
 				created_at: entry.created_at ?? "",
 				id: entry.id ?? "",
 			}),
-		getId: (entry) => entry.id ?? `${entry.timestamp}-${entry.source}`,
+		getId: (entry) =>
+			entry.id ??
+			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
 	});
 
 	// Slow poll for scroll mode (no SSE events exist for app logs)
