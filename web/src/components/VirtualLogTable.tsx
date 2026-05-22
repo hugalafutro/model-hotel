@@ -47,6 +47,8 @@ const HEADER_BASE =
 const EDGE_THRESHOLD_PX = 500; // pixels from edge to trigger fetch
 
 export function VirtualLogTable(props: VirtualLogTableProps) {
+	"use no memo";
+
 	const {
 		entries,
 		total,
@@ -63,6 +65,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	// eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns mutable functions; compiler skips memoization
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
