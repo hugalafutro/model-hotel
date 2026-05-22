@@ -175,30 +175,6 @@ export function VirtualModelTable({
 		getId: (entry) => entry.id,
 	});
 
-	const prevEntriesRef = useRef(entries);
-	// State counter to force synchronous re-render after scrollTop adjustment.
-	// React guarantees setState inside useLayoutEffect is flushed before paint.
-	const [, forceRerender] = useState(0);
-
-	// When items are prepended (fetchNewer), all item indices shift but
-	// scrollTop stays the same, so the virtualizer maps the old scroll
-	// position to different items. Adjust scrollTop by the estimated
-	// height of the newly prepended items, then force a synchronous
-	// re-render so the virtualizer recomputes before the browser paints.
-	useLayoutEffect(() => {
-		const prev = prevEntriesRef.current;
-		if (entries.length > prev.length && prev.length > 0) {
-			const newItemCount = entries.length - prev.length;
-			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
-				scrollRef.current.scrollTop += newItemCount * 45;
-				prevEntriesRef.current = entries;
-				forceRerender((c) => c + 1);
-				return;
-			}
-		}
-		prevEntriesRef.current = entries;
-	}, [entries]);
-
 	const existingCaps = useMemo(() => {
 		const caps = new Set<CapKey>();
 		entries.forEach((m) => {
@@ -223,6 +199,37 @@ export function VirtualModelTable({
 	});
 
 	const virtualItems = virtualizer.getVirtualItems();
+
+	const prevEntriesRef = useRef(entries);
+	// State counter to force synchronous re-render after scrollTop adjustment.
+	// React guarantees setState inside useLayoutEffect is flushed before paint.
+	const [, forceRerender] = useState(0);
+
+	// When items are prepended (fetchNewer), all item indices shift but
+	// scrollTop stays the same, so the virtualizer maps the old scroll
+	// position to different items. Adjust scrollTop by the average of
+	// the virtualizer's measured row sizes (from measureElement /
+	// ResizeObserver), falling back to estimateSize when no measurements
+	// exist yet. Then force a synchronous re-render so the virtualizer
+	// recomputes before the browser paints.
+	useLayoutEffect(() => {
+		const prev = prevEntriesRef.current;
+		if (entries.length > prev.length && prev.length > 0) {
+			const newItemCount = entries.length - prev.length;
+			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
+				const cache = virtualizer.measurementsCache;
+				const avgSize =
+					cache.length > 0
+						? cache.reduce((sum, m) => sum + m.size, 0) / cache.length
+						: 45;
+				scrollRef.current.scrollTop += newItemCount * avgSize;
+				prevEntriesRef.current = entries;
+				forceRerender((c) => c + 1);
+				return;
+			}
+		}
+		prevEntriesRef.current = entries;
+	}, [entries, virtualizer.measurementsCache]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
