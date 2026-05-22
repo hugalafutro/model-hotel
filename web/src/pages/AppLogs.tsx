@@ -159,7 +159,7 @@ export function AppLogs() {
 		sortDir: scrollSortDir,
 		getCursor: (entry) =>
 			encodeCursor({
-				created_at: entry.created_at,
+				created_at: entry.created_at ?? "",
 				id: entry.id ?? "",
 			}),
 		getId: (entry) =>
