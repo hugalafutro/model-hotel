@@ -163,6 +163,10 @@ func DetectProviderType(baseURL string) string {
 	// Port-based heuristics for self-hosted providers (Ollama, LM Studio, KoboldCPP).
 	// These providers commonly run on non-localhost hosts (LAN servers, Kubernetes, etc.)
 	// so port detection must work on any host, not just loopback.
+	//
+	// Note: port 5001 is also used by IPFS HTTP API and Apple AirPlay Receiver.
+	// Port 1234 is a common generic dev port. If discovery misclassifies a non-LLM
+	// service on one of these ports, the user can override the provider type manually.
 	port := u.Port()
 	switch port {
 	case "11434":

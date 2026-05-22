@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { AppLogEntry } from "../api/types";
 import { Badge } from "./Badge";
 
@@ -125,6 +125,37 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 
 	const virtualItems = virtualizer.getVirtualItems();
 
+	const prevEntriesRef = useRef(entries);
+	// State counter to force synchronous re-render after scrollTop adjustment.
+	// React guarantees setState inside useLayoutEffect is flushed before paint.
+	const [, forceRerender] = useState(0);
+
+	// When items are prepended (fetchNewer), all item indices shift but
+	// scrollTop stays the same, so the virtualizer maps the old scroll
+	// position to different items. Adjust scrollTop by the average of
+	// the virtualizer's measured row sizes (from measureElement /
+	// ResizeObserver), falling back to estimateSize when no measurements
+	// exist yet. Then force a synchronous re-render so the virtualizer
+	// recomputes before the browser paints.
+	useLayoutEffect(() => {
+		const prev = prevEntriesRef.current;
+		if (entries.length > prev.length && prev.length > 0) {
+			const newItemCount = entries.length - prev.length;
+			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
+				const cache = virtualizer.measurementsCache;
+				const avgSize =
+					cache.length > 0
+						? cache.reduce((sum, m) => sum + m.size, 0) / cache.length
+						: 48;
+				scrollRef.current.scrollTop += newItemCount * avgSize;
+				prevEntriesRef.current = entries;
+				forceRerender((c) => c + 1);
+				return;
+			}
+		}
+		prevEntriesRef.current = entries;
+	}, [entries, virtualizer.measurementsCache]);
+
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
 			? [
@@ -172,10 +203,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 						minHeight: "200px",
 					}}
 				>
-					<table
-						className="w-full table-fixed ui-table min-w-250"
-						style={{ marginBottom: "8px" }}
-					>
+					<table className="w-full table-fixed ui-table ui-table-virtual min-w-250">
 						<colgroup>
 							<col className="w-44" />
 							<col className="w-20" />
@@ -222,8 +250,11 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 				onScroll={handleScroll}
 			>
 				<table
-					className="w-full table-fixed ui-table min-w-250"
-					style={{ marginBottom: "8px" }}
+					className="w-full table-fixed ui-table ui-table-virtual min-w-250"
+					style={{
+						marginTop: paddingTop,
+						marginBottom: paddingBottom + 8,
+					}}
 				>
 					<colgroup>
 						<col className="w-44" />
@@ -245,21 +276,14 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 						</tr>
 					</thead>
 					<tbody>
-						{paddingTop > 0 && (
-							<tr>
-								<td
-									colSpan={4}
-									style={{ height: paddingTop, padding: 0, border: "none" }}
-								/>
-							</tr>
-						)}
 						{virtualItems.map((vItem) => {
 							const entry = entries[vItem.index];
 							return (
 								<tr
 									key={entry.id ?? `${vItem.index}`}
 									data-index={vItem.index}
-									className="hover:bg-(--surface-hover) transition-colors cursor-pointer"
+									ref={virtualizer.measureElement}
+									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}
 									onClick={() => onRowClick(entry)}
 								>
 									<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
@@ -292,14 +316,6 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 								</tr>
 							);
 						})}
-						{paddingBottom > 0 && (
-							<tr>
-								<td
-									colSpan={4}
-									style={{ height: paddingBottom, padding: 0, border: "none" }}
-								/>
-							</tr>
-						)}
 					</tbody>
 				</table>
 			</div>

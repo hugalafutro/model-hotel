@@ -295,7 +295,7 @@ export function AddProviderModal({
 					{isLocalProviderType(formData.provider_type) && (
 						<p className="text-gray-500 text-xs mt-1">
 							Default URL pre-filled; edit if your server runs on a different
-							address
+							address. Type is detected from the port number.
 						</p>
 					)}
 					{formData.provider_type === "custom" && (
