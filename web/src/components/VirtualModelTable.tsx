@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Model, ModelsCursorResponse, Provider } from "../api/types";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
@@ -194,11 +194,42 @@ export function VirtualModelTable({
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => 34,
+		estimateSize: () => 45,
 		overscan: 20,
 	});
 
 	const virtualItems = virtualizer.getVirtualItems();
+
+	const prevEntriesRef = useRef(entries);
+	// State counter to force synchronous re-render after scrollTop adjustment.
+	// React guarantees setState inside useLayoutEffect is flushed before paint.
+	const [, forceRerender] = useState(0);
+
+	// When items are prepended (fetchNewer), all item indices shift but
+	// scrollTop stays the same, so the virtualizer maps the old scroll
+	// position to different items. Adjust scrollTop by the average of
+	// the virtualizer's measured row sizes (from measureElement /
+	// ResizeObserver), falling back to estimateSize when no measurements
+	// exist yet. Then force a synchronous re-render so the virtualizer
+	// recomputes before the browser paints.
+	useLayoutEffect(() => {
+		const prev = prevEntriesRef.current;
+		if (entries.length > prev.length && prev.length > 0) {
+			const newItemCount = entries.length - prev.length;
+			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
+				const cache = virtualizer.measurementsCache;
+				const avgSize =
+					cache.length > 0
+						? cache.reduce((sum, m) => sum + m.size, 0) / cache.length
+						: 45;
+				scrollRef.current.scrollTop += newItemCount * avgSize;
+				prevEntriesRef.current = entries;
+				forceRerender((c) => c + 1);
+				return;
+			}
+		}
+		prevEntriesRef.current = entries;
+	}, [entries, virtualizer.measurementsCache]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
@@ -269,8 +300,11 @@ export function VirtualModelTable({
 				onScroll={handleScroll}
 			>
 				<table
-					className="w-full table-fixed ui-table min-w-250"
-					style={{ marginBottom: "8px" }}
+					className="w-full table-fixed ui-table ui-table-virtual min-w-250"
+					style={{
+						marginTop: isEmpty ? 0 : paddingTop,
+						marginBottom: isEmpty ? 8 : paddingBottom + 8,
+					}}
 				>
 					<colgroup>
 						{showProviderCol ? (
@@ -484,105 +518,84 @@ export function VirtualModelTable({
 								</td>
 							</tr>
 						) : (
-							<>
-								{paddingTop > 0 && (
-									<tr>
-										<td
-											colSpan={showProviderCol ? 10 : 9}
-											style={{ height: paddingTop, padding: 0, border: "none" }}
-										/>
-									</tr>
-								)}
-								{virtualItems.map((vItem) => {
-									const model = entries[vItem.index];
-									const caps = parseCapabilities(model.capabilities);
-									const isActive = model.enabled && !model.disabled_manually;
-									const isManuallyDisabled =
-										model.enabled && model.disabled_manually;
-									return (
-										<tr
-											key={model.id}
-											data-index={vItem.index}
-											className={`hover:bg-(--surface-hover) transition-colors ${onModelClick ? "cursor-pointer" : ""}`}
-											onClick={() => onModelClick?.(model)}
-										>
-											<td className="px-4 py-1.5">
-												<div className="flex flex-col">
-													<span
-														className={`text-left text-sm ${isActive ? "font-medium text-white" : "text-gray-500"}`}
-													>
-														{model.name ||
-															proxyModelID(model.provider_name, model.model_id)}
-													</span>
-													<span className="text-[11px] text-gray-500 font-mono leading-tight truncate">
-														{proxyModelID(model.provider_name, model.model_id)}
-													</span>
-												</div>
-											</td>
-											<td className="px-4 py-1.5">
-												<div className="flex flex-wrap gap-1">
-													{CAP_META.filter((m) => hasCap(caps, m.key)).map(
-														(m) => (
-															<span
-																key={m.key}
-																className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${m.style}`}
-															>
-																{m.label}
-															</span>
-														),
-													)}
-												</div>
-											</td>
-											{showProviderCol && (
-												<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300 truncate">
-													{model.provider_name}
-												</td>
-											)}
-											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-400">
-												{formatRelativeTime(model.last_seen_at)}
-											</td>
-											<td aria-hidden />
-											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
-												{formatNumber(model.context_length)}
-											</td>
-											<td aria-hidden />
-											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
-												{formatNumber(model.max_output_tokens)}
-											</td>
-											<td aria-hidden />
-											<td className="px-4 py-1.5 whitespace-nowrap">
+							virtualItems.map((vItem) => {
+								const model = entries[vItem.index];
+								const caps = parseCapabilities(model.capabilities);
+								const isActive = model.enabled && !model.disabled_manually;
+								const isManuallyDisabled =
+									model.enabled && model.disabled_manually;
+								return (
+									<tr
+										key={model.id}
+										data-index={vItem.index}
+										ref={virtualizer.measureElement}
+										className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} ${onModelClick ? "cursor-pointer" : ""}`}
+										onClick={() => onModelClick?.(model)}
+									>
+										<td className="px-4 py-1.5">
+											<div className="flex flex-col">
 												<span
-													className={`px-2 py-0.5 text-xs rounded-full ${
-														isActive
-															? "bg-green-900/50 text-green-400"
-															: isManuallyDisabled
-																? "bg-yellow-900/50 text-yellow-400"
-																: "bg-red-900/50 text-red-400"
-													}`}
+													className={`text-left text-sm ${isActive ? "font-medium text-white" : "text-gray-500"}`}
 												>
-													{isActive
-														? "Enabled"
-														: isManuallyDisabled
-															? "Manually Disabled"
-															: "Disabled"}
+													{model.name ||
+														proxyModelID(model.provider_name, model.model_id)}
 												</span>
+												<span className="text-[11px] text-gray-500 font-mono leading-tight truncate">
+													{proxyModelID(model.provider_name, model.model_id)}
+												</span>
+											</div>
+										</td>
+										<td className="px-4 py-1.5">
+											<div className="flex flex-wrap gap-1">
+												{CAP_META.filter((m) => hasCap(caps, m.key)).map(
+													(m) => (
+														<span
+															key={m.key}
+															className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${m.style}`}
+														>
+															{m.label}
+														</span>
+													),
+												)}
+											</div>
+										</td>
+										{showProviderCol && (
+											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300 truncate">
+												{model.provider_name}
 											</td>
-										</tr>
-									);
-								})}
-								{paddingBottom > 0 && (
-									<tr>
-										<td
-											colSpan={showProviderCol ? 10 : 9}
-											style={{
-												height: paddingBottom,
-												padding: 0,
-												border: "none",
-											}}
-										/>
+										)}
+										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-400">
+											{formatRelativeTime(model.last_seen_at)}
+										</td>
+										<td aria-hidden />
+										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
+											{formatNumber(model.context_length)}
+										</td>
+										<td aria-hidden />
+										<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">
+											{formatNumber(model.max_output_tokens)}
+										</td>
+										<td aria-hidden />
+										<td className="px-4 py-1.5 whitespace-nowrap">
+											<span
+												className={`px-2 py-0.5 text-xs rounded-full ${
+													isActive
+														? "bg-green-900/50 text-green-400"
+														: isManuallyDisabled
+															? "bg-yellow-900/50 text-yellow-400"
+															: "bg-red-900/50 text-red-400"
+												}`}
+											>
+												{isActive
+													? "Enabled"
+													: isManuallyDisabled
+														? "Manually Disabled"
+														: "Disabled"}
+											</span>
+										</td>
 									</tr>
-								)}
-							</>
+								);
+							})
 						)}
 					</tbody>
 				</table>
