@@ -1360,11 +1360,25 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
 	color: var(--text-secondary);
 }
 
-[data-ui-style] .ui-table tbody tr:nth-child(even) {
+[data-ui-style] .ui-table:not(.ui-table-virtual) tbody tr:nth-child(even) {
 	background-color: rgb(255 255 255 / 3%);
 }
 
-html.light [data-ui-style] .ui-table tbody tr:nth-child(even) {
+html.light
+	[data-ui-style]
+	.ui-table:not(.ui-table-virtual)
+	tbody
+	tr:nth-child(even) {
+	background-color: rgb(0 0 0 / 3%);
+}
+
+/* Virtual table row striping: index-based to avoid nth-child desync
+   when padding spacer rows appear/disappear during scroll. */
+[data-ui-style] .ui-table-virtual tbody tr.ui-row-even {
+	background-color: rgb(255 255 255 / 3%);
+}
+
+html.light [data-ui-style] .ui-table-virtual tbody tr.ui-row-even {
 	background-color: rgb(0 0 0 / 3%);
 }
 
