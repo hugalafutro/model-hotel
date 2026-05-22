@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -19,71 +20,8 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	openAIModels := make([]map[string]interface{}, 0, len(models))
 	for _, m := range models {
-		ownedBy := m.OwnedBy
-		if ownedBy == "" {
-			ownedBy = m.ProviderName
-		}
-
 		modelID := provider.NormalizeName(m.ProviderName) + "/" + m.ModelID
-
-		item := map[string]interface{}{
-			"id":       modelID,
-			"object":   "model",
-			"created":  m.CreatedAt.Unix(),
-			"owned_by": ownedBy,
-			"provider": m.ProviderName,
-		}
-
-		if m.ContextLength != nil {
-			item["context_length"] = *m.ContextLength
-			item["max_context_length"] = *m.ContextLength
-		}
-		if m.MaxOutputTokens != nil {
-			item["max_output_tokens"] = *m.MaxOutputTokens
-		}
-		if m.DisplayName != "" {
-			item["name"] = m.DisplayName
-		} else if m.Name != "" {
-			item["name"] = m.Name
-		}
-		if m.Description != "" {
-			item["description"] = m.Description
-		}
-		if m.Modality != "" {
-			item["modality"] = m.Modality
-		}
-		if m.Capabilities != "" && m.Capabilities != "{}" {
-			var caps map[string]interface{}
-			if err := json.Unmarshal([]byte(m.Capabilities), &caps); err == nil {
-				item["capabilities"] = caps
-			} else {
-				debuglog.Warn("proxy: invalid capabilities JSON in model", "model", m.ModelID, "error", err)
-			}
-		}
-		if m.InputModalities != "" && m.InputModalities != "[]" {
-			var modalities []string
-			if err := json.Unmarshal([]byte(m.InputModalities), &modalities); err == nil {
-				item["input_modalities"] = modalities
-			} else {
-				debuglog.Warn("proxy: invalid input_modalities JSON in model", "model", m.ModelID, "error", err)
-			}
-		}
-		if m.OutputModalities != "" && m.OutputModalities != "[]" {
-			var modalities []string
-			if err := json.Unmarshal([]byte(m.OutputModalities), &modalities); err == nil {
-				item["output_modalities"] = modalities
-			} else {
-				debuglog.Warn("proxy: invalid output_modalities JSON in model", "model", m.ModelID, "error", err)
-			}
-		}
-		if m.InputPricePerMillion != nil {
-			item["input_price_per_million"] = *m.InputPricePerMillion
-		}
-		if m.OutputPricePerMillion != nil {
-			item["output_price_per_million"] = *m.OutputPricePerMillion
-		}
-
-		openAIModels = append(openAIModels, item)
+		openAIModels = append(openAIModels, modelToOpenAIItem(m, modelID, m.ProviderName))
 	}
 
 	groups, err := h.failoverRepo.GetEnabled(r.Context())
@@ -105,69 +43,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				ownedBy := m.OwnedBy
-				if ownedBy == "" {
-					ownedBy = m.ProviderName
-				}
-
-				item := map[string]interface{}{
-					"id":       "hotel/" + g.DisplayModel,
-					"object":   "model",
-					"created":  m.CreatedAt.Unix(),
-					"owned_by": ownedBy,
-					"provider": "hotel",
-				}
-
-				if m.ContextLength != nil {
-					item["context_length"] = *m.ContextLength
-					item["max_context_length"] = *m.ContextLength
-				}
-				if m.MaxOutputTokens != nil {
-					item["max_output_tokens"] = *m.MaxOutputTokens
-				}
-				if m.DisplayName != "" {
-					item["name"] = m.DisplayName
-				} else if m.Name != "" {
-					item["name"] = m.Name
-				}
-				if m.Description != "" {
-					item["description"] = m.Description
-				}
-				if m.Modality != "" {
-					item["modality"] = m.Modality
-				}
-				if m.Capabilities != "" && m.Capabilities != "{}" {
-					var caps map[string]interface{}
-					if err := json.Unmarshal([]byte(m.Capabilities), &caps); err == nil {
-						item["capabilities"] = caps
-					} else {
-						debuglog.Warn("proxy: invalid capabilities JSON in model", "model", m.ModelID, "error", err)
-					}
-				}
-				if m.InputModalities != "" && m.InputModalities != "[]" {
-					var modalities []string
-					if err := json.Unmarshal([]byte(m.InputModalities), &modalities); err == nil {
-						item["input_modalities"] = modalities
-					} else {
-						debuglog.Warn("proxy: invalid input_modalities JSON in model", "model", m.ModelID, "error", err)
-					}
-				}
-				if m.OutputModalities != "" && m.OutputModalities != "[]" {
-					var modalities []string
-					if err := json.Unmarshal([]byte(m.OutputModalities), &modalities); err == nil {
-						item["output_modalities"] = modalities
-					} else {
-						debuglog.Warn("proxy: invalid output_modalities JSON in model", "model", m.ModelID, "error", err)
-					}
-				}
-				if m.InputPricePerMillion != nil {
-					item["input_price_per_million"] = *m.InputPricePerMillion
-				}
-				if m.OutputPricePerMillion != nil {
-					item["output_price_per_million"] = *m.OutputPricePerMillion
-				}
-
-				openAIModels = append(openAIModels, item)
+				openAIModels = append(openAIModels, modelToOpenAIItem(m, "hotel/"+g.DisplayModel, "hotel"))
 				break
 			}
 		}
@@ -182,4 +58,71 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		debuglog.Error("proxy: failed to encode models response", "error", err)
 	}
+}
+
+// modelToOpenAIItem builds an OpenAI-compatible model object from a model entity.
+func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]interface{} {
+	ownedBy := m.OwnedBy
+	if ownedBy == "" {
+		ownedBy = m.ProviderName
+	}
+
+	item := map[string]interface{}{
+		"id":       id,
+		"object":   "model",
+		"created":  m.CreatedAt.Unix(),
+		"owned_by": ownedBy,
+		"provider": providerName,
+	}
+
+	if m.ContextLength != nil {
+		item["context_length"] = *m.ContextLength
+		item["max_context_length"] = *m.ContextLength
+	}
+	if m.MaxOutputTokens != nil {
+		item["max_output_tokens"] = *m.MaxOutputTokens
+	}
+	if m.DisplayName != "" {
+		item["name"] = m.DisplayName
+	} else if m.Name != "" {
+		item["name"] = m.Name
+	}
+	if m.Description != "" {
+		item["description"] = m.Description
+	}
+	if m.Modality != "" {
+		item["modality"] = m.Modality
+	}
+	if m.Capabilities != "" && m.Capabilities != "{}" {
+		var caps map[string]interface{}
+		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err == nil {
+			item["capabilities"] = caps
+		} else {
+			debuglog.Warn("proxy: invalid capabilities JSON in model", "model", m.ModelID, "error", err)
+		}
+	}
+	if m.InputModalities != "" && m.InputModalities != "[]" {
+		var modalities []string
+		if err := json.Unmarshal([]byte(m.InputModalities), &modalities); err == nil {
+			item["input_modalities"] = modalities
+		} else {
+			debuglog.Warn("proxy: invalid input_modalities JSON in model", "model", m.ModelID, "error", err)
+		}
+	}
+	if m.OutputModalities != "" && m.OutputModalities != "[]" {
+		var modalities []string
+		if err := json.Unmarshal([]byte(m.OutputModalities), &modalities); err == nil {
+			item["output_modalities"] = modalities
+		} else {
+			debuglog.Warn("proxy: invalid output_modalities JSON in model", "model", m.ModelID, "error", err)
+		}
+	}
+	if m.InputPricePerMillion != nil {
+		item["input_price_per_million"] = *m.InputPricePerMillion
+	}
+	if m.OutputPricePerMillion != nil {
+		item["output_price_per_million"] = *m.OutputPricePerMillion
+	}
+
+	return item
 }
