@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -13,12 +16,18 @@ import (
 
 const (
 	githubReleasesURL = "https://api.github.com/repos/hugalafutro/model-hotel/releases/latest"
+	githubTagsURL     = "https://api.github.com/repos/hugalafutro/model-hotel/tags?per_page=1"
 	versionCacheTTL   = 30 * time.Minute
 )
 
 // githubRelease matches the subset of GitHub's release API response we need.
 type githubRelease struct {
 	TagName string `json:"tag_name"`
+}
+
+// githubTag matches the subset of GitHub's tags API response we need.
+type githubTag struct {
+	Name string `json:"name"`
 }
 
 // versionCache holds the cached latest release tag and expiry.
@@ -29,6 +38,9 @@ type versionCache struct {
 }
 
 var vCache versionCache
+
+// errNotFound indicates the GitHub releases endpoint returned 404.
+var errNotFound = errors.New("no releases found")
 
 // RegisterVersion mounts the version check route.
 func (h *Handler) RegisterVersion(r chi.Router) {
@@ -49,24 +61,44 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, h.ghReleasesURL, http.NoBody)
+	// Try the releases endpoint first. When the repo has tags but no formal
+	// GitHub Releases, the endpoint returns 404 — fall back to the tags API
+	// only in that case. For other errors (5xx, timeout) skip the fallback to
+	// avoid doubling worst-case latency.
+	tagName, err := h.fetchLatestTag(r.Context(), h.ghReleasesURL)
+	if errors.Is(err, errNotFound) {
+		tagName, err = h.fetchLatestTagFromTags(r.Context(), h.ghTagsURL)
+	}
 	if err != nil {
-		respondError(w, "failed to create GitHub request", err, http.StatusInternalServerError)
+		debuglog.Error("version: all GitHub lookups failed", "error", err)
+		if tag != "" {
+			writeJSON(w, map[string]string{"tag_name": tag})
+			return
+		}
+		respondError(w, "failed to fetch latest version", err, http.StatusBadGateway)
 		return
+	}
+
+	vCache.mu.Lock()
+	vCache.tag = tagName
+	vCache.fetchedAt = time.Now()
+	vCache.mu.Unlock()
+
+	writeJSON(w, map[string]string{"tag_name": tagName})
+}
+
+// fetchLatestTag fetches the latest release tag from GitHub.
+func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		debuglog.Error("version: GitHub request failed", "error", err)
-		// Return stale cache if available, otherwise 502
-		if tag != "" {
-			writeJSON(w, map[string]string{"tag_name": tag})
-			return
-		}
-		respondError(w, "failed to fetch latest release", err, http.StatusBadGateway)
-		return
+		return "", fmt.Errorf("request failed: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -74,33 +106,53 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return "", errNotFound
+	}
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("version: GitHub returned non-200", "status", resp.StatusCode)
-		if tag != "" {
-			writeJSON(w, map[string]string{"tag_name": tag})
-			return
-		}
-		http.Error(w, "upstream error", http.StatusBadGateway)
-		return
+		return "", fmt.Errorf("GitHub returned status %d", resp.StatusCode)
 	}
 
 	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		debuglog.Error("version: failed to decode GitHub response", "error", err)
-		respondError(w, "failed to decode release", err, http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("decode response: %w", err)
 	}
-
 	if release.TagName == "" {
-		debuglog.Error("version: GitHub response missing tag_name")
-		http.Error(w, "no tag_name in response", http.StatusBadGateway)
-		return
+		return "", fmt.Errorf("response missing tag_name")
+	}
+	return release.TagName, nil
+}
+
+// fetchLatestTagFromTags falls back to the tags API when no GitHub Releases exist.
+// The tags are returned most-recent-first, so per_page=1 gives us the latest tag.
+func (h *Handler) fetchLatestTagFromTags(ctx context.Context, url string) (string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("create tags request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("tags request failed: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			debuglog.Error("version: failed to close tags response body", "error", closeErr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("tags API returned status %d", resp.StatusCode)
 	}
 
-	vCache.mu.Lock()
-	vCache.tag = release.TagName
-	vCache.fetchedAt = time.Now()
-	vCache.mu.Unlock()
-
-	writeJSON(w, map[string]string{"tag_name": release.TagName})
+	var tags []githubTag
+	if err := json.NewDecoder(resp.Body).Decode(&tags); err != nil {
+		return "", fmt.Errorf("decode tags response: %w", err)
+	}
+	if len(tags) == 0 || tags[0].Name == "" {
+		return "", fmt.Errorf("no tags found")
+	}
+	return tags[0].Name, nil
 }

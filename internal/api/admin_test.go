@@ -177,6 +177,7 @@ func testHandler(provStore *mockProviderStore, vkStore *mockVirtualKeyStore, set
 		settingsRepo:   setsStore,
 		appVersion:     "test",
 		ghReleasesURL:  githubReleasesURL,
+		ghTagsURL:      githubTagsURL,
 	}
 }
 

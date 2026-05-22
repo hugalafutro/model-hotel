@@ -71,6 +71,7 @@ type Handler struct {
 	systemHandler  *SystemHandler
 	appVersion     string
 	ghReleasesURL  string // injectable for testing; defaults to githubReleasesURL const
+	ghTagsURL      string // injectable for testing; defaults to githubTagsURL const
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -84,6 +85,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		settingsRepo:   settingsRepo,
 		appVersion:     appVersion,
 		ghReleasesURL:  githubReleasesURL,
+		ghTagsURL:      githubTagsURL,
 	}
 }
 
