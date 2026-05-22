@@ -3,6 +3,8 @@ import {
 	baseUrls,
 	getProviderType,
 	isKnownProviderUrl,
+	isLocalProviderType,
+	localProviderDefaults,
 	providerTypeAllowsEmptyKey,
 	providerTypeDisplayNames,
 } from "../constants";
@@ -20,8 +22,8 @@ describe("baseUrls", () => {
 		expect(baseUrls.deepseek).toBe("https://api.deepseek.com/v1");
 	});
 
-	it("has entry for ollama", () => {
-		expect(baseUrls.ollama).toBe("http://localhost:11434");
+	it("does not have localhost entry for ollama", () => {
+		expect(baseUrls.ollama).toBeUndefined();
 	});
 
 	it("has entry for ollama-cloud", () => {
@@ -46,12 +48,12 @@ describe("baseUrls", () => {
 		expect(baseUrls.openrouter).toBe("https://openrouter.ai/api/v1");
 	});
 
-	it("has entry for koboldcpp", () => {
-		expect(baseUrls.koboldcpp).toBe("http://localhost:5001/v1");
+	it("does not have localhost entry for koboldcpp", () => {
+		expect(baseUrls.koboldcpp).toBeUndefined();
 	});
 
-	it("has entry for lmstudio", () => {
-		expect(baseUrls.lmstudio).toBe("http://localhost:1234/v1");
+	it("does not have localhost entry for lmstudio", () => {
+		expect(baseUrls.lmstudio).toBeUndefined();
 	});
 
 	it("has entry for nanogpt", () => {
@@ -71,6 +73,42 @@ describe("baseUrls", () => {
 	});
 });
 
+describe("localProviderDefaults", () => {
+	it("has default for ollama", () => {
+		expect(localProviderDefaults.ollama).toBe("http://localhost:11434");
+	});
+
+	it("has default for koboldcpp", () => {
+		expect(localProviderDefaults.koboldcpp).toBe("http://localhost:5001/v1");
+	});
+
+	it("has default for lmstudio", () => {
+		expect(localProviderDefaults.lmstudio).toBe("http://localhost:1234/v1");
+	});
+});
+
+describe("isLocalProviderType", () => {
+	it("returns true for ollama", () => {
+		expect(isLocalProviderType("ollama")).toBe(true);
+	});
+
+	it("returns true for koboldcpp", () => {
+		expect(isLocalProviderType("koboldcpp")).toBe(true);
+	});
+
+	it("returns true for lmstudio", () => {
+		expect(isLocalProviderType("lmstudio")).toBe(true);
+	});
+
+	it("returns false for openai", () => {
+		expect(isLocalProviderType("openai")).toBe(false);
+	});
+
+	it("returns false for custom", () => {
+		expect(isLocalProviderType("custom")).toBe(false);
+	});
+});
+
 describe("isKnownProviderUrl", () => {
 	it("returns true for openai url", () => {
 		expect(isKnownProviderUrl("https://api.openai.com/v1")).toBe(true);
@@ -84,8 +122,8 @@ describe("isKnownProviderUrl", () => {
 		expect(isKnownProviderUrl("https://api.deepseek.com/v1")).toBe(true);
 	});
 
-	it("returns true for ollama url", () => {
-		expect(isKnownProviderUrl("http://localhost:11434")).toBe(true);
+	it("returns false for ollama localhost url (editable, not locked)", () => {
+		expect(isKnownProviderUrl("http://localhost:11434")).toBe(false);
 	});
 
 	it("returns true for ollama-cloud url", () => {
@@ -100,12 +138,12 @@ describe("isKnownProviderUrl", () => {
 		).toBe(true);
 	});
 
-	it("returns true for koboldcpp url", () => {
-		expect(isKnownProviderUrl("http://localhost:5001/v1")).toBe(true);
+	it("returns false for koboldcpp localhost url (editable, not locked)", () => {
+		expect(isKnownProviderUrl("http://localhost:5001/v1")).toBe(false);
 	});
 
-	it("returns true for lmstudio url", () => {
-		expect(isKnownProviderUrl("http://localhost:1234/v1")).toBe(true);
+	it("returns false for lmstudio localhost url (editable, not locked)", () => {
+		expect(isKnownProviderUrl("http://localhost:1234/v1")).toBe(false);
 	});
 
 	it("returns false for unknown url", () => {
@@ -135,8 +173,12 @@ describe("getProviderType", () => {
 		expect(getProviderType("https://api.deepseek.com/v1")).toBe("deepseek");
 	});
 
-	it("returns ollama for ollama url", () => {
+	it("returns ollama for localhost ollama url (port-based detection)", () => {
 		expect(getProviderType("http://localhost:11434")).toBe("ollama");
+	});
+
+	it("returns ollama for LAN ollama url (port-based detection)", () => {
+		expect(getProviderType("http://192.168.1.50:11434")).toBe("ollama");
 	});
 
 	it("returns ollama-cloud for ollama-cloud url", () => {
@@ -151,12 +193,20 @@ describe("getProviderType", () => {
 		).toBe("google");
 	});
 
-	it("returns koboldcpp for koboldcpp url", () => {
+	it("returns koboldcpp for localhost koboldcpp url (port-based detection)", () => {
 		expect(getProviderType("http://localhost:5001/v1")).toBe("koboldcpp");
 	});
 
-	it("returns lmstudio for lmstudio url", () => {
+	it("returns koboldcpp for LAN koboldcpp url (port-based detection)", () => {
+		expect(getProviderType("http://192.168.1.50:5001/v1")).toBe("koboldcpp");
+	});
+
+	it("returns lmstudio for localhost lmstudio url (port-based detection)", () => {
 		expect(getProviderType("http://localhost:1234/v1")).toBe("lmstudio");
+	});
+
+	it("returns lmstudio for LAN lmstudio url (port-based detection)", () => {
+		expect(getProviderType("http://10.0.0.5:1234/v1")).toBe("lmstudio");
 	});
 
 	it("returns custom for unknown url", () => {
@@ -213,12 +263,12 @@ describe("providerTypeDisplayNames", () => {
 		expect(providerTypeDisplayNames.openrouter).toBe("OpenRouter");
 	});
 
-	it("has display name for koboldcpp", () => {
-		expect(providerTypeDisplayNames.koboldcpp).toBe("KoboldCPP (Local)");
+	it("has display name for koboldcpp (no Local suffix)", () => {
+		expect(providerTypeDisplayNames.koboldcpp).toBe("KoboldCPP");
 	});
 
-	it("has display name for lmstudio", () => {
-		expect(providerTypeDisplayNames.lmstudio).toBe("LM Studio (Local)");
+	it("has display name for lmstudio (no Local suffix)", () => {
+		expect(providerTypeDisplayNames.lmstudio).toBe("LM Studio");
 	});
 
 	it("has display name for nanogpt", () => {
