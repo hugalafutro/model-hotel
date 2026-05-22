@@ -1,9 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse, http } from "msw";
 import { lazy, Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { setAdminToken } from "../api/client";
+import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
 
 vi.mock("../api/client", () => ({
@@ -82,15 +84,17 @@ describe("LoginScreen", () => {
 		renderWithProviders(<App />);
 
 		const input = screen.getByLabelText("Admin Token");
-		await user.type(input, "test-token-123");
+		await user.type(input, "test-admin-token");
 
 		const reloadSpy = vi.spyOn(window, "location", "get");
 
 		const signInButton = screen.getByRole("button", { name: "Sign In" });
 		await user.click(signInButton);
 
-		expect(setAdminToken).toHaveBeenCalledWith("test-token-123");
-		expect(localStorage.getItem("adminToken")).toBe("test-token-123");
+		await waitFor(() => {
+			expect(setAdminToken).toHaveBeenCalledWith("test-admin-token");
+			expect(localStorage.getItem("adminToken")).toBe("test-admin-token");
+		});
 
 		reloadSpy.mockRestore();
 	});
@@ -100,24 +104,131 @@ describe("LoginScreen", () => {
 		renderWithProviders(<App />);
 
 		const input = screen.getByLabelText("Admin Token");
-		await user.type(input, "test-token{enter}");
+		await user.type(input, "test-admin-token{enter}");
 
-		expect(setAdminToken).toHaveBeenCalledWith("test-token");
-		expect(localStorage.getItem("adminToken")).toBe("test-token");
+		await waitFor(() => {
+			expect(setAdminToken).toHaveBeenCalledWith("test-admin-token");
+			expect(localStorage.getItem("adminToken")).toBe("test-admin-token");
+		});
 	});
 
-	it("trims whitespace from token before saving", async () => {
+	it("trims whitespace from token before validating", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<App />);
 
 		const input = screen.getByLabelText("Admin Token");
-		await user.type(input, "  test-token  ");
+		await user.type(input, "  test-admin-token  ");
 
 		const signInButton = screen.getByRole("button", { name: "Sign In" });
 		await user.click(signInButton);
 
-		expect(setAdminToken).toHaveBeenCalledWith("test-token");
-		expect(localStorage.getItem("adminToken")).toBe("test-token");
+		await waitFor(() => {
+			expect(setAdminToken).toHaveBeenCalledWith("test-admin-token");
+			expect(localStorage.getItem("adminToken")).toBe("test-admin-token");
+		});
+	});
+
+	it("shows error when token is invalid (401)", async () => {
+		server.use(
+			http.get("/api/system", () =>
+				HttpResponse.json({ error: "Unauthorized" }, { status: 401 }),
+			),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "wrong-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		await waitFor(() => {
+			expect(screen.getByText("Invalid admin token")).toBeInTheDocument();
+		});
+
+		// Should NOT have saved the token
+		expect(localStorage.getItem("adminToken")).toBeNull();
+		expect(setAdminToken).not.toHaveBeenCalled();
+	});
+
+	it("shows error when server is unreachable", async () => {
+		server.use(http.get("/api/system", () => HttpResponse.error()));
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "some-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Failed to connect to server"),
+			).toBeInTheDocument();
+		});
+
+		expect(localStorage.getItem("adminToken")).toBeNull();
+	});
+
+	it("disables sign-in button while validating", async () => {
+		// Use a delayed response to catch the loading state
+		server.use(
+			http.get("/api/system", async () => {
+				await new Promise((r) => setTimeout(r, 500));
+				return HttpResponse.json({});
+			}),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "test-admin-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		// Button should show loading text and be disabled
+		expect(screen.getByRole("button", { name: "Signing in…" })).toBeDisabled();
+	});
+
+	it("clears previous error on new submit attempt", async () => {
+		// First attempt: invalid token
+		server.use(
+			http.get("/api/system", () =>
+				HttpResponse.json({ error: "Unauthorized" }, { status: 401 }),
+			),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "wrong-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		await waitFor(() => {
+			expect(screen.getByText("Invalid admin token")).toBeInTheDocument();
+		});
+
+		// Override handler to accept any token now
+		server.use(http.get("/api/system", () => HttpResponse.json({})));
+
+		// Clear input and type a valid token
+		await user.clear(input);
+		await user.type(input, "valid-token");
+		await user.click(signInButton);
+
+		// Error should be gone (page reloads on success, but at minimum the error clears)
+		await waitFor(() => {
+			expect(screen.queryByText("Invalid admin token")).not.toBeInTheDocument();
+		});
 	});
 });
 
