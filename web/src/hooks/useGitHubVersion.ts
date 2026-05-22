@@ -89,11 +89,10 @@ export function useGitHubVersion(): VersionInfo {
 			/* ignore, proceed to fetch */
 		}
 
-		let cancelled = false;
+		const controller = new AbortController();
 		api.version
-			.getLatest()
+			.getLatest({ signal: controller.signal })
 			.then((data) => {
-				if (cancelled) return;
 				if (data.tag_name) {
 					const cached: CachedVersion = {
 						tag: data.tag_name,
@@ -108,10 +107,10 @@ export function useGitHubVersion(): VersionInfo {
 				}
 			})
 			.catch(() => {
-				/* network error — keep current value */
+				/* network error or aborted — keep current value */
 			});
 		return () => {
-			cancelled = true;
+			controller.abort();
 		};
 	}, []);
 

@@ -594,10 +594,10 @@ export const api = {
 	},
 
 	version: {
-		getLatest: async (): Promise<{ tag_name: string }> => {
+		getLatest: async (options?: RequestInit): Promise<{ tag_name: string }> => {
 			return fetchJSON<{ tag_name: string }>(
 				`${API_BASE}/api/version/latest`,
-				{ headers: getAuthHeaders() },
+				{ headers: getAuthHeaders(), ...options },
 				"Failed to fetch latest version",
 			);
 		},
