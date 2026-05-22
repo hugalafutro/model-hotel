@@ -363,6 +363,13 @@ func TestDetectProviderType_LocalhostWithPorts(t *testing.T) {
 		{"127.0.0.1 ollama", "http://127.0.0.1:11434/v1", "ollama"},
 		{"ipv6 ollama", "http://[::1]:11434/v1", "ollama"},
 		{"localhost unknown port", "http://localhost:9999/v1", "openai"},
+		// Non-localhost hosts: port detection should still work (LAN, K8s, etc.)
+		{"LAN ollama", "http://192.168.1.50:11434/v1", "ollama"},
+		{"LAN koboldcpp", "http://192.168.1.50:5001/v1", "koboldcpp"},
+		{"LAN lmstudio", "http://10.0.0.5:1234/v1", "lmstudio"},
+		{"hostname ollama", "http://my-llm-server:11434/v1", "ollama"},
+		// Non-localhost host with unrecognised port must fall back to openai
+		{"LAN unknown port", "http://192.168.1.50:9999/v1", "openai"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
