@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -38,6 +39,9 @@ type versionCache struct {
 
 var vCache versionCache
 
+// errNotFound indicates the GitHub releases endpoint returned 404.
+var errNotFound = errors.New("no releases found")
+
 // RegisterVersion mounts the version check route.
 func (h *Handler) RegisterVersion(r chi.Router) {
 	r.Get("/version/latest", h.GetLatestVersion)
@@ -57,12 +61,12 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try the releases endpoint first (returns 404 when no GitHub Releases exist,
-	// even if the repo has tags). Fall back to the tags endpoint in that case.
+	// Try the releases endpoint first. When the repo has tags but no formal
+	// GitHub Releases, the endpoint returns 404 — fall back to the tags API
+	// only in that case. For other errors (5xx, timeout) skip the fallback to
+	// avoid doubling worst-case latency.
 	tagName, err := h.fetchLatestTag(r.Context(), h.ghReleasesURL)
-	if err != nil {
-		// 404 from /releases/latest is expected when a repo has tags but no
-		// formal releases. Fall back to /tags which always works.
+	if errors.Is(err, errNotFound) {
 		tagName, err = h.fetchLatestTagFromTags(r.Context(), h.ghTagsURL)
 	}
 	if err != nil {
@@ -103,7 +107,7 @@ func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error
 	}()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("no releases found")
+		return "", errNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub returned status %d", resp.StatusCode)

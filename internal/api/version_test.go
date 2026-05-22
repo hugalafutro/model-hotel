@@ -149,6 +149,14 @@ func TestGetLatestVersion_TagsFallback(t *testing.T) {
 	if result["tag_name"] != "v0.9.5" {
 		t.Errorf("expected tag_name 'v0.9.5', got %q", result["tag_name"])
 	}
+
+	// Verify cache was populated from tags fallback
+	vCache.mu.Lock()
+	cachedTag := vCache.tag
+	vCache.mu.Unlock()
+	if cachedTag != "v0.9.5" {
+		t.Errorf("expected cached tag 'v0.9.5', got %q", cachedTag)
+	}
 }
 
 func TestGetLatestVersion_StaleCacheFallback(t *testing.T) {
@@ -211,6 +219,37 @@ func TestGetLatestVersion_NoCache_UpstreamError(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
+
+func TestGetLatestVersion_Releases500_NoTagsFallback(t *testing.T) {
+	resetVersionCache()
+
+	// Releases returns 500, tags would succeed — but fallback should NOT be
+	// triggered because only a 404 from releases triggers the tags path.
+	ghServer := newGHMockServer(t,
+		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) },
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]string{{"name": "v0.9.5"}})
+		},
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// Should get 502, not the tags result — proving the fallback was skipped
 	if w.Code != http.StatusBadGateway {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
 	}
