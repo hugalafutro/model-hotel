@@ -16,6 +16,9 @@ vi.mock("../api/client", () => ({
 		settings: {
 			get: vi.fn().mockResolvedValue({ app_version: "v0.0.0-test" }),
 		},
+		version: {
+			getLatest: vi.fn().mockResolvedValue({ tag_name: "v0.0.0-test" }),
+		},
 	},
 }));
 

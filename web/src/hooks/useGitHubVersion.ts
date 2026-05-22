@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
 const STORAGE_KEY = "github-latest-version";
-const REPO_API =
-	"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest";
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 interface CachedVersion {
@@ -76,32 +74,8 @@ export function useGitHubVersion(): VersionInfo {
 		};
 	}, []);
 
-	// Fetch latest GitHub release (existing logic, adapted)
+	// Fetch latest GitHub release via backend proxy
 	useEffect(() => {
-		const controller = new AbortController();
-
-		async function fetchVersion() {
-			try {
-				const res = await fetch(REPO_API, { signal: controller.signal });
-				if (!res.ok) return;
-				const data = await res.json();
-				if (data.tag_name) {
-					const cached: CachedVersion = {
-						tag: data.tag_name,
-						timestamp: Date.now(),
-					};
-					try {
-						localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
-					} catch {
-						/* quota exceeded */
-					}
-					setLatest(data.tag_name);
-				}
-			} catch {
-				/* network error or aborted - keep current value */
-			}
-		}
-
 		// Check if cache is still fresh
 		try {
 			const raw = localStorage.getItem(STORAGE_KEY);
@@ -115,8 +89,29 @@ export function useGitHubVersion(): VersionInfo {
 			/* ignore, proceed to fetch */
 		}
 
-		fetchVersion();
-		return () => controller.abort();
+		const controller = new AbortController();
+		api.version
+			.getLatest({ signal: controller.signal })
+			.then((data) => {
+				if (data.tag_name) {
+					const cached: CachedVersion = {
+						tag: data.tag_name,
+						timestamp: Date.now(),
+					};
+					try {
+						localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+					} catch {
+						/* quota exceeded */
+					}
+					setLatest(data.tag_name);
+				}
+			})
+			.catch(() => {
+				/* network error or aborted — keep current value */
+			});
+		return () => {
+			controller.abort();
+		};
 	}, []);
 
 	const updateAvailable =

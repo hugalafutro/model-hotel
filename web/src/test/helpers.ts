@@ -159,6 +159,21 @@ export function mockSettings(options: OverrideOptions = {}): RequestHandler[] {
 	];
 }
 
+/** Create handler that returns the latest version. */
+export function mockVersionLatest(
+	options: OverrideOptions = {},
+): RequestHandler[] {
+	const { status = 200, body } = options;
+	const data = body ?? { tag_name: "v0.0.0" };
+	return [
+		http.get("/api/version/latest", () =>
+			status === 200
+				? HttpResponse.json(data)
+				: HttpResponse.json(data, { status }),
+		),
+	];
+}
+
 /** Create handler that returns empty logs. */
 export function mockLogs(options: OverrideOptions = {}): RequestHandler[] {
 	const { status = 200, body } = options;
@@ -286,6 +301,7 @@ export function mockAllDefaults(
 		systemStats: OverrideOptions | SystemStats;
 		settings: OverrideOptions | Record<string, string>;
 		logs: OverrideOptions | LogsResponse;
+		versionLatest: OverrideOptions | { tag_name: string };
 	}> = {},
 ): RequestHandler[] {
 	function toOpts<T>(v: OverrideOptions | T[] | undefined): OverrideOptions {
@@ -305,6 +321,7 @@ export function mockAllDefaults(
 		...mockSystemStats(toOpts(overrides.systemStats)),
 		...mockSettings(toOpts(overrides.settings)),
 		...mockLogs(toOpts(overrides.logs)),
+		...mockVersionLatest(toOpts(overrides.versionLatest)),
 	];
 }
 
