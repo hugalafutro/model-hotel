@@ -64,6 +64,7 @@ Thumbs.db
 /.claude/
 /.codenomad/
 /.opencode/
+/.skills/
 # Wiki (published separately as GitHub wiki)
 /model-hotel.wiki/
 .rules

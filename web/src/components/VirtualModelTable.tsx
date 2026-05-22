@@ -34,6 +34,7 @@ export function VirtualModelTable({
 	initialProviderFilter,
 	onModelClick,
 }: VirtualModelTableProps) {
+	"use no memo";
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedProviders, setSelectedProviders] = useState<Set<string>>(
 		initialProviderFilter ?? new Set(),
@@ -189,6 +190,7 @@ export function VirtualModelTable({
 		return caps;
 	}, [entries]);
 
+	// eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns mutable functions; compiler skips memoization
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
