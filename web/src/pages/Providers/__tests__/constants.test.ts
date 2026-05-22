@@ -209,6 +209,10 @@ describe("getProviderType", () => {
 		expect(getProviderType("http://10.0.0.5:1234/v1")).toBe("lmstudio");
 	});
 
+	it("returns custom for LAN host with unrecognised port", () => {
+		expect(getProviderType("http://192.168.1.50:9999/v1")).toBe("custom");
+	});
+
 	it("returns custom for unknown url", () => {
 		expect(getProviderType("https://custom-provider.com/api")).toBe("custom");
 	});
