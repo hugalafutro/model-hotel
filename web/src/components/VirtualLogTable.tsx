@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
@@ -64,12 +64,35 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 	} = props;
 
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const prevEntriesRef = useRef(entries);
+	// State counter to force synchronous re-render after scrollTop adjustment.
+	// React guarantees setState inside useLayoutEffect is flushed before paint.
+	const [, forceRerender] = useState(0);
+
+	// When items are prepended (fetchNewer), all item indices shift but
+	// scrollTop stays the same, so the virtualizer maps the old scroll
+	// position to different items. Adjust scrollTop by the estimated
+	// height of the newly prepended items, then force a synchronous
+	// re-render so the virtualizer recomputes before the browser paints.
+	useLayoutEffect(() => {
+		const prev = prevEntriesRef.current;
+		if (entries.length > prev.length && prev.length > 0) {
+			const newItemCount = entries.length - prev.length;
+			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
+				scrollRef.current.scrollTop += newItemCount * 29;
+				prevEntriesRef.current = entries;
+				forceRerender((c) => c + 1);
+				return;
+			}
+		}
+		prevEntriesRef.current = entries;
+	}, [entries]);
 
 	// eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns mutable functions; compiler skips memoization
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => 34, // approximate row height
+		estimateSize: () => 29, // approximate row height
 		overscan: 20,
 	});
 
@@ -122,7 +145,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						minHeight: "200px",
 					}}
 				>
-					<table className="w-full table-fixed ui-table min-w-250">
+					<table className="w-full table-fixed ui-table ui-table-virtual min-w-250">
 						<colgroup>
 							<col className="w-30" />
 							<col className="w-28" />
@@ -176,8 +199,11 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				onScroll={handleScroll}
 			>
 				<table
-					className="w-full table-fixed ui-table min-w-250"
-					style={{ marginBottom: "8px" }}
+					className="w-full table-fixed ui-table ui-table-virtual min-w-250"
+					style={{
+						marginTop: paddingTop,
+						marginBottom: paddingBottom + 8,
+					}}
 				>
 					<colgroup>
 						<col className="w-30" />
@@ -213,21 +239,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						</tr>
 					</thead>
 					<tbody>
-						{paddingTop > 0 && (
-							<tr>
-								<td
-									colSpan={11}
-									style={{ height: paddingTop, padding: 0, border: "none" }}
-								/>
-							</tr>
-						)}
 						{virtualItems.map((vItem) => {
 							const log = entries[vItem.index];
 							return (
 								<tr
 									key={log.id}
 									data-index={vItem.index}
-									className="hover:bg-(--surface-hover) transition-colors cursor-pointer"
+									ref={virtualizer.measureElement}
+									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}
 									onClick={() => onRowClick(log)}
 								>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
@@ -331,14 +350,6 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 								</tr>
 							);
 						})}
-						{paddingBottom > 0 && (
-							<tr>
-								<td
-									colSpan={11}
-									style={{ height: paddingBottom, padding: 0, border: "none" }}
-								/>
-							</tr>
-						)}
 					</tbody>
 				</table>
 			</div>
