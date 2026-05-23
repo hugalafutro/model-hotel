@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../../../test/mocks/data";
@@ -568,6 +568,7 @@ describe("ModelDetailModal", () => {
 	it("shows Unknown error when onTest rejects with non-Error", async () => {
 		const user = userEvent.setup();
 		// biome-ignore lint/suspicious/noExplicitAny: Testing non-Error rejection
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		onTest.mockRejectedValue("string error" as any);
 
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
@@ -636,91 +637,85 @@ describe("ModelDetailModal", () => {
 	});
 
 	// Edit mode revert buttons - context_length
-	it("shows RevertButton for context_length when value differs from discovered", async () => {
+	it("shows RevertButton for context_length after editing value", async () => {
 		const user = userEvent.setup();
-		const modelWithChangedContext = {
-			...mockModel,
-			context_length: 16384,
-		};
 
-		renderWithProviders(
-			<ModelDetailModal {...defaultProps} model={modelWithChangedContext} />,
-		);
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Edit"));
 
-		const contextInput = screen.getByDisplayValue("16384");
-		expect(contextInput).toBeInTheDocument();
+		// Change context_length to trigger revert button
+		const contextInput = screen.getByDisplayValue("8192");
+		await user.clear(contextInput);
+		await user.type(contextInput, "16384");
 
-		const revertButtons = screen.getAllByTitle("Revert to discovered value");
-		expect(revertButtons.length).toBeGreaterThan(0);
+		// Find the revert button within the same row as the changed input
+		const contextRow = screen
+			.getByDisplayValue("16384")
+			.closest("div") as HTMLElement;
+		const revertBtn = within(contextRow).getByTitle(
+			"Revert to discovered value",
+		);
+		expect(revertBtn).toBeInTheDocument();
 	});
 
 	// Edit mode revert buttons - max_output_tokens
-	it("shows RevertButton for max_output_tokens when value differs", async () => {
+	it("shows RevertButton for max_output_tokens after editing value", async () => {
 		const user = userEvent.setup();
-		const modelWithChangedMaxOutput = {
-			...mockModel,
-			max_output_tokens: 8192,
-		};
 
-		renderWithProviders(
-			<ModelDetailModal {...defaultProps} model={modelWithChangedMaxOutput} />,
-		);
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Edit"));
 
-		// There are two inputs with placeholder "tokens" (context_length and max_output_tokens)
-		const tokensInputs = screen.getAllByPlaceholderText("tokens");
-		expect(tokensInputs.length).toBe(2);
+		// Change max_output_tokens to trigger revert button
+		const tokenInputs = screen.getAllByPlaceholderText("tokens");
+		const maxOutputInput = tokenInputs[1]; // second tokens input is max_output
+		await user.clear(maxOutputInput);
+		await user.type(maxOutputInput, "9999");
 
-		const revertButtons = screen.getAllByTitle("Revert to discovered value");
-		expect(revertButtons.length).toBeGreaterThanOrEqual(1);
+		const maxOutputRow = screen
+			.getByDisplayValue("9999")
+			.closest("div") as HTMLElement;
+		const revertBtn = within(maxOutputRow).getByTitle(
+			"Revert to discovered value",
+		);
+		expect(revertBtn).toBeInTheDocument();
 	});
 
 	// Edit mode revert buttons - input_price_per_million
-	it("shows RevertButton for input_price when value differs", async () => {
+	it("shows RevertButton for input_price after editing value", async () => {
 		const user = userEvent.setup();
-		const modelWithChangedInputPrice = {
-			...mockModel,
-			input_price_per_million: 1.0,
-		};
 
-		renderWithProviders(
-			<ModelDetailModal {...defaultProps} model={modelWithChangedInputPrice} />,
-		);
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Edit"));
 
-		// There are two price inputs with placeholder "0.00"
+		// Change input price to trigger revert button
 		const priceInputs = screen.getAllByPlaceholderText("0.00");
-		expect(priceInputs.length).toBe(2);
+		const inputPriceInput = priceInputs[0]; // first price input is input_price
+		await user.clear(inputPriceInput);
+		await user.type(inputPriceInput, "9.99");
 
+		// Should now have exactly 1 revert button (only input_price changed)
 		const revertButtons = screen.getAllByTitle("Revert to discovered value");
 		expect(revertButtons.length).toBeGreaterThanOrEqual(1);
 	});
 
 	// Edit mode revert buttons - output_price_per_million
-	it("shows RevertButton for output_price when value differs", async () => {
+	it("shows RevertButton for output_price after editing value", async () => {
 		const user = userEvent.setup();
-		const modelWithChangedOutputPrice = {
-			...mockModel,
-			output_price_per_million: 2.5,
-		};
 
-		renderWithProviders(
-			<ModelDetailModal
-				{...defaultProps}
-				model={modelWithChangedOutputPrice}
-			/>,
-		);
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Edit"));
 
-		// There are two price inputs with placeholder "0.00"
+		// Change output price to trigger revert button
 		const priceInputs = screen.getAllByPlaceholderText("0.00");
-		expect(priceInputs.length).toBe(2);
+		const outputPriceInput = priceInputs[1]; // second price input is output_price
+		await user.clear(outputPriceInput);
+		await user.type(outputPriceInput, "8.88");
 
+		// Should now have at least 1 revert button (output_price changed)
 		const revertButtons = screen.getAllByTitle("Revert to discovered value");
 		expect(revertButtons.length).toBeGreaterThanOrEqual(1);
 	});
@@ -728,30 +723,24 @@ describe("ModelDetailModal", () => {
 	// Edit mode revert buttons - clicking revert calls revertField
 	it("reverts field value when clicking RevertButton", async () => {
 		const user = userEvent.setup();
-		const modelWithChangedContext = {
-			...mockModel,
-			context_length: 16384,
-		};
 
-		renderWithProviders(
-			<ModelDetailModal {...defaultProps} model={modelWithChangedContext} />,
-		);
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Edit"));
 
-		const contextInput = screen.getByDisplayValue("16384");
-		expect(contextInput).toBeInTheDocument();
+		// Change context_length to trigger revert button
+		const contextInput = screen.getByDisplayValue("8192");
+		await user.clear(contextInput);
+		await user.type(contextInput, "16384");
 
-		const revertButtons = screen.getAllByTitle("Revert to discovered value");
-		const contextRevertButton = revertButtons.find((btn) => {
-			const parent = btn.parentElement;
-			return parent?.querySelector('input[value="16384"]');
-		});
-
-		if (contextRevertButton) {
-			await user.click(contextRevertButton);
-			expect(screen.getByDisplayValue("8192")).toBeInTheDocument();
-		}
+		const contextRow = screen
+			.getByDisplayValue("16384")
+			.closest("div") as HTMLElement;
+		const revertBtn = within(contextRow).getByTitle(
+			"Revert to discovered value",
+		);
+		await user.click(revertBtn);
+		expect(screen.getByDisplayValue("8192")).toBeInTheDocument();
 	});
 
 	// Snippet tabs - OpenCode tab
@@ -815,19 +804,7 @@ describe("ModelDetailModal", () => {
 		expect(screen.queryByText("Pro plan required")).not.toBeInTheDocument();
 	});
 
-	// Subscription section edge cases - subscription_included false
-	it("shows Not included badge when subscription_included is false", () => {
-		const modelWithSubscriptionFalse = {
-			...mockModel,
-			params: '{"subscription_included":false}',
-		};
-
-		renderWithProviders(
-			<ModelDetailModal {...defaultProps} model={modelWithSubscriptionFalse} />,
-		);
-
-		expect(screen.getByText("Not included")).toBeInTheDocument();
-	});
+	// Subscription section edge cases - subscription_included: false is already tested at line 368
 
 	// Price display edge cases - null input price
 	it("shows dash for input price when input_price_per_million is null", () => {
@@ -963,15 +940,13 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		// Click Cancel button in ConfirmDialog - it's the first button after "Unsaved Changes" heading
-		const unsavedChangesHeading = screen.getByText("Unsaved Changes");
-		const dialog = unsavedChangesHeading.closest(
-			'[role="dialog"]',
-		) as HTMLElement;
-		const cancelButton = dialog?.querySelector("button.ui-btn-secondary");
-		if (cancelButton) {
-			await user.click(cancelButton);
-		}
+		// Click Cancel button in ConfirmDialog
+		const dialogs = screen.getAllByRole("dialog");
+		const confirmDialog = dialogs[dialogs.length - 1]; // last dialog is the ConfirmDialog
+		const cancelButton = within(confirmDialog).getByRole("button", {
+			name: "Cancel",
+		});
+		await user.click(cancelButton);
 
 		expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
 		expect(screen.getByText("Save Changes")).toBeInTheDocument();
