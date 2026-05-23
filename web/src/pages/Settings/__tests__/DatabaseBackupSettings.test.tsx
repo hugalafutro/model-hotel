@@ -551,12 +551,10 @@ describe("DatabaseBackupSettings", () => {
 
 	it("downloads backup successfully", async () => {
 		const user = userEvent.setup();
-		const createObjectURL = vi.fn(() => "blob:mock-url");
-		const revokeObjectURL = vi.fn();
-		const originalCreateObjectURL = URL.createObjectURL;
-		const originalRevokeObjectURL = URL.revokeObjectURL;
-		URL.createObjectURL = createObjectURL;
-		URL.revokeObjectURL = revokeObjectURL;
+		const createObjectURLSpy = vi
+			.spyOn(URL, "createObjectURL")
+			.mockReturnValue("blob:mock-url");
+		const revokeObjectURLSpy = vi.spyOn(URL, "revokeObjectURL");
 
 		// Mock successful download response for the backup file
 		server.use(
@@ -578,22 +576,15 @@ describe("DatabaseBackupSettings", () => {
 		await user.click(downloadButtons[0]);
 
 		await waitFor(() => {
-			expect(createObjectURL).toHaveBeenCalled();
-			expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+			expect(createObjectURLSpy).toHaveBeenCalled();
+			expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-url");
 		});
-
-		// Restore original URL methods
-		URL.createObjectURL = originalCreateObjectURL;
-		URL.revokeObjectURL = originalRevokeObjectURL;
 	});
 
 	it("restores backup and polls for server", async () => {
 		const user = userEvent.setup();
 
 		server.use(
-			http.get("/api/backups", () => {
-				return HttpResponse.json(mockBackups);
-			}),
 			http.post("/api/backups/restore", () => {
 				return HttpResponse.json({ migration_count: 5, known_count: 10 });
 			}),
@@ -720,8 +711,6 @@ describe("DatabaseBackupSettings", () => {
 				screen.getByText(/taking longer than expected/i),
 			).toBeInTheDocument();
 		});
-
-		vi.useRealTimers();
 	});
 
 	it("clicks file input when Upload & Restore button is clicked", async () => {
@@ -738,60 +727,7 @@ describe("DatabaseBackupSettings", () => {
 		expect(clickSpy).toHaveBeenCalled();
 	});
 
-	// Note: Button state tests during restore are flaky due to modal timing
-	// The critical restore functionality is tested in "shows error toast when restore fails"
-	// it("disables Upload & Restore button when restoring", async () => {
-	// 	const user = userEvent.setup();
-	// 	server.use(
-	// 		http.get("/api/backups", () => {
-	// 			return HttpResponse.json(mockBackups);
-	// 		}),
-	// 		http.post("/api/backups/restore", async () => {
-	// 			await new Promise((resolve) => setTimeout(resolve, 100));
-	// 			return HttpResponse.json({ migration_count: 5, known_count: 10 });
-	// 		}),
-	// 	);
-	// 	renderWithProviders(
-	// 		<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
-	// 	);
-	// 	const fileInput = screen.getByLabelText("Select backup file to restore");
-	// 	const file = new File(["test"], "backup.dump", { type: "application/octet-stream" });
-	// 	await user.upload(fileInput, file);
-	// 	const tokenInput = await screen.findByLabelText("Confirm with admin token");
-	// 	await user.type(tokenInput, "test-admin-token");
-	// 	const restoreButton = screen.getByRole("button", { name: /restore database/i });
-	// 	await user.click(restoreButton);
-	// 	await waitFor(() => {
-	// 		const uploadButton = screen.getByRole("button", { name: "Restoring…" });
-	// 		expect(uploadButton).toBeDisabled();
-	// 	}, { timeout: 5000 });
-	// });
-	//
-	// it("shows Restoring… text when restoring", async () => {
-	// 	const user = userEvent.setup();
-	// 	server.use(
-	// 		http.get("/api/backups", () => {
-	// 			return HttpResponse.json(mockBackups);
-	// 		}),
-	// 		http.post("/api/backups/restore", async () => {
-	// 			await new Promise((resolve) => setTimeout(resolve, 100));
-	// 			return HttpResponse.json({ migration_count: 5, known_count: 10 });
-	// 		}),
-	// 	);
-	// 	renderWithProviders(
-	// 		<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
-	// 	);
-	// 	const fileInput = screen.getByLabelText("Select backup file to restore");
-	// 	const file = new File(["test"], "backup.dump", { type: "application/octet-stream" });
-	// 	await user.upload(fileInput, file);
-	// 	const tokenInput = await screen.findByLabelText("Confirm with admin token");
-	// 	await user.type(tokenInput, "test-admin-token");
-	// 	const restoreButton = screen.getByRole("button", { name: /restore database/i });
-	// 	await user.click(restoreButton);
-	// 	await waitFor(() => {
-	// 		expect(screen.getByRole("button", { name: "Restoring…" })).toBeInTheDocument();
-	// 	}, { timeout: 5000 });
-	// });
+	// TODO: test button disabled/text state during restore — flaky due to modal timing
 
 	it("formats KB correctly (1536 bytes → 1.5 KB)", async () => {
 		server.use(
