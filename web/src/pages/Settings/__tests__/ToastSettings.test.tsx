@@ -1,76 +1,18 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactElement } from "react";
-import { MemoryRouter } from "react-router-dom";
+import type { ReactElement, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { EventProvider } from "../../../context/EventContext";
-import { QuotaModalProvider } from "../../../context/QuotaModalContext";
-import { SidebarModeProvider } from "../../../context/SidebarModeContext";
-import { StorageProvider } from "../../../context/StorageContext";
-import { ThemeProvider } from "../../../context/ThemeContext";
 import type { ToastPosition } from "../../../context/ToastContext";
 import { ToastContext } from "../../../context/ToastContext";
 import { renderWithProviders } from "../../../test/utils";
 import { ToastSettings } from "../ToastSettings";
-
-function createTestQueryClient() {
-	return new QueryClient({
-		defaultOptions: {
-			queries: { retry: false },
-			mutations: { retry: false },
-		},
-	});
-}
 
 interface MockToastOptions {
 	position?: ToastPosition;
 	timeout?: number;
 }
 
-function renderWithMockToast(ui: ReactElement, options?: MockToastOptions) {
-	const mockToast = vi.fn();
-	const mockSetPosition = vi.fn();
-	const mockSetTimeout = vi.fn();
-	const queryClient = createTestQueryClient();
-
-	function Wrapper({ children }: { children: React.ReactNode }) {
-		return (
-			<MemoryRouter>
-				<ThemeProvider>
-					<StorageProvider>
-						<SidebarModeProvider>
-							<EventProvider>
-								<QuotaModalProvider>
-									<QueryClientProvider client={queryClient}>
-										<MockToastContext
-											toast={mockToast}
-											setPosition={mockSetPosition}
-											setTimeout={mockSetTimeout}
-											position={options?.position ?? "bottom-center"}
-											timeout={options?.timeout ?? 4000}
-										>
-											{children}
-										</MockToastContext>
-									</QueryClientProvider>
-								</QuotaModalProvider>
-							</EventProvider>
-						</SidebarModeProvider>
-					</StorageProvider>
-				</ThemeProvider>
-			</MemoryRouter>
-		);
-	}
-
-	return {
-		...render(ui, { wrapper: Wrapper }),
-		mockToast,
-		mockSetPosition,
-		mockSetTimeout,
-	};
-}
-
-function MockToastContext({
+function MockToastWrapper({
 	children,
 	toast,
 	setPosition,
@@ -78,7 +20,7 @@ function MockToastContext({
 	position,
 	timeout,
 }: {
-	children: React.ReactNode;
+	children: ReactNode;
 	toast: (
 		message: string,
 		type?: "success" | "error" | "info" | "warning",
@@ -114,6 +56,33 @@ function MockToastContext({
 			</div>
 		</ToastContext.Provider>
 	);
+}
+
+function renderWithMockToast(ui: ReactElement, options?: MockToastOptions) {
+	const mockToast = vi.fn();
+	const mockSetPosition = vi.fn();
+	const mockSetTimeout = vi.fn();
+	const position = options?.position ?? "bottom-center";
+	const timeout = options?.timeout ?? 4000;
+
+	const toastWrapper = ({ children }: { children: ReactNode }) => (
+		<MockToastWrapper
+			toast={mockToast}
+			setPosition={mockSetPosition}
+			setTimeout={mockSetTimeout}
+			position={position}
+			timeout={timeout}
+		>
+			{children}
+		</MockToastWrapper>
+	);
+
+	return {
+		...renderWithProviders(ui, { toastWrapper }),
+		mockToast,
+		mockSetPosition,
+		mockSetTimeout,
+	};
 }
 
 describe("ToastSettings", () => {

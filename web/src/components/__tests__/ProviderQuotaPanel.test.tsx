@@ -2,7 +2,6 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaDataResult } from "../../hooks/useQuotaData";
-import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { ProviderQuotaPanel } from "../ProviderQuotaPanel";
 
@@ -71,7 +70,6 @@ function setupPanel(overrides?: Partial<QuotaDataResult>) {
 
 describe("ProviderQuotaPanel", () => {
 	beforeEach(() => {
-		server.resetHandlers();
 		vi.clearAllMocks();
 		localStorage.clear();
 		mockUseQuotaData.mockReturnValue(createMockQuotaData());
@@ -249,16 +247,21 @@ describe("ProviderQuotaPanel", () => {
 			});
 		});
 
-		it("sidebarQuotaRefreshChange event updates refresh interval", () => {
-			const { container } = setupPanel();
+		it("sidebarQuotaRefreshChange event updates refresh interval", async () => {
+			setupPanel();
 
 			localStorage.setItem("sidebarQuotaRefreshMin", "10");
 			window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
 
-			// Component should still render with updated interval
-			expect(
-				container.querySelector(".sidebar-quota-panel"),
-			).toBeInTheDocument();
+			// The handler calls setRefreshIntervalMin which triggers a
+			// re-render with the updated refetchInterval passed to
+			// useQuotaData. 10min = 600000ms.
+			await vi.waitFor(() => {
+				expect(mockUseQuotaData).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.objectContaining({ refetchInterval: 600_000 }),
+				);
+			});
 		});
 
 		it("storage event (cross-tab) updates disabled state", async () => {
@@ -272,13 +275,11 @@ describe("ProviderQuotaPanel", () => {
 			// Set disabled in localStorage (simulates cross-tab change)
 			localStorage.setItem("sidebarQuotaDisabled", "true");
 
-			// Simulate cross-tab storage change
-			window.dispatchEvent(
-				new StorageEvent("storage", {
-					key: "sidebarQuotaDisabled",
-					newValue: "true",
-				}),
-			);
+			// Simulate cross-tab storage change.
+			// The production handler re-reads localStorage directly and
+			// does not inspect event.key or event.newValue, so those
+			// fields are omitted to avoid implying key-based filtering.
+			window.dispatchEvent(new StorageEvent("storage"));
 
 			// Panel should be hidden when disabled via cross-tab
 			await vi.waitFor(() => {
