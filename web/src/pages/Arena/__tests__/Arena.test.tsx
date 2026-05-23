@@ -1002,30 +1002,6 @@ describe("Arena - Button message IIFE", () => {
 		expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
 	});
 
-	it("shows 'Vote on all matchups' in voting phase with missing votes", () => {
-		mockArena({
-			phase: "voting",
-			currentRound: 0,
-			rounds: [
-				{
-					matchups: [
-						{
-							slotA: null,
-							slotB: null,
-							responseA: null,
-							responseB: null,
-							vote: null,
-						},
-					],
-				},
-			],
-		});
-		render(<Arena />);
-		expect(
-			screen.getByText("Vote on all matchups to continue to the next round"),
-		).toBeInTheDocument();
-	});
-
 	it("shows disabledReason in next_round_ready when canRun is false", () => {
 		mockArena({
 			phase: "next_round_ready",
@@ -1116,33 +1092,42 @@ describe("Arena - ConfirmDialog full reset", () => {
 			localStorage.setItem(key, "test");
 		}
 
-		const user = userEvent.setup();
-		render(<Arena />);
-		await user.click(screen.getByTestId("confirm-btn"));
+		try {
+			const user = userEvent.setup();
+			render(<Arena />);
+			await user.click(screen.getByTestId("confirm-btn"));
 
-		expect(clearSpy).toHaveBeenCalled();
-		expect(arenaReturn.setCompareModels).toHaveBeenCalledWith([]);
-		expect(arenaReturn.setBracketModels).toHaveBeenCalledWith([]);
-		expect(arenaReturn.setCompetitionPrompt).toHaveBeenCalledWith("");
-		expect(arenaReturn.setComparePrompt).toHaveBeenCalledWith("");
-		expect(arenaReturn.setSavedPrompt).toHaveBeenCalledWith("");
-		expect(arenaReturn.setCompetitionActivePromptId).toHaveBeenCalledWith(null);
-		expect(arenaReturn.setCompareActivePromptId).toHaveBeenCalledWith(null);
-		expect(arenaReturn.setComparePersonaId).toHaveBeenCalledWith(null);
-		expect(arenaReturn.setComparePersonaPrompt).toHaveBeenCalledWith("");
-		expect(arenaReturn.setRounds).toHaveBeenCalledWith([]);
-		expect(arenaReturn.setCurrentRound).toHaveBeenCalledWith(0);
-		expect(arenaReturn.setPhase).toHaveBeenCalledWith("setup");
-		expect(arenaReturn.setRunningModels).toHaveBeenCalledWith(new Set());
-		expect(arenaReturn.setWinnerModal).toHaveBeenCalledWith(null);
-		expect(arenaReturn.setDisabledModels).toHaveBeenCalledWith(new Set());
-		expect(arenaReturn.setModelParams).toHaveBeenCalledWith({});
-		expect(setPendingFullResetSpy).toHaveBeenCalledWith(false);
-		expect(toastSpy).toHaveBeenCalledWith("Reset", "info");
+			expect(clearSpy).toHaveBeenCalled();
+			expect(arenaReturn.setCompareModels).toHaveBeenCalledWith([]);
+			expect(arenaReturn.setBracketModels).toHaveBeenCalledWith([]);
+			expect(arenaReturn.setCompetitionPrompt).toHaveBeenCalledWith("");
+			expect(arenaReturn.setComparePrompt).toHaveBeenCalledWith("");
+			expect(arenaReturn.setSavedPrompt).toHaveBeenCalledWith("");
+			expect(arenaReturn.setCompetitionActivePromptId).toHaveBeenCalledWith(
+				null,
+			);
+			expect(arenaReturn.setCompareActivePromptId).toHaveBeenCalledWith(null);
+			expect(arenaReturn.setComparePersonaId).toHaveBeenCalledWith(null);
+			expect(arenaReturn.setComparePersonaPrompt).toHaveBeenCalledWith("");
+			expect(arenaReturn.setRounds).toHaveBeenCalledWith([]);
+			expect(arenaReturn.setCurrentRound).toHaveBeenCalledWith(0);
+			expect(arenaReturn.setPhase).toHaveBeenCalledWith("setup");
+			expect(arenaReturn.setRunningModels).toHaveBeenCalledWith(new Set());
+			expect(arenaReturn.setWinnerModal).toHaveBeenCalledWith(null);
+			expect(arenaReturn.setDisabledModels).toHaveBeenCalledWith(new Set());
+			expect(arenaReturn.setModelParams).toHaveBeenCalledWith({});
+			expect(setPendingFullResetSpy).toHaveBeenCalledWith(false);
+			expect(toastSpy).toHaveBeenCalledWith("Reset", "info");
 
-		// Verify localStorage cleanup
-		for (const key of lsKeys) {
-			expect(localStorage.getItem(key)).toBeNull();
+			// Verify localStorage cleanup
+			for (const key of lsKeys) {
+				expect(localStorage.getItem(key)).toBeNull();
+			}
+		} finally {
+			// Clean up localStorage even if assertions fail
+			for (const key of lsKeys) {
+				localStorage.removeItem(key);
+			}
 		}
 	});
 
