@@ -368,6 +368,209 @@ describe("Providers", () => {
 				expect(discoverAllCalled).toBe(true);
 			});
 		});
+
+		it("shows error toast when discover all fails for all providers", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/discover-all", () => {
+					return HttpResponse.json({
+						succeeded: 0,
+						failed: 3,
+						discovered: 0,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("Discovery failed for all 3 providers"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("shows no toast when discover all has partial success", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/discover-all", () => {
+					return HttpResponse.json({
+						succeeded: 2,
+						failed: 1,
+						discovered: 10,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			);
+
+			// Wait a bit to ensure no toast appears
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(screen.queryByText(/discovery failed/i)).not.toBeInTheDocument();
+		});
+
+		it("shows no toast when discover all succeeds completely", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/discover-all", () => {
+					return HttpResponse.json({
+						succeeded: 3,
+						failed: 0,
+						discovered: 15,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			);
+
+			// Wait a bit to ensure no toast appears
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(screen.queryByText(/discovery failed/i)).not.toBeInTheDocument();
+		});
+
+		it("shows error toast when discover all mutation errors", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/discover-all", () => {
+					return HttpResponse.json(
+						{ error: "Internal server error" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			);
+
+			// Error message includes full HTTP response
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Discover all failed:.*Internal server error/),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("disables button and shows spinner when discover all is pending", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/discover-all", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 100));
+					return HttpResponse.json({
+						succeeded: 1,
+						failed: 0,
+						discovered: 5,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).toBeInTheDocument();
+			});
+
+			const button = screen.getByRole("button", {
+				name: "Discover All Models",
+			});
+			await user.click(button);
+
+			// Button should be disabled and show "Discovering..."
+			await waitFor(() => {
+				const discoveringBtn = screen.getByRole("button", {
+					name: /discovering\.\.\./i,
+				});
+				expect(discoveringBtn).toBeDisabled();
+			});
+		});
+
+		it("disables discover all button when discovering individual provider", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/:id/discover", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 100));
+					return HttpResponse.json({ discovered: 5 });
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			// Click "Discover Models" on the provider card
+			const discoverBtn = screen.getByRole("button", {
+				name: "Discover Models",
+			});
+			await user.click(discoverBtn);
+
+			// Discover All button should be disabled
+			await waitFor(() => {
+				const discoverAllBtn = screen.getByRole("button", {
+					name: "Discover All Models",
+				});
+				expect(discoverAllBtn).toBeDisabled();
+			});
+		});
 	});
 
 	describe("Add Provider Modal", () => {
@@ -448,6 +651,133 @@ describe("Providers", () => {
 				).toBeInTheDocument();
 			});
 		});
+
+		it("deletes provider and shows success toast", async () => {
+			let deleteCalled = false;
+
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.delete("/api/providers/:id", () => {
+					deleteCalled = true;
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			// Click Delete button on the card
+			const deleteButton = screen.getByRole("button", { name: "Delete" });
+			await user.click(deleteButton);
+
+			// Wait for modal to appear
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			// Click confirm button in modal (the Delete button in the modal)
+			const modalDeleteButton = screen.getAllByRole("button", {
+				name: "Delete",
+			})[1]; // Second Delete button is in the modal
+			await user.click(modalDeleteButton);
+
+			await waitFor(() => {
+				expect(deleteCalled).toBe(true);
+				expect(screen.getByText("Provider deleted")).toBeInTheDocument();
+			});
+		});
+
+		it("shows error toast when delete fails", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.delete("/api/providers/:id", () => {
+					return HttpResponse.json(
+						{ error: "Failed to delete provider" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			// Click Delete button on the card
+			const deleteButton = screen.getByRole("button", { name: "Delete" });
+			await user.click(deleteButton);
+
+			// Wait for modal to appear
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			// Click confirm button in modal (the Delete button in the modal)
+			const modalDeleteButton = screen.getAllByRole("button", {
+				name: "Delete",
+			})[1]; // Second Delete button is in the modal
+			await user.click(modalDeleteButton);
+
+			// Error message includes full HTTP response
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Failed to delete:.*Failed to delete provider/),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("closes delete modal after deletion completes", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.delete("/api/providers/:id", () => {
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			// Click Delete button on the card
+			const deleteButton = screen.getByRole("button", { name: "Delete" });
+			await user.click(deleteButton);
+
+			// Wait for modal to appear
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Are you sure you want to delete/),
+				).toBeInTheDocument();
+			});
+
+			// Click confirm button in modal (the Delete button in the modal)
+			const modalDeleteButton = screen.getAllByRole("button", {
+				name: "Delete",
+			})[1]; // Second Delete button is in the modal
+			await user.click(modalDeleteButton);
+
+			// Modal should close after deletion
+			await waitFor(() => {
+				expect(
+					screen.queryByText(/Are you sure you want to delete/),
+				).not.toBeInTheDocument();
+			});
+		});
 	});
 
 	describe("Models Modal", () => {
@@ -475,6 +805,199 @@ describe("Providers", () => {
 
 			await waitFor(() => {
 				expect(screen.getByText("Test Model")).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Refresh Quotas/Balances", () => {
+		it("shows success toast when all quotas refresh successfully", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/refresh-quotas", () => {
+					return HttpResponse.json({
+						refreshed: 3,
+						failed: 0,
+						skipped: 0,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: "Refresh Quotas/Balances",
+					}),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Refresh Quotas/Balances",
+				}),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("Refreshed 3 quotas/balances"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("shows warning toast when some quotas fail", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/refresh-quotas", () => {
+					return HttpResponse.json({
+						refreshed: 2,
+						failed: 1,
+						skipped: 1,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: "Refresh Quotas/Balances",
+					}),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Refresh Quotas/Balances",
+				}),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("Refreshed 2 quotas (1 failed, 1 unsupported)"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("shows info toast when no providers with quota support found", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/refresh-quotas", () => {
+					return HttpResponse.json({
+						refreshed: 0,
+						failed: 0,
+						skipped: 0,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: "Refresh Quotas/Balances",
+					}),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Refresh Quotas/Balances",
+				}),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("No providers with quota/balance support found"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("shows error toast when refresh quotas mutation fails", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/refresh-quotas", () => {
+					return HttpResponse.json(
+						{ error: "Quota service unavailable" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: "Refresh Quotas/Balances",
+					}),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Refresh Quotas/Balances",
+				}),
+			);
+
+			// Error message includes full HTTP response
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Refresh quotas failed:.*Quota service unavailable/),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("disables button and shows spinner when refresh is pending", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/refresh-quotas", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 100));
+					return HttpResponse.json({
+						refreshed: 1,
+						failed: 0,
+						skipped: 0,
+						results: [],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: "Refresh Quotas/Balances",
+					}),
+				).toBeInTheDocument();
+			});
+
+			const button = screen.getByRole("button", {
+				name: "Refresh Quotas/Balances",
+			});
+			await user.click(button);
+
+			// Button should be disabled and show "Refreshing..."
+			await waitFor(() => {
+				const refreshingBtn = screen.getByRole("button", {
+					name: /refreshing\.\.\./i,
+				});
+				expect(refreshingBtn).toBeDisabled();
 			});
 		});
 	});
@@ -607,6 +1130,140 @@ describe("Providers", () => {
 				expect(
 					screen.getByRole("button", { name: "Discover Models" }),
 				).toBeInTheDocument();
+			});
+		});
+
+		it("shows error toast when discover mutation fails", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					return HttpResponse.json(
+						{ error: "Discovery service unavailable" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			const discoverBtn = screen.getByRole("button", {
+				name: "Discover Models",
+			});
+			await user.click(discoverBtn);
+
+			// Error message includes the full response
+			await waitFor(() => {
+				expect(
+					screen.getByText(/Discovery failed:.*Discovery service unavailable/),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("counts only enabled models in model count badge", async () => {
+			const enabledModel = { ...mockModel, id: "model-001", enabled: true };
+			const disabledModel = {
+				...mockModel,
+				id: "model-002",
+				enabled: false,
+			};
+
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.get("/api/models", () => {
+					return HttpResponse.json([enabledModel, disabledModel]);
+				}),
+			);
+
+			renderWithProviders(<Providers />);
+
+			// Should show "1 model" (only the enabled one)
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "1 model" }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("does not show model count button when provider has no models", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.get("/api/models", () => {
+					return HttpResponse.json([]);
+				}),
+			);
+
+			renderWithProviders(<Providers />);
+
+			// When modelCount is 0, the button is not rendered
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("button", { name: "0 models" }),
+				).not.toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Type Filter Options", () => {
+		it("sorts custom type first regardless of display name", async () => {
+			const customProvider = {
+				...mockProvider,
+				id: "provider-001",
+				name: "Custom Provider",
+				base_url: "https://custom.example.com/v1",
+			};
+			const anthropicProvider = {
+				...mockProvider,
+				id: "provider-002",
+				name: "Anthropic Provider",
+				base_url: "https://api.anthropic.com",
+			};
+			const openaiProvider = {
+				...mockProvider,
+				id: "provider-003",
+				name: "OpenAI Provider",
+				base_url: "https://api.openai.com/v1",
+			};
+
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([
+						customProvider,
+						anthropicProvider,
+						openaiProvider,
+					]);
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Custom Provider")).toBeInTheDocument();
+			});
+
+			// Open type filter dropdown
+			const typeFilterButton = screen.getByRole("button", {
+				name: "Provider type",
+			});
+			await user.click(typeFilterButton);
+
+			// Get all options in the dropdown
+			await waitFor(() => {
+				// Custom should be first (before Anthropic and OpenAI alphabetically)
+				const options = screen.getAllByRole("button", {
+					name: /custom|anthropic|openai/i,
+				});
+				// First option should be Custom
+				expect(options[0].textContent).toContain("Custom");
 			});
 		});
 	});
