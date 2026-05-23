@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { DatabaseBackupSettings } from "../DatabaseBackupSettings";
@@ -24,6 +24,7 @@ describe("DatabaseBackupSettings", () => {
 
 	beforeEach(() => {
 		onToggle.mockClear();
+		server.resetHandlers();
 		// Default: return mockBackups for GET /api/backups
 		server.use(
 			http.get("/api/backups", () => {
@@ -40,6 +41,10 @@ describe("DatabaseBackupSettings", () => {
 				return new HttpResponse(null, { status: 204 });
 			}),
 		);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it("renders SettingsSection with Database Backup title", async () => {
@@ -541,6 +546,269 @@ describe("DatabaseBackupSettings", () => {
 			expect(
 				screen.queryByText("Restore Database Backup"),
 			).not.toBeInTheDocument();
+		});
+	});
+
+	it("downloads backup successfully", async () => {
+		const createObjectURLSpy = vi
+			.spyOn(URL, "createObjectURL")
+			.mockReturnValue("blob:mock-url");
+		const revokeObjectURLSpy = vi.spyOn(URL, "revokeObjectURL");
+
+		try {
+			const user = userEvent.setup();
+
+			// Mock successful download response for the backup file
+			server.use(
+				http.get("/api/backups/:filename", () => {
+					return new HttpResponse(
+						new Blob(["backup data"], {
+							type: "application/octet-stream",
+						}),
+						{ status: 200 },
+					);
+				}),
+			);
+
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			// Wait for backup list to load (default handler from beforeEach returns mockBackups)
+			const downloadButtons = await screen.findAllByRole("button", {
+				name: /download/i,
+			});
+			await user.click(downloadButtons[0]);
+
+			await waitFor(() => {
+				expect(createObjectURLSpy).toHaveBeenCalled();
+				expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-url");
+			});
+		} finally {
+			createObjectURLSpy.mockRestore();
+			revokeObjectURLSpy.mockRestore();
+		}
+	});
+
+	it("restores backup and polls for server", async () => {
+		const user = userEvent.setup();
+
+		server.use(
+			http.post("/api/backups/restore", () => {
+				return HttpResponse.json({ migration_count: 5, known_count: 10 });
+			}),
+		);
+
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		const file = new File(["test"], "backup.dump", {
+			type: "application/octet-stream",
+		});
+		await user.upload(fileInput, file);
+
+		const tokenInput = await screen.findByLabelText("Confirm with admin token");
+		await user.type(tokenInput, "test-admin-token");
+
+		const restoreButton = screen.getByRole("button", {
+			name: /restore database/i,
+		});
+		await user.click(restoreButton);
+
+		// Should show restoring state and success toast
+		await waitFor(
+			() => {
+				expect(
+					screen.getByText("Database restored. The server is restarting…"),
+				).toBeInTheDocument();
+			},
+			{ timeout: 5000 },
+		);
+
+		// Server poll should succeed quickly (default GET handler returns 200)
+		await waitFor(
+			() => {
+				expect(screen.getByText("Server is back online")).toBeInTheDocument();
+			},
+			{ timeout: 5000 },
+		);
+	});
+
+	it("shows error toast when restore fails", async () => {
+		const user = userEvent.setup();
+
+		server.use(
+			http.get("/api/backups", () => {
+				return HttpResponse.json(mockBackups);
+			}),
+			http.post("/api/backups/restore", () => {
+				return HttpResponse.json({ error: "Restore failed" }, { status: 500 });
+			}),
+		);
+
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		const file = new File(["test"], "backup.dump", {
+			type: "application/octet-stream",
+		});
+		await user.upload(fileInput, file);
+
+		const tokenInput = await screen.findByLabelText("Confirm with admin token");
+		await user.type(tokenInput, "test-admin-token");
+
+		const restoreButton = screen.getByRole("button", {
+			name: /restore database/i,
+		});
+		await user.click(restoreButton);
+
+		await waitFor(
+			() => {
+				expect(screen.getByText(/restore failed:/i)).toBeInTheDocument();
+			},
+			{ timeout: 5000 },
+		);
+	});
+
+	it("shows warning when server takes too long to restart", async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+		server.use(
+			http.post("/api/backups/restore", () => {
+				return HttpResponse.json({ migration_count: 5, known_count: 10 });
+			}),
+			http.get("/api/backups", () => {
+				return new HttpResponse(null, { status: 503 });
+			}),
+		);
+
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		const file = new File(["test"], "backup.dump", {
+			type: "application/octet-stream",
+		});
+		await user.upload(fileInput, file);
+
+		const tokenInput = await screen.findByLabelText("Confirm with admin token");
+		await user.type(tokenInput, "test-admin-token");
+
+		const restoreButton = screen.getByRole("button", {
+			name: /restore database/i,
+		});
+		await user.click(restoreButton);
+
+		// Wait for the restore to complete
+		await waitFor(() => {
+			expect(
+				screen.getByText("Database restored. The server is restarting…"),
+			).toBeInTheDocument();
+		});
+
+		// Advance through all 60 poll attempts (60 * 2s = 120s)
+		await vi.advanceTimersByTimeAsync(125000);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/taking longer than expected/i),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("clicks file input when Upload & Restore button is clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const uploadButton = await screen.findByRole("button", {
+			name: /upload & restore/i,
+		});
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		const clickSpy = vi.spyOn(fileInput, "click");
+		await user.click(uploadButton);
+		expect(clickSpy).toHaveBeenCalled();
+	});
+
+	// TODO: test button disabled/text state during restore — flaky due to modal timing
+
+	it("formats KB correctly (1536 bytes → 1.5 KB)", async () => {
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([
+					{
+						filename: "small.dump",
+						size_bytes: 1536,
+						created_at: "2026-01-01T00:00:00Z",
+					},
+				]),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/1\.5 KB -/)).toBeInTheDocument();
+		});
+	});
+
+	it("formats GB correctly (1073741824 bytes → 1 GB)", async () => {
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([
+					{
+						filename: "large.dump",
+						size_bytes: 1073741824,
+						created_at: "2026-01-01T00:00:00Z",
+					},
+				]),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/1 GB -/)).toBeInTheDocument();
+		});
+	});
+
+	it("formats TB correctly (1099511627776 bytes → 1 TB)", async () => {
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([
+					{
+						filename: "huge.dump",
+						size_bytes: 1099511627776,
+						created_at: "2026-01-01T00:00:00Z",
+					},
+				]),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/1 TB -/)).toBeInTheDocument();
+		});
+	});
+
+	it("calls onToggle when clicking the header", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		// Click the collapse toggle button (not the title)
+		const collapseButton = await screen.findByRole("button", {
+			name: /collapse/i,
+		});
+		await user.click(collapseButton);
+		await waitFor(() => {
+			expect(onToggle).toHaveBeenCalled();
 		});
 	});
 });
