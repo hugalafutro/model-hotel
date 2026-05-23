@@ -38,7 +38,7 @@ describe("buildQueryString", () => {
 	});
 
 	it("filters out null values", () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: intentionally passing null to test runtime filtering
 		expect(buildQueryString({ name: "test", skip: null } as any)).toBe(
 			"name=test",
 		);
@@ -724,9 +724,15 @@ describe("api.system", () => {
 
 		const result = await api.system.get();
 
+		// Compute expected midnight using the same local-timezone logic
+		// as the implementation (new Date(year, month, date))
+		const now = new Date();
+		const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const expectedSince = encodeURIComponent(midnight.toISOString());
+
 		expect(result).toEqual(mockStats);
 		expect(globalThis.fetch).toHaveBeenCalledWith(
-			"/api/system?since=2024-01-15T00%3A00%3A00.000Z",
+			`/api/system?since=${expectedSince}`,
 			expect.objectContaining({
 				headers: expect.objectContaining({
 					Authorization: "Bearer test-token",
@@ -1344,6 +1350,32 @@ describe("api.backups", () => {
 					},
 				}),
 			);
+		});
+
+		it("uses localStorage token for Authorization, not the parameter", async () => {
+			const mockFile = new File(["content"], "test.sql");
+			const localStorageToken = "local-storage-token";
+			const paramToken = "param-token";
+			localStorage.setItem("adminToken", localStorageToken);
+
+			const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+				async () =>
+					new Response(JSON.stringify({ migration_count: 1, known_count: 1 }), {
+						status: 200,
+					}),
+			);
+
+			await api.backups.restore(mockFile, paramToken);
+
+			// Authorization header uses localStorage, not the parameter
+			const options = fetchSpy.mock.calls[0][1] as RequestInit;
+			expect(options.headers).toEqual({
+				Authorization: `Bearer ${localStorageToken}`,
+			});
+
+			// FormData admin_token uses the parameter
+			const formData = options.body as FormData;
+			expect(formData.get("admin_token")).toBe(paramToken);
 		});
 
 		it("does not set Content-Type header", async () => {

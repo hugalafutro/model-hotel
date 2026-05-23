@@ -672,7 +672,7 @@ describe("OpenRouterQuotaModal", () => {
 	const mockBalance = {
 		label: "OpenRouter",
 		limit: null,
-		limit_reset: null,
+		limit_reset: "",
 		limit_remaining: null,
 		usage: 100000,
 		usage_daily: 10000,
