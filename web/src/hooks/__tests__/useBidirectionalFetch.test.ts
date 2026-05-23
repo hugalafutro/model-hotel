@@ -894,8 +894,8 @@ describe("useBidirectionalFetch", () => {
 			// Rerender with same filters (object identity may differ but values same)
 			rerender({ filters: {} });
 
-			// Wait a bit to ensure no extra fetch
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			// Drain any pending microtasks/effects
+			await act(async () => {});
 
 			expect(mockFetchFn).toHaveBeenCalledTimes(1);
 		});

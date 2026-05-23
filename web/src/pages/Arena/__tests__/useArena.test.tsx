@@ -623,7 +623,7 @@ describe("useArena", () => {
 			});
 		});
 
-		it("all voted in non-last round → round advances, phase='running'", () => {
+		it("all voted in non-last round → round advances, phase='running'", async () => {
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
@@ -697,8 +697,11 @@ describe("useArena", () => {
 			// Should advance to next round
 			expect(setCurrentRoundMock).toHaveBeenCalledWith(1);
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
-			// runRound is called via queueMicrotask - verify it was set up
-			expect(runRoundMock).toBeDefined();
+			// runRound is called via queueMicrotask — flush it before asserting
+			await act(async () => {
+				await new Promise<void>((resolve) => queueMicrotask(resolve));
+			});
+			expect(runRoundMock).toHaveBeenCalledWith(1);
 		});
 
 		it("saves to history when winner declared and history enabled", () => {
