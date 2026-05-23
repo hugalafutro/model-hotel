@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { mockModel, mockProvider } from "../../test/mocks/data";
@@ -430,8 +430,12 @@ describe("Providers", () => {
 				screen.getByRole("button", { name: "Discover All Models" }),
 			);
 
-			// Wait a bit to ensure no toast appears
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			// Wait for mutation to settle (button re-enables)
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).not.toBeDisabled();
+			});
 
 			expect(screen.queryByText(/discovery failed/i)).not.toBeInTheDocument();
 		});
@@ -463,8 +467,12 @@ describe("Providers", () => {
 				screen.getByRole("button", { name: "Discover All Models" }),
 			);
 
-			// Wait a bit to ensure no toast appears
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			// Wait for mutation to settle (button re-enables)
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).not.toBeDisabled();
+			});
 
 			expect(screen.queryByText(/discovery failed/i)).not.toBeInTheDocument();
 		});
@@ -682,10 +690,11 @@ describe("Providers", () => {
 				).toBeInTheDocument();
 			});
 
-			// Click confirm button in modal (the Delete button in the modal)
-			const modalDeleteButton = screen.getAllByRole("button", {
+			// Click confirm button in modal
+			const modal = screen.getByRole("dialog");
+			const modalDeleteButton = within(modal).getByRole("button", {
 				name: "Delete",
-			})[1]; // Second Delete button is in the modal
+			});
 			await user.click(modalDeleteButton);
 
 			await waitFor(() => {
@@ -724,10 +733,11 @@ describe("Providers", () => {
 				).toBeInTheDocument();
 			});
 
-			// Click confirm button in modal (the Delete button in the modal)
-			const modalDeleteButton = screen.getAllByRole("button", {
+			// Click confirm button in modal
+			const modal = screen.getByRole("dialog");
+			const modalDeleteButton = within(modal).getByRole("button", {
 				name: "Delete",
-			})[1]; // Second Delete button is in the modal
+			});
 			await user.click(modalDeleteButton);
 
 			// Error message includes full HTTP response
@@ -765,10 +775,11 @@ describe("Providers", () => {
 				).toBeInTheDocument();
 			});
 
-			// Click confirm button in modal (the Delete button in the modal)
-			const modalDeleteButton = screen.getAllByRole("button", {
+			// Click confirm button in modal
+			const modal = screen.getByRole("dialog");
+			const modalDeleteButton = within(modal).getByRole("button", {
 				name: "Delete",
-			})[1]; // Second Delete button is in the modal
+			});
 			await user.click(modalDeleteButton);
 
 			// Modal should close after deletion
