@@ -1291,7 +1291,8 @@ describe("OpenRouterQuotaModal", () => {
 					balance={balanceWithEmptyReset}
 				/>,
 			);
-			const limitSection = screen.getByText("Key Spending Limit").parentElement;
+			const limitSection =
+				screen.getByText("Key Spending Limit").parentElement?.parentElement;
 			expect(limitSection?.textContent).not.toContain("Resets");
 		});
 
