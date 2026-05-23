@@ -288,6 +288,92 @@ func TestAppSlogHandlerWithGroup(t *testing.T) {
 	}
 }
 
+func TestAppSlogHandler_HandleDebugLevel(t *testing.T) {
+	// Save and restore app log buffer
+	origBuffer := appLogBuffer
+	defer func() { appLogBuffer = origBuffer }()
+
+	// Initialize with proper capacity
+	InitAppLogBuffer(nil)
+	buf := appLogBuffer
+	// Clear any existing entries
+	buf.Clear()
+
+	handler := NewAppSlogHandler(slog.LevelDebug)
+
+	// Test Debug-level record maps to "debug"
+	debugRecord := slog.NewRecord(time.Now(), slog.LevelDebug, "access: request", 0)
+	debugRecord.AddAttrs(slog.String("method", "GET"), slog.String("path", "/api/logs/app/cursor"))
+
+	if err := handler.Handle(context.Background(), debugRecord); err != nil {
+		t.Fatalf("Handle error: %v", err)
+	}
+
+	entries := buf.GetEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Level != "debug" {
+		t.Errorf("expected level %q, got %q", "debug", entries[0].Level)
+	}
+
+	// Test Info-level record maps to "info" (not "debug")
+	// This verifies the fix for the bug where r.Level >= slog.LevelDebug
+	// matched Info records too since slog.LevelDebug=-4 and slog.LevelInfo=0
+	infoRecord := slog.NewRecord(time.Now(), slog.LevelInfo, "server: started", 0)
+	infoRecord.AddAttrs(slog.String("method", "POST"))
+
+	if err := handler.Handle(context.Background(), infoRecord); err != nil {
+		t.Fatalf("Handle error: %v", err)
+	}
+
+	entries = buf.GetEntries()
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[1].Level != "info" {
+		t.Errorf("expected level %q, got %q", "info", entries[1].Level)
+	}
+}
+
+func TestAppSlogHandler_HandleStderrLevelPrefix(t *testing.T) {
+	// Save and restore
+	origBuffer := appLogBuffer
+	defer func() { appLogBuffer = origBuffer }()
+
+	// Create buffer directly without calling InitAppLogBuffer (which sets up global stderr filter)
+	buf := &ringBuffer{
+		entries: make([]AppLogEntry, appLogBufferSize),
+	}
+	appLogBuffer = buf
+
+	var stderrBuf bytes.Buffer
+	handler := &appSlogHandler{
+		level:  slog.LevelDebug,
+		stderr: &stderrLogFilter{dst: &stderrBuf},
+	}
+
+	// Test error record includes level=ERROR in stderr output (error always passes filter)
+	record := slog.NewRecord(time.Now(), slog.LevelError, "access: request failed", 0)
+	record.AddAttrs(slog.String("method", "GET"))
+	if err := handler.Handle(context.Background(), record); err != nil {
+		t.Fatalf("Handle error: %v", err)
+	}
+	if !strings.Contains(stderrBuf.String(), "level=ERROR") {
+		t.Errorf("expected stderr output to contain 'level=ERROR', got %q", stderrBuf.String())
+	}
+
+	// Test warning record includes level=WARN
+	stderrBuf.Reset()
+	record = slog.NewRecord(time.Now(), slog.LevelWarn, "server: slow response", 0)
+	if err := handler.Handle(context.Background(), record); err != nil {
+		t.Fatalf("Handle error: %v", err)
+	}
+	if !strings.Contains(stderrBuf.String(), "level=WARN") {
+		t.Errorf("expected stderr output to contain 'level=WARN', got %q", stderrBuf.String())
+	}
+}
+
 // ---------------------------------------------------------------------------
 // stderrLogFilter tests
 // ---------------------------------------------------------------------------

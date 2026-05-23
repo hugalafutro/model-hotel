@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -178,5 +181,70 @@ func TestStreamingAwareTimeout_MalformedJSON(t *testing.T) {
 	}
 	if capturedIsStreaming != false {
 		t.Errorf("IsStreamingKey should be false for malformed JSON, got %v", capturedIsStreaming)
+	}
+}
+
+// recordHandler implements slog.Handler to capture log records for testing
+type recordHandler struct {
+	mu      *sync.Mutex
+	records *[]slog.Record
+}
+
+func (h *recordHandler) Enabled(_ context.Context, _ slog.Level) bool {
+	return true
+}
+
+func (h *recordHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	*h.records = append(*h.records, r.Clone())
+	return nil
+}
+
+func (h *recordHandler) WithAttrs(_ []slog.Attr) slog.Handler {
+	return h
+}
+
+func (h *recordHandler) WithGroup(_ string) slog.Handler {
+	return h
+}
+
+func TestSilentLogger_NoisyEndpointsAtDebugLevel(t *testing.T) {
+	// Capture slog output
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+
+	impl := &recordHandler{mu: &mu, records: &records}
+	slog.SetDefault(slog.New(impl))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Request to noisy endpoint
+	req := httptest.NewRequest(http.MethodGet, "/api/logs/app/cursor", nil)
+	req.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Request to normal endpoint (not in noisy list)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+	req2.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req2)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(records))
+	}
+
+	// First record (noisy endpoint) should be at Debug level
+	if records[0].Level != slog.LevelDebug {
+		t.Errorf("noisy endpoint: expected Debug level, got %v", records[0].Level)
+	}
+	// Second record (normal endpoint) should be at Info level
+	if records[1].Level != slog.LevelInfo {
+		t.Errorf("normal endpoint: expected Info level, got %v", records[1].Level)
 	}
 }
