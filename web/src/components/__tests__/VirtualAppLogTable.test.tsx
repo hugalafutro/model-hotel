@@ -700,19 +700,25 @@ describe("VirtualAppLogTable", () => {
 			expect(timestampCell?.textContent).toBeTruthy();
 		});
 
-		it("renders 'Invalid Date' for unparseable date string (JS Date behavior)", () => {
+		it("renders a fallback when date is unparseable", () => {
 			const entry = createAppLogEntry({
 				id: "log-1",
 				timestamp: "invalid-date-string",
 			});
-			renderWithProviders(
+			const { container } = renderWithProviders(
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			// When date parsing fails, new Date() returns Invalid Date
-			// toLocaleString on Invalid Date returns "Invalid Date"
-			// The catch block doesn't catch this because no exception is thrown
-			expect(screen.getByText("Invalid Date")).toBeInTheDocument();
+			// new Date("invalid-date-string") creates an Invalid Date object.
+			// Depending on the V8 version, toLocaleString with options either:
+			// - returns "Invalid Date" (older V8 / some JSDOM setups)
+			// - throws RangeError, caught by the catch block which returns the raw string
+			const cell = container.querySelector('td[class*="whitespace-nowrap"]');
+			expect(cell).toBeInTheDocument();
+			const text = cell?.textContent ?? "";
+			expect(text === "Invalid Date" || text === "invalid-date-string").toBe(
+				true,
+			);
 		});
 	});
 });
