@@ -1155,7 +1155,7 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			// The account balance progress bar should not be rendered
 			const accountBalanceSection =
-				screen.getByText("Account Balance").parentElement;
+				screen.getByText("Account Balance").parentElement?.parentElement;
 			const progressBars =
 				accountBalanceSection?.querySelectorAll('[style*="width"]');
 			expect(progressBars).toHaveLength(0);
@@ -1326,7 +1326,7 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			expect(screen.getByText("No credits")).toBeInTheDocument();
 			const accountBalanceSection =
-				screen.getByText("Account Balance").parentElement;
+				screen.getByText("Account Balance").parentElement?.parentElement;
 			const progressBars =
 				accountBalanceSection?.querySelectorAll('[style*="width"]');
 			expect(progressBars).toHaveLength(0);
