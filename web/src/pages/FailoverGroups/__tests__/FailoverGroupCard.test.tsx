@@ -15,7 +15,7 @@ Object.defineProperty(navigator, "clipboard", {
 
 // Capture onDragEnd handler from DndContext for testing
 let capturedOnDragEnd:
-	| ((event: { active: { id: string }; over: { id: string } }) => void)
+	| ((event: { active: { id: string }; over: { id: string } | null }) => void)
 	| null = null;
 
 vi.mock("@dnd-kit/core", async (importOriginal) => {
@@ -28,7 +28,7 @@ vi.mock("@dnd-kit/core", async (importOriginal) => {
 		}: {
 			onDragEnd: (event: {
 				active: { id: string };
-				over: { id: string };
+				over: { id: string } | null;
 			}) => void;
 			children: React.ReactNode;
 		}) => {
@@ -822,6 +822,40 @@ describe("FailoverGroupCard", () => {
 			capturedOnDragEnd?.({
 				active: { id: "uuid-1" },
 				over: { id: "uuid-1" },
+			});
+
+			expect(onReorder).not.toHaveBeenCalled();
+		});
+
+		it("does not call onReorder when item is dropped outside a droppable (over is null)", () => {
+			const onReorder = vi.fn();
+			const group = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						model_uuid: "uuid-1",
+						model_id: "model-1",
+						provider_id: "p1",
+						provider_name: "Provider 1",
+						display_name: "Model 1",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p1",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={group}
+					onReorder={onReorder}
+				/>,
+			);
+
+			capturedOnDragEnd?.({
+				active: { id: "uuid-1" },
+				over: null,
 			});
 
 			expect(onReorder).not.toHaveBeenCalled();
