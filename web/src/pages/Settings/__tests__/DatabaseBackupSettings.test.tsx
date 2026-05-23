@@ -550,38 +550,43 @@ describe("DatabaseBackupSettings", () => {
 	});
 
 	it("downloads backup successfully", async () => {
-		const user = userEvent.setup();
 		const createObjectURLSpy = vi
 			.spyOn(URL, "createObjectURL")
 			.mockReturnValue("blob:mock-url");
 		const revokeObjectURLSpy = vi.spyOn(URL, "revokeObjectURL");
 
-		// Mock successful download response for the backup file
-		server.use(
-			http.get("/api/backups/:filename", () => {
-				return new HttpResponse(
-					new Blob(["backup data"], { type: "application/octet-stream" }),
-					{ status: 200 },
-				);
-			}),
-		);
+		try {
+			const user = userEvent.setup();
 
-		renderWithProviders(
-			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
-		);
-		// Wait for backup list to load (default handler from beforeEach returns mockBackups)
-		const downloadButtons = await screen.findAllByRole("button", {
-			name: /download/i,
-		});
-		await user.click(downloadButtons[0]);
+			// Mock successful download response for the backup file
+			server.use(
+				http.get("/api/backups/:filename", () => {
+					return new HttpResponse(
+						new Blob(["backup data"], {
+							type: "application/octet-stream",
+						}),
+						{ status: 200 },
+					);
+				}),
+			);
 
-		await waitFor(() => {
-			expect(createObjectURLSpy).toHaveBeenCalled();
-			expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-url");
-		});
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			// Wait for backup list to load (default handler from beforeEach returns mockBackups)
+			const downloadButtons = await screen.findAllByRole("button", {
+				name: /download/i,
+			});
+			await user.click(downloadButtons[0]);
 
-		createObjectURLSpy.mockRestore();
-		revokeObjectURLSpy.mockRestore();
+			await waitFor(() => {
+				expect(createObjectURLSpy).toHaveBeenCalled();
+				expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-url");
+			});
+		} finally {
+			createObjectURLSpy.mockRestore();
+			revokeObjectURLSpy.mockRestore();
+		}
 	});
 
 	it("restores backup and polls for server", async () => {
