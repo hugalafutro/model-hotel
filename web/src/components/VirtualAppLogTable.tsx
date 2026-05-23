@@ -162,6 +162,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		}
 		prevEntriesRef.current = entries;
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entries]);
 
 	// Keep prevTotalSizeRef in sync with ResizeObserver measurement
