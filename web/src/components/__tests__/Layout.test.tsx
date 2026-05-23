@@ -861,6 +861,674 @@ describe("Layout", () => {
 
 			expect(screen.getByTitle("Expand stats")).toBeInTheDocument();
 		});
+
+		it("renders CPU with red color when >= 90%", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 92,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("CPU")).toBeInTheDocument();
+			});
+			const cpuRow = screen.getByText("CPU").closest("div");
+			expect(cpuRow?.querySelector(".text-red-400")).toBeInTheDocument();
+		});
+
+		it("renders dash for CPU when cpu_percent is null", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: null,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("CPU")).toBeInTheDocument();
+			});
+			const cpuRow = screen.getByText("CPU").closest("div");
+			expect(
+				cpuRow?.querySelector(".text-\\(--text-muted\\)"),
+			).toBeInTheDocument();
+		});
+
+		it("renders dash for Network when value is not a number", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: null,
+							net_tx_bytes_sec: null,
+							disk_read_bytes_sec: null,
+							disk_write_bytes_sec: null,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Network")).toBeInTheDocument();
+			});
+			const networkRow = screen.getByText("Network").closest("div");
+			const dashes = networkRow?.querySelectorAll(".text-\\(--text-muted\\)");
+			expect(dashes?.length).toBeGreaterThanOrEqual(2);
+		});
+
+		it("renders dash for Disk when value is not a number", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: null,
+							net_tx_bytes_sec: null,
+							disk_read_bytes_sec: null,
+							disk_write_bytes_sec: null,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Disk")).toBeInTheDocument();
+			});
+			const diskRow = screen.getByText("Disk").closest("div");
+			const dashes = diskRow?.querySelectorAll(".text-\\(--text-muted\\)");
+			expect(dashes?.length).toBeGreaterThanOrEqual(2);
+		});
+
+		it("renders Docker memory with limit when docker has memory_limit_bytes", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: {
+							available: true,
+							cpu_percent: 25.5,
+							procs: 10,
+							memory_usage_bytes: 536870912,
+							memory_limit_bytes: 1073741824,
+							net_rx_bytes_sec: 2000,
+							net_tx_bytes_sec: 1000,
+							disk_read_bytes_sec: 400,
+							disk_write_bytes_sec: 200,
+							container_count: 3,
+						},
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Memory")).toBeInTheDocument();
+			});
+			const memoryRow = screen.getByText("Memory").closest("div");
+			expect(memoryRow?.textContent).toContain("512");
+			expect(memoryRow?.textContent).toContain("GB");
+		});
+
+		it("renders app memory with limit when app has memory_limit_bytes", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 52428800,
+							memory_limit_bytes: 104857600,
+							in_container: true,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 50,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Memory")).toBeInTheDocument();
+			});
+			const memoryRow = screen.getByText("Memory").closest("div");
+			expect(memoryRow?.textContent).toContain("50");
+			expect(memoryRow?.textContent).toContain("100");
+		});
+
+		it("renders app heap memory when no docker and no limit", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 52428800,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 50,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Memory")).toBeInTheDocument();
+			});
+			const memoryRow = screen.getByText("Memory").closest("div");
+			expect(memoryRow?.textContent).toContain("50");
+			expect(memoryRow?.textContent).toContain("heap");
+		});
+
+		it("renders DB hit ratio with orange warning when between 80-90", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 85,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("DB")).toBeInTheDocument();
+			});
+			const dbRow = screen.getByText("DB").closest("div");
+			expect(dbRow?.querySelector(".text-orange-400")).toBeInTheDocument();
+		});
+
+		it("renders DB hit ratio with red when below 80", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 75,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("DB")).toBeInTheDocument();
+			});
+			const dbRow = screen.getByText("DB").closest("div");
+			expect(dbRow?.querySelector(".text-red-400")).toBeInTheDocument();
+		});
+
+		it("renders dash for Req Today when value is 0", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Req Today")).toBeInTheDocument();
+			});
+			const reqRow = screen.getByText("Req Today").closest("div");
+			expect(
+				reqRow?.querySelector(".text-\\(--text-muted\\)"),
+			).toBeInTheDocument();
+		});
+
+		it("renders Req Today with M suffix for millions", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 5000000,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Req Today")).toBeInTheDocument();
+			});
+			const reqRow = screen.getByText("Req Today").closest("div");
+			expect(reqRow?.textContent).toContain("5.0");
+			expect(reqRow?.textContent).toContain("M");
+		});
+
+		it("renders uptime with days and hours", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 90061,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Uptime")).toBeInTheDocument();
+			});
+			const uptimeRow = screen.getByText("Uptime").closest("div");
+			expect(uptimeRow?.textContent).toContain("1");
+			expect(uptimeRow?.textContent).toContain("d");
+			expect(uptimeRow?.textContent).toContain("h");
+		});
+
+		it("renders uptime with hours and minutes", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 3661,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Uptime")).toBeInTheDocument();
+			});
+			const uptimeRow = screen.getByText("Uptime").closest("div");
+			expect(uptimeRow?.textContent).toContain("1");
+			expect(uptimeRow?.textContent).toContain("h");
+			expect(uptimeRow?.textContent).toContain("m");
+		});
+
+		it("renders uptime with minutes only", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 61,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Uptime")).toBeInTheDocument();
+			});
+			const uptimeRow = screen.getByText("Uptime").closest("div");
+			expect(uptimeRow?.textContent).toContain("1");
+			expect(uptimeRow?.textContent).toContain("m");
+			expect(uptimeRow?.textContent).not.toMatch(/\d+[dh]/);
+		});
+
+		it("renders 0 B/s for network when bytes/sec is 0", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 0,
+							net_tx_bytes_sec: 0,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Network")).toBeInTheDocument();
+			});
+			const networkRow = screen.getByText("Network").closest("div");
+			expect(networkRow?.textContent).toContain("0");
+			expect(networkRow?.textContent).toContain("B/s");
+		});
+
+		it("renders DB size with decimal when less than 1 MB", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 0.5,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("DB")).toBeInTheDocument();
+			});
+			const dbRow = screen.getByText("DB").closest("div");
+			expect(dbRow?.textContent).toContain("0.5");
+		});
+
+		it("renders Memory with warning color when usage >= 75%", async () => {
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: {
+							available: true,
+							cpu_percent: 25.5,
+							procs: 10,
+							memory_usage_bytes: 858993459,
+							memory_limit_bytes: 1073741824,
+							net_rx_bytes_sec: 2000,
+							net_tx_bytes_sec: 1000,
+							disk_read_bytes_sec: 400,
+							disk_write_bytes_sec: 200,
+							container_count: 3,
+						},
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 95,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Memory")).toBeInTheDocument();
+			});
+			const memoryRow = screen.getByText("Memory").closest("div");
+			expect(memoryRow?.querySelector(".text-orange-400")).toBeInTheDocument();
+		});
 	});
 
 	describe("LastErrorPills Component", () => {
@@ -895,6 +1563,229 @@ describe("Layout", () => {
 
 			await waitFor(() => {
 				expect(screen.queryByTitle("View details")).not.toBeInTheDocument();
+			});
+		});
+
+		it("renders app error pill when app log has errors", async () => {
+			const errorTimestamp = "2024-01-15T10:30:00Z";
+			const errorMessage = "Something went wrong in the app";
+			server.use(
+				http.get("/api/logs/app", () =>
+					HttpResponse.json({
+						entries: [
+							{
+								id: 1,
+								timestamp: errorTimestamp,
+								level: "error",
+								source: "server",
+								message: errorMessage,
+							},
+						],
+						total: 1,
+						page: 1,
+						per_page: 25,
+						level_counts: { error: 1 },
+						source_counts: { server: 1 },
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByTitle("Copy error")).toBeInTheDocument();
+			});
+			expect(screen.getByTitle("View details")).toBeInTheDocument();
+			expect(screen.getByTitle("Acknowledge (dismiss)")).toBeInTheDocument();
+			expect(screen.getByText(errorMessage)).toBeInTheDocument();
+		});
+
+		it("renders request error pill when request log has 5xx errors", async () => {
+			const errorTimestamp = "2024-01-15T10:30:00Z";
+			const errorMessage = "Internal server error";
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json({
+						entries: [
+							{
+								id: 1,
+								provider_id: "prov-1",
+								provider_name: "TestProvider",
+								model_id: "model-1",
+								request_hash: "abc123",
+								status_code: 500,
+								latency_ms: 100,
+								error_message: errorMessage,
+								created_at: errorTimestamp,
+							},
+						],
+						total: 1,
+						page: 1,
+						per_page: 25,
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByTitle("Copy error")).toBeInTheDocument();
+			});
+			expect(screen.getByText(errorMessage)).toBeInTheDocument();
+		});
+
+		it("dismisses app error on acknowledge click", async () => {
+			const user = userEvent.setup();
+			const errorTimestamp = "2024-01-15T10:30:00Z";
+			const errorMessage = "Something went wrong in the app";
+			server.use(
+				http.get("/api/logs/app", () =>
+					HttpResponse.json({
+						entries: [
+							{
+								id: 1,
+								timestamp: errorTimestamp,
+								level: "error",
+								source: "server",
+								message: errorMessage,
+							},
+						],
+						total: 1,
+						page: 1,
+						per_page: 25,
+						level_counts: { error: 1 },
+						source_counts: { server: 1 },
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByTitle("Acknowledge (dismiss)")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTitle("Acknowledge (dismiss)"));
+			await waitFor(() => {
+				expect(
+					screen.queryByTitle("Acknowledge (dismiss)"),
+				).not.toBeInTheDocument();
+			});
+			expect(localStorage.getItem("dismissedAppErrorKey")).toBeTruthy();
+		});
+
+		it("copies error message to clipboard on copy click", async () => {
+			const user = userEvent.setup();
+			const errorTimestamp = "2024-01-15T10:30:00Z";
+			const errorMessage = "Clipboard test error message";
+			const clipboardSpy = vi
+				.spyOn(navigator.clipboard, "writeText")
+				.mockResolvedValue(undefined);
+			server.use(
+				http.get("/api/logs/app", ({ request }) => {
+					const url = new URL(request.url);
+					if (url.searchParams.get("history") === "true") {
+						return HttpResponse.json({
+							entries: [
+								{
+									id: 1,
+									timestamp: errorTimestamp,
+									level: "error",
+									source: "server",
+									message: errorMessage,
+								},
+							],
+							total: 1,
+							page: 1,
+							per_page: 25,
+							level_counts: { error: 1 },
+							source_counts: { server: 1 },
+						});
+					}
+					return HttpResponse.json([]);
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByTitle("Copy error")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTitle("Copy error"));
+			expect(clipboardSpy).toHaveBeenCalledWith(errorMessage);
+			clipboardSpy.mockRestore();
+		});
+
+		it("opens LogDetailModal on view details click when entry exists", async () => {
+			const user = userEvent.setup();
+			const errorTimestamp = "2024-01-15T10:30:00Z";
+			const errorMessage = "View details test error message";
+			server.use(
+				http.get("/api/logs/app", ({ request }) => {
+					const url = new URL(request.url);
+					if (url.searchParams.get("history") === "true") {
+						return HttpResponse.json({
+							entries: [
+								{
+									id: 1,
+									timestamp: errorTimestamp,
+									level: "error",
+									source: "server",
+									message: errorMessage,
+								},
+							],
+							total: 1,
+							page: 1,
+							per_page: 25,
+							level_counts: { error: 1 },
+							source_counts: { server: 1 },
+						});
+					}
+					return HttpResponse.json([]);
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByTitle("View details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTitle("View details"));
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeInTheDocument();
+			});
+		});
+
+		it("re-shows dismissed errors on dismissedErrorsReset event", async () => {
+			const user = userEvent.setup();
+			const errorTimestamp = "2024-01-15T10:30:00Z";
+			const errorMessage = "Reset event test error message";
+			server.use(
+				http.get("/api/logs/app", ({ request }) => {
+					const url = new URL(request.url);
+					if (url.searchParams.get("history") === "true") {
+						return HttpResponse.json({
+							entries: [
+								{
+									id: 1,
+									timestamp: errorTimestamp,
+									level: "error",
+									source: "server",
+									message: errorMessage,
+								},
+							],
+							total: 1,
+							page: 1,
+							per_page: 25,
+							level_counts: { error: 1 },
+							source_counts: { server: 1 },
+						});
+					}
+					return HttpResponse.json([]);
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByTitle("Acknowledge (dismiss)")).toBeInTheDocument();
+			});
+			await user.click(screen.getByTitle("Acknowledge (dismiss)"));
+			await waitFor(() => {
+				expect(
+					screen.queryByTitle("Acknowledge (dismiss)"),
+				).not.toBeInTheDocument();
+			});
+			window.dispatchEvent(new Event("dismissedErrorsReset"));
+			await waitFor(() => {
+				expect(screen.getByTitle("Acknowledge (dismiss)")).toBeInTheDocument();
 			});
 		});
 	});
@@ -1035,6 +1926,35 @@ describe("Layout", () => {
 				"https://github.com/hugalafutro/model-hotel",
 			);
 			expect(githubLink).toHaveAttribute("target", "_blank");
+		});
+
+		it("does not toggle sub-mode when navigating to different page", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>, {
+				initialEntries: ["/dashboard"],
+			});
+			expect(screen.getByText("Conversation")).toBeInTheDocument();
+			const chatLink = screen.getByText("Chat").closest("a");
+			if (chatLink) {
+				await user.click(chatLink);
+			}
+			await waitFor(() => {
+				expect(screen.getByText("Conversation")).toBeInTheDocument();
+			});
+		});
+
+		it("does not toggle sub-mode for nav item without subModes", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>, {
+				initialEntries: ["/settings"],
+			});
+			const settingsLink = screen.getByText("Settings").closest("a");
+			if (settingsLink) {
+				await user.click(settingsLink);
+			}
+			await waitFor(() => {
+				expect(screen.getByText("Settings")).toBeInTheDocument();
+			});
 		});
 	});
 });
