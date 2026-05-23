@@ -1076,6 +1076,7 @@ describe("Arena - ConfirmDialog full reset", () => {
 		const clearSpy = vi.spyOn(abortMap, "clear");
 		const setPendingFullResetSpy = vi.fn();
 		const toastSpy = vi.fn();
+		const removeItemSpy = vi.spyOn(localStorage, "removeItem");
 
 		const arenaReturn = {
 			...baseArena,
@@ -1126,6 +1127,17 @@ describe("Arena - ConfirmDialog full reset", () => {
 		expect(arenaReturn.setModelParams).toHaveBeenCalledWith({});
 		expect(setPendingFullResetSpy).toHaveBeenCalledWith(false);
 		expect(toastSpy).toHaveBeenCalledWith("Reset", "info");
+
+		// Verify localStorage cleanup
+		expect(removeItemSpy).toHaveBeenCalledWith("arenaCompetitionPrompt");
+		expect(removeItemSpy).toHaveBeenCalledWith("arenaComparePrompt");
+		expect(removeItemSpy).toHaveBeenCalledWith(
+			"arenaCompetitionActivePromptId",
+		);
+		expect(removeItemSpy).toHaveBeenCalledWith("arenaCompareActivePromptId");
+		expect(removeItemSpy).toHaveBeenCalledWith("arenaComparePersonaId");
+		expect(removeItemSpy).toHaveBeenCalledWith("arenaComparePersonaPrompt");
+		removeItemSpy.mockRestore();
 	});
 
 	it("onCancel sets pendingFullReset to false", async () => {
@@ -1187,6 +1199,18 @@ describe("Arena - Auto-scroll", () => {
 		mockArena({ isRunning: false });
 		render(<Arena />);
 		expect(scrollToSpy).not.toHaveBeenCalled();
+		scrollToSpy.mockRestore();
+	});
+
+	it("scrolls to bottom when isRunning and near bottom", () => {
+		const scrollToSpy = vi
+			.spyOn(window, "scrollTo")
+			.mockImplementation(() => {});
+		mockArena({ isRunning: true });
+		render(<Arena />);
+		expect(scrollToSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ behavior: "instant" }),
+		);
 		scrollToSpy.mockRestore();
 	});
 });
