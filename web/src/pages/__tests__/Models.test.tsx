@@ -39,7 +39,7 @@ describe("Models", () => {
 			).toHaveTextContent("⬡ Pages");
 
 			// Badge should not be shown in scroll mode
-			expect(screen.queryByText("enabled")).not.toBeInTheDocument();
+			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
 		});
 
 		it("switches from scroll to paginate mode when clicking toggle", async () => {
@@ -103,7 +103,7 @@ describe("Models", () => {
 			});
 
 			// Badge should not be shown in scroll mode
-			expect(screen.queryByText("enabled")).not.toBeInTheDocument();
+			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
 		});
 
 		it("does not show loading spinner in scroll mode even when models query is disabled", async () => {
@@ -287,7 +287,7 @@ describe("Models", () => {
 			});
 
 			// No breakdown badge when all same state
-			expect(screen.queryByText("enabled")).not.toBeInTheDocument();
+			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
 		});
 
 		it("shows all models disabled badge when all are disabled", async () => {
@@ -626,7 +626,7 @@ describe("Models", () => {
 			// Should show success toast
 			await waitFor(
 				() => {
-					expect(screen.getByText(/Success/)).toBeInTheDocument();
+					expect(screen.getByText(/^Success \|/)).toBeInTheDocument();
 				},
 				{ timeout: 5000 },
 			);
