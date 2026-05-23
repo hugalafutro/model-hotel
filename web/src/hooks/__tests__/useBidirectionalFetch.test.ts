@@ -485,6 +485,36 @@ describe("useBidirectionalFetch", () => {
 			});
 		});
 
+		it("returns early if entries.length === 0", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [] as TestEntry[],
+				total: 0,
+				has_before: false,
+				has_after: false,
+			});
+
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "asc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(0);
+			});
+
+			// fetchNewer should return early without calling fetchFn again
+			act(() => {
+				result.current.fetchNewer();
+			});
+
+			expect(mockFetchFn).toHaveBeenCalledTimes(1);
+		});
+
 		it("returns early if entries.length >= MAX_ROWS", async () => {
 			const manyEntries = Array.from({ length: 10000 }, (_, i) => ({
 				id: `${i + 1}`,
@@ -696,6 +726,36 @@ describe("useBidirectionalFetch", () => {
 			act(() => {
 				resolveInitial?.(defaultResponse);
 			});
+		});
+
+		it("returns early if entries.length === 0", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [] as TestEntry[],
+				total: 0,
+				has_before: false,
+				has_after: false,
+			});
+
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "asc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(0);
+			});
+
+			// fetchOlder should return early without calling fetchFn again
+			act(() => {
+				result.current.fetchOlder();
+			});
+
+			expect(mockFetchFn).toHaveBeenCalledTimes(1);
 		});
 
 		it("returns early if entries.length >= MAX_ROWS", async () => {

@@ -712,5 +712,20 @@ describe("VirtualModelTable", () => {
 			rerender(<VirtualModelTable refreshTrigger={1} />);
 			expect(reset).not.toHaveBeenCalled();
 		});
+
+		it("does not call reset when refreshTrigger is undefined", () => {
+			const reset = vi.fn();
+			const fetchInitial = vi.fn();
+			setupTable({ reset, fetchInitial });
+
+			const { rerender } = renderWithProviders(<VirtualModelTable />);
+			reset.mockClear();
+			fetchInitial.mockClear();
+
+			// Rerender with refreshTrigger still undefined (prop not passed)
+			rerender(<VirtualModelTable />);
+			expect(reset).not.toHaveBeenCalled();
+			expect(fetchInitial).not.toHaveBeenCalled();
+		});
 	});
 });
