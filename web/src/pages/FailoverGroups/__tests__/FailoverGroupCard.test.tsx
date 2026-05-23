@@ -52,6 +52,7 @@ describe("FailoverGroupCard", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockWriteText.mockClear();
+		capturedOnDragEnd = null;
 	});
 
 	describe("Rendering", () => {

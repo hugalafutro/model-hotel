@@ -1468,8 +1468,8 @@ describe("useArenaState", () => {
 				result.current.setPhase("finished");
 			});
 
-			// Wait for effect to run
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			// Flush pending effects
+			await act(async () => {});
 
 			expect(arenaHistoryMocks.saveCompareToHistory).toHaveBeenCalled();
 			expect(arenaHistoryMocks.getArenaHistoryEnabled).toHaveBeenCalled();
@@ -1488,7 +1488,7 @@ describe("useArenaState", () => {
 				result.current.setPhase("finished");
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await act(async () => {});
 
 			expect(arenaHistoryMocks.saveCompareToHistory).not.toHaveBeenCalled();
 		});
@@ -1505,7 +1505,7 @@ describe("useArenaState", () => {
 				result.current.setPhase("finished");
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await act(async () => {});
 
 			expect(arenaHistoryMocks.saveCompareToHistory).not.toHaveBeenCalled();
 		});
@@ -1560,7 +1560,7 @@ describe("useArenaState", () => {
 			act(() => {
 				result.current.setPhase("finished");
 			});
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await act(async () => {});
 
 			expect(arenaHistoryMocks.saveCompareToHistory).toHaveBeenCalledTimes(1);
 
@@ -1568,13 +1568,13 @@ describe("useArenaState", () => {
 			act(() => {
 				result.current.setPhase("setup");
 			});
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await act(async () => {});
 
 			// Now if we go to finished again, it should save again (flag was reset)
 			act(() => {
 				result.current.setPhase("finished");
 			});
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await act(async () => {});
 
 			// Should have been called twice now
 			expect(arenaHistoryMocks.saveCompareToHistory).toHaveBeenCalledTimes(2);
