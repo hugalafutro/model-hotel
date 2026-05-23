@@ -224,12 +224,12 @@ func TestSilentLogger_NoisyEndpointsAtDebugLevel(t *testing.T) {
 	}))
 
 	// Request to noisy endpoint
-	req := httptest.NewRequest(http.MethodGet, "/api/logs/app/cursor", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/logs/app/cursor", http.NoBody)
 	req.Host = "test"
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
 	// Request to normal endpoint (not in noisy list)
-	req2 := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/settings", http.NoBody)
 	req2.Host = "test"
 	handler.ServeHTTP(httptest.NewRecorder(), req2)
 
