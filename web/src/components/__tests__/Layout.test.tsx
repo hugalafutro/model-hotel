@@ -701,7 +701,7 @@ describe("Layout", () => {
 			});
 		});
 
-		it("shows warning color class when CPU >= 75%", async () => {
+		it("renders CPU with warning color when >= 75%", async () => {
 			server.use(
 				http.get("/api/system", () =>
 					HttpResponse.json({
@@ -735,6 +735,9 @@ describe("Layout", () => {
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
 			});
+			// Verify CPU value has orange warning color class
+			const cpuRow = screen.getByText("CPU").closest("div");
+			expect(cpuRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 		});
 
 		it("renders goroutines count", async () => {
@@ -773,7 +776,7 @@ describe("Layout", () => {
 			});
 		});
 
-		it("renders process count with singular form when 1", async () => {
+		it("renders singular 'proc' when process count is 1", async () => {
 			server.use(
 				http.get("/api/system", () =>
 					HttpResponse.json({
@@ -807,9 +810,10 @@ describe("Layout", () => {
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
 			});
+			expect(screen.getByText(/proc(?!s)/)).toBeInTheDocument();
 		});
 
-		it("renders process count with plural form when > 1", async () => {
+		it("renders plural 'procs' when process count > 1", async () => {
 			server.use(
 				http.get("/api/system", () =>
 					HttpResponse.json({
@@ -843,6 +847,7 @@ describe("Layout", () => {
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
 			});
+			expect(screen.getByText(/procs/)).toBeInTheDocument();
 		});
 
 		it("toggles collapsed state on CollapsibleToggle click", async () => {
@@ -859,7 +864,7 @@ describe("Layout", () => {
 	});
 
 	describe("LastErrorPills Component", () => {
-		it("renders without errors when no data", async () => {
+		it("renders nothing when no error data", async () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
@@ -867,27 +872,29 @@ describe("Layout", () => {
 			});
 		});
 
-		it("has acknowledge button with correct title", async () => {
+		it("does not render acknowledge button when no errors", async () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				expect(screen.queryAllByTitle("Acknowledge (dismiss)")).toBeDefined();
+				expect(
+					screen.queryByTitle("Acknowledge (dismiss)"),
+				).not.toBeInTheDocument();
 			});
 		});
 
-		it("has copy button with correct title", async () => {
+		it("does not render copy button when no errors", async () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				expect(screen.queryAllByTitle("Copy error")).toBeDefined();
+				expect(screen.queryByTitle("Copy error")).not.toBeInTheDocument();
 			});
 		});
 
-		it("has view details button with correct title", async () => {
+		it("does not render view details button when no errors", async () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				expect(screen.queryAllByTitle("View details")).toBeDefined();
+				expect(screen.queryByTitle("View details")).not.toBeInTheDocument();
 			});
 		});
 	});
