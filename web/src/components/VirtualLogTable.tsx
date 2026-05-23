@@ -88,6 +88,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 	// the exact change in total size (computed from the virtualizer's
 	// own layout, which is internally consistent). This avoids drift
 	// from averaging measured vs estimated row heights.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference that adds no reactivity
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
 		if (entries.length > prev.length && prev.length > 0) {
@@ -109,8 +110,15 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		}
 		prevEntriesRef.current = entries;
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- virtualizer is a mutable ref-like object; listing it causes infinite re-renders
-	}, [entries, virtualizer.getTotalSize]);
+	}, [entries]);
+
+	// Keep prevTotalSizeRef in sync with ResizeObserver measurement
+	// corrections between prepends. Without this, the ref goes stale
+	// as the virtualizer replaces estimated sizes with actual measured
+	// heights, causing the next prepend adjustment to overshoot.
+	useLayoutEffect(() => {
+		prevTotalSizeRef.current = virtualizer.getTotalSize();
+	});
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
