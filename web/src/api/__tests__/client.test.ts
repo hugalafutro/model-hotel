@@ -38,10 +38,11 @@ describe("buildQueryString", () => {
 	});
 
 	it("filters out null values", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: intentionally passing null to test runtime filtering
-		expect(buildQueryString({ name: "test", skip: null } as any)).toBe(
-			"name=test",
-		);
+		expect(
+			buildQueryString({ name: "test", skip: null } as unknown as Parameters<
+				typeof buildQueryString
+			>[0]),
+		).toBe("name=test");
 	});
 
 	it("handles mixed types", () => {
