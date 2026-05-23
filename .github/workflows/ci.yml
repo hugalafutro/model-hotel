@@ -144,7 +144,7 @@ jobs:
         if: always()
         uses: codecov/codecov-action@v6
         with:
-          files: coverage/lcov.info
+          files: web/coverage/lcov.info
           flags: frontend
           fail_ci_if_error: false
 
