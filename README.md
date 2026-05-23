@@ -238,8 +238,9 @@ ADMIN_TOKEN=
                 context: .
                 args:
                     VERSION: ${VERSION:-dev}
-            # Prebuilt image (uncomment below, comment out build above):
+            # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
             # image: ghcr.io/hugalafutro/model-hotel:latest
+            # image: hugalafutro/model-hotel:latest
             ports:
                 - "${HOST_PORT:-8081}:8080"
             environment:
