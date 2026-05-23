@@ -467,6 +467,21 @@ describe("ZAICodingQuotaModal", () => {
 			});
 		});
 
+		it("calls onToast with error message on refresh failure", async () => {
+			onRefresh.mockRejectedValue(new Error("Refresh failed"));
+			const { user } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			await user.click(refreshButton);
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"Failed to refresh quota",
+					"error",
+				);
+			});
+		});
+
 		it("shows spinning icon while refreshing", () => {
 			renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} isRefreshing={true} />,
@@ -475,6 +490,180 @@ describe("ZAICodingQuotaModal", () => {
 			expect(refreshButton).toBeDisabled();
 			// Default theme renders RefreshCw with animate-spin class
 			expect(refreshButton.querySelector(".animate-spin")).toBeTruthy();
+		});
+	});
+
+	describe("close functionality", () => {
+		it("calls onClose when close button is clicked", async () => {
+			const { user } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} />,
+			);
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it("calls onClose when backdrop is clicked", async () => {
+			const { user } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} />,
+			);
+			const backdrop = screen.getByRole("button", { name: "Close dialog" });
+			await user.click(backdrop);
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("edge cases", () => {
+		it("shows '-' when plan level is undefined", () => {
+			const usageWithNoLevel = {
+				...mockUsage,
+				data: { ...mockUsage.data, level: undefined },
+			};
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithNoLevel} />,
+			);
+			expect(screen.getByText("-")).toBeInTheDocument();
+		});
+
+		it("does not render quota sections when limits array is empty", () => {
+			const usageWithNoLimits = {
+				...mockUsage,
+				data: { ...mockUsage.data, limits: [] },
+			};
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithNoLimits} />,
+			);
+			expect(screen.queryByText("5h Token Quota")).not.toBeInTheDocument();
+			expect(screen.queryByText("Weekly Token Quota")).not.toBeInTheDocument();
+			expect(screen.queryByText("MCP Time Quota")).not.toBeInTheDocument();
+		});
+
+		it("renders only present limit sections when some are missing", () => {
+			const usageWithPartialLimits = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TOKENS_LIMIT" as const,
+							unit: 3,
+							number: 10000,
+							usage: 5000,
+							currentValue: 5000,
+							remaining: 5000,
+							percentage: 50,
+							nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+						},
+					],
+				},
+			};
+			renderWithProviders(
+				<ZAICodingQuotaModal
+					{...defaultProps}
+					usage={usageWithPartialLimits}
+				/>,
+			);
+			expect(screen.getByText("5h Token Quota")).toBeInTheDocument();
+			expect(screen.queryByText("Weekly Token Quota")).not.toBeInTheDocument();
+			expect(screen.queryByText("MCP Time Quota")).not.toBeInTheDocument();
+		});
+
+		it("renders lastRefreshed timestamp when provided", () => {
+			renderWithProviders(<ZAICodingQuotaModal {...defaultProps} />);
+			expect(screen.getByText("Last refreshed")).toBeInTheDocument();
+		});
+
+		it("does not render lastRefreshed section when undefined", () => {
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} lastRefreshed={undefined} />,
+			);
+			expect(screen.queryByText("Last refreshed")).not.toBeInTheDocument();
+		});
+	});
+
+	describe("progress bar colors", () => {
+		it("uses red color when remaining percentage is below 20%", () => {
+			const usageWithLowQuota = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TOKENS_LIMIT" as const,
+							unit: 3,
+							number: 10000,
+							usage: 8500,
+							currentValue: 8500,
+							remaining: 1500,
+							percentage: 85,
+							nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+						},
+					],
+				},
+			};
+			const { container } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithLowQuota} />,
+			);
+			const progressBar = container.querySelector(
+				".bg-red-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("uses amber color when remaining percentage is between 20% and 60%", () => {
+			const usageWithMediumQuota = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TOKENS_LIMIT" as const,
+							unit: 3,
+							number: 10000,
+							usage: 5000,
+							currentValue: 5000,
+							remaining: 5000,
+							percentage: 50,
+							nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+						},
+					],
+				},
+			};
+			const { container } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithMediumQuota} />,
+			);
+			const progressBar = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("uses indigo color when remaining percentage is above 60%", () => {
+			const usageWithHighQuota = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TOKENS_LIMIT" as const,
+							unit: 3,
+							number: 10000,
+							usage: 2000,
+							currentValue: 2000,
+							remaining: 8000,
+							percentage: 20,
+							nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+						},
+					],
+				},
+			};
+			const { container } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithHighQuota} />,
+			);
+			const progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
 		});
 	});
 });
@@ -555,6 +744,362 @@ describe("OpenRouterQuotaModal", () => {
 				<OpenRouterQuotaModal {...defaultProps} balance={freeTierBalance} />,
 			);
 			expect(screen.getByText("Free Tier")).toBeInTheDocument();
+		});
+
+		it("shows Paid Account status when is_free_tier is false", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			expect(screen.getByText("Paid Account")).toBeInTheDocument();
+		});
+	});
+
+	describe("refresh functionality", () => {
+		it("calls onRefresh when refresh button is clicked", async () => {
+			const { user } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			await user.click(refreshButton);
+			expect(onRefresh).toHaveBeenCalledTimes(1);
+		});
+
+		it("calls onToast with success message after refresh", async () => {
+			onRefresh.mockResolvedValue(undefined);
+			const { user } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			await user.click(refreshButton);
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith("Balance refreshed", "success");
+			});
+		});
+
+		it("calls onToast with error message on refresh failure", async () => {
+			onRefresh.mockRejectedValue(new Error("Refresh failed"));
+			const { user } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			await user.click(refreshButton);
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"Failed to refresh balance",
+					"error",
+				);
+			});
+		});
+
+		it("shows spinning icon while refreshing", () => {
+			renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} isRefreshing />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			expect(refreshButton).toBeDisabled();
+			expect(refreshButton.querySelector(".animate-spin")).toBeTruthy();
+		});
+	});
+
+	describe("close functionality", () => {
+		it("calls onClose when close button is clicked", async () => {
+			const { user } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it("calls onClose when backdrop is clicked", async () => {
+			const { user } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const backdrop = screen.getByRole("button", { name: "Close dialog" });
+			await user.click(backdrop);
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("spending limit section", () => {
+		it("renders Key Spending Limit section when limit is set", () => {
+			const balanceWithLimit = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 5,
+				limit_reset: Date.now() / 1000 + 86400,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} balance={balanceWithLimit} />,
+			);
+			expect(screen.getByText("Key Spending Limit")).toBeInTheDocument();
+		});
+
+		it("shows remaining percentage and progress bar when limit > 0", () => {
+			const balanceWithLimit = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 5,
+				limit_reset: Date.now() / 1000 + 86400,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} balance={balanceWithLimit} />,
+			);
+			// Text includes reset timestamp: "50.0% remaining · Resets ..."
+			expect(screen.getByText(/50\.0% remaining/)).toBeInTheDocument();
+			expect(screen.getByText("$5.00 remaining")).toBeInTheDocument();
+		});
+
+		it("shows $0 limit - spending blocked when limit === 0", () => {
+			const balanceWithZeroLimit = {
+				...mockBalance,
+				limit: 0,
+				limit_remaining: 0,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithZeroLimit}
+				/>,
+			);
+			expect(
+				screen.getByText("$0 limit - spending blocked"),
+			).toBeInTheDocument();
+		});
+
+		it("shows No limit set when limit < 0", () => {
+			const balanceWithNegativeLimit = {
+				...mockBalance,
+				limit: -1,
+				limit_remaining: -1,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithNegativeLimit}
+				/>,
+			);
+			expect(screen.getByText("No limit set")).toBeInTheDocument();
+		});
+
+		it("shows reset timestamp when limit_reset is provided", () => {
+			const balanceWithReset = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 5,
+				limit_reset: Date.now() / 1000 + 86400,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} balance={balanceWithReset} />,
+			);
+			expect(screen.getByText(/Resets/)).toBeInTheDocument();
+		});
+
+		it("uses red color for progress bar when remaining percentage is below 20%", () => {
+			const balanceWithLowRemaining = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 1,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithLowRemaining}
+				/>,
+			);
+			const progressBar = container.querySelector(
+				".bg-red-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("uses amber color for progress bar when remaining percentage is between 20% and 60%", () => {
+			const balanceWithMediumRemaining = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 4,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithMediumRemaining}
+				/>,
+			);
+			const progressBar = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("uses indigo color for progress bar when remaining percentage is above 60%", () => {
+			const balanceWithHighRemaining = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 8,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithHighRemaining}
+				/>,
+			);
+			const progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+	});
+
+	describe("credits display", () => {
+		it("shows 'No credits' when credits_total is 0", () => {
+			const balanceWithNoCredits = {
+				...mockBalance,
+				credits_total: 0,
+				credits_used: 0,
+				credits_remaining: 0,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithNoCredits}
+				/>,
+			);
+			expect(screen.getByText("No credits")).toBeInTheDocument();
+		});
+
+		it("does not render progress bar when credits_total is 0", () => {
+			const balanceWithNoCredits = {
+				...mockBalance,
+				credits_total: 0,
+				credits_used: 0,
+				credits_remaining: 0,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithNoCredits}
+				/>,
+			);
+			// The account balance progress bar should not be rendered
+			const accountBalanceSection =
+				screen.getByText("Account Balance").parentElement;
+			const progressBars =
+				accountBalanceSection?.querySelectorAll('[style*="width"]');
+			expect(progressBars).toHaveLength(0);
+		});
+
+		it("renders progress bar when credits_total > 0", () => {
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			// Find the progress bar div in the Account Balance section
+			const progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+	});
+
+	describe("key usage section", () => {
+		it("renders daily usage with formatDollars", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			expect(screen.getByText("Today")).toBeInTheDocument();
+			// Mock data: usage_daily=10000 → $10,000.00
+			const dailyUsage = screen.getByText("Today").nextElementSibling;
+			expect(dailyUsage?.textContent).toBe("$10,000.00");
+		});
+
+		it("renders weekly usage with formatDollars", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			expect(screen.getByText("This Week")).toBeInTheDocument();
+			// Mock data: usage_weekly=50000 → $50,000.00
+			const weeklyUsage = screen.getByText("This Week").nextElementSibling;
+			expect(weeklyUsage?.textContent).toBe("$50,000.00");
+		});
+
+		it("renders monthly usage with formatDollars", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			expect(screen.getByText("This Month")).toBeInTheDocument();
+			// Mock data: usage_monthly=100000 → $100,000.00
+			const monthlyUsage = screen.getByText("This Month").nextElementSibling;
+			expect(monthlyUsage?.textContent).toBe("$100,000.00");
+		});
+
+		it("renders all-time usage with formatDollars", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			expect(screen.getByText("All Time")).toBeInTheDocument();
+			// Mock data: usage=100000 → $100,000.00
+			const allTimeUsage = screen.getByText("All Time").nextElementSibling;
+			expect(allTimeUsage?.textContent).toBe("$100,000.00");
+		});
+	});
+
+	describe("lastRefreshed", () => {
+		it("renders last refreshed timestamp when provided", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			expect(screen.getByText("Last refreshed")).toBeInTheDocument();
+		});
+
+		it("does not render last refreshed section when undefined", () => {
+			renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} lastRefreshed={undefined} />,
+			);
+			expect(screen.queryByText("Last refreshed")).not.toBeInTheDocument();
+		});
+	});
+
+	describe("progress bar colors for account balance", () => {
+		it("uses red color when remaining percentage is below 20%", () => {
+			const balanceWithLowCredits = {
+				...mockBalance,
+				credits_total: 1000000,
+				credits_remaining: 100000,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithLowCredits}
+				/>,
+			);
+			// Find the progress bar div with bg-red-500 class in the Account Balance section
+			const accountBalanceSection = container.querySelector(
+				".bg-red-500.h-3.rounded-full",
+			);
+			expect(accountBalanceSection).toBeInTheDocument();
+		});
+
+		it("uses amber color when remaining percentage is between 20% and 60%", () => {
+			const balanceWithMediumCredits = {
+				...mockBalance,
+				credits_total: 1000000,
+				credits_remaining: 400000,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithMediumCredits}
+				/>,
+			);
+			const accountBalanceSection = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(accountBalanceSection).toBeInTheDocument();
+		});
+
+		it("uses indigo color when remaining percentage is above 60%", () => {
+			const balanceWithHighCredits = {
+				...mockBalance,
+				credits_total: 1000000,
+				credits_remaining: 800000,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithHighCredits}
+				/>,
+			);
+			const accountBalanceSection = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(accountBalanceSection).toBeInTheDocument();
 		});
 	});
 });
