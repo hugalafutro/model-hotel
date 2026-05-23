@@ -1,16 +1,31 @@
+import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { BracketRound } from "../types";
+import type { ArenaPersistenceState } from "../useArenaPersistence";
+import { useArenaPersistence } from "../useArenaPersistence";
 
-interface ArenaPersistenceState {
-	arenaMode: string;
-	compareModels: string[];
-	bracketModels: string[];
-	rounds: unknown[];
-	currentRound: number;
-	phase: string;
-	arenaCollapsed: boolean;
-	savedPrompt: string;
-	modelParams: Record<string, unknown>;
-}
+// Mock contexts
+const mockPersistArena = { current: true };
+const mockToast = vi.fn();
+
+vi.mock("../../../context/StorageContext", () => ({
+	useStorage: () => ({
+		persistArena: mockPersistArena.current,
+		setPersistArena: vi.fn(),
+		persistChat: false,
+		setPersistChat: vi.fn(),
+		persistConversation: false,
+		setPersistConversation: vi.fn(),
+		arenaHistoryEnabled: false,
+		setArenaHistoryEnabled: vi.fn(),
+		arenaHistoryLimit: 25,
+		setArenaHistoryLimit: vi.fn(),
+	}),
+}));
+
+vi.mock("../../../context/ToastContext", () => ({
+	useToast: () => ({ toast: mockToast }),
+}));
 
 const mockState: ArenaPersistenceState = {
 	arenaMode: "compare",
@@ -24,73 +39,52 @@ const mockState: ArenaPersistenceState = {
 	modelParams: { "Provider/model-1": { temperature: 0.7 } },
 };
 
-// Note: arenaMode uses "compare" | "competition" from SidebarModeContext
-// Note: This test file verifies the persistence behavior documented in useArenaPersistence.ts
-// Full hook tests require the StorageProvider and ToastProvider contexts
-
-describe("useArenaPersistence - localStorage behavior", () => {
+describe("useArenaPersistence", () => {
 	let realStorage: Storage;
+	let storedItems: Record<string, string>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockPersistArena.current = true;
+		mockToast.mockClear();
 		realStorage = globalThis.localStorage;
+		storedItems = {};
+
+		// Mock localStorage with quota tracking
+		globalThis.localStorage = {
+			getItem: (key: string) => storedItems[key] ?? null,
+			setItem: (key: string, value: string) => {
+				const newSize = JSON.stringify(storedItems).length + value.length;
+				// Simulate 5MB quota
+				if (newSize > 5 * 1024 * 1024) {
+					throw new DOMException("Quota exceeded", "QuotaExceededError");
+				}
+				storedItems[key] = value;
+			},
+			removeItem: (key: string) => {
+				delete storedItems[key];
+			},
+			clear: () => {
+				for (const k of Object.keys(storedItems)) delete storedItems[k];
+			},
+			get length() {
+				return Object.keys(storedItems).length;
+			},
+			key: (i: number) => Object.keys(storedItems)[i] ?? null,
+		} as Storage;
 	});
 
 	afterEach(() => {
-		vi.stubGlobal("localStorage", realStorage);
+		globalThis.localStorage = realStorage;
 	});
 
-	function mockSetItem(
-		impl: (
-			// biome-ignore lint/suspicious/noExplicitAny: test helper mock
-			...args: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any[]
-		) => void,
-	) {
-		const store: Record<string, string> = {};
-		vi.stubGlobal("localStorage", {
-			getItem: (key: string) => store[key] ?? null,
-			setItem: impl,
-			removeItem: (key: string) => {
-				delete store[key];
-			},
-			clear: () => {
-				for (const k of Object.keys(store)) delete store[k];
-			},
-			get length() {
-				return Object.keys(store).length;
-			},
-			key: (i: number) => Object.keys(store)[i] ?? null,
-		});
-	}
-
 	it("persists arena state to localStorage when persistArena=true", () => {
-		const calls: [string, string][] = [];
-		mockSetItem((key: string, value: string) => {
-			calls.push([key, value]);
-		});
+		renderHook(() => useArenaPersistence(mockState));
 
-		const stateToPersist = {
-			arenaMode: mockState.arenaMode,
-			compareModels: mockState.compareModels,
-			bracketModels: mockState.bracketModels,
-			rounds: mockState.rounds,
-			currentRound: mockState.currentRound,
-			phase: mockState.phase,
-			arenaCollapsed: mockState.arenaCollapsed,
-			savedPrompt: mockState.savedPrompt,
-			modelParams: mockState.modelParams,
-		};
+		const stored = localStorage.getItem("arenaState");
+		expect(stored).not.toBeNull();
 
-		try {
-			localStorage.setItem("arenaState", JSON.stringify(stateToPersist));
-		} catch {
-			// Quota exceeded
-		}
-
-		expect(calls).toHaveLength(1);
-		expect(calls[0][0]).toBe("arenaState");
-
-		const parsed = JSON.parse(calls[0][1]);
+		const parsed = JSON.parse(stored as string);
 		expect(parsed.arenaMode).toBe("compare");
 		expect(parsed.compareModels).toEqual([
 			"Provider/model-1",
@@ -106,32 +100,35 @@ describe("useArenaPersistence - localStorage behavior", () => {
 		});
 	});
 
-	it("does NOT call setItem when persistArena=false", () => {
-		const calls: [string, string][] = [];
-		mockSetItem((key: string, value: string) => {
-			calls.push([key, value]);
-		});
+	it("does NOT persist when persistArena=false", () => {
+		mockPersistArena.current = false;
 
-		// When persistArena=false, the hook returns early and never calls setItem
-		expect(calls).toHaveLength(0);
+		renderHook(() => useArenaPersistence(mockState));
+
+		const stored = localStorage.getItem("arenaState");
+		expect(stored).toBeNull();
 	});
 
 	it("handles localStorage quota exceeded gracefully", () => {
-		const mockToast = vi.fn();
-		mockSetItem(() => {
-			throw new DOMException("Quota exceeded", "QuotaExceededError");
+		// Fill localStorage to trigger quota exceeded
+		vi.stubGlobal("localStorage", {
+			getItem: (key: string) => storedItems[key] ?? null,
+			setItem: () => {
+				throw new DOMException("Quota exceeded", "QuotaExceededError");
+			},
+			removeItem: (key: string) => {
+				delete storedItems[key];
+			},
+			clear: () => {
+				for (const k of Object.keys(storedItems)) delete storedItems[k];
+			},
+			get length() {
+				return Object.keys(storedItems).length;
+			},
+			key: (i: number) => Object.keys(storedItems)[i] ?? null,
 		});
 
-		// Simulate the hook's try-catch behavior
-		let quotaWarned = false;
-		try {
-			localStorage.setItem("arenaState", JSON.stringify(mockState));
-		} catch {
-			if (!quotaWarned) {
-				quotaWarned = true;
-				mockToast("Storage full - arena state not saved", "warning");
-			}
-		}
+		renderHook(() => useArenaPersistence(mockState));
 
 		expect(mockToast).toHaveBeenCalledWith(
 			"Storage full - arena state not saved",
@@ -139,87 +136,289 @@ describe("useArenaPersistence - localStorage behavior", () => {
 		);
 	});
 
-	it("warns only once via quotaWarnedRef pattern", () => {
-		const mockToast = vi.fn();
-		let quotaWarned = false;
-		mockSetItem(() => {
-			throw new DOMException("Quota exceeded", "QuotaExceededError");
+	it("warns only once via quotaWarnedRef when multiple state changes occur", () => {
+		vi.stubGlobal("localStorage", {
+			getItem: (key: string) => storedItems[key] ?? null,
+			setItem: () => {
+				throw new DOMException("Quota exceeded", "QuotaExceededError");
+			},
+			removeItem: (key: string) => {
+				delete storedItems[key];
+			},
+			clear: () => {
+				for (const k of Object.keys(storedItems)) delete storedItems[k];
+			},
+			get length() {
+				return Object.keys(storedItems).length;
+			},
+			key: (i: number) => Object.keys(storedItems)[i] ?? null,
 		});
 
-		// First attempt
-		try {
-			localStorage.setItem("arenaState", JSON.stringify(mockState));
-		} catch {
-			if (!quotaWarned) {
-				quotaWarned = true;
-				mockToast("Storage full - arena state not saved", "warning");
-			}
-		}
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
 
-		// Second attempt (simulating re-render with new state)
-		try {
-			localStorage.setItem(
-				"arenaState",
-				JSON.stringify({ ...mockState, arenaCollapsed: true }),
-			);
-		} catch {
-			if (!quotaWarned) {
-				quotaWarned = true;
-				mockToast("Storage full - arena state not saved", "warning");
-			}
-		}
+		// Trigger re-render with new state
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			arenaCollapsed: true,
+		};
+		rerender({ state: newState });
 
 		// Toast should only be called once despite multiple failures
 		expect(mockToast).toHaveBeenCalledTimes(1);
 	});
 
-	it("serializes all state properties correctly", () => {
-		const calls: [string, string][] = [];
-		mockSetItem((key: string, value: string) => {
-			calls.push([key, value]);
+	it("updates localStorage when state changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
 		});
 
+		const initialStored = localStorage.getItem("arenaState");
+		expect(initialStored).not.toBeNull();
+		let parsed = JSON.parse(initialStored as string);
+		expect(parsed.arenaCollapsed).toBe(false);
+
+		// Change state
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			arenaCollapsed: true,
+			currentRound: 2,
+		};
+		rerender({ state: newState });
+
+		const updatedStored = localStorage.getItem("arenaState");
+		parsed = JSON.parse(updatedStored as string);
+		expect(parsed.arenaCollapsed).toBe(true);
+		expect(parsed.currentRound).toBe(2);
+	});
+
+	it("persists all 9 state fields correctly", () => {
 		const complexState: ArenaPersistenceState = {
-			arenaMode: "compare",
+			arenaMode: "competition",
 			compareModels: [],
 			bracketModels: ["P1/M1", "P2/M2", "P3/M3"],
 			rounds: [
 				{
 					matchups: [
 						{
-							slotA: null,
-							slotB: null,
+							slotA: {
+								modelId: "P1/M1",
+								personaId: "persona-1",
+								personaPrompt: "Test persona A",
+							},
+							slotB: {
+								modelId: "P2/M2",
+								personaId: "persona-2",
+								personaPrompt: "Test persona B",
+							},
 							responseA: null,
 							responseB: null,
 							vote: null,
 						},
 					],
 				},
-			],
+			] as BracketRound[],
 			currentRound: 2,
 			phase: "finished",
 			arenaCollapsed: true,
-			savedPrompt: "Complex test",
+			savedPrompt: "Complex test prompt",
 			modelParams: {
 				"P1/M1": { temperature: 0.5, max_tokens: 2048 },
 				"P2/M2": { temperature: 0.8, top_p: 0.9 },
 			},
 		};
 
-		try {
-			localStorage.setItem("arenaState", JSON.stringify(complexState));
-		} catch {
-			// Quota exceeded
-		}
+		renderHook(() => useArenaPersistence(complexState));
 
-		expect(calls).toHaveLength(1);
+		const stored = localStorage.getItem("arenaState");
+		expect(stored).not.toBeNull();
 
-		const parsed = JSON.parse(calls[0][1]);
-		expect(parsed.arenaMode).toBe("compare");
+		const parsed = JSON.parse(stored as string);
+
+		// Verify all 9 fields are present
+		expect(parsed).toHaveProperty("arenaMode");
+		expect(parsed).toHaveProperty("compareModels");
+		expect(parsed).toHaveProperty("bracketModels");
+		expect(parsed).toHaveProperty("rounds");
+		expect(parsed).toHaveProperty("currentRound");
+		expect(parsed).toHaveProperty("phase");
+		expect(parsed).toHaveProperty("arenaCollapsed");
+		expect(parsed).toHaveProperty("savedPrompt");
+		expect(parsed).toHaveProperty("modelParams");
+
+		// Verify values
+		expect(parsed.arenaMode).toBe("competition");
+		expect(parsed.compareModels).toEqual([]);
 		expect(parsed.bracketModels).toHaveLength(3);
 		expect(parsed.rounds).toHaveLength(1);
 		expect(parsed.currentRound).toBe(2);
 		expect(parsed.phase).toBe("finished");
 		expect(parsed.arenaCollapsed).toBe(true);
+		expect(parsed.savedPrompt).toBe("Complex test prompt");
+		expect(parsed.modelParams).toEqual({
+			"P1/M1": { temperature: 0.5, max_tokens: 2048 },
+			"P2/M2": { temperature: 0.8, top_p: 0.9 },
+		});
+	});
+
+	it("persists state when arenaMode changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			arenaMode: "competition",
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.arenaMode).toBe("competition");
+	});
+
+	it("persists state when compareModels changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			compareModels: ["Provider/model-3"],
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.compareModels).toEqual(["Provider/model-3"]);
+	});
+
+	it("persists state when bracketModels changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			bracketModels: ["P1/M1", "P2/M2"],
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.bracketModels).toEqual(["P1/M1", "P2/M2"]);
+	});
+
+	it("persists state when rounds changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newRounds: BracketRound[] = [
+			{
+				matchups: [
+					{
+						slotA: {
+							modelId: "M1",
+							personaId: null,
+							personaPrompt: "",
+						},
+						slotB: null,
+						responseA: null,
+						responseB: null,
+						vote: null,
+					},
+				],
+			},
+		];
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			rounds: newRounds,
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.rounds).toHaveLength(1);
+	});
+
+	it("persists state when phase changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			phase: "voting",
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.phase).toBe("voting");
+	});
+
+	it("persists state when savedPrompt changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			savedPrompt: "New prompt",
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.savedPrompt).toBe("New prompt");
+	});
+
+	it("persists state when modelParams changes", () => {
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		const newState: ArenaPersistenceState = {
+			...mockState,
+			modelParams: {
+				"Provider/model-1": { temperature: 0.9, max_tokens: 4096 },
+				"Provider/model-2": { temperature: 0.3 },
+			},
+		};
+		rerender({ state: newState });
+
+		const stored = localStorage.getItem("arenaState");
+		const parsed = JSON.parse(stored as string);
+		expect(parsed.modelParams).toEqual({
+			"Provider/model-1": { temperature: 0.9, max_tokens: 4096 },
+			"Provider/model-2": { temperature: 0.3 },
+		});
+	});
+
+	it("does not call toast when localStorage succeeds", () => {
+		renderHook(() => useArenaPersistence(mockState));
+
+		expect(mockToast).not.toHaveBeenCalled();
+	});
+
+	it("re-persists when persistArena toggles from false to true", () => {
+		mockPersistArena.current = false;
+		const { rerender } = renderHook(({ state }) => useArenaPersistence(state), {
+			initialProps: { state: mockState },
+		});
+
+		// Should not persist when false
+		expect(localStorage.getItem("arenaState")).toBeNull();
+
+		// Toggle to true
+		mockPersistArena.current = true;
+		rerender({ state: mockState });
+
+		// Should persist now
+		const stored = localStorage.getItem("arenaState");
+		expect(stored).not.toBeNull();
 	});
 });

@@ -13,6 +13,31 @@ Object.defineProperty(navigator, "clipboard", {
 	writable: true,
 });
 
+// Capture onDragEnd handler from DndContext for testing
+let capturedOnDragEnd:
+	| ((event: { active: { id: string }; over: { id: string } | null }) => void)
+	| null = null;
+
+vi.mock("@dnd-kit/core", async (importOriginal) => {
+	const actual = await importOriginal();
+	return {
+		...(actual as object),
+		DndContext: ({
+			onDragEnd,
+			children,
+		}: {
+			onDragEnd: (event: {
+				active: { id: string };
+				over: { id: string } | null;
+			}) => void;
+			children: React.ReactNode;
+		}) => {
+			capturedOnDragEnd = onDragEnd;
+			return <div data-testid="dnd-context">{children}</div>;
+		},
+	};
+});
+
 describe("FailoverGroupCard", () => {
 	const defaultProps = {
 		group: mockFailoverGroup,
@@ -27,6 +52,7 @@ describe("FailoverGroupCard", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockWriteText.mockClear();
+		capturedOnDragEnd = null;
 	});
 
 	describe("Rendering", () => {
@@ -707,6 +733,133 @@ describe("FailoverGroupCard", () => {
 
 			// Should show "0/0 active • 0 tokens"
 			expect(screen.getByText(/0\/0 active/)).toBeInTheDocument();
+		});
+	});
+
+	describe("handleDragEnd", () => {
+		it("calls onReorder with new UUID order when entry is dragged to new position", () => {
+			const onReorder = vi.fn();
+			const group = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						model_uuid: "uuid-1",
+						model_id: "model-1",
+						provider_id: "p1",
+						provider_name: "Provider 1",
+						display_name: "Model 1",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p1",
+					},
+					{
+						model_uuid: "uuid-2",
+						model_id: "model-2",
+						provider_id: "p2",
+						provider_name: "Provider 2",
+						display_name: "Model 2",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p2",
+					},
+					{
+						model_uuid: "uuid-3",
+						model_id: "model-3",
+						provider_id: "p3",
+						provider_name: "Provider 3",
+						display_name: "Model 3",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p3",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={group}
+					onReorder={onReorder}
+				/>,
+			);
+
+			// Simulate dragging uuid-1 from position 0 to position 2 (where uuid-3 is)
+			// arrayMove([0,1,2], 0, 2) = [1,2,0] -> ["uuid-2", "uuid-3", "uuid-1"]
+			capturedOnDragEnd?.({
+				active: { id: "uuid-1" },
+				over: { id: "uuid-3" },
+			});
+
+			expect(onReorder).toHaveBeenCalledWith(["uuid-2", "uuid-3", "uuid-1"]);
+		});
+
+		it("does not call onReorder when dragged to same position", () => {
+			const onReorder = vi.fn();
+			const group = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						model_uuid: "uuid-1",
+						model_id: "model-1",
+						provider_id: "p1",
+						provider_name: "Provider 1",
+						display_name: "Model 1",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p1",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={group}
+					onReorder={onReorder}
+				/>,
+			);
+
+			// Dragging to same position (active.id === over.id)
+			capturedOnDragEnd?.({
+				active: { id: "uuid-1" },
+				over: { id: "uuid-1" },
+			});
+
+			expect(onReorder).not.toHaveBeenCalled();
+		});
+
+		it("does not call onReorder when item is dropped outside a droppable (over is null)", () => {
+			const onReorder = vi.fn();
+			const group = {
+				...mockFailoverGroup,
+				entries: [
+					{
+						model_uuid: "uuid-1",
+						model_id: "model-1",
+						provider_id: "p1",
+						provider_name: "Provider 1",
+						display_name: "Model 1",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p1",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={group}
+					onReorder={onReorder}
+				/>,
+			);
+
+			capturedOnDragEnd?.({
+				active: { id: "uuid-1" },
+				over: null,
+			});
+
+			expect(onReorder).not.toHaveBeenCalled();
 		});
 	});
 });

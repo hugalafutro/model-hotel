@@ -81,6 +81,26 @@ describe("extractThinking", () => {
 		expect(result.thinking).toBe("deep thought");
 		expect(result.content).toBe("answer");
 	});
+
+	it("handles unclosed thinking tag", () => {
+		const result = extractThinking("<thinking>inner thoughts");
+		expect(result.thinking).toBe("inner thoughts");
+		expect(result.content).toBe("");
+	});
+
+	it("handles unclosed thinking tag with prefix content", () => {
+		const result = extractThinking("prefix<thinking>inner thoughts");
+		expect(result.thinking).toBe("inner thoughts");
+		expect(result.content).toBe("prefix");
+	});
+
+	it("appends unclosed thinking to existing fence thinking", () => {
+		const result = extractThinking(
+			"<<\nfence thoughts\n>>\n<thinking>tag thoughts",
+		);
+		expect(result.thinking).toBe("fence thoughts\ntag thoughts");
+		expect(result.content).toBe("");
+	});
 });
 
 describe("sanitizeDelta", () => {

@@ -11,7 +11,9 @@
 <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
 <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
 <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
-<a href="https://github.com/hugalafutro/model-hotel/pkgs/container/model-hotel"><img src="https://img.shields.io/badge/ghcr.io-hugalafutro%2Fmodel--hotel-2496ED?logo=docker&logoColor=white" alt="Docker"></a>
+<a href="https://hub.docker.com/r/hugalafutro/model-hotel">
+  <img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls">
+</a>
   <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
@@ -35,21 +37,21 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          1,962 │
-│Messages                                         69,115 │
-│Days                                                 36 │
+│Sessions                                          2,038 │
+│Messages                                         74,164 │
+│Days                                                 38 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $112.90 │
-│Avg Cost/Day                                      $3.14 │
-│Avg Tokens/Session                                 2.7M │
-│Median Tokens/Session                            581.9K │
-│Input                                           2671.5M │
-│Output                                            17.8M │
-│Cache Read                                      2583.8M │
+│Avg Cost/Day                                      $2.97 │
+│Avg Tokens/Session                                 2.8M │
+│Median Tokens/Session                            585.8K │
+│Input                                           2695.8M │
+│Output                                            18.8M │
+│Cache Read                                      3026.4M │
 │Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```
@@ -236,8 +238,9 @@ ADMIN_TOKEN=
                 context: .
                 args:
                     VERSION: ${VERSION:-dev}
-            # Prebuilt image (uncomment below, comment out build above):
+            # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
             # image: ghcr.io/hugalafutro/model-hotel:latest
+            # image: hugalafutro/model-hotel:latest
             ports:
                 - "${HOST_PORT:-8081}:8080"
             environment:
