@@ -106,6 +106,9 @@ func detectLevel(line string) string {
 	if wordMatch(lower, "warn") || wordMatch(lower, "warning") || wordMatch(lower, "warnings") {
 		return "warning"
 	}
+	if wordMatch(lower, "debug") {
+		return "debug"
+	}
 	return "info"
 }
 
@@ -140,7 +143,7 @@ func isWordChar(c byte) bool {
 // "ERROR ") and key=value-style prefixes emitted by slog attrs ("level=INFO ",
 // "level=WARN ", "level=ERROR ").
 func stripLevelPrefix(msg string) string {
-	for _, prefix := range []string{"level=INFO ", "level=WARN ", "level=ERROR ", "INFO  ", "WARN  ", "ERROR "} {
+	for _, prefix := range []string{"level=DEBUG ", "level=INFO ", "level=WARN ", "level=ERROR ", "DEBUG  ", "INFO  ", "WARN  ", "ERROR "} {
 		if after, ok := strings.CutPrefix(msg, prefix); ok {
 			return after
 		}

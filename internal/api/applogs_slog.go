@@ -60,6 +60,10 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		appLevel = "error"
 	case r.Level >= slog.LevelWarn:
 		appLevel = "warning"
+	case r.Level >= slog.LevelInfo:
+		appLevel = "info"
+	case r.Level >= slog.LevelDebug:
+		appLevel = "debug"
 	}
 
 	// Extract source from "[source]" prefix in message, same as parseLogLine.
@@ -85,9 +89,10 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		w.write(entry)
 	}
 
-	// Forward to stderr filter for docker logs (only errors/warnings).
-	_, _ = fmt.Fprintf(h.stderr, "%s %s\n",
+	// Forward to stderr filter for docker logs.
+	_, _ = fmt.Fprintf(h.stderr, "%s level=%s %s\n",
 		r.Time.Format("2006/01/02 15:04:05"),
+		strings.ToUpper(appLevel),
 		msg.String())
 
 	return nil

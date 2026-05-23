@@ -77,35 +77,49 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 	const virtualItems = virtualizer.getVirtualItems();
 
 	const prevEntriesRef = useRef(entries);
+	const prevTotalSizeRef = useRef(0);
 	// State counter to force synchronous re-render after scrollTop adjustment.
 	// React guarantees setState inside useLayoutEffect is flushed before paint.
 	const [, forceRerender] = useState(0);
 
 	// When items are prepended (fetchNewer), all item indices shift but
 	// scrollTop stays the same, so the virtualizer maps the old scroll
-	// position to different items. Adjust scrollTop by the average of
-	// the virtualizer's measured row sizes (from measureElement /
-	// ResizeObserver), falling back to estimateSize when no measurements
-	// exist yet. Then force a synchronous re-render so the virtualizer
-	// recomputes before the browser paints.
+	// position to different items. Compensate by adjusting scrollTop by
+	// the exact change in total size (computed from the virtualizer's
+	// own layout, which is internally consistent). This avoids drift
+	// from averaging measured vs estimated row heights.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference that adds no reactivity
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
 			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
-				const cache = virtualizer.measurementsCache;
-				const avgSize =
-					cache.length > 0
-						? cache.reduce((sum, m) => sum + m.size, 0) / cache.length
-						: 29;
-				scrollRef.current.scrollTop += newItemCount * avgSize;
+				// When at the very top, don't adjust: the user naturally
+				// sees the newest rows. Otherwise, preserve scroll position
+				// by compensating for the total size change.
+				if (scrollRef.current.scrollTop > 1) {
+					const newTotalSize = virtualizer.getTotalSize();
+					scrollRef.current.scrollTop +=
+						newTotalSize - prevTotalSizeRef.current;
+				}
 				prevEntriesRef.current = entries;
+				prevTotalSizeRef.current = virtualizer.getTotalSize();
 				forceRerender((c) => c + 1);
 				return;
 			}
 		}
 		prevEntriesRef.current = entries;
-	}, [entries, virtualizer.measurementsCache]);
+		prevTotalSizeRef.current = virtualizer.getTotalSize();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entries]);
+
+	// Keep prevTotalSizeRef in sync with ResizeObserver measurement
+	// corrections between prepends. Without this, the ref goes stale
+	// as the virtualizer replaces estimated sizes with actual measured
+	// heights, causing the next prepend adjustment to overshoot.
+	useLayoutEffect(() => {
+		prevTotalSizeRef.current = virtualizer.getTotalSize();
+	});
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
@@ -157,16 +171,16 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					<table className="w-full table-fixed ui-table ui-table-virtual min-w-250">
 						<colgroup>
 							<col className="w-30" />
-							<col className="w-28" />
-							<col className="w-50" />
+							<col className="w-30.5" />
+							<col className="w-55" />
 							<col className="w-25" />
 							<col className="w-14" />
 							<col className="w-21" />
 							<col className="w-16.25" />
-							<col className="w-16.25" />
-							<col className="w-16.25" />
+							<col className="w-18.75" />
+							<col className="w-13.75" />
 							<col className="w-17.5" />
-							<col className="w-25" />
+							<col className="w-17.5" />
 						</colgroup>
 						<tbody>
 							<tr>
@@ -216,16 +230,16 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				>
 					<colgroup>
 						<col className="w-30" />
-						<col className="w-28" />
-						<col className="w-50" />
+						<col className="w-30.5" />
+						<col className="w-55" />
 						<col className="w-25" />
 						<col className="w-14" />
 						<col className="w-21" />
 						<col className="w-16.25" />
-						<col className="w-16.25" />
-						<col className="w-16.25" />
+						<col className="w-18.75" />
+						<col className="w-13.75" />
 						<col className="w-17.5" />
-						<col className="w-25" />
+						<col className="w-17.5" />
 					</colgroup>
 					<thead className="sticky top-0 z-10 bg-(--surface)">
 						<tr>

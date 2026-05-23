@@ -859,10 +859,18 @@ export function Layout({ children }: LayoutProps) {
 									? `Update available: ${running} → latest`
 									: `Running ${running}`
 							}
-							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5${updateAvailable ? " shadow-[0_0_8px_rgba(251,191,36,0.4)]" : ""}`}
+							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5`}
 						>
 							<GitBranch size={14} strokeWidth={2} />
-							{running}
+							<span
+								className={
+									updateAvailable
+										? "text-amber-400 outline-solid outline-1 outline-amber-400/60 rounded px-0.5"
+										: ""
+								}
+							>
+								{running}
+							</span>
 						</a>
 					</div>
 					<button

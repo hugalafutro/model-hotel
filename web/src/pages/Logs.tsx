@@ -580,16 +580,16 @@ function RequestLogs() {
 						<table className="w-full table-fixed ui-table min-w-250">
 							<colgroup>
 								<col className="w-30" />
-								<col className="w-28" />
-								<col className="w-50" />
+								<col className="w-30.5" />
+								<col className="w-55" />
 								<col className="w-25" />
 								<col className="w-14" />
 								<col className="w-21" />
 								<col className="w-16.25" />
-								<col className="w-16.25" />
-								<col className="w-16.25" />
+								<col className="w-18.75" />
+								<col className="w-13.75" />
 								<col className="w-17.5" />
-								<col className="w-25" />
+								<col className="w-17.5" />
 							</colgroup>
 							<thead>
 								<tr>

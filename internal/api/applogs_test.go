@@ -62,10 +62,17 @@ func TestStripLevelPrefix_INFOWithoutSpaces(t *testing.T) {
 	}
 }
 
-func TestStripLevelPrefix_DEBUGNotStripped(t *testing.T) {
+func TestStripLevelPrefix_DEBUG(t *testing.T) {
+	result := stripLevelPrefix("DEBUG  something")
+	if result != "something" {
+		t.Errorf("expected %q, got %q", "something", result)
+	}
+}
+
+func TestStripLevelPrefix_DEBUGWithoutSpaces(t *testing.T) {
 	result := stripLevelPrefix("DEBUG something")
 	if result != "DEBUG something" {
-		t.Errorf("DEBUG prefix should not be stripped, got %q", result)
+		t.Errorf("DEBUG with single space should not strip, got %q", result)
 	}
 }
 
@@ -366,11 +373,10 @@ func TestStripLevelPrefix_LevelEqualsError(t *testing.T) {
 	}
 }
 
-func TestStripLevelPrefix_LevelEqualsNoMatch(t *testing.T) {
-	// "level=DEBUG" is not a recognized prefix
+func TestStripLevelPrefix_LevelEqualsDebug(t *testing.T) {
 	result := stripLevelPrefix("level=DEBUG trace output")
-	if result != "level=DEBUG trace output" {
-		t.Errorf("expected unchanged, got %q", result)
+	if result != "trace output" {
+		t.Errorf("expected %q, got %q", "trace output", result)
 	}
 }
 
@@ -472,13 +478,31 @@ func TestDetectLevel_Info(t *testing.T) {
 	}{
 		{"normal log", "[proxy] request processed"},
 		{"INFO prefix", "INFO  something happened"},
-		{"debug word", "debug: tracing"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := detectLevel(tc.line)
 			if result != "info" {
 				t.Errorf("detectLevel(%q) = %q, want %q", tc.line, result, "info")
+			}
+		})
+	}
+}
+
+func TestDetectLevel_Debug(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+	}{
+		{"debug word", "[proxy] debug: tracing"},
+		{"DEBUG uppercase", "DEBUG something"},
+		{"level=DEBUG prefix", "level=DEBUG trace output"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := detectLevel(tc.line)
+			if result != "debug" {
+				t.Errorf("detectLevel(%q) = %q, want %q", tc.line, result, "debug")
 			}
 		})
 	}

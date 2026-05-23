@@ -732,10 +732,9 @@ func silentLogger(next http.Handler) http.Handler {
 		duration := time.Since(t1)
 
 		path := r.URL.Path
-		query := r.URL.Query()
 		isStatic := strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
 		isNoisy := path == "/health" ||
-			(path == "/api/logs/app" && (query.Get("history") == "true" || query.Get("limit") != "")) ||
+			strings.HasPrefix(path, "/api/logs/app") ||
 			(path == "/api/logs" && r.Method == "GET") ||
 			(path == "/api/system" && r.Method == "GET") ||
 			(path == "/api/events" && r.Method == "GET") ||
@@ -747,37 +746,44 @@ func silentLogger(next http.Handler) http.Handler {
 		if isStatic && ww.Status() < 400 {
 			return
 		}
-		if !isNoisy {
-			status := ww.Status()
-			switch {
-			case status >= 500:
-				debuglog.Error("access: request",
-					"method", r.Method,
-					"host", r.Host,
-					"path", r.URL.Path,
-					"remote", r.RemoteAddr,
-					"status", status,
-					"bytes", ww.BytesWritten(),
-					"duration", duration)
-			case status >= 400:
-				debuglog.Warn("access: request",
-					"method", r.Method,
-					"host", r.Host,
-					"path", r.URL.Path,
-					"remote", r.RemoteAddr,
-					"status", status,
-					"bytes", ww.BytesWritten(),
-					"duration", duration)
-			default:
-				debuglog.Info("access: request",
-					"method", r.Method,
-					"host", r.Host,
-					"path", r.URL.Path,
-					"remote", r.RemoteAddr,
-					"status", status,
-					"bytes", ww.BytesWritten(),
-					"duration", duration)
-			}
+		status := ww.Status()
+		switch {
+		case status >= 500:
+			debuglog.Error("access: request",
+				"method", r.Method,
+				"host", r.Host,
+				"path", r.URL.Path,
+				"remote", r.RemoteAddr,
+				"status", status,
+				"bytes", ww.BytesWritten(),
+				"duration", duration)
+		case status >= 400:
+			debuglog.Warn("access: request",
+				"method", r.Method,
+				"host", r.Host,
+				"path", r.URL.Path,
+				"remote", r.RemoteAddr,
+				"status", status,
+				"bytes", ww.BytesWritten(),
+				"duration", duration)
+		case isNoisy:
+			debuglog.Debug("access: request",
+				"method", r.Method,
+				"host", r.Host,
+				"path", r.URL.Path,
+				"remote", r.RemoteAddr,
+				"status", status,
+				"bytes", ww.BytesWritten(),
+				"duration", duration)
+		default:
+			debuglog.Info("access: request",
+				"method", r.Method,
+				"host", r.Host,
+				"path", r.URL.Path,
+				"remote", r.RemoteAddr,
+				"status", status,
+				"bytes", ww.BytesWritten(),
+				"duration", duration)
 		}
 	})
 }
