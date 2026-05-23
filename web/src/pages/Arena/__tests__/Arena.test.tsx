@@ -1076,7 +1076,6 @@ describe("Arena - ConfirmDialog full reset", () => {
 		const clearSpy = vi.spyOn(abortMap, "clear");
 		const setPendingFullResetSpy = vi.fn();
 		const toastSpy = vi.fn();
-		const removeItemSpy = vi.spyOn(localStorage, "removeItem");
 
 		const arenaReturn = {
 			...baseArena,
@@ -1104,6 +1103,19 @@ describe("Arena - ConfirmDialog full reset", () => {
 
 		vi.mocked(useArena).mockReturnValue(arenaReturn);
 
+		// Set localStorage keys so we can verify they are removed
+		const lsKeys = [
+			"arenaCompetitionPrompt",
+			"arenaComparePrompt",
+			"arenaCompetitionActivePromptId",
+			"arenaCompareActivePromptId",
+			"arenaComparePersonaId",
+			"arenaComparePersonaPrompt",
+		];
+		for (const key of lsKeys) {
+			localStorage.setItem(key, "test");
+		}
+
 		const user = userEvent.setup();
 		render(<Arena />);
 		await user.click(screen.getByTestId("confirm-btn"));
@@ -1129,15 +1141,9 @@ describe("Arena - ConfirmDialog full reset", () => {
 		expect(toastSpy).toHaveBeenCalledWith("Reset", "info");
 
 		// Verify localStorage cleanup
-		expect(removeItemSpy).toHaveBeenCalledWith("arenaCompetitionPrompt");
-		expect(removeItemSpy).toHaveBeenCalledWith("arenaComparePrompt");
-		expect(removeItemSpy).toHaveBeenCalledWith(
-			"arenaCompetitionActivePromptId",
-		);
-		expect(removeItemSpy).toHaveBeenCalledWith("arenaCompareActivePromptId");
-		expect(removeItemSpy).toHaveBeenCalledWith("arenaComparePersonaId");
-		expect(removeItemSpy).toHaveBeenCalledWith("arenaComparePersonaPrompt");
-		removeItemSpy.mockRestore();
+		for (const key of lsKeys) {
+			expect(localStorage.getItem(key)).toBeNull();
+		}
 	});
 
 	it("onCancel sets pendingFullReset to false", async () => {
