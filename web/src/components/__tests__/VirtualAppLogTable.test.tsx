@@ -900,7 +900,7 @@ describe("VirtualAppLogTable", () => {
 			expect(onFetchOlder).not.toHaveBeenCalled();
 		});
 
-		it("does not crash when scrollRef.current is null during scroll event", () => {
+		it("does not trigger fetches when scroll position is far from edges", () => {
 			const onFetchNewer = vi.fn();
 			const onFetchOlder = vi.fn();
 
