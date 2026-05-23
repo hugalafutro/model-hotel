@@ -537,24 +537,23 @@ describe("VirtualLogTable", () => {
 			const scrollEl = container.querySelector(
 				'[class*="overflow-y-auto"]',
 			) as HTMLElement;
-			if (scrollEl) {
-				Object.defineProperty(scrollEl, "scrollTop", {
-					value: 100,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "scrollHeight", {
-					value: 2000,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "clientHeight", {
-					value: 500,
-					configurable: true,
-				});
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 100,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
 
-				fireEvent.scroll(scrollEl);
+			fireEvent.scroll(scrollEl);
 
-				expect(onFetchNewer).toHaveBeenCalledTimes(1);
-			}
+			expect(onFetchNewer).toHaveBeenCalledTimes(1);
 		});
 
 		it("does NOT call onFetchNewer when isLoadingBefore=true", () => {
@@ -578,24 +577,23 @@ describe("VirtualLogTable", () => {
 			const scrollEl = container.querySelector(
 				'[class*="overflow-y-auto"]',
 			) as HTMLElement;
-			if (scrollEl) {
-				Object.defineProperty(scrollEl, "scrollTop", {
-					value: 100,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "scrollHeight", {
-					value: 2000,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "clientHeight", {
-					value: 500,
-					configurable: true,
-				});
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 100,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
 
-				fireEvent.scroll(scrollEl);
+			fireEvent.scroll(scrollEl);
 
-				expect(onFetchNewer).not.toHaveBeenCalled();
-			}
+			expect(onFetchNewer).not.toHaveBeenCalled();
 		});
 
 		it("does NOT call onFetchNewer when hasBefore=false", () => {
@@ -618,24 +616,23 @@ describe("VirtualLogTable", () => {
 			const scrollEl = container.querySelector(
 				'[class*="overflow-y-auto"]',
 			) as HTMLElement;
-			if (scrollEl) {
-				Object.defineProperty(scrollEl, "scrollTop", {
-					value: 100,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "scrollHeight", {
-					value: 2000,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "clientHeight", {
-					value: 500,
-					configurable: true,
-				});
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 100,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
 
-				fireEvent.scroll(scrollEl);
+			fireEvent.scroll(scrollEl);
 
-				expect(onFetchNewer).not.toHaveBeenCalled();
-			}
+			expect(onFetchNewer).not.toHaveBeenCalled();
 		});
 
 		it("calls onFetchOlder when near bottom and hasAfter=true and not loading", () => {
@@ -658,26 +655,25 @@ describe("VirtualLogTable", () => {
 			const scrollEl = container.querySelector(
 				'[class*="overflow-y-auto"]',
 			) as HTMLElement;
-			if (scrollEl) {
-				// Near bottom: scrollHeight - scrollTop - clientHeight < 500
-				// 2000 - 1600 - 500 = -100 < 500
-				Object.defineProperty(scrollEl, "scrollTop", {
-					value: 1600,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "scrollHeight", {
-					value: 2000,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "clientHeight", {
-					value: 500,
-					configurable: true,
-				});
+			if (!scrollEl) throw new Error("Scroll container not found");
+			// Near bottom: scrollHeight - scrollTop - clientHeight < 500
+			// 2000 - 1600 - 500 = -100 < 500
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1600,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
 
-				fireEvent.scroll(scrollEl);
+			fireEvent.scroll(scrollEl);
 
-				expect(onFetchOlder).toHaveBeenCalledTimes(1);
-			}
+			expect(onFetchOlder).toHaveBeenCalledTimes(1);
 		});
 
 		it("does NOT call onFetchOlder when isLoadingAfter=true", () => {
@@ -701,24 +697,23 @@ describe("VirtualLogTable", () => {
 			const scrollEl = container.querySelector(
 				'[class*="overflow-y-auto"]',
 			) as HTMLElement;
-			if (scrollEl) {
-				Object.defineProperty(scrollEl, "scrollTop", {
-					value: 1600,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "scrollHeight", {
-					value: 2000,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "clientHeight", {
-					value: 500,
-					configurable: true,
-				});
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1600,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
 
-				fireEvent.scroll(scrollEl);
+			fireEvent.scroll(scrollEl);
 
-				expect(onFetchOlder).not.toHaveBeenCalled();
-			}
+			expect(onFetchOlder).not.toHaveBeenCalled();
 		});
 
 		it("does NOT call onFetchOlder when hasAfter=false", () => {
@@ -741,24 +736,23 @@ describe("VirtualLogTable", () => {
 			const scrollEl = container.querySelector(
 				'[class*="overflow-y-auto"]',
 			) as HTMLElement;
-			if (scrollEl) {
-				Object.defineProperty(scrollEl, "scrollTop", {
-					value: 1600,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "scrollHeight", {
-					value: 2000,
-					configurable: true,
-				});
-				Object.defineProperty(scrollEl, "clientHeight", {
-					value: 500,
-					configurable: true,
-				});
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1600,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
 
-				fireEvent.scroll(scrollEl);
+			fireEvent.scroll(scrollEl);
 
-				expect(onFetchOlder).not.toHaveBeenCalled();
-			}
+			expect(onFetchOlder).not.toHaveBeenCalled();
 		});
 	});
 
