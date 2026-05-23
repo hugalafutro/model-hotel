@@ -19,6 +19,15 @@ vi.mock("../constants", () => ({
 	clearProviderCache: vi.fn(),
 }));
 
+function getToggleByLabel(label: string) {
+	const heading = screen.getByText(label);
+	const row = heading.closest(".flex.items-center.justify-between");
+	if (!row) throw new Error(`Could not find toggle row for "${label}"`);
+	const toggle = row.querySelector("button[role='switch']");
+	if (!toggle) throw new Error(`Could not find switch in row for "${label}"`);
+	return toggle as HTMLElement;
+}
+
 describe("DataStorageSettings", () => {
 	const onToggle = vi.fn();
 
@@ -115,9 +124,7 @@ describe("Session Persistence toggles", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		// Find the Persist Chat toggle (it's the first toggle in the section)
-		const toggles = screen.getAllByRole("switch");
-		const persistChatToggle = toggles[0];
+		const persistChatToggle = getToggleByLabel("Persist Chat");
 
 		await user.click(persistChatToggle);
 
@@ -138,8 +145,7 @@ describe("Session Persistence toggles", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const toggles = screen.getAllByRole("switch");
-		const persistArenaToggle = toggles[1];
+		const persistArenaToggle = getToggleByLabel("Persist Arena");
 
 		await user.click(persistArenaToggle);
 
@@ -160,8 +166,9 @@ describe("Session Persistence toggles", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const toggles = screen.getAllByRole("switch");
-		const persistConversationToggle = toggles[2];
+		const persistConversationToggle = getToggleByLabel(
+			"Persist AI Conversation",
+		);
 
 		await user.click(persistConversationToggle);
 
@@ -172,7 +179,7 @@ describe("Session Persistence toggles", () => {
 		confirmSpy.mockRestore();
 	});
 
-	it("does not apply toggle change when confirm is cancelled", async () => {
+	it("does not apply toggle change when Persist Chat confirm is cancelled", async () => {
 		localStorage.setItem("persistChat", "true");
 
 		const user = userEvent.setup();
@@ -182,13 +189,57 @@ describe("Session Persistence toggles", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const toggles = screen.getAllByRole("switch");
-		const persistChatToggle = toggles[0];
+		const persistChatToggle = getToggleByLabel("Persist Chat");
+		expect(persistChatToggle).toHaveAttribute("aria-checked", "true");
 
 		await user.click(persistChatToggle);
 
 		expect(confirmSpy).toHaveBeenCalled();
-		// Toggle state should not have changed since confirm was cancelled
+		expect(persistChatToggle).toHaveAttribute("aria-checked", "true");
+
+		confirmSpy.mockRestore();
+	});
+
+	it("does not apply toggle change when Persist Arena confirm is cancelled", async () => {
+		localStorage.setItem("persistArena", "true");
+
+		const user = userEvent.setup();
+		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const persistArenaToggle = getToggleByLabel("Persist Arena");
+		expect(persistArenaToggle).toHaveAttribute("aria-checked", "true");
+
+		await user.click(persistArenaToggle);
+
+		expect(confirmSpy).toHaveBeenCalled();
+		expect(persistArenaToggle).toHaveAttribute("aria-checked", "true");
+
+		confirmSpy.mockRestore();
+	});
+
+	it("does not apply toggle change when Persist Conversation confirm is cancelled", async () => {
+		localStorage.setItem("persistConversation", "true");
+
+		const user = userEvent.setup();
+		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const persistConversationToggle = getToggleByLabel(
+			"Persist AI Conversation",
+		);
+		expect(persistConversationToggle).toHaveAttribute("aria-checked", "true");
+
+		await user.click(persistConversationToggle);
+
+		expect(confirmSpy).toHaveBeenCalled();
+		expect(persistConversationToggle).toHaveAttribute("aria-checked", "true");
 
 		confirmSpy.mockRestore();
 	});
@@ -260,6 +311,71 @@ describe("Arena History section", () => {
 		expect(select).toBeDisabled();
 	});
 
+	it("enables history limit select when arena history is enabled", () => {
+		localStorage.setItem("arenaHistoryEnabled", "true");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const select = screen.getByRole("combobox", {
+			name: "Maximum Saved Matches",
+		}) as HTMLSelectElement;
+		expect(select).not.toBeDisabled();
+	});
+
+	it("calls setArenaHistoryLimit and shows toast when history limit changes", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("arenaHistoryEnabled", "true");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const select = screen.getByRole("combobox", {
+			name: "Maximum Saved Matches",
+		}) as HTMLSelectElement;
+
+		await user.selectOptions(select, "50");
+
+		expect(localStorage.getItem("arenaHistoryLimit")).toBe("50");
+		expect(
+			screen.getByText("History limit set to 50 matches"),
+		).toBeInTheDocument();
+	});
+
+	it("shows Arena history enabled toast when toggling on", async () => {
+		const user = userEvent.setup();
+		localStorage.removeItem("arenaHistoryEnabled");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const arenaHistoryToggle = getToggleByLabel("Save Match History");
+
+		await user.click(arenaHistoryToggle);
+
+		expect(screen.getByText("Arena history enabled")).toBeInTheDocument();
+	});
+
+	it("shows Arena history disabled toast when toggling off", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("arenaHistoryEnabled", "true");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const arenaHistoryToggle = getToggleByLabel("Save Match History");
+
+		await user.click(arenaHistoryToggle);
+
+		expect(
+			screen.getByText("Arena history disabled - existing entries preserved"),
+		).toBeInTheDocument();
+	});
+
 	it("renders description about oldest matches", () => {
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
@@ -281,6 +397,16 @@ describe("Arena History section", () => {
 
 		expect(screen.getByText("Clear History")).toBeInTheDocument();
 		expect(screen.getByText("5 entries stored")).toBeInTheDocument();
+	});
+
+	it("shows singular 'entry' text when arena history count is 1", () => {
+		vi.mocked(getArenaHistoryCount).mockReturnValue(1);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		expect(screen.getByText("1 entry stored")).toBeInTheDocument();
 	});
 
 	it("disables Clear History button when count is 0", () => {
@@ -395,6 +521,18 @@ describe("Cache & Resets section", () => {
 		).toBeInTheDocument();
 	});
 
+	it("shows singular 'cached entry' text when provider cache count is 1", () => {
+		vi.mocked(getProviderCacheCount).mockReturnValue(1);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		expect(
+			screen.getByText("1 cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)"),
+		).toBeInTheDocument();
+	});
+
 	it("renders Clear Cache button", () => {
 		vi.mocked(getProviderCacheCount).mockReturnValue(1);
 
@@ -448,6 +586,24 @@ describe("Cache & Resets section", () => {
 		await user.click(clearButton);
 
 		expect(clearProviderCache).toHaveBeenCalled();
+	});
+
+	it("does not call clearProviderCache when confirm is cancelled", async () => {
+		const user = userEvent.setup();
+		vi.mocked(getProviderCacheCount).mockReturnValue(2);
+		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const clearButton = screen.getByRole("button", { name: "Clear Cache" });
+		await user.click(clearButton);
+
+		expect(confirmSpy).toHaveBeenCalled();
+		expect(clearProviderCache).not.toHaveBeenCalled();
+
+		confirmSpy.mockRestore();
 	});
 
 	it("renders Dismissed Error Banners section", () => {
