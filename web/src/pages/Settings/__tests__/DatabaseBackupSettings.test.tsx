@@ -579,6 +579,9 @@ describe("DatabaseBackupSettings", () => {
 			expect(createObjectURLSpy).toHaveBeenCalled();
 			expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-url");
 		});
+
+		createObjectURLSpy.mockRestore();
+		revokeObjectURLSpy.mockRestore();
 	});
 
 	it("restores backup and polls for server", async () => {
@@ -666,8 +669,8 @@ describe("DatabaseBackupSettings", () => {
 	});
 
 	it("shows warning when server takes too long to restart", async () => {
-		const user = userEvent.setup();
 		vi.useFakeTimers({ shouldAdvanceTime: true });
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
 		server.use(
 			http.post("/api/backups/restore", () => {
