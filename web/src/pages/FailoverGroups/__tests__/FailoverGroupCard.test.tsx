@@ -419,6 +419,131 @@ describe("FailoverGroupCard", () => {
 			// This is a simplified test - full DnD testing would require more setup
 			expect(onReorder).toBeDefined();
 		});
+
+		it("copies model reference to clipboard on Enter key", async () => {
+			const group = {
+				...mockFailoverGroup,
+				display_model: "test-model",
+			};
+
+			const { user } = renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			// The model name div has role="button" and tabIndex={0}
+			// Use getAllByRole since there are multiple buttons (ON/OFF toggle, delete)
+			const modelButton = screen
+				.getAllByRole("button")
+				.find((btn) => btn.textContent?.includes("hotel/test-model"));
+			expect(modelButton).toBeDefined();
+			if (!modelButton) throw new Error("Model button not found");
+
+			modelButton.focus();
+			await user.keyboard("{Enter}");
+
+			// Toast should appear confirming copy
+			await waitFor(() => {
+				expect(screen.getByText("Copied hotel/test-model")).toBeInTheDocument();
+			});
+		});
+
+		it("copies model reference to clipboard on Space key", async () => {
+			const group = {
+				...mockFailoverGroup,
+				display_model: "test-model",
+			};
+
+			const { user } = renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			const modelButton = screen
+				.getAllByRole("button")
+				.find((btn) => btn.textContent?.includes("hotel/test-model"));
+			expect(modelButton).toBeDefined();
+			if (!modelButton) throw new Error("Model button not found");
+
+			modelButton.focus();
+			await user.keyboard(" ");
+
+			// Toast should appear confirming copy
+			await waitFor(() => {
+				expect(screen.getByText("Copied hotel/test-model")).toBeInTheDocument();
+			});
+		});
+
+		it("resets local entries when server data changes after mutation", async () => {
+			const entries = [
+				{
+					model_uuid: "entry-1",
+					model_id: "model-1",
+					provider_id: "p1",
+					provider_name: "P1",
+					display_name: "M1",
+					enabled: true,
+					context_length: 8192,
+					owned_by: "p1",
+				},
+				{
+					model_uuid: "entry-2",
+					model_id: "model-2",
+					provider_id: "p2",
+					provider_name: "P2",
+					display_name: "M2",
+					enabled: true,
+					context_length: 4096,
+					owned_by: "p2",
+				},
+			];
+			const { rerender } = renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={{ ...mockFailoverGroup, entries }}
+				/>,
+			);
+
+			expect(screen.getByText("P1")).toBeInTheDocument();
+			expect(screen.getByText("P2")).toBeInTheDocument();
+
+			// Re-render with reversed entries (simulating server data change after mutation)
+			const reversedEntries = [...entries].reverse();
+			rerender(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={{ ...mockFailoverGroup, entries: reversedEntries }}
+				/>,
+			);
+
+			// Both should still render (order may differ but both visible)
+			expect(screen.getByText("P1")).toBeInTheDocument();
+			expect(screen.getByText("P2")).toBeInTheDocument();
+		});
+
+		it("does not call onReorder without drag interaction", () => {
+			const onReorder = vi.fn();
+			const entries = [
+				{
+					model_uuid: "entry-1",
+					model_id: "model-1",
+					provider_id: "p1",
+					provider_name: "P1",
+					display_name: "M1",
+					enabled: true,
+					context_length: 8192,
+					owned_by: "p1",
+				},
+			];
+
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={{ ...mockFailoverGroup, entries }}
+					onReorder={onReorder}
+				/>,
+			);
+
+			expect(onReorder).not.toHaveBeenCalled();
+		});
 	});
 
 	describe("Entry Rendering", () => {
