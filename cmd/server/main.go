@@ -732,9 +732,10 @@ func silentLogger(next http.Handler) http.Handler {
 		duration := time.Since(t1)
 
 		path := r.URL.Path
+		query := r.URL.Query()
 		isStatic := strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
 		isNoisy := path == "/health" ||
-			(strings.HasPrefix(path, "/api/logs/app") && r.Method == "GET") ||
+			(path == "/api/logs/app" && (query.Get("history") == "true" || query.Get("limit") != "")) ||
 			(path == "/api/logs" && r.Method == "GET") ||
 			(path == "/api/system" && r.Method == "GET") ||
 			(path == "/api/events" && r.Method == "GET") ||
