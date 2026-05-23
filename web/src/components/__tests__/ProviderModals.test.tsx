@@ -333,6 +333,70 @@ describe("NanoGPTQuotaModal", () => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	describe("quota display edge cases", () => {
+		it("shows 'Yes' for allow overage when allowOverage is true", () => {
+			const usageWithOverage = { ...mockUsage, allowOverage: true };
+			renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} usage={usageWithOverage} />,
+			);
+			expect(screen.getByText("Yes")).toBeInTheDocument();
+		});
+
+		it("shows 'No limit set' when weeklyLimit is 0", () => {
+			const usageWithNoLimit = {
+				...mockUsage,
+				limits: { ...mockUsage.limits, weeklyInputTokens: 0 },
+			};
+			renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} usage={usageWithNoLimit} />,
+			);
+			expect(
+				screen.getByText((text) => text.includes("No limit set")),
+			).toBeInTheDocument();
+		});
+
+		it("shows 'N/A' for daily images reset when resetAt is undefined", () => {
+			const usageWithNoReset = {
+				...mockUsage,
+				dailyImages: {
+					...mockUsage.dailyImages,
+					resetAt: undefined,
+				},
+			};
+			renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} usage={usageWithNoReset} />,
+			);
+			// Find the paragraph containing "N/A" in the Daily Images section
+			const dailyHeading = screen.getByText("Daily Images");
+			const dailySection = dailyHeading.parentElement?.parentElement;
+			expect(dailySection?.textContent).toContain("N/A");
+		});
+
+		it("shows 'N/A' for daily input tokens reset when resetAt is undefined", () => {
+			const usageWithNoReset = {
+				...mockUsage,
+				dailyInputTokens: {
+					...mockUsage.dailyInputTokens,
+					resetAt: undefined,
+				},
+			};
+			renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} usage={usageWithNoReset} />,
+			);
+			// Find the paragraph containing "N/A" in the Daily Input Tokens section
+			const dailyHeading = screen.getByText("Daily Input Tokens");
+			const dailySection = dailyHeading.parentElement?.parentElement;
+			expect(dailySection?.textContent).toContain("N/A");
+		});
+
+		it("does not render last refreshed section when lastRefreshed is undefined", () => {
+			renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} lastRefreshed={undefined} />,
+			);
+			expect(screen.queryByText("Last refreshed")).not.toBeInTheDocument();
+		});
+	});
 });
 
 describe("ZAICodingQuotaModal", () => {
@@ -664,6 +728,117 @@ describe("ZAICodingQuotaModal", () => {
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
+		});
+	});
+
+	describe("MCP quota edge cases", () => {
+		it("does not show usage detail rows when usageDetails is undefined", () => {
+			const usageWithNoDetails = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TIME_LIMIT" as const,
+							unit: 5,
+							number: 100,
+							usage: 30,
+							currentValue: 30,
+							remaining: 70,
+							percentage: 30,
+							nextResetTime: Date.now() + 7 * 24 * 60 * 60 * 1000,
+							usageDetails: undefined,
+						},
+					],
+				},
+			};
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithNoDetails} />,
+			);
+			expect(screen.queryByText("model-1")).not.toBeInTheDocument();
+			expect(screen.queryByText("model-2")).not.toBeInTheDocument();
+		});
+
+		it("does not show usage detail rows when usageDetails is empty array", () => {
+			const usageWithEmptyDetails = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TIME_LIMIT" as const,
+							unit: 5,
+							number: 100,
+							usage: 30,
+							currentValue: 30,
+							remaining: 70,
+							percentage: 30,
+							nextResetTime: Date.now() + 7 * 24 * 60 * 60 * 1000,
+							usageDetails: [],
+						},
+					],
+				},
+			};
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithEmptyDetails} />,
+			);
+			expect(screen.queryByText("model-1")).not.toBeInTheDocument();
+			expect(screen.queryByText("model-2")).not.toBeInTheDocument();
+		});
+
+		it("shows 'N/A' for MCP reset time when nextResetTime is undefined", () => {
+			const usageWithNoReset = {
+				...mockUsage,
+				data: {
+					...mockUsage.data,
+					limits: [
+						{
+							type: "TOKENS_LIMIT" as const,
+							unit: 3,
+							number: 10000,
+							usage: 5000,
+							currentValue: 5000,
+							remaining: 5000,
+							percentage: 50,
+							nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+						},
+						{
+							type: "TOKENS_LIMIT" as const,
+							unit: 6,
+							number: 50000,
+							usage: 25000,
+							currentValue: 25000,
+							remaining: 25000,
+							percentage: 50,
+							nextResetTime: Date.now() + 7 * 24 * 60 * 60 * 1000,
+						},
+						{
+							type: "TIME_LIMIT" as const,
+							unit: 5,
+							number: 100,
+							usage: 30,
+							currentValue: 30,
+							remaining: 70,
+							percentage: 30,
+							nextResetTime: undefined,
+						},
+					],
+				},
+			};
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} usage={usageWithNoReset} />,
+			);
+			// Find the paragraph containing "N/A" after the MCP section heading
+			const mcpHeading = screen.getByText("MCP Time Quota");
+			const mcpSection = mcpHeading.parentElement?.parentElement;
+			expect(mcpSection?.textContent).toContain("N/A");
+		});
+
+		it("does not render last refreshed section when lastRefreshed is undefined", () => {
+			renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} lastRefreshed={undefined} />,
+			);
+			expect(screen.queryByText("Last refreshed")).not.toBeInTheDocument();
 		});
 	});
 });
@@ -1099,6 +1274,62 @@ describe("OpenRouterQuotaModal", () => {
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
+		});
+	});
+
+	describe("limit_reset and limit_remaining edge cases", () => {
+		it("does not show reset text when limit_reset is empty string", () => {
+			const balanceWithEmptyReset = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: 5,
+				limit_reset: "",
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithEmptyReset}
+				/>,
+			);
+			const limitSection = screen.getByText("Key Spending Limit").parentElement;
+			expect(limitSection?.textContent).not.toContain("Resets");
+		});
+
+		it("defaults to 0 when limit_remaining is null", () => {
+			const balanceWithNullRemaining = {
+				...mockBalance,
+				limit: 10,
+				limit_remaining: null,
+				limit_reset: new Date(Date.now() + 86400 * 1000).toISOString(),
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithNullRemaining}
+				/>,
+			);
+			expect(screen.getByText("$0.00 remaining")).toBeInTheDocument();
+		});
+
+		it("shows 'No credits' and no progress bar when credits_total is 0", () => {
+			const balanceWithNoCredits = {
+				...mockBalance,
+				credits_total: 0,
+				credits_used: 0,
+				credits_remaining: 0,
+			};
+			renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithNoCredits}
+				/>,
+			);
+			expect(screen.getByText("No credits")).toBeInTheDocument();
+			const accountBalanceSection =
+				screen.getByText("Account Balance").parentElement;
+			const progressBars =
+				accountBalanceSection?.querySelectorAll('[style*="width"]');
+			expect(progressBars).toHaveLength(0);
 		});
 	});
 });

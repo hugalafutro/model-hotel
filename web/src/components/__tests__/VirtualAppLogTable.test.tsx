@@ -387,6 +387,237 @@ describe("VirtualAppLogTable", () => {
 			expect(badge.className).toContain("bg-orange-900/30");
 			expect(badge.className).toContain("text-orange-400");
 		});
+
+		// Additional source badge tests for untested sources
+		it('renders source badge with correct classes for "resolve" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "resolve" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("resolve");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-teal-900/30");
+			expect(badge.className).toContain("text-teal-400");
+		});
+
+		it('renders source badge with correct classes for "discovery" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "discovery" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("discovery");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-emerald-900/30");
+			expect(badge.className).toContain("text-emerald-400");
+		});
+
+		it('renders source badge with correct classes for "failover" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "failover" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("failover");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-slate-700/50");
+			expect(badge.className).toContain("text-slate-300");
+		});
+
+		it('renders source badge with correct classes for "ratelimit" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "ratelimit" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("ratelimit");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-amber-900/30");
+			expect(badge.className).toContain("text-amber-400");
+		});
+
+		it('renders source badge with correct classes for "vkey" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "vkey" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("vkey");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-pink-900/30");
+			expect(badge.className).toContain("text-pink-400");
+		});
+
+		it('renders source badge with correct classes for "admin" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "admin" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("admin");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-pink-900/30");
+			expect(badge.className).toContain("text-pink-400");
+		});
+
+		it('renders source badge with correct classes for "events" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "events" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("events");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-violet-900/30");
+			expect(badge.className).toContain("text-violet-400");
+		});
+
+		it('renders source badge with correct classes for "docker" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "docker" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("docker");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-sky-900/30");
+			expect(badge.className).toContain("text-sky-400");
+		});
+
+		// Lime group: keycache, model, provider, cache, db
+		it('renders source badge with correct classes for "keycache" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "keycache" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("keycache");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-lime-900/30");
+			expect(badge.className).toContain("text-lime-400");
+		});
+
+		it('renders source badge with correct classes for "model" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "model" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("model");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-lime-900/30");
+			expect(badge.className).toContain("text-lime-400");
+		});
+
+		it('renders source badge with correct classes for "provider" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "provider" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("provider");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-lime-900/30");
+			expect(badge.className).toContain("text-lime-400");
+		});
+
+		it('renders source badge with correct classes for "cache" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "cache" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("cache");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-lime-900/30");
+			expect(badge.className).toContain("text-lime-400");
+		});
+
+		it('renders source badge with correct classes for "db" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "db" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("db");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-lime-900/30");
+			expect(badge.className).toContain("text-lime-400");
+		});
+
+		it('renders source badge with correct classes for "access" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "access" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("access");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-fuchsia-900/30");
+			expect(badge.className).toContain("text-fuchsia-400");
+		});
+
+		// Blue group: server, startup, retention
+		it('renders source badge with correct classes for "server" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "server" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("server");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-blue-900/30");
+			expect(badge.className).toContain("text-(--accent)");
+		});
+
+		it('renders source badge with correct classes for "startup" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "startup" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("startup");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-blue-900/30");
+			expect(badge.className).toContain("text-(--accent)");
+		});
+
+		it('renders source badge with correct classes for "retention" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "retention" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("retention");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-blue-900/30");
+			expect(badge.className).toContain("text-(--accent)");
+		});
+
+		it('renders source badge with correct classes for "modelsdev" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "modelsdev" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("modelsdev");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-rose-900/30");
+			expect(badge.className).toContain("text-rose-400");
+		});
+
+		it('renders source badge with correct classes for "applogs" source', () => {
+			const entry = createAppLogEntry({ id: "log-1", source: "applogs" });
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
+			);
+
+			const badge = screen.getByText("applogs");
+			expect(badge).toBeInTheDocument();
+			expect(badge.className).toContain("bg-gray-700/30");
+			expect(badge.className).toContain("text-gray-400");
+		});
 	});
 
 	// ==================== Pagination Footer Tests ====================
@@ -667,6 +898,297 @@ describe("VirtualAppLogTable", () => {
 			fireEvent.scroll(scrollEl);
 
 			expect(onFetchOlder).not.toHaveBeenCalled();
+		});
+
+		it("does not crash when scrollRef.current is null during scroll event", () => {
+			const onFetchNewer = vi.fn();
+			const onFetchOlder = vi.fn();
+
+			const entries = [createAppLogEntry({ id: "log-1" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-1", start: 0, end: 48 },
+			]);
+			mockGetTotalSize.mockReturnValue(48);
+
+			// Render with hasBefore/hasAfter true
+			const { container } = renderWithProviders(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={entries}
+					total={1}
+					hasBefore={true}
+					hasAfter={true}
+					onFetchNewer={onFetchNewer}
+					onFetchOlder={onFetchOlder}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+
+			// Set scroll position far from edges (> 500px from both top and bottom)
+			// so handleScroll's early return (!el) is the only guard being tested
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1000,
+				writable: true,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				writable: true,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				writable: true,
+				configurable: true,
+			});
+
+			// Fire scroll event - should not crash
+			expect(() => fireEvent.scroll(scrollEl)).not.toThrow();
+
+			// Should not trigger fetches when scroll position is not near edges
+			expect(onFetchNewer).not.toHaveBeenCalled();
+			expect(onFetchOlder).not.toHaveBeenCalled();
+		});
+	});
+
+	// ==================== useLayoutEffect Prepend Compensation Tests ====================
+	describe("useLayoutEffect Prepend Compensation", () => {
+		it("adjusts scroll position when entries are prepended and scrollTop > 1", () => {
+			const initialEntries = [
+				createAppLogEntry({ id: "log-2", message: "Second" }),
+				createAppLogEntry({ id: "log-3", message: "Third" }),
+			];
+			const prependedEntries = [
+				createAppLogEntry({ id: "log-1", message: "First" }),
+				...initialEntries,
+			];
+
+			// Mock virtual items for initial state
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-2", start: 0, end: 48 },
+				{ index: 1, key: "log-3", start: 48, end: 96 },
+			]);
+			mockGetTotalSize.mockReturnValue(96);
+
+			const { rerender, container } = renderWithProviders(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={initialEntries}
+					total={2}
+				/>,
+			);
+
+			// Get scroll element and set initial scroll position > 1
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+
+			// Use fireEvent to trigger scroll with proper property descriptors
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 50,
+				writable: true,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				writable: true,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				writable: true,
+				configurable: true,
+			});
+
+			// Update mock for prepended state with larger total size
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-1", start: 0, end: 48 },
+				{ index: 1, key: "log-2", start: 48, end: 96 },
+				{ index: 2, key: "log-3", start: 96, end: 144 },
+			]);
+			mockGetTotalSize.mockReturnValue(144);
+
+			// Rerender with prepended entries (more items at the start)
+			rerender(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={prependedEntries}
+					total={3}
+				/>,
+			);
+
+			// The scroll position should be adjusted (scrollTop increased)
+			// to compensate for the prepended item
+			// After prepend: scrollTop should be 50 + (144 - 96) = 98
+			expect(scrollEl.scrollTop).toBeGreaterThan(50);
+		});
+
+		it("does not adjust scroll position when scrollTop is at top (<= 1)", () => {
+			const initialEntries = [
+				createAppLogEntry({ id: "log-2", message: "Second" }),
+			];
+			const prependedEntries = [
+				createAppLogEntry({ id: "log-1", message: "First" }),
+				...initialEntries,
+			];
+
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-2", start: 0, end: 48 },
+			]);
+			mockGetTotalSize.mockReturnValue(48);
+
+			const { rerender, container } = renderWithProviders(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={initialEntries}
+					total={1}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 0,
+				writable: true,
+				configurable: true,
+			});
+
+			// Update mock for prepended state
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-1", start: 0, end: 48 },
+				{ index: 1, key: "log-2", start: 48, end: 96 },
+			]);
+			mockGetTotalSize.mockReturnValue(96);
+
+			rerender(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={prependedEntries}
+					total={2}
+				/>,
+			);
+
+			// Scroll position should remain at top (not adjusted)
+			expect(scrollEl.scrollTop).toBe(0);
+		});
+	});
+
+	// ==================== Footer Range Display Edge Cases ====================
+	describe("Footer Range Display Edge Cases", () => {
+		it('displays "1-20 of 100" for first page showing 20 entries of 100 total', () => {
+			const entries = Array.from({ length: 20 }, (_, i) =>
+				createAppLogEntry({ id: `log-${i + 1}`, message: `Message ${i + 1}` }),
+			);
+
+			mockGetVirtualItems.mockReturnValue(
+				entries.map((_, i) => ({
+					index: i,
+					key: `log-${i + 1}`,
+					start: i * 48,
+					end: (i + 1) * 48,
+				})),
+			);
+			mockGetTotalSize.mockReturnValue(entries.length * 48);
+
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={entries} total={100} />,
+			);
+
+			expect(screen.getByText("1–20 / 100")).toBeInTheDocument();
+		});
+
+		it('displays "1-1 of 1" for single entry', () => {
+			const entries = [createAppLogEntry({ id: "log-1", message: "Single" })];
+
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-1", start: 0, end: 48 },
+			]);
+			mockGetTotalSize.mockReturnValue(48);
+
+			renderWithProviders(
+				<VirtualAppLogTable {...defaultProps} entries={entries} total={1} />,
+			);
+
+			expect(screen.getByText("1–1 / 1")).toBeInTheDocument();
+		});
+
+		it('displays "0 entries" when entries array is empty', () => {
+			mockGetVirtualItems.mockReturnValue([]);
+			mockGetTotalSize.mockReturnValue(0);
+
+			renderWithProviders(<VirtualAppLogTable {...defaultProps} />);
+
+			expect(screen.getByText("0 entries")).toBeInTheDocument();
+		});
+
+		it("displays correct range for middle page (e.g., 21-40 of 100)", () => {
+			// Create 40 entries total, but only render virtual items for 21-40
+			const allEntries = Array.from({ length: 40 }, (_, i) =>
+				createAppLogEntry({
+					id: `log-${i + 1}`,
+					message: `Message ${i + 1}`,
+				}),
+			);
+
+			// Simulate virtual items showing only indices 20-39 (items 21-40)
+			mockGetVirtualItems.mockReturnValue(
+				Array.from({ length: 20 }, (_, i) => ({
+					index: i + 20,
+					key: `log-${i + 21}`,
+					start: i * 48,
+					end: (i + 1) * 48,
+				})),
+			);
+			mockGetTotalSize.mockReturnValue(100 * 48);
+
+			renderWithProviders(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={allEntries}
+					total={100}
+				/>,
+			);
+
+			expect(screen.getByText("21–40 / 100")).toBeInTheDocument();
+		});
+
+		it("displays correct range for last page with partial items", () => {
+			// Create 100 entries total
+			const allEntries = Array.from({ length: 100 }, (_, i) =>
+				createAppLogEntry({
+					id: `log-${i + 1}`,
+					message: `Message ${i + 1}`,
+				}),
+			);
+
+			// Simulate virtual items for last 5 entries (indices 95-99)
+			mockGetVirtualItems.mockReturnValue(
+				Array.from({ length: 5 }, (_, i) => ({
+					index: i + 95,
+					key: `log-${i + 96}`,
+					start: i * 48,
+					end: (i + 1) * 48,
+				})),
+			);
+			mockGetTotalSize.mockReturnValue(100 * 48);
+
+			renderWithProviders(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={allEntries}
+					total={100}
+				/>,
+			);
+
+			expect(screen.getByText("96–100 / 100")).toBeInTheDocument();
 		});
 	});
 
