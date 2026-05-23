@@ -1,0 +1,837 @@
+import { fireEvent, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LogEntry } from "../../api/types";
+import { renderWithProviders } from "../../test/utils";
+import { VirtualLogTable } from "../VirtualLogTable";
+
+// Mock @tanstack/react-virtual
+const mockGetVirtualItems = vi.fn();
+const mockGetTotalSize = vi.fn();
+const mockMeasureElement = vi.fn();
+
+vi.mock("@tanstack/react-virtual", () => ({
+	useVirtualizer: vi.fn(() => ({
+		getVirtualItems: mockGetVirtualItems,
+		getTotalSize: mockGetTotalSize,
+		measureElement: mockMeasureElement,
+	})),
+}));
+
+// Helper to create mock LogEntry
+function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
+	return {
+		id: "log-1",
+		provider_id: "prov-1",
+		provider_name: "Test Provider",
+		model_id: "test-provider/model-v1",
+		request_hash: "abc123def456",
+		status_code: 200,
+		latency_ms: 150,
+		duration_ms: 200,
+		ttft_ms: 50,
+		proxy_overhead_ms: 5,
+		parse_ms: 1,
+		failover_lookup_ms: 0,
+		model_lookup_ms: 1,
+		provider_lookup_ms: 1,
+		key_decrypt_ms: 2,
+		dial_ms: 10,
+		settings_read_ms: 1,
+		tokens_per_second: 25.5,
+		tokens_prompt: 100,
+		tokens_completion: 50,
+		tokens_prompt_cache_hit: 0,
+		tokens_prompt_cache_miss: 100,
+		tokens_completion_reasoning: 0,
+		streaming: true,
+		state: "completed",
+		virtual_key_name: "test-key",
+		virtual_key_id: "vk-1",
+		error_message: "",
+		failover_attempt: 0,
+		created_at: "2026-05-23T10:00:00Z",
+		...overrides,
+	};
+}
+
+// Default props
+const defaultProps = {
+	entries: [] as LogEntry[],
+	total: 0,
+	hasBefore: false,
+	hasAfter: false,
+	isLoadingBefore: false,
+	isLoadingAfter: false,
+	onFetchNewer: vi.fn(),
+	onFetchOlder: vi.fn(),
+	onRowClick: vi.fn(),
+	sortDir: "desc" as const,
+	onSortToggle: vi.fn(),
+};
+
+describe("VirtualLogTable", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		localStorage.setItem("adminToken", "test-token");
+		mockGetVirtualItems.mockReturnValue([]);
+		mockGetTotalSize.mockReturnValue(0);
+		mockMeasureElement.mockImplementation(() => {});
+	});
+
+	describe("Empty state", () => {
+		it('renders "No logs found" when entries is empty', () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} />);
+			expect(screen.getByText("No logs found")).toBeInTheDocument();
+		});
+
+		it('renders "0 entries" in footer when entries is empty', () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} />);
+			expect(screen.getByText("0 entries")).toBeInTheDocument();
+		});
+
+		it("renders loading newer indicator when isLoadingBefore=true and entries empty", () => {
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} isLoadingBefore />,
+			);
+			expect(screen.getByText("↻ Loading newer…")).toBeInTheDocument();
+		});
+
+		it("renders loading older indicator when isLoadingAfter=true and entries empty", () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} isLoadingAfter />);
+			expect(screen.getByText("↻ Loading older…")).toBeInTheDocument();
+		});
+
+		it("does not render loading indicators when not loading", () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} />);
+			expect(screen.queryByText("↻ Loading newer…")).not.toBeInTheDocument();
+			expect(screen.queryByText("↻ Loading older…")).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Populated state rendering", () => {
+		it("renders table headers with sort direction (desc arrow ↓)", () => {
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} sortDir="desc" />,
+			);
+			expect(screen.getByText("Time/Date ↓")).toBeInTheDocument();
+		});
+
+		it("renders table headers with sort direction (asc arrow ↑)", () => {
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} sortDir="asc" />,
+			);
+			expect(screen.getByText("Time/Date ↑")).toBeInTheDocument();
+		});
+
+		it("renders row data for each virtual item", () => {
+			const entries = [
+				createLogEntry({
+					id: "log-1",
+					provider_name: "Provider A",
+					model_id: "provider-a/model-1",
+					status_code: 200,
+				}),
+				createLogEntry({
+					id: "log-2",
+					provider_name: "Provider B",
+					model_id: "provider-b/model-2",
+					status_code: 500,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-1", start: 0, end: 29 },
+				{ index: 1, key: "log-2", start: 29, end: 58 },
+			]);
+			mockGetTotalSize.mockReturnValue(58);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Check provider names are rendered
+			expect(screen.getByText("Provider A")).toBeInTheDocument();
+			expect(screen.getByText("Provider B")).toBeInTheDocument();
+			// Check status codes
+			expect(screen.getByText("200")).toBeInTheDocument();
+			expect(screen.getByText("500")).toBeInTheDocument();
+		});
+
+		it("calls onRowClick with correct entry when row is clicked", async () => {
+			const onRowClick = vi.fn();
+			const entries = [createLogEntry({ id: "log-123" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-123", start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { user } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					onRowClick={onRowClick}
+				/>,
+			);
+
+			// Find the row and click it
+			const row = screen.getByText("Test Provider").closest("tr");
+			if (row) {
+				await user.click(row);
+			}
+
+			expect(onRowClick).toHaveBeenCalledWith(entries[0]);
+		});
+
+		it("calls onSortToggle when Time/Date header is clicked", async () => {
+			const onSortToggle = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { user } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					onSortToggle={onSortToggle}
+				/>,
+			);
+
+			const header = screen.getByText("Time/Date ↓");
+			await user.click(header);
+
+			expect(onSortToggle).toHaveBeenCalledTimes(1);
+		});
+
+		it('renders "Deleted" (italic red) for deleted provider_name', () => {
+			const entries = [createLogEntry({ provider_name: "Deleted" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const deletedSpan = screen.getByText("Deleted");
+			expect(deletedSpan).toBeInTheDocument();
+			expect(deletedSpan).toHaveClass("text-red-400", "italic");
+		});
+
+		it('renders "-" when provider_name is empty', () => {
+			const entries = [createLogEntry({ provider_name: "" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// The cell should contain "-"
+			const providerCell = screen.getByText("-");
+			expect(providerCell).toBeInTheDocument();
+		});
+
+		it("renders status badge variant correctly for status 200 (success)", () => {
+			const entries = [createLogEntry({ status_code: 200 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const badge = screen.getByText("200").closest("span");
+			expect(badge).toHaveClass("bg-green-900/30", "text-green-400");
+		});
+
+		it("renders status badge variant correctly for status 0 (error)", () => {
+			const entries = [createLogEntry({ status_code: 0 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const badge = screen.getByText("0").closest("span");
+			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
+		});
+
+		it("renders status badge variant correctly for status 429 (orange - 4xx)", () => {
+			const entries = [createLogEntry({ status_code: 429 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const badge = screen.getByText("429").closest("span");
+			expect(badge).toHaveClass("bg-orange-900/30", "text-orange-400");
+		});
+
+		it("renders status badge variant correctly for status 500 (error - 5xx)", () => {
+			const entries = [createLogEntry({ status_code: 500 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const badge = screen.getByText("500").closest("span");
+			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
+		});
+
+		it('renders "Interrupted" for cancelled error messages in tokens column', () => {
+			const entries = [
+				createLogEntry({ error_message: "Request cancelled by user" }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+
+		it('renders tokens as "prompt+completion" when > 0', () => {
+			const entries = [
+				createLogEntry({ tokens_prompt: 100, tokens_completion: 50 }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// The tokens column renders: {formatNumber(100)} + "+" + {formatNumber(50)}
+			// Check that both numbers appear in the table's text content
+			const tableText = screen.getByRole("table").textContent || "";
+			expect(tableText).toContain("100");
+			expect(tableText).toContain("50");
+		});
+
+		it('renders "-" when tokens are 0', () => {
+			const entries = [
+				createLogEntry({ tokens_prompt: 0, tokens_completion: 0 }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Find the tokens column - it should have "-"
+			// The tokens column is the 6th column
+			const tokensCell = screen.getAllByText("-").find((el) => {
+				const parent = el.closest("td");
+				return parent !== null;
+			});
+			expect(tokensCell).toBeDefined();
+		});
+
+		it("renders model_id with provider prefix stripped", () => {
+			const entries = [createLogEntry({ model_id: "openai/gpt-4" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Should show "gpt-4" not "openai/gpt-4"
+			expect(screen.getByText("gpt-4")).toBeInTheDocument();
+		});
+
+		it("renders hotel/ model_id as-is", () => {
+			const entries = [createLogEntry({ model_id: "hotel/my-failover-group" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Should show full "hotel/my-failover-group"
+			expect(screen.getByText("hotel/my-failover-group")).toBeInTheDocument();
+		});
+
+		it('renders "Deleted" (italic red) for virtual_key_deleted=true', () => {
+			const entries = [
+				createLogEntry({
+					virtual_key_deleted: true,
+					virtual_key_name: "old-key",
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const deletedSpan = screen.getByText("Deleted");
+			expect(deletedSpan).toBeInTheDocument();
+			expect(deletedSpan).toHaveClass("text-red-400", "italic");
+		});
+
+		it('renders "internal" (italic) for internal virtual keys', () => {
+			const entries = [
+				createLogEntry({ virtual_key_name: "internal", virtual_key_id: "" }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const internalSpan = screen.getByText("internal");
+			expect(internalSpan).toBeInTheDocument();
+			expect(internalSpan).toHaveClass("text-gray-400", "italic");
+		});
+
+		it("renders virtual_key_name when present", () => {
+			const entries = [createLogEntry({ virtual_key_name: "my-api-key" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("my-api-key")).toBeInTheDocument();
+		});
+
+		it('renders "-" when no virtual key info', () => {
+			const entries = [
+				createLogEntry({ virtual_key_name: "", virtual_key_id: "" }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Find a "-" in the key column (last column)
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
+
+	describe("Pagination footer", () => {
+		it('renders "X–Y / total" pagination in footer', () => {
+			const entries = Array.from({ length: 10 }, (_, i) =>
+				createLogEntry({ id: `log-${i}` }),
+			);
+			mockGetVirtualItems.mockReturnValue(
+				entries.map((e, i) => ({
+					index: i,
+					key: e.id,
+					start: i * 29,
+					end: (i + 1) * 29,
+				})),
+			);
+			mockGetTotalSize.mockReturnValue(290);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} total={100} />,
+			);
+
+			// Should show "1–10 / 100"
+			expect(screen.getByText("1–10 / 100")).toBeInTheDocument();
+		});
+
+		it('renders "0 entries" when entries empty', () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} />);
+			expect(screen.getByText("0 entries")).toBeInTheDocument();
+		});
+
+		it("renders loading indicators in footer when populated", () => {
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					isLoadingBefore
+					isLoadingAfter
+				/>,
+			);
+
+			expect(screen.getByText("↻ Loading newer…")).toBeInTheDocument();
+			expect(screen.getByText("↻ Loading older…")).toBeInTheDocument();
+		});
+	});
+
+	describe("Scroll/edge threshold", () => {
+		it("calls onFetchNewer when scrollTop < 500 and hasBefore=true and not loading", () => {
+			const onFetchNewer = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { container } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					hasBefore
+					onFetchNewer={onFetchNewer}
+				/>,
+			);
+
+			// Find the scroll container
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 100,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
+
+			fireEvent.scroll(scrollEl);
+
+			expect(onFetchNewer).toHaveBeenCalledTimes(1);
+		});
+
+		it("does NOT call onFetchNewer when isLoadingBefore=true", () => {
+			const onFetchNewer = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { container } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					hasBefore
+					isLoadingBefore
+					onFetchNewer={onFetchNewer}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 100,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
+
+			fireEvent.scroll(scrollEl);
+
+			expect(onFetchNewer).not.toHaveBeenCalled();
+		});
+
+		it("does NOT call onFetchNewer when hasBefore=false", () => {
+			const onFetchNewer = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { container } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					hasBefore={false}
+					onFetchNewer={onFetchNewer}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 100,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
+
+			fireEvent.scroll(scrollEl);
+
+			expect(onFetchNewer).not.toHaveBeenCalled();
+		});
+
+		it("calls onFetchOlder when near bottom and hasAfter=true and not loading", () => {
+			const onFetchOlder = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { container } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					hasAfter
+					onFetchOlder={onFetchOlder}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+			// Near bottom: scrollHeight - scrollTop - clientHeight < 500
+			// 2000 - 1600 - 500 = -100 < 500
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1600,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
+
+			fireEvent.scroll(scrollEl);
+
+			expect(onFetchOlder).toHaveBeenCalledTimes(1);
+		});
+
+		it("does NOT call onFetchOlder when isLoadingAfter=true", () => {
+			const onFetchOlder = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { container } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					hasAfter
+					isLoadingAfter
+					onFetchOlder={onFetchOlder}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1600,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
+
+			fireEvent.scroll(scrollEl);
+
+			expect(onFetchOlder).not.toHaveBeenCalled();
+		});
+
+		it("does NOT call onFetchOlder when hasAfter=false", () => {
+			const onFetchOlder = vi.fn();
+			const entries = [createLogEntry()];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { container } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					hasAfter={false}
+					onFetchOlder={onFetchOlder}
+				/>,
+			);
+
+			const scrollEl = container.querySelector(
+				'[class*="overflow-y-auto"]',
+			) as HTMLElement;
+			if (!scrollEl) throw new Error("Scroll container not found");
+			Object.defineProperty(scrollEl, "scrollTop", {
+				value: 1600,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "scrollHeight", {
+				value: 2000,
+				configurable: true,
+			});
+			Object.defineProperty(scrollEl, "clientHeight", {
+				value: 500,
+				configurable: true,
+			});
+
+			fireEvent.scroll(scrollEl);
+
+			expect(onFetchOlder).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("Duration formatting", () => {
+		it("renders duration in ms when < 1000", () => {
+			const entries = [createLogEntry({ duration_ms: 500 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("500ms")).toBeInTheDocument();
+		});
+
+		it("renders duration in seconds when >= 1000", () => {
+			const entries = [createLogEntry({ duration_ms: 1500 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("1.5s")).toBeInTheDocument();
+		});
+
+		it('renders "-" when duration_ms is 0', () => {
+			const entries = [createLogEntry({ duration_ms: 0 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Find "-" in the duration column
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
+
+	describe("Proxy overhead", () => {
+		it("renders overhead with accent color when > 0", () => {
+			const entries = [createLogEntry({ proxy_overhead_ms: 10 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Should show "10.00ms" with accent color
+			const overheadCell = screen.getByText("10.00ms");
+			expect(overheadCell).toBeInTheDocument();
+			expect(overheadCell).toHaveClass("text-(--accent)");
+		});
+
+		it('renders "-" when overhead is 0 or null', () => {
+			const entries = [createLogEntry({ proxy_overhead_ms: 0 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Should show "-" in the overhead column
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
+});
