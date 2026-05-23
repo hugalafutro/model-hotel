@@ -129,35 +129,40 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 	const virtualItems = virtualizer.getVirtualItems();
 
 	const prevEntriesRef = useRef(entries);
+	const prevTotalSizeRef = useRef(0);
 	// State counter to force synchronous re-render after scrollTop adjustment.
 	// React guarantees setState inside useLayoutEffect is flushed before paint.
 	const [, forceRerender] = useState(0);
 
 	// When items are prepended (fetchNewer), all item indices shift but
 	// scrollTop stays the same, so the virtualizer maps the old scroll
-	// position to different items. Adjust scrollTop by the average of
-	// the virtualizer's measured row sizes (from measureElement /
-	// ResizeObserver), falling back to estimateSize when no measurements
-	// exist yet. Then force a synchronous re-render so the virtualizer
-	// recomputes before the browser paints.
+	// position to different items. Compensate by adjusting scrollTop by
+	// the exact change in total size (computed from the virtualizer's
+	// own layout, which is internally consistent). This avoids drift
+	// from averaging measured vs estimated row heights.
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
 			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
-				const cache = virtualizer.measurementsCache;
-				const avgSize =
-					cache.length > 0
-						? cache.reduce((sum, m) => sum + m.size, 0) / cache.length
-						: 48;
-				scrollRef.current.scrollTop += newItemCount * avgSize;
+				// When at the very top, don't adjust: the user naturally
+				// sees the newest rows. Otherwise, preserve scroll position
+				// by compensating for the total size change.
+				if (scrollRef.current.scrollTop > 1) {
+					const newTotalSize = virtualizer.getTotalSize();
+					scrollRef.current.scrollTop +=
+						newTotalSize - prevTotalSizeRef.current;
+				}
 				prevEntriesRef.current = entries;
+				prevTotalSizeRef.current = virtualizer.getTotalSize();
 				forceRerender((c) => c + 1);
 				return;
 			}
 		}
 		prevEntriesRef.current = entries;
-	}, [entries, virtualizer.measurementsCache]);
+		prevTotalSizeRef.current = virtualizer.getTotalSize();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- virtualizer is a mutable ref-like object; listing it causes infinite re-renders
+	}, [entries, virtualizer.getTotalSize]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
