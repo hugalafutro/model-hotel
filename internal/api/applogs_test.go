@@ -825,13 +825,20 @@ func TestDBLogWriter_TickerFlush(t *testing.T) {
 		}
 	}
 
-	// Wait for the 500ms ticker to fire and flush (lines 131-135)
-	time.Sleep(800 * time.Millisecond)
-
+	// Poll until the ticker flushes the entries or we time out.
+	// A fixed sleep is flaky because the 500ms ticker may not align with
+	// the goroutine's select loop under CI load.
+	deadline := time.Now().Add(5 * time.Second)
 	var count int
-	err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM app_logs WHERE source = 'ticker-test'").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to query app_logs: %v", err)
+	for time.Now().Before(deadline) {
+		err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM app_logs WHERE source = 'ticker-test'").Scan(&count)
+		if err != nil {
+			t.Fatalf("failed to query app_logs: %v", err)
+		}
+		if count >= 5 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	if count < 5 {
 		t.Errorf("expected at least 5 entries in DB after ticker flush, got %d", count)
