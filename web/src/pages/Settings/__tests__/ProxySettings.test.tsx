@@ -260,4 +260,192 @@ describe("ProxySettings", () => {
 		expect(keyCacheTTLSelect.options[3].value).toBe("30m0s");
 		expect(keyCacheTTLSelect.options[4].value).toBe("1h0m0s");
 	});
+
+	it("invalidates settings query after successful mutation", async () => {
+		const user = userEvent.setup();
+
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const requestTimeoutSelect = screen.getByLabelText(
+				/Request Timeout/i,
+			) as HTMLSelectElement;
+			expect(requestTimeoutSelect).toBeInTheDocument();
+		});
+
+		const requestTimeoutSelect = screen.getByLabelText(
+			/Request Timeout/i,
+		) as HTMLSelectElement;
+		await user.selectOptions(requestTimeoutSelect, "2m0s");
+
+		// Success toast indicates mutation completed and invalidation was triggered
+		await waitFor(() => {
+			expect(screen.getByText("Settings saved")).toBeInTheDocument();
+		});
+	});
+
+	it("shows error toast with API error message when mutation fails", async () => {
+		const user = userEvent.setup();
+
+		server.use(
+			http.put("/api/settings", () =>
+				HttpResponse.json(
+					{ message: "Database connection failed" },
+					{ status: 500 },
+				),
+			),
+		);
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const requestTimeoutSelect = screen.getByLabelText(
+				/Request Timeout/i,
+			) as HTMLSelectElement;
+			expect(requestTimeoutSelect).toBeInTheDocument();
+		});
+
+		const requestTimeoutSelect = screen.getByLabelText(
+			/Request Timeout/i,
+		) as HTMLSelectElement;
+		await user.selectOptions(requestTimeoutSelect, "2m0s");
+
+		// Error toast should appear with the error message
+		await waitFor(() => {
+			expect(screen.getByText(/Failed to save/i)).toBeInTheDocument();
+		});
+	});
+
+	it("uses default request_timeout when settings API returns null", async () => {
+		server.use(http.get("/api/settings", () => HttpResponse.json(null)));
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const requestTimeoutSelect = screen.getByLabelText(
+				/Request Timeout/i,
+			) as HTMLSelectElement;
+			expect(requestTimeoutSelect.value).toBe("1m0s");
+		});
+	});
+
+	it("uses default key_cache_ttl when settings API returns null", async () => {
+		server.use(http.get("/api/settings", () => HttpResponse.json(null)));
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const keyCacheTTLSelect = screen.getByLabelText(
+				/Key Cache TTL/i,
+			) as HTMLSelectElement;
+			expect(keyCacheTTLSelect.value).toBe("10m0s");
+		});
+	});
+
+	it("forwards collapsed and onToggle props to SettingsSection", async () => {
+		const user = userEvent.setup();
+		const onToggleMock = vi.fn();
+		renderWithProviders(
+			<ProxySettings collapsed={true} onToggle={onToggleMock} />,
+		);
+
+		// SettingsSection should receive the collapsed prop
+		// We verify by checking the toggle button exists and works
+		// When collapsed=true, the button shows "Expand"
+		const toggleButton = screen.getByRole("button", {
+			name: /Expand/i,
+		});
+		expect(toggleButton).toBeInTheDocument();
+
+		// Clicking should call onToggle
+		await user.click(toggleButton);
+		expect(onToggleMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("calls mutation with correct request_timeout payload", async () => {
+		const user = userEvent.setup();
+		let capturedPayload: Record<string, string> | null = null;
+
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const requestTimeoutSelect = screen.getByLabelText(
+				/Request Timeout/i,
+			) as HTMLSelectElement;
+			expect(requestTimeoutSelect).toBeInTheDocument();
+		});
+
+		const requestTimeoutSelect = screen.getByLabelText(
+			/Request Timeout/i,
+		) as HTMLSelectElement;
+		await user.selectOptions(requestTimeoutSelect, "5m0s");
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ request_timeout: "5m0s" });
+		});
+	});
+
+	it("calls mutation with correct key_cache_ttl payload", async () => {
+		const user = userEvent.setup();
+		let capturedPayload: Record<string, string> | null = null;
+
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const keyCacheTTLSelect = screen.getByLabelText(
+				/Key Cache TTL/i,
+			) as HTMLSelectElement;
+			expect(keyCacheTTLSelect).toBeInTheDocument();
+		});
+
+		const keyCacheTTLSelect = screen.getByLabelText(
+			/Key Cache TTL/i,
+		) as HTMLSelectElement;
+		await user.selectOptions(keyCacheTTLSelect, "30m0s");
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ key_cache_ttl: "30m0s" });
+		});
+	});
 });

@@ -5,7 +5,7 @@ import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import type { BracketPhase, BracketRound } from "./types";
 
-interface ArenaPersistenceState {
+export interface ArenaPersistenceState {
 	arenaMode: ArenaSubMode;
 	compareModels: string[];
 	bracketModels: string[];

@@ -147,7 +147,9 @@ describe("useBidirectionalFetch", () => {
 				expect(mockFetchFn).toHaveBeenCalledTimes(1);
 			});
 
-			expect(result.current.entries).toHaveLength(1);
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(1);
+			});
 		});
 	});
 
