@@ -28,16 +28,23 @@ function createTestQueryClient() {
 interface AllProvidersProps {
 	children: ReactNode;
 	initialEntries?: MemoryRouterProps["initialEntries"];
+	/** Optional wrapper to replace the default ToastProvider (e.g. for mocking). */
+	toastWrapper?: ({ children }: { children: ReactNode }) => ReactElement;
 }
 
-export function AllProviders({ children, initialEntries }: AllProvidersProps) {
+export function AllProviders({
+	children,
+	initialEntries,
+	toastWrapper,
+}: AllProvidersProps) {
 	const queryClient = createTestQueryClient();
+	const ToastSlot = toastWrapper ?? ToastProvider;
 	return (
 		<MemoryRouter initialEntries={initialEntries}>
 			<ThemeProvider>
 				<StorageProvider>
 					<SidebarModeProvider>
-						<ToastProvider>
+						<ToastSlot>
 							<EventProvider>
 								<QuotaModalProvider>
 									<QueryClientProvider client={queryClient}>
@@ -45,7 +52,7 @@ export function AllProviders({ children, initialEntries }: AllProvidersProps) {
 									</QueryClientProvider>
 								</QuotaModalProvider>
 							</EventProvider>
-						</ToastProvider>
+						</ToastSlot>
 					</SidebarModeProvider>
 				</StorageProvider>
 			</ThemeProvider>
@@ -57,14 +64,18 @@ export function renderWithProviders(
 	ui: ReactElement,
 	options?: Omit<RenderOptions, "wrapper"> & {
 		initialEntries?: MemoryRouterProps["initialEntries"];
+		toastWrapper?: AllProvidersProps["toastWrapper"];
 	},
 ) {
 	const user = userEvent.setup();
-	const { initialEntries, ...renderOptions } = options || {};
+	const { initialEntries, toastWrapper, ...renderOptions } = options || {};
 	return {
 		...render(ui, {
 			wrapper: (props) => (
-				<AllProviders initialEntries={initialEntries}>
+				<AllProviders
+					initialEntries={initialEntries}
+					toastWrapper={toastWrapper}
+				>
 					{props.children}
 				</AllProviders>
 			),

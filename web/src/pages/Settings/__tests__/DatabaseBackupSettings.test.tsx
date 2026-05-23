@@ -436,4 +436,111 @@ describe("DatabaseBackupSettings", () => {
 			expect(confirmButton).toBeDisabled();
 		});
 	});
+
+	it("shows 0 B for zero-size backup", async () => {
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([
+					{
+						filename: "empty.dump",
+						size_bytes: 0,
+						created_at: "2026-01-01T00:00:00Z",
+					},
+				]),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/0 B -/)).toBeInTheDocument();
+		});
+	});
+
+	it("shows raw string for invalid date", async () => {
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([
+					{
+						filename: "bad-date.dump",
+						size_bytes: 1024,
+						created_at: "not-a-date",
+					},
+				]),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/Invalid Date/)).toBeInTheDocument();
+		});
+	});
+
+	it("shows error toast when download fails", async () => {
+		server.use(
+			http.get("/api/backups/:filename", () =>
+				HttpResponse.json({ error: "not found" }, { status: 404 }),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const downloadButtons = await screen.findAllByRole("button", {
+			name: /download/i,
+		});
+		await user.click(downloadButtons[0]);
+		await waitFor(() => {
+			expect(screen.getByText(/download failed:/i)).toBeInTheDocument();
+		});
+	});
+
+	it("shows restore modal when file is selected", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		const file = new File(["test"], "backup.dump", {
+			type: "application/octet-stream",
+		});
+		await user.upload(fileInput, file);
+		await waitFor(() => {
+			expect(screen.getByText("Restore Database Backup")).toBeInTheDocument();
+		});
+	});
+
+	it("shows Upload & Restore button text when not restoring", async () => {
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /upload & restore/i }),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("can close restore modal", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		const file = new File(["test"], "backup.dump", {
+			type: "application/octet-stream",
+		});
+		await user.upload(fileInput, file);
+		await waitFor(() => {
+			expect(screen.getByText("Restore Database Backup")).toBeInTheDocument();
+		});
+		const cancelButton = screen.getByRole("button", { name: /cancel/i });
+		await user.click(cancelButton);
+		await waitFor(() => {
+			expect(
+				screen.queryByText("Restore Database Backup"),
+			).not.toBeInTheDocument();
+		});
+	});
 });

@@ -37,6 +37,7 @@ export function ColorPickerModal({
 						maxLength={6}
 					/>
 					<div
+						data-testid="color-preview"
 						className="w-8 h-8 rounded-full border-2 border-gray-600 shrink-0"
 						style={{ backgroundColor: color }}
 					/>

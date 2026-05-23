@@ -32,7 +32,8 @@ interface ToastContextType {
 	setTimeout: (timeout: number) => void;
 }
 
-const ToastContext = createContext<ToastContextType>({
+// eslint-disable-next-line react-refresh/only-export-components
+export const ToastContext = createContext<ToastContextType>({
 	toast: () => {},
 	position: "bottom-center",
 	setPosition: () => {},
