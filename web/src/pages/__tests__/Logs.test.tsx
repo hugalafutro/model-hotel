@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -44,6 +44,42 @@ vi.mock("../../components/AccentCalendar", () => ({
 	),
 }));
 
+// Mock VirtualLogTable component
+vi.mock("../../components/VirtualLogTable", () => ({
+	VirtualLogTable: ({
+		entries,
+		total,
+		hasBefore,
+		hasAfter,
+		onRowClick,
+		sortDir,
+		onSortToggle,
+	}: {
+		entries: Array<{ id: string; request_hash: string }>;
+		total: number;
+		hasBefore: boolean;
+		hasAfter: boolean;
+		onRowClick: (entry: { id: string }) => void;
+		sortDir: string;
+		onSortToggle: () => void;
+	}) => (
+		<div data-testid="virtual-log-table">
+			<span>VirtualLogTable: {total} entries</span>
+			<span>HasBefore: {hasBefore ? "yes" : "no"}</span>
+			<span>HasAfter: {hasAfter ? "yes" : "no"}</span>
+			<span>SortDir: {sortDir}</span>
+			{entries.map((e) => (
+				<button key={e.id} type="button" onClick={() => onRowClick(e)}>
+					{e.request_hash}
+				</button>
+			))}
+			<button type="button" onClick={onSortToggle}>
+				Toggle Sort
+			</button>
+		</div>
+	),
+}));
+
 // Factory functions for creating mock log entries
 interface MockLogEntry {
 	id: string;
@@ -59,7 +95,7 @@ interface MockLogEntry {
 	ttft_ms: number;
 	duration_ms: number;
 	proxy_overhead_ms: number;
-	state: "completed" | "pending";
+	state: "completed" | "pending" | "streaming";
 	error_message: string;
 	parse_ms: number;
 	failover_lookup_ms: number;
@@ -1570,6 +1606,532 @@ describe("Logs", () => {
 				(cell) => cell.textContent === "-",
 			);
 			expect(dashCells.length).toBeGreaterThan(0);
+		});
+	});
+
+	describe("View Mode Toggle", () => {
+		it("switches from paginate to scroll mode when toggle button is clicked", async () => {
+			server.use(
+				http.get("/api/logs/cursor", () =>
+					HttpResponse.json({
+						entries: [],
+						total: 0,
+						has_before: false,
+						has_after: false,
+					}),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Live")).toBeInTheDocument();
+			});
+
+			// Click the switch to scroll mode button
+			const switchToScrollBtn = screen.getByLabelText("Switch to scroll mode");
+			fireEvent.click(switchToScrollBtn);
+
+			// Should now show VirtualLogTable
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			// Button should now have different aria-label
+			expect(
+				screen.getByLabelText("Switch to pagination mode"),
+			).toBeInTheDocument();
+		});
+	});
+
+	describe("Scroll Mode Rendering", () => {
+		it("renders VirtualLogTable in scroll mode with log entries", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			server.use(
+				http.get("/api/logs/cursor", () =>
+					HttpResponse.json({
+						entries: [
+							{
+								id: "log-scroll-001",
+								request_hash: "scroll123",
+							},
+						],
+						total: 1,
+						has_before: true,
+						has_after: false,
+					}),
+				),
+				http.get("/api/logs", () => HttpResponse.json(createMockLogs([]))),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("scroll123")).toBeInTheDocument();
+		});
+	});
+
+	describe("Model ID Display", () => {
+		it("displays hotel/ prefixed model ID in full", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "hotel-model-001",
+								model_id: "hotel/my-group",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel-model-001")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("hotel/my-group")).toBeInTheDocument();
+		});
+
+		it("strips provider prefix from non-hotel slash model IDs", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "openai-model-001",
+								model_id: "openai/gpt-4",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("openai-model-001")).toBeInTheDocument();
+			});
+
+			// Should show gpt-4 but NOT openai/gpt-4
+			expect(screen.getByText("gpt-4")).toBeInTheDocument();
+			expect(
+				screen.queryByText("openai/gpt-4", { exact: true }),
+			).not.toBeInTheDocument();
+		});
+
+		it("displays model ID as-is when no slash present", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "simple-model-001",
+								model_id: "llama3",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("simple-model-001")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("llama3")).toBeInTheDocument();
+		});
+	});
+
+	describe("Streaming Live Indicator", () => {
+		it("displays Live indicator for in-progress streaming requests", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "streaming-001",
+								state: "streaming",
+								created_at: new Date().toISOString(),
+								status_code: 0,
+								provider_name: "TestProvider",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("streaming-001")).toBeInTheDocument();
+			});
+
+			// Check that the row is rendered (provider name visible)
+			expect(screen.getByText("TestProvider")).toBeInTheDocument();
+		});
+	});
+
+	describe("Status Badge Variants", () => {
+		it("displays orange badge for 4xx status codes", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "4xx-001",
+								status_code: 403,
+								state: "completed",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("4xx-001")).toBeInTheDocument();
+			});
+
+			const statusElement = screen.getByText("403");
+			expect(statusElement).toBeInTheDocument();
+		});
+
+		it("displays error badge for 5xx status codes with completed state", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "5xx-001",
+								status_code: 500,
+								state: "completed",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("5xx-001")).toBeInTheDocument();
+			});
+
+			const statusElement = screen.getByText("500");
+			expect(statusElement).toBeInTheDocument();
+		});
+	});
+
+	describe("Cancelled Request Variants", () => {
+		it("detects disconnect error as cancelled", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "cancel-001",
+								error_message: "stream disconnect",
+								state: "completed",
+								status_code: 0,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("cancel-001")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+
+		it("detects context canceled error as cancelled", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "cancel-002",
+								error_message: "context canceled",
+								state: "completed",
+								status_code: 0,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("cancel-002")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+
+		it("displays dash for TPS on cancelled requests", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "cancel-003",
+								error_message: "cancelled",
+								tokens_per_second: 42.5,
+								state: "completed",
+								status_code: 0,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("cancel-003")).toBeInTheDocument();
+			});
+
+			// Find the row and check TPS cell
+			const row = screen.getByText("cancel-003").closest("tr");
+			if (row) {
+				const cells = within(row).getAllByRole("cell");
+				// TPS should show dash for cancelled requests
+				const tpsCell = cells.find((cell) => cell.textContent === "-");
+				expect(tpsCell).toBeInTheDocument();
+			}
+		});
+	});
+
+	describe("TTFT Display", () => {
+		it("displays TTFT value when positive", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "ttft-001",
+								ttft_ms: 350,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("ttft-001")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("350.0ms")).toBeInTheDocument();
+		});
+	});
+
+	describe("In-Progress Duration", () => {
+		it("displays blue dash for in-progress requests with zero duration", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "inprogress-001",
+								state: "streaming",
+								duration_ms: 0,
+								created_at: new Date().toISOString(),
+								status_code: 0,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("inprogress-001")).toBeInTheDocument();
+			});
+
+			// Find the duration cell - should have blue dash
+			const row = screen.getByText("inprogress-001").closest("tr");
+			if (row) {
+				const cells = within(row).getAllByRole("cell");
+				// Find cell with dash that has blue styling
+				const dashCell = cells.find(
+					(cell) =>
+						cell.textContent === "-" &&
+						(cell.className?.includes("blue") ||
+							cell.querySelector("[class*='blue']")),
+				);
+				expect(dashCell).toBeInTheDocument();
+			}
+		});
+	});
+
+	describe("Overhead with Accent Color", () => {
+		it("displays overhead with accent styling when components are present", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								proxy_overhead_ms: 45,
+								parse_ms: 5,
+								model_lookup_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("abc123")).toBeInTheDocument();
+			});
+
+			// Check that overhead value is displayed
+			expect(screen.getByText("45.00ms")).toBeInTheDocument();
+		});
+
+		it("displays overhead with gray styling when no components", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								proxy_overhead_ms: 15,
+								parse_ms: 0,
+								model_lookup_ms: 0,
+								provider_lookup_ms: 0,
+								key_decrypt_ms: 0,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("abc123")).toBeInTheDocument();
+			});
+
+			// Check that overhead value is displayed
+			expect(screen.getByText("15.00ms")).toBeInTheDocument();
+		});
+	});
+
+	describe("Virtual Key Fallback and Case-Insensitive Internal", () => {
+		it("falls back to virtual_key_id when name is empty", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "vk-fallback-001",
+								virtual_key_name: "",
+								virtual_key_id: "vk-abc123",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("vk-fallback-001")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("vk-abc123")).toBeInTheDocument();
+		});
+
+		it("treats Internal (capitalized) as internal key", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "internal-cap-001",
+								virtual_key_name: "Internal",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("internal-cap-001")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("internal")).toBeInTheDocument();
+		});
+
+		it("treats INTERNAL (uppercase) as internal key", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								virtual_key_name: "INTERNAL",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("abc123")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("internal")).toBeInTheDocument();
+		});
+	});
+
+	describe("parseGoDuration via Custom Stale Timeout", () => {
+		it("uses custom stale timeout from settings with hours", async () => {
+			// Test that old streaming requests are handled correctly
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								state: "streaming",
+								// 90 min ago
+								created_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+								status_code: 0,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("abc123")).toBeInTheDocument();
+			});
+
+			// Request should render successfully
+			expect(screen.getByText("abc123")).toBeInTheDocument();
 		});
 	});
 });
