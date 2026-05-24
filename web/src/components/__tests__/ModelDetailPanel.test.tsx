@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { mockModel } from "../../test/mocks/data";
@@ -239,11 +239,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		// Find the number input for temperature and change it
-		const numberInputs = screen.getAllByRole("spinbutton");
-		expect(numberInputs.length).toBeGreaterThan(0);
-		await user.clear(numberInputs[0]);
-		await user.type(numberInputs[0], "0.7");
+		const sliderGroup = screen.getByText("Temperature").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "0.7");
 
 		expect(onParamsChange).toHaveBeenCalled();
 	});
@@ -529,9 +528,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const numberInputs = screen.getAllByRole("spinbutton");
-		await user.clear(numberInputs[1]);
-		await user.type(numberInputs[1], "1024");
+		const sliderGroup = screen.getByText("Max Tokens").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "1024");
 
 		expect(onParamsChange).toHaveBeenCalled();
 		const lastCall = onParamsChange.mock.calls.at(-1)[0];
@@ -552,9 +552,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const numberInputs = screen.getAllByRole("spinbutton");
-		await user.clear(numberInputs[2]);
-		await user.type(numberInputs[2], "0.9");
+		const sliderGroup = screen.getByText("Top P").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "0.9");
 
 		expect(onParamsChange).toHaveBeenCalled();
 		const lastCall = onParamsChange.mock.calls.at(-1)[0];
@@ -575,9 +576,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const numberInputs = screen.getAllByRole("spinbutton");
-		await user.clear(numberInputs[3]);
-		await user.type(numberInputs[3], "0.1");
+		const sliderGroup = screen.getByText("Min P").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "0.1");
 
 		expect(onParamsChange).toHaveBeenCalled();
 		const lastCall = onParamsChange.mock.calls.at(-1)[0];
@@ -598,9 +600,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const numberInputs = screen.getAllByRole("spinbutton");
-		await user.clear(numberInputs[4]);
-		await user.type(numberInputs[4], "50");
+		const sliderGroup = screen.getByText("Top K").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "50");
 
 		expect(onParamsChange).toHaveBeenCalled();
 		const lastCall = onParamsChange.mock.calls.at(-1)[0];
@@ -621,9 +624,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const numberInputs = screen.getAllByRole("spinbutton");
-		await user.clear(numberInputs[5]);
-		await user.type(numberInputs[5], "0.5");
+		const sliderGroup = screen.getByText("Freq Penalty").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "0.5");
 
 		expect(onParamsChange).toHaveBeenCalled();
 		const lastCall = onParamsChange.mock.calls.at(-1)[0];
@@ -644,9 +648,10 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const numberInputs = screen.getAllByRole("spinbutton");
-		await user.clear(numberInputs[6]);
-		await user.type(numberInputs[6], "0.3");
+		const sliderGroup = screen.getByText("Pres Penalty").closest("div")!;
+		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
+		await user.clear(input);
+		await user.type(input, "0.3");
 
 		expect(onParamsChange).toHaveBeenCalled();
 		const lastCall = onParamsChange.mock.calls.at(-1)[0];

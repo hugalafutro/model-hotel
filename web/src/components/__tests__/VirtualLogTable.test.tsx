@@ -17,6 +17,15 @@ vi.mock("@tanstack/react-virtual", () => ({
 	})),
 }));
 
+// Helper to resolve column index from header text
+function getColumnIndex(headerText: string): number {
+	const headers = document.querySelectorAll("th");
+	for (let i = 0; i < headers.length; i++) {
+		if (headers[i].textContent?.includes(headerText)) return i;
+	}
+	return -1;
+}
+
 // Helper to create mock LogEntry
 function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
 	return {
@@ -904,8 +913,8 @@ describe("VirtualLogTable", () => {
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
-				// TPS is column index 6 (0-based: time, hash, model, provider, status, tokens, TPS)
-				expect(cells[6].textContent).toBe("-");
+				const tpsIndex = getColumnIndex("T/s");
+				expect(cells[tpsIndex].textContent).toBe("-");
 			}
 		});
 
@@ -929,8 +938,8 @@ describe("VirtualLogTable", () => {
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
-				// TTFT is column index 7
-				expect(cells[7].textContent).toBe("-");
+				const ttftIndex = getColumnIndex("TTFT");
+				expect(cells[ttftIndex].textContent).toBe("-");
 			}
 		});
 	});
