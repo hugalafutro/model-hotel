@@ -189,14 +189,10 @@ export function VirtualModelTable({
 	const existingCaps = useMemo(() => {
 		const caps = new Set<CapKey>();
 		entries.forEach((m) => {
-			try {
-				const c = parseCapabilities(m.capabilities);
-				CAP_META.forEach((meta) => {
-					if (hasCap(c, meta.key)) caps.add(meta.key);
-				});
-			} catch {
-				// skip models with unparseable capabilities
-			}
+			const c = parseCapabilities(m.capabilities);
+			CAP_META.forEach((meta) => {
+				if (hasCap(c, meta.key)) caps.add(meta.key);
+			});
 		});
 		return caps;
 	}, [entries]);
