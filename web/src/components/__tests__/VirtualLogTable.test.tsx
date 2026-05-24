@@ -307,6 +307,21 @@ describe("VirtualLogTable", () => {
 			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
 		});
 
+		it("renders status badge variant correctly for status 100 (muted - 1xx)", () => {
+			const entries = [createLogEntry({ status_code: 100 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const badge = screen.getByText("100").closest("span");
+			expect(badge).toHaveClass("bg-gray-700/30", "text-gray-400");
+		});
+
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {
 			const entries = [
 				createLogEntry({ error_message: "Request cancelled by user" }),
