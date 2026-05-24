@@ -777,290 +777,295 @@ describe("ModelTable", () => {
 			expect(screen.queryByText("Provider 2")).not.toBeInTheDocument();
 		});
 	});
-});
 
-describe("Manually Disabled Status", () => {
-	it("renders Manually Disabled status badge", () => {
-		const manuallyDisabledModel = {
-			...mockModel,
-			enabled: true,
-			disabled_manually: true,
-		};
-
-		renderWithProviders(
-			<ModelTable
-				models={[manuallyDisabledModel]}
-				providers={[mockProvider]}
-			/>,
-		);
-
-		// Verify "Manually Disabled" text appears
-		expect(screen.getByText("Manually Disabled")).toBeInTheDocument();
-
-		// Verify the badge has yellow/warning styling
-		const badge = screen.getByText("Manually Disabled").closest("span");
-		expect(badge?.className).toMatch(/yellow|amber/);
-	});
-});
-
-describe("Capability Filter Clear All", () => {
-	it("clears all capability filters when clicking clear all button", async () => {
-		const models = [
-			{
+	describe("Manually Disabled Status", () => {
+		it("renders Manually Disabled status badge", () => {
+			const manuallyDisabledModel = {
 				...mockModel,
-				id: "model-001",
-				name: "Vision Model",
-				capabilities: '{"streaming":true,"vision":true,"audio_input":true}',
-			},
-			{
-				...mockModel,
-				id: "model-002",
-				name: "Audio Model",
-				capabilities: '{"streaming":true,"vision":false,"audio_input":true}',
-			},
-		];
+				enabled: true,
+				disabled_manually: true,
+			};
 
-		const { user } = renderWithProviders(
-			<ModelTable models={models} providers={[mockProvider]} />,
-		);
+			renderWithProviders(
+				<ModelTable
+					models={[manuallyDisabledModel]}
+					providers={[mockProvider]}
+				/>,
+			);
 
-		// Click Vision filter button
-		const visionFilter = screen.getByRole("button", { name: "Vision" });
-		await user.click(visionFilter);
+			// Verify "Manually Disabled" text appears
+			expect(screen.getByText("Manually Disabled")).toBeInTheDocument();
 
-		// Click Audio filter button
-		const audioFilter = screen.getByRole("button", { name: "Audio" });
-		await user.click(audioFilter);
-
-		// Verify both filters are active: only model-001 matches both Vision AND Audio (AND-logic)
-		await waitFor(() => {
-			const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-			expect(rows.length).toBe(1);
-		});
-
-		// Click the ✕ clear button
-		const clearButton = screen.getByText("✕");
-		await user.click(clearButton);
-
-		// Verify both filters are cleared (all models visible again)
-		await waitFor(() => {
-			const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-			expect(rows.length).toBe(2);
-		});
-
-		// Verify ✕ button disappears
-		expect(screen.queryByText("✕")).not.toBeInTheDocument();
-	});
-});
-
-describe("Empty State with Null Models", () => {
-	it("renders empty state when models is null", () => {
-		renderWithProviders(
-			<ModelTable models={null as unknown as []} providers={[mockProvider]} />,
-		);
-
-		expect(
-			screen.getByText(
-				"No models discovered yet. Add a provider and discover models.",
-			),
-		).toBeInTheDocument();
-	});
-});
-
-describe("Sort by Provider Name", () => {
-	it("sorts by provider name", async () => {
-		const models = [
-			{
-				...mockModel,
-				id: "model-001",
-				name: "Model Z",
-				provider_name: "Zeta Provider",
-			},
-			{
-				...mockModel,
-				id: "model-002",
-				name: "Model A",
-				provider_name: "Alpha Provider",
-			},
-		];
-
-		const { user } = renderWithProviders(
-			<ModelTable models={models} providers={[mockProvider]} />,
-		);
-
-		// Click Provider header - use aria-label to find the sort button specifically
-		const providerHeader = screen.getByRole("button", {
-			name: "Sort by Provider",
-		});
-		await user.click(providerHeader);
-
-		await waitFor(() => {
-			const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-			expect(rows.length).toBe(2);
-			// Alpha Provider should appear first
-			expect(rows[0].textContent).toContain("Alpha Provider");
-			expect(rows[1].textContent).toContain("Zeta Provider");
+			// Verify the badge has yellow/warning styling
+			const badge = screen.getByText("Manually Disabled").closest("span");
+			expect(badge?.className).toMatch(/yellow|amber/);
 		});
 	});
-});
 
-describe("Capabilities Column Rendering", () => {
-	it("renders capabilities column with badges", async () => {
-		const models = [
-			{
-				...mockModel,
-				id: "model-001",
-				name: "Few Caps Model",
-				capabilities: '{"streaming":true,"vision":false,"audio_input":false}',
-			},
-			{
-				...mockModel,
-				id: "model-002",
-				name: "Many Caps Model",
-				capabilities: '{"streaming":true,"vision":true,"tools":true}',
-			},
-		];
+	describe("Capability Filter Clear All", () => {
+		it("clears all capability filters when clicking clear all button", async () => {
+			const models = [
+				{
+					...mockModel,
+					id: "model-001",
+					name: "Vision Model",
+					capabilities: '{"streaming":true,"vision":true,"audio_input":true}',
+				},
+				{
+					...mockModel,
+					id: "model-002",
+					name: "Audio Model",
+					capabilities: '{"streaming":true,"vision":false,"audio_input":true}',
+				},
+			];
 
-		renderWithProviders(
-			<ModelTable models={models} providers={[mockProvider]} />,
-		);
+			const { user } = renderWithProviders(
+				<ModelTable models={models} providers={[mockProvider]} />,
+			);
 
-		// Capabilities column header is not sortable (plain <th>, no SortableHeader)
-		await waitFor(() => {
-			const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-			expect(rows.length).toBe(2);
-			// Both models should be visible with their capability badges
-			expect(rows[0].textContent).toContain("Few Caps Model");
-			expect(rows[1].textContent).toContain("Many Caps Model");
-			expect(rows[1].textContent).toContain("Vision");
-		});
-	});
-});
+			// Click Vision filter button
+			const visionFilter = screen.getByRole("button", { name: "Vision" });
+			await user.click(visionFilter);
 
-describe("Fallback to proxyModelID", () => {
-	it("falls back to proxyModelID when model name is missing", () => {
-		const modelWithoutName = {
-			...mockModel,
-			name: undefined,
-		};
+			// Click Audio filter button
+			const audioFilter = screen.getByRole("button", { name: "Audio" });
+			await user.click(audioFilter);
 
-		renderWithProviders(
-			<ModelTable models={[modelWithoutName]} providers={[mockProvider]} />,
-		);
-
-		// Verify it displays the proxyModelID format in the model name cell (first occurrence)
-		const table = screen.getByRole("table");
-		const modelCell = table.querySelector("tbody td");
-		expect(modelCell?.textContent).toContain("Test-Provider/test-model-v1");
-	});
-});
-
-describe("Row Click Without Callback", () => {
-	it("does not throw when clicking row without onModelClick callback", async () => {
-		const { user } = renderWithProviders(
-			<ModelTable models={[mockModel]} providers={[mockProvider]} />,
-		);
-
-		// Click on model row - should not throw
-		const modelRow = screen.getByText("Test Model");
-		await expect(user.click(modelRow)).resolves.not.toThrow();
-	});
-});
-
-describe("Search by Display Name", () => {
-	it("searches by display_name field", async () => {
-		const modelWithDisplayName = {
-			...mockModel,
-			name: "Plain Name",
-			display_name: "Fancy Display Name",
-		};
-
-		const { user } = renderWithProviders(
-			<ModelTable models={[modelWithDisplayName]} providers={[mockProvider]} />,
-		);
-
-		// Type "Fancy" in search
-		const searchInput = screen.getByPlaceholderText("Search models…");
-		await user.type(searchInput, "Fancy");
-
-		await waitFor(() => {
-			// Model should still be visible
-			expect(screen.getByText("Plain Name")).toBeInTheDocument();
-		});
-	});
-});
-
-describe("Search by Model ID", () => {
-	it("searches by model_id field", async () => {
-		const modelWithUniqueID = {
-			...mockModel,
-			name: "Generic",
-			model_id: "unique-model-id-xyz",
-		};
-
-		const { user } = renderWithProviders(
-			<ModelTable models={[modelWithUniqueID]} providers={[mockProvider]} />,
-		);
-
-		// Type "unique-model-id" in search
-		const searchInput = screen.getByPlaceholderText("Search models…");
-		await user.type(searchInput, "unique-model-id");
-
-		await waitFor(() => {
-			// Model should be visible
-			expect(screen.getByText("Generic")).toBeInTheDocument();
-		});
-	});
-});
-
-describe("Pagination Reset on Provider Filter Change", () => {
-	it("resets to page 1 when provider filter changes", async () => {
-		// Create 25+ models for pagination
-		const models = Array.from({ length: 25 }, (_, i) => ({
-			...mockModel,
-			id: `model-${i}`,
-			model_id: `model-${i}`,
-			name: `Model ${i}`,
-			provider_id: i < 15 ? "provider-1" : "provider-2",
-			provider_name: i < 15 ? "Provider 1" : "Provider 2",
-		}));
-
-		const providers = [
-			{ ...mockProvider, id: "provider-1", name: "Provider 1" },
-			{ ...mockProvider, id: "provider-2", name: "Provider 2" },
-		];
-
-		const { user } = renderWithProviders(
-			<ModelTable models={models} providers={providers} />,
-		);
-
-		// Navigate to page 2
-		const page2Button = screen.getByRole("button", { name: "2" });
-		await user.click(page2Button);
-
-		// Verify we're on page 2 (pagination shows "21 to 25 of 25 models")
-		await waitFor(() => {
-			expect(screen.getByText(/21 to 25 of 25/)).toBeInTheDocument();
-		});
-
-		// Open provider filter dropdown
-		const providerFilter = screen.getByText("Filter Providers");
-		await user.click(providerFilter);
-
-		// Click Provider 1 option
-		const allButtons = screen.getAllByRole("button");
-		const provider1Button = allButtons.find(
-			(btn) => btn.textContent === "Provider 1",
-		);
-		if (provider1Button) await user.click(provider1Button);
-
-		// Verify we're back on page 1 (pagination shows "1 to 15 of 15 models")
-		// The text is split across elements, so we check for the key parts
-		await waitFor(() => {
-			const paginationText = screen.getByText((content) => {
-				return content.includes("1") && content.includes("of 15");
+			// Verify both filters are active: only model-001 matches both Vision AND Audio (AND-logic)
+			await waitFor(() => {
+				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
+				expect(rows.length).toBe(1);
 			});
-			expect(paginationText).toBeInTheDocument();
+
+			// Click the ✕ clear button
+			const clearButton = screen.getByText("✕");
+			await user.click(clearButton);
+
+			// Verify both filters are cleared (all models visible again)
+			await waitFor(() => {
+				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
+				expect(rows.length).toBe(2);
+			});
+
+			// Verify ✕ button disappears
+			expect(screen.queryByText("✕")).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Empty State with Null Models", () => {
+		it("renders empty state when models is null", () => {
+			renderWithProviders(
+				<ModelTable
+					models={null as unknown as []}
+					providers={[mockProvider]}
+				/>,
+			);
+
+			expect(
+				screen.getByText(
+					"No models discovered yet. Add a provider and discover models.",
+				),
+			).toBeInTheDocument();
+		});
+	});
+
+	describe("Sort by Provider Name", () => {
+		it("sorts by provider name", async () => {
+			const models = [
+				{
+					...mockModel,
+					id: "model-001",
+					name: "Model Z",
+					provider_name: "Zeta Provider",
+				},
+				{
+					...mockModel,
+					id: "model-002",
+					name: "Model A",
+					provider_name: "Alpha Provider",
+				},
+			];
+
+			const { user } = renderWithProviders(
+				<ModelTable models={models} providers={[mockProvider]} />,
+			);
+
+			// Click Provider header - use aria-label to find the sort button specifically
+			const providerHeader = screen.getByRole("button", {
+				name: "Sort by Provider",
+			});
+			await user.click(providerHeader);
+
+			await waitFor(() => {
+				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
+				expect(rows.length).toBe(2);
+				// Alpha Provider should appear first
+				expect(rows[0].textContent).toContain("Alpha Provider");
+				expect(rows[1].textContent).toContain("Zeta Provider");
+			});
+		});
+	});
+
+	describe("Capabilities Column Rendering", () => {
+		it("renders capabilities column with badges", async () => {
+			const models = [
+				{
+					...mockModel,
+					id: "model-001",
+					name: "Few Caps Model",
+					capabilities: '{"streaming":true,"vision":false,"audio_input":false}',
+				},
+				{
+					...mockModel,
+					id: "model-002",
+					name: "Many Caps Model",
+					capabilities: '{"streaming":true,"vision":true,"tools":true}',
+				},
+			];
+
+			renderWithProviders(
+				<ModelTable models={models} providers={[mockProvider]} />,
+			);
+
+			// Capabilities column header is not sortable (plain <th>, no SortableHeader)
+			await waitFor(() => {
+				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
+				expect(rows.length).toBe(2);
+				// Both models should be visible with their capability badges
+				expect(rows[0].textContent).toContain("Few Caps Model");
+				expect(rows[1].textContent).toContain("Many Caps Model");
+				expect(rows[1].textContent).toContain("Vision");
+			});
+		});
+	});
+
+	describe("Fallback to proxyModelID", () => {
+		it("falls back to proxyModelID when model name is missing", () => {
+			const modelWithoutName = {
+				...mockModel,
+				name: undefined,
+			};
+
+			renderWithProviders(
+				<ModelTable models={[modelWithoutName]} providers={[mockProvider]} />,
+			);
+
+			// Verify it displays the proxyModelID format in the model name cell (first occurrence)
+			const table = screen.getByRole("table");
+			const modelCell = table.querySelector("tbody td");
+			expect(modelCell?.textContent).toContain("Test-Provider/test-model-v1");
+		});
+	});
+
+	describe("Row Click Without Callback", () => {
+		it("does not throw when clicking row without onModelClick callback", async () => {
+			const { user } = renderWithProviders(
+				<ModelTable models={[mockModel]} providers={[mockProvider]} />,
+			);
+
+			// Click on model row - should not throw
+			const modelRow = screen.getByText("Test Model");
+			await expect(user.click(modelRow)).resolves.not.toThrow();
+		});
+	});
+
+	describe("Search by Display Name", () => {
+		it("searches by display_name field", async () => {
+			const modelWithDisplayName = {
+				...mockModel,
+				name: "Plain Name",
+				display_name: "Fancy Display Name",
+			};
+
+			const { user } = renderWithProviders(
+				<ModelTable
+					models={[modelWithDisplayName]}
+					providers={[mockProvider]}
+				/>,
+			);
+
+			// Type "Fancy" in search
+			const searchInput = screen.getByPlaceholderText("Search models…");
+			await user.type(searchInput, "Fancy");
+
+			await waitFor(() => {
+				// Model should still be visible
+				expect(screen.getByText("Plain Name")).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Search by Model ID", () => {
+		it("searches by model_id field", async () => {
+			const modelWithUniqueID = {
+				...mockModel,
+				name: "Generic",
+				model_id: "unique-model-id-xyz",
+			};
+
+			const { user } = renderWithProviders(
+				<ModelTable models={[modelWithUniqueID]} providers={[mockProvider]} />,
+			);
+
+			// Type "unique-model-id" in search
+			const searchInput = screen.getByPlaceholderText("Search models…");
+			await user.type(searchInput, "unique-model-id");
+
+			await waitFor(() => {
+				// Model should be visible
+				expect(screen.getByText("Generic")).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Pagination Reset on Provider Filter Change", () => {
+		it("resets to page 1 when provider filter changes", async () => {
+			// Create 25+ models for pagination
+			const models = Array.from({ length: 25 }, (_, i) => ({
+				...mockModel,
+				id: `model-${i}`,
+				model_id: `model-${i}`,
+				name: `Model ${i}`,
+				provider_id: i < 15 ? "provider-1" : "provider-2",
+				provider_name: i < 15 ? "Provider 1" : "Provider 2",
+			}));
+
+			const providers = [
+				{ ...mockProvider, id: "provider-1", name: "Provider 1" },
+				{ ...mockProvider, id: "provider-2", name: "Provider 2" },
+			];
+
+			const { user } = renderWithProviders(
+				<ModelTable models={models} providers={providers} />,
+			);
+
+			// Navigate to page 2
+			const page2Button = screen.getByRole("button", { name: "2" });
+			await user.click(page2Button);
+
+			// Verify we're on page 2 (pagination shows "21 to 25 of 25 models")
+			await waitFor(() => {
+				expect(screen.getByText(/21 to 25 of 25/)).toBeInTheDocument();
+			});
+
+			// Open provider filter dropdown
+			const providerFilter = screen.getByText("Filter Providers");
+			await user.click(providerFilter);
+
+			// Click Provider 1 option
+			const provider1Button = screen.getByRole("button", {
+				name: "Provider 1",
+			});
+			await user.click(provider1Button);
+
+			// Verify we're back on page 1 (pagination shows "1 to 15 of 15 models")
+			// The text is split across elements, so we check for the key parts
+			await waitFor(() => {
+				const paginationText = screen.getByText((content) => {
+					return content.includes("1") && content.includes("of 15");
+				});
+				expect(paginationText).toBeInTheDocument();
+			});
 		});
 	});
 });

@@ -1038,6 +1038,7 @@ describe("ArenaHistoryModal", () => {
 		// Second click: collapse
 		await user.click(entryButton);
 		// After collapsing, the grid container switches to grid-rows-[0fr]
+		// (not.toBeVisible() doesn't work in jsdom — CSS grid layout isn't applied)
 		const winnerText = screen.getByText("Winner: model-a");
 		const gridContainer = winnerText.closest("[class*='grid-rows']");
 		expect(gridContainer).toHaveClass("grid-rows-[0fr]");
