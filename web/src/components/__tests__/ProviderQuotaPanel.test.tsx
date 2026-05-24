@@ -69,12 +69,6 @@ function setupPanel(overrides?: Partial<QuotaDataResult>) {
 }
 
 describe("ProviderQuotaPanel", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		localStorage.clear();
-		mockUseQuotaData.mockReturnValue(createMockQuotaData());
-	});
-
 	const mockNanoUsage: import("../../api/types").NanoGPTUsage = {
 		active: true,
 		provider: "nanogpt",
@@ -150,6 +144,12 @@ describe("ProviderQuotaPanel", () => {
 			],
 		},
 	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		localStorage.clear();
+		mockUseQuotaData.mockReturnValue(createMockQuotaData());
+	});
 
 	describe("rendering", () => {
 		it("renders null when hasAnyProvider is false", () => {
@@ -474,6 +474,60 @@ describe("ProviderQuotaPanel", () => {
 			// Modal should be closed
 			expect(
 				screen.queryByRole("heading", { name: "NanoGPT Subscription" }),
+			).toBeNull();
+		});
+
+		it("closes ZAICodingQuotaModal when clicking close button", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showZaiCodingBadge: true,
+				zaiCodingUsage: mockZaiCodingUsage,
+				zaiCodingFiveHour: mockZaiCodingUsage.data.limits[0],
+				zaiCodingWeekly: mockZaiCodingUsage.data.limits[0],
+			});
+
+			const badge = screen.getByTitle(
+				"Z.ai Coding Plan token quota - click for details",
+			);
+			await user.click(badge);
+
+			await screen.findByRole("heading", {
+				name: "Z.ai Coding Plan Quota",
+			});
+
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+
+			expect(
+				screen.queryByRole("heading", {
+					name: "Z.ai Coding Plan Quota",
+				}),
+			).toBeNull();
+		});
+
+		it("closes OpenRouterQuotaModal when clicking close button", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showOrBadge: true,
+				openrouterBalance: mockOpenRouterBalance,
+			});
+
+			const badge = screen.getByTitle(
+				"OpenRouter key balance - click for details",
+			);
+			await user.click(badge);
+
+			await screen.findByRole("heading", {
+				name: "OpenRouter Credits",
+			});
+
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+
+			expect(
+				screen.queryByRole("heading", {
+					name: "OpenRouter Credits",
+				}),
 			).toBeNull();
 		});
 	});
