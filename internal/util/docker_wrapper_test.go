@@ -2294,9 +2294,31 @@ func TestFilterContainers(t *testing.T) {
 	}
 }
 
-// TestDetectContainerFilter tests the new DetectContainerFilter function.
+// TestDetectContainerFilter tests that DetectContainerFilter returns the compose project when present.
 func TestDetectContainerFilter(t *testing.T) {
 	resetDockerState()
+
+	// Set up fake cgroup file with container ID so getOwnContainerID() returns a real ID
+	dir := t.TempDir()
+	cgroupFile := filepath.Join(dir, "cgroup")
+	cgroupContent := "12:memory:/docker/abc123def456\n"
+	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
+		t.Fatalf("Failed to write cgroup file: %v", err)
+	}
+
+	origCgroup := procSelfCgroup
+	procSelfCgroup = cgroupFile
+	defer func() { procSelfCgroup = origCgroup }()
+
+	// Create a fake Docker socket file so os.Stat passes
+	socketFile := filepath.Join(dir, "docker.sock")
+	if err := os.WriteFile(socketFile, []byte{}, 0o644); err != nil {
+		t.Fatalf("Failed to write socket file: %v", err)
+	}
+
+	origSocket := dockerSocketPath
+	dockerSocketPath = socketFile
+	defer func() { dockerSocketPath = origSocket }()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -2328,16 +2350,38 @@ func TestDetectContainerFilter(t *testing.T) {
 		Timeout:   5 * time.Second,
 	}
 
-	// In test environment without real Docker, this should return empty filter
 	result := DetectContainerFilter()
-	if result != (ContainerFilter{}) {
-		t.Errorf("DetectContainerFilter() = %+v, want empty ContainerFilter", result)
+	if result != (ContainerFilter{ComposeProject: "testproject"}) {
+		t.Errorf("DetectContainerFilter() = %+v, want ContainerFilter{ComposeProject: \"testproject\"}", result)
 	}
 }
 
-// TestDetectContainerFilter_AppGroupLabel tests that DetectContainerFilter falls back to app.group label.
+// TestDetectContainerFilter_AppGroupLabel tests that DetectContainerFilter falls back to app.group label
+// when com.docker.compose.project is absent.
 func TestDetectContainerFilter_AppGroupLabel(t *testing.T) {
 	resetDockerState()
+
+	// Set up fake cgroup file with container ID so getOwnContainerID() returns a real ID
+	dir := t.TempDir()
+	cgroupFile := filepath.Join(dir, "cgroup")
+	cgroupContent := "12:memory:/docker/abc123def456\n"
+	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
+		t.Fatalf("Failed to write cgroup file: %v", err)
+	}
+
+	origCgroup := procSelfCgroup
+	procSelfCgroup = cgroupFile
+	defer func() { procSelfCgroup = origCgroup }()
+
+	// Create a fake Docker socket file so os.Stat passes
+	socketFile := filepath.Join(dir, "docker.sock")
+	if err := os.WriteFile(socketFile, []byte{}, 0o644); err != nil {
+		t.Fatalf("Failed to write socket file: %v", err)
+	}
+
+	origSocket := dockerSocketPath
+	dockerSocketPath = socketFile
+	defer func() { dockerSocketPath = origSocket }()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -2369,16 +2413,37 @@ func TestDetectContainerFilter_AppGroupLabel(t *testing.T) {
 		Timeout:   5 * time.Second,
 	}
 
-	// In test environment without real Docker, this should return empty filter
 	result := DetectContainerFilter()
-	if result != (ContainerFilter{}) {
-		t.Errorf("DetectContainerFilter() = %+v, want empty ContainerFilter", result)
+	if result != (ContainerFilter{AppGroup: "model-hotel"}) {
+		t.Errorf("DetectContainerFilter() = %+v, want ContainerFilter{AppGroup: \"model-hotel\"}", result)
 	}
 }
 
-// TestDetectContainerFilter_NoLabels tests when container has no labels.
+// TestDetectContainerFilter_NoLabels tests when container has no relevant labels.
 func TestDetectContainerFilter_NoLabels(t *testing.T) {
 	resetDockerState()
+
+	// Set up fake cgroup file with container ID so getOwnContainerID() returns a real ID
+	dir := t.TempDir()
+	cgroupFile := filepath.Join(dir, "cgroup")
+	cgroupContent := "12:memory:/docker/abc123def456\n"
+	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
+		t.Fatalf("Failed to write cgroup file: %v", err)
+	}
+
+	origCgroup := procSelfCgroup
+	procSelfCgroup = cgroupFile
+	defer func() { procSelfCgroup = origCgroup }()
+
+	// Create a fake Docker socket file so os.Stat passes
+	socketFile := filepath.Join(dir, "docker.sock")
+	if err := os.WriteFile(socketFile, []byte{}, 0o644); err != nil {
+		t.Fatalf("Failed to write socket file: %v", err)
+	}
+
+	origSocket := dockerSocketPath
+	dockerSocketPath = socketFile
+	defer func() { dockerSocketPath = origSocket }()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

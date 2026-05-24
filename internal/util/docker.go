@@ -313,6 +313,9 @@ var (
 // CollectDockerStats aggregates resource usage across containers matching
 // the given filter. It accepts a composeProject string for backward
 // compatibility; prefer CollectDockerStatsWithFilter for new callers.
+//
+// Note: passing an empty string now returns no containers (changed from the
+// previous behaviour of returning all containers with a compose label).
 func CollectDockerStats(composeProject string) AggregatedDockerStats {
 	filter := ContainerFilter{ComposeProject: composeProject}
 	return CollectDockerStatsWithFilter(filter)
