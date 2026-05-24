@@ -12,7 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 // ---------------------------------------------------------------------------
@@ -1188,5 +1191,40 @@ func TestGetLog_InvalidID(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestGetLog_DBError tests that GetLog returns 500 when the database
+// returns an error other than pgx.ErrNoRows (e.g., connection error).
+func TestGetLog_DBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to simulate connection errors
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	// Create handler with closed DB using testHandler helper
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+
+	// Set up minimal router with just the GetLog route
+	r := chi.NewRouter()
+	r.With(h.AuthMiddleware).Get("/logs/{id}", h.GetLog)
+
+	// Create request with valid UUID - the DB error will occur during QueryRow
+	req := httptest.NewRequest("GET", "/logs/"+uuid.New().String(), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
 	}
 }

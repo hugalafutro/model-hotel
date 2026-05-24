@@ -440,6 +440,34 @@ describe("VirtualLogTable", () => {
 			expect(deletedSpan).toHaveClass("text-red-400", "italic");
 		});
 
+		it("does NOT set title attribute on key column when virtual_key_deleted=true", () => {
+			const entries = [
+				createLogEntry({
+					virtual_key_deleted: true,
+					virtual_key_name: "old-key",
+					virtual_key_id: "vk-deleted",
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Find the key column cell (last column in the row)
+			const row = screen.getByText("Deleted").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				// Key column is the last column
+				const keyCell = cells[cells.length - 1];
+				expect(keyCell).not.toHaveAttribute("title");
+			}
+		});
+
 		it('renders "internal" (italic) for internal virtual keys', () => {
 			const entries = [
 				createLogEntry({ virtual_key_name: "internal", virtual_key_id: "" }),

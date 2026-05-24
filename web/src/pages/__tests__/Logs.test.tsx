@@ -2315,5 +2315,56 @@ describe("Logs", () => {
 				{ timeout: 3000 },
 			);
 		});
+
+		it("falls back to fetchNewer when api.logs.get rejects on request.completed", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let cursorCallCount = 0;
+			server.use(
+				http.get("/api/logs/cursor", () => {
+					cursorCallCount++;
+					return HttpResponse.json({
+						entries: [
+							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
+						],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+				// Mock single-log endpoint to return 500 error
+				http.get("/api/logs/log-1", () => {
+					return HttpResponse.json(
+						{ error: "internal error" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			const initialCallCount = cursorCallCount;
+
+			// Dispatch request.completed with request_id, but api.logs.get will fail
+			const event = new CustomEvent("server-event", {
+				detail: {
+					type: "request.completed",
+					metadata: { request_id: "log-1", model_id: "test-model" },
+				},
+			});
+			window.dispatchEvent(event);
+
+			// Should trigger fetchNewer as fallback (cursor endpoint called again)
+			await waitFor(
+				() => {
+					expect(cursorCallCount).toBeGreaterThan(initialCallCount);
+				},
+				{ timeout: 3000 },
+			);
+		});
 	});
 });
