@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+	createSSEStream,
 	mockAllDefaults,
 	mockChatStream,
 	mockModels,
@@ -1442,11 +1443,15 @@ describe("Chat", () => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
 			});
 
-			// Select the same model for both A and B
-			const modelALabel = screen.getByText("Model A");
-			const modelAContainer = modelALabel.closest("div")!;
-			const modelBLabel = screen.getByText("Model B");
-			const modelBContainer = modelBLabel.closest("div")!;
+			// Select the same model for both A and B — scope via label's htmlFor
+			const modelALabel = document.querySelector(
+				'label[for="model-a-picker"]',
+			)!;
+			const modelAContainer = modelALabel.parentElement!;
+			const modelBLabel = document.querySelector(
+				'label[for="model-b-picker"]',
+			)!;
+			const modelBContainer = modelBLabel.parentElement!;
 
 			await waitFor(() => {
 				expect(
@@ -1500,11 +1505,15 @@ describe("Chat", () => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
 			});
 
-			// Select different models for A and B
-			const modelALabel = screen.getByText("Model A");
-			const modelAContainer = modelALabel.closest("div")!;
-			const modelBLabel = screen.getByText("Model B");
-			const modelBContainer = modelBLabel.closest("div")!;
+			// Select different models for A and B — scope via label's htmlFor
+			const modelALabel = document.querySelector(
+				'label[for="model-a-picker"]',
+			)!;
+			const modelAContainer = modelALabel.parentElement!;
+			const modelBLabel = document.querySelector(
+				'label[for="model-b-picker"]',
+			)!;
+			const modelBContainer = modelBLabel.parentElement!;
 
 			await waitFor(() => {
 				expect(
@@ -1647,10 +1656,27 @@ describe("Chat", () => {
 
 	describe("Regenerate with System Prompt", () => {
 		it("includes system prompt when regenerating", async () => {
-			// Use a single chunk that will be returned for both requests
-			// This tests that regenerate actually sends a request (which includes system prompt)
 			const chunks = [{ choices: [{ delta: { content: "Response" } }] }];
-			server.use(...mockChatStream(chunks, { delay: 10 }));
+			let regenerateRequestMessages: Array<{ role: string }> = [];
+			server.use(
+				http.post("/api/chat/chat", async ({ request }) => {
+					const body = (await request.json()) as {
+						messages?: Array<{ role: string }>;
+					};
+					// Capture messages from requests that include a system prompt
+					if (body.messages?.some((m) => m.role === "system")) {
+						regenerateRequestMessages = body.messages!;
+					}
+					const stream = createSSEStream(chunks, { delay: 10 });
+					return new HttpResponse(stream, {
+						status: 200,
+						headers: {
+							"Content-Type": "text/event-stream",
+							"Cache-Control": "no-cache",
+						},
+					});
+				}),
+			);
 
 			const { user } = renderWithProviders(<Chat />);
 
@@ -1698,16 +1724,17 @@ describe("Chat", () => {
 			});
 			await user.click(screen.getByRole("button", { name: "Regenerate" }));
 
-			// Wait for regenerated response to appear (streaming indicator clears)
-			// The regenerate flow should complete successfully
+			// Wait for regenerated response and verify system prompt was included
 			await waitFor(
 				() => {
-					// After regenerate, the Send button should be visible again (not streaming)
 					expect(
 						screen.getByRole("button", { name: "Send" }),
 					).toBeInTheDocument();
 				},
 				{ timeout: 2000 },
+			);
+			expect(regenerateRequestMessages.some((m) => m.role === "system")).toBe(
+				true,
 			);
 		});
 	});
