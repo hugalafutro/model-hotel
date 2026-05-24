@@ -23,7 +23,7 @@ function getColumnIndex(headerText: string): number {
 	for (let i = 0; i < headers.length; i++) {
 		if (headers[i].textContent?.includes(headerText)) return i;
 	}
-	return -1;
+	throw new Error(`Column header "${headerText}" not found in table`);
 }
 
 // Helper to create mock LogEntry
@@ -887,7 +887,13 @@ describe("VirtualLogTable", () => {
 			);
 
 			// TTFT column should show "-"
-			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+			const row = screen.getByText("abc123def456").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const ttftIndex = getColumnIndex("TTFT");
+				expect(cells[ttftIndex].textContent).toBe("-");
+			}
 		});
 	});
 
