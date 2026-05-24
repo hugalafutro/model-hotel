@@ -514,6 +514,226 @@ describe("ModelDetailPanel", () => {
 		expect(screen.getByText("Max Tokens")).toBeInTheDocument();
 		expect(screen.getByText("Top K")).toBeInTheDocument();
 	});
+
+	it("calls onParamsChange with max_tokens when Max Tokens slider is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		const numberInputs = screen.getAllByRole("spinbutton");
+		await user.clear(numberInputs[1]);
+		await user.type(numberInputs[1], "1024");
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("max_tokens");
+	});
+
+	it("calls onParamsChange with top_p when Top P slider is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		const numberInputs = screen.getAllByRole("spinbutton");
+		await user.clear(numberInputs[2]);
+		await user.type(numberInputs[2], "0.9");
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("top_p");
+	});
+
+	it("calls onParamsChange with min_p when Min P slider is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		const numberInputs = screen.getAllByRole("spinbutton");
+		await user.clear(numberInputs[3]);
+		await user.type(numberInputs[3], "0.1");
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("min_p");
+	});
+
+	it("calls onParamsChange with top_k when Top K slider is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		const numberInputs = screen.getAllByRole("spinbutton");
+		await user.clear(numberInputs[4]);
+		await user.type(numberInputs[4], "50");
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("top_k");
+	});
+
+	it("calls onParamsChange with frequency_penalty when Freq Penalty slider is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		const numberInputs = screen.getAllByRole("spinbutton");
+		await user.clear(numberInputs[5]);
+		await user.type(numberInputs[5], "0.5");
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("frequency_penalty");
+	});
+
+	it("calls onParamsChange with presence_penalty when Pres Penalty slider is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		const numberInputs = screen.getAllByRole("spinbutton");
+		await user.clear(numberInputs[6]);
+		await user.type(numberInputs[6], "0.3");
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("presence_penalty");
+	});
+
+	it("calls onParamsChange with reasoning_effort when ReasoningEffortSelect is changed", async () => {
+		const user = userEvent.setup();
+		const onParamsChange = vi.fn();
+		const reasoningModel = {
+			...mockModel,
+			capabilities: '{"reasoning":true}',
+			provider_name: "OpenAI",
+		};
+		renderWithProviders(
+			<ModelDetailPanel
+				model={reasoningModel}
+				params={{}}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /Generation parameters/i }),
+		);
+		await user.click(screen.getByRole("button", { name: /Medium/i }));
+
+		expect(onParamsChange).toHaveBeenCalled();
+		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		expect(lastCall).toHaveProperty("reasoning_effort");
+	});
+
+	it("shows reset button when max_tokens is set", () => {
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{ max_tokens: 100 }}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: /Reset parameters/i }),
+		).toBeInTheDocument();
+	});
+
+	it("shows accent glow on settings cog when custom params are set but panel is closed", () => {
+		const onParamsChange = vi.fn();
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				params={{ top_p: 0.9 }}
+				onParamsChange={onParamsChange}
+			/>,
+		);
+
+		const cogButton = screen.getByRole("button", {
+			name: /Generation parameters/i,
+		});
+		expect(cogButton).toHaveClass("text-(--accent)");
+	});
+
+	it("displays dash when context_length is null", () => {
+		const modelWithNullContext = {
+			...mockModel,
+			context_length: null,
+		};
+		renderWithProviders(<ModelDetailPanel model={modelWithNullContext} />);
+
+		// Find the "Context" label, then the value in the same div
+		const contextLabel = screen.getByText("Context");
+		const contextValue = contextLabel.nextElementSibling;
+		expect(contextValue).toHaveTextContent("-");
+	});
+
+	it("displays dash when max_output_tokens is null", () => {
+		const modelWithNullMaxOutput = {
+			...mockModel,
+			max_output_tokens: null,
+		};
+		renderWithProviders(<ModelDetailPanel model={modelWithNullMaxOutput} />);
+
+		const maxOutLabel = screen.getByText("Max Out");
+		const maxOutValue = maxOutLabel.nextElementSibling;
+		expect(maxOutValue).toHaveTextContent("-");
+	});
 });
 
 describe("ModelDetailModal", () => {
