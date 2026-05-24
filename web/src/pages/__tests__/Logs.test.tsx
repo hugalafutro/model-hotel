@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -1622,7 +1622,7 @@ describe("Logs", () => {
 				),
 			);
 
-			renderWithProviders(<Logs />);
+			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
 				expect(screen.getByText("Live")).toBeInTheDocument();
@@ -1630,7 +1630,7 @@ describe("Logs", () => {
 
 			// Click the switch to scroll mode button
 			const switchToScrollBtn = screen.getByLabelText("Switch to scroll mode");
-			fireEvent.click(switchToScrollBtn);
+			await user.click(switchToScrollBtn);
 
 			// Should now show VirtualLogTable
 			await waitFor(() => {
@@ -1774,8 +1774,17 @@ describe("Logs", () => {
 				expect(screen.getByText("streaming-001")).toBeInTheDocument();
 			});
 
-			// Check that the row is rendered (provider name visible)
-			expect(screen.getByText("TestProvider")).toBeInTheDocument();
+			// Find the row and check for Live indicator in status badge
+			const row = screen.getByText("streaming-001").closest("tr");
+			if (row) {
+				const cells = within(row).getAllByRole("cell");
+				// Status cell contains the badge with "Live" text
+				const statusCell = cells[4]; // Status is at index 4
+				expect(within(statusCell).getByText("Live")).toBeInTheDocument();
+				// Check for blue styling on Live indicator
+				const liveElement = within(statusCell).getByText("Live");
+				expect(liveElement.className).toContain("text-blue-400");
+			}
 		});
 	});
 
@@ -1803,6 +1812,9 @@ describe("Logs", () => {
 
 			const statusElement = screen.getByText("403");
 			expect(statusElement).toBeInTheDocument();
+			// Check that badge has orange variant (text-orange-400)
+			const badge = statusElement.closest("span");
+			expect(badge?.className).toContain("text-orange-400");
 		});
 
 		it("displays error badge for 5xx status codes with completed state", async () => {
@@ -1828,6 +1840,9 @@ describe("Logs", () => {
 
 			const statusElement = screen.getByText("500");
 			expect(statusElement).toBeInTheDocument();
+			// Check that badge has error variant (text-red-400)
+			const badge = statusElement.closest("span");
+			expect(badge?.className).toContain("text-red-400");
 		});
 	});
 
@@ -1905,13 +1920,12 @@ describe("Logs", () => {
 				expect(screen.getByText("cancel-003")).toBeInTheDocument();
 			});
 
-			// Find the row and check TPS cell
+			// Find the row and check TPS cell (column index 6)
 			const row = screen.getByText("cancel-003").closest("tr");
 			if (row) {
 				const cells = within(row).getAllByRole("cell");
-				// TPS should show dash for cancelled requests
-				const tpsCell = cells.find((cell) => cell.textContent === "-");
-				expect(tpsCell).toBeInTheDocument();
+				// TPS is at index 6: Time, Hash, Model, Provider, Status, Tokens, T/s
+				expect(cells[6].textContent).toBe("-");
 			}
 		});
 	});
@@ -2003,8 +2017,10 @@ describe("Logs", () => {
 				expect(screen.getByText("abc123")).toBeInTheDocument();
 			});
 
-			// Check that overhead value is displayed
-			expect(screen.getByText("45.00ms")).toBeInTheDocument();
+			// Check that overhead has accent styling
+			const overheadElement = screen.getByText("45.00ms");
+			expect(overheadElement).toBeInTheDocument();
+			expect(overheadElement.className).toContain("accent");
 		});
 
 		it("displays overhead with gray styling when no components", async () => {
@@ -2030,8 +2046,10 @@ describe("Logs", () => {
 				expect(screen.getByText("abc123")).toBeInTheDocument();
 			});
 
-			// Check that overhead value is displayed
-			expect(screen.getByText("15.00ms")).toBeInTheDocument();
+			// Check that overhead has gray styling
+			const overheadElement = screen.getByText("15.00ms");
+			expect(overheadElement).toBeInTheDocument();
+			expect(overheadElement.className).toContain("gray");
 		});
 	});
 
@@ -2108,15 +2126,21 @@ describe("Logs", () => {
 
 	describe("parseGoDuration via Custom Stale Timeout", () => {
 		it("uses custom stale timeout from settings with hours", async () => {
-			// Test that old streaming requests are handled correctly
+			// Override settings with custom stale timeout (1h30m)
+			// Entry is 80 min old, so should NOT be stale
 			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({
+						stale_request_timeout: "1h30m0s",
+					}),
+				),
 				http.get("/api/logs", () =>
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
 								state: "streaming",
-								// 90 min ago
-								created_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+								// 80 min ago (under 1h30m threshold)
+								created_at: new Date(Date.now() - 80 * 60 * 1000).toISOString(),
 								status_code: 0,
 							}),
 						]),
@@ -2130,8 +2154,8 @@ describe("Logs", () => {
 				expect(screen.getByText("abc123")).toBeInTheDocument();
 			});
 
-			// Request should render successfully
-			expect(screen.getByText("abc123")).toBeInTheDocument();
+			// Should NOT show stale warning (under threshold)
+			expect(screen.queryByText("⚠")).not.toBeInTheDocument();
 		});
 	});
 });
