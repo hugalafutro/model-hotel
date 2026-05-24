@@ -51,13 +51,10 @@ vi.mock("../../components/VirtualLogTable", () => ({
 		total,
 		hasBefore,
 		hasAfter,
-		isLoadingBefore,
-		isLoadingAfter,
-		onFetchNewer,
-		onFetchOlder,
 		onRowClick,
 		sortDir,
 		onSortToggle,
+		/* isLoadingBefore, isLoadingAfter, onFetchNewer, onFetchOlder accepted but unused in mock */
 	}: {
 		entries: Array<{ id: string; request_hash: string }>;
 		total: number;
