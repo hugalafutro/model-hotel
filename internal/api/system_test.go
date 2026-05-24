@@ -129,7 +129,7 @@ func TestSetDockerStatsCollector(t *testing.T) {
 
 	h := &SystemHandler{}
 	called := false
-	fn := func(project string) util.AggregatedDockerStats {
+	fn := func(filter util.ContainerFilter) util.AggregatedDockerStats {
 		called = true
 		return util.AggregatedDockerStats{}
 	}
@@ -137,7 +137,7 @@ func TestSetDockerStatsCollector(t *testing.T) {
 	h.SetDockerStatsCollector(fn)
 
 	// Verify it was set by calling it
-	_ = h.dockerStatsCollector("test")
+	_ = h.dockerStatsCollector(util.ContainerFilter{})
 	if !called {
 		t.Error("expected dockerStatsCollector to be set and callable")
 	}
@@ -262,7 +262,7 @@ func TestGetSystem_DockerStatsCollector(t *testing.T) {
 		MemoryLimit:    987654321,
 		ContainerCount: 3,
 	}
-	h.SetDockerStatsCollector(func(project string) util.AggregatedDockerStats {
+	h.SetDockerStatsCollector(func(filter util.ContainerFilter) util.AggregatedDockerStats {
 		collectorCalled = true
 		return mockStats
 	})

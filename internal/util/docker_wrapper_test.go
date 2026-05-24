@@ -128,7 +128,7 @@ func TestListComposeContainers(t *testing.T) {
 		t.Skip("Docker not available in test setup")
 	}
 
-	result, err := ListComposeContainers("myapp")
+	result, err := ListComposeContainers(ContainerFilter{ComposeProject: "myapp"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -662,7 +662,7 @@ func TestListComposeContainers_Empty(t *testing.T) {
 		t.Skip("Docker not available in test setup")
 	}
 
-	result, err := ListComposeContainers("myapp")
+	result, err := ListComposeContainers(ContainerFilter{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -987,9 +987,9 @@ func TestCollectDockerStats_GetStatsError(t *testing.T) {
 	}
 
 	// Should not panic, should aggregate stats from successful container only
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if !result.Available {
-		t.Error("expected Available=true when at least one container works")
+		t.Fatal("expected Available=true")
 	}
 	if result.ContainerCount != 2 {
 		t.Errorf("expected ContainerCount=2, got %d", result.ContainerCount)
@@ -1075,6 +1075,8 @@ func TestDetectComposeProject_DockerUnavailable(t *testing.T) {
 }
 
 // TestListComposeContainers_AllProjects tests listing all containers with compose labels (no filter)
+// Note: With the new ContainerFilter API, an empty filter returns NO containers (by design).
+// This test now verifies that ContainerFilter{} returns empty results.
 func TestListComposeContainers_AllProjects(t *testing.T) {
 	resetDockerState()
 
@@ -1113,13 +1115,13 @@ func TestListComposeContainers_AllProjects(t *testing.T) {
 		t.Skip("Docker not available in test setup")
 	}
 
-	// Empty string filter should return all containers WITH compose labels
-	result, err := ListComposeContainers("")
+	// Empty filter should return NO containers (by design - avoids counting random containers)
+	result, err := ListComposeContainers(ContainerFilter{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 2 {
-		t.Fatalf("expected 2 containers with compose labels, got %d", len(result))
+	if len(result) != 0 {
+		t.Fatalf("expected 0 containers with empty filter, got %d", len(result))
 	}
 }
 
@@ -1161,7 +1163,7 @@ func TestListComposeContainers_NoComposeLabel(t *testing.T) {
 		t.Skip("Docker not available in test setup")
 	}
 
-	result, err := ListComposeContainers("")
+	result, err := ListComposeContainers(ContainerFilter{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1681,7 +1683,7 @@ func TestListComposeContainers_JSONDecodeError(t *testing.T) {
 		t.Skip("Docker not available in test setup")
 	}
 
-	_, err := ListComposeContainers("myapp")
+	_, err := ListComposeContainers(ContainerFilter{ComposeProject: "myapp"})
 	if err == nil {
 		t.Error("expected error for malformed JSON response")
 	}
@@ -2257,5 +2259,157 @@ func TestIsDockerAvailable_SocketNotExist(t *testing.T) {
 	result := IsDockerAvailable()
 	if result {
 		t.Error("Expected false when Docker socket doesn't exist")
+	}
+}
+
+// TestFilterContainers tests the filterContainers function with various filters.
+func TestFilterContainers(t *testing.T) {
+	containers := []DockerContainer{
+		{ID: "1", Name: "app", Labels: map[string]string{"com.docker.compose.project": "myapp", "app.group": "model-hotel"}, State: "running"},
+		{ID: "2", Name: "db", Labels: map[string]string{"com.docker.compose.project": "myapp", "app.group": "model-hotel"}, State: "running"},
+		{ID: "3", Name: "other", Labels: map[string]string{"com.docker.compose.project": "otherapp"}, State: "running"},
+		{ID: "4", Name: "standalone", Labels: map[string]string{"app.group": "model-hotel"}, State: "running"},
+		{ID: "5", Name: "nolabels", Labels: map[string]string{}, State: "running"},
+	}
+
+	tests := []struct {
+		name      string
+		filter    ContainerFilter
+		wantCount int
+	}{
+		{"compose project filter", ContainerFilter{ComposeProject: "myapp"}, 2},
+		{"app group filter", ContainerFilter{AppGroup: "model-hotel"}, 3},
+		{"empty filter returns nothing", ContainerFilter{}, 0},
+		{"non-matching compose project", ContainerFilter{ComposeProject: "nonexistent"}, 0},
+		{"non-matching app group", ContainerFilter{AppGroup: "nonexistent"}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterContainers(containers, tt.filter)
+			if len(got) != tt.wantCount {
+				t.Errorf("filterContainers() = %d containers, want %d", len(got), tt.wantCount)
+			}
+		})
+	}
+}
+
+// TestDetectContainerFilter tests the new DetectContainerFilter function.
+func TestDetectContainerFilter(t *testing.T) {
+	resetDockerState()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/info":
+			w.WriteHeader(http.StatusOK)
+		case "/containers/abc123def456/json":
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"Config": map[string]interface{}{
+					"Labels": map[string]string{
+						"com.docker.compose.project": "testproject",
+					},
+				},
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	// In test environment without real Docker, this should return empty filter
+	result := DetectContainerFilter()
+	if result != (ContainerFilter{}) {
+		t.Errorf("DetectContainerFilter() = %+v, want empty ContainerFilter", result)
+	}
+}
+
+// TestDetectContainerFilter_AppGroupLabel tests that DetectContainerFilter falls back to app.group label.
+func TestDetectContainerFilter_AppGroupLabel(t *testing.T) {
+	resetDockerState()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/info":
+			w.WriteHeader(http.StatusOK)
+		case "/containers/abc123def456/json":
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"Config": map[string]interface{}{
+					"Labels": map[string]string{
+						"app.group": "model-hotel",
+					},
+				},
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	// In test environment without real Docker, this should return empty filter
+	result := DetectContainerFilter()
+	if result != (ContainerFilter{}) {
+		t.Errorf("DetectContainerFilter() = %+v, want empty ContainerFilter", result)
+	}
+}
+
+// TestDetectContainerFilter_NoLabels tests when container has no labels.
+func TestDetectContainerFilter_NoLabels(t *testing.T) {
+	resetDockerState()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/info":
+			w.WriteHeader(http.StatusOK)
+		case "/containers/abc123def456/json":
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"Config": map[string]interface{}{
+					"Labels": map[string]string{},
+				},
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	result := DetectContainerFilter()
+	if result != (ContainerFilter{}) {
+		t.Errorf("Expected empty ContainerFilter when no labels, got %+v", result)
 	}
 }

@@ -99,7 +99,7 @@ func newTestHandlerWithRouter(t *testing.T) (*Handler, chi.Router) {
 	h.Register(r)
 	// Mock Docker stats collector to avoid real Docker API calls which
 	// spawn persistent HTTP transport goroutines that hang the test process.
-	h.SetDockerStatsCollector(func(string) util.AggregatedDockerStats {
+	h.SetDockerStatsCollector(func(filter util.ContainerFilter) util.AggregatedDockerStats {
 		return util.AggregatedDockerStats{}
 	})
 	return h, r
@@ -1306,7 +1306,7 @@ func TestGetSystem(t *testing.T) {
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
-	h.SetDockerStatsCollector(func(string) util.AggregatedDockerStats {
+	h.SetDockerStatsCollector(func(filter util.ContainerFilter) util.AggregatedDockerStats {
 		return util.AggregatedDockerStats{}
 	})
 
