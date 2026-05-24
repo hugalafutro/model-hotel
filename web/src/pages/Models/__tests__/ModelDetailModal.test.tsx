@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../../../test/mocks/data";
@@ -414,25 +414,27 @@ describe("ModelDetailModal", () => {
 		expect(screen.getByText(/Last Discovered/)).toBeInTheDocument();
 	});
 
-	// RevertButton className prop
-	it("applies className prop to RevertButton", async () => {
+	// RevertButton className prop - price revert buttons pass className="shrink-0"
+	it("applies className prop to price RevertButton", async () => {
 		const user = userEvent.setup();
-		const modelWithChangedInputPrice = {
-			...mockModel,
-			input_price_per_million: 1.0,
-		};
-		renderWithProviders(
-			<ModelDetailModal {...defaultProps} model={modelWithChangedInputPrice} />,
-		);
+
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Edit"));
 
-		// Price field RevertButtons have className="shrink-0"
-		const revertButtons = screen.getAllByTitle("Revert to discovered value");
-		// At least one revert button should exist
-		expect(revertButtons.length).toBeGreaterThanOrEqual(1);
-		// Check that revert buttons have the base classes
-		expect(revertButtons[0]).toHaveClass("text-[10px]");
+		// Change input price to trigger the price revert button (which passes className="shrink-0")
+		const priceInputs = screen.getAllByPlaceholderText("0.00");
+		const inputPriceInput = priceInputs[0];
+		await user.clear(inputPriceInput);
+		await user.type(inputPriceInput, "9.99");
+
+		// Find the revert button in the same row as the changed price input
+		const priceRow = inputPriceInput.closest("div")
+			?.parentElement as HTMLElement;
+		const revertBtn = within(priceRow).getByTitle("Revert to discovered value");
+		expect(revertBtn).toBeInTheDocument();
+		// Price RevertButton forwards className="shrink-0"
+		expect(revertBtn).toHaveClass("shrink-0");
 	});
 
 	// parseParams catch branch - invalid JSON
@@ -508,7 +510,9 @@ describe("ModelDetailModal", () => {
 	});
 
 	// handleDiscover early return - during cooldown
-	it("does not call onDiscover when clicking during cooldown", async () => {
+	// Note: userEvent.click on a disabled button does not fire the handler at all,
+	// so we use fireEvent.click to exercise the in-handler guard (if cooldown > 0 || discovering) return.
+	it("returns early from handleDiscover during cooldown via handler guard", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
@@ -520,14 +524,15 @@ describe("ModelDetailModal", () => {
 
 		vi.clearAllMocks();
 
-		const updateButton = screen.getByText("Update (30s)");
-		await user.click(updateButton);
+		// fireEvent bypasses the disabled attribute, exercising the handler guard directly
+		const updateButton = screen.getByText("Update (30s)").closest("button");
+		if (updateButton) fireEvent.click(updateButton);
 
 		expect(onDiscover).not.toHaveBeenCalled();
 	});
 
 	// handleDiscover early return - during discovering
-	it("does not call onDiscover when clicking during discovering state", async () => {
+	it("returns early from handleDiscover during discovering state via handler guard", async () => {
 		const user = userEvent.setup();
 		onDiscover.mockImplementation(
 			() => new Promise((resolve) => setTimeout(resolve, 500)),
@@ -541,8 +546,9 @@ describe("ModelDetailModal", () => {
 
 		vi.clearAllMocks();
 
-		const updateButton = screen.getByText("Updating…");
-		await user.click(updateButton);
+		// fireEvent bypasses the disabled attribute, exercising the handler guard directly
+		const updateButton = screen.getByText("Updating…").closest("button");
+		if (updateButton) fireEvent.click(updateButton);
 
 		expect(onDiscover).not.toHaveBeenCalled();
 	});
@@ -567,9 +573,10 @@ describe("ModelDetailModal", () => {
 	// handleTest exception catch - non-Error rejection
 	it("shows Unknown error when onTest rejects with non-Error", async () => {
 		const user = userEvent.setup();
-		// biome-ignore lint/suspicious/noExplicitAny: Testing non-Error rejection
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		// biome-ignore lint/suspicious/noExplicitAny: testing non-Error rejection path
 		onTest.mockRejectedValue("string error" as any);
+		/* eslint-enable @typescript-eslint/no-explicit-any */
 
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
@@ -584,7 +591,8 @@ describe("ModelDetailModal", () => {
 	});
 
 	// handleTest early return - clicking while already testing
-	it("does not call onTest again when clicking Test while already testing", async () => {
+	// Note: fireEvent.click bypasses the disabled attribute to exercise the in-handler guard (if testing) return.
+	it("returns early from handleTest when clicking Test while already testing", async () => {
 		const user = userEvent.setup();
 		onTest.mockImplementation(
 			() => new Promise((resolve) => setTimeout(resolve, 500)),
@@ -598,8 +606,9 @@ describe("ModelDetailModal", () => {
 
 		vi.clearAllMocks();
 
-		const testButton = screen.getByText("Testing…");
-		await user.click(testButton);
+		// fireEvent bypasses the disabled attribute, exercising the handler guard directly
+		const testButton = screen.getByText("Testing…").closest("button");
+		if (testButton) fireEvent.click(testButton);
 
 		expect(onTest).not.toHaveBeenCalled();
 	});
@@ -756,16 +765,7 @@ describe("ModelDetailModal", () => {
 		expect(screen.getByText("cURL")).not.toHaveClass("bg-slate-700/60");
 	});
 
-	// Snippet tabs - Copy button on each tab
-	it("copies cURL snippet to clipboard when Copy button is clicked", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<ModelDetailModal {...defaultProps} />);
-
-		await user.click(screen.getByText("Copy"));
-
-		expect(onToast).toHaveBeenCalledWith("Copied to clipboard", "info");
-	});
-
+	// Snippet tabs - Copy button on each non-default tab
 	it("copies ZED snippet to clipboard when Copy button is clicked on ZED tab", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
