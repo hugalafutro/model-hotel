@@ -1059,10 +1059,10 @@ describe("ModelTable", () => {
 			await user.click(provider1Button);
 
 			// Verify we're back on page 1 (pagination shows "1 to 15 of 15 models")
-			// The text is split across elements, so we check for the key parts
+			// Anchor "1" to start to avoid matching "21 of 15" (broken state)
 			await waitFor(() => {
 				const paginationText = screen.getByText((content) => {
-					return content.includes("1") && content.includes("of 15");
+					return /^1\b/.test(content) && content.includes("of 15");
 				});
 				expect(paginationText).toBeInTheDocument();
 			});
