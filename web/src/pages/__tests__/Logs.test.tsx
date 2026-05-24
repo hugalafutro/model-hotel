@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -2244,13 +2244,16 @@ describe("Logs", () => {
 			});
 
 			// Dispatch request.completed SSE event
-			const event = new CustomEvent("server-event", {
-				detail: {
-					type: "request.completed",
-					metadata: { request_id: "log-1", model_id: "test-model" },
-				},
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.completed",
+							metadata: { request_id: "log-1", model_id: "test-model" },
+						},
+					}),
+				);
 			});
-			window.dispatchEvent(event);
 
 			// The single-log endpoint should have been called
 			await waitFor(
@@ -2288,13 +2291,16 @@ describe("Logs", () => {
 			const initialCallCount = cursorCallCount;
 
 			// Dispatch request.completed without request_id
-			const event = new CustomEvent("server-event", {
-				detail: {
-					type: "request.completed",
-					metadata: {}, // no request_id
-				},
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.completed",
+							metadata: {}, // no request_id
+						},
+					}),
+				);
 			});
-			window.dispatchEvent(event);
 
 			// Should trigger a fetchNewer (cursor endpoint called again)
 			await waitFor(
@@ -2332,13 +2338,16 @@ describe("Logs", () => {
 			const initialCallCount = cursorCallCount;
 
 			// Dispatch request.completed with no metadata property at all
-			const event = new CustomEvent("server-event", {
-				detail: {
-					type: "request.completed",
-					// no metadata at all - tests the event.metadata?.request_id path
-				},
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.completed",
+							// no metadata at all - tests the event.metadata?.request_id path
+						},
+					}),
+				);
 			});
-			window.dispatchEvent(event);
 
 			// Should trigger a fetchNewer (cursor endpoint called again)
 			await waitFor(
@@ -2376,13 +2385,16 @@ describe("Logs", () => {
 			const initialCallCount = cursorCallCount;
 
 			// Dispatch request.started event
-			const event = new CustomEvent("server-event", {
-				detail: {
-					type: "request.started",
-					metadata: { request_id: "new-request", model_id: "test-model" },
-				},
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.started",
+							metadata: { request_id: "new-request", model_id: "test-model" },
+						},
+					}),
+				);
 			});
-			window.dispatchEvent(event);
 
 			// Should trigger a fetchNewer (cursor endpoint called again)
 			await waitFor(
@@ -2427,13 +2439,16 @@ describe("Logs", () => {
 			const initialCallCount = cursorCallCount;
 
 			// Dispatch request.completed with request_id, but api.logs.get will fail
-			const event = new CustomEvent("server-event", {
-				detail: {
-					type: "request.completed",
-					metadata: { request_id: "log-1", model_id: "test-model" },
-				},
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.completed",
+							metadata: { request_id: "log-1", model_id: "test-model" },
+						},
+					}),
+				);
 			});
-			window.dispatchEvent(event);
 
 			// Should trigger fetchNewer as fallback (cursor endpoint called again)
 			await waitFor(
