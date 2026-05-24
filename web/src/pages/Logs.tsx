@@ -814,7 +814,16 @@ function RequestLogs() {
 														<span className="text-gray-400">-</span>
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+												<td
+													className="px-2 py-1 text-xs text-gray-400 max-w-[7rem] truncate"
+													title={
+														log.virtual_key_deleted
+															? undefined
+															: log.virtual_key_name ||
+																log.virtual_key_id ||
+																undefined
+													}
+												>
 													{log.virtual_key_deleted ? (
 														<span className="text-red-400 italic">Deleted</span>
 													) : log.virtual_key_name &&
