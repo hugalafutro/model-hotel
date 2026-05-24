@@ -728,4 +728,94 @@ describe("VirtualModelTable", () => {
 			expect(fetchInitial).not.toHaveBeenCalled();
 		});
 	});
+
+	describe("Provider filter integration", () => {
+		it("passes provider_id in filters when a provider is selected", () => {
+			const capturedFilters: Record<string, unknown>[] = [];
+			const entries = [createModel({ capabilities: '{"vision":true}' })];
+			const providers = [
+				{ id: "p1", name: "OpenAI" },
+				{ id: "p2", name: "Anthropic" },
+			] as unknown as Provider[];
+
+			mockUseBidirectionalFetch.mockImplementation(
+				({ filters }: { filters: Record<string, unknown> }) => {
+					capturedFilters.push(filters);
+					return {
+						...defaultHookReturn,
+						entries,
+						total: entries.length,
+					};
+				},
+			);
+			mockGetVirtualItems.mockReturnValue(
+				entries.map((e, i) => ({
+					index: i,
+					key: e.id,
+					start: i * 45,
+					end: (i + 1) * 45,
+				})),
+			);
+			mockGetTotalSize.mockReturnValue(entries.length * 45);
+
+			renderWithProviders(<VirtualModelTable providers={providers} />);
+
+			// Open provider filter dropdown
+			fireEvent.click(screen.getByText("Filter Providers"));
+
+			// Click a provider to select it
+			fireEvent.click(screen.getByText("OpenAI"));
+
+			// Verify filters passed to useBidirectionalFetch now include provider_id
+			const lastFilter = capturedFilters[capturedFilters.length - 1];
+			expect(lastFilter.provider_id).toBe("p1");
+		});
+	});
+
+	describe("Capability filter toggle off", () => {
+		it("deactivates a capability filter when clicking it twice", () => {
+			const entries = [
+				createModel({ capabilities: '{"vision":true,"tool_calling":true}' }),
+			];
+			setupWithEntries(entries);
+			renderWithProviders(<VirtualModelTable />);
+
+			// Click Vision to activate (first Vision button is the filter button)
+			const visionButtons = screen.getAllByText("Vision");
+			fireEvent.click(visionButtons[0]);
+
+			// ✕ clear button should appear confirming filter is active
+			expect(screen.getByText("✕")).toBeInTheDocument();
+
+			// Click Vision again to deactivate
+			const visionButtonsAfter = screen.getAllByText("Vision");
+			fireEvent.click(visionButtonsAfter[0]);
+
+			// ✕ should disappear since no filters are active
+			expect(screen.queryByText("✕")).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Clear capability filter button", () => {
+		it("clears all capability filters when clicking ✕ button", () => {
+			const entries = [
+				createModel({ capabilities: '{"vision":true,"tool_calling":true}' }),
+			];
+			setupWithEntries(entries);
+			renderWithProviders(<VirtualModelTable />);
+
+			// Activate Vision filter
+			const visionButtons = screen.getAllByText("Vision");
+			fireEvent.click(visionButtons[0]);
+
+			// ✕ should be visible
+			expect(screen.getByText("✕")).toBeInTheDocument();
+
+			// Click ✕ to clear all
+			fireEvent.click(screen.getByText("✕"));
+
+			// ✕ should disappear
+			expect(screen.queryByText("✕")).not.toBeInTheDocument();
+		});
+	});
 });
