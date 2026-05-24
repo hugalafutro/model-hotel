@@ -192,6 +192,7 @@ function RequestLogs() {
 		isLoadingAfter,
 		fetchNewer: scrollFetchNewer,
 		fetchOlder: scrollFetchOlder,
+		mergeEntries: scrollMergeEntries,
 		error: scrollError,
 	} = useBidirectionalFetch<LogEntry>({
 		fetchFn: (params) =>
@@ -236,21 +237,34 @@ function RequestLogs() {
 		return () => document.removeEventListener("visibilitychange", handler);
 	}, [viewMode, liveEnabled, scrollFetchNewer]);
 
-	// SSE-driven fetchNewer for scroll mode
+	// SSE-driven live updates for scroll mode
 	useEffect(() => {
 		if (viewMode !== "scroll" || !liveEnabled) return;
-		const handler = (e: Event) => {
+		const handler = async (e: Event) => {
 			const event = (e as CustomEvent).detail;
-			if (
-				event.type === "request.started" ||
-				event.type === "request.completed"
-			) {
+			if (event.type === "request.completed") {
+				// Fetch the completed entry by ID and merge it into
+				// the existing entries so the row shows final metrics
+				// (provider, tokens, duration, etc.) instead of the
+				// placeholder values from the initial INSERT.
+				const requestId: string | undefined = event.metadata?.request_id;
+				if (requestId) {
+					try {
+						const entry = await api.logs.get(requestId);
+						scrollMergeEntries([entry]);
+					} catch {
+						// Fall back to fetchNewer on error (e.g. row
+						// was purged between event and fetch)
+						scrollFetchNewer();
+					}
+				}
+			} else if (event.type === "request.started") {
 				scrollFetchNewer();
 			}
 		};
 		window.addEventListener("server-event", handler);
 		return () => window.removeEventListener("server-event", handler);
-	}, [viewMode, liveEnabled, scrollFetchNewer]);
+	}, [viewMode, liveEnabled, scrollFetchNewer, scrollMergeEntries]);
 
 	// Distinguish between "no data has arrived yet" (loading) and
 	// "data arrived but the result set is empty" (0 matching rows).

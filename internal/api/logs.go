@@ -63,8 +63,68 @@ func (h *Handler) RegisterLogs(r chi.Router) {
 	r.Route("/logs", func(r chi.Router) {
 		r.Get("/", h.ListLogs)
 		r.Get("/cursor", h.ListLogsCursor)
+		r.Get("/{id}", h.GetLog)
 		r.Delete("/purge", h.PurgeLogs)
 	})
+}
+
+// GetLog returns a single request log entry by ID.
+func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id", "log ID")
+	if !ok {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	var entry LogEntry
+	err := h.dbPool.Pool().QueryRow(ctx, `
+		SELECT rl.id, COALESCE(rl.provider_id::text, ''),
+			CASE
+				WHEN rl.provider_id IS NULL THEN ''
+				WHEN p.name IS NOT NULL THEN p.name
+				ELSE 'Deleted'
+			END,
+			rl.model_id,
+			COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
+			COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
+			COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
+			COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
+			COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
+			COALESCE(rl.tokens_per_second, 0),
+			COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
+			COALESCE(rl.tokens_completion_reasoning, 0),
+			COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
+			 CASE
+				WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
+				WHEN vk.id IS NULL THEN true
+				ELSE false
+			END AS virtual_key_deleted,
+			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at
+		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
+		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
+		WHERE rl.id = $1`,
+		id,
+	).Scan(
+		&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
+		&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
+		&entry.TTFTMs, &entry.ProxyOverheadMs,
+		&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+		&entry.DialMs, &entry.SettingsReadMs,
+		&entry.TokensPerSecond,
+		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+		&entry.Streaming,
+		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
+		&entry.ErrorMessage,
+		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
+	)
+	if err != nil {
+		respondError(w, "log not found", err, http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, entry)
 }
 
 // LogsCursorResponse is the cursor-based paginated response for request logs.
