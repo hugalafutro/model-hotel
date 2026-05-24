@@ -51,6 +51,10 @@ vi.mock("../../components/VirtualLogTable", () => ({
 		total,
 		hasBefore,
 		hasAfter,
+		isLoadingBefore,
+		isLoadingAfter,
+		onFetchNewer,
+		onFetchOlder,
 		onRowClick,
 		sortDir,
 		onSortToggle,
@@ -59,6 +63,10 @@ vi.mock("../../components/VirtualLogTable", () => ({
 		total: number;
 		hasBefore: boolean;
 		hasAfter: boolean;
+		isLoadingBefore?: boolean;
+		isLoadingAfter?: boolean;
+		onFetchNewer?: () => void;
+		onFetchOlder?: () => void;
 		onRowClick: (entry: { id: string }) => void;
 		sortDir: string;
 		onSortToggle: () => void;
@@ -1774,17 +1782,12 @@ describe("Logs", () => {
 				expect(screen.getByText("streaming-001")).toBeInTheDocument();
 			});
 
-			// Find the row and check for Live indicator in status badge
+			// Check for Live indicator in the status badge within the row
 			const row = screen.getByText("streaming-001").closest("tr");
-			if (row) {
-				const cells = within(row).getAllByRole("cell");
-				// Status cell contains the badge with "Live" text
-				const statusCell = cells[4]; // Status is at index 4
-				expect(within(statusCell).getByText("Live")).toBeInTheDocument();
-				// Check for blue styling on Live indicator
-				const liveElement = within(statusCell).getByText("Live");
-				expect(liveElement.className).toContain("text-blue-400");
-			}
+			expect(row).not.toBeNull();
+			const liveElement = within(row!).getByText("Live");
+			expect(liveElement).toBeInTheDocument();
+			expect(liveElement.className).toContain("text-blue-400");
 		});
 	});
 
@@ -1920,13 +1923,20 @@ describe("Logs", () => {
 				expect(screen.getByText("cancel-003")).toBeInTheDocument();
 			});
 
-			// Find the row and check TPS cell (column index 6)
+			// Find the T/s column index from the table header, then check the
+			// corresponding cell in the data row - avoids hard-coded index
+			const table = screen.getByText("cancel-003").closest("table");
+			expect(table).not.toBeNull();
+			const headerRow = table!.querySelector("thead tr");
+			expect(headerRow).not.toBeNull();
+			const headers = within(headerRow!).getAllByRole("columnheader");
+			const tpsIndex = headers.findIndex((h) => h.textContent?.includes("T/s"));
+			expect(tpsIndex).toBeGreaterThanOrEqual(0);
+
 			const row = screen.getByText("cancel-003").closest("tr");
-			if (row) {
-				const cells = within(row).getAllByRole("cell");
-				// TPS is at index 6: Time, Hash, Model, Provider, Status, Tokens, T/s
-				expect(cells[6].textContent).toBe("-");
-			}
+			expect(row).not.toBeNull();
+			const cells = within(row!).getAllByRole("cell");
+			expect(cells[tpsIndex].textContent).toBe("-");
 		});
 	});
 
