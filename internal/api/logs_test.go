@@ -1087,3 +1087,106 @@ func TestListLogsCursor_BackwardPagination(t *testing.T) {
 		t.Error("expected HasBefore=true for backward page (more items precede)")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// GetLog Tests
+// ---------------------------------------------------------------------------
+
+func TestGetLog_Found(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider first
+	providerData := fmt.Sprintf(`{"name": "test-getlog-provider-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert a log row via direct DB exec
+	pool := h.Pool().Pool()
+	logID := uuid.New()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+		logID, providerResp.ID, "test-get-model", 200, 100, 10, 20)
+	if err != nil {
+		t.Fatalf("Failed to insert request log: %v", err)
+	}
+
+	// Clear cache to ensure fresh data
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	// GET /logs/{logID} with auth header
+	req = httptest.NewRequest("GET", "/logs/"+logID.String(), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var entry LogEntry
+	if err := json.Unmarshal(w.Body.Bytes(), &entry); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if entry.ID != logID.String() {
+		t.Errorf("expected ID %s, got %s", logID.String(), entry.ID)
+	}
+	if entry.ModelID != "test-get-model" {
+		t.Errorf("expected ModelID 'test-get-model', got %q", entry.ModelID)
+	}
+	if entry.StatusCode != 200 {
+		t.Errorf("expected StatusCode 200, got %d", entry.StatusCode)
+	}
+	if entry.DurationMs != 100 {
+		t.Errorf("expected DurationMs 100, got %v", entry.DurationMs)
+	}
+}
+
+func TestGetLog_NotFound(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// GET /logs/{random-uuid} with auth header
+	randomID := uuid.New().String()
+	req := httptest.NewRequest("GET", "/logs/"+randomID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGetLog_InvalidID(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// GET /logs/not-a-uuid with auth header
+	req := httptest.NewRequest("GET", "/logs/not-a-uuid", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}

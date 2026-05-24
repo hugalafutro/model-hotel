@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -120,7 +122,11 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 	)
 	if err != nil {
-		respondError(w, "log not found", err, http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, "log not found", nil, http.StatusNotFound)
+		} else {
+			respondError(w, "failed to fetch log", err, http.StatusInternalServerError)
+		}
 		return
 	}
 

@@ -257,6 +257,10 @@ function RequestLogs() {
 						// was purged between event and fetch)
 						scrollFetchNewer();
 					}
+				} else {
+					// Fallback when request_id is missing from the
+					// event payload (e.g. schema change, old server)
+					scrollFetchNewer();
 				}
 			} else if (event.type === "request.started") {
 				scrollFetchNewer();
