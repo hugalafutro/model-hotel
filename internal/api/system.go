@@ -21,8 +21,8 @@ import (
 // Server start time — used for uptime calculation.
 var startedAt = time.Now()
 
-// dockerStatsCollector is a function type matching util.CollectDockerStats.
-type dockerStatsCollector func(composeProject string) util.AggregatedDockerStats
+// dockerStatsCollector is a function type matching util.CollectDockerStatsWithFilter.
+type dockerStatsCollector func(filter util.ContainerFilter) util.AggregatedDockerStats
 
 // SystemHandler provides system health and stats API endpoints.
 type SystemHandler struct {
@@ -34,7 +34,7 @@ type SystemHandler struct {
 func NewSystemHandler(pool *pgxpool.Pool) *SystemHandler {
 	return &SystemHandler{
 		pool:                 pool,
-		dockerStatsCollector: util.CollectDockerStats,
+		dockerStatsCollector: util.CollectDockerStatsWithFilter,
 	}
 }
 
@@ -280,7 +280,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		LockWaits:     lockWaits,
 	}
 
-	stats.Docker = h.dockerStatsCollector(util.DetectComposeProject())
+	stats.Docker = h.dockerStatsCollector(util.DetectContainerFilter())
 
 	return stats, nil
 }

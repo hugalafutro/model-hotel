@@ -156,8 +156,16 @@ type dockerStatsResponse struct {
 	} `json:"pids_stats"`
 }
 
-// ListComposeContainers lists containers filtered by Docker Compose project.
-func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
+// ContainerFilter specifies which containers to include when listing.
+// Both fields are optional; when set, only containers matching the
+// respective label are returned.
+type ContainerFilter struct {
+	ComposeProject string // matches com.docker.compose.project
+	AppGroup       string // matches app.group
+}
+
+// ListComposeContainers lists containers filtered by the given criteria.
+func ListComposeContainers(filter ContainerFilter) ([]DockerContainer, error) {
 	client := dockerHTTPClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -183,21 +191,29 @@ func ListComposeContainers(composeProject string) ([]DockerContainer, error) {
 		return nil, err
 	}
 
+	return filterContainers(all, filter), nil
+}
+
+// filterContainers applies the ContainerFilter to a list of containers.
+// When both ComposeProject and AppGroup are empty, no containers are
+// returned (avoids accidentally including every container on the host).
+func filterContainers(all []DockerContainer, filter ContainerFilter) []DockerContainer {
 	var result []DockerContainer
 	for _, c := range all {
-		project, hasProject := c.Labels["com.docker.compose.project"]
-		if composeProject == "" {
-			if hasProject {
+		if filter.ComposeProject != "" {
+			if project, ok := c.Labels["com.docker.compose.project"]; ok && project == filter.ComposeProject {
 				result = append(result, c)
 			}
 			continue
 		}
-		if project == composeProject {
-			result = append(result, c)
+		if filter.AppGroup != "" {
+			if group, ok := c.Labels["app.group"]; ok && group == filter.AppGroup {
+				result = append(result, c)
+			}
+			continue
 		}
 	}
-
-	return result, nil
+	return result
 }
 
 // GetContainerStats retrieves CPU and memory stats for a Docker container.
@@ -294,15 +310,27 @@ var (
 	prevDockerMu       sync.Mutex
 )
 
-// CollectDockerStats aggregates resource usage across all containers in a project.
+// CollectDockerStats aggregates resource usage across containers matching
+// the given filter. It accepts a composeProject string for backward
+// compatibility; prefer CollectDockerStatsWithFilter for new callers.
+//
+// Note: passing an empty string now returns no containers (changed from the
+// previous behaviour of returning all containers with a compose label).
 func CollectDockerStats(composeProject string) AggregatedDockerStats {
+	filter := ContainerFilter{ComposeProject: composeProject}
+	return CollectDockerStatsWithFilter(filter)
+}
+
+// CollectDockerStatsWithFilter aggregates resource usage across containers
+// matching the provided ContainerFilter.
+func CollectDockerStatsWithFilter(filter ContainerFilter) AggregatedDockerStats {
 	result := AggregatedDockerStats{}
 
 	if !IsDockerAvailable() {
 		return result
 	}
 
-	containers, err := ListComposeContainers(composeProject)
+	containers, err := ListComposeContainers(filter)
 	if err != nil || len(containers) == 0 {
 		return result
 	}
@@ -428,11 +456,15 @@ func isHex(s string) bool {
 	return s != ""
 }
 
-// DetectComposeProject detects the Docker Compose project name for the current container.
-func DetectComposeProject() string {
+// DetectContainerFilter inspects the current container's labels to
+// determine which other containers belong to the same deployment.
+// It prefers the Docker Compose project label; when absent (e.g. when
+// deployed outside of docker-compose), it falls back to the app.group
+// label.
+func DetectContainerFilter() ContainerFilter {
 	containerID := getOwnContainerID()
 	if containerID == "" || !IsDockerAvailable() {
-		return ""
+		return ContainerFilter{}
 	}
 
 	client := dockerHTTPClient()
@@ -443,12 +475,12 @@ func DetectComposeProject() string {
 	resp, err := client.Do(req)
 	if err != nil {
 		debuglog.Info("docker: failed to inspect own container", "error", err)
-		return ""
+		return ContainerFilter{}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		return ""
+		return ContainerFilter{}
 	}
 
 	body, _ := io.ReadAll(resp.Body)
@@ -458,11 +490,22 @@ func DetectComposeProject() string {
 		} `json:"Config"`
 	}
 	if json.Unmarshal(body, &info) != nil {
-		return ""
+		return ContainerFilter{}
 	}
 
 	if project, ok := info.Config.Labels["com.docker.compose.project"]; ok {
-		return project
+		return ContainerFilter{ComposeProject: project}
 	}
-	return ""
+	if group, ok := info.Config.Labels["app.group"]; ok {
+		return ContainerFilter{AppGroup: group}
+	}
+	return ContainerFilter{}
+}
+
+// DetectComposeProject returns the Docker Compose project name for the
+// current container, or an empty string if unavailable.
+//
+// Deprecated: use DetectContainerFilter instead for broader label support.
+func DetectComposeProject() string {
+	return DetectContainerFilter().ComposeProject
 }

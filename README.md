@@ -241,6 +241,8 @@ ADMIN_TOKEN=
             # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
             # image: ghcr.io/hugalafutro/model-hotel:latest
             # image: hugalafutro/model-hotel:latest
+            labels:
+                app.group: model-hotel
             ports:
                 - "${HOST_PORT:-8081}:8080"
             environment:
@@ -270,6 +272,8 @@ ADMIN_TOKEN=
     
         db:
             image: postgres:16-alpine
+            labels:
+                app.group: model-hotel
             command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
             environment:
                 - POSTGRES_USER=${POSTGRES_USER:-modelhotel}

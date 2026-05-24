@@ -56,7 +56,7 @@ func TestCollect_EmptySinceWithTimeout(t *testing.T) {
 	sysHandler := NewSystemHandler(pool)
 	// Mock Docker stats to avoid real Docker API calls that spawn persistent
 	// HTTP transport goroutines and hang the test process.
-	sysHandler.dockerStatsCollector = func(string) util.AggregatedDockerStats {
+	sysHandler.dockerStatsCollector = func(filter util.ContainerFilter) util.AggregatedDockerStats {
 		return util.AggregatedDockerStats{}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
