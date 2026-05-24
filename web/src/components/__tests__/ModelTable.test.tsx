@@ -950,10 +950,11 @@ describe("ModelTable", () => {
 				<ModelTable models={[modelWithoutName]} providers={[mockProvider]} />,
 			);
 
-			// Verify it displays the proxyModelID format in the model name cell (first occurrence)
+			// Verify it displays the proxyModelID format in the name span specifically
+			// (not the CopyablePill below it, which also shows proxyModelID)
 			const table = screen.getByRole("table");
-			const modelCell = table.querySelector("tbody td");
-			expect(modelCell?.textContent).toContain("Test-Provider/test-model-v1");
+			const nameSpan = table.querySelector("tbody td div > span.font-medium");
+			expect(nameSpan?.textContent).toBe("Test-Provider/test-model-v1");
 		});
 	});
 
