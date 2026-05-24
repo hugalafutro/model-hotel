@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -1287,14 +1287,15 @@ describe("Chat", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Conversation")).toBeInTheDocument();
 			});
-			// Select Model A to make reset button visible (use getAllByText since both pickers show same model)
+			// Select Model A — scope to the Model A picker to avoid matching Model B's list
+			const modelALabel = screen.getByText("Model A");
+			const modelAContainer = modelALabel.closest("div")!;
 			await waitFor(() => {
 				expect(
-					screen.getAllByText("Test Model v1").length,
-				).toBeGreaterThanOrEqual(1);
+					within(modelAContainer).getByText("Test Model v1"),
+				).toBeInTheDocument();
 			});
-			const modelButtons = screen.getAllByText("Test Model v1");
-			await user.click(modelButtons[0]);
+			await user.click(within(modelAContainer).getByText("Test Model v1"));
 			await waitFor(() => {
 				expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
 					"Test Model v1",
@@ -1341,6 +1342,9 @@ describe("Chat", () => {
 					"Test Model v1",
 				);
 			});
+			// Verify model is selected before opening reset dialog
+			const headingBefore = screen.getByRole("heading", { level: 3 });
+			expect(headingBefore).toHaveTextContent("Test Model v1");
 			await user.click(
 				screen.getByRole("button", {
 					name: "Reset all (clear model & settings)",
