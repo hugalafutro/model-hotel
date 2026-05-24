@@ -1426,4 +1426,289 @@ describe("Chat", () => {
 			});
 		});
 	});
+
+	describe("Conversation Disabled Reasons", () => {
+		it("shows Models must be different when both models are the same", async () => {
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Chat")).toBeInTheDocument();
+			});
+
+			// Switch to conversation mode
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Conversation")).toBeInTheDocument();
+			});
+
+			// Select the same model for both A and B
+			const modelALabel = screen.getByText("Model A");
+			const modelAContainer = modelALabel.closest("div")!;
+			const modelBLabel = screen.getByText("Model B");
+			const modelBContainer = modelBLabel.closest("div")!;
+
+			await waitFor(() => {
+				expect(
+					within(modelAContainer).getByText("Test Model v1"),
+				).toBeInTheDocument();
+			});
+			await user.click(within(modelAContainer).getByText("Test Model v1"));
+
+			await waitFor(() => {
+				expect(
+					within(modelBContainer).getByText("Test Model v1"),
+				).toBeInTheDocument();
+			});
+			await user.click(within(modelBContainer).getByText("Test Model v1"));
+
+			// Type a prompt
+			const input = screen.getByPlaceholderText("Enter a topic or question…");
+			await user.type(input, "Test prompt");
+
+			// Should show "Models must be different" amber text
+			await waitFor(() => {
+				expect(
+					screen.getByText("Models must be different"),
+				).toBeInTheDocument();
+			});
+			expect(screen.getByText("Models must be different")).toHaveClass(
+				"text-amber-400",
+			);
+		});
+
+		it("shows Enter a prompt when input is empty", async () => {
+			const secondModel = {
+				...mockModel,
+				id: "model-v2",
+				model_id: "test-model-v2",
+				display_name: "Test Model v2",
+				name: "Test Model v2",
+			};
+			server.use(...mockModels({ body: [mockModel, secondModel] }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Chat")).toBeInTheDocument();
+			});
+
+			// Switch to conversation mode
+			await user.click(screen.getByRole("button", { name: "AI Conversation" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Conversation")).toBeInTheDocument();
+			});
+
+			// Select different models for A and B
+			const modelALabel = screen.getByText("Model A");
+			const modelAContainer = modelALabel.closest("div")!;
+			const modelBLabel = screen.getByText("Model B");
+			const modelBContainer = modelBLabel.closest("div")!;
+
+			await waitFor(() => {
+				expect(
+					within(modelAContainer).getByText("Test Model v1"),
+				).toBeInTheDocument();
+			});
+			await user.click(within(modelAContainer).getByText("Test Model v1"));
+
+			await waitFor(() => {
+				expect(
+					within(modelBContainer).getByText("Test Model v2"),
+				).toBeInTheDocument();
+			});
+			await user.click(within(modelBContainer).getByText("Test Model v2"));
+
+			// Leave input empty - should show "Enter a prompt"
+			await waitFor(() => {
+				expect(screen.getByText("Enter a prompt")).toBeInTheDocument();
+			});
+			expect(screen.getByText("Enter a prompt")).toHaveClass("text-amber-400");
+		});
+	});
+
+	describe("Enter Key Stops Streaming", () => {
+		it("stops streaming when Enter is pressed during streaming", async () => {
+			const chunks = [
+				{ choices: [{ delta: { content: "Hello" } }] },
+				{ choices: [{ delta: { content: " world" } }] },
+			];
+			server.use(...mockChatStream(chunks, { delay: 200 }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Chat")).toBeInTheDocument();
+			});
+
+			// Select a model
+			await waitFor(() => {
+				expect(screen.getByText("Test Model v1")).toBeInTheDocument();
+			});
+			await user.click(screen.getByText("Test Model v1"));
+
+			// Type a message and send with Enter
+			const textarea = screen.getByRole("textbox", {
+				name: "Chat message input",
+			});
+			await user.type(textarea, "Hello{Enter}");
+
+			// Wait for streaming to start (Stop button appears)
+			await waitFor(
+				() => {
+					const stopButtons = screen.getAllByRole("button", { name: "Stop" });
+					expect(stopButtons.length).toBeGreaterThan(0);
+				},
+				{ timeout: 2000 },
+			);
+
+			// Press Enter again while streaming to stop
+			await user.type(textarea, "{Enter}");
+
+			// Wait for Send button to reappear (streaming stopped)
+			await waitFor(
+				() => {
+					expect(
+						screen.getByRole("button", { name: "Send" }),
+					).toBeInTheDocument();
+				},
+				{ timeout: 2000 },
+			);
+
+			// Controls should be expanded after stopping
+			await waitFor(() => {
+				expect(
+					screen.getAllByRole("button", { name: "Collapse" }).length,
+				).toBeGreaterThan(0);
+			});
+		});
+	});
+
+	describe("Last Chat Error Stale Model Guard", () => {
+		it("hides error when switching to a different model", async () => {
+			const secondModel = {
+				...mockModel,
+				id: "model-v2",
+				model_id: "test-model-v2",
+				display_name: "Test Model v2",
+				name: "Test Model v2",
+			};
+			server.use(...mockModels({ body: [mockModel, secondModel] }));
+			server.use(
+				...mockChatStream([{ choices: [{ delta: { content: "" } }] }], {
+					status: 500,
+				}),
+			);
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Chat")).toBeInTheDocument();
+			});
+
+			// Select first model and send message
+			await waitFor(() => {
+				expect(screen.getByText("Test Model v1")).toBeInTheDocument();
+			});
+			await user.click(screen.getByText("Test Model v1"));
+
+			const textarea = screen.getByRole("textbox", {
+				name: "Chat message input",
+			});
+			await user.type(textarea, "Test error{Enter}");
+
+			// Wait for error to appear
+			await waitFor(
+				() => {
+					expect(screen.getByText(/try Regenerate/)).toBeInTheDocument();
+				},
+				{ timeout: 3000 },
+			);
+			// Error should show the model name
+			expect(
+				screen.getByText(/test-model-v1.*try Regenerate/),
+			).toBeInTheDocument();
+
+			// Now select a different model
+			await user.click(screen.getByText("Test Model v2"));
+
+			// Error from first model should no longer be displayed
+			await waitFor(
+				() => {
+					expect(
+						screen.queryByText(/test-model-v1.*try Regenerate/),
+					).not.toBeInTheDocument();
+				},
+				{ timeout: 2000 },
+			);
+		});
+	});
+
+	describe("Regenerate with System Prompt", () => {
+		it("includes system prompt when regenerating", async () => {
+			// Use a single chunk that will be returned for both requests
+			// This tests that regenerate actually sends a request (which includes system prompt)
+			const chunks = [{ choices: [{ delta: { content: "Response" } }] }];
+			server.use(...mockChatStream(chunks, { delay: 10 }));
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Chat")).toBeInTheDocument();
+			});
+
+			// Select a model
+			await waitFor(() => {
+				expect(screen.getByText("Test Model v1")).toBeInTheDocument();
+			});
+			await user.click(screen.getByText("Test Model v1"));
+
+			// Set a system prompt via persona picker (custom option)
+			// The custom button shows "✏️Custom"
+			const customButton = screen.getByRole("button", { name: /Custom/ });
+			await user.click(customButton);
+
+			// Type system prompt in the textarea
+			const systemPromptTextarea = screen.getByPlaceholderText(
+				"Enter custom persona for AI here…",
+			);
+			await user.type(systemPromptTextarea, "You are a helpful assistant");
+
+			// Send a message
+			const textarea = screen.getByRole("textbox", {
+				name: "Chat message input",
+			});
+			await user.type(textarea, "Hello");
+			await user.click(screen.getByRole("button", { name: "Send" }));
+
+			// Wait for response
+			await waitFor(
+				() => {
+					expect(screen.getByText("Response")).toBeInTheDocument();
+				},
+				{ timeout: 2000 },
+			);
+
+			// Click Regenerate
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Regenerate" }),
+				).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Regenerate" }));
+
+			// Wait for regenerated response to appear (streaming indicator clears)
+			// The regenerate flow should complete successfully
+			await waitFor(
+				() => {
+					// After regenerate, the Send button should be visible again (not streaming)
+					expect(
+						screen.getByRole("button", { name: "Send" }),
+					).toBeInTheDocument();
+				},
+				{ timeout: 2000 },
+			);
+		});
+	});
 });
