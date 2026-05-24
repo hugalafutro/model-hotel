@@ -388,7 +388,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 			<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
 				<span>
 					{entries.length > 0
-						? `${formatNumber(Math.max(1, Math.min(virtualItems[0]?.index + 1 || 1, entries.length)))}–${formatNumber(Math.min(virtualItems[virtualItems.length - 1]?.index + 1 || 0, entries.length))} / ${formatNumber(total)}`
+						? `${formatNumber(Math.max(1, Math.min(virtualItems[0].index + 1, entries.length)))}–${formatNumber(Math.min(virtualItems[virtualItems.length - 1].index + 1, entries.length))} / ${formatNumber(total)}`
 						: "0 entries"}
 				</span>
 				<span className="flex items-center gap-2">

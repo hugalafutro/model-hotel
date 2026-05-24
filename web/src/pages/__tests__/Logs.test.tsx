@@ -2129,6 +2129,39 @@ describe("Logs", () => {
 
 			expect(screen.getByText("internal")).toBeInTheDocument();
 		});
+
+		it("does NOT set title on key cell when virtual_key_name and virtual_key_id are empty", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "vk-empty-001",
+								virtual_key_deleted: false,
+								virtual_key_name: "",
+								virtual_key_id: "",
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("vk-empty-001")).toBeInTheDocument();
+			});
+
+			// Find the row and check the key cell has no title attribute
+			const row = screen.getByText("vk-empty-001").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = within(row).getAllByRole("cell");
+				// Key column is the last column
+				const keyCell = cells[cells.length - 1];
+				expect(keyCell).not.toHaveAttribute("title");
+			}
+		});
 	});
 
 	describe("parseGoDuration via Custom Stale Timeout", () => {
