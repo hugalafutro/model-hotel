@@ -741,6 +741,401 @@ describe("ArenaHistoryModal", () => {
 		});
 	});
 
+	it("shows Final round label for multi-round competition", async () => {
+		const user = userEvent.setup();
+		const multiRoundEntry = {
+			...mockCompetitionEntry,
+			rounds: [
+				{
+					matchups: [
+						{
+							slotA: { modelId: "provider/model-a", personaId: null },
+							slotB: { modelId: "provider/model-b", personaId: null },
+							responseA: mockCompetitionEntry.rounds[0].matchups[0].responseA,
+							responseB: mockCompetitionEntry.rounds[0].matchups[0].responseB,
+							vote: "A" as const,
+						},
+					],
+				},
+				{
+					matchups: [
+						{
+							slotA: { modelId: "provider/model-c", personaId: null },
+							slotB: { modelId: "provider/model-d", personaId: null },
+							responseA: {
+								modelId: "provider/model-c",
+								content: "Final A",
+								thinkingContent: "",
+								error: null,
+								metrics: {
+									tokensPerSecond: 50,
+									durationMs: 2000,
+									promptTokens: 100,
+									completionTokens: 200,
+								},
+							},
+							responseB: {
+								modelId: "provider/model-d",
+								content: "Final B",
+								thinkingContent: "",
+								error: null,
+								metrics: {
+									tokensPerSecond: 45,
+									durationMs: 2200,
+									promptTokens: 100,
+									completionTokens: 180,
+								},
+							},
+							vote: "B" as const,
+						},
+					],
+				},
+			],
+		};
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([multiRoundEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
+		});
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
+		await waitFor(() => {
+			// Round 0 with 2 total rounds: totalRounds-2=0, so index 0 = Semifinals
+			expect(screen.getByText("Semifinals")).toBeInTheDocument();
+			// Last round (index 1) gets "Final" label
+			expect(screen.getByText("Final")).toBeInTheDocument();
+		});
+	});
+
+	it("shows Semifinals and Quarterfinals labels for 4-round competition", async () => {
+		const user = userEvent.setup();
+		const makeRound = (suffix: string, voteSlot: "A" | "B") => ({
+			matchups: [
+				{
+					slotA: { modelId: `provider/model-a-${suffix}`, personaId: null },
+					slotB: { modelId: `provider/model-b-${suffix}`, personaId: null },
+					responseA: {
+						modelId: `provider/model-a-${suffix}`,
+						content: `Response A ${suffix}`,
+						thinkingContent: "",
+						error: null,
+						metrics: {
+							tokensPerSecond: 50,
+							durationMs: 2000,
+							promptTokens: 100,
+							completionTokens: 200,
+						},
+					},
+					responseB: {
+						modelId: `provider/model-b-${suffix}`,
+						content: `Response B ${suffix}`,
+						thinkingContent: "",
+						error: null,
+						metrics: {
+							tokensPerSecond: 45,
+							durationMs: 2200,
+							promptTokens: 100,
+							completionTokens: 180,
+						},
+					},
+					vote: voteSlot,
+				},
+			],
+		});
+		const fourRoundEntry = {
+			...mockCompetitionEntry,
+			rounds: [
+				makeRound("r1", "A" as const),
+				makeRound("r2", "B" as const),
+				makeRound("r3", "A" as const),
+				makeRound("r4", "B" as const),
+			],
+		};
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([fourRoundEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/model-a-r1 vs model-b-r1/)).toBeInTheDocument();
+		});
+		await user.click(
+			screen.getByRole("button", { name: /model-a-r1 vs model-b-r1/ }),
+		);
+		await waitFor(() => {
+			// Round 1 (index 0) → "Round 1", Round 2 → "Quarterfinals",
+			// Round 3 → "Semifinals", Round 4 (index 3) → "Final"
+			expect(screen.getByText("Round 1")).toBeInTheDocument();
+			expect(screen.getByText("Quarterfinals")).toBeInTheDocument();
+			expect(screen.getByText("Semifinals")).toBeInTheDocument();
+			expect(screen.getByText("Final")).toBeInTheDocument();
+		});
+	});
+
+	it("shows vote B winner with trophy for B-side matchup", async () => {
+		const user = userEvent.setup();
+		const bWinnerEntry = {
+			...mockCompetitionEntry,
+			rounds: [
+				{
+					matchups: [
+						{
+							slotA: { modelId: "provider/model-a", personaId: null },
+							slotB: { modelId: "provider/model-b", personaId: null },
+							responseA: mockCompetitionEntry.rounds[0].matchups[0].responseA,
+							responseB: mockCompetitionEntry.rounds[0].matchups[0].responseB,
+							vote: "B" as const,
+						},
+					],
+				},
+			],
+			winner: "provider/model-b",
+		};
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([bWinnerEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
+		});
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
+		await waitFor(() => {
+			// Winner badge shows model-b
+			expect(screen.getByText("Winner: model-b")).toBeInTheDocument();
+			// Vote indicator shows → B
+			expect(screen.getByText("→ B")).toBeInTheDocument();
+		});
+	});
+
+	it("shows dash for matchup with no vote", async () => {
+		const user = userEvent.setup();
+		const noVoteEntry = {
+			...mockCompetitionEntry,
+			rounds: [
+				{
+					matchups: [
+						{
+							slotA: { modelId: "provider/model-a", personaId: null },
+							slotB: { modelId: "provider/model-b", personaId: null },
+							responseA: mockCompetitionEntry.rounds[0].matchups[0].responseA,
+							responseB: mockCompetitionEntry.rounds[0].matchups[0].responseB,
+							vote: null as unknown as "A",
+						},
+					],
+				},
+			],
+			winner: null as unknown as string,
+		};
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([noVoteEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
+		});
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
+		await waitFor(() => {
+			// No vote → dash indicator, no winner badge
+			const dashElements = screen.getAllByText("-");
+			expect(dashElements.length).toBeGreaterThanOrEqual(1);
+			expect(screen.queryByText(/Winner:/)).not.toBeInTheDocument();
+		});
+	});
+
+	it("shows error message for failed compare response", async () => {
+		const user = userEvent.setup();
+		const errorEntry = {
+			...mockCompareEntry,
+			compareModels: ["provider/model-err"],
+			compareResponses: [
+				{
+					modelId: "provider/model-err",
+					content: "",
+					thinkingContent: "",
+					error: "Rate limit exceeded",
+					metrics: {
+						tokensPerSecond: 0,
+						durationMs: 0,
+						promptTokens: 100,
+						completionTokens: 0,
+					},
+				},
+			],
+		};
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([errorEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		// Wait for the entry to appear, then click to expand
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /model-err/ }),
+			).toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /model-err/ }));
+		await waitFor(() => {
+			// Error shown with "Error:" prefix in expanded detail
+			expect(
+				screen.getByText(/Error: Rate limit exceeded/),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("shows 1 entry singular for single entry count", async () => {
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([mockCompetitionEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("1 entry")).toBeInTheDocument();
+		});
+	});
+
+	it("collapses expanded entry when clicking same entry again", async () => {
+		const user = userEvent.setup();
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([mockCompetitionEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
+		});
+		const entryButton = screen.getByRole("button", {
+			name: /model-a vs model-b/,
+		});
+		// First click: expand
+		await user.click(entryButton);
+		await waitFor(() => {
+			expect(screen.getByText("Winner: model-a")).toBeInTheDocument();
+		});
+		// Second click: collapse
+		await user.click(entryButton);
+		// After collapsing, the grid container switches to grid-rows-[0fr]
+		const winnerText = screen.getByText("Winner: model-a");
+		const gridContainer = winnerText.closest("[class*='grid-rows']");
+		expect(gridContainer).toHaveClass("grid-rows-[0fr]");
+	});
+
+	it("hides Restore Setup when onRestore is not provided", async () => {
+		const user = userEvent.setup();
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([mockCompetitionEntry]),
+		);
+		renderWithProviders(<ArenaHistoryModal onClose={onClose} />);
+		await waitFor(() => {
+			expect(screen.getByText(/model-a vs model-b/)).toBeInTheDocument();
+		});
+		await user.click(
+			screen.getByRole("button", { name: /model-a vs model-b/ }),
+		);
+		await waitFor(() => {
+			expect(
+				screen.queryByRole("button", { name: /restore setup/i }),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	it("resets confirmClear on blur", async () => {
+		const user = userEvent.setup();
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([mockCompetitionEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /clear all history/i }),
+			).toBeInTheDocument();
+		});
+		const clearButton = screen.getByRole("button", {
+			name: /clear all history/i,
+		});
+		// First click: enter confirm state
+		await user.click(clearButton);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /click again to confirm/i }),
+			).toBeInTheDocument();
+		});
+		// Blur the button — should reset confirmClear
+		await user.tab();
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /clear all history/i }),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("shows Bracket fallback for competition with no rounds", async () => {
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([
+				{
+					...mockCompetitionEntry,
+					rounds: [],
+				},
+			]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Bracket")).toBeInTheDocument();
+		});
+	});
+
+	it("shows Compare fallback for compare with no models", async () => {
+		const noModelsEntry = {
+			...mockCompareEntry,
+			compareModels: null as unknown as string[],
+			compareResponses: [],
+		};
+		mockLocalStorage.store.set(
+			"arenaMatchHistory",
+			JSON.stringify([noModelsEntry]),
+		);
+		renderWithProviders(
+			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
+		);
+		await waitFor(() => {
+			// "Compare" appears as both a filter button and the entry label
+			// There should be at least one instance from the entry (not the filter)
+			const compareTexts = screen.getAllByText("Compare");
+			// The filter button + the entry label = 2+ occurrences
+			expect(compareTexts.length).toBeGreaterThanOrEqual(2);
+		});
+	});
+
 	it("shows custom prompt label when promptPresetId is null", async () => {
 		const user = userEvent.setup();
 		const customEntry = {
