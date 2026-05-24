@@ -875,13 +875,13 @@ describe("ModelTable", () => {
 				{
 					...mockModel,
 					id: "model-001",
-					name: "Model Z",
+					name: "Model A",
 					provider_name: "Zeta Provider",
 				},
 				{
 					...mockModel,
 					id: "model-002",
-					name: "Model A",
+					name: "Model Z",
 					provider_name: "Alpha Provider",
 				},
 			];
