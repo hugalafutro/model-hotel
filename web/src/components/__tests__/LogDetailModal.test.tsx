@@ -645,6 +645,170 @@ describe("LogDetailModal", () => {
 		});
 	});
 
+	describe("StatusBadge fallback", () => {
+		it("displays plain code for 1xx status", () => {
+			const infoLog = { ...mockRequestLog, status_code: 100 };
+			renderWithProviders(
+				<LogDetailModal log={infoLog} type="request" onClose={onClose} />,
+			);
+
+			// 1xx falls through all specific cases to the fallback
+			const codeElement = screen.getByText("100");
+			expect(codeElement).toBeInTheDocument();
+			expect(codeElement.closest("span")).toHaveClass("text-xs");
+		});
+
+		it("displays plain code for 3xx status", () => {
+			const redirectLog = { ...mockRequestLog, status_code: 301 };
+			renderWithProviders(
+				<LogDetailModal log={redirectLog} type="request" onClose={onClose} />,
+			);
+
+			const codeElement = screen.getByText("301");
+			expect(codeElement).toBeInTheDocument();
+		});
+	});
+
+	describe("Failed badge without error message", () => {
+		it("displays Failed without colon when error_message is empty", () => {
+			const failedLog = {
+				...mockRequestLog,
+				state: "failed",
+				status_code: 0,
+				error_message: "",
+			};
+			renderWithProviders(
+				<LogDetailModal log={failedLog} type="request" onClose={onClose} />,
+			);
+
+			expect(screen.getByText("Failed")).toBeInTheDocument();
+			// Should NOT contain a colon suffix
+			const badge = screen.getByText("Failed").closest("span");
+			expect(badge?.textContent).toBe("Failed");
+		});
+	});
+
+	describe("Tokens per second null fallback", () => {
+		it("displays dash when tokens_per_second is null", () => {
+			const nullTpsLog = {
+				...mockRequestLog,
+				tokens_per_second: null as unknown as number,
+			};
+			renderWithProviders(
+				<LogDetailModal log={nullTpsLog} type="request" onClose={onClose} />,
+			);
+
+			// The Tokens/s timing card contains both the label and the value
+			const tpsLabel = screen.getByText("Tokens/s");
+			const tpsCard = tpsLabel.closest("[class*=rounded-lg]");
+			expect(tpsCard).toBeInTheDocument();
+			expect(tpsCard?.textContent).toContain("-");
+		});
+	});
+
+	describe("Virtual key fallback", () => {
+		it("displays virtual_key_id when name is empty", () => {
+			const noNameLog = {
+				...mockRequestLog,
+				virtual_key_name: "",
+				virtual_key_id: "vk-fallback-123",
+			};
+			renderWithProviders(
+				<LogDetailModal log={noNameLog} type="request" onClose={onClose} />,
+			);
+
+			expect(screen.getByText("vk-fallback-123")).toBeInTheDocument();
+		});
+
+		it("displays dash when both name and id are empty", () => {
+			const noKeyLog = {
+				...mockRequestLog,
+				virtual_key_name: "",
+				virtual_key_id: "",
+			};
+			renderWithProviders(
+				<LogDetailModal log={noKeyLog} type="request" onClose={onClose} />,
+			);
+
+			// DetailItem renders the value in a div after the label
+			const vkLabel = screen.getByText("Virtual Key");
+			const vkItem = vkLabel.closest("[class*=rounded-lg]");
+			expect(vkItem).toBeInTheDocument();
+			expect(vkItem?.textContent).toContain("-");
+		});
+	});
+
+	describe("Reasoning tokens", () => {
+		it("displays Reasoning section when tokens_completion_reasoning > 0", () => {
+			const reasoningLog = {
+				...mockRequestLog,
+				tokens_completion_reasoning: 500,
+			};
+			renderWithProviders(
+				<LogDetailModal log={reasoningLog} type="request" onClose={onClose} />,
+			);
+
+			expect(screen.getByText("Reasoning")).toBeInTheDocument();
+			const reasoningValue = screen.getByText("500");
+			expect(reasoningValue).toHaveClass("text-purple-400");
+		});
+	});
+
+	describe("Overhead with Dial reused and zero components", () => {
+		it("shows reused for Dial when dial_ms is 0", () => {
+			const dialReusedLog = {
+				...mockRequestLog,
+				proxy_overhead_ms: 50,
+				parse_ms: 5,
+				failover_lookup_ms: 0,
+				model_lookup_ms: 0,
+				provider_lookup_ms: 0,
+				key_decrypt_ms: 0,
+				dial_ms: 0,
+				settings_read_ms: 0,
+			};
+			renderWithProviders(
+				<LogDetailModal log={dialReusedLog} type="request" onClose={onClose} />,
+			);
+
+			expect(screen.getByText("Dial (DNS+TCP)")).toBeInTheDocument();
+			expect(screen.getByText("reused")).toBeInTheDocument();
+			// Only Request Parsing and Dial rows should appear
+			expect(screen.getByText("Request Parsing")).toBeInTheDocument();
+			expect(
+				screen.queryByText("Failover Group Lookup"),
+			).not.toBeInTheDocument();
+			expect(screen.queryByText("Model Lookup")).not.toBeInTheDocument();
+		});
+
+		it("computes total overhead with zero-valued components", () => {
+			const partialOverheadLog = {
+				...mockRequestLog,
+				proxy_overhead_ms: 50,
+				parse_ms: 5,
+				failover_lookup_ms: 0,
+				model_lookup_ms: 0,
+				provider_lookup_ms: 0,
+				key_decrypt_ms: 0,
+				dial_ms: 0,
+				settings_read_ms: 0,
+			};
+			renderWithProviders(
+				<LogDetailModal
+					log={partialOverheadLog}
+					type="request"
+					onClose={onClose}
+				/>,
+			);
+
+			// Total = 5 (parse) + 0 (others) = 5 → shown as accent-colored value
+			const totalLabel = screen.getByText("Total Overhead");
+			const totalRow = totalLabel.closest("div");
+			expect(totalRow).toBeInTheDocument();
+			expect(totalRow?.textContent).toContain("5.000ms");
+		});
+	});
+
 	describe("Token formatting", () => {
 		it("formats large token counts with locale separators", () => {
 			const largeTokenLog: LogEntry = {
