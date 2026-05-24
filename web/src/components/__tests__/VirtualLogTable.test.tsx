@@ -1047,6 +1047,36 @@ describe("VirtualLogTable", () => {
 
 			expect(screen.getByText("vk-abc123")).toBeInTheDocument();
 		});
+
+		it("sets title to virtual_key_id when virtual_key_name is empty and key is not deleted", () => {
+			const entries = [
+				createLogEntry({
+					virtual_key_deleted: false,
+					virtual_key_name: "",
+					virtual_key_id: "vk-abc123",
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("vk-abc123")).toBeInTheDocument();
+
+			// Find the key column cell (last column in the row)
+			const row = screen.getByText("vk-abc123").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				// Key column is the last column
+				const keyCell = cells[cells.length - 1];
+				expect(keyCell).toHaveAttribute("title", "vk-abc123");
+			}
+		});
 	});
 
 	describe("Proxy overhead null", () => {

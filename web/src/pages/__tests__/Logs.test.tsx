@@ -2272,6 +2272,50 @@ describe("Logs", () => {
 			);
 		});
 
+		it("falls back to fetchNewer when event metadata is undefined on request.completed", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let cursorCallCount = 0;
+			server.use(
+				http.get("/api/logs/cursor", () => {
+					cursorCallCount++;
+					return HttpResponse.json({
+						entries: [
+							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
+						],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			const initialCallCount = cursorCallCount;
+
+			// Dispatch request.completed with no metadata property at all
+			const event = new CustomEvent("server-event", {
+				detail: {
+					type: "request.completed",
+					// no metadata at all - tests the event.metadata?.request_id path
+				},
+			});
+			window.dispatchEvent(event);
+
+			// Should trigger a fetchNewer (cursor endpoint called again)
+			await waitFor(
+				() => {
+					expect(cursorCallCount).toBeGreaterThan(initialCallCount);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
 		it("calls fetchNewer on request.started event", async () => {
 			localStorage.setItem("requestLogsViewMode", "scroll");
 
