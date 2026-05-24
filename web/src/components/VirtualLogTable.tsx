@@ -161,7 +161,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 			<div className="flex flex-col">
 				<div
 					ref={scrollRef}
-					className="ui-card overflow-y-auto overflow-x-auto"
+					className="ui-card overflow-y-auto"
 					style={{
 						overflowAnchor: "none",
 						height: "calc(100dvh - 242px)",
@@ -213,7 +213,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		<div className="flex flex-col min-h-0">
 			<div
 				ref={scrollRef}
-				className="ui-card overflow-y-auto overflow-x-auto"
+				className="ui-card overflow-y-auto"
 				style={{
 					overflowAnchor: "none",
 					height: "calc(100dvh - 242px)",
@@ -360,7 +360,16 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											<span className="text-gray-400">-</span>
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+									<td
+										className="px-2 py-1 text-xs text-gray-400 max-w-[7rem] truncate"
+										title={
+											log.virtual_key_deleted
+												? undefined
+												: log.virtual_key_name ||
+													log.virtual_key_id ||
+													undefined
+										}
+									>
 										{log.virtual_key_deleted ? (
 											<span className="text-red-400 italic">Deleted</span>
 										) : log.virtual_key_name &&
@@ -379,7 +388,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 			<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
 				<span>
 					{entries.length > 0
-						? `${formatNumber(Math.max(1, virtualItems[0]?.index + 1 || 1))}–${formatNumber(virtualItems[virtualItems.length - 1]?.index + 1 || 0)} / ${formatNumber(total)}`
+						? `${formatNumber(Math.max(1, Math.min((virtualItems[0]?.index ?? 0) + 1, entries.length)))}–${formatNumber(Math.min((virtualItems[virtualItems.length - 1]?.index ?? 0) + 1, entries.length))} / ${formatNumber(total)}`
 						: "0 entries"}
 				</span>
 				<span className="flex items-center gap-2">

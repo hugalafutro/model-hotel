@@ -661,6 +661,7 @@ logUpdate:
 	logData.errorMessage = errMsg
 	logData.failoverAttempt = attempt
 	if errMsg != "" {
+		logData.statusCode = 0
 		logData.state = "failed"
 	} else {
 		logData.state = "completed"

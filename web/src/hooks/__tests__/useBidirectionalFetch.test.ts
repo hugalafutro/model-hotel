@@ -902,4 +902,147 @@ describe("useBidirectionalFetch", () => {
 			expect(mockFetchFn).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	describe("mergeEntries", () => {
+		it("merges updated entry by ID", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [
+					{ id: "1", name: "original" },
+					{ id: "2", name: "other" },
+				] as TestEntry[],
+				total: 2,
+				has_before: false,
+				has_after: false,
+			});
+
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(2);
+			});
+
+			act(() => {
+				result.current.mergeEntries([{ id: "1", name: "updated" }]);
+			});
+
+			expect(result.current.entries).toHaveLength(2);
+			expect(result.current.entries[0]).toEqual({ id: "1", name: "updated" });
+			expect(result.current.entries[1]).toEqual({ id: "2", name: "other" });
+		});
+
+		it("ignores entries with non-matching IDs", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [
+					{ id: "1", name: "original" },
+					{ id: "2", name: "other" },
+				] as TestEntry[],
+				total: 2,
+				has_before: false,
+				has_after: false,
+			});
+
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(2);
+			});
+
+			act(() => {
+				result.current.mergeEntries([{ id: "99", name: "unknown" }]);
+			});
+
+			expect(result.current.entries).toHaveLength(2);
+			expect(result.current.entries[0]).toEqual({ id: "1", name: "original" });
+			expect(result.current.entries[1]).toEqual({ id: "2", name: "other" });
+		});
+
+		it("handles empty array", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [
+					{ id: "1", name: "original" },
+					{ id: "2", name: "other" },
+				] as TestEntry[],
+				total: 2,
+				has_before: false,
+				has_after: false,
+			});
+
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(2);
+			});
+
+			act(() => {
+				result.current.mergeEntries([]);
+			});
+
+			expect(result.current.entries).toHaveLength(2);
+			expect(result.current.entries[0]).toEqual({ id: "1", name: "original" });
+			expect(result.current.entries[1]).toEqual({ id: "2", name: "other" });
+		});
+
+		it("merges multiple entries at once", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [
+					{ id: "1", name: "a" },
+					{ id: "2", name: "b" },
+					{ id: "3", name: "c" },
+				] as TestEntry[],
+				total: 3,
+				has_before: false,
+				has_after: false,
+			});
+
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(result.current.entries).toHaveLength(3);
+			});
+
+			act(() => {
+				result.current.mergeEntries([
+					{ id: "1", name: "updated-a" },
+					{ id: "3", name: "updated-c" },
+				]);
+			});
+
+			expect(result.current.entries).toHaveLength(3);
+			expect(result.current.entries[0]).toEqual({ id: "1", name: "updated-a" });
+			expect(result.current.entries[1]).toEqual({ id: "2", name: "b" });
+			expect(result.current.entries[2]).toEqual({ id: "3", name: "updated-c" });
+		});
+	});
 });

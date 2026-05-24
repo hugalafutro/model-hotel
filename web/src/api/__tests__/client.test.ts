@@ -2151,6 +2151,52 @@ describe("api.logs", () => {
 			).rejects.toThrow("Failed to fetch logs (cursor): 500 error");
 		});
 	});
+
+	describe("get", () => {
+		it("fetches a log entry by id", async () => {
+			const mockEntry = { id: "log-123", model_id: "gpt-4", status_code: 200 };
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify(mockEntry), { status: 200 }),
+			);
+
+			const result = await api.logs.get("log-123");
+
+			expect(result).toEqual(mockEntry);
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/logs/log-123",
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						Authorization: "Bearer test-token",
+					}),
+				}),
+			);
+		});
+
+		it("encodes the id in the URL", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify({ id: "uuid-with/special" }), {
+					status: 200,
+				}),
+			);
+
+			await api.logs.get("uuid-with/special");
+
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/logs/uuid-with%2Fspecial",
+				expect.anything(),
+			);
+		});
+
+		it("throws on error response", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("not found", { status: 404 }),
+			);
+
+			await expect(api.logs.get("nonexistent")).rejects.toThrow(
+				"Failed to fetch log: 404 not found",
+			);
+		});
+	});
 });
 
 describe("api.appLogs", () => {

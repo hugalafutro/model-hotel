@@ -351,7 +351,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	query = `
 		SELECT COALESCE(AVG(rl.duration_ms), 0) as avg_duration
 		FROM request_logs rl` + vkJoin + `
-		WHERE rl.created_at >= $1 AND rl.status_code >= 200 AND rl.status_code < 400` + vkFilter
+		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
 	if err != nil {
@@ -363,7 +363,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	query = `
 		SELECT
 			COALESCE(
-				COUNT(*) FILTER (WHERE rl.status_code >= 400)::float / NULLIF(COUNT(*), 0),
+				COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0)::float / NULLIF(COUNT(*), 0),
 				0
 			) as error_rate
 		FROM request_logs rl` + vkJoin + `
@@ -407,7 +407,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 			0
 		) as avg_tokens
 		FROM request_logs rl` + vkJoin + `
-		WHERE rl.created_at >= $1 AND rl.status_code >= 200 AND rl.status_code < 400` + vkFilter
+		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTokensPerRequest)
 	if err != nil {
@@ -431,7 +431,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	query = `
 		SELECT COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0), 0) as avg_ttft
 		FROM request_logs rl` + vkJoin + `
-		WHERE rl.created_at >= $1 AND rl.status_code >= 200 AND rl.status_code < 400` + vkFilter
+		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
 	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTTFTMs)
 	if err != nil {
@@ -493,12 +493,12 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			to_char(date_bin('5 minutes', rl.created_at, '2000-01-01'), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
 			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
-			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
-			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency,
+			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
+			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
-			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as provider_latency_ms,
+			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
-			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code >= 200 AND rl.status_code < 400), 0) as avg_ttft_ms
+			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code > 0 AND rl.status_code < 400), 0) as avg_ttft_ms
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1
@@ -509,12 +509,12 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			to_char(date_trunc('` + bucketSize + `', rl.created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
 			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
-			COUNT(*) FILTER (WHERE rl.status_code >= 400) as errors,
-			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as latency,
+			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
+			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
-			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code >= 200 AND rl.status_code < 400), 0) as provider_latency_ms,
+			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
-			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code >= 200 AND rl.status_code < 400), 0) as avg_ttft_ms
+			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code > 0 AND rl.status_code < 400), 0) as avg_ttft_ms
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1

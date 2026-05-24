@@ -7,6 +7,7 @@ import type {
 	DeepSeekBalance,
 	FailoverGroup,
 	FailoverListResponse,
+	LogEntry,
 	LogsCursorResponse,
 	LogsResponse,
 	Model,
@@ -385,6 +386,13 @@ export const api = {
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch logs",
+			);
+		},
+		get: async (id: string): Promise<LogEntry> => {
+			return fetchJSON<LogEntry>(
+				`${API_BASE}/api/logs/${encodeURIComponent(id)}`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch log",
 			);
 		},
 		purge: async (olderThan: string): Promise<void> => {

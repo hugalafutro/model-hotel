@@ -37,6 +37,7 @@ export interface UseBidirectionalFetchReturn<T> {
 	fetchNewer: () => Promise<void>;
 	fetchOlder: () => Promise<void>;
 	reset: () => void;
+	mergeEntries: (updated: T[]) => void;
 }
 
 function deepEqualFilters(
@@ -95,6 +96,17 @@ export function useBidirectionalFetch<T>({
 		isLoadingAfterRef.current = false;
 		isLoadingInitialRef.current = false;
 	}, []);
+
+	const mergeEntries = useCallback(
+		(updated: T[]) => {
+			if (updated.length === 0) return;
+			setEntries((prev) => {
+				const updateMap = new Map(updated.map((e) => [getId(e), e]));
+				return prev.map((e) => updateMap.get(getId(e)) ?? e);
+			});
+		},
+		[getId],
+	);
 
 	const fetchInitial = useCallback(async () => {
 		if (isLoadingInitialRef.current) return;
@@ -277,5 +289,6 @@ export function useBidirectionalFetch<T>({
 		fetchNewer,
 		fetchOlder,
 		reset,
+		mergeEntries,
 	};
 }
