@@ -834,4 +834,226 @@ describe("VirtualLogTable", () => {
 			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
 		});
 	});
+
+	describe("TTFT formatting", () => {
+		it("renders TTFT value when ttft_ms > 0", () => {
+			const entries = [createLogEntry({ ttft_ms: 120.5 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// formatMs(120.5, 1) = "120.5ms"
+			expect(screen.getByText("120.5ms")).toBeInTheDocument();
+		});
+
+		it('renders "-" when ttft_ms is 0', () => {
+			const entries = [createLogEntry({ ttft_ms: 0 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// TTFT column should show "-"
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
+
+	describe("Cancelled request formatting", () => {
+		it('renders "-" for TPS on cancelled requests', () => {
+			const entries = [
+				createLogEntry({
+					error_message: "request cancelled",
+					tokens_per_second: 25.5,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// TPS column should show "-", not 25.5
+			const row = screen.getByText("Interrupted").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				// TPS is column index 6 (0-based: time, hash, model, provider, status, tokens, TPS)
+				expect(cells[6].textContent).toBe("-");
+			}
+		});
+
+		it('renders "-" for TTFT on cancelled requests', () => {
+			const entries = [
+				createLogEntry({
+					error_message: "request cancelled",
+					ttft_ms: 120.5,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("Interrupted").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				// TTFT is column index 7
+				expect(cells[7].textContent).toBe("-");
+			}
+		});
+	});
+
+	describe("Model ID formatting", () => {
+		it("renders model_id as-is when it contains no slash", () => {
+			const entries = [createLogEntry({ model_id: "gpt-4o-mini" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
+		});
+	});
+
+	describe("created_at formatting", () => {
+		it('renders "-" when created_at is empty', () => {
+			const entries = [createLogEntry({ created_at: "" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// The time column should show "-"
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
+
+	describe("Virtual key case sensitivity", () => {
+		it('renders "internal" (italic) for case-insensitive Internal virtual key', () => {
+			const entries = [
+				createLogEntry({ virtual_key_name: "Internal", virtual_key_id: "" }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const internalSpan = screen.getByText("internal");
+			expect(internalSpan).toBeInTheDocument();
+			expect(internalSpan).toHaveClass("text-gray-400", "italic");
+		});
+	});
+
+	describe("Virtual key fallback", () => {
+		it("renders virtual_key_id when name is empty", () => {
+			const entries = [
+				createLogEntry({ virtual_key_name: "", virtual_key_id: "vk-abc123" }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("vk-abc123")).toBeInTheDocument();
+		});
+	});
+
+	describe("Proxy overhead null", () => {
+		it('renders "-" when proxy_overhead_ms is null', () => {
+			const entries = [
+				createLogEntry({ proxy_overhead_ms: null as unknown as number }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Overhead column should show "-"
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
+
+	describe("Cancel error detection", () => {
+		it('detects "disconnect" as cancelled error', () => {
+			const entries = [createLogEntry({ error_message: "Client disconnect" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+
+		it('detects "context canceled" as cancelled error', () => {
+			const entries = [createLogEntry({ error_message: "context canceled" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+	});
+
+	describe("Request hash formatting", () => {
+		it('renders "-" when request_hash is empty', () => {
+			const entries = [createLogEntry({ request_hash: "" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Hash column should show "-"
+			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
+		});
+	});
 });
