@@ -262,6 +262,11 @@ function RequestLogs() {
 					// event payload (e.g. schema change, old server)
 					scrollFetchNewer();
 				}
+				// Always fetchNewer after request.completed to cover
+				// the race where the pending row hasn't been added to
+				// the list yet (request.started fetch still in-flight).
+				// fetchNewer is guarded against concurrent calls.
+				scrollFetchNewer();
 			} else if (event.type === "request.started") {
 				scrollFetchNewer();
 			}

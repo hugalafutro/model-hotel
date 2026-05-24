@@ -2165,4 +2165,155 @@ describe("Logs", () => {
 			expect(screen.queryByText("⚠")).not.toBeInTheDocument();
 		});
 	});
+
+	describe("SSE Live Updates", () => {
+		it("fetches log by ID and merges on request.completed event", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let singleLogCallCount = 0;
+			// Mock cursor endpoint for initial load
+			server.use(
+				http.get("/api/logs/cursor", () =>
+					HttpResponse.json({
+						entries: [
+							createMockLogEntry({
+								id: "log-1",
+								request_hash: "pending1",
+								state: "pending",
+								status_code: 0,
+							}),
+						],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					}),
+				),
+				// Mock the single-log endpoint
+				http.get("/api/logs/log-1", () => {
+					singleLogCallCount++;
+					return HttpResponse.json(
+						createMockLogEntry({
+							id: "log-1",
+							request_hash: "pending1",
+							state: "completed",
+							status_code: 200,
+							provider_name: "TestProvider",
+						}),
+					);
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			// Wait for scroll mode to render
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			// Dispatch request.completed SSE event
+			const event = new CustomEvent("server-event", {
+				detail: {
+					type: "request.completed",
+					metadata: { request_id: "log-1", model_id: "test-model" },
+				},
+			});
+			window.dispatchEvent(event);
+
+			// The single-log endpoint should have been called
+			await waitFor(
+				() => {
+					expect(singleLogCallCount).toBeGreaterThan(0);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
+		it("falls back to fetchNewer on request.completed without request_id", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let cursorCallCount = 0;
+			server.use(
+				http.get("/api/logs/cursor", () => {
+					cursorCallCount++;
+					return HttpResponse.json({
+						entries: [
+							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
+						],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			const initialCallCount = cursorCallCount;
+
+			// Dispatch request.completed without request_id
+			const event = new CustomEvent("server-event", {
+				detail: {
+					type: "request.completed",
+					metadata: {}, // no request_id
+				},
+			});
+			window.dispatchEvent(event);
+
+			// Should trigger a fetchNewer (cursor endpoint called again)
+			await waitFor(
+				() => {
+					expect(cursorCallCount).toBeGreaterThan(initialCallCount);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
+		it("calls fetchNewer on request.started event", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let cursorCallCount = 0;
+			server.use(
+				http.get("/api/logs/cursor", () => {
+					cursorCallCount++;
+					return HttpResponse.json({
+						entries: [
+							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
+						],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			const initialCallCount = cursorCallCount;
+
+			// Dispatch request.started event
+			const event = new CustomEvent("server-event", {
+				detail: {
+					type: "request.started",
+					metadata: { request_id: "new-request", model_id: "test-model" },
+				},
+			});
+			window.dispatchEvent(event);
+
+			// Should trigger a fetchNewer (cursor endpoint called again)
+			await waitFor(
+				() => {
+					expect(cursorCallCount).toBeGreaterThan(initialCallCount);
+				},
+				{ timeout: 3000 },
+			);
+		});
+	});
 });
