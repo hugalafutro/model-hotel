@@ -69,6 +69,82 @@ function setupPanel(overrides?: Partial<QuotaDataResult>) {
 }
 
 describe("ProviderQuotaPanel", () => {
+	const mockNanoUsage: import("../../api/types").NanoGPTUsage = {
+		active: true,
+		provider: "nanogpt",
+		providerStatus: "active",
+		providerStatusRaw: "active",
+		stripeSubscriptionId: "sub_123",
+		cancellationReason: null,
+		canceledAt: null,
+		endedAt: null,
+		cancelAt: null,
+		cancelAtPeriodEnd: false,
+		limits: {
+			weeklyInputTokens: 1000000,
+			dailyInputTokens: 200000,
+			dailyImages: 50,
+		},
+		allowOverage: false,
+		period: { currentPeriodEnd: "2025-12-31" },
+		dailyImages: {
+			used: 10,
+			remaining: 40,
+			percentUsed: 20,
+			resetAt: 1735689600000,
+		},
+		dailyInputTokens: {
+			used: 50000,
+			remaining: 150000,
+			percentUsed: 25,
+			resetAt: 1735689600000,
+		},
+		weeklyInputTokens: {
+			used: 500000,
+			remaining: 500000,
+			percentUsed: 50,
+			resetAt: 1735689600000,
+		},
+		state: "active",
+		graceUntil: null,
+	};
+
+	const mockOpenRouterBalance: import("../../api/types").OpenRouterBalance = {
+		label: "OR",
+		limit: null,
+		limit_reset: "",
+		limit_remaining: null,
+		usage: 0,
+		usage_daily: 0,
+		usage_weekly: 0,
+		usage_monthly: 0,
+		credits_total: 10,
+		credits_used: 5,
+		credits_remaining: 5.0,
+		is_free_tier: false,
+	};
+
+	const mockZaiCodingUsage: import("../../api/types").ZAICodingQuotaResponse = {
+		code: 0,
+		msg: "success",
+		success: true,
+		data: {
+			level: "basic",
+			limits: [
+				{
+					type: "TOKENS_LIMIT",
+					unit: 0,
+					number: 0,
+					usage: 50,
+					currentValue: 100,
+					remaining: 50,
+					percentage: 50,
+					nextResetTime: 1735689600000,
+				},
+			],
+		},
+	};
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
@@ -289,6 +365,8 @@ describe("ProviderQuotaPanel", () => {
 	});
 
 	describe("refreshMs calculation", () => {
+		// Additional refetchInterval tests below verify the hook arguments directly;
+		// these tests verify the component still renders correctly.
 		it("renders panel when refreshIntervalMin is 0 (auto-refresh disabled)", () => {
 			localStorage.setItem("sidebarQuotaRefreshMin", "0");
 			const { container } = setupPanel();
@@ -311,6 +389,182 @@ describe("ProviderQuotaPanel", () => {
 			expect(
 				container.querySelector(".sidebar-quota-panel"),
 			).toBeInTheDocument();
+		});
+	});
+
+	describe("modal rendering", () => {
+		it("opens NanoGPTQuotaModal when clicking NanoGPT badge", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showNanoBadge: true,
+				nanogptUsage: mockNanoUsage,
+				nanoWeeklyUsed: 500000,
+				nanoWeeklyLimit: 1000000,
+			});
+
+			const badge = screen.getByTitle(
+				"NanoGPT weekly token quota - click for details",
+			);
+			await user.click(badge);
+
+			expect(
+				screen.getByRole("heading", { name: "NanoGPT Subscription" }),
+			).toBeInTheDocument();
+		});
+
+		it("opens ZAICodingQuotaModal when clicking Z.ai Coding badge", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showZaiCodingBadge: true,
+				zaiCodingUsage: mockZaiCodingUsage,
+				zaiCodingFiveHour: mockZaiCodingUsage.data.limits[0],
+				zaiCodingWeekly: mockZaiCodingUsage.data.limits[0],
+			});
+
+			const badge = screen.getByTitle(
+				"Z.ai Coding Plan token quota - click for details",
+			);
+			await user.click(badge);
+
+			expect(
+				screen.getByRole("heading", { name: "Z.ai Coding Plan Quota" }),
+			).toBeInTheDocument();
+		});
+
+		it("opens OpenRouterQuotaModal when clicking OpenRouter badge", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showOrBadge: true,
+				openrouterBalance: mockOpenRouterBalance,
+			});
+
+			const badge = screen.getByTitle(
+				"OpenRouter key balance - click for details",
+			);
+			await user.click(badge);
+
+			expect(
+				screen.getByRole("heading", { name: "OpenRouter Credits" }),
+			).toBeInTheDocument();
+		});
+	});
+
+	describe("modal close", () => {
+		it("closes NanoGPTQuotaModal when clicking close button", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showNanoBadge: true,
+				nanogptUsage: mockNanoUsage,
+				nanoWeeklyUsed: 500000,
+				nanoWeeklyLimit: 1000000,
+			});
+
+			const badge = screen.getByTitle(
+				"NanoGPT weekly token quota - click for details",
+			);
+			await user.click(badge);
+
+			// Wait for modal to appear
+			await screen.findByRole("heading", { name: "NanoGPT Subscription" });
+
+			// Click close button
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+
+			// Modal should be closed
+			expect(
+				screen.queryByRole("heading", { name: "NanoGPT Subscription" }),
+			).toBeNull();
+		});
+
+		it("closes ZAICodingQuotaModal when clicking close button", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showZaiCodingBadge: true,
+				zaiCodingUsage: mockZaiCodingUsage,
+				zaiCodingFiveHour: mockZaiCodingUsage.data.limits[0],
+				zaiCodingWeekly: mockZaiCodingUsage.data.limits[0],
+			});
+
+			const badge = screen.getByTitle(
+				"Z.ai Coding Plan token quota - click for details",
+			);
+			await user.click(badge);
+
+			await screen.findByRole("heading", {
+				name: "Z.ai Coding Plan Quota",
+			});
+
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+
+			expect(
+				screen.queryByRole("heading", {
+					name: "Z.ai Coding Plan Quota",
+				}),
+			).toBeNull();
+		});
+
+		it("closes OpenRouterQuotaModal when clicking close button", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showOrBadge: true,
+				openrouterBalance: mockOpenRouterBalance,
+			});
+
+			const badge = screen.getByTitle(
+				"OpenRouter key balance - click for details",
+			);
+			await user.click(badge);
+
+			await screen.findByRole("heading", {
+				name: "OpenRouter Credits",
+			});
+
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+
+			expect(
+				screen.queryByRole("heading", {
+					name: "OpenRouter Credits",
+				}),
+			).toBeNull();
+		});
+	});
+
+	describe("collapsed + refreshing", () => {
+		it("hides refresh button when collapsed even if refreshing", () => {
+			localStorage.setItem("sidebarQuotaCollapsed", "true");
+			const { container } = setupPanel({ isNanoRefetching: true });
+
+			// Refresh button should be hidden when collapsed
+			expect(container.querySelector(".sidebar-quota-btn")).toBeNull();
+		});
+	});
+
+	describe("refetchInterval", () => {
+		it("passes false when refreshIntervalMin is 0", async () => {
+			localStorage.setItem("sidebarQuotaRefreshMin", "0");
+			setupPanel();
+
+			await vi.waitFor(() => {
+				expect(mockUseQuotaData).toHaveBeenCalledWith(
+					undefined,
+					expect.objectContaining({ refetchInterval: false }),
+				);
+			});
+		});
+
+		it("passes 300000ms when refreshIntervalMin is invalid", async () => {
+			localStorage.setItem("sidebarQuotaRefreshMin", "abc");
+			setupPanel();
+
+			await vi.waitFor(() => {
+				expect(mockUseQuotaData).toHaveBeenCalledWith(
+					undefined,
+					expect.objectContaining({ refetchInterval: 300_000 }),
+				);
+			});
 		});
 	});
 });
