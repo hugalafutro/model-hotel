@@ -427,6 +427,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 					reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
 				}
+				//nolint:gocritic // if-else chain is clearer than switch for multi-field precedence check
 				if chunk.Usage.PromptCacheHitTokens > 0 {
 					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
 					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
@@ -435,6 +436,16 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					// cache hit, remainder is cache miss (includes cache_creation tokens).
 					promptCacheHitTokens = chunk.Usage.CacheReadInputTokens
 					miss := chunk.Usage.PromptTokens - chunk.Usage.CacheReadInputTokens
+					if miss < 0 {
+						miss = 0
+					}
+					promptCacheMissTokens = miss
+				} else if chunk.Usage.PromptTokensDetails != nil && chunk.Usage.PromptTokensDetails.CachedTokens > 0 {
+					// OpenAI's official format: cached_tokens inside prompt_tokens_details.
+					// Many third-party proxies (Wafer AI, OpenRouter, NanoGPT) normalise
+					// to this structure instead of using top-level prompt_cache_hit_tokens.
+					promptCacheHitTokens = chunk.Usage.PromptTokensDetails.CachedTokens
+					miss := chunk.Usage.PromptTokens - chunk.Usage.PromptTokensDetails.CachedTokens
 					if miss < 0 {
 						miss = 0
 					}
@@ -745,6 +756,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
 		logData.tokensCompletion = chatResp.Usage.CompletionTokens
 		logData.tokensCompletionReasoning = reasoningTokens
+		//nolint:gocritic // if-else chain is clearer than switch for multi-field precedence check
 		if chatResp.Usage.PromptCacheHitTokens > 0 {
 			logData.tokensPromptCacheHit = chatResp.Usage.PromptCacheHitTokens
 			logData.tokensPromptCacheMiss = chatResp.Usage.PromptTokens - chatResp.Usage.PromptCacheHitTokens
@@ -753,6 +765,16 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			// cache hit, remainder is cache miss (includes cache_creation tokens).
 			logData.tokensPromptCacheHit = chatResp.Usage.CacheReadInputTokens
 			miss := chatResp.Usage.PromptTokens - chatResp.Usage.CacheReadInputTokens
+			if miss < 0 {
+				miss = 0
+			}
+			logData.tokensPromptCacheMiss = miss
+		} else if chatResp.Usage.PromptTokensDetails != nil && chatResp.Usage.PromptTokensDetails.CachedTokens > 0 {
+			// OpenAI's official format: cached_tokens inside prompt_tokens_details.
+			// Many third-party proxies (Wafer AI, OpenRouter, NanoGPT) normalise
+			// to this structure instead of using top-level prompt_cache_hit_tokens.
+			logData.tokensPromptCacheHit = chatResp.Usage.PromptTokensDetails.CachedTokens
+			miss := chatResp.Usage.PromptTokens - chatResp.Usage.PromptTokensDetails.CachedTokens
 			if miss < 0 {
 				miss = 0
 			}
