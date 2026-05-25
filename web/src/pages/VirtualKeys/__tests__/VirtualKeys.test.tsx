@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockVirtualKey } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -9,10 +9,6 @@ import { VirtualKeys } from "../../VirtualKeys";
 describe("VirtualKeys", () => {
 	beforeEach(() => {
 		server.resetHandlers();
-		vi.clearAllMocks();
-	});
-
-	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
@@ -321,6 +317,45 @@ describe("VirtualKeys", () => {
 			});
 		});
 
+		it("closes create modal when clicking Cancel button", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+			const cancelButton = within(dialog).getByRole("button", {
+				name: "Cancel",
+			});
+			await user.click(cancelButton);
+
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("dialog", { name: "Create Virtual Key" }),
+				).not.toBeInTheDocument();
+			});
+		});
+
 		it("edits an existing key successfully", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
@@ -412,6 +447,43 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(screen.getByText(/Failed:.*Update failed/i)).toBeInTheDocument();
+			});
+		});
+
+		it("closes edit modal when clicking Cancel button", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const editButton = screen.getByRole("button", { name: "Edit" });
+			await user.click(editButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Edit Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Edit Virtual Key",
+			});
+			const cancelButton = within(dialog).getByRole("button", {
+				name: "Cancel",
+			});
+			await user.click(cancelButton);
+
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("dialog", { name: "Edit Virtual Key" }),
+				).not.toBeInTheDocument();
 			});
 		});
 	});
@@ -726,7 +798,7 @@ describe("VirtualKeys", () => {
 			});
 		});
 
-		it("handles sorting by key field (hits default case)", async () => {
+		it("maintains order when clicking non-sortable Key column", async () => {
 			const keys = [
 				{ ...mockVirtualKey, id: "vk-001", name: "Key A" },
 				{ ...mockVirtualKey, id: "vk-002", name: "Key B" },
@@ -742,6 +814,13 @@ describe("VirtualKeys", () => {
 			const table = screen.getByRole("table");
 			const rows = within(table).getAllByRole("row");
 			expect(rows).toHaveLength(3);
+			expect(rows[1]).toHaveTextContent("Key A");
+			expect(rows[2]).toHaveTextContent("Key B");
+
+			const keyHeader = screen.getByRole("columnheader", {
+				name: "Key",
+			});
+			expect(keyHeader).toBeInTheDocument();
 		});
 	});
 

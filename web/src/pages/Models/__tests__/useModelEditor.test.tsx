@@ -410,7 +410,7 @@ describe("useModelEditor", () => {
 			expect(result.current.editing).toBe(false);
 		});
 
-		it("keeps editing true when canceling with changes while editing", () => {
+		it("sets confirmFields and keeps editing when canceling with unsaved changes", () => {
 			const { result } = renderHook(() =>
 				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
 			);

@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
@@ -607,6 +608,7 @@ describe("useConversationRunner", () => {
 			await result.current.runConversation();
 		});
 
+		// Minimum 4 calls (2 turns × 2 models), but can be higher under React strict mode
 		expect(calledSystemPrompts.length).toBeGreaterThanOrEqual(4);
 		// Each model should be called at least twice (once per turn)
 		const promptACount = calledSystemPrompts.filter(
@@ -810,8 +812,8 @@ describe("useConversationRunner", () => {
 
 		// setConversationState should be called exactly once with "paused"
 		// (from handleStopConversation), not a second time from the error handler
-		const stateCalls = params.setConversationState.mock.calls.filter(
-			(call: [ConversationState]) => call[0] === "paused",
+		const stateCalls = (params.setConversationState as Mock).mock.calls.filter(
+			(call: unknown[]) => call[0] === "paused",
 		);
 		expect(stateCalls).toHaveLength(1);
 		expect(params.conversationRunningRef.current).toBe(false);

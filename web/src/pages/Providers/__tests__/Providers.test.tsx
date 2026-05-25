@@ -1,10 +1,19 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import type { Model } from "../../../api/types";
+import type { Provider } from "../../../api/types";
+import { mockAllDefaults } from "../../../test/helpers";
 import { mockProvider } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Providers } from "../../Providers";
+
+/**
+ * Helper to set up baseline MSW handlers for Providers page tests.
+ * Use server.use(...mockProvidersPageDefaults(), ...testSpecificOverrides)
+ */
+function mockProvidersPageDefaults(overrides?: { providers?: Provider[] }) {
+	return mockAllDefaults(overrides);
+}
 
 describe("Providers", () => {
 	beforeEach(() => {
@@ -13,30 +22,7 @@ describe("Providers", () => {
 
 	describe("SSE event handling (lines 88-93)", () => {
 		it("updates discoverAllCurrentId when receiving provider_starting event", async () => {
-			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
-			);
+			server.use(...mockProvidersPageDefaults());
 
 			renderWithProviders(<Providers />);
 
@@ -70,28 +56,7 @@ describe("Providers", () => {
 	describe("discoverAllMutation (lines 108-114)", () => {
 		it("shows error toast when all providers fail (succeeded=0, failed>0)", async () => {
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults(),
 				http.post("/api/providers/discover-all", () =>
 					HttpResponse.json({ succeeded: 0, failed: 3 }),
 				),
@@ -117,28 +82,7 @@ describe("Providers", () => {
 
 		it("shows error toast when discoverAll mutation fails", async () => {
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults(),
 				http.post("/api/providers/discover-all", () =>
 					HttpResponse.json({ error: "Network error" }, { status: 500 }),
 				),
@@ -164,28 +108,7 @@ describe("Providers", () => {
 	describe("refreshQuotasMutation (lines 124-137)", () => {
 		it("shows warning toast when some quotas fail to refresh", async () => {
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults(),
 				http.post("/api/providers/refresh-quotas", () =>
 					HttpResponse.json({ refreshed: 2, failed: 1, skipped: 0 }),
 				),
@@ -211,28 +134,7 @@ describe("Providers", () => {
 
 		it("shows info toast when no providers support quota/balance", async () => {
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults(),
 				http.post("/api/providers/refresh-quotas", () =>
 					HttpResponse.json({ refreshed: 0, failed: 0, skipped: 5 }),
 				),
@@ -258,28 +160,7 @@ describe("Providers", () => {
 
 		it("shows success toast when all quotas refresh successfully", async () => {
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults(),
 				http.post("/api/providers/refresh-quotas", () =>
 					HttpResponse.json({ refreshed: 3, failed: 0, skipped: 0 }),
 				),
@@ -305,28 +186,7 @@ describe("Providers", () => {
 
 		it("shows error toast when refreshQuotas mutation fails", async () => {
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults(),
 				http.post("/api/providers/refresh-quotas", () =>
 					HttpResponse.json({ error: "Connection refused" }, { status: 500 }),
 				),
@@ -357,28 +217,7 @@ describe("Providers", () => {
 				name: "Test Provider",
 			};
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([testProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults({ providers: [testProvider] }),
 				http.post("/api/providers/:id/discover", () =>
 					HttpResponse.json({ error: "Discovery failed" }, { status: 500 }),
 				),
@@ -409,28 +248,7 @@ describe("Providers", () => {
 				name: "Test Provider",
 			};
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([testProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults({ providers: [testProvider] }),
 				http.delete("/api/providers/:id", () =>
 					HttpResponse.json({ error: "Delete failed" }, { status: 500 }),
 				),
@@ -461,6 +279,46 @@ describe("Providers", () => {
 				expect(screen.getByText(/Failed to delete:/)).toBeInTheDocument();
 			});
 		});
+
+		it("shows success toast when delete succeeds", async () => {
+			const testProvider = {
+				...mockProvider,
+				id: "provider-test",
+				name: "Test Provider",
+			};
+			server.use(
+				...mockProvidersPageDefaults({ providers: [testProvider] }),
+				http.delete(
+					"/api/providers/:id",
+					() => new HttpResponse(null, { status: 204 }),
+				),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			const deleteButton = screen.getByRole("button", {
+				name: "Delete",
+			});
+			await user.click(deleteButton);
+
+			// Wait for modal and confirm deletion within it
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeInTheDocument();
+			});
+			const dialog = screen.getByRole("dialog");
+			const confirmButton = within(dialog).getByRole("button", {
+				name: "Delete",
+			});
+			await user.click(confirmButton);
+
+			await waitFor(() => {
+				expect(screen.getByText("Provider deleted")).toBeInTheDocument();
+			});
+		});
 	});
 
 	describe("ProviderCard quota modal callbacks (lines 313-316)", () => {
@@ -472,28 +330,7 @@ describe("Providers", () => {
 				base_url: "https://nano-gpt.com/api/subscription/v1",
 			};
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([nanogptProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults({ providers: [nanogptProvider] }),
 				http.get("/api/providers/:id/usage", () =>
 					HttpResponse.json({
 						active: true,
@@ -565,28 +402,7 @@ describe("Providers", () => {
 				base_url: "https://api.z.ai/api/coding/paas/v4",
 			};
 			server.use(
-				http.get("/api/providers", () => HttpResponse.json([zaiProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults({ providers: [zaiProvider] }),
 				http.get("/api/providers/:id/usage", () =>
 					HttpResponse.json({
 						code: 0,
@@ -648,30 +464,7 @@ describe("Providers", () => {
 				base_url: "https://openrouter.ai/api/v1",
 			};
 			server.use(
-				http.get("/api/providers", () =>
-					HttpResponse.json([openrouterProvider]),
-				),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
+				...mockProvidersPageDefaults({ providers: [openrouterProvider] }),
 				http.get("/api/providers/:id/usage", () =>
 					HttpResponse.json({
 						label: "OpenRouter",
@@ -710,64 +503,6 @@ describe("Providers", () => {
 		});
 	});
 
-	describe("ProviderModelsModal (lines 384-390)", () => {
-		it("renders modal when modelsProvider is set", async () => {
-			const testProvider = {
-				...mockProvider,
-				id: "provider-test",
-				name: "Test Provider",
-			};
-			const testModels: Model[] = [
-				{
-					...mockProvider,
-					id: "model-1",
-					model_id: "test-model-1",
-					name: "Test Model 1",
-					provider_id: "provider-test",
-					provider_name: "Test Provider",
-					enabled: true,
-				},
-			] as Model[];
-
-			server.use(
-				http.get("/api/providers", () => HttpResponse.json([testProvider])),
-				http.get("/api/models", () => HttpResponse.json(testModels)),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
-			);
-
-			const { user } = renderWithProviders(<Providers />);
-
-			// Wait for provider to load
-			await waitFor(() => {
-				expect(screen.getByText("Test Provider")).toBeInTheDocument();
-			});
-
-			// Click on the model count badge to open the modal
-			// Note: mockProvider has model_count: 5, but we're not returning models for this provider
-			// So the badge won't appear. Let's just test that the modal can be triggered
-			// by directly testing the ProviderCard callback
-		});
-	});
-
 	describe("DeleteConfirmModal (lines 392-400)", () => {
 		it("renders delete confirmation modal", async () => {
 			const testProvider = {
@@ -775,30 +510,7 @@ describe("Providers", () => {
 				id: "provider-test",
 				name: "Test Provider",
 			};
-			server.use(
-				http.get("/api/providers", () => HttpResponse.json([testProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
-			);
+			server.use(...mockProvidersPageDefaults({ providers: [testProvider] }));
 
 			const { user } = renderWithProviders(<Providers />);
 
@@ -833,30 +545,7 @@ describe("Providers", () => {
 				id: "provider-test",
 				name: "Test Provider",
 			};
-			server.use(
-				http.get("/api/providers", () => HttpResponse.json([testProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
-			);
+			server.use(...mockProvidersPageDefaults({ providers: [testProvider] }));
 
 			const { user } = renderWithProviders(<Providers />);
 
@@ -887,30 +576,7 @@ describe("Providers", () => {
 				id: "provider-custom",
 				name: "My Custom Provider",
 			};
-			server.use(
-				http.get("/api/providers", () => HttpResponse.json([testProvider])),
-				http.get("/api/models", () => HttpResponse.json([])),
-				http.get("/api/settings", () => HttpResponse.json({})),
-				http.get("/api/stats", () => HttpResponse.json({} as any)),
-				http.get("/api/system", () => HttpResponse.json({} as any)),
-				http.get("/api/virtual-keys", () => HttpResponse.json([])),
-				http.get("/api/failover-groups", () =>
-					HttpResponse.json({ groups: [], last_synced_at: null }),
-				),
-				http.get("/api/backups", () => HttpResponse.json([])),
-				http.get("/api/logs", () =>
-					HttpResponse.json({
-						entries: [],
-						total: 0,
-						page: 1,
-						per_page: 25,
-					}),
-				),
-				http.get(
-					"https://api.github.com/repos/hugalafutro/model-hotel/releases/latest",
-					() => HttpResponse.json({ tag_name: "v0.0.0" }),
-				),
-			);
+			server.use(...mockProvidersPageDefaults({ providers: [testProvider] }));
 
 			const { user } = renderWithProviders(<Providers />);
 
@@ -930,6 +596,182 @@ describe("Providers", () => {
 					within(dialog).getByText("My Custom Provider"),
 				).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe("filtering and sorting", () => {
+		it("filters providers by name", async () => {
+			const providers = [
+				{ ...mockProvider, id: "p1", name: "Alpha Provider" },
+				{ ...mockProvider, id: "p2", name: "Beta Provider" },
+				{ ...mockProvider, id: "p3", name: "Gamma Provider" },
+			];
+			server.use(...mockProvidersPageDefaults({ providers }));
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Alpha Provider")).toBeInTheDocument();
+			});
+
+			const filterInput = screen.getByPlaceholderText(/Filter providers/);
+			await user.type(filterInput, "Beta");
+
+			await waitFor(() => {
+				expect(screen.getByText("Beta Provider")).toBeInTheDocument();
+				expect(screen.queryByText("Alpha Provider")).not.toBeInTheDocument();
+			});
+		});
+
+		it("filters providers by type", async () => {
+			const providers = [
+				{
+					...mockProvider,
+					id: "p1",
+					name: "OpenAI",
+					base_url: "https://api.openai.com/v1",
+				},
+				{
+					...mockProvider,
+					id: "p2",
+					name: "Anthropic",
+					base_url: "https://api.anthropic.com",
+				},
+			];
+			server.use(...mockProvidersPageDefaults({ providers }));
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("OpenAI")).toBeInTheDocument();
+			});
+
+			// Click the type filter button (shows "Provider type" placeholder text)
+			const typeFilter = screen.getByRole("button", {
+				name: /Provider type/,
+			});
+			await user.click(typeFilter);
+
+			// Select OpenAI type from the dropdown (button shows display label "OpenAI" with count)
+			const openaiOption = screen.getByRole("button", { name: /OpenAI/ });
+			await user.click(openaiOption);
+
+			await waitFor(() => {
+				// Filter is applied - the filter button should show "OpenAI" as selected
+				const typeFilterButton = screen.getByRole("button", {
+					name: /OpenAI/,
+				});
+				expect(typeFilterButton).toBeInTheDocument();
+			});
+
+			// Verify Anthropic provider card is not visible (only OpenAI should be shown)
+			expect(screen.queryByText("Anthropic")).not.toBeInTheDocument();
+		});
+
+		it("sorts providers alphabetically", async () => {
+			const providers = [
+				{ ...mockProvider, id: "p1", name: "Zebra Provider" },
+				{ ...mockProvider, id: "p2", name: "Alpha Provider" },
+			];
+			server.use(...mockProvidersPageDefaults({ providers }));
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Zebra Provider")).toBeInTheDocument();
+			});
+
+			// Initial sort should be A-Z
+			const sortButton = screen.getByRole("button", {
+				name: /Sorted A-Z/,
+			});
+			expect(sortButton).toBeInTheDocument();
+
+			// Click to reverse to Z-A
+			await user.click(sortButton);
+
+			// Now should be Z-A
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: /Sorted Z-A/ }),
+				).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("empty states", () => {
+		it("shows empty state when no providers exist", async () => {
+			server.use(...mockProvidersPageDefaults({ providers: [] }));
+
+			renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText(/No providers configured/)).toBeInTheDocument();
+			});
+		});
+	});
+
+	it("shows filter empty state when no providers match filter", async () => {
+		const providers = [{ ...mockProvider, id: "p1", name: "Alpha Provider" }];
+		server.use(...mockProvidersPageDefaults({ providers }));
+
+		const { user } = renderWithProviders(<Providers />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Alpha Provider")).toBeInTheDocument();
+		});
+
+		const filterInput = screen.getByPlaceholderText(/Filter providers/);
+		await user.type(filterInput, "nonexistent");
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/No providers match the selected filter/),
+			).toBeInTheDocument();
+		});
+	});
+});
+
+describe("modal interactions", () => {
+	it("opens Add Provider modal when clicking + Add Provider button", async () => {
+		server.use(...mockProvidersPageDefaults());
+
+		const { user } = renderWithProviders(<Providers />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Test Provider")).toBeInTheDocument();
+		});
+
+		const addButton = screen.getByRole("button", {
+			name: "+ Add Provider",
+		});
+		await user.click(addButton);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("heading", { name: "Add Provider" }),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("opens Edit Provider modal when clicking Edit button", async () => {
+		server.use(...mockProvidersPageDefaults());
+
+		const { user } = renderWithProviders(<Providers />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Test Provider")).toBeInTheDocument();
+		});
+
+		const editButton = screen.getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("heading", { name: "Edit Provider" }),
+			).toBeInTheDocument();
 		});
 	});
 });
