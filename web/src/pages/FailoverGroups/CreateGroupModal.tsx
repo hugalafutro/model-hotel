@@ -30,24 +30,55 @@ export function CreateGroupModal({
 	const [description, setDescription] = useState(group?.description ?? "");
 
 	// Map candidates to ModelItem format for ModelPicker
-	const modelItems = useMemo<ModelItem[]>(
-		() =>
-			candidates.map((c) => ({
-				provider_name: c.provider_name,
-				model_id: c.model_id,
-				display_name: c.display_name || undefined,
-			})),
-		[candidates],
-	);
+	// In edit mode, also include group entries whose providers are no longer in candidates
+	// so they appear as selectable pills and aren't silently dropped on submit
+	const modelItems = useMemo<ModelItem[]>(() => {
+		const seen = new Set<string>();
+		const items: ModelItem[] = [];
+		for (const c of candidates) {
+			const pid = proxyModelID(c.provider_name, c.model_id);
+			if (!seen.has(pid)) {
+				seen.add(pid);
+				items.push({
+					provider_name: c.provider_name,
+					model_id: c.model_id,
+					display_name: c.display_name || undefined,
+				});
+			}
+		}
+		if (group) {
+			for (const e of group.entries) {
+				const pid = proxyModelID(e.provider_name, e.model_id);
+				if (!seen.has(pid)) {
+					seen.add(pid);
+					items.push({
+						provider_name: e.provider_name,
+						model_id: e.model_id,
+						display_name: e.display_name || undefined,
+					});
+				}
+			}
+		}
+		return items;
+	}, [candidates, group]);
 
 	// Build proxyID → model_uuid lookup for submission
+	// Includes candidates AND group entries (edit mode) so unavailable providers aren't lost
 	const proxyToUuid = useMemo(() => {
 		const map = new Map<string, string>();
 		for (const c of candidates) {
 			map.set(proxyModelID(c.provider_name, c.model_id), c.model_uuid);
 		}
+		if (group) {
+			for (const e of group.entries) {
+				const pid = proxyModelID(e.provider_name, e.model_id);
+				if (!map.has(pid)) {
+					map.set(pid, e.model_uuid);
+				}
+			}
+		}
 		return map;
-	}, [candidates]);
+	}, [candidates, group]);
 
 	// In edit mode, pre-select entries from the group
 	const [selectedProxyIDs, setSelectedProxyIDs] = useState<string[]>(() => {
@@ -103,7 +134,7 @@ export function CreateGroupModal({
 				id: group.id,
 				body: {
 					display_name: displayName.trim() || undefined,
-					description: description.trim() || undefined,
+					description: description.trim(),
 					priority_order: entryUuids,
 				},
 			});

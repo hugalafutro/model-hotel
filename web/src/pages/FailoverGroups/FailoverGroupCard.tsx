@@ -91,7 +91,7 @@ export function FailoverGroupCard({
 
 	return (
 		<div
-			className={`ui-card p-3 ${
+			className={`ui-card p-3 flex flex-col ${
 				group.group_enabled ? "border-(--accent)/30" : "opacity-60"
 			}`}
 		>
@@ -173,7 +173,7 @@ export function FailoverGroupCard({
 				</SortableContext>
 			</DndContext>
 
-			<div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+			<div className="flex items-center justify-between mt-auto pt-2 text-xs text-gray-500">
 				<span>
 					{enabledCount}/{totalCount} active •{" "}
 					{formatTokens(group.total_tokens)} tokens

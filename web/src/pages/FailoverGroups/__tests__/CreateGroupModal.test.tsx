@@ -925,5 +925,63 @@ describe("CreateGroupModal", () => {
 
 			expect(mockOnUpdated).not.toHaveBeenCalled();
 		});
+
+		it("preserves entries from group not present in candidates", () => {
+			// Simulate a group with an entry whose provider is no longer in candidates
+			const groupWithUnavailableEntry: FailoverGroup = {
+				...mockEditGroup,
+				entries: [
+					...mockEditGroup.entries,
+					{
+						model_uuid: "uuid-unavailable",
+						model_id: "old-model",
+						provider_id: "p-old",
+						provider_name: "Old Provider",
+						display_name: "Old Model",
+						enabled: true,
+						context_length: 4096,
+						owned_by: "old",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupWithUnavailableEntry}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// All 3 entries should show as selected (2 from candidates + 1 unavailable)
+			expect(screen.getByText("3 selected")).toBeInTheDocument();
+
+			// The unavailable entry's provider should appear as a pill
+			expect(screen.getByText("Old Model")).toBeInTheDocument();
+		});
+
+		it("sends empty description when cleared in edit mode", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Clear the description field
+			const descInput = screen.getByLabelText("Description (optional)");
+			await user.clear(descInput);
+			expect(descInput).toHaveValue("");
+
+			// Submit
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(mockOnUpdated).toHaveBeenCalled();
+			});
+		});
 	});
 });

@@ -485,19 +485,28 @@ export const handlers: RequestHandler[] = [
 		}
 		const existing = store.failoverGroups[idx];
 
-		// Process priority_order: reorder entries to match UUID order
+		// Process priority_order: build entries from the ordered UUID list only
 		const priorityOrder = body.priority_order as string[] | undefined;
 		let entries = existing.entries;
 		if (priorityOrder && priorityOrder.length > 0) {
-			const reordered = priorityOrder
-				.map((uuid) => existing.entries.find((e) => e.model_uuid === uuid))
-				.filter((e): e is (typeof existing.entries)[number] => e !== undefined);
-			// Append any entries not in priority_order (e.g. newly added)
-			const includedUuids = new Set(priorityOrder);
-			const remaining = existing.entries.filter(
-				(e) => !includedUuids.has(e.model_uuid),
+			const existingByUuid = new Map(
+				existing.entries.map((e) => [e.model_uuid, e]),
 			);
-			entries = [...reordered, ...remaining];
+			entries = priorityOrder.map((uuid) => {
+				const existingEntry = existingByUuid.get(uuid);
+				if (existingEntry) return existingEntry;
+				// New entry not in existing group: create stub
+				return {
+					model_uuid: uuid,
+					model_id: `model-${uuid.slice(0, 8)}`,
+					provider_id: "stub",
+					provider_name: "Unknown Provider",
+					display_name: `Model ${uuid.slice(0, 8)}`,
+					enabled: true,
+					context_length: null,
+					owned_by: "unknown",
+				};
+			});
 		}
 
 		// Process entry_enabled: toggle individual entry enabled state
@@ -514,9 +523,13 @@ export const handlers: RequestHandler[] = [
 		const updated: FailoverGroup = {
 			...existing,
 			display_name:
-				(body.display_name as string | undefined) ?? existing.display_name,
+				body.display_name !== undefined
+					? (body.display_name as string | null)
+					: existing.display_name,
 			description:
-				(body.description as string | undefined) ?? existing.description,
+				body.description !== undefined
+					? (body.description as string)
+					: existing.description,
 			group_enabled:
 				(body.group_enabled as boolean | undefined) ?? existing.group_enabled,
 			entries,
