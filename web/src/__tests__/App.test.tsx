@@ -470,4 +470,52 @@ describe("Route navigation", () => {
 			expect(screen.getByText("Arena")).toBeInTheDocument();
 		});
 	});
+
+	it("navigates to Dashboard page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const dashboardLink = screen.getByRole("link", { name: "Dashboard" });
+		await userEvent.click(dashboardLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Providers page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const providersLink = screen.getByRole("link", { name: "Providers" });
+		await userEvent.click(providersLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Providers")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Models page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const modelsLink = screen.getByRole("link", { name: "Models" });
+		await userEvent.click(modelsLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Models")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Failover Groups page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const failoverLink = screen.getByRole("link", { name: "Failover" });
+		await userEvent.click(failoverLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Failover Groups")).toBeInTheDocument();
+		});
+	});
 });

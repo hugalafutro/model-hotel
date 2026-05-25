@@ -2,7 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Model } from "../../../api/types";
-import { mockModel, mockProvider } from "../../../test/mocks/data";
+import { mockAllDefaults } from "../../../test/helpers";
+import { mockModel } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Models } from "../../Models";
@@ -17,14 +18,7 @@ describe("Models", () => {
 		it("starts in scroll mode by default and shows VirtualModelTable", async () => {
 			localStorage.removeItem("modelsViewMode");
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			renderWithProviders(<Models />);
 
@@ -45,14 +39,7 @@ describe("Models", () => {
 		it("switches from scroll to paginate mode when clicking toggle", async () => {
 			localStorage.removeItem("modelsViewMode");
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			const { user } = renderWithProviders(<Models />);
 
@@ -77,14 +64,7 @@ describe("Models", () => {
 		});
 
 		it("switches from paginate to scroll mode when clicking toggle", async () => {
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			const { user } = renderWithProviders(<Models />);
 
@@ -109,14 +89,7 @@ describe("Models", () => {
 		it("does not show loading spinner in scroll mode even when models query is disabled", async () => {
 			localStorage.removeItem("modelsViewMode");
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			renderWithProviders(<Models />);
 
@@ -149,14 +122,7 @@ describe("Models", () => {
 
 	describe("Rendering", () => {
 		it("renders page header with correct title and icon", async () => {
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			renderWithProviders(<Models />);
 
@@ -175,14 +141,7 @@ describe("Models", () => {
 				{ ...mockModel, id: "model-003", enabled: false },
 			];
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json(models);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults({ models }));
 
 			renderWithProviders(<Models />);
 
@@ -196,14 +155,7 @@ describe("Models", () => {
 		});
 
 		it("renders model table with models", async () => {
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			renderWithProviders(<Models />);
 
@@ -222,14 +174,7 @@ describe("Models", () => {
 		});
 
 		it("renders empty state when no models", async () => {
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults({ models: [] }));
 
 			renderWithProviders(<Models />);
 
@@ -249,14 +194,7 @@ describe("Models", () => {
 				model_id: `test-model-${i}`,
 			}));
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json(models);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults({ models }));
 
 			renderWithProviders(<Models />);
 
@@ -271,14 +209,7 @@ describe("Models", () => {
 				{ ...mockModel, id: "model-002", enabled: true },
 			];
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json(models);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults({ models }));
 
 			renderWithProviders(<Models />);
 
@@ -296,14 +227,7 @@ describe("Models", () => {
 				{ ...mockModel, id: "model-002", enabled: false },
 			];
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json(models);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults({ models }));
 
 			renderWithProviders(<Models />);
 
@@ -318,14 +242,7 @@ describe("Models", () => {
 
 	describe("Model Interactions", () => {
 		it("opens model detail modal when clicking on a model", async () => {
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults());
 
 			const { user } = renderWithProviders(<Models />);
 
@@ -346,12 +263,7 @@ describe("Models", () => {
 
 		it("handles updateMutation success via ModelDetailModal", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.patch("/api/models/:id", async ({ request, params }) => {
 					const body = (await request.json()) as Partial<Model>;
 					return HttpResponse.json({
@@ -400,12 +312,7 @@ describe("Models", () => {
 
 		it("handles updateMutation error via ModelDetailModal", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.patch("/api/models/:id", () => {
 					return HttpResponse.json(
 						{ error: "Database connection failed" },
@@ -452,12 +359,7 @@ describe("Models", () => {
 
 		it("handles deleteMutation success via ModelDetailModal", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.delete("/api/models/:id", () => {
 					return new HttpResponse(null, { status: 204 });
 				}),
@@ -493,16 +395,18 @@ describe("Models", () => {
 					screen.getByText("Model deleted successfully"),
 				).toBeInTheDocument();
 			});
+
+			// Modal should close after deletion
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("heading", { name: "Test Model v1" }),
+				).not.toBeInTheDocument();
+			});
 		});
 
 		it("handles deleteMutation error via ModelDetailModal", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.delete("/api/models/:id", () => {
 					return HttpResponse.json(
 						{ error: "Database constraint violation" },
@@ -543,12 +447,7 @@ describe("Models", () => {
 
 		it("calls handleDiscover and invalidates queries", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.post("/api/providers/:id/discover", () => {
 					return HttpResponse.json({ discovered: 5 });
 				}),
@@ -587,12 +486,7 @@ describe("Models", () => {
 
 		it("calls handleTest and shows success toast", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.post("/api/models/:id/test", () => {
 					return HttpResponse.json({
 						success: true,
@@ -634,12 +528,7 @@ describe("Models", () => {
 
 		it("calls handleTest and shows error toast on failure", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.post("/api/models/:id/test", () => {
 					return HttpResponse.json({
 						success: false,
@@ -678,12 +567,7 @@ describe("Models", () => {
 
 		it("calls handleTest and shows error toast on exception", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.post("/api/models/:id/test", () => {
 					return HttpResponse.json(
 						{ error: "Connection refused" },
@@ -719,12 +603,7 @@ describe("Models", () => {
 
 		it("toggles model enabled/disabled state", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.patch("/api/models/:id", async ({ params }) => {
 					return HttpResponse.json({
 						...mockModel,
@@ -764,12 +643,7 @@ describe("Models", () => {
 
 		it("handles toggleMutation onError", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.patch("/api/models/:id", () => {
 					return HttpResponse.json(
 						{ error: "Database connection failed" },
@@ -808,12 +682,7 @@ describe("Models", () => {
 
 		it("updates detailModel state on toggle success", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
+				...mockAllDefaults(),
 				http.patch("/api/models/:id", async ({ params }) => {
 					return HttpResponse.json({
 						...mockModel,
@@ -852,6 +721,59 @@ describe("Models", () => {
 				).toBeInTheDocument();
 			});
 		});
+
+		it("toggles model from disabled to enabled and shows 'Model enabled' toast", async () => {
+			const disabledModel = {
+				...mockModel,
+				id: "model-disabled",
+				enabled: false,
+			};
+
+			server.use(
+				...mockAllDefaults({ models: [disabledModel] }),
+				http.patch("/api/models/:id", async ({ params }) => {
+					return HttpResponse.json({
+						...disabledModel,
+						id: params.id as string,
+						enabled: true,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Models />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Model")).toBeInTheDocument();
+			});
+
+			// Open detail modal
+			await user.click(screen.getByText("Test Model"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Test Model v1" }),
+				).toBeInTheDocument();
+			});
+
+			// Find and click the toggle button (should show "Disabled" initially)
+			const modal = screen.getByRole("dialog");
+			const toggleButton = within(modal).getByRole("button", {
+				name: "Disabled",
+			});
+			await user.click(toggleButton);
+
+			// Should show "Model enabled" toast
+			await waitFor(() => {
+				expect(screen.getByText("Model enabled")).toBeInTheDocument();
+			});
+
+			// After toggle, button should now show "Enabled"
+			await waitFor(() => {
+				expect(
+					within(modal).getByRole("button", { name: "Enabled" }),
+				).toBeInTheDocument();
+			});
+		});
 	});
 
 	describe("countLabel", () => {
@@ -859,14 +781,7 @@ describe("Models", () => {
 			// Ensure paginate mode is set
 			localStorage.setItem("modelsViewMode", "paginate");
 
-			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([]);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-			);
+			server.use(...mockAllDefaults({ models: [] }));
 
 			renderWithProviders(<Models />);
 
@@ -885,32 +800,27 @@ describe("Models", () => {
 	describe("API Error Handling", () => {
 		it("handles models API error gracefully", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json(
-						{ error: "Failed to fetch" },
-						{ status: 500 },
-					);
-				}),
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
+				...mockAllDefaults({
+					models: { status: 500, body: { error: "Failed to fetch" } },
 				}),
 			);
 
 			renderWithProviders(<Models />);
 
-			// Should handle error gracefully - may show empty state or error
+			// On query error, models is undefined, so models ?? [] = []
+			// Component renders empty state
 			await waitFor(() => {
 				expect(
-					screen.queryByText(/No models|Failed:|Error/),
+					screen.getByText(
+						"No models discovered yet. Add a provider and discover models.",
+					),
 				).toBeInTheDocument();
 			});
 		});
 
 		it("handles providers API error gracefully", async () => {
 			server.use(
-				http.get("/api/models", () => {
-					return HttpResponse.json([mockModel]);
-				}),
+				...mockAllDefaults(),
 				http.get("/api/providers", () => {
 					return HttpResponse.json(
 						{ error: "Failed to fetch" },
