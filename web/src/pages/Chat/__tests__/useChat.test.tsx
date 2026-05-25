@@ -316,8 +316,11 @@ describe("useChat", () => {
 				setLogsSubMode: vi.fn(),
 			});
 			const { result } = renderHook(() => useChat());
-			const handleSendSpy = vi.spyOn(result.current, "handleSend");
-			const handleStopSpy = vi.spyOn(result.current, "handleStop");
+			act(() => {
+				result.current.setIsStreaming(true);
+				result.current.setInput("Hello");
+				result.current.setChatSelectedModel("Provider/model");
+			});
 			act(() => {
 				result.current.handleKeyDown({
 					key: "Enter",
@@ -325,8 +328,8 @@ describe("useChat", () => {
 					preventDefault: vi.fn(),
 				} as unknown as React.KeyboardEvent);
 			});
-			expect(handleSendSpy).not.toHaveBeenCalled();
-			expect(handleStopSpy).not.toHaveBeenCalled();
+			expect(result.current.isStreaming).toBe(true);
+			expect(result.current.messages).toEqual([]);
 		});
 	});
 
