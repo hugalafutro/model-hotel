@@ -562,6 +562,7 @@ export function useChat() {
 						if (lastPromptRef.current) {
 							setInput(lastPromptRef.current);
 						}
+						toast("Message deleted", "info");
 						return [];
 					}
 
@@ -570,6 +571,7 @@ export function useChat() {
 						setConversationState("idle");
 						setCurrentTurn(0);
 						setInput(remaining[0].content);
+						toast("Message deleted", "info");
 						return [];
 					}
 
@@ -585,9 +587,9 @@ export function useChat() {
 					}
 				}
 
+				toast("Message deleted", "info");
 				return prev.filter((_, i) => !toRemove.has(i));
 			});
-			toast("Message deleted", "info");
 		},
 		[
 			chatSubMode,

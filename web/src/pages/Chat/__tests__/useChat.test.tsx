@@ -1001,6 +1001,7 @@ describe("useChat", () => {
 				"Can only delete the most recent response",
 				"error",
 			);
+			expect(mockToast).not.toHaveBeenCalledWith("Message deleted", "info");
 		});
 
 		it("deletes the last streaming message successfully", () => {
