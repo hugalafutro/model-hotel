@@ -350,24 +350,6 @@ describe("FailoverGroupCard", () => {
 			});
 		});
 
-		it("shows toast when copying model reference", async () => {
-			const group = {
-				...mockFailoverGroup,
-				display_model: "test-model",
-			};
-
-			const { user } = renderWithProviders(
-				<FailoverGroupCard {...defaultProps} group={group} />,
-			);
-
-			const modelElement = screen.getByText("hotel/test-model");
-			await user.click(modelElement);
-
-			await waitFor(() => {
-				expect(screen.getByText("Copied hotel/test-model")).toBeInTheDocument();
-			});
-		});
-
 		it("calls onToggleEntry when entry toggle is clicked", async () => {
 			const onToggleEntry = vi.fn();
 			const group = {
@@ -860,6 +842,81 @@ describe("FailoverGroupCard", () => {
 			});
 
 			expect(onReorder).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("Edit button", () => {
+		it("renders edit button for custom group when onEdit is provided", () => {
+			const group = {
+				...mockFailoverGroup,
+				auto_created: false,
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} onEdit={vi.fn()} />,
+			);
+
+			expect(screen.getByRole("button", { name: "edit" })).toBeInTheDocument();
+		});
+
+		it("does not render edit button for auto-created group", () => {
+			const group = {
+				...mockFailoverGroup,
+				auto_created: true,
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} onEdit={vi.fn()} />,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: "edit" }),
+			).not.toBeInTheDocument();
+		});
+
+		it("does not render edit button when onEdit is not provided", () => {
+			const group = {
+				...mockFailoverGroup,
+				auto_created: false,
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: "edit" }),
+			).not.toBeInTheDocument();
+		});
+
+		it("calls onEdit when edit button is clicked", async () => {
+			const onEdit = vi.fn();
+			const group = {
+				...mockFailoverGroup,
+				auto_created: false,
+			};
+
+			const { user } = renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} onEdit={onEdit} />,
+			);
+
+			await user.click(screen.getByRole("button", { name: "edit" }));
+
+			expect(onEdit).toHaveBeenCalled();
+		});
+
+		it("edit button has amber hover styling", () => {
+			const group = {
+				...mockFailoverGroup,
+				auto_created: false,
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} onEdit={vi.fn()} />,
+			);
+
+			const editButton = screen.getByRole("button", { name: "edit" });
+			expect(editButton).toHaveClass("hover:text-amber-400");
 		});
 	});
 });

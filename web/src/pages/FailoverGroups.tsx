@@ -19,6 +19,7 @@ export function FailoverGroups() {
 	const queryClient = useQueryClient();
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
+	const [editGroup, setEditGroup] = useState<FailoverGroup | null>(null);
 	const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
 	const [bulkDeleteIds, setBulkDeleteIds] = useState<Set<string> | null>(null);
 	const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -593,6 +594,7 @@ export function FailoverGroups() {
 														handleReorder(group, newOrder)
 													}
 													onDelete={() => handleDelete(group)}
+													onEdit={() => setEditGroup(group)}
 												/>
 											))}
 										</div>
@@ -703,6 +705,15 @@ export function FailoverGroups() {
 					candidates={candidates}
 					onClose={() => setShowCreateModal(false)}
 					onCreated={() => setShowCreateModal(false)}
+				/>
+			)}
+
+			{editGroup && candidates && (
+				<CreateGroupModal
+					candidates={candidates}
+					group={editGroup}
+					onClose={() => setEditGroup(null)}
+					onUpdated={() => setEditGroup(null)}
 				/>
 			)}
 

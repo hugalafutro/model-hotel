@@ -1,78 +1,166 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../../api/client";
-import type { CandidateModel } from "../../api/types";
+import type { CandidateModel, FailoverGroup } from "../../api/types";
 import { Modal } from "../../components/Modal";
+import type { ModelItem } from "../../components/ModelPicker";
+import { ModelPicker } from "../../components/ModelPicker";
 import { useToast } from "../../context/ToastContext";
+import { proxyModelID } from "../../utils/model";
 
 export function CreateGroupModal({
 	candidates,
+	group,
 	onClose,
 	onCreated,
+	onUpdated,
 }: {
 	candidates: CandidateModel[];
+	group?: FailoverGroup;
 	onClose: () => void;
-	onCreated: () => void;
+	onCreated?: () => void;
+	onUpdated?: () => void;
 }) {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
-	const [displayModel, setDisplayModel] = useState("");
-	const [displayName, setDisplayName] = useState("");
-	const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
-	const [search, setSearch] = useState("");
+	const isEdit = !!group;
+
+	const [displayModel, setDisplayModel] = useState(group?.display_model ?? "");
+	const [displayName, setDisplayName] = useState(group?.display_name ?? "");
+	const [description, setDescription] = useState(group?.description ?? "");
+
+	// Map candidates to ModelItem format for ModelPicker
+	// In edit mode, also include group entries whose providers are no longer in candidates
+	// so they appear as selectable pills and aren't silently dropped on submit
+	const modelItems = useMemo<ModelItem[]>(() => {
+		const seen = new Set<string>();
+		const items: ModelItem[] = [];
+		for (const c of candidates) {
+			const pid = proxyModelID(c.provider_name, c.model_id);
+			if (!seen.has(pid)) {
+				seen.add(pid);
+				items.push({
+					provider_name: c.provider_name,
+					model_id: c.model_id,
+					display_name: c.display_name || undefined,
+				});
+			}
+		}
+		if (group) {
+			for (const e of group.entries) {
+				const pid = proxyModelID(e.provider_name, e.model_id);
+				if (!seen.has(pid)) {
+					seen.add(pid);
+					items.push({
+						provider_name: e.provider_name,
+						model_id: e.model_id,
+						display_name: e.display_name || undefined,
+					});
+				}
+			}
+		}
+		return items;
+	}, [candidates, group]);
+
+	// Build proxyID → model_uuid lookup for submission
+	// Includes candidates AND group entries (edit mode) so unavailable providers aren't lost
+	const proxyToUuid = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const c of candidates) {
+			map.set(proxyModelID(c.provider_name, c.model_id), c.model_uuid);
+		}
+		if (group) {
+			for (const e of group.entries) {
+				const pid = proxyModelID(e.provider_name, e.model_id);
+				if (!map.has(pid)) {
+					map.set(pid, e.model_uuid);
+				}
+			}
+		}
+		return map;
+	}, [candidates, group]);
+
+	// In edit mode, pre-select entries from the group
+	const [selectedProxyIDs, setSelectedProxyIDs] = useState<string[]>(() => {
+		if (!group) return [];
+		return group.entries.map((e) => proxyModelID(e.provider_name, e.model_id));
+	});
 
 	const createMutation = useMutation({
 		mutationFn: (data: {
 			display_model: string;
 			display_name?: string;
+			description?: string;
 			entry_ids: string[];
 		}) => api.failoverGroups.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast("Failover group created", "success");
-			onCreated();
+			onCreated?.();
 		},
 		onError: (err: Error) => {
 			toast(`Failed to create group: ${err.message}`, "error");
 		},
 	});
 
-	const filteredCandidates = candidates.filter((c) =>
-		`${c.provider_name.replace(/ /g, "-")}/${c.model_id}`
-			.toLowerCase()
-			.includes(search.toLowerCase()),
-	);
-
-	const grouped = filteredCandidates.reduce(
-		(acc, c) => {
-			const key = c.model_id;
-			if (!acc[key]) acc[key] = [];
-			acc[key].push(c);
-			return acc;
+	const updateMutation = useMutation({
+		mutationFn: (data: {
+			id: string;
+			body: Parameters<typeof api.failoverGroups.update>[1];
+		}) => api.failoverGroups.update(data.id, data.body),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast("Failover group updated", "success");
+			onUpdated?.();
 		},
-		{} as Record<string, CandidateModel[]>,
-	);
+		onError: (err: Error) => {
+			toast(`Failed to update group: ${err.message}`, "error");
+		},
+	});
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!displayModel.trim()) {
-			toast("Display model name is required", "error");
-			return;
+
+		const entryUuids = selectedProxyIDs
+			.map((id) => proxyToUuid.get(id))
+			.filter((v): v is string => v !== undefined);
+
+		if (isEdit) {
+			if (entryUuids.length < 2) {
+				toast("At least 2 entries required", "error");
+				return;
+			}
+			updateMutation.mutate({
+				id: group.id,
+				body: {
+					display_name: displayName.trim(),
+					description: description.trim(),
+					priority_order: entryUuids,
+				},
+			});
+		} else {
+			if (!displayModel.trim()) {
+				toast("Display model name is required", "error");
+				return;
+			}
+			if (entryUuids.length < 2) {
+				toast("At least 2 entries required", "error");
+				return;
+			}
+			createMutation.mutate({
+				display_model: displayModel.trim(),
+				display_name: displayName.trim() || undefined,
+				description: description.trim() || undefined,
+				entry_ids: entryUuids,
+			});
 		}
-		if (selectedEntries.length < 2) {
-			toast("At least 2 entries required", "error");
-			return;
-		}
-		createMutation.mutate({
-			display_model: displayModel.trim(),
-			display_name: displayName.trim() || undefined,
-			entry_ids: selectedEntries,
-		});
 	};
+
+	const isPending = createMutation.isPending || updateMutation.isPending;
 
 	return (
 		<Modal
-			title="Create Failover Group"
+			title={isEdit ? "Edit Failover Group" : "Create Failover Group"}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable
@@ -88,15 +176,18 @@ export function CreateGroupModal({
 					<input
 						id="display-model"
 						type="text"
-						required
+						required={!isEdit}
 						maxLength={128}
 						value={displayModel}
 						onChange={(e) => setDisplayModel(e.target.value)}
+						disabled={isEdit}
 						className="ui-input"
 						placeholder="e.g., glm-5"
 					/>
 					<p className="text-gray-500 text-xs mt-1">
-						This becomes hotel/{displayModel || "model-name"} in the model list
+						{isEdit
+							? "Model name cannot be changed after creation"
+							: `This becomes hotel/${displayModel || "model-name"} in the model list`}
 					</p>
 				</div>
 
@@ -120,58 +211,34 @@ export function CreateGroupModal({
 
 				<div>
 					<label
-						htmlFor="create-group-search"
+						htmlFor="group-description"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Model Entries
+						Description (optional)
 					</label>
 					<input
-						id="create-group-search"
+						id="group-description"
 						type="text"
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						className="ui-input mb-2"
-						placeholder="Search providers/models…"
+						maxLength={256}
+						value={description}
+						onChange={(e) => setDescription(e.target.value)}
+						className="ui-input"
+						placeholder="e.g., Failover group for GLM-5 models"
 					/>
-					<div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
-						{Object.entries(grouped).map(([modelId, models]) => (
-							<div key={modelId} className="space-y-0.5">
-								<div className="text-xs text-gray-500 px-1 pt-1">{modelId}</div>
-								{models.map((m) => (
-									<label
-										key={m.model_uuid}
-										className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-800 cursor-pointer"
-									>
-										<input
-											type="checkbox"
-											checked={selectedEntries.includes(m.model_uuid)}
-											onChange={(e) => {
-												if (e.target.checked) {
-													setSelectedEntries([
-														...selectedEntries,
-														m.model_uuid,
-													]);
-												} else {
-													setSelectedEntries(
-														selectedEntries.filter((id) => id !== m.model_uuid),
-													);
-												}
-											}}
-											className="rounded border-gray-600 text-(--accent) focus:ring-(--accent)"
-										/>
-										<span className="text-sm text-gray-300">
-											{m.provider_name}
-											<span className="text-gray-500 ml-1 text-xs">
-												({m.display_name || modelId})
-											</span>
-										</span>
-									</label>
-								))}
-							</div>
-						))}
-					</div>
+				</div>
+
+				<div>
+					<ModelPicker
+						id={`failover-group-entries-${isEdit ? "edit" : "create"}`}
+						models={modelItems}
+						selected={selectedProxyIDs}
+						onChange={setSelectedProxyIDs}
+						multi={true}
+						label="Model Entries"
+						align="left"
+					/>
 					<p className="text-gray-500 text-xs mt-1">
-						{selectedEntries.length} selected
+						{selectedProxyIDs.length} selected
 					</p>
 				</div>
 
@@ -185,10 +252,16 @@ export function CreateGroupModal({
 					</button>
 					<button
 						type="submit"
-						disabled={createMutation.isPending}
+						disabled={isPending}
 						className="ui-btn ui-btn-primary"
 					>
-						{createMutation.isPending ? "Creating…" : "Create Group"}
+						{isPending
+							? isEdit
+								? "Saving…"
+								: "Creating…"
+							: isEdit
+								? "Save Changes"
+								: "Create Group"}
 					</button>
 				</div>
 			</form>

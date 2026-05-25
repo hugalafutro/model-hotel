@@ -474,6 +474,71 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json(newGroup, { status: 201 });
 	}),
 
+	http.put("/api/failover-groups/:id", async ({ request, params }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		const body = (await request.json()) as Record<string, unknown>;
+		const idx = store.failoverGroups.findIndex((g) => g.id === params.id);
+		if (idx === -1) {
+			return HttpResponse.json({ error: "Not found" }, { status: 404 });
+		}
+		const existing = store.failoverGroups[idx];
+
+		// Process priority_order: build entries from the ordered UUID list only
+		const priorityOrder = body.priority_order as string[] | undefined;
+		let entries = existing.entries;
+		if (priorityOrder && priorityOrder.length > 0) {
+			const existingByUuid = new Map(
+				existing.entries.map((e) => [e.model_uuid, e]),
+			);
+			entries = priorityOrder.map((uuid) => {
+				const existingEntry = existingByUuid.get(uuid);
+				if (existingEntry) return existingEntry;
+				// New entry not in existing group: create stub
+				return {
+					model_uuid: uuid,
+					model_id: `model-${uuid.slice(0, 8)}`,
+					provider_id: "stub",
+					provider_name: "Unknown Provider",
+					display_name: `Model ${uuid.slice(0, 8)}`,
+					enabled: true,
+					context_length: null,
+					owned_by: "unknown",
+				};
+			});
+		}
+
+		// Process entry_enabled: toggle individual entry enabled state
+		const entryEnabled = body.entry_enabled as
+			| Record<string, boolean>
+			| undefined;
+		if (entryEnabled) {
+			entries = entries.map((e) => ({
+				...e,
+				enabled: entryEnabled[e.model_uuid] ?? e.enabled,
+			}));
+		}
+
+		const updated: FailoverGroup = {
+			...existing,
+			display_name:
+				body.display_name !== undefined
+					? (body.display_name as string | null)
+					: existing.display_name,
+			description:
+				body.description !== undefined
+					? (body.description as string)
+					: existing.description,
+			group_enabled:
+				(body.group_enabled as boolean | undefined) ?? existing.group_enabled,
+			entries,
+			updated_at: new Date().toISOString(),
+		};
+		store.failoverGroups[idx] = updated;
+		return HttpResponse.json(updated);
+	}),
+
 	http.get("/api/failover-groups/candidates", ({ request }) => {
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
