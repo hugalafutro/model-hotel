@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
+import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	Model,
@@ -7,6 +8,7 @@ import type {
 	Stats,
 	TimeSeriesStats,
 } from "../../../api/types";
+import { ToastContext } from "../../../context/ToastContext";
 import { mockModel, mockProvider, mockStats } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { AllProviders } from "../../../test/utils";
@@ -16,6 +18,7 @@ describe("useDashboard", () => {
 	beforeEach(() => {
 		localStorage.clear();
 		server.resetHandlers();
+		process.env.TZ = "UTC";
 	});
 
 	describe("deserializeRange / deserializeMetric validation", () => {
@@ -128,32 +131,71 @@ describe("useDashboard", () => {
 	});
 
 	describe("handleRefresh cooldown", () => {
-		it("second call within 5s is blocked and shows cooldown toast", () => {
+		it("second call within 5s is blocked and shows cooldown toast", async () => {
+			const toastSpy = vi.fn();
+			const toastWrapper = ({ children }: { children: React.ReactNode }) => {
+				const _MockToastProvider = ({
+					children: c,
+				}: {
+					children: React.ReactNode;
+				}) => {
+					React.createElement("div", null, c);
+					return c as React.ReactElement;
+				};
+				// Create a wrapper that injects a spied toast via context
+				return React.createElement(
+					ToastContext.Provider,
+					{
+						value: {
+							toast: toastSpy,
+							position: "bottom-center",
+							setToastPosition: vi.fn(),
+							timeout: 4000,
+							setToastTimeout: vi.fn(),
+						},
+					},
+					children,
+				);
+			};
+
 			const { result } = renderHook(() => useDashboard(), {
-				wrapper: AllProviders,
+				wrapper: ({ children }: { children: React.ReactNode }) =>
+					AllProviders({ children, toastWrapper } as any),
 			});
 
 			// First call should succeed
+			await waitFor(() => {
+				expect(result.current.stats).toBeDefined();
+			});
+
 			act(() => {
 				result.current.handleRefresh();
 			});
 
 			expect(result.current.isRefreshing).toBe(true);
+			expect(toastSpy).toHaveBeenCalledWith("Refreshing dashboard…", "info");
+
+			const _callCountBefore = toastSpy.mock.calls.length;
 
 			// Second call immediately should be blocked (cooldown)
-			// We can't easily test the toast without mocking, but we can verify
-			// the isRefreshing state behavior
 			act(() => {
 				result.current.handleRefresh();
 			});
 
-			// isRefreshing should still be true (second call was blocked)
-			expect(result.current.isRefreshing).toBe(true);
+			// Cooldown toast should have been called
+			expect(toastSpy).toHaveBeenCalledWith(
+				"Please wait before refreshing again",
+				"info",
+			);
 		});
 
-		it("handleRefresh invalidates all relevant queries", () => {
+		it("handleRefresh invalidates all relevant queries", async () => {
 			const { result } = renderHook(() => useDashboard(), {
 				wrapper: AllProviders,
+			});
+
+			await waitFor(() => {
+				expect(result.current.stats).toBeDefined();
 			});
 
 			act(() => {
@@ -176,8 +218,10 @@ describe("useDashboard", () => {
 				expect(result.current.models).toBeDefined();
 			});
 
+			// handleModelClick normalizes spaces to hyphens then compares against
+			// proxyModelID output (e.g. "Test-Provider/test-model-v1")
 			act(() => {
-				result.current.handleModelClick("Test Provider");
+				result.current.handleModelClick("Test Provider/test-model-v1");
 			});
 
 			await waitFor(() => {
@@ -195,7 +239,7 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.handleModelClick("Nonexistent Provider");
+				result.current.handleModelClick("Nonexistent/model-xyz");
 			});
 
 			await waitFor(() => {
