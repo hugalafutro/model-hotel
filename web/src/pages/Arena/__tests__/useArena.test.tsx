@@ -635,13 +635,11 @@ describe("useArena", () => {
 				result.current.handleRunArena();
 			});
 
-			expect(setRunningModelsMock).toHaveBeenCalledWith(expect.any(Set));
-			const runningModelsCall = setRunningModelsMock.mock.calls.find(
-				(c) => c[0] instanceof Set,
-			);
-			expect(runningModelsCall?.[0]).toBeInstanceOf(Set);
-			expect(runningModelsCall?.[0].has("model-a")).toBe(true);
-			expect(runningModelsCall?.[0].has("model-b")).toBe(true);
+			const runningModels = setRunningModelsMock.mock
+				.calls[0]?.[0] as Set<string>;
+			expect(runningModels).toBeInstanceOf(Set);
+			expect(runningModels.has("model-a")).toBe(true);
+			expect(runningModels.has("model-b")).toBe(true);
 		});
 	});
 
@@ -1124,6 +1122,7 @@ describe("useArena", () => {
 
 			// Reset mock to prevent leakage into subsequent tests
 			vi.mocked(getArenaHistoryEnabled).mockReset();
+			vi.mocked(saveCompetitionToHistory).mockClear();
 		});
 	});
 

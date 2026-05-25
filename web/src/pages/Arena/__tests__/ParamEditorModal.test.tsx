@@ -340,7 +340,7 @@ describe("ParamEditorModal", () => {
 			<ParamEditorModal
 				{...defaultProps}
 				reasoning={true}
-				params={{ reasoning_effort: "low" } as any}
+				params={{ reasoning_effort: "low" } as Partial<GenerationParams>}
 				onChange={onChange}
 			/>,
 		);
