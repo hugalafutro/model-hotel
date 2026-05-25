@@ -430,6 +430,11 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if chunk.Usage.PromptCacheHitTokens > 0 {
 					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
 					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.PromptCacheHitTokens
+				} else if chunk.Usage.CacheReadInputTokens > 0 {
+					// Anthropic-native cache fields: cache_read_input_tokens maps to
+					// cache hit, remainder is cache miss (includes cache_creation tokens).
+					promptCacheHitTokens = chunk.Usage.CacheReadInputTokens
+					promptCacheMissTokens = chunk.Usage.PromptTokens - chunk.Usage.CacheReadInputTokens
 				}
 			}
 			// P2-7: Log native_finish_reason from OpenRouter for debugging.
@@ -739,6 +744,11 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if chatResp.Usage.PromptCacheHitTokens > 0 {
 			logData.tokensPromptCacheHit = chatResp.Usage.PromptCacheHitTokens
 			logData.tokensPromptCacheMiss = chatResp.Usage.PromptTokens - chatResp.Usage.PromptCacheHitTokens
+		} else if chatResp.Usage.CacheReadInputTokens > 0 {
+			// Anthropic-native cache fields: cache_read_input_tokens maps to
+			// cache hit, remainder is cache miss (includes cache_creation tokens).
+			logData.tokensPromptCacheHit = chatResp.Usage.CacheReadInputTokens
+			logData.tokensPromptCacheMiss = chatResp.Usage.PromptTokens - chatResp.Usage.CacheReadInputTokens
 		}
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
