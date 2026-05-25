@@ -56,19 +56,22 @@ describe("CopyablePill", () => {
 		expect(screen.getByText("Extra")).toBeInTheDocument();
 	});
 
-	it("shows tooltip on hover via title attribute", () => {
+	it("shows custom tooltip label plus full text on hover via title attribute", () => {
 		renderWithProviders(
-			<CopyablePill text="key" tooltip="Custom tooltip text" />,
+			<CopyablePill text="my-full-key-value" tooltip="Custom tooltip text" />,
 		);
 
-		const button = screen.getByText("key").closest("button");
-		expect(button).toHaveAttribute("title", "Custom tooltip text");
+		const button = screen.getByText("my-full-key-value").closest("button");
+		expect(button).toHaveAttribute(
+			"title",
+			"Custom tooltip text\nmy-full-key-value",
+		);
 	});
 
-	it("uses default tooltip when not provided", () => {
+	it("uses text as default tooltip when not provided", () => {
 		renderWithProviders(<CopyablePill text="key" />);
 
 		const button = screen.getByText("key").closest("button");
-		expect(button).toHaveAttribute("title", "Click to copy");
+		expect(button).toHaveAttribute("title", "key");
 	});
 });

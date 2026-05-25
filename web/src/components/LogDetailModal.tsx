@@ -255,6 +255,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							text={requestLog.model_id}
 							tooltip="Copy model ID"
 							textClassName="font-mono text-sm"
+							lines={2}
 						/>
 					</DetailItem>
 					<DetailItem
@@ -266,7 +267,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<CopyablePill
 							text={requestLog.id}
 							tooltip="Copy DB row ID"
-							textClassName="font-mono text-sm whitespace-normal break-words"
+							textClassName="font-mono text-sm"
 						/>
 					</DetailItem>
 					<DetailItem
