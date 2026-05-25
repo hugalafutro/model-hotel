@@ -13,7 +13,7 @@ import { CAP_META, hasCap, matchesAllCaps } from "./capMeta";
 import { FilterInput } from "./FilterInput";
 import { ProviderFilter } from "./ProviderFilter";
 
-interface ModelItem {
+export interface ModelItem {
 	provider_name: string;
 	model_id: string;
 	display_name?: string;

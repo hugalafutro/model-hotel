@@ -37,21 +37,21 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          2,038 │
-│Messages                                         74,164 │
-│Days                                                 38 │
+│Sessions                                          2,070 │
+│Messages                                         75,894 │
+│Days                                                 39 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $112.90 │
-│Avg Cost/Day                                      $2.97 │
+│Avg Cost/Day                                      $2.89 │
 │Avg Tokens/Session                                 2.8M │
-│Median Tokens/Session                            585.8K │
-│Input                                           2695.8M │
-│Output                                            18.8M │
-│Cache Read                                      3026.4M │
+│Median Tokens/Session                            590.4K │
+│Input                                           2706.9M │
+│Output                                            19.2M │
+│Cache Read                                      3164.4M │
 │Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```
@@ -358,3 +358,14 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 ### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
+
+## Star History
+<div align="center">
+<a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=timeline&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=top-left" />
+ </picture>
+</a>
+</div>

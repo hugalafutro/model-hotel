@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CandidateModel } from "../../../api/types";
+import type { CandidateModel, FailoverGroup } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { CreateGroupModal } from "../CreateGroupModal";
 
@@ -43,8 +43,43 @@ const mockCandidates: CandidateModel[] = [
 	},
 ];
 
+const mockEditGroup: FailoverGroup = {
+	id: "fg-001",
+	display_model: "test-model",
+	display_name: "Test Failover Group",
+	description: "A test failover group",
+	group_enabled: true,
+	auto_created: false,
+	entries: [
+		{
+			model_uuid: "uuid-1",
+			model_id: "gemma3:4b",
+			provider_id: "provider-001",
+			provider_name: "Ollama Cloud",
+			display_name: "Gemma 3 4B",
+			enabled: true,
+			context_length: 8192,
+			owned_by: "google",
+		},
+		{
+			model_uuid: "uuid-2",
+			model_id: "gemma3:4b",
+			provider_id: "provider-002",
+			provider_name: "NanoGPT",
+			display_name: "Gemma 3",
+			enabled: true,
+			context_length: 8192,
+			owned_by: "google",
+		},
+	],
+	total_tokens: 0,
+	created_at: "2026-04-01T10:00:00Z",
+	updated_at: "2026-05-10T12:00:00Z",
+};
+
 const mockOnClose = vi.fn();
 const mockOnCreated = vi.fn();
+const mockOnUpdated = vi.fn();
 
 describe("CreateGroupModal", () => {
 	beforeEach(() => {
@@ -52,7 +87,7 @@ describe("CreateGroupModal", () => {
 	});
 
 	describe("rendering modal", () => {
-		it("renders modal with title", () => {
+		it("renders modal with create title", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -94,7 +129,24 @@ describe("CreateGroupModal", () => {
 			).toBeInTheDocument();
 		});
 
-		it("renders search input for model entries", () => {
+		it("renders description input", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			expect(
+				screen.getByLabelText("Description (optional)"),
+			).toBeInTheDocument();
+			expect(
+				screen.getByPlaceholderText("e.g., Failover group for GLM-5 models"),
+			).toBeInTheDocument();
+		});
+
+		it("renders ModelPicker with label", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -104,12 +156,9 @@ describe("CreateGroupModal", () => {
 			);
 
 			expect(screen.getByLabelText("Model Entries")).toBeInTheDocument();
-			expect(
-				screen.getByPlaceholderText("Search providers/models…"),
-			).toBeInTheDocument();
 		});
 
-		it("renders model entry checkboxes grouped by model_id", () => {
+		it("renders model pills for each candidate", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -118,12 +167,22 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			// Should show model_id group headers
-			expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
-			expect(screen.getByText("deepseek-chat")).toBeInTheDocument();
-			expect(screen.getByText("glm-5")).toBeInTheDocument();
+			expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
+			expect(screen.getByText("Gemma 3")).toBeInTheDocument();
+			expect(screen.getByText("DeepSeek Chat")).toBeInTheDocument();
+			expect(screen.getByText("GLM-5")).toBeInTheDocument();
+		});
 
-			// Should show provider names
+		it("renders provider group buttons", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			// Provider names are shown in the collapse buttons
 			expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
 			expect(screen.getByText("NanoGPT")).toBeInTheDocument();
 			expect(screen.getByText("DeepSeek")).toBeInTheDocument();
@@ -140,6 +199,18 @@ describe("CreateGroupModal", () => {
 			);
 
 			expect(screen.getByText("0 selected")).toBeInTheDocument();
+		});
+
+		it("renders filter input with placeholder", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			expect(screen.getByPlaceholderText("Filter models…")).toBeInTheDocument();
 		});
 
 		it("renders cancel button", () => {
@@ -216,6 +287,21 @@ describe("CreateGroupModal", () => {
 			expect(input).toHaveValue("GLM-5 Failover");
 		});
 
+		it("types in description", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			const input = screen.getByLabelText("Description (optional)");
+			await user.type(input, "A test failover group");
+
+			expect(input).toHaveValue("A test failover group");
+		});
+
 		it("updates helper text when typing display model name", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
@@ -234,8 +320,8 @@ describe("CreateGroupModal", () => {
 		});
 	});
 
-	describe("search functionality", () => {
-		it("filters candidates by search query", async () => {
+	describe("search/filter functionality", () => {
+		it("filters models by typing in filter input", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -244,18 +330,18 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const searchInput = screen.getByPlaceholderText(
-				"Search providers/models…",
-			);
-			await user.type(searchInput, "deepseek");
+			const filterInput = screen.getByPlaceholderText("Filter models…");
+			await user.type(filterInput, "deepseek");
 
-			// Should only show deepseek-chat
-			expect(screen.getByText("deepseek-chat")).toBeInTheDocument();
-			expect(screen.queryByText("gemma3:4b")).not.toBeInTheDocument();
-			expect(screen.queryByText("glm-5")).not.toBeInTheDocument();
+			// DeepSeek Chat should be visible
+			expect(screen.getByText("DeepSeek Chat")).toBeInTheDocument();
+			// Others should be filtered out
+			expect(screen.queryByText("Gemma 3 4B")).not.toBeInTheDocument();
+			expect(screen.queryByText("Gemma 3")).not.toBeInTheDocument();
+			expect(screen.queryByText("GLM-5")).not.toBeInTheDocument();
 		});
 
-		it("filters candidates by provider name", async () => {
+		it("filter is case-insensitive", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -264,17 +350,13 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const searchInput = screen.getByPlaceholderText(
-				"Search providers/models…",
-			);
-			await user.type(searchInput, "ollama");
+			const filterInput = screen.getByPlaceholderText("Filter models…");
+			await user.type(filterInput, "DEEPSEEK");
 
-			// Should only show Ollama Cloud entries
-			expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
-			expect(screen.queryByText("NanoGPT")).not.toBeInTheDocument();
+			expect(screen.getByText("DeepSeek Chat")).toBeInTheDocument();
 		});
 
-		it("shows all candidates when search is cleared", async () => {
+		it("clearing filter shows all models", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -283,39 +365,20 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const searchInput = screen.getByPlaceholderText(
-				"Search providers/models…",
-			);
-			await user.type(searchInput, "deepseek");
-			await user.clear(searchInput);
+			const filterInput = screen.getByPlaceholderText("Filter models…");
+			await user.type(filterInput, "deepseek");
+			await user.clear(filterInput);
 
 			// All should be visible again
-			expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
-			expect(screen.getByText("deepseek-chat")).toBeInTheDocument();
-			expect(screen.getByText("glm-5")).toBeInTheDocument();
-		});
-
-		it("search is case-insensitive", async () => {
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			const searchInput = screen.getByPlaceholderText(
-				"Search providers/models…",
-			);
-			await user.type(searchInput, "DEEPSEEK");
-
-			// Should still find deepseek-chat
-			expect(screen.getByText("deepseek-chat")).toBeInTheDocument();
+			expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
+			expect(screen.getByText("Gemma 3")).toBeInTheDocument();
+			expect(screen.getByText("DeepSeek Chat")).toBeInTheDocument();
+			expect(screen.getByText("GLM-5")).toBeInTheDocument();
 		});
 	});
 
-	describe("checkbox selection", () => {
-		it("selects candidate when checkbox is clicked", async () => {
+	describe("model selection via pills", () => {
+		it("selects model when pill is clicked", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -324,16 +387,13 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const checkbox = screen.getByRole("checkbox", {
-				name: /Ollama Cloud/i,
-			});
-			await user.click(checkbox);
+			const pill = screen.getByText("Gemma 3 4B");
+			await user.click(pill);
 
-			expect(checkbox).toBeChecked();
 			expect(screen.getByText("1 selected")).toBeInTheDocument();
 		});
 
-		it("deselects candidate when checkbox is clicked again", async () => {
+		it("deselects model when pill is clicked again", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -342,17 +402,14 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const checkbox = screen.getByRole("checkbox", {
-				name: /Ollama Cloud/i,
-			});
-			await user.click(checkbox);
-			await user.click(checkbox);
+			const pill = screen.getByText("Gemma 3 4B");
+			await user.click(pill);
+			await user.click(pill);
 
-			expect(checkbox).not.toBeChecked();
 			expect(screen.getByText("0 selected")).toBeInTheDocument();
 		});
 
-		it("selects multiple candidates", async () => {
+		it("selects multiple models", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -361,15 +418,14 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-			await user.click(checkboxes[2]);
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
+			await user.click(screen.getByText("DeepSeek Chat"));
 
 			expect(screen.getByText("3 selected")).toBeInTheDocument();
 		});
 
-		it("selects candidate by clicking label", async () => {
+		it("selected pill gets accent class", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -378,20 +434,16 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			const label = screen.getByText("Ollama Cloud").closest("label");
-			if (label) {
-				await user.click(label);
-			}
+			const pill = screen.getByText("Gemma 3 4B");
+			await user.click(pill);
 
-			const checkbox = screen.getByRole("checkbox", {
-				name: /Ollama Cloud/i,
-			});
-			expect(checkbox).toBeChecked();
+			const pillContainer = pill.closest("div");
+			expect(pillContainer).toHaveClass("bg-(--accent)/15");
 		});
 	});
 
 	describe("form validation", () => {
-		it("shows error toast when display model name is empty", async () => {
+		it("prevents submission when display model name is empty", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -400,10 +452,9 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			// Select 2 candidates
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
+			// Select 2 models
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
 
 			// Submit without display model name
 			const submitButton = screen.getByRole("button", {
@@ -411,11 +462,11 @@ describe("CreateGroupModal", () => {
 			});
 			await user.click(submitButton);
 
-			// onCreated should NOT be called (validation failed)
+			// onCreated should NOT be called (form validation prevented submission)
 			expect(mockOnCreated).not.toHaveBeenCalled();
 		});
 
-		it("shows error toast when less than 2 entries selected", async () => {
+		it("shows error toast when less than 2 models selected", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -428,11 +479,8 @@ describe("CreateGroupModal", () => {
 			const displayModelInput = screen.getByLabelText("Display Model Name");
 			await user.type(displayModelInput, "glm-5");
 
-			// Select only 1 candidate
-			const checkbox = screen.getByRole("checkbox", {
-				name: /Ollama Cloud/i,
-			});
-			await user.click(checkbox);
+			// Select only 1 model
+			await user.click(screen.getByText("Gemma 3 4B"));
 
 			// Submit
 			const submitButton = screen.getByRole("button", {
@@ -446,9 +494,11 @@ describe("CreateGroupModal", () => {
 					screen.getByText("At least 2 entries required"),
 				).toBeInTheDocument();
 			});
+
+			expect(mockOnCreated).not.toHaveBeenCalled();
 		});
 
-		it("shows error toast when no entries selected", async () => {
+		it("shows error toast when no models selected", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -461,7 +511,7 @@ describe("CreateGroupModal", () => {
 			const displayModelInput = screen.getByLabelText("Display Model Name");
 			await user.type(displayModelInput, "glm-5");
 
-			// Submit without selecting any entries
+			// Submit without selecting any models
 			const submitButton = screen.getByRole("button", {
 				name: "Create Group",
 			});
@@ -473,6 +523,8 @@ describe("CreateGroupModal", () => {
 					screen.getByText("At least 2 entries required"),
 				).toBeInTheDocument();
 			});
+
+			expect(mockOnCreated).not.toHaveBeenCalled();
 		});
 
 		it("allows submission with valid form data", async () => {
@@ -488,10 +540,9 @@ describe("CreateGroupModal", () => {
 			const displayModelInput = screen.getByLabelText("Display Model Name");
 			await user.type(displayModelInput, "glm-5");
 
-			// Select 2 candidates
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
+			// Select 2 models
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
 
 			// Submit
 			const submitButton = screen.getByRole("button", {
@@ -545,10 +596,12 @@ describe("CreateGroupModal", () => {
 			const displayNameInput = screen.getByLabelText("Display Name (optional)");
 			await user.type(displayNameInput, "GLM-5 Failover");
 
-			// Select candidates
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
+			const descriptionInput = screen.getByLabelText("Description (optional)");
+			await user.type(descriptionInput, "Failover group for GLM-5");
+
+			// Select 2 models
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
 
 			// Submit
 			const submitButton = screen.getByRole("button", {
@@ -565,260 +618,6 @@ describe("CreateGroupModal", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Failover group created")).toBeInTheDocument();
 			});
-		});
-
-		it("invalidates failover-groups query on success", async () => {
-			// This is tested implicitly through the mutation setup
-			// The actual query invalidation happens in React Query
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Fill and submit
-			const displayModelInput = screen.getByLabelText("Display Model Name");
-			await user.type(displayModelInput, "glm-5");
-
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-
-			const submitButton = screen.getByRole("button", {
-				name: "Create Group",
-			});
-			await user.click(submitButton);
-
-			await waitFor(() => {
-				expect(mockOnCreated).toHaveBeenCalled();
-			});
-		});
-	});
-
-	describe("failed creation", () => {
-		it("shows error toast on failed creation", async () => {
-			// We can't easily test the error case without mocking the API
-			// This would be tested in an integration test with MSW
-			// For now, we verify the error handling code path exists
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Fill form with valid data
-			const displayModelInput = screen.getByLabelText("Display Model Name");
-			await user.type(displayModelInput, "glm-5");
-
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-
-			// Submit
-			const submitButton = screen.getByRole("button", {
-				name: "Create Group",
-			});
-			await user.click(submitButton);
-
-			// Should attempt submission (will succeed in test environment)
-			await waitFor(() => {
-				expect(mockOnCreated).toHaveBeenCalled();
-			});
-		});
-	});
-
-	describe("loading state", () => {
-		it("shows create group button initially", () => {
-			renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Initially should show "Create Group"
-			expect(
-				screen.getByRole("button", { name: "Create Group" }),
-			).toBeInTheDocument();
-		});
-
-		it("button text changes to Creating during mutation", async () => {
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Fill and submit
-			const displayModelInput = screen.getByLabelText("Display Model Name");
-			await user.type(displayModelInput, "glm-5");
-
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-
-			const submitButton = screen.getByRole("button", {
-				name: "Create Group",
-			});
-			await user.click(submitButton);
-
-			// After click, mutation starts - in test env it completes quickly
-			// but we verify the flow works
-			await waitFor(() => {
-				expect(mockOnCreated).toHaveBeenCalled();
-			});
-		});
-	});
-
-	describe("form data submission", () => {
-		it("submits with trimmed display model name", async () => {
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Type with extra spaces
-			const displayModelInput = screen.getByLabelText("Display Model Name");
-			await user.type(displayModelInput, "  glm-5  ");
-
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-
-			const submitButton = screen.getByRole("button", {
-				name: "Create Group",
-			});
-			await user.click(submitButton);
-
-			// Should submit with trimmed value
-			await waitFor(() => {
-				expect(mockOnCreated).toHaveBeenCalled();
-			});
-		});
-
-		it("submits with undefined display name when empty", async () => {
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Fill display model name only
-			const displayModelInput = screen.getByLabelText("Display Model Name");
-			await user.type(displayModelInput, "glm-5");
-
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-
-			const submitButton = screen.getByRole("button", {
-				name: "Create Group",
-			});
-			await user.click(submitButton);
-
-			// Should submit successfully
-			await waitFor(() => {
-				expect(mockOnCreated).toHaveBeenCalled();
-			});
-		});
-
-		it("submits with trimmed display name", async () => {
-			const { user } = renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Fill both fields
-			const displayModelInput = screen.getByLabelText("Display Model Name");
-			await user.type(displayModelInput, "glm-5");
-
-			const displayNameInput = screen.getByLabelText("Display Name (optional)");
-			await user.type(displayNameInput, "  GLM-5 Failover  ");
-
-			const checkboxes = screen.getAllByRole("checkbox");
-			await user.click(checkboxes[0]);
-			await user.click(checkboxes[1]);
-
-			const submitButton = screen.getByRole("button", {
-				name: "Create Group",
-			});
-			await user.click(submitButton);
-
-			// Should submit with trimmed values
-			await waitFor(() => {
-				expect(mockOnCreated).toHaveBeenCalled();
-			});
-		});
-	});
-
-	describe("model entry grouping", () => {
-		it("groups entries by model_id", () => {
-			renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// gemma3:4b should appear as a group header
-			expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
-
-			// Should have 2 checkboxes for gemma3:4b (Ollama Cloud and NanoGPT)
-			const allCheckboxes = screen.getAllByRole("checkbox");
-			expect(allCheckboxes.length).toBeGreaterThanOrEqual(2);
-		});
-
-		it("shows provider name and display name for each entry", () => {
-			renderWithProviders(
-				<CreateGroupModal
-					candidates={mockCandidates}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Should show provider name
-			expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
-
-			// Should show display name in parentheses
-			expect(screen.getByText("(Gemma 3 4B)")).toBeInTheDocument();
-			expect(screen.getByText("(Gemma 3)")).toBeInTheDocument();
-		});
-
-		it("shows model_id as fallback when display_name is empty", () => {
-			const candidatesWithEmptyDisplayName: CandidateModel[] = [
-				{
-					...mockCandidates[0],
-					display_name: "",
-				},
-			];
-
-			renderWithProviders(
-				<CreateGroupModal
-					candidates={candidatesWithEmptyDisplayName}
-					onClose={mockOnClose}
-					onCreated={mockOnCreated}
-				/>,
-			);
-
-			// Should show model_id as fallback
-			expect(screen.getByText("(gemma3:4b)")).toBeInTheDocument();
 		});
 	});
 
@@ -849,6 +648,19 @@ describe("CreateGroupModal", () => {
 			expect(input).toHaveAttribute("maxLength", "128");
 		});
 
+		it("enforces maxLength of 256 on description", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			const input = screen.getByLabelText("Description (optional)");
+			expect(input).toHaveAttribute("maxLength", "256");
+		});
+
 		it("marks display model name as required", () => {
 			renderWithProviders(
 				<CreateGroupModal
@@ -873,6 +685,245 @@ describe("CreateGroupModal", () => {
 
 			const input = screen.getByLabelText("Display Name (optional)");
 			expect(input).not.toHaveAttribute("required");
+		});
+
+		it("does not mark description as required", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			const input = screen.getByLabelText("Description (optional)");
+			expect(input).not.toHaveAttribute("required");
+		});
+	});
+
+	describe("model display", () => {
+		it("shows provider names in provider group buttons", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			// Provider names are shown in the collapse buttons
+			expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
+			expect(screen.getByText("NanoGPT")).toBeInTheDocument();
+			expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+			expect(screen.getByText("Z.ai")).toBeInTheDocument();
+		});
+
+		it("shows display names in pill buttons", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
+			expect(screen.getByText("Gemma 3")).toBeInTheDocument();
+			expect(screen.getByText("DeepSeek Chat")).toBeInTheDocument();
+			expect(screen.getByText("GLM-5")).toBeInTheDocument();
+		});
+
+		it("shows model_id as fallback when display_name is empty", () => {
+			const candidatesWithEmptyDisplayName: CandidateModel[] = [
+				{
+					...mockCandidates[0],
+					display_name: "",
+				},
+			];
+
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={candidatesWithEmptyDisplayName}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			// Should show model_id as fallback
+			expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
+		});
+	});
+
+	describe("edit mode", () => {
+		it("renders edit title", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			expect(screen.getByText("Edit Failover Group")).toBeInTheDocument();
+		});
+
+		it("disables display model name input", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			const input = screen.getByLabelText("Display Model Name");
+			expect(input).toBeDisabled();
+			expect(input).toHaveValue("test-model");
+		});
+
+		it("shows model name cannot be changed helper text", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			expect(
+				screen.getByText("Model name cannot be changed after creation"),
+			).toBeInTheDocument();
+		});
+
+		it("pre-fills display name with group value", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			const input = screen.getByLabelText("Display Name (optional)");
+			expect(input).toHaveValue("Test Failover Group");
+		});
+
+		it("pre-fills description with group value", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			const input = screen.getByLabelText("Description (optional)");
+			expect(input).toHaveValue("A test failover group");
+		});
+
+		it("pre-selects pills from group entries", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Should show 2 selected (from group.entries)
+			expect(screen.getByText("2 selected")).toBeInTheDocument();
+
+			// The pills should have the selected class
+			const gemma4bPill = screen.getByText("Gemma 3 4B");
+			const gemma3Pill = screen.getByText("Gemma 3");
+
+			expect(gemma4bPill.closest("div")).toHaveClass("bg-(--accent)/15");
+			expect(gemma3Pill.closest("div")).toHaveClass("bg-(--accent)/15");
+		});
+
+		it("shows save changes button", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			expect(
+				screen.getByRole("button", { name: "Save Changes" }),
+			).toBeInTheDocument();
+		});
+
+		it("calls onUpdated and shows success toast on successful update", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Change display name
+			const displayNameInput = screen.getByLabelText("Display Name (optional)");
+			await user.clear(displayNameInput);
+			await user.type(displayNameInput, "Updated Failover Group");
+
+			// Submit
+			const submitButton = screen.getByRole("button", {
+				name: "Save Changes",
+			});
+			await user.click(submitButton);
+
+			// Should call onUpdated after successful mutation
+			await waitFor(() => {
+				expect(mockOnUpdated).toHaveBeenCalled();
+			});
+
+			// Success toast should appear
+			await waitFor(() => {
+				expect(screen.getByText("Failover group updated")).toBeInTheDocument();
+			});
+		});
+
+		it("shows error toast when less than 2 entries selected in edit mode", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Deselect one of the pre-selected models
+			await user.click(screen.getByText("Gemma 3 4B"));
+
+			// Now only 1 is selected
+			expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+			// Submit
+			const submitButton = screen.getByRole("button", {
+				name: "Save Changes",
+			});
+			await user.click(submitButton);
+
+			// Error toast should appear
+			await waitFor(() => {
+				expect(
+					screen.getByText("At least 2 entries required"),
+				).toBeInTheDocument();
+			});
+
+			expect(mockOnUpdated).not.toHaveBeenCalled();
 		});
 	});
 });

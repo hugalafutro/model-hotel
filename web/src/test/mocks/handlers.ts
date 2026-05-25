@@ -474,6 +474,32 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json(newGroup, { status: 201 });
 	}),
 
+	http.put("/api/failover-groups/:id", async ({ request, params }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		const body = (await request.json()) as Record<string, unknown>;
+		const idx = store.failoverGroups.findIndex(
+			(g) => g.id === params.id || g.id === `fg-${params.id}`,
+		);
+		if (idx === -1) {
+			return HttpResponse.json({ error: "Not found" }, { status: 404 });
+		}
+		const existing = store.failoverGroups[idx];
+		const updated: FailoverGroup = {
+			...existing,
+			display_name:
+				(body.display_name as string | undefined) ?? existing.display_name,
+			description:
+				(body.description as string | undefined) ?? existing.description,
+			group_enabled:
+				(body.group_enabled as boolean | undefined) ?? existing.group_enabled,
+			updated_at: new Date().toISOString(),
+		};
+		store.failoverGroups[idx] = updated;
+		return HttpResponse.json(updated);
+	}),
+
 	http.get("/api/failover-groups/candidates", ({ request }) => {
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });

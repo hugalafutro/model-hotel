@@ -33,6 +33,7 @@ export function FailoverGroupCard({
 	onToggleEntry,
 	onReorder,
 	onDelete,
+	onEdit,
 }: {
 	group: FailoverGroup;
 	selected: boolean;
@@ -41,6 +42,7 @@ export function FailoverGroupCard({
 	onToggleEntry: (uuid: string, enabled: boolean) => void;
 	onReorder: (newOrder: string[]) => void;
 	onDelete: () => void;
+	onEdit?: () => void;
 }) {
 	const { toast } = useToast();
 
@@ -176,13 +178,24 @@ export function FailoverGroupCard({
 					{enabledCount}/{totalCount} active •{" "}
 					{formatTokens(group.total_tokens)} tokens
 				</span>
-				<button
-					type="button"
-					onClick={() => onDelete()}
-					className="text-gray-500 hover:text-red-400 cursor-pointer px-2 py-1 rounded-md hover:bg-red-400/10 transition-all"
-				>
-					delete
-				</button>
+				<div className="flex items-center gap-1">
+					{!group.auto_created && onEdit && (
+						<button
+							type="button"
+							onClick={onEdit}
+							className="text-gray-500 hover:text-amber-400 cursor-pointer px-2 py-1 rounded-md hover:bg-amber-400/10 transition-all"
+						>
+							edit
+						</button>
+					)}
+					<button
+						type="button"
+						onClick={() => onDelete()}
+						className="text-gray-500 hover:text-red-400 cursor-pointer px-2 py-1 rounded-md hover:bg-red-400/10 transition-all"
+					>
+						delete
+					</button>
+				</div>
 			</div>
 		</div>
 	);
