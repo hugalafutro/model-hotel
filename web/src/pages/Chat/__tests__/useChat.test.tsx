@@ -288,6 +288,9 @@ describe("useChat", () => {
 				} as unknown as React.KeyboardEvent);
 			});
 			expect(preventDefault).toHaveBeenCalled();
+			expect(result.current.isStreaming).toBe(true);
+			expect(result.current.messages.length).toBeGreaterThanOrEqual(1);
+			expect(result.current.messages[0].content).toBe("Hello");
 		});
 
 		it("does nothing when Shift+Enter is pressed (no-op branch)", () => {
@@ -1182,6 +1185,9 @@ describe("useChat", () => {
 			act(() => {
 				result.current.handleSend();
 			});
+			expect(result.current.messages.length).toBeGreaterThanOrEqual(1);
+			const userMsg = result.current.messages.find((m) => m.role === "user");
+			expect(userMsg?.imageUrl).toBe("data:image/png;base64,test");
 			expect(mockSetPendingImage).toHaveBeenCalledWith(null);
 		});
 
@@ -1327,11 +1333,11 @@ describe("useChat", () => {
 
 		it("regenerates by removing last user+assistant pair and re-streaming", async () => {
 			mockGetApiMessagesForModel.mockReturnValue([
-				{ role: "user", content: "Hello" },
+				{ role: "user", content: "Second" },
 			]);
 			mockStreamModelResponse.mockResolvedValue({
 				rawContent: "",
-				content: "Response",
+				content: "New response",
 				thinkingContent: "",
 				tokensPerSecond: 10,
 				durationMs: 1000,
@@ -1353,7 +1359,16 @@ describe("useChat", () => {
 			await act(async () => {
 				await result.current.handleRegenerate();
 			});
+			expect(result.current.isStreaming).toBe(false);
 			expect(mockStreamModelResponse).toHaveBeenCalled();
+			// Original "Second" user and "Second response" assistant removed;
+			// new user message + streaming assistant placeholder added
+			const userMessages = result.current.messages.filter(
+				(m) => m.role === "user",
+			);
+			expect(userMessages).toHaveLength(2);
+			expect(userMessages[0].content).toBe("First");
+			expect(userMessages[1].content).toBe("Second");
 		});
 	});
 
