@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	Model,
 	Provider,
@@ -18,7 +18,6 @@ describe("useDashboard", () => {
 	beforeEach(() => {
 		localStorage.clear();
 		server.resetHandlers();
-		process.env.TZ = "UTC";
 	});
 
 	describe("deserializeRange / deserializeMetric validation", () => {
@@ -155,10 +154,15 @@ describe("useDashboard", () => {
 					AllProviders({ children, toastWrapper }),
 			});
 
-			// First call should succeed
+			// Wait for queries to resolve first (uses real Date.now)
 			await waitFor(() => {
 				expect(result.current.stats).toBeDefined();
 			});
+
+			// Freeze Date.now for cooldown test — both handleRefresh calls
+			// see the same timestamp, eliminating slow-CI flakiness
+			const fixedNow = 1000000;
+			const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow);
 
 			act(() => {
 				result.current.handleRefresh();
@@ -177,6 +181,7 @@ describe("useDashboard", () => {
 				"Please wait before refreshing again",
 				"info",
 			);
+			nowSpy.mockRestore();
 		});
 
 		it("handleRefresh invalidates all relevant queries", async () => {
@@ -215,7 +220,7 @@ describe("useDashboard", () => {
 			});
 
 			await waitFor(() => {
-				expect(result.current.detailModel).toBeDefined();
+				expect(result.current.detailModel).not.toBeNull();
 			});
 		});
 
@@ -771,6 +776,20 @@ describe("useDashboard", () => {
 	});
 
 	describe("Stats error auth check", () => {
+		let reloadSpy: ReturnType<typeof vi.fn>;
+
+		beforeEach(() => {
+			reloadSpy = vi.fn();
+			vi.stubGlobal("location", {
+				...window.location,
+				reload: reloadSpy,
+			});
+		});
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
 		it("401 error removes adminToken", async () => {
 			// Set initial admin token
 			localStorage.setItem("adminToken", "test-token");
@@ -799,6 +818,7 @@ describe("useDashboard", () => {
 				},
 				{ timeout: 3000 },
 			);
+			expect(reloadSpy).toHaveBeenCalled();
 		});
 
 		it("non-auth errors do not remove adminToken", async () => {
