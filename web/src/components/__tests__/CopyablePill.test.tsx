@@ -56,19 +56,41 @@ describe("CopyablePill", () => {
 		expect(screen.getByText("Extra")).toBeInTheDocument();
 	});
 
-	it("shows tooltip on hover via title attribute", () => {
+	it("shows full text in title even when tooltip prop is provided", () => {
 		renderWithProviders(
-			<CopyablePill text="key" tooltip="Custom tooltip text" />,
+			<CopyablePill text="my-full-key-value" tooltip="Custom tooltip text" />,
 		);
 
-		const button = screen.getByText("key").closest("button");
-		expect(button).toHaveAttribute("title", "Custom tooltip text");
+		const button = screen.getByText("my-full-key-value").closest("button");
+		// title shows full text (most useful for sighted users on hover)
+		expect(button).toHaveAttribute("title", "my-full-key-value");
+		// aria-label uses the tooltip prop (short action description for screen readers)
+		expect(button).toHaveAttribute("aria-label", "Custom tooltip text");
 	});
 
-	it("uses default tooltip when not provided", () => {
+	it("uses text as default tooltip and aria-label when not provided", () => {
 		renderWithProviders(<CopyablePill text="key" />);
 
 		const button = screen.getByText("key").closest("button");
-		expect(button).toHaveAttribute("title", "Click to copy");
+		expect(button).toHaveAttribute("title", "key");
+		expect(button).toHaveAttribute("aria-label", "Copy key");
+	});
+
+	it("applies line-clamp styles when lines > 1", () => {
+		renderWithProviders(
+			<CopyablePill text="a-very-long-model-id-value" lines={2} />,
+		);
+
+		const span = screen.getByText("a-very-long-model-id-value");
+		// line-clamp style applied
+		expect(span.style.display).toBe("-webkit-box");
+		expect(span.style.WebkitLineClamp).toBe("2");
+		// button and outer div use items-start and w-full
+		const button = span.closest("button")!;
+		expect(button.className).toContain("items-start");
+		expect(button.className).toContain("w-full");
+		expect(button.className).toContain("text-left");
+		// default truncate class NOT applied
+		expect(span.className).not.toContain("truncate");
 	});
 });

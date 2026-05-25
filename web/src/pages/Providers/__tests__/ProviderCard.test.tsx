@@ -540,7 +540,7 @@ describe("ProviderCard", () => {
 			expect(nameElement).toBeInTheDocument();
 			// The button containing the text has the tooltip
 			const button = nameElement.closest("button");
-			expect(button).toHaveAttribute("title", "Click to copy provider name");
+			expect(button).toHaveAttribute("title", "Test Provider");
 		});
 
 		it("renders base URL as copyable pill", () => {
@@ -550,7 +550,10 @@ describe("ProviderCard", () => {
 			expect(urlElement).toBeInTheDocument();
 			// The button containing the text has the tooltip
 			const button = urlElement.closest("button");
-			expect(button).toHaveAttribute("title", "Click to copy API base URL");
+			expect(button).toHaveAttribute(
+				"title",
+				"https://api.test-provider.com/v1",
+			);
 		});
 	});
 });

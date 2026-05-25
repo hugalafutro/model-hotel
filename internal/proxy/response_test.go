@@ -1974,3 +1974,349 @@ data: [DONE]
 		t.Errorf("expected reasoning_content to contain 'Already here', got: %s", body)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Anthropic-native cache field fallback tests
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_AnthropicCacheTokens(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"cache_read_input_tokens":60,"cache_creation_input_tokens":10}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 60 {
+		t.Errorf("expected prompt_cache_hit=60, got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 40 {
+		t.Errorf("expected prompt_cache_miss=40, got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleStreamingResponse_AnthropicCacheOpenAITakesPrecedence(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Both OpenAI and Anthropic cache fields present - OpenAI should win
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"prompt_cache_hit_tokens":80,"cache_read_input_tokens":60}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 80 {
+		t.Errorf("expected prompt_cache_hit=80 (OpenAI takes precedence), got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 20 {
+		t.Errorf("expected prompt_cache_miss=20, got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleNonStreamingResponse_AnthropicCacheTokens(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{
+		"id": "chatcmpl-anthropic",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "claude-3-5-sonnet-20241022",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello from Claude!"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 200,
+			"completion_tokens": 10,
+			"total_tokens": 210,
+			"cache_read_input_tokens": 150,
+			"cache_creation_input_tokens": 20
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "claude-3-5-sonnet-20241022",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "chatcmpl-anthropic", decodedResp.ID)
+	assert.Equal(t, "claude-3-5-sonnet-20241022", decodedResp.Model)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "Hello from Claude!", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, 200, decodedResp.Usage.PromptTokens)
+	assert.Equal(t, 10, decodedResp.Usage.CompletionTokens)
+	assert.Equal(t, 150, decodedResp.Usage.CacheReadInputTokens)
+	assert.Equal(t, 20, decodedResp.Usage.CacheCreationInputTokens)
+
+	assert.Equal(t, "completed", logData.state)
+	assert.Equal(t, http.StatusOK, logData.statusCode)
+	assert.Equal(t, 150, logData.tokensPromptCacheHit)
+	assert.Equal(t, 50, logData.tokensPromptCacheMiss)
+}
+
+// Anthropic cache with cache_read > prompt_tokens (negative miss clamped to 0)
+
+func TestHandleStreamingResponse_AnthropicCacheNegativeMiss(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// cache_read_input_tokens (120) > prompt_tokens (100) → miss clamped to 0
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"cache_read_input_tokens":120,"cache_creation_input_tokens":10}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 120 {
+		t.Errorf("expected prompt_cache_hit=120, got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 0 {
+		t.Errorf("expected prompt_cache_miss=0 (clamped), got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleNonStreamingResponse_AnthropicCacheNegativeMiss(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// cache_read_input_tokens (300) > prompt_tokens (200) → miss clamped to 0
+	upstreamBody := `{
+		"id": "chatcmpl-anthropic",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "claude-3-5-sonnet-20241022",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello!"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 200,
+			"completion_tokens": 10,
+			"total_tokens": 210,
+			"cache_read_input_tokens": 300,
+			"cache_creation_input_tokens": 20
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "claude-3-5-sonnet-20241022",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, 300, logData.tokensPromptCacheHit)
+	assert.Equal(t, 0, logData.tokensPromptCacheMiss)
+}
+
+func TestHandleNonStreamingResponse_AnthropicCacheOpenAITakesPrecedence(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Both OpenAI and Anthropic cache fields present - OpenAI should win
+	upstreamBody := `{
+		"id": "chatcmpl-anthropic",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "claude-3-5-sonnet-20241022",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello!"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 200,
+			"completion_tokens": 10,
+			"total_tokens": 210,
+			"prompt_cache_hit_tokens": 80,
+			"cache_read_input_tokens": 150,
+			"cache_creation_input_tokens": 20
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "claude-3-5-sonnet-20241022",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, 80, logData.tokensPromptCacheHit, "OpenAI cache hit should take precedence")
+	assert.Equal(t, 120, logData.tokensPromptCacheMiss, "miss = prompt_tokens - openai_cache_hit = 200 - 80")
+}
+
+func TestUsageAnthropicCacheFieldsDeserialization(t *testing.T) {
+	// OpenAI-style cache fields
+	openaiJSON := `{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":80,"prompt_cache_miss_tokens":20}`
+	var openaiUsage Usage
+	require.NoError(t, json.Unmarshal([]byte(openaiJSON), &openaiUsage))
+	assert.Equal(t, 80, openaiUsage.PromptCacheHitTokens)
+	assert.Equal(t, 20, openaiUsage.PromptCacheMissTokens)
+	assert.Equal(t, 0, openaiUsage.CacheReadInputTokens)
+
+	// Anthropic-native cache fields
+	anthropicJSON := `{"prompt_tokens":100,"completion_tokens":5,"cache_read_input_tokens":60,"cache_creation_input_tokens":10}`
+	var anthropicUsage Usage
+	require.NoError(t, json.Unmarshal([]byte(anthropicJSON), &anthropicUsage))
+	assert.Equal(t, 0, anthropicUsage.PromptCacheHitTokens)
+	assert.Equal(t, 60, anthropicUsage.CacheReadInputTokens)
+	assert.Equal(t, 10, anthropicUsage.CacheCreationInputTokens)
+
+	// Both present - all fields deserialize independently
+	bothJSON := `{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":80,"cache_read_input_tokens":60,"cache_creation_input_tokens":10}`
+	var bothUsage Usage
+	require.NoError(t, json.Unmarshal([]byte(bothJSON), &bothUsage))
+	assert.Equal(t, 80, bothUsage.PromptCacheHitTokens)
+	assert.Equal(t, 60, bothUsage.CacheReadInputTokens)
+	assert.Equal(t, 10, bothUsage.CacheCreationInputTokens)
+}
