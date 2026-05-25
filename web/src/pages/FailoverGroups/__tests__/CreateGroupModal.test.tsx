@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CandidateModel, FailoverGroup } from "../../../api/types";
@@ -445,6 +445,33 @@ describe("CreateGroupModal", () => {
 	});
 
 	describe("form validation", () => {
+		it("shows error toast when display model name is empty (JS guard)", async () => {
+			// Bypass HTML5 required validation by submitting the form directly
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			// Select 2 models but leave display model name empty
+			await screen.getByText("Gemma 3 4B").click();
+			await screen.getByText("Gemma 3").click();
+
+			// Submit form directly (bypasses browser required check)
+			const form = screen.getByLabelText("Display Model Name").closest("form")!;
+			fireEvent.submit(form);
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("Display model name is required"),
+				).toBeInTheDocument();
+			});
+
+			expect(mockOnCreated).not.toHaveBeenCalled();
+		});
+
 		it("prevents submission when display model name is empty", async () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
