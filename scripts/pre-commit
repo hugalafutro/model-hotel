@@ -4,6 +4,36 @@
 
 set -euo pipefail
 
+# ── Sync check: refuse commits if branch is behind master ──
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$current_branch" != "master" ]; then
+	tracking_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null || echo "")
+	if [ -n "$tracking_branch" ]; then
+		behind=$(git rev-list --count HEAD.."$tracking_branch" 2>/dev/null || echo "0")
+	else
+		# No upstream set — check against origin/master
+		git fetch origin master --quiet 2>/dev/null || true
+		behind=$(git rev-list --count HEAD..origin/master 2>/dev/null || echo "0")
+	fi
+	if [ "$behind" -gt 0 ]; then
+		echo "" >&2
+		echo "⛔ STOP. BRANCH BEHIND MASTER. STOP EVERYTHING." >&2
+		echo "" >&2
+		echo "DO NOT:" >&2
+		echo "  - inspect git history or branches" >&2
+		echo "  - edit files" >&2
+		echo "  - run any other commands" >&2
+		echo "  - attempt to work around this" >&2
+		echo "" >&2
+		echo "ONLY DO:" >&2
+		echo "  git fetch origin && git merge origin/master" >&2
+		echo "" >&2
+		echo "Then retry the commit. Nothing else." >&2
+		echo "" >&2
+		exit 1
+	fi
+fi
+
 staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
 staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.tsx?$' || true)
 
