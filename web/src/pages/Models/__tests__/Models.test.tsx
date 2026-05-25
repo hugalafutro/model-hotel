@@ -832,12 +832,8 @@ describe("Models", () => {
 
 		it("handles providers API error gracefully", async () => {
 			server.use(
-				...mockAllDefaults(),
-				http.get("/api/providers", () => {
-					return HttpResponse.json(
-						{ error: "Failed to fetch" },
-						{ status: 500 },
-					);
+				...mockAllDefaults({
+					providers: { status: 500, body: { error: "Failed to fetch" } },
 				}),
 			);
 
