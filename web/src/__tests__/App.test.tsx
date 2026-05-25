@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { setAdminToken } from "../api/client";
+import { mockAllDefaults } from "../test/helpers";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
 
@@ -396,5 +397,77 @@ describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
 		);
 
 		expect(screen.getByText("Lazy Loaded")).toBeInTheDocument();
+	});
+});
+
+describe("Route navigation", () => {
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		server.resetHandlers();
+		server.use(...mockAllDefaults());
+	});
+
+	it("navigates to Logs page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		// Default sub-mode is "request", so link shows "Requests / Logs"
+		const logsLink = screen.getByRole("link", { name: /Requests/ });
+		await userEvent.click(logsLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Requests")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Settings page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const settingsLink = screen.getByRole("link", { name: "Settings" });
+		await userEvent.click(settingsLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Settings")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Virtual Keys page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const virtualKeysLink = screen.getByRole("link", { name: "Virtual Keys" });
+		await userEvent.click(virtualKeysLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Chat page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		// Default sub-mode is "chat", so link shows "Chat / Conversation"
+		const chatLink = screen.getByRole("link", { name: /Chat/ });
+		await userEvent.click(chatLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Chat")).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Arena page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		// Default sub-mode is "competition", so link shows "Arena / Compare"
+		const arenaLink = screen.getByRole("link", { name: /Arena/ });
+		await userEvent.click(arenaLink);
+
+		await waitFor(() => {
+			expect(screen.getByText("Arena")).toBeInTheDocument();
+		});
 	});
 });
