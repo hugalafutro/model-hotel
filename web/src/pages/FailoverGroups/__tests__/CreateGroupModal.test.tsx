@@ -1,6 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
+import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CandidateModel, FailoverGroup } from "../../../api/types";
+import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { CreateGroupModal } from "../CreateGroupModal";
 
@@ -752,6 +754,40 @@ describe("CreateGroupModal", () => {
 			// Should show model_id as fallback
 			expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
 		});
+
+		it("shows model_id as pill label when candidate has no display_name", () => {
+			const candidatesNoDisplay: CandidateModel[] = [
+				{
+					model_uuid: "uuid-no-display",
+					model_id: "no-display-model",
+					provider_id: "provider-005",
+					provider_name: "Test Provider",
+					display_name: "",
+					context_length: 4096,
+					owned_by: "test",
+				},
+				{
+					model_uuid: "uuid-no-display-2",
+					model_id: "no-display-model-2",
+					provider_id: "provider-006",
+					provider_name: "Test Provider",
+					display_name: "",
+					context_length: 4096,
+					owned_by: "test",
+				},
+			];
+
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={candidatesNoDisplay}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			expect(screen.getByText("no-display-model")).toBeInTheDocument();
+			expect(screen.getByText("no-display-model-2")).toBeInTheDocument();
+		});
 	});
 
 	describe("edit mode", () => {
@@ -982,6 +1018,138 @@ describe("CreateGroupModal", () => {
 			await waitFor(() => {
 				expect(mockOnUpdated).toHaveBeenCalled();
 			});
+		});
+
+		it("sends empty display_name when cleared in edit mode", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Clear the display name field
+			const nameInput = screen.getByLabelText("Display Name (optional)");
+			await user.clear(nameInput);
+			expect(nameInput).toHaveValue("");
+
+			// Submit - should send empty display_name (not omit it)
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(mockOnUpdated).toHaveBeenCalled();
+			});
+		});
+
+		it("shows model_id as pill label for group entry with no display_name", () => {
+			const groupNoDisplayEntry: FailoverGroup = {
+				...mockEditGroup,
+				entries: [
+					{
+						model_uuid: "uuid-unavailable-1",
+						model_id: "old-model-no-display",
+						provider_id: "p-old-1",
+						provider_name: "Old Provider No Display",
+						display_name: "",
+						enabled: true,
+						context_length: 4096,
+						owned_by: "old",
+					},
+					{
+						model_uuid: "uuid-2",
+						model_id: "gemma3:4b",
+						provider_id: "provider-002",
+						provider_name: "NanoGPT",
+						display_name: "Gemma 3",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "google",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupNoDisplayEntry}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// The unavailable entry with empty display_name should show model_id
+			expect(screen.getByText("old-model-no-display")).toBeInTheDocument();
+		});
+	});
+
+	describe("error handling", () => {
+		it("shows error toast on failed creation", async () => {
+			server.use(
+				http.post("/api/failover-groups", () =>
+					HttpResponse.json({ error: "Create failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			// Fill display model name
+			const displayModelInput = screen.getByLabelText("Display Model Name");
+			await user.type(displayModelInput, "glm-5");
+
+			// Select 2 models
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
+
+			// Submit
+			const submitButton = screen.getByRole("button", {
+				name: "Create Group",
+			});
+			await user.click(submitButton);
+
+			// Error toast should appear
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to create group/)).toBeInTheDocument();
+			});
+
+			expect(mockOnCreated).not.toHaveBeenCalled();
+		});
+
+		it("shows error toast on failed update", async () => {
+			server.use(
+				http.put("/api/failover-groups/:id", () =>
+					HttpResponse.json({ error: "Update failed" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Submit
+			const submitButton = screen.getByRole("button", {
+				name: "Save Changes",
+			});
+			await user.click(submitButton);
+
+			// Error toast should appear
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to update group/)).toBeInTheDocument();
+			});
+
+			expect(mockOnUpdated).not.toHaveBeenCalled();
 		});
 	});
 });

@@ -133,7 +133,7 @@ export function CreateGroupModal({
 			updateMutation.mutate({
 				id: group.id,
 				body: {
-					display_name: displayName.trim() || undefined,
+					display_name: displayName.trim(),
 					description: description.trim(),
 					priority_order: entryUuids,
 				},
