@@ -479,13 +479,38 @@ export const handlers: RequestHandler[] = [
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 		const body = (await request.json()) as Record<string, unknown>;
-		const idx = store.failoverGroups.findIndex(
-			(g) => g.id === params.id || g.id === `fg-${params.id}`,
-		);
+		const idx = store.failoverGroups.findIndex((g) => g.id === params.id);
 		if (idx === -1) {
 			return HttpResponse.json({ error: "Not found" }, { status: 404 });
 		}
 		const existing = store.failoverGroups[idx];
+
+		// Process priority_order: reorder entries to match UUID order
+		const priorityOrder = body.priority_order as string[] | undefined;
+		let entries = existing.entries;
+		if (priorityOrder && priorityOrder.length > 0) {
+			const reordered = priorityOrder
+				.map((uuid) => existing.entries.find((e) => e.model_uuid === uuid))
+				.filter((e): e is (typeof existing.entries)[number] => e !== undefined);
+			// Append any entries not in priority_order (e.g. newly added)
+			const includedUuids = new Set(priorityOrder);
+			const remaining = existing.entries.filter(
+				(e) => !includedUuids.has(e.model_uuid),
+			);
+			entries = [...reordered, ...remaining];
+		}
+
+		// Process entry_enabled: toggle individual entry enabled state
+		const entryEnabled = body.entry_enabled as
+			| Record<string, boolean>
+			| undefined;
+		if (entryEnabled) {
+			entries = entries.map((e) => ({
+				...e,
+				enabled: entryEnabled[e.model_uuid] ?? e.enabled,
+			}));
+		}
+
 		const updated: FailoverGroup = {
 			...existing,
 			display_name:
@@ -494,6 +519,7 @@ export const handlers: RequestHandler[] = [
 				(body.description as string | undefined) ?? existing.description,
 			group_enabled:
 				(body.group_enabled as boolean | undefined) ?? existing.group_enabled,
+			entries,
 			updated_at: new Date().toISOString(),
 		};
 		store.failoverGroups[idx] = updated;

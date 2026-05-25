@@ -198,7 +198,7 @@ export function CreateGroupModal({
 
 				<div>
 					<ModelPicker
-						id="failover-group-entries"
+						id={`failover-group-entries-${isEdit ? "edit" : "create"}`}
 						models={modelItems}
 						selected={selectedProxyIDs}
 						onChange={setSelectedProxyIDs}
