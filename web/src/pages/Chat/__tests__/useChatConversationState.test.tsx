@@ -351,4 +351,146 @@ describe("useChatConversationState", () => {
 
 		expect(localStorage.getItem("conversationModelA")).toBe(null);
 	});
+
+	it("serializes and deserializes conversationActivePersonaIdA with null values", () => {
+		localStorage.clear();
+
+		// Set to null - should serialize to empty string
+		const { result: result1 } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		act(() => {
+			result1.current.setConversationActivePersonaIdA(null);
+		});
+
+		// Verify it serializes to empty string
+		expect(localStorage.getItem("conversationActivePersonaIdA")).toBe("");
+
+		// Verify it deserializes back to null
+		expect(result1.current.conversationActivePersonaIdA).toBe(null);
+
+		// Test round-trip: create new hook instance to verify deserialization
+		const { result: result2 } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		expect(result2.current.conversationActivePersonaIdA).toBe(null);
+
+		// Test with non-null value
+		act(() => {
+			result2.current.setConversationActivePersonaIdA("persona-123");
+		});
+
+		expect(localStorage.getItem("conversationActivePersonaIdA")).toBe(
+			"persona-123",
+		);
+		expect(result2.current.conversationActivePersonaIdA).toBe("persona-123");
+	});
+
+	it("serializes and deserializes activePersonaIdB with null values", () => {
+		localStorage.clear();
+
+		// Set to null - should serialize to empty string
+		const { result: result1 } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		act(() => {
+			result1.current.setActivePersonaIdB(null);
+		});
+
+		// Verify it serializes to empty string
+		expect(localStorage.getItem("conversationActivePersonaIdB")).toBe("");
+
+		// Verify it deserializes back to null
+		expect(result1.current.activePersonaIdB).toBe(null);
+
+		// Test round-trip: create new hook instance to verify deserialization
+		const { result: result2 } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		expect(result2.current.activePersonaIdB).toBe(null);
+
+		// Test with non-null value
+		act(() => {
+			result2.current.setActivePersonaIdB("persona-456");
+		});
+
+		expect(localStorage.getItem("conversationActivePersonaIdB")).toBe(
+			"persona-456",
+		);
+		expect(result2.current.activePersonaIdB).toBe("persona-456");
+	});
+
+	it("serializes and deserializes messageParamsB with JSON.stringify/parse", () => {
+		localStorage.clear();
+
+		const params = { temperature: 0.5, top_p: 0.9, max_tokens: 2048 };
+
+		// Set params - should serialize via JSON.stringify
+		const { result: result1 } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		act(() => {
+			result1.current.setMessageParamsB(params);
+		});
+
+		// Verify it serializes to JSON string
+		const stored = localStorage.getItem("conversationParamsB");
+		expect(stored).toBe(JSON.stringify(params));
+
+		// Verify it deserializes back to same object via JSON.parse
+		expect(result1.current.messageParamsB).toEqual(params);
+
+		// Test round-trip: create new hook instance to verify deserialization
+		const { result: result2 } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		expect(result2.current.messageParamsB).toEqual(params);
+
+		// Test with different params
+		const newParams = { temperature: 0.8 };
+		act(() => {
+			result2.current.setMessageParamsB(newParams);
+		});
+
+		expect(localStorage.getItem("conversationParamsB")).toBe(
+			JSON.stringify(newParams),
+		);
+		expect(result2.current.messageParamsB).toEqual(newParams);
+	});
+
+	it("falls back to default maxTurns when localStorage has invalid value", () => {
+		localStorage.clear();
+		localStorage.setItem("conversationMaxTurns", "abc");
+
+		const { result } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		expect(result.current.maxTurns).toBe(10);
+	});
+
+	it("falls back to default turnDelayMs when localStorage has invalid value", () => {
+		localStorage.clear();
+		localStorage.setItem("conversationTurnDelayMs", "invalid");
+
+		const { result } = renderHook(
+			() => useChatConversationState({ persistConversation: true }),
+			{ wrapper: createWrapper() },
+		);
+
+		expect(result.current.turnDelayMs).toBe(500);
+	});
 });

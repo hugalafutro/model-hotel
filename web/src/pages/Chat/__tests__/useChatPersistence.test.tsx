@@ -2,9 +2,13 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatPersistence } from "../useChatPersistence";
 
+// ── Mock functions ──
+const toastMock = vi.fn();
+
+// ── Mock all dependencies ──
 vi.mock("../../../context/ToastContext", () => ({
 	useToast: () => ({
-		toast: vi.fn(),
+		toast: toastMock,
 		position: "bottom-right" as const,
 		setPosition: vi.fn(),
 		timeout: 3000,
@@ -12,9 +16,24 @@ vi.mock("../../../context/ToastContext", () => ({
 	}),
 }));
 
+function createQuotaExceededStorage() {
+	return {
+		getItem: vi.fn(() => null),
+		setItem: vi.fn(() => {
+			throw new DOMException("Quota exceeded", "QuotaExceededError");
+		}),
+		removeItem: vi.fn(),
+		clear: vi.fn(),
+		length: 0,
+		key: vi.fn(() => null),
+	};
+}
+
 describe("useChatPersistence", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		vi.clearAllMocks();
+		toastMock.mockClear();
 	});
 
 	it("persists chat messages to localStorage 'chatMessages' key when persistChat=true", () => {
@@ -102,11 +121,7 @@ describe("useChatPersistence", () => {
 			{ role: "user" as const, content: "Hello", timestamp: 1234567890 },
 		];
 
-		const setItemSpy = vi
-			.spyOn(Storage.prototype, "setItem")
-			.mockImplementation(() => {
-				throw new Error("QuotaExceededError");
-			});
+		vi.stubGlobal("localStorage", createQuotaExceededStorage());
 
 		// Should not throw even when localStorage is full
 		expect(() =>
@@ -120,6 +135,94 @@ describe("useChatPersistence", () => {
 			),
 		).not.toThrow();
 
-		setItemSpy.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
+	it("shows warning toast when localStorage quota exceeded in chat mode", () => {
+		const messages = [
+			{ role: "user" as const, content: "Hello", timestamp: 1234567890 },
+		];
+
+		vi.stubGlobal("localStorage", createQuotaExceededStorage());
+
+		renderHook(() =>
+			useChatPersistence({
+				messages,
+				chatSubMode: "chat",
+				persistChat: true,
+				persistConversation: false,
+			}),
+		);
+
+		// Verify warning toast was called
+		expect(toastMock).toHaveBeenCalledWith(
+			"Storage full - chat history not saved",
+			"warning",
+		);
+
+		vi.unstubAllGlobals();
+	});
+
+	it("shows warning toast when localStorage quota exceeded in conversation mode", () => {
+		const messages = [
+			{ role: "user" as const, content: "Hello", timestamp: 1234567890 },
+		];
+
+		vi.stubGlobal("localStorage", createQuotaExceededStorage());
+
+		renderHook(() =>
+			useChatPersistence({
+				messages,
+				chatSubMode: "conversation",
+				persistChat: false,
+				persistConversation: true,
+			}),
+		);
+
+		// Verify warning toast was called
+		expect(toastMock).toHaveBeenCalledWith(
+			"Storage full - chat history not saved",
+			"warning",
+		);
+
+		vi.unstubAllGlobals();
+	});
+
+	it("shows quota warning only once (quotaWarnedRef prevents repeated warnings)", () => {
+		const messages1 = [
+			{ role: "user" as const, content: "Hello", timestamp: 1234567890 },
+		];
+		const messages2 = [
+			{ role: "user" as const, content: "World", timestamp: 1234567891 },
+		];
+
+		vi.stubGlobal("localStorage", createQuotaExceededStorage());
+
+		// First render - should show warning
+		const { rerender } = renderHook(
+			(props) =>
+				useChatPersistence({
+					messages: props.messages,
+					chatSubMode: "chat",
+					persistChat: true,
+					persistConversation: false,
+				}),
+			{ initialProps: { messages: messages1 } },
+		);
+
+		// Verify warning was shown once
+		expect(toastMock).toHaveBeenCalledTimes(1);
+		expect(toastMock).toHaveBeenCalledWith(
+			"Storage full - chat history not saved",
+			"warning",
+		);
+
+		// Rerender with different messages - should NOT show warning again
+		rerender({ messages: messages2 });
+
+		// Toast should still only have been called once
+		expect(toastMock).toHaveBeenCalledTimes(1);
+
+		vi.unstubAllGlobals();
 	});
 });
