@@ -730,48 +730,48 @@ describe("Providers", () => {
 			).toBeInTheDocument();
 		});
 	});
-});
 
-describe("modal interactions", () => {
-	it("opens Add Provider modal when clicking + Add Provider button", async () => {
-		server.use(...mockProvidersPageDefaults());
+	describe("modal interactions", () => {
+		it("opens Add Provider modal when clicking + Add Provider button", async () => {
+			server.use(...mockProvidersPageDefaults());
 
-		const { user } = renderWithProviders(<Providers />);
+			const { user } = renderWithProviders(<Providers />);
 
-		await waitFor(() => {
-			expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			const addButton = screen.getByRole("button", {
+				name: "+ Add Provider",
+			});
+			await user.click(addButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Add Provider" }),
+				).toBeInTheDocument();
+			});
 		});
 
-		const addButton = screen.getByRole("button", {
-			name: "+ Add Provider",
-		});
-		await user.click(addButton);
+		it("opens Edit Provider modal when clicking Edit button", async () => {
+			server.use(...mockProvidersPageDefaults());
 
-		await waitFor(() => {
-			expect(
-				screen.getByRole("heading", { name: "Add Provider" }),
-			).toBeInTheDocument();
-		});
-	});
+			const { user } = renderWithProviders(<Providers />);
 
-	it("opens Edit Provider modal when clicking Edit button", async () => {
-		server.use(...mockProvidersPageDefaults());
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
 
-		const { user } = renderWithProviders(<Providers />);
+			const editButton = screen.getByRole("button", {
+				name: "Edit",
+			});
+			await user.click(editButton);
 
-		await waitFor(() => {
-			expect(screen.getByText("Test Provider")).toBeInTheDocument();
-		});
-
-		const editButton = screen.getByRole("button", {
-			name: "Edit",
-		});
-		await user.click(editButton);
-
-		await waitFor(() => {
-			expect(
-				screen.getByRole("heading", { name: "Edit Provider" }),
-			).toBeInTheDocument();
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Edit Provider" }),
+				).toBeInTheDocument();
+			});
 		});
 	});
 });

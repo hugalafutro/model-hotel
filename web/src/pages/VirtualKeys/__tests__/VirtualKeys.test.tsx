@@ -798,7 +798,7 @@ describe("VirtualKeys", () => {
 			});
 		});
 
-		it("maintains order when clicking non-sortable Key column", async () => {
+		it("Key column header is not a sortable button", async () => {
 			const keys = [
 				{ ...mockVirtualKey, id: "vk-001", name: "Key A" },
 				{ ...mockVirtualKey, id: "vk-002", name: "Key B" },

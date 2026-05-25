@@ -619,6 +619,13 @@ describe("useConversationRunner", () => {
 		).length;
 		expect(promptACount).toBeGreaterThanOrEqual(2);
 		expect(promptBCount).toBeGreaterThanOrEqual(2);
+		// Verify ABAB interleaving: consecutive pairs should contain one A and one B
+		for (let i = 0; i < calledSystemPrompts.length - 1; i += 2) {
+			const pair = [calledSystemPrompts[i], calledSystemPrompts[i + 1]];
+			const hasA = pair.some((p) => p === "System prompt A");
+			const hasB = pair.some((p) => p === "System prompt B");
+			expect(hasA && hasB).toBe(true);
+		}
 	});
 
 	it("passes message history to each turn", async () => {
