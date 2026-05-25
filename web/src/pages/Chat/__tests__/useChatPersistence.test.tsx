@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatPersistence } from "../useChatPersistence";
 
 // ── Mock functions ──
@@ -34,6 +34,10 @@ describe("useChatPersistence", () => {
 		localStorage.clear();
 		vi.clearAllMocks();
 		toastMock.mockClear();
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
 	});
 
 	it("persists chat messages to localStorage 'chatMessages' key when persistChat=true", () => {
@@ -134,8 +138,6 @@ describe("useChatPersistence", () => {
 				}),
 			),
 		).not.toThrow();
-
-		vi.unstubAllGlobals();
 	});
 
 	it("shows warning toast when localStorage quota exceeded in chat mode", () => {
@@ -159,8 +161,6 @@ describe("useChatPersistence", () => {
 			"Storage full - chat history not saved",
 			"warning",
 		);
-
-		vi.unstubAllGlobals();
 	});
 
 	it("shows warning toast when localStorage quota exceeded in conversation mode", () => {
@@ -184,8 +184,6 @@ describe("useChatPersistence", () => {
 			"Storage full - chat history not saved",
 			"warning",
 		);
-
-		vi.unstubAllGlobals();
 	});
 
 	it("shows quota warning only once (quotaWarnedRef prevents repeated warnings)", () => {
@@ -222,7 +220,5 @@ describe("useChatPersistence", () => {
 
 		// Toast should still only have been called once
 		expect(toastMock).toHaveBeenCalledTimes(1);
-
-		vi.unstubAllGlobals();
 	});
 });
