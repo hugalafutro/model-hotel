@@ -396,7 +396,10 @@ describe("Models", () => {
 				).toBeInTheDocument();
 			});
 
-			// Modal should close after deletion
+			// Modal closes synchronously on click (onClose called in onClick handler),
+			// independent of the async mutation outcome. This assertion verifies the
+			// UI interaction pattern (click confirm → modal dismisses), not that closure
+			// is a post-success side effect.
 			await waitFor(() => {
 				expect(
 					screen.queryByRole("heading", { name: "Test Model v1" }),
@@ -442,6 +445,15 @@ describe("Models", () => {
 			// Should show error toast - partial match
 			await waitFor(() => {
 				expect(screen.getByText(/Failed to delete model:/)).toBeInTheDocument();
+			});
+
+			// Modal also closes on error path (onClose called synchronously in onClick),
+			// same as success path. This verifies the UI interaction pattern, not that
+			// closure depends on mutation outcome.
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("heading", { name: "Test Model v1" }),
+				).not.toBeInTheDocument();
 			});
 		});
 

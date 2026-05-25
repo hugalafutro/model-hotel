@@ -475,11 +475,25 @@ describe("Route navigation", () => {
 		localStorage.setItem("adminToken", "test-token");
 		renderWithProviders(<App />);
 
+		// Navigate away first (to Settings), since Dashboard is the default route
+		// and "Dashboard" heading is already present from initial render
+		const settingsLink = screen.getByRole("link", { name: "Settings" });
+		await userEvent.click(settingsLink);
+		await waitFor(() => {
+			expect(screen.getByText("Settings")).toBeInTheDocument();
+		});
+
+		// Now click Dashboard to verify navigation back works
 		const dashboardLink = screen.getByRole("link", { name: "Dashboard" });
 		await userEvent.click(dashboardLink);
 
+		// Verify navigation by checking URL and a unique Dashboard element
+		// (the header description is unique to Dashboard)
 		await waitFor(() => {
-			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			expect(window.location.pathname).toBe("/");
+			expect(
+				screen.getByText("Overview of your Model Hotel usage"),
+			).toBeInTheDocument();
 		});
 	});
 
