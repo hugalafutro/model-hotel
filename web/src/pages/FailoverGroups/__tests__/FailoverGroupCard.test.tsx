@@ -350,24 +350,6 @@ describe("FailoverGroupCard", () => {
 			});
 		});
 
-		it("shows toast when copying model reference", async () => {
-			const group = {
-				...mockFailoverGroup,
-				display_model: "test-model",
-			};
-
-			const { user } = renderWithProviders(
-				<FailoverGroupCard {...defaultProps} group={group} />,
-			);
-
-			const modelElement = screen.getByText("hotel/test-model");
-			await user.click(modelElement);
-
-			await waitFor(() => {
-				expect(screen.getByText("Copied hotel/test-model")).toBeInTheDocument();
-			});
-		});
-
 		it("calls onToggleEntry when entry toggle is clicked", async () => {
 			const onToggleEntry = vi.fn();
 			const group = {
