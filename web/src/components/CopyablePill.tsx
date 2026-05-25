@@ -25,8 +25,9 @@ export const CopyablePill = memo(function CopyablePill({
 }: CopyablePillProps) {
 	const { toast } = useToast();
 
-	// Always show full text in tooltip so truncated content is visible on hover.
-	// If a custom label is provided, show both the label and the full text.
+	// Tooltip shows full text for sighted users (visible on hover when truncated).
+	// aria-label stays as a short action description for screen readers.
+	const ariaLabel = tooltip ?? `Copy ${text}`;
 	const effectiveTooltip = tooltip ? `${tooltip}\n${text}` : text;
 
 	const handleCopy = (e: React.MouseEvent) => {
@@ -50,7 +51,7 @@ export const CopyablePill = memo(function CopyablePill({
 				onClick={handleCopy}
 				className={`flex ${lines > 1 ? "items-start w-full" : "items-center"} gap-1.5 min-w-0 ${lines > 1 ? "" : "overflow-hidden"} select-none text-left pl-0 pr-1 py-0.5 rounded hover:bg-gray-700 transition-colors cursor-pointer`}
 				title={effectiveTooltip}
-				aria-label={effectiveTooltip}
+				aria-label={ariaLabel}
 			>
 				<span
 					className={`${lines === 1 ? "truncate" : ""} ${textClassName}`}

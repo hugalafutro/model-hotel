@@ -732,8 +732,10 @@ describe("ModelTable", () => {
 
 			const { user } = renderWithProviders(<ModelTable {...defaultProps} />);
 
-			// Click on the copy button (the button containing the model ID text)
-			const copyButton = screen.getByTitle("Click to copy model ID");
+			// Click on the copy button (aria-label stays short for accessibility)
+			const copyButton = screen.getByRole("button", {
+				name: "Click to copy model ID",
+			});
 			await user.click(copyButton);
 
 			expect(writeTextMock).toHaveBeenCalledWith("Test-Provider/test-model-v1");

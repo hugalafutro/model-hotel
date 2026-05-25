@@ -62,16 +62,20 @@ describe("CopyablePill", () => {
 		);
 
 		const button = screen.getByText("my-full-key-value").closest("button");
+		// title shows both label and full text (for sighted users)
 		expect(button).toHaveAttribute(
 			"title",
 			"Custom tooltip text\nmy-full-key-value",
 		);
+		// aria-label stays short (for screen readers)
+		expect(button).toHaveAttribute("aria-label", "Custom tooltip text");
 	});
 
-	it("uses text as default tooltip when not provided", () => {
+	it("uses text as default tooltip and aria-label when not provided", () => {
 		renderWithProviders(<CopyablePill text="key" />);
 
 		const button = screen.getByText("key").closest("button");
 		expect(button).toHaveAttribute("title", "key");
+		expect(button).toHaveAttribute("aria-label", "Copy key");
 	});
 });
