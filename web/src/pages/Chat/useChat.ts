@@ -514,79 +514,80 @@ export function useChat() {
 	// Helper to delete a message
 	const handleDeleteMessage = useCallback(
 		(msgIndex: number) => {
-			// Capture conversation state before the setMessages callback
-			// so we can make decisions based on it inside the updater.
-			const prevState = conversationState;
+			const msg = messages[msgIndex];
+			if (!msg) return;
 
-			setMessages((prev) => {
-				const msg = prev[msgIndex];
-				if (!msg) return prev;
+			const toRemove = new Set<number>();
 
-				const toRemove = new Set<number>();
-
-				if (chatSubMode === "chat") {
-					// In chat mode, delete the assistant and preceding user message
-					toRemove.add(msgIndex);
-					if (msgIndex > 0 && prev[msgIndex - 1].role === "user") {
-						toRemove.add(msgIndex - 1);
-					}
-				} else {
-					// In conversation mode:
-					// - If streaming, can only delete the last (currently generating) message
-					// - If not streaming, can only delete the last pair
-					const lastAssistantIdx = prev.findLastIndex(
-						(m) => m.role === "assistant",
-					);
-					const isLastAssistant = msgIndex === lastAssistantIdx;
-					const isStreamingLast = isStreaming && msgIndex === prev.length - 1;
-
-					if (!isLastAssistant && !isStreamingLast) {
-						// Can't delete - not the last message
-						toast("Can only delete the most recent response", "error");
-						return prev;
-					}
-
-					// Delete this assistant message and the preceding message (either user or other assistant)
-					toRemove.add(msgIndex);
-					if (msgIndex > 0) {
-						toRemove.add(msgIndex - 1);
-					}
-
-					// After deletion, determine the correct conversation state
-					const remaining = prev.filter((_, i) => !toRemove.has(i));
-
-					if (remaining.length === 0) {
-						// Deleted everything - back to idle, restore the prompt
-						setConversationState("idle");
-						setCurrentTurn(0);
-						if (lastPromptRef.current) {
-							setInput(lastPromptRef.current);
-						}
-						return [];
-					}
-
-					if (remaining.length === 1 && remaining[0]?.role === "user") {
-						// Only the initial user prompt remains - back to idle
-						setConversationState("idle");
-						setCurrentTurn(0);
-						setInput(remaining[0].content);
-						return [];
-					}
-
-					// There are earlier successful turns remaining
-					if (prevState === "error" || prevState === "completed") {
-						// Transition to "paused" so the user can continue
-						setConversationState("paused");
-						// Adjust turn counter: count remaining assistant messages
-						const remainingAssistantCount = remaining.filter(
-							(m) => m.role === "assistant",
-						).length;
-						setCurrentTurn(remainingAssistantCount);
-					}
+			if (chatSubMode === "chat") {
+				// In chat mode, delete the assistant and preceding user message
+				toRemove.add(msgIndex);
+				if (msgIndex > 0 && messages[msgIndex - 1].role === "user") {
+					toRemove.add(msgIndex - 1);
 				}
+				setMessages(messages.filter((_, i) => !toRemove.has(i)));
+				toast("Message deleted", "info");
+				return;
+			}
 
-				return prev.filter((_, i) => !toRemove.has(i));
-			});
+			// In conversation mode:
+			// - If streaming, can only delete the last (currently generating) message
+			// - If not streaming, can only delete the last pair
+			const lastAssistantIdx = messages.findLastIndex(
+				(m) => m.role === "assistant",
+			);
+			const isLastAssistant = msgIndex === lastAssistantIdx;
+			const isStreamingLast = isStreaming && msgIndex === messages.length - 1;
+
+			if (!isLastAssistant && !isStreamingLast) {
+				// Can't delete - not the last message
+				toast("Can only delete the most recent response", "error");
+				return;
+			}
+
+			// Delete this assistant message and the preceding message (either user or other assistant)
+			toRemove.add(msgIndex);
+			if (msgIndex > 0) {
+				toRemove.add(msgIndex - 1);
+			}
+
+			// After deletion, determine the correct conversation state
+			const remaining = messages.filter((_, i) => !toRemove.has(i));
+
+			if (remaining.length === 0) {
+				// Deleted everything - back to idle, restore the prompt
+				setConversationState("idle");
+				setCurrentTurn(0);
+				if (lastPromptRef.current) {
+					setInput(lastPromptRef.current);
+				}
+				setMessages([]);
+				toast("Message deleted", "info");
+				return;
+			}
+
+			if (remaining.length === 1 && remaining[0]?.role === "user") {
+				// Only the initial user prompt remains - back to idle
+				setConversationState("idle");
+				setCurrentTurn(0);
+				setInput(remaining[0].content);
+				setMessages([]);
+				toast("Message deleted", "info");
+				return;
+			}
+
+			// There are earlier successful turns remaining
+			if (conversationState === "error" || conversationState === "completed") {
+				// Transition to "paused" so the user can continue
+				setConversationState("paused");
+				// Adjust turn counter: count remaining assistant messages
+				const remainingAssistantCount = remaining.filter(
+					(m) => m.role === "assistant",
+				).length;
+				setCurrentTurn(remainingAssistantCount);
+			}
+
+			setMessages(remaining);
 			toast("Message deleted", "info");
 		},
 		[
@@ -594,8 +595,10 @@ export function useChat() {
 			toast,
 			isStreaming,
 			conversationState,
-			setCurrentTurn, // Transition to "paused" so the user can continue
+			messages,
+			setCurrentTurn,
 			setConversationState,
+			setInput,
 		],
 	);
 

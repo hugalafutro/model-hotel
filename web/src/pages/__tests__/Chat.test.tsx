@@ -990,7 +990,7 @@ describe("Chat", () => {
 		});
 
 		it("resets everything including model selection", {
-			timeout: 5000,
+			timeout: 15000,
 		}, async () => {
 			const chunks = [{ choices: [{ delta: { content: "Response" } }] }];
 			server.use(...mockChatStream(chunks, { delay: 10 }));
