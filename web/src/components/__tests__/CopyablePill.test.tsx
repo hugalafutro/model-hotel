@@ -56,18 +56,15 @@ describe("CopyablePill", () => {
 		expect(screen.getByText("Extra")).toBeInTheDocument();
 	});
 
-	it("shows custom tooltip label plus full text on hover via title attribute", () => {
+	it("shows full text in title even when tooltip prop is provided", () => {
 		renderWithProviders(
 			<CopyablePill text="my-full-key-value" tooltip="Custom tooltip text" />,
 		);
 
 		const button = screen.getByText("my-full-key-value").closest("button");
-		// title shows both label and full text (for sighted users)
-		expect(button).toHaveAttribute(
-			"title",
-			"Custom tooltip text\nmy-full-key-value",
-		);
-		// aria-label stays short (for screen readers)
+		// title shows full text (most useful for sighted users on hover)
+		expect(button).toHaveAttribute("title", "my-full-key-value");
+		// aria-label uses the tooltip prop (short action description for screen readers)
 		expect(button).toHaveAttribute("aria-label", "Custom tooltip text");
 	});
 
