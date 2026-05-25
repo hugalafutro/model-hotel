@@ -78,4 +78,22 @@ describe("CopyablePill", () => {
 		expect(button).toHaveAttribute("title", "key");
 		expect(button).toHaveAttribute("aria-label", "Copy key");
 	});
+
+	it("applies line-clamp styles when lines > 1", () => {
+		renderWithProviders(
+			<CopyablePill text="a-very-long-model-id-value" lines={2} />,
+		);
+
+		const span = screen.getByText("a-very-long-model-id-value");
+		// line-clamp style applied
+		expect(span.style.display).toBe("-webkit-box");
+		expect(span.style.WebkitLineClamp).toBe("2");
+		// button and outer div use items-start and w-full
+		const button = span.closest("button")!;
+		expect(button.className).toContain("items-start");
+		expect(button.className).toContain("w-full");
+		expect(button.className).toContain("text-left");
+		// default truncate class NOT applied
+		expect(span.className).not.toContain("truncate");
+	});
 });
