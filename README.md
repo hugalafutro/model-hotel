@@ -359,7 +359,6 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
 
-## Star History
 <div align="center">
 <a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=timeline&legend=bottom-right">
  <picture>
