@@ -134,21 +134,13 @@ describe("useDashboard", () => {
 		it("second call within 5s is blocked and shows cooldown toast", async () => {
 			const toastSpy = vi.fn();
 			const toastWrapper = ({ children }: { children: React.ReactNode }) => {
-				const _MockToastProvider = ({
-					children: c,
-				}: {
-					children: React.ReactNode;
-				}) => {
-					React.createElement("div", null, c);
-					return c as React.ReactElement;
-				};
 				// Create a wrapper that injects a spied toast via context
 				return React.createElement(
 					ToastContext.Provider,
 					{
 						value: {
 							toast: toastSpy,
-							position: "bottom-center",
+							position: "bottom-center" as const,
 							setToastPosition: vi.fn(),
 							timeout: 4000,
 							setToastTimeout: vi.fn(),
@@ -160,7 +152,7 @@ describe("useDashboard", () => {
 
 			const { result } = renderHook(() => useDashboard(), {
 				wrapper: ({ children }: { children: React.ReactNode }) =>
-					AllProviders({ children, toastWrapper } as any),
+					AllProviders({ children, toastWrapper }),
 			});
 
 			// First call should succeed
@@ -174,8 +166,6 @@ describe("useDashboard", () => {
 
 			expect(result.current.isRefreshing).toBe(true);
 			expect(toastSpy).toHaveBeenCalledWith("Refreshing dashboard…", "info");
-
-			const _callCountBefore = toastSpy.mock.calls.length;
 
 			// Second call immediately should be blocked (cooldown)
 			act(() => {
