@@ -6,15 +6,9 @@ set -euo pipefail
 
 # ── Sync check: refuse commits if branch is behind master ──
 current_branch=$(git rev-parse --abbrev-ref HEAD)
-if [ "$current_branch" != "master" ]; then
-	tracking_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null || echo "")
-	if [ -n "$tracking_branch" ]; then
-		behind=$(git rev-list --count HEAD.."$tracking_branch" 2>/dev/null || echo "0")
-	else
-		# No upstream set — check against origin/master
-		git fetch origin master --quiet 2>/dev/null || true
-		behind=$(git rev-list --count HEAD..origin/master 2>/dev/null || echo "0")
-	fi
+if [ "$current_branch" != "master" ] && [ "$current_branch" != "HEAD" ]; then
+	git fetch origin master --quiet 2>/dev/null || true
+	behind=$(git rev-list --count HEAD..origin/master 2>/dev/null || echo "0")
 	if [ "$behind" -gt 0 ]; then
 		echo "" >&2
 		echo "⛔ STOP. BRANCH BEHIND MASTER. STOP EVERYTHING." >&2
