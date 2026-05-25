@@ -1,9 +1,21 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GenerationParams } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { ParamEditorModal } from "../ParamEditorModal";
+
+// Mock useRecommendedSettings for testing ApplyRecommendedButton
+vi.mock("../../../hooks/useRecommendedSettings", () => ({
+	useRecommendedSettings: vi.fn(() => ({
+		recommended: null,
+		loading: false,
+		error: null,
+		matchedModel: null,
+	})),
+}));
+
+import { useRecommendedSettings } from "../../../hooks/useRecommendedSettings";
 
 describe("ParamEditorModal", () => {
 	const defaultProps = {
@@ -13,6 +25,16 @@ describe("ParamEditorModal", () => {
 		onClose: vi.fn(),
 		knownProviders: ["Test Provider"],
 	};
+
+	beforeEach(() => {
+		vi.mocked(useRecommendedSettings).mockClear();
+		vi.mocked(useRecommendedSettings).mockReturnValue({
+			recommended: null,
+			loading: false,
+			error: null,
+			matchedModel: null,
+		});
+	});
 
 	it("renders modal with model ID as title", () => {
 		renderWithProviders(<ParamEditorModal {...defaultProps} />);
@@ -202,5 +224,162 @@ describe("ParamEditorModal", () => {
 		expect(screen.getByText(/Temperature/i)).toBeInTheDocument();
 		expect(screen.getByText(/Max Tokens/i)).toBeInTheDocument();
 		expect(screen.getByText(/Top K/i)).toBeInTheDocument();
+	});
+
+	it("calls onChange with top_p when Top P slider is adjusted", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		renderWithProviders(
+			<ParamEditorModal {...defaultProps} onChange={onChange} />,
+		);
+
+		const label = screen.getByText(/Top P/i);
+		const container = label.closest("div")!;
+		const input = within(container).getByRole("spinbutton");
+
+		await user.clear(input);
+		await user.type(input, "0.5{Enter}");
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining({ top_p: 0.5 }),
+		);
+	});
+
+	it("calls onChange with min_p when Min P slider is adjusted", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		renderWithProviders(
+			<ParamEditorModal {...defaultProps} onChange={onChange} />,
+		);
+
+		const label = screen.getByText(/Min P/i);
+		const container = label.closest("div")!;
+		const input = within(container).getByRole("spinbutton");
+
+		await user.clear(input);
+		await user.type(input, "0.1{Enter}");
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining({ min_p: 0.1 }),
+		);
+	});
+
+	it("calls onChange with frequency_penalty when Freq Penalty slider is adjusted", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		renderWithProviders(
+			<ParamEditorModal {...defaultProps} onChange={onChange} />,
+		);
+
+		const label = screen.getByText(/Freq Penalty/i);
+		const container = label.closest("div")!;
+		const input = within(container).getByRole("spinbutton");
+
+		await user.clear(input);
+		await user.type(input, "0.5{Enter}");
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining({ frequency_penalty: 0.5 }),
+		);
+	});
+
+	it("calls onChange with presence_penalty when Pres Penalty slider is adjusted", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		renderWithProviders(
+			<ParamEditorModal {...defaultProps} onChange={onChange} />,
+		);
+
+		const label = screen.getByText(/Pres Penalty/i);
+		const container = label.closest("div")!;
+		const input = within(container).getByRole("spinbutton");
+
+		await user.clear(input);
+		await user.type(input, "0.3{Enter}");
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining({ presence_penalty: 0.3 }),
+		);
+	});
+
+	it("renders ReasoningEffortSelect when reasoning prop is true", () => {
+		renderWithProviders(
+			<ParamEditorModal {...defaultProps} reasoning={true} />,
+		);
+
+		// ReasoningEffortSelect renders buttons for Low, Medium, High
+		expect(screen.getByRole("button", { name: /Low/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /Medium/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /High/i })).toBeInTheDocument();
+	});
+
+	it("hides ReasoningEffortSelect when reasoning prop is omitted", () => {
+		renderWithProviders(<ParamEditorModal {...defaultProps} />);
+
+		// No reasoning buttons should be present
+		expect(
+			screen.queryByRole("button", { name: /Low/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /Medium/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /High/i }),
+		).not.toBeInTheDocument();
+	});
+
+	it("calls onChange with reasoning_effort when ReasoningEffortSelect is clicked", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+
+		renderWithProviders(
+			<ParamEditorModal
+				{...defaultProps}
+				reasoning={true}
+				params={{ reasoning_effort: "low" } as Partial<GenerationParams>}
+				onChange={onChange}
+			/>,
+		);
+
+		const mediumButton = screen.getByRole("button", { name: /Medium/i });
+		await user.click(mediumButton);
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining({ reasoning_effort: "medium" }),
+		);
+	});
+
+	it("calls onChange with recommended params when ApplyRecommendedButton is clicked", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+		const recommendedParams = {
+			temperature: 0.7,
+			max_tokens: 4096,
+		};
+
+		// Mock the hook to return recommended settings
+		vi.mocked(useRecommendedSettings).mockReturnValue({
+			recommended: recommendedParams,
+			loading: false,
+			error: null,
+			matchedModel: null,
+		});
+
+		renderWithProviders(
+			<ParamEditorModal {...defaultProps} onChange={onChange} />,
+		);
+
+		const applyButton = screen.getByRole("button", {
+			name: /Apply Recommended/i,
+		});
+		await user.click(applyButton);
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining(recommendedParams),
+		);
 	});
 });
