@@ -85,11 +85,12 @@ describe("CopyablePill", () => {
 		// line-clamp style applied
 		expect(span.style.display).toBe("-webkit-box");
 		expect(span.style.WebkitLineClamp).toBe("2");
-		// button and outer div use items-start and w-full
+		// button uses items-start (icon aligns with first text line)
 		const button = span.closest("button")!;
 		expect(button.className).toContain("items-start");
-		expect(button.className).toContain("w-full");
 		expect(button.className).toContain("text-left");
+		// pill does not stretch full width (sizes to content)
+		expect(button.className).not.toContain("w-full");
 		// default truncate class NOT applied
 		expect(span.className).not.toContain("truncate");
 	});
