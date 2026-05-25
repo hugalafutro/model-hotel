@@ -314,24 +314,26 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								</div>
 							)}
 							{hasCache && (
-								<>
-									<div>
-										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											Cache Hit
+								<div className="col-span-2 sm:col-span-4">
+									<div className="grid grid-cols-2 gap-3">
+										<div>
+											<div className="text-[11px] uppercase text-(--text-tertiary)">
+												Cache Hit
+											</div>
+											<div className="text-sm font-mono text-green-400">
+												{requestLog.tokens_prompt_cache_hit.toLocaleString()}
+											</div>
 										</div>
-										<div className="text-sm font-mono text-green-400">
-											{requestLog.tokens_prompt_cache_hit.toLocaleString()}
+										<div>
+											<div className="text-[11px] uppercase text-(--text-tertiary)">
+												Cache Miss
+											</div>
+											<div className="text-sm font-mono text-orange-400">
+												{requestLog.tokens_prompt_cache_miss.toLocaleString()}
+											</div>
 										</div>
 									</div>
-									<div>
-										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											Cache Miss
-										</div>
-										<div className="text-sm font-mono text-orange-400">
-											{requestLog.tokens_prompt_cache_miss.toLocaleString()}
-										</div>
-									</div>
-								</>
+								</div>
 							)}
 						</div>
 					</div>
