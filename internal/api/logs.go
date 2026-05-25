@@ -42,6 +42,8 @@ type LogEntry struct {
 	TokensPrompt              int       `json:"tokens_prompt"`
 	TokensCompletion          int       `json:"tokens_completion"`
 	TokensCompletionReasoning int       `json:"tokens_completion_reasoning"`
+	TokensPromptCacheHit      int       `json:"tokens_prompt_cache_hit"`
+	TokensPromptCacheMiss     int       `json:"tokens_prompt_cache_miss"`
 	Streaming                 bool      `json:"streaming"`
 	VirtualKeyName            string    `json:"virtual_key_name"`
 	VirtualKeyDeleted         bool      `json:"virtual_key_deleted"`
@@ -97,6 +99,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			COALESCE(rl.tokens_per_second, 0),
 			COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
 			COALESCE(rl.tokens_completion_reasoning, 0),
+			COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
 			COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
 			 CASE
 				WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
@@ -116,6 +119,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.DialMs, &entry.SettingsReadMs,
 		&entry.TokensPerSecond,
 		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
 		&entry.Streaming,
 		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 		&entry.ErrorMessage,
@@ -207,6 +211,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
             COALESCE(rl.tokens_per_second, 0),
             COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
             COALESCE(rl.tokens_completion_reasoning, 0),
+            COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
             COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
              CASE
                 WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
@@ -341,6 +346,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 			&entry.DialMs, &entry.SettingsReadMs,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
 			&entry.Streaming,
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 			&entry.ErrorMessage,
@@ -587,8 +593,9 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
                COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
                COALESCE(rl.tokens_per_second, 0),
-               COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
-               COALESCE(rl.tokens_completion_reasoning, 0),
+                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
+                COALESCE(rl.tokens_completion_reasoning, 0),
+                COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
 COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
                 CASE
                     WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
@@ -692,6 +699,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.DialMs, &entry.SettingsReadMs,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
 			&entry.Streaming,
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 			&entry.ErrorMessage,
