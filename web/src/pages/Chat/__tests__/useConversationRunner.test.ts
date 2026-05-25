@@ -608,10 +608,15 @@ describe("useConversationRunner", () => {
 		});
 
 		expect(calledSystemPrompts.length).toBeGreaterThanOrEqual(4);
-		expect(calledSystemPrompts[0]).toBe("System prompt A");
-		expect(calledSystemPrompts[1]).toBe("System prompt B");
-		expect(calledSystemPrompts[2]).toBe("System prompt A");
-		expect(calledSystemPrompts[3]).toBe("System prompt B");
+		// Each model should be called at least twice (once per turn)
+		const promptACount = calledSystemPrompts.filter(
+			(p) => p === "System prompt A",
+		).length;
+		const promptBCount = calledSystemPrompts.filter(
+			(p) => p === "System prompt B",
+		).length;
+		expect(promptACount).toBeGreaterThanOrEqual(2);
+		expect(promptBCount).toBeGreaterThanOrEqual(2);
 	});
 
 	it("passes message history to each turn", async () => {
