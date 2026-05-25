@@ -2320,3 +2320,404 @@ func TestUsageAnthropicCacheFieldsDeserialization(t *testing.T) {
 	assert.Equal(t, 60, bothUsage.CacheReadInputTokens)
 	assert.Equal(t, 10, bothUsage.CacheCreationInputTokens)
 }
+
+// ---------------------------------------------------------------------------
+// PromptTokensDetails.cached_tokens fallback tests (tier 3)
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_PromptTokensDetailsCachedTokens(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// OpenAI's official nested format: prompt_tokens_details.cached_tokens
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2008,"completion_tokens":266,"total_tokens":2274,"prompt_tokens_details":{"cached_tokens":1984},"completion_tokens_details":{"reasoning_tokens":261}}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 1984 {
+		t.Errorf("expected prompt_cache_hit=1984 (from prompt_tokens_details.cached_tokens), got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 24 {
+		t.Errorf("expected prompt_cache_miss=24 (2008-1984), got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleStreamingResponse_AllCacheFormatsPrecedence(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// All three cache formats present - tier 1 (PromptCacheHitTokens) should win
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":2008,"completion_tokens":266,"total_tokens":2274,"prompt_cache_hit_tokens":500,"cache_read_input_tokens":300,"prompt_tokens_details":{"cached_tokens":1984}}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// Tier 1 (PromptCacheHitTokens) should take precedence
+	if logData.tokensPromptCacheHit != 500 {
+		t.Errorf("expected prompt_cache_hit=500 (tier 1 takes precedence), got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 1508 {
+		t.Errorf("expected prompt_cache_miss=1508 (2008-500), got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleNonStreamingResponse_PromptTokensDetailsCachedTokens(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Non-streaming response with OpenAI's official nested format
+	upstreamBody := `{
+		"id": "chatcmpl-openai-cache",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "gpt-4o",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello from cached model!"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 2008,
+			"completion_tokens": 266,
+			"total_tokens": 2274,
+			"prompt_tokens_details": {
+				"cached_tokens": 1984
+			},
+			"completion_tokens_details": {
+				"reasoning_tokens": 261
+			}
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-4o",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "chatcmpl-openai-cache", decodedResp.ID)
+	assert.Equal(t, "gpt-4o", decodedResp.Model)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "Hello from cached model!", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, 2008, decodedResp.Usage.PromptTokens)
+	assert.Equal(t, 266, decodedResp.Usage.CompletionTokens)
+	assert.Equal(t, 1984, decodedResp.Usage.PromptTokensDetails.CachedTokens)
+
+	assert.Equal(t, "completed", logData.state)
+	assert.Equal(t, http.StatusOK, logData.statusCode)
+	assert.Equal(t, 1984, logData.tokensPromptCacheHit)
+	assert.Equal(t, 24, logData.tokensPromptCacheMiss)
+}
+
+func TestUsagePromptTokensDetailsDeserialization(t *testing.T) {
+	// OpenAI nested format: prompt_tokens_details.cached_tokens
+	openaiNestedJSON := `{"prompt_tokens":2008,"completion_tokens":266,"total_tokens":2274,"prompt_tokens_details":{"cached_tokens":1984}}`
+	var openaiNestedUsage Usage
+	require.NoError(t, json.Unmarshal([]byte(openaiNestedJSON), &openaiNestedUsage))
+	assert.Equal(t, 1984, openaiNestedUsage.PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 0, openaiNestedUsage.PromptCacheHitTokens)
+	assert.Equal(t, 0, openaiNestedUsage.CacheReadInputTokens)
+
+	// Top-level format: prompt_cache_hit_tokens
+	topLevelJSON := `{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":80,"prompt_cache_miss_tokens":20}`
+	var topLevelUsage Usage
+	require.NoError(t, json.Unmarshal([]byte(topLevelJSON), &topLevelUsage))
+	assert.Equal(t, 80, topLevelUsage.PromptCacheHitTokens)
+	assert.Nil(t, topLevelUsage.PromptTokensDetails)
+
+	// Both present - all fields deserialize independently
+	bothJSON := `{"prompt_tokens":2008,"completion_tokens":266,"prompt_cache_hit_tokens":500,"prompt_tokens_details":{"cached_tokens":1984}}`
+	var bothUsage Usage
+	require.NoError(t, json.Unmarshal([]byte(bothJSON), &bothUsage))
+	assert.Equal(t, 500, bothUsage.PromptCacheHitTokens)
+	assert.Equal(t, 1984, bothUsage.PromptTokensDetails.CachedTokens)
+}
+
+// ---------------------------------------------------------------------------
+// Negative cache miss clamping tests (max(0, prompt_tokens - cache_hit))
+// ---------------------------------------------------------------------------
+
+func TestHandleStreamingResponse_PromptTokensDetailsNegativeMiss(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream returns prompt_tokens: 100 but prompt_tokens_details.cached_tokens: 150
+	// (more cached than total prompt). Verify miss is clamped to 0.
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"prompt_tokens_details":{"cached_tokens":150}}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 150 {
+		t.Errorf("expected prompt_cache_hit=150 (from prompt_tokens_details.cached_tokens), got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 0 {
+		t.Errorf("expected prompt_cache_miss=0 (clamped by max(0, 100-150)), got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleNonStreamingResponse_PromptTokensDetailsNegativeMiss(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Non-streaming response: prompt_tokens: 100, prompt_tokens_details.cached_tokens: 150
+	// Verify miss is clamped to 0.
+	upstreamBody := `{
+		"id": "chatcmpl-negative-miss",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "gpt-4o",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello!"
+			}
+		}],
+		"usage": {
+			"prompt_tokens": 100,
+			"completion_tokens": 5,
+			"total_tokens": 105,
+			"prompt_tokens_details": {
+				"cached_tokens": 150
+			}
+		}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(upstreamBody)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:         "gpt-4o",
+		providerID:      uuid.New(),
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	startTime := time.Now()
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+
+	var decodedResp ChatCompletionResponse
+	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	require.NoError(t, err, "Should decode response successfully")
+
+	assert.Equal(t, "chatcmpl-negative-miss", decodedResp.ID)
+	assert.Equal(t, "gpt-4o", decodedResp.Model)
+	assert.Len(t, decodedResp.Choices, 1)
+	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
+	assert.Equal(t, "Hello!", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, 100, decodedResp.Usage.PromptTokens)
+	assert.Equal(t, 5, decodedResp.Usage.CompletionTokens)
+	assert.Equal(t, 150, decodedResp.Usage.PromptTokensDetails.CachedTokens)
+
+	assert.Equal(t, "completed", logData.state)
+	assert.Equal(t, http.StatusOK, logData.statusCode)
+	assert.Equal(t, 150, logData.tokensPromptCacheHit)
+	assert.Equal(t, 0, logData.tokensPromptCacheMiss)
+}
+
+func TestHandleStreamingResponse_Tier2OverridesTier3(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Both tier 2 (cache_read_input_tokens) and tier 3 (prompt_tokens_details.cached_tokens) present.
+	// Tier 1 is NOT present. Verify tier 2 wins.
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":2008,"completion_tokens":266,"total_tokens":2274,"cache_read_input_tokens":300,"prompt_tokens_details":{"cached_tokens":1984}}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	// Tier 2 (cache_read_input_tokens) should take precedence over tier 3
+	if logData.tokensPromptCacheHit != 300 {
+		t.Errorf("expected prompt_cache_hit=300 (tier 2: cache_read_input_tokens), got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 1708 {
+		t.Errorf("expected prompt_cache_miss=1708 (2008-300), got %d", logData.tokensPromptCacheMiss)
+	}
+}
+
+func TestHandleStreamingResponse_Tier1NegativeMiss(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Tier 1 (prompt_cache_hit_tokens: 500) > prompt_tokens: 400.
+	// Verify miss is clamped to 0 by max(0, ...).
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":400,"completion_tokens":5,"total_tokens":405,"prompt_cache_hit_tokens":500}}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+
+	if logData.tokensPromptCacheHit != 500 {
+		t.Errorf("expected prompt_cache_hit=500 (from prompt_cache_hit_tokens), got %d", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 0 {
+		t.Errorf("expected prompt_cache_miss=0 (clamped by max(0, 400-500)), got %d", logData.tokensPromptCacheMiss)
+	}
+}

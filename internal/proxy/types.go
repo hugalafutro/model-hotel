@@ -127,6 +127,14 @@ type Message struct {
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
 }
 
+// PromptTokensDetails breaks down prompt tokens into sub-categories.
+// OpenAI returns cached token counts in this nested object rather than
+// at the top level of usage. Third-party providers (Wafer AI, OpenRouter,
+// NanoGPT) that normalise to OpenAI format also use this structure.
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
 // CompletionTokensDetails breaks down completion tokens into sub-categories
 // (e.g. reasoning vs text). Providers like Anthropic report reasoning tokens
 // separately from visible text tokens in this nested object.
@@ -143,5 +151,6 @@ type Usage struct {
 	PromptCacheMissTokens    int                      `json:"prompt_cache_miss_tokens,omitempty"`
 	CacheReadInputTokens     int                      `json:"cache_read_input_tokens,omitempty"`
 	CacheCreationInputTokens int                      `json:"cache_creation_input_tokens,omitempty"`
+	PromptTokensDetails      *PromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
 	CompletionTokensDetails  *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
 }
