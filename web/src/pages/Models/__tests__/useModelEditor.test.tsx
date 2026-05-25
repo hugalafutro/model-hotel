@@ -279,6 +279,40 @@ describe("useModelEditor", () => {
 
 			expect(result.current.getChangedFields()).toContain("context_length");
 		});
+
+		it("treats empty string as equal to null for input_price_per_million", () => {
+			const modelWithNull = {
+				...mockModel,
+				input_price_per_million: null,
+			} as unknown as Model;
+
+			const { result } = renderHook(() =>
+				useModelEditor({ model: modelWithNull, onUpdate: mockOnUpdate }),
+			);
+
+			// editData.input_price_per_million is "" for null model value
+			// getChangedFields should treat "" === null (no change)
+			expect(result.current.getChangedFields()).not.toContain(
+				"input_price_per_million",
+			);
+		});
+
+		it("treats empty string as equal to null for output_price_per_million", () => {
+			const modelWithNull = {
+				...mockModel,
+				output_price_per_million: null,
+			} as unknown as Model;
+
+			const { result } = renderHook(() =>
+				useModelEditor({ model: modelWithNull, onUpdate: mockOnUpdate }),
+			);
+
+			// editData.output_price_per_million is "" for null model value
+			// getChangedFields should treat "" === null (no change)
+			expect(result.current.getChangedFields()).not.toContain(
+				"output_price_per_million",
+			);
+		});
 	});
 
 	describe("getFieldLabel", () => {
@@ -376,7 +410,7 @@ describe("useModelEditor", () => {
 			expect(result.current.editing).toBe(false);
 		});
 
-		it("keeps editing true when canceling with changes while editing", () => {
+		it("sets confirmFields and keeps editing when canceling with unsaved changes", () => {
 			const { result } = renderHook(() =>
 				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
 			);
@@ -487,6 +521,69 @@ describe("useModelEditor", () => {
 
 			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
 				context_length: null,
+			});
+		});
+
+		it("handles empty string as null for max_output_tokens", () => {
+			const { result } = renderHook(() =>
+				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
+			);
+
+			act(() => {
+				result.current.setEditData((prev) => ({
+					...prev,
+					max_output_tokens: "",
+				}));
+			});
+
+			act(() => {
+				result.current.handleSave();
+			});
+
+			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
+				max_output_tokens: null,
+			});
+		});
+
+		it("handles empty string as null for input_price_per_million", () => {
+			const { result } = renderHook(() =>
+				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
+			);
+
+			act(() => {
+				result.current.setEditData((prev) => ({
+					...prev,
+					input_price_per_million: "",
+				}));
+			});
+
+			act(() => {
+				result.current.handleSave();
+			});
+
+			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
+				input_price_per_million: null,
+			});
+		});
+
+		it("handles empty string as null for output_price_per_million", () => {
+			const { result } = renderHook(() =>
+				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
+			);
+
+			act(() => {
+				result.current.setEditData((prev) => ({
+					...prev,
+					output_price_per_million: "",
+				}));
+			});
+
+			act(() => {
+				result.current.handleSave();
+			});
+
+			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
+				output_price_per_million: null,
 			});
 		});
 
@@ -612,6 +709,48 @@ describe("useModelEditor", () => {
 			});
 
 			expect(result.current.editData.context_length).toBe("");
+		});
+
+		it("handles null discoveredDefaults for max_output_tokens with empty string", () => {
+			const modelWithNull = {
+				...mockModel,
+				max_output_tokens: null,
+			} as unknown as Model;
+
+			const { result } = renderHook(() =>
+				useModelEditor({ model: modelWithNull, onUpdate: mockOnUpdate }),
+			);
+
+			act(() => {
+				result.current.setEditData((prev) => ({
+					...prev,
+					max_output_tokens: "8192",
+				}));
+				result.current.revertField("max_output_tokens");
+			});
+
+			expect(result.current.editData.max_output_tokens).toBe("");
+		});
+
+		it("handles null discoveredDefaults for output_price_per_million with empty string", () => {
+			const modelWithNull = {
+				...mockModel,
+				output_price_per_million: null,
+			} as unknown as Model;
+
+			const { result } = renderHook(() =>
+				useModelEditor({ model: modelWithNull, onUpdate: mockOnUpdate }),
+			);
+
+			act(() => {
+				result.current.setEditData((prev) => ({
+					...prev,
+					output_price_per_million: "3.0",
+				}));
+				result.current.revertField("output_price_per_million");
+			});
+
+			expect(result.current.editData.output_price_per_million).toBe("");
 		});
 	});
 

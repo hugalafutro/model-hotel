@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
@@ -607,11 +608,24 @@ describe("useConversationRunner", () => {
 			await result.current.runConversation();
 		});
 
+		// Minimum 4 calls (2 turns × 2 models), but can be higher under React strict mode
 		expect(calledSystemPrompts.length).toBeGreaterThanOrEqual(4);
-		expect(calledSystemPrompts[0]).toBe("System prompt A");
-		expect(calledSystemPrompts[1]).toBe("System prompt B");
-		expect(calledSystemPrompts[2]).toBe("System prompt A");
-		expect(calledSystemPrompts[3]).toBe("System prompt B");
+		// Each model should be called at least twice (once per turn)
+		const promptACount = calledSystemPrompts.filter(
+			(p) => p === "System prompt A",
+		).length;
+		const promptBCount = calledSystemPrompts.filter(
+			(p) => p === "System prompt B",
+		).length;
+		expect(promptACount).toBeGreaterThanOrEqual(2);
+		expect(promptBCount).toBeGreaterThanOrEqual(2);
+		// Verify ABAB interleaving: consecutive pairs should contain one A and one B
+		for (let i = 0; i < calledSystemPrompts.length - 1; i += 2) {
+			const pair = [calledSystemPrompts[i], calledSystemPrompts[i + 1]];
+			const hasA = pair.some((p) => p === "System prompt A");
+			const hasB = pair.some((p) => p === "System prompt B");
+			expect(hasA && hasB).toBe(true);
+		}
 	});
 
 	it("passes message history to each turn", async () => {
@@ -805,8 +819,8 @@ describe("useConversationRunner", () => {
 
 		// setConversationState should be called exactly once with "paused"
 		// (from handleStopConversation), not a second time from the error handler
-		const stateCalls = params.setConversationState.mock.calls.filter(
-			(call: [ConversationState]) => call[0] === "paused",
+		const stateCalls = (params.setConversationState as Mock).mock.calls.filter(
+			(call: unknown[]) => call[0] === "paused",
 		);
 		expect(stateCalls).toHaveLength(1);
 		expect(params.conversationRunningRef.current).toBe(false);

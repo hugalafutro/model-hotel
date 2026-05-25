@@ -136,12 +136,11 @@ describe("Chat controls collapse/expand", () => {
 		});
 
 		it("pressing Stop (during streaming) expands controls", async () => {
-			// Use a slow stream so we can click stop
-			const chunks = [
-				{ choices: [{ delta: { content: "Hello" }, index: 0 }] },
-				{ choices: [{ delta: { content: " world" }, index: 0 }] },
-			];
-			server.use(...mockChatStream(chunks, { delay: 50 }));
+			// Use a slow stream so we can click stop before it finishes
+			const chunks = Array.from({ length: 20 }, (_, i) => ({
+				choices: [{ delta: { content: `chunk${i} ` }, index: 0 }],
+			}));
+			server.use(...mockChatStream(chunks, { delay: 100 }));
 
 			const { user } = renderWithProviders(<Chat />);
 
