@@ -15,9 +15,17 @@ vi.mock("../useArenaRunner", () => ({
 	useArenaRunner: vi.fn(),
 }));
 
+vi.mock("../../../utils/arenaHistory", () => ({
+	getArenaHistoryEnabled: vi.fn(),
+	saveCompetitionToHistory: vi.fn(),
+}));
+
 // Import the mocked modules
 const { useArenaState } = await import("../useArenaState");
 const { useArenaRunner } = await import("../useArenaRunner");
+const { getArenaHistoryEnabled, saveCompetitionToHistory } = await import(
+	"../../../utils/arenaHistory"
+);
 
 const createMockArenaState = (
 	overrides?: Partial<ReturnType<typeof useArenaState>>,
@@ -306,6 +314,78 @@ describe("useArena", () => {
 			expect(setPhaseMock).not.toHaveBeenCalled();
 			expect(setWinnerModalMock).not.toHaveBeenCalled();
 		});
+
+		it("phase correction returns early when current round is undefined", () => {
+			const setPhaseMock = vi.fn();
+			const setWinnerModalMock = vi.fn();
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					phase: "voting",
+					rounds: [],
+					currentRound: 0,
+					setPhase: setPhaseMock,
+					setWinnerModal: setWinnerModalMock,
+					roundsRef: { current: [] },
+					currentRoundRef: { current: 0 },
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(createMockArenaRunner());
+
+			renderHook(() => useArena(), { wrapper: createWrapper() });
+
+			expect(setPhaseMock).not.toHaveBeenCalled();
+			expect(setWinnerModalMock).not.toHaveBeenCalled();
+		});
+
+		it("phase correction with B vote winner", () => {
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: "B" as const,
+						},
+					],
+				},
+			];
+			const setPhaseMock = vi.fn();
+			const setWinnerModalMock = vi.fn();
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					phase: "voting",
+					rounds,
+					currentRound: 0,
+					setPhase: setPhaseMock,
+					setWinnerModal: setWinnerModalMock,
+					roundsRef: { current: rounds },
+					currentRoundRef: { current: 0 },
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(createMockArenaRunner());
+
+			renderHook(() => useArena(), { wrapper: createWrapper() });
+
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+			expect(setWinnerModalMock).toHaveBeenCalledWith({
+				winner: "model-b",
+				rounds,
+			});
+		});
 	});
 
 	describe("handleRunArena", () => {
@@ -489,6 +569,79 @@ describe("useArena", () => {
 			expect(setSavedPromptMock).toHaveBeenCalledWith(prompt);
 			expect(setRoundsMock).toHaveBeenCalled();
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
+		});
+
+		it("handleRunArena sets runningModels with model IDs from first round matchups", () => {
+			const compareModels = ["model-a", "model-b"];
+			const prompt = "Test prompt";
+			const mockRounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const setSavedPromptMock = vi.fn();
+			const setRoundsMock = vi.fn();
+			const setCurrentRoundMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+			const buildCompareMock = vi.fn().mockReturnValue(mockRounds);
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					canRun: true,
+					arenaMode: "compare",
+					compareModels,
+					prompt,
+					setSavedPrompt: setSavedPromptMock,
+					setRounds: setRoundsMock,
+					setCurrentRound: setCurrentRoundMock,
+					setPhase: setPhaseMock,
+					setRunningModels: setRunningModelsMock,
+					buildCompareRoundWithParams: buildCompareMock,
+					enabledModels: [
+						{ provider_name: "openai", model_id: "gpt-4" } as Model,
+					],
+				}),
+			);
+
+			const streamModelMock = vi.fn();
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({ streamModel: streamModelMock }),
+			);
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleRunArena();
+			});
+
+			expect(setRunningModelsMock).toHaveBeenCalledWith(expect.any(Set));
+			const runningModelsCall = setRunningModelsMock.mock.calls.find(
+				(c) => c[0] instanceof Set,
+			);
+			expect(runningModelsCall?.[0]).toBeInstanceOf(Set);
+			expect(runningModelsCall?.[0].has("model-a")).toBe(true);
+			expect(runningModelsCall?.[0].has("model-b")).toBe(true);
 		});
 	});
 
@@ -704,7 +857,7 @@ describe("useArena", () => {
 			expect(runRoundMock).toHaveBeenCalledWith(1);
 		});
 
-		it("saves to history when winner declared and history enabled", () => {
+		it("declares winner and sets phase=finished when last round fully voted", () => {
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
@@ -768,6 +921,209 @@ describe("useArena", () => {
 			// Verify winner declaration code path is exercised
 			expect(setPhaseMock).toHaveBeenCalledWith("finished");
 			expect(setWinnerModalMock).toHaveBeenCalled();
+		});
+
+		it("handleVote toggles vote off when same vote clicked again", () => {
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: "A" as const,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const setRoundsMock = vi.fn((arg) => {
+				if (typeof arg === "function") {
+					const result = arg(rounds);
+					roundsRef.current = result;
+				} else {
+					roundsRef.current = arg;
+				}
+			});
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					rounds,
+					currentRound: 0,
+					setRounds: setRoundsMock,
+					roundsRef,
+					currentRoundRef: { current: 0 },
+				}),
+			);
+			const runRoundMock = vi.fn();
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({ runRound: runRoundMock }),
+			);
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleVote(0, 0, "A");
+			});
+
+			// Vote should be toggled off to null
+			expect(roundsRef.current[0].matchups[0].vote).toBe(null);
+		});
+
+		it("handleVote declares slotB winner when final vote is B", () => {
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const setRoundsMock = vi.fn((arg) => {
+				if (typeof arg === "function") {
+					const result = arg(rounds);
+					roundsRef.current = result;
+				} else {
+					roundsRef.current = arg;
+				}
+			});
+			const setPhaseMock = vi.fn();
+			const setWinnerModalMock = vi.fn();
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					rounds,
+					currentRound: 0,
+					setRounds: setRoundsMock,
+					setPhase: setPhaseMock,
+					setWinnerModal: setWinnerModalMock,
+					roundsRef,
+					currentRoundRef: { current: 0 },
+				}),
+			);
+			const runRoundMock = vi.fn();
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({ runRound: runRoundMock }),
+			);
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleVote(0, 0, "B");
+			});
+
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+			expect(setWinnerModalMock).toHaveBeenCalledWith({
+				winner: "model-b",
+				rounds: roundsRef.current,
+			});
+		});
+
+		it("handleVote saves to arena history with correct arguments when history enabled", () => {
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const setRoundsMock = vi.fn((arg) => {
+				if (typeof arg === "function") {
+					const result = arg(rounds);
+					roundsRef.current = result;
+				} else {
+					roundsRef.current = arg;
+				}
+			});
+			const setPhaseMock = vi.fn();
+			const setWinnerModalMock = vi.fn();
+
+			vi.mocked(getArenaHistoryEnabled).mockReturnValue(true);
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					rounds,
+					currentRound: 0,
+					setRounds: setRoundsMock,
+					setPhase: setPhaseMock,
+					setWinnerModal: setWinnerModalMock,
+					roundsRef,
+					currentRoundRef: { current: 0 },
+					activePromptIdRef: { current: "prompt-1" },
+				}),
+			);
+			const runRoundMock = vi.fn();
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({ runRound: runRoundMock }),
+			);
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleVote(0, 0, "A");
+			});
+
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+			expect(setWinnerModalMock).toHaveBeenCalled();
+			expect(saveCompetitionToHistory).toHaveBeenCalledWith({
+				rounds: roundsRef.current,
+				winner: "model-a",
+				promptPresetId: "prompt-1",
+				comparePersonaId: null,
+			});
+
+			// Reset mock to prevent leakage into subsequent tests
+			vi.mocked(getArenaHistoryEnabled).mockReset();
 		});
 	});
 
@@ -845,6 +1201,48 @@ describe("useArena", () => {
 				"A",
 				"new-model",
 			);
+		});
+
+		it("handleSwapCompleteAndUpdate updates bracketModels when oldModelId tracked", () => {
+			const handleSwapCompleteMock = vi.fn();
+			const setBracketModelsMock = vi.fn();
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					bracketModels: ["old-model", "other-model"],
+					setBracketModels: setBracketModelsMock,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({ handleSwapComplete: handleSwapCompleteMock }),
+			);
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			// First call handleSwapModel to track the old model
+			act(() => {
+				result.current.handleSwapModel(0, 0, "A", "old-model");
+			});
+
+			// Then call handleSwapCompleteAndUpdate to replace it
+			act(() => {
+				result.current.handleSwapCompleteAndUpdate(0, 0, "A", "new-model");
+			});
+
+			expect(handleSwapCompleteMock).toHaveBeenCalledWith(
+				0,
+				0,
+				"A",
+				"new-model",
+			);
+			expect(setBracketModelsMock).toHaveBeenCalled();
+			const bracketModelsCall = setBracketModelsMock.mock.calls[0];
+			expect(bracketModelsCall?.[0]).toBeInstanceOf(Function);
+			const updaterFn = bracketModelsCall?.[0] as (prev: string[]) => string[];
+			const updatedModels = updaterFn(["old-model", "other-model"]);
+			expect(updatedModels).toEqual(["new-model", "other-model"]);
 		});
 	});
 
