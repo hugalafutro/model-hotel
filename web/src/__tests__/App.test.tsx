@@ -490,7 +490,7 @@ describe("Route navigation", () => {
 		// Verify navigation by checking URL and a unique Dashboard element
 		// (the header description is unique to Dashboard)
 		await waitFor(() => {
-			expect(window.location.pathname).toBe("/");
+			// MemoryRouter doesn't update window.location; verify by unique page content
 			expect(
 				screen.getByText("Overview of your Model Hotel usage"),
 			).toBeInTheDocument();
