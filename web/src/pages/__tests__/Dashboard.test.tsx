@@ -615,6 +615,396 @@ describe("Dashboard", () => {
 			});
 		});
 	});
+
+	describe("Chart Order by Metric", () => {
+		afterEach(() => {
+			localStorage.removeItem("dashboardMetric");
+		});
+
+		it("renders Tokens chart before Requests chart when metric is tokens", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/stats/timeseries", () =>
+					HttpResponse.json({ points: [] }),
+				),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			const chartHeadings = screen.getAllByRole("heading", { level: 3 });
+			const tokenHeading = chartHeadings.find((h) =>
+				/Tokens\s*\/\s*Day/i.test(h.textContent || ""),
+			);
+			const requestsHeading = chartHeadings.find((h) =>
+				/Requests\s*\/\s*Day/i.test(h.textContent || ""),
+			);
+			if (!tokenHeading || !requestsHeading)
+				throw new Error("Expected chart headings not found");
+			// Tokens chart should appear before Requests chart in DOM order
+			expect(
+				tokenHeading.compareDocumentPosition(requestsHeading) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+		});
+
+		it("renders Requests chart before Tokens chart when metric is requests", async () => {
+			localStorage.setItem("dashboardMetric", "requests");
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/stats/timeseries", () =>
+					HttpResponse.json({ points: [] }),
+				),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			const chartHeadings = screen.getAllByRole("heading", { level: 3 });
+			const tokenHeading = chartHeadings.find((h) =>
+				/Tokens\s*\/\s*Day/i.test(h.textContent || ""),
+			);
+			const requestsHeading = chartHeadings.find((h) =>
+				/Requests\s*\/\s*Day/i.test(h.textContent || ""),
+			);
+			if (!tokenHeading || !requestsHeading)
+				throw new Error("Expected chart headings not found");
+			// Requests chart should appear before Tokens chart in DOM order
+			expect(
+				requestsHeading.compareDocumentPosition(tokenHeading) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+		});
+	});
+
+	describe("Gauge Click Opens Modal", () => {
+		const statsWithValues = {
+			...mockStats,
+			requests_last_1h: 150,
+			avg_ttft_ms: 250,
+			avg_overhead_ms: 45,
+			rate_limit_hits: 5,
+			error_rate: 0.02,
+		};
+
+		/** Find a gauge <button> by its title attribute (gauges are <button> elements) */
+		function findGaugeByTitle(tooltip: string) {
+			const gauge = screen
+				.getAllByTitle(tooltip)
+				.find((el) => el.tagName === "BUTTON");
+			if (!gauge)
+				throw new Error(`Gauge <button> with title "${tooltip}" not found`);
+			return gauge;
+		}
+
+		it("opens Requests modal when requests gauge is clicked", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(statsWithValues)),
+			);
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findGaugeByTitle("Click to view request history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Requests/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens TTFT modal when TTFT gauge is clicked", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(statsWithValues)),
+			);
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findGaugeByTitle("Click to view TTFT history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Avg TTFT/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens Overhead modal when overhead gauge is clicked", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(statsWithValues)),
+			);
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findGaugeByTitle("Click to view overhead history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Avg Overhead/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens Rate Limit Hits modal when rate limit gauge is clicked", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(statsWithValues)),
+			);
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(
+				findGaugeByTitle("Click to view rate limit hit history"),
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Rate Limit Hits/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens Error Rate modal when error rate gauge is clicked", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(statsWithValues)),
+			);
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findGaugeByTitle("Click to view error rate history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Error Rate/ }),
+				).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("StatCard Click Opens Modal", () => {
+		/** Find a stat card <div> by its title attribute (stat cards are <div role="button">) */
+		function findStatCardByTitle(tooltip: string) {
+			const card = screen
+				.getAllByTitle(tooltip)
+				.find((el) => el.tagName === "DIV");
+			if (!card)
+				throw new Error(`Stat card <div> with title "${tooltip}" not found`);
+			return card;
+		}
+
+		it("opens Requests modal when Requests stat card is clicked", async () => {
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findStatCardByTitle("Click to view request history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Requests/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens Error Rate modal when Error Rate stat card is clicked", async () => {
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findStatCardByTitle("Click to view error rate history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Error Rate/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens Duration modal when Duration stat card is clicked", async () => {
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findStatCardByTitle("Click to view duration history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Avg Duration/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("opens Tokens modal when Tokens stat card is clicked", async () => {
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			const { user } = renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			await user.click(findStatCardByTitle("Click to view token history"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: /Avg Tokens/ }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Total Providers and Total Models stat cards are not clickable", async () => {
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/models", () => HttpResponse.json([mockModel])),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			// Non-clickable stat cards should not have button role
+			expect(
+				screen.queryByRole("button", { name: /Total Providers/ }),
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole("button", { name: /Total Models/ }),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Refresh Button Visibility", () => {
+		afterEach(() => {
+			localStorage.removeItem("dashboardRefreshSec");
+		});
+
+		it("shows refresh button when auto-refresh interval is above threshold", async () => {
+			// Default is 30s (30000ms), well above 10s threshold
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			expect(
+				screen.getByRole("button", { name: "Refresh dashboard" }),
+			).toBeInTheDocument();
+		});
+
+		it("hides refresh button when auto-refresh interval is at or below 10 seconds", async () => {
+			// 5 seconds = 5000ms, below 10000ms threshold
+			localStorage.setItem("dashboardRefreshSec", "5");
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			expect(
+				screen.queryByRole("button", { name: "Refresh dashboard" }),
+			).not.toBeInTheDocument();
+		});
+
+		it("hides refresh button when auto-refresh interval is exactly 10 seconds", async () => {
+			localStorage.setItem("dashboardRefreshSec", "10");
+			server.use(http.get("/api/stats", () => HttpResponse.json(mockStats)));
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			expect(
+				screen.queryByRole("button", { name: "Refresh dashboard" }),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Stats Error in Header Actions", () => {
+		it("shows inline error when stats refetch fails with cached data", async () => {
+			const user = userEvent.setup();
+			// First request succeeds, subsequent requests fail
+			let callCount = 0;
+			server.use(
+				http.get("/api/stats", () => {
+					callCount++;
+					if (callCount === 1) {
+						return HttpResponse.json(mockStats);
+					}
+					return HttpResponse.json(
+						{ error: "Internal server error" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			// Wait for initial load
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			// Click refresh to trigger a refetch (which will fail)
+			await user.click(
+				screen.getByRole("button", { name: "Refresh dashboard" }),
+			);
+
+			// The inline error should appear in the gauge area
+			await waitFor(
+				() => {
+					expect(
+						screen.getByText("Failed to load gauge stats"),
+					).toBeInTheDocument();
+				},
+				{ timeout: 3000 },
+			);
+		});
+	});
 });
 
 describe("Dashboard filter persistence", () => {
