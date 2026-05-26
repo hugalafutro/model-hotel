@@ -63,10 +63,24 @@ describe("Test infrastructure", () => {
 		expect(data).toHaveLength(0);
 	});
 
-	it("EventSource mock is available globally", () => {
+	it("EventSource mock is available globally", async () => {
 		const es = new EventSource("/api/events");
+		// onopen fires via queueMicrotask after construction
+		expect(es.readyState).toBe(EventSource.CONNECTING);
+		await new Promise<void>((r) => queueMicrotask(r));
 		expect(es.readyState).toBe(EventSource.OPEN);
 		es.close();
 		expect(es.readyState).toBe(EventSource.CLOSED);
+	});
+
+	it("EventSource mock fires onopen callback", async () => {
+		const es = new EventSource("/api/events");
+		let opened = false;
+		es.onopen = () => {
+			opened = true;
+		};
+		await new Promise<void>((r) => queueMicrotask(r));
+		expect(opened).toBe(true);
+		es.close();
 	});
 });
