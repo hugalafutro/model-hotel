@@ -71,7 +71,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	}
 
 	if !prov.AutodiscoveryEnabled {
-		http.Error(w, "autodiscovery is disabled for this provider", http.StatusBadRequest)
+		http.Error(w, "autodiscovery is disabled for this provider", http.StatusForbidden)
 		return
 	}
 

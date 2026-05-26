@@ -4162,9 +4162,9 @@ func TestDiscoverProviderModels_AutodiscoveryDisabled(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	// Should get 400 Bad Request for autodiscovery disabled
-	if w2.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 Bad Request for autodiscovery disabled provider, got %d: %s", w2.Code, w2.Body.String())
+	// Should get 403 Forbidden for autodiscovery disabled
+	if w2.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for autodiscovery disabled provider, got %d: %s", w2.Code, w2.Body.String())
 	}
 
 	if !strings.Contains(w2.Body.String(), "autodiscovery is disabled for this provider") {

@@ -639,7 +639,7 @@ export function snippetJSModel({
 			{"("}
 			<span className="text-[#4ec9b0]">{"response"}</span>
 			<span className="text-[#9cdcfe]">{".choices"}</span>
-			{"[0]?. "}
+			{"[0]?."}
 			<span className="text-[#9cdcfe]">{"message"}</span>
 			<span className="text-[#9cdcfe]">{".content"}</span>
 			{");"}
@@ -1221,7 +1221,7 @@ export function snippetJS({ origin }: BashSnippetOpts): ReactNode {
 			{"("}
 			<span className="text-[#4ec9b0]">{"response"}</span>
 			<span className="text-[#9cdcfe]">{".choices"}</span>
-			{"[0]?. "}
+			{"[0]?."}
 			<span className="text-[#9cdcfe]">{"message"}</span>
 			<span className="text-[#9cdcfe]">{".content"}</span>
 			{");"}
