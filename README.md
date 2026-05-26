@@ -37,21 +37,21 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          2,070 │
-│Messages                                         75,894 │
-│Days                                                 39 │
+│Sessions                                          2,136 │
+│Messages                                         78,755 │
+│Days                                                 41 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $112.90 │
-│Avg Cost/Day                                      $2.89 │
-│Avg Tokens/Session                                 2.8M │
-│Median Tokens/Session                            590.4K │
-│Input                                           2706.9M │
-│Output                                            19.2M │
-│Cache Read                                      3164.4M │
+│Avg Cost/Day                                      $2.75 │
+│Avg Tokens/Session                                 2.9M │
+│Median Tokens/Session                            588.3K │
+│Input                                           2726.4M │
+│Output                                            19.9M │
+│Cache Read                                      3366.3M │
 │Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```

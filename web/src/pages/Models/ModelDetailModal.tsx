@@ -133,6 +133,7 @@ export function ModelDetailModal({
 	useEffect(() => {
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
+			// eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup reads ref at unmount time
 			for (const t of testErrorTimers.current) clearTimeout(t);
 		};
 	}, []);
@@ -570,11 +571,17 @@ export function ModelDetailModal({
 			)}
 
 			<div className="mt-4 pt-4">
-				<div className="flex items-center gap-1 mb-3">
+				<div
+					role="tablist"
+					aria-label="Snippet format picker"
+					className="flex items-center gap-1 mb-3"
+				>
 					{SNIPPET_ENTRIES.map((entry) => (
 						<button
 							key={entry.key}
 							type="button"
+							role="tab"
+							aria-selected={snippetTab === entry.key}
 							onClick={() => setSnippetTab(entry.key)}
 							className={`p-1.5 rounded cursor-pointer transition-all ${
 								snippetTab === entry.key

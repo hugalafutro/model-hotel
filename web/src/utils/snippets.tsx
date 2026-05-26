@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { hasCap } from "../components/capMeta";
 
 export type SnippetTab = "curl" | "zed" | "opencode" | "bash" | "powershell";
@@ -200,10 +200,7 @@ export function snippetCurlModelText({
 	proxyModelId,
 	origin,
 }: ModelSnippetOpts): string {
-	return `curl -X POST ${origin}/v1/chat/completions \\
-  -H "Authorization: Bearer API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"${proxyModelId}","messages":[{"role":"user","content":"Hello"}]}'`;
+	return snippetCurl({ proxyModelId, origin });
 }
 
 export function snippetZedModel({
@@ -255,7 +252,9 @@ export function snippetZedModel({
 			{"            "}
 			<span className="text-[#9cdcfe]">{'"display_name"'}</span>
 			<span className="text-[#ce9178]">{': "'}</span>
-			<span className="text-[#ce9178]">{displayName}</span>
+			<span className="text-white font-semibold terminal-highlight">
+				{displayName}
+			</span>
 			<span className="text-[#ce9178]">{'"'}</span>
 			{",\n"}
 			{"            "}
@@ -469,14 +468,15 @@ export function snippetOpencodeModel({
 			<span className="text-[#9cdcfe]">{'"input"'}</span>
 			<span className="text-[#ce9178]">{": ["}</span>
 			{inputMods.map((m, i) => (
-				<>
+				// biome-ignore lint/suspicious/noArrayIndexKey: stable modalities array with comma logic
+				<React.Fragment key={`${m}-${i}`}>
 					<span className="text-[#ce9178]">{'"'}</span>
 					<span className="text-[#ce9178]">{m}</span>
 					<span className="text-[#ce9178]">{'"'}</span>
 					{i < inputMods.length - 1 && (
 						<span className="text-[#ce9178]">{", "}</span>
 					)}
-				</>
+				</React.Fragment>
 			))}
 			<span className="text-[#ce9178]">{"]"}</span>
 			{",\n"}
@@ -484,14 +484,15 @@ export function snippetOpencodeModel({
 			<span className="text-[#9cdcfe]">{'"output"'}</span>
 			<span className="text-[#ce9178]">{": ["}</span>
 			{outputMods.map((m, i) => (
-				<>
+				// biome-ignore lint/suspicious/noArrayIndexKey: stable modalities array with comma logic
+				<React.Fragment key={`${m}-${i}`}>
 					<span className="text-[#ce9178]">{'"'}</span>
 					<span className="text-[#ce9178]">{m}</span>
 					<span className="text-[#ce9178]">{'"'}</span>
 					{i < outputMods.length - 1 && (
 						<span className="text-[#ce9178]">{", "}</span>
 					)}
-				</>
+				</React.Fragment>
 			))}
 			<span className="text-[#ce9178]">{"]"}</span>
 			{"\n"}

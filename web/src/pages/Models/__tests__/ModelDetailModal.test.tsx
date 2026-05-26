@@ -26,9 +26,14 @@ describe("ModelDetailModal", () => {
 		onDelete,
 	};
 
+	let writeTextMock: ReturnType<typeof vi.fn>;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		server.resetHandlers();
+		writeTextMock = vi
+			.spyOn(navigator.clipboard, "writeText")
+			.mockResolvedValue(undefined);
 	});
 
 	it("displays model header with name and proxy ID", () => {
@@ -352,8 +357,9 @@ describe("ModelDetailModal", () => {
 		const copyBtn = screen.getByRole("button", { name: /Copy cURL snippet/ });
 		await user.click(copyBtn);
 
-		// CopyButton handles its own toast via ToastContext
-		expect(copyBtn).toBeInTheDocument();
+		await waitFor(() => {
+			expect(writeTextMock).toHaveBeenCalled();
+		});
 	});
 
 	it("shows subscription info when params include subscription_included", () => {
@@ -780,7 +786,9 @@ describe("ModelDetailModal", () => {
 		const copyBtn = screen.getByRole("button", { name: /Copy ZED snippet/ });
 		await user.click(copyBtn);
 
-		expect(copyBtn).toBeInTheDocument();
+		await waitFor(() => {
+			expect(writeTextMock).toHaveBeenCalled();
+		});
 	});
 
 	it("copies OpenCode snippet to clipboard when Copy button is clicked on OpenCode tab", async () => {
@@ -793,7 +801,32 @@ describe("ModelDetailModal", () => {
 		});
 		await user.click(copyBtn);
 
-		expect(copyBtn).toBeInTheDocument();
+		await waitFor(() => {
+			expect(writeTextMock).toHaveBeenCalled();
+		});
+	});
+
+	it.each([
+		["cURL"],
+		["JavaScript"],
+		["Python"],
+		["Claude Code"],
+		["OpenClaw"],
+		["Hermes"],
+		["LibreChat"],
+		["ZED"],
+		["OpenCode"],
+	])("renders and activates %s snippet tab", async (label) => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		const tab = screen.getByLabelText(label);
+		expect(tab).toBeInTheDocument();
+		expect(tab).toHaveAttribute("role", "tab");
+
+		await user.click(tab);
+
+		expect(tab).toHaveAttribute("aria-selected", "true");
 	});
 
 	// Subscription section edge cases - subscription_included true without note
