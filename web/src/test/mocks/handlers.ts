@@ -581,6 +581,53 @@ export const handlers: RequestHandler[] = [
 		return new HttpResponse(null, { status: 204 });
 	}),
 
+	// ── Cursor pagination endpoints ──────────────────────────────────────
+	http.get("/api/logs/cursor", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({
+			entries: [],
+			total: 0,
+			has_before: false,
+			has_after: false,
+		});
+	}),
+
+	http.get("/api/models/cursor", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({
+			entries: [],
+			total: 0,
+			has_before: false,
+			has_after: false,
+		});
+	}),
+
+	http.get("/api/logs/app/cursor", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({
+			entries: [],
+			total: 0,
+			has_before: false,
+			has_after: false,
+			level_counts: {},
+			source_counts: {},
+		});
+	}),
+
+	// ── Version check ────────────────────────────────────────────────────
+	http.get("/api/version/latest", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({ tag_name: "v0.0.0" });
+	}),
+
 	// ── SSE Events ────────────────────────────────────────────────────────
 	http.get("/api/events", () => {
 		// SSE endpoint - return empty response to suppress unhandled request warnings

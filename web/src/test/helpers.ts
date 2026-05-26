@@ -192,6 +192,68 @@ export function mockLogs(options: OverrideOptions = {}): RequestHandler[] {
 	];
 }
 
+/** Create handler that returns cursor-paginated logs. */
+export function mockLogsCursor(
+	options: OverrideOptions = {},
+): RequestHandler[] {
+	const { status = 200, body } = options;
+	const data = body ?? {
+		entries: [],
+		total: 0,
+		has_before: false,
+		has_after: false,
+	};
+	return [
+		http.get("/api/logs/cursor", () =>
+			status === 200
+				? HttpResponse.json(data)
+				: HttpResponse.json(data, { status }),
+		),
+	];
+}
+
+/** Create handler that returns cursor-paginated app logs. */
+export function mockAppLogsCursor(
+	options: OverrideOptions = {},
+): RequestHandler[] {
+	const { status = 200, body } = options;
+	const data = body ?? {
+		entries: [],
+		total: 0,
+		has_before: false,
+		has_after: false,
+		level_counts: {},
+		source_counts: {},
+	};
+	return [
+		http.get("/api/logs/app/cursor", () =>
+			status === 200
+				? HttpResponse.json(data)
+				: HttpResponse.json(data, { status }),
+		),
+	];
+}
+
+/** Create handler that returns cursor-paginated models. */
+export function mockModelsCursor(
+	options: OverrideOptions = {},
+): RequestHandler[] {
+	const { status = 200, body } = options;
+	const data = body ?? {
+		entries: [],
+		total: 0,
+		has_before: false,
+		has_after: false,
+	};
+	return [
+		http.get("/api/models/cursor", () =>
+			status === 200
+				? HttpResponse.json(data)
+				: HttpResponse.json(data, { status }),
+		),
+	];
+}
+
 // ── Streaming SSE helpers ─────────────────────────────────────────────────
 
 /**

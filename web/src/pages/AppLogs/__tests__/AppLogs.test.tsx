@@ -545,9 +545,9 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			expect(screen.getByText("Level")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Level" })).toBeInTheDocument();
 		});
-		const levelButton = screen.getByText("Level");
+		const levelButton = screen.getByRole("button", { name: "Level" });
 		await user.click(levelButton);
 		await waitFor(() => {
 			expect(screen.getByText("Error")).toBeInTheDocument();

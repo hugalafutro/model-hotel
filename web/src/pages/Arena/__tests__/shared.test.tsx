@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
 import { BracketPreviewPill, SlotParamsTooltip, VoteThumb } from "../shared";
@@ -31,7 +31,9 @@ describe("VoteThumb", () => {
 		expect(container.querySelectorAll("svg")).toHaveLength(2);
 
 		// Advance timer by 1200ms to trigger toggle
-		vi.advanceTimersByTime(1200);
+		act(() => {
+			vi.advanceTimersByTime(1200);
+		});
 
 		// Component should still have both svgs after toggle
 		expect(container.querySelectorAll("svg")).toHaveLength(2);

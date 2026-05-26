@@ -39,12 +39,17 @@ class MockEventSource {
 
 	constructor(url: string) {
 		this.url = url;
-		this.readyState = 0; // CONNECTING
-		// Simulate connection
-		setTimeout(() => {
-			this.readyState = 1; // OPEN
-			this.onopen?.();
-		}, 0);
+		this.readyState = 0; // CONNECTING initially
+		// Fire onopen after the current synchronous block so callers can set
+		// handlers (e.g. es.onopen = ...) before the callback runs.
+		// queueMicrotask runs within React 18's act() scope, unlike setTimeout.
+		queueMicrotask(() => {
+			if (this.readyState !== 2) {
+				// Don't fire if close() was called synchronously
+				this.readyState = 1; // OPEN
+				this.onopen?.();
+			}
+		});
 	}
 
 	addEventListener(
@@ -72,10 +77,33 @@ class MockEventSource {
 
 vi.stubGlobal("EventSource", MockEventSource);
 
-// Mock Element.scrollTo (jsdom doesn't implement it)
+// Mock scrollTo on HTMLElement (jsdom doesn't implement it)
 if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollTo) {
 	HTMLElement.prototype.scrollTo = () => {};
 }
+// Suppress jsdom "Not implemented" warnings (window.scrollTo, navigation, etc.)
+// jsdom's VirtualConsole forwards jsdomError events to the Node.js console.error,
+// not the jsdom window.console — so wrapping window.console.error won't intercept them.
+// The VirtualConsole public API (testEnvironmentOptions.virtualConsole) also doesn't work
+// because VirtualConsole objects are not serializable across Vitest's forked worker boundary.
+// Patching _virtualConsole.emit is the only reliable interception point.
+const _suppressJsdomNotImplemented = () => {
+	const win = window as unknown as {
+		_virtualConsole?: { emit: (type: string, error: Error) => void };
+	};
+	if (win._virtualConsole) {
+		const originalEmit = win._virtualConsole.emit.bind(win._virtualConsole);
+		win._virtualConsole.emit = (type: string, error: Error) => {
+			if (
+				type === "jsdomError" &&
+				error.message?.startsWith("Not implemented:")
+			) {
+				return;
+			}
+			originalEmit(type, error);
+		};
+	}
+};
 
 // Mock navigator.clipboard (jsdom doesn't implement it)
 const clipboardWriteText = vi.fn().mockResolvedValue(undefined);
@@ -98,6 +126,7 @@ if (
 }
 
 beforeAll(() => {
+	_suppressJsdomNotImplemented();
 	server.listen({ onUnhandledRequest: "warn" });
 	setAdminToken("test-admin-token");
 });

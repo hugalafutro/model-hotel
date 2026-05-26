@@ -619,7 +619,7 @@ describe("Logs", () => {
 			});
 
 			// Open status dropdown and select 5XX
-			const statusButton = screen.getByText("Status");
+			const statusButton = screen.getByRole("button", { name: "Status" });
 			await user.click(statusButton);
 
 			// Select 5XX option

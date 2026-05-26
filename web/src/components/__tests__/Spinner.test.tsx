@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AllProviders } from "../../test/utils";
 import { Spinner } from "../Spinner";
@@ -33,16 +33,22 @@ describe("Spinner", () => {
 		render(<Spinner />, { wrapper: AllProviders });
 		const spinner = screen.getByTestId("spinner");
 
-		vi.advanceTimersByTime(80);
+		act(() => {
+			vi.advanceTimersByTime(80);
+		});
 		expect(spinner).toBeInTheDocument();
 
-		vi.advanceTimersByTime(80);
+		act(() => {
+			vi.advanceTimersByTime(80);
+		});
 		expect(spinner).toBeInTheDocument();
 	});
 
 	it("renders braille spinner in cyber-terminal theme", () => {
 		render(<Spinner />, { wrapper: AllProviders });
-		vi.advanceTimersByTime(100);
+		act(() => {
+			vi.advanceTimersByTime(100);
+		});
 
 		const spinner = screen.getByTestId("spinner");
 		expect(spinner).toBeInTheDocument();
