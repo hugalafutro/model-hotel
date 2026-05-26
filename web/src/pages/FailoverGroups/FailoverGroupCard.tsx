@@ -21,8 +21,9 @@ import { SortableEntry } from "./SortableEntry";
 
 // Derive a stable key from entries so the card resets local state
 // when the server data changes (after mutation/refetch).
+// Includes enabled state so toggles are detected, not just UUID order.
 function entriesKey(entries: FailoverGroup["entries"]): string {
-	return entries.map((e) => e.model_uuid).join(",");
+	return entries.map((e) => `${e.model_uuid}:${e.enabled}`).join(",");
 }
 
 export function FailoverGroupCard({
