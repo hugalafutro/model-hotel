@@ -4,7 +4,9 @@ import {
 	snippetLibreChatText,
 	snippetOpenClawText,
 	snippetOpencode,
+	snippetOpencodeVKText,
 	snippetZed,
+	snippetZedVKText,
 } from "../snippets";
 
 describe("snippets", () => {
@@ -352,6 +354,66 @@ describe("snippets", () => {
 			});
 			// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional YAML variable check
 			expect(result).toContain("${API_KEY}");
+		});
+	});
+
+	describe("snippetZedVKText", () => {
+		it("includes origin URL with /v1", () => {
+			const result = snippetZedVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain("https://example.com/v1");
+		});
+
+		it("includes model_name placeholder", () => {
+			const result = snippetZedVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('"name": "model_name"');
+		});
+
+		it("includes model-hotel provider key", () => {
+			const result = snippetZedVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('"model-hotel"');
+		});
+
+		it("includes language_models key", () => {
+			const result = snippetZedVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('"language_models"');
+		});
+	});
+
+	describe("snippetOpencodeVKText", () => {
+		it("includes origin URL with /v1", () => {
+			const result = snippetOpencodeVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain("https://example.com/v1");
+		});
+
+		it("includes API_KEY placeholder", () => {
+			const result = snippetOpencodeVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('"apiKey": "API_KEY"');
+		});
+
+		it("includes model_name as default model", () => {
+			const result = snippetOpencodeVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('"default": "model_name"');
+		});
+
+		it("includes model-hotel provider key", () => {
+			const result = snippetOpencodeVKText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('"model-hotel"');
 		});
 	});
 });

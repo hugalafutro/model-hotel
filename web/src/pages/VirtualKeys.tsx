@@ -36,10 +36,14 @@ import {
 	snippetLibreChatText,
 	snippetOpenClaw,
 	snippetOpenClawText,
+	snippetOpencodeVK,
+	snippetOpencodeVKText,
 	snippetPowershell,
 	snippetPowershellText,
 	snippetPython,
 	snippetPythonText,
+	snippetZedVK,
+	snippetZedVKText,
 } from "../utils/snippets";
 
 type VKSortField =
@@ -793,15 +797,6 @@ export function VirtualKeys() {
 
 									<TerminalPreview
 										variant="code"
-										title="JavaScript"
-										icon="javascript"
-										copyText={snippetJSText({ origin: proxyOrigin })}
-									>
-										{snippetJS({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
 										title="OpenClaw"
 										icon="openclaw"
 										copyText={snippetOpenClawText({ origin: proxyOrigin })}
@@ -811,11 +806,20 @@ export function VirtualKeys() {
 
 									<TerminalPreview
 										variant="code"
-										title="Hermes"
-										icon="hermes"
-										copyText={snippetHermesText({ origin: proxyOrigin })}
+										title="JavaScript"
+										icon="javascript"
+										copyText={snippetJSText({ origin: proxyOrigin })}
 									>
-										{snippetHermes({ origin: proxyOrigin })}
+										{snippetJS({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="LibreChat"
+										icon="librechat"
+										copyText={snippetLibreChatText({ origin: proxyOrigin })}
+									>
+										{snippetLibreChat({ origin: proxyOrigin })}
 									</TerminalPreview>
 
 									<TerminalPreview
@@ -829,11 +833,29 @@ export function VirtualKeys() {
 
 									<TerminalPreview
 										variant="code"
-										title="LibreChat"
-										icon="librechat"
-										copyText={snippetLibreChatText({ origin: proxyOrigin })}
+										title="ZED"
+										icon="zed"
+										copyText={snippetZedVKText({ origin: proxyOrigin })}
 									>
-										{snippetLibreChat({ origin: proxyOrigin })}
+										{snippetZedVK({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="Hermes"
+										icon="hermes"
+										copyText={snippetHermesText({ origin: proxyOrigin })}
+									>
+										{snippetHermes({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="OpenCode"
+										icon="opencode"
+										copyText={snippetOpencodeVKText({ origin: proxyOrigin })}
+									>
+										{snippetOpencodeVK({ origin: proxyOrigin })}
 									</TerminalPreview>
 								</div>
 							</div>

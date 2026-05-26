@@ -272,5 +272,39 @@ describe("TerminalPreview", () => {
 			);
 			expect(libreChatIcon).toBeInTheDocument();
 		});
+
+		it("applies fixed height when height prop is set", () => {
+			const { container } = renderWithProviders(
+				<TerminalPreview
+					variant="code"
+					title="cURL"
+					copyText="curl example"
+					height={200}
+				>
+					<span>test content</span>
+				</TerminalPreview>,
+			);
+
+			const pre = container.querySelector("pre");
+			expect(pre).toBeInTheDocument();
+			expect(pre?.style.height).toBe("200px");
+			expect(pre?.className).toContain("overflow-y-auto");
+		});
+
+		it("reserves bottom padding for horizontal scrollbar", () => {
+			const { container } = renderWithProviders(
+				<TerminalPreview
+					variant="code"
+					title="cURL"
+					copyText="curl example"
+					height={200}
+				>
+					<span>test content</span>
+				</TerminalPreview>,
+			);
+
+			const pre = container.querySelector("pre");
+			expect(pre?.className).toContain("pb-6");
+		});
 	});
 });

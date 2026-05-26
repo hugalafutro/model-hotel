@@ -15,6 +15,8 @@ interface TerminalPreviewProps {
 	copyText: string;
 	/** Syntax-highlighted content rendered inside the terminal */
 	children: ReactNode;
+	/** Fixed height in px — container stays this height regardless of content */
+	height?: number;
 }
 
 export function TerminalPreview({
@@ -22,6 +24,7 @@ export function TerminalPreview({
 	title,
 	icon,
 	copyText,
+	height,
 	children,
 }: TerminalPreviewProps) {
 	const defaultTitle =
@@ -44,7 +47,10 @@ export function TerminalPreview({
 						{displayTitle}
 					</span>
 				</div>
-				<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
+				<pre
+					className={`p-4 pb-6 text-xs text-gray-400 font-mono overflow-x-auto overflow-y-auto terminal-body${height ? "" : " overflow-y-hidden"}`}
+					style={height ? { height: `${height}px` } : undefined}
+				>
 					<code className="terminal-code">{children}</code>
 				</pre>
 			</div>

@@ -1253,6 +1253,46 @@ describe("VirtualKeys", () => {
 			const libreChatTitles = screen.getAllByText("LibreChat");
 			expect(libreChatTitles.length).toBeGreaterThan(0);
 		});
+
+		it("renders ZED example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			expect(
+				screen.getByRole("button", { name: "Copy ZED snippet" }),
+			).toBeInTheDocument();
+			const zedTitles = screen.getAllByText("ZED");
+			expect(zedTitles.length).toBeGreaterThan(0);
+		});
+
+		it("renders OpenCode example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			expect(
+				screen.getByRole("button", { name: "Copy OpenCode snippet" }),
+			).toBeInTheDocument();
+			const opencodeTitles = screen.getAllByText("OpenCode");
+			expect(opencodeTitles.length).toBeGreaterThan(0);
+		});
 	});
 
 	describe("CopyablePill in header", () => {

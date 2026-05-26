@@ -6,7 +6,10 @@ export type LangIconKey =
 	| "claude"
 	| "openclaw"
 	| "hermes"
-	| "librechat";
+	| "librechat"
+	| "curl"
+	| "zed"
+	| "opencode";
 
 interface LangIconProps extends SVGProps<SVGSVGElement> {
 	name: LangIconKey;
@@ -131,6 +134,78 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 						fill="none"
 						strokeLinecap="round"
 						strokeLinejoin="round"
+					/>
+				</svg>
+			);
+
+		case "curl":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					width={size}
+					height={size}
+					fill="none"
+					{...rest}
+				>
+					<title>cURL</title>
+					<circle cx="12" cy="12" r="10" fill="#4B5563" opacity="0.2" />
+					<path
+						d="M5 7l5 5-5 5M13 17h6"
+						stroke="#4B5563"
+						strokeWidth={2}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						fill="none"
+					/>
+				</svg>
+			);
+
+		case "zed":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					width={size}
+					height={size}
+					fill="none"
+					{...rest}
+				>
+					<title>ZED</title>
+					<circle cx="12" cy="12" r="10" fill="#22C55E" opacity="0.2" />
+					<path
+						d="M7 9h10M7 12h7M7 15h10"
+						stroke="#22C55E"
+						strokeWidth={1.5}
+						strokeLinecap="round"
+						fill="none"
+					/>
+				</svg>
+			);
+
+		case "opencode":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					width={size}
+					height={size}
+					fill="none"
+					{...rest}
+				>
+					<title>OpenCode</title>
+					<circle cx="12" cy="12" r="10" fill="#8B5CF6" opacity="0.2" />
+					<circle
+						cx="12"
+						cy="12"
+						r="4"
+						stroke="#8B5CF6"
+						strokeWidth={1.5}
+						fill="none"
+					/>
+					<path
+						d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"
+						stroke="#8B5CF6"
+						strokeWidth={1.5}
+						strokeLinecap="round"
+						fill="none"
 					/>
 				</svg>
 			);
