@@ -12,6 +12,7 @@ describe("EditProviderModal", () => {
 		base_url: "https://api.example.com/v1",
 		masked_key: "sk-****test",
 		enabled: true,
+		autodiscovery_enabled: true,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -75,6 +76,46 @@ describe("EditProviderModal", () => {
 			renderWithProviders(<EditProviderModal {...defaultProps} />);
 			const toggle = screen.getByLabelText("Provider enabled");
 			expect(toggle).toBeInTheDocument();
+		});
+
+		it("renders autodiscovery toggle", () => {
+			renderWithProviders(<EditProviderModal {...defaultProps} />);
+			const toggle = screen.getByLabelText("Provider autodiscovery");
+			expect(toggle).toBeInTheDocument();
+		});
+
+		it("renders autodiscovery toggle with correct initial state", () => {
+			renderWithProviders(<EditProviderModal {...defaultProps} />);
+			const toggle = screen.getByLabelText("Provider autodiscovery");
+			expect(toggle).toBeChecked();
+		});
+
+		it("renders autodiscovery toggle unchecked when autodiscovery_enabled is false", () => {
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, autodiscovery_enabled: false }}
+				/>,
+			);
+			const toggle = screen.getByLabelText("Provider autodiscovery");
+			expect(toggle).not.toBeChecked();
+		});
+
+		it("disables autodiscovery section when provider is disabled", () => {
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, enabled: false }}
+				/>,
+			);
+			// The autodiscovery section wrapper div has the opacity/pointer-events classes
+			// Find the wrapper div that contains both the "Autodiscovery" label and the Toggle
+			const toggle = screen.getByLabelText("Provider autodiscovery");
+			// Navigate up to the wrapper div that has the conditional classes
+			// Structure: wrapper.div > [label+Toggle, p.helper]
+			const wrapper = toggle.parentElement?.parentElement;
+			expect(wrapper).toHaveClass("opacity-40");
+			expect(wrapper).toHaveClass("pointer-events-none");
 		});
 
 		it("renders cancel button", () => {
@@ -170,6 +211,40 @@ describe("EditProviderModal", () => {
 			const toggle = screen.getByLabelText("Provider enabled");
 			await user.click(toggle);
 			// Toggle should be unchecked after click
+		});
+
+		it("toggles autodiscovery switch when clicked", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			const toggle = screen.getByLabelText("Provider autodiscovery");
+			expect(toggle).toBeChecked();
+			await user.click(toggle);
+			expect(toggle).not.toBeChecked();
+		});
+
+		it("includes autodiscovery_enabled in payload when changed", async () => {
+			let capturedPayload: unknown;
+			server.use(
+				http.put("/api/providers/:id", async ({ request }) => {
+					capturedPayload = await request.json();
+					return HttpResponse.json({
+						...mockProvider,
+						autodiscovery_enabled: false,
+						updated_at: new Date().toISOString(),
+					});
+				}),
+			);
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			const toggle = screen.getByLabelText("Provider autodiscovery");
+			await user.click(toggle);
+			const saveButton = screen.getByRole("button", { name: "Save Changes" });
+			await user.click(saveButton);
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ autodiscovery_enabled: false });
+			});
 		});
 
 		it("disables base URL input for known provider URLs", () => {
@@ -402,6 +477,17 @@ describe("EditProviderModal", () => {
 				/>,
 			);
 			const toggle = screen.getByLabelText("Provider enabled");
+			await user.click(toggle);
+			const closeButton = screen.getByRole("button", { name: "Cancel" });
+			await user.click(closeButton);
+			expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+		});
+
+		it("shows confirm dialog when closing with unsaved autodiscovery toggle change", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			const toggle = screen.getByLabelText("Provider autodiscovery");
 			await user.click(toggle);
 			const closeButton = screen.getByRole("button", { name: "Cancel" });
 			await user.click(closeButton);

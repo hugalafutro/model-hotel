@@ -4120,6 +4120,58 @@ func TestDiscoverProviderModels_DisabledProviderExplicit(t *testing.T) {
 	}
 }
 
+// TestDiscoverProviderModels_AutodiscoveryDisabled tests that discovery is rejected when autodiscovery_enabled is false
+func TestDiscoverProviderModels_AutodiscoveryDisabled(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider
+	body := `{"name":"test-disc-autodis-disabled","base_url":"https://api.openai.com","api_key":"sk-test123"}`
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	providerID, ok := resp["id"].(string)
+	if !ok {
+		t.Fatalf("Provider ID not found in response")
+	}
+
+	// Disable autodiscovery via repository update (but keep provider enabled)
+	provRepo := provider.NewRepository(h.Pool().Pool())
+	updateReq := provider.UpdateProviderRequest{
+		AutodiscoveryEnabled: &[]bool{false}[0],
+		Enabled:              &[]bool{true}[0],
+	}
+	_, err := provRepo.Update(context.Background(), uuid.MustParse(providerID), updateReq, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to update provider autodiscovery setting: %v", err)
+	}
+
+	// Try to discover models on provider with autodiscovery disabled
+	req2 := httptest.NewRequest("POST", "/providers/"+providerID+"/discover", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+
+	// Should get 403 Forbidden for autodiscovery disabled
+	if w2.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for autodiscovery disabled provider, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	if !strings.Contains(w2.Body.String(), "autodiscovery is disabled for this provider") {
+		t.Errorf("expected error message 'autodiscovery is disabled for this provider', got %q", w2.Body.String())
+	}
+}
+
 // TestListProviders_WithSearchFilter tests the search filter functionality
 func TestListProviders_WithSearchFilter(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)

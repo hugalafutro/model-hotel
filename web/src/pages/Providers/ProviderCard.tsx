@@ -46,7 +46,7 @@ export function ProviderCard({
 }: ProviderCardProps) {
 	return (
 		<div
-			className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""}`}
+			className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""} ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
 		>
 			<div className="mb-4">
 				<div className="flex items-center justify-between">
@@ -61,6 +61,11 @@ export function ProviderCard({
 					{!provider.enabled && (
 						<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
 							Disabled
+						</span>
+					)}
+					{provider.enabled && !provider.autodiscovery_enabled && (
+						<span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
+							Autodiscovery Off
 						</span>
 					)}
 					{provider.total_tokens > 0 && (
@@ -160,14 +165,21 @@ export function ProviderCard({
 					<button
 						type="button"
 						onClick={() => onDiscover(provider.id)}
-						disabled={discoveringId !== null || discoverAllIsPending}
+						disabled={
+							discoveringId !== null ||
+							discoverAllIsPending ||
+							!provider.enabled ||
+							!provider.autodiscovery_enabled
+						}
 						className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
 							discoveringId === provider.id ||
 							discoverAllCurrentId === provider.id
 								? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
 								: discoveringId !== null || discoverAllIsPending
 									? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-									: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+									: !provider.enabled || !provider.autodiscovery_enabled
+										? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
+										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
 						}`}
 					>
 						{discoveringId === provider.id ||

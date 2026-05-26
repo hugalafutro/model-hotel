@@ -22,6 +22,7 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
+import { LOG_COL_WIDTHS } from "../components/logTableWidths";
 import { PageHeader } from "../components/PageHeader";
 import { VirtualLogTable } from "../components/VirtualLogTable";
 import { useSidebarMode } from "../context/SidebarModeContext";
@@ -602,17 +603,9 @@ function RequestLogs() {
 					<div className="ui-card overflow-x-auto">
 						<table className="w-full table-fixed ui-table min-w-250">
 							<colgroup>
-								<col className="w-30" />
-								<col className="w-30.5" />
-								<col className="w-55" />
-								<col className="w-25" />
-								<col className="w-14" />
-								<col className="w-21" />
-								<col className="w-16.25" />
-								<col className="w-18.75" />
-								<col className="w-13.75" />
-								<col className="w-17.5" />
-								<col className="w-17.5" />
+								{LOG_COL_WIDTHS.map((w) => (
+									<col key={w} className={w} />
+								))}
 							</colgroup>
 							<thead>
 								<tr>

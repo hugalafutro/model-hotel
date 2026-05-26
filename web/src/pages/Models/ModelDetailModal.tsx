@@ -4,8 +4,10 @@ import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
 import { CAP_META, hasCap } from "../../components/capMeta";
+import { LangIcon, type LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
 import { Spinner } from "../../components/Spinner";
+import { TerminalPreview } from "../../components/TerminalPreview";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import {
 	formatPrice,
@@ -13,7 +15,26 @@ import {
 	parseCapabilities,
 	proxyModelID,
 } from "../../utils/model";
-import { snippetCurl, snippetOpencode, snippetZed } from "../../utils/snippets";
+import {
+	snippetClaudeCodeModel,
+	snippetClaudeCodeModelText,
+	snippetCurlModel,
+	snippetCurlModelText,
+	snippetHermesModel,
+	snippetHermesModelText,
+	snippetJSModel,
+	snippetJSModelText,
+	snippetLibreChatModel,
+	snippetLibreChatModelText,
+	snippetOpenClawModel,
+	snippetOpenClawModelText,
+	snippetOpencodeModel,
+	snippetOpencodeModelText,
+	snippetPythonModel,
+	snippetPythonModelText,
+	snippetZedModel,
+	snippetZedModelText,
+} from "../../utils/snippets";
 import { useModelEditor } from "./useModelEditor";
 
 /** Small revert button that restores a field to its discovered default value. */
@@ -92,9 +113,7 @@ export function ModelDetailModal({
 	const [discovering, setDiscovering] = useState(false);
 	const [testing, setTesting] = useState(false);
 	const [testError, setTestError] = useState(false);
-	const [snippetTab, setSnippetTab] = useState<"curl" | "zed" | "opencode">(
-		"curl",
-	);
+	const [snippetTab, setSnippetTab] = useState<LangIconKey>("curl");
 	const {
 		editing,
 		setEditing,
@@ -109,10 +128,13 @@ export function ModelDetailModal({
 	} = useModelEditor({ model, onUpdate });
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const testErrorTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	useEffect(() => {
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
+			// eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup reads ref at unmount time
+			for (const t of testErrorTimers.current) clearTimeout(t);
 		};
 	}, []);
 
@@ -151,7 +173,8 @@ export function ModelDetailModal({
 			} else {
 				setTestError(true);
 				onToast(`Test failed: ${result.error || "Unknown error"}`, "error");
-				setTimeout(() => setTestError(false), 3000);
+				const t = setTimeout(() => setTestError(false), 3000);
+				testErrorTimers.current.push(t);
 			}
 		} catch (err) {
 			setTestError(true);
@@ -159,7 +182,8 @@ export function ModelDetailModal({
 				`Test failed: ${err instanceof Error ? err.message : "Unknown error"}`,
 				"error",
 			);
-			setTimeout(() => setTestError(false), 3000);
+			const t = setTimeout(() => setTestError(false), 3000);
+			testErrorTimers.current.push(t);
 		} finally {
 			setTesting(false);
 		}
@@ -174,31 +198,95 @@ export function ModelDetailModal({
 	};
 
 	const pMid = proxyModelID(model.provider_name, model.model_id);
+	const origin = window.location.origin;
+	const modelSnippetOpts = { proxyModelId: pMid, origin };
+	const zedOpts = {
+		proxyModelId: pMid,
+		displayName: model.display_name || model.name,
+		contextLength: model.context_length,
+		maxOutputTokens: model.max_output_tokens,
+		capabilities: caps,
+		origin,
+	};
+	const opencodeOpts = {
+		proxyModelId: pMid,
+		displayName: model.display_name || model.name || pMid,
+		contextLength: model.context_length,
+		maxOutputTokens: model.max_output_tokens,
+		capabilities: caps,
+		inputModalities: inputMods,
+		outputModalities: outputMods,
+		inputPricePerMillion: model.input_price_per_million,
+		outputPricePerMillion: model.output_price_per_million,
+		origin,
+	};
 
-	const snippetContent =
-		snippetTab === "curl"
-			? snippetCurl({ proxyModelId: pMid, origin: window.location.origin })
-			: snippetTab === "zed"
-				? snippetZed({
-						proxyModelId: pMid,
-						displayName: model.display_name || model.name,
-						contextLength: model.context_length,
-						maxOutputTokens: model.max_output_tokens,
-						capabilities: caps,
-						origin: window.location.origin,
-					})
-				: snippetOpencode({
-						proxyModelId: pMid,
-						displayName: model.display_name || model.name || pMid,
-						contextLength: model.context_length,
-						maxOutputTokens: model.max_output_tokens,
-						capabilities: caps,
-						inputModalities: inputMods,
-						outputModalities: outputMods,
-						inputPricePerMillion: model.input_price_per_million,
-						outputPricePerMillion: model.output_price_per_million,
-						origin: window.location.origin,
-					});
+	type SnippetEntry = {
+		key: LangIconKey;
+		title: string;
+		content: ReturnType<typeof snippetCurlModel>;
+		copyText: string;
+	};
+
+	const SNIPPET_ENTRIES: SnippetEntry[] = [
+		{
+			key: "curl",
+			title: "cURL",
+			content: snippetCurlModel(modelSnippetOpts),
+			copyText: snippetCurlModelText(modelSnippetOpts),
+		},
+		{
+			key: "javascript",
+			title: "JavaScript",
+			content: snippetJSModel(modelSnippetOpts),
+			copyText: snippetJSModelText(modelSnippetOpts),
+		},
+		{
+			key: "python",
+			title: "Python",
+			content: snippetPythonModel(modelSnippetOpts),
+			copyText: snippetPythonModelText(modelSnippetOpts),
+		},
+		{
+			key: "claude",
+			title: "Claude Code",
+			content: snippetClaudeCodeModel(modelSnippetOpts),
+			copyText: snippetClaudeCodeModelText(modelSnippetOpts),
+		},
+		{
+			key: "openclaw",
+			title: "OpenClaw",
+			content: snippetOpenClawModel(modelSnippetOpts),
+			copyText: snippetOpenClawModelText(modelSnippetOpts),
+		},
+		{
+			key: "hermes",
+			title: "Hermes",
+			content: snippetHermesModel(modelSnippetOpts),
+			copyText: snippetHermesModelText(modelSnippetOpts),
+		},
+		{
+			key: "librechat",
+			title: "LibreChat",
+			content: snippetLibreChatModel(modelSnippetOpts),
+			copyText: snippetLibreChatModelText(modelSnippetOpts),
+		},
+		{
+			key: "zed",
+			title: "ZED",
+			content: snippetZedModel(zedOpts),
+			copyText: snippetZedModelText(zedOpts),
+		},
+		{
+			key: "opencode",
+			title: "OpenCode",
+			content: snippetOpencodeModel(opencodeOpts),
+			copyText: snippetOpencodeModelText(opencodeOpts),
+		},
+	];
+
+	const activeSnippet =
+		SNIPPET_ENTRIES.find((e) => e.key === snippetTab) ?? SNIPPET_ENTRIES[0];
 
 	return (
 		<Modal
@@ -483,37 +571,39 @@ export function ModelDetailModal({
 			)}
 
 			<div className="mt-4 pt-4">
-				<div className="flex items-center justify-between mb-3">
-					<div className="flex items-center gap-1">
-						{(["curl", "zed", "opencode"] as const).map((tab) => (
-							<button
-								key={tab}
-								type="button"
-								onClick={() => setSnippetTab(tab)}
-								className={`px-2.5 py-1 rounded text-[11px] font-medium uppercase tracking-wider cursor-pointer transition-all ${
-									snippetTab === tab
-										? "bg-slate-700/60 text-slate-200 border border-slate-600/50"
-										: "text-slate-500 hover:text-slate-400 border border-transparent"
-								}`}
-							>
-								{tab === "curl" ? "cURL" : tab === "zed" ? "ZED" : "OpenCode"}
-							</button>
-						))}
-					</div>
-					<button
-						type="button"
-						onClick={() => {
-							navigator.clipboard.writeText(snippetContent);
-							onToast("Copied to clipboard", "info");
-						}}
-						className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-700/40 text-slate-300 border-slate-600/40 hover:brightness-125 transition-all cursor-pointer"
-					>
-						Copy
-					</button>
+				<div
+					role="tablist"
+					aria-label="Snippet format picker"
+					className="flex items-center gap-1 mb-3"
+				>
+					{SNIPPET_ENTRIES.map((entry) => (
+						<button
+							key={entry.key}
+							type="button"
+							role="tab"
+							aria-selected={snippetTab === entry.key}
+							onClick={() => setSnippetTab(entry.key)}
+							className={`p-1.5 rounded cursor-pointer transition-all ${
+								snippetTab === entry.key
+									? "bg-slate-700/60 border border-slate-600/50"
+									: "text-slate-500 hover:text-slate-400 border border-transparent"
+							}`}
+							title={entry.title}
+							aria-label={entry.title}
+						>
+							<LangIcon name={entry.key} size={16} />
+						</button>
+					))}
 				</div>
-				<pre className="bg-gray-950 rounded-lg p-3 text-[11px] text-gray-300 font-mono overflow-x-auto overflow-y-auto h-30 leading-relaxed whitespace-pre-wrap break-all">
-					{snippetContent}
-				</pre>
+				<TerminalPreview
+					variant="code"
+					title={activeSnippet.title}
+					icon={activeSnippet.key}
+					copyText={activeSnippet.copyText}
+					height={200}
+				>
+					{activeSnippet.content}
+				</TerminalPreview>
 			</div>
 
 			<div className="flex items-center justify-between mt-4 pt-4">

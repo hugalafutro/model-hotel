@@ -29,6 +29,8 @@ export type UsageEntry = {
 	value: number;
 	suffix?: string;
 	deleted?: boolean;
+	/** When true, entry represents a failover group (hotel/ prefix) and should not be clickable */
+	failoverGroup?: boolean;
 };
 
 export type ProviderDistItem = {

@@ -603,6 +603,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	transition:
 		background-color 0.15s ease,
 		color 0.15s ease;
+	cursor: pointer;
 	border: 1px solid var(--border-subtle);
 }
 

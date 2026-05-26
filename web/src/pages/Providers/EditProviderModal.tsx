@@ -23,6 +23,7 @@ export function EditProviderModal({
 		base_url: provider.base_url,
 		api_key: "",
 		enabled: provider.enabled,
+		autodiscovery_enabled: provider.autodiscovery_enabled,
 	});
 	const [error, setError] = useState<string | null>(null);
 	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
@@ -34,6 +35,7 @@ export function EditProviderModal({
 			base_url?: string;
 			api_key?: string;
 			enabled?: boolean;
+			autodiscovery_enabled?: boolean;
 		}) => api.providers.update(provider.id, data),
 		onSuccess: (updated: Provider) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
@@ -52,6 +54,8 @@ export function EditProviderModal({
 		if (formData.base_url !== provider.base_url) fields.push("base_url");
 		if (formData.api_key !== "") fields.push("api_key");
 		if (formData.enabled !== provider.enabled) fields.push("enabled");
+		if (formData.autodiscovery_enabled !== provider.autodiscovery_enabled)
+			fields.push("autodiscovery_enabled");
 		return fields;
 	};
 
@@ -72,6 +76,7 @@ export function EditProviderModal({
 			base_url?: string;
 			api_key?: string;
 			enabled?: boolean;
+			autodiscovery_enabled?: boolean;
 		} = {};
 		if (formData.name !== provider.name) payload.name = formData.name.trim();
 		if (formData.base_url !== provider.base_url)
@@ -79,6 +84,8 @@ export function EditProviderModal({
 		if (formData.api_key !== "") payload.api_key = formData.api_key;
 		if (formData.enabled !== provider.enabled)
 			payload.enabled = formData.enabled;
+		if (formData.autodiscovery_enabled !== provider.autodiscovery_enabled)
+			payload.autodiscovery_enabled = formData.autodiscovery_enabled;
 		updateMutation.mutate(payload);
 	};
 
@@ -186,24 +193,59 @@ export function EditProviderModal({
 						</p>
 					</div>
 
-					<div className="flex items-center gap-3">
-						<label
-							htmlFor="edit-provider-enabled"
-							className="text-sm font-medium text-gray-300"
-						>
-							Enabled
-						</label>
-						<Toggle
-							checked={formData.enabled}
-							onChange={(v) =>
-								setFormData({
-									...formData,
-									enabled: v,
-								})
-							}
-							showFocusRing
-							ariaLabel="Provider enabled"
-						/>
+					<div className="space-y-3">
+						<div className="flex items-center gap-3">
+							<label
+								htmlFor="edit-provider-enabled"
+								className="text-sm font-medium text-gray-300"
+							>
+								Enabled
+							</label>
+							<Toggle
+								checked={formData.enabled}
+								onChange={(v) =>
+									setFormData({
+										...formData,
+										enabled: v,
+									})
+								}
+								showFocusRing
+								ariaLabel="Provider enabled"
+							/>
+						</div>
+						<p className="text-gray-500 text-xs ml-0">
+							Controls proxy routing and API access. Disabled providers reject
+							all requests.
+						</p>
+					</div>
+
+					<div
+						className={`space-y-3 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}
+					>
+						<div className="flex items-center gap-3">
+							<label
+								htmlFor="edit-provider-autodiscovery"
+								className="text-sm font-medium text-gray-300"
+							>
+								Autodiscovery
+							</label>
+							<Toggle
+								checked={formData.autodiscovery_enabled}
+								onChange={(v) =>
+									setFormData({
+										...formData,
+										autodiscovery_enabled: v,
+									})
+								}
+								showFocusRing
+								ariaLabel="Provider autodiscovery"
+								disabled={!formData.enabled}
+							/>
+						</div>
+						<p className="text-gray-500 text-xs ml-0">
+							Controls automatic model discovery. Disable to manually curate
+							this provider&apos;s model catalogue.
+						</p>
 					</div>
 
 					<div className="flex space-x-3 justify-end pt-4">

@@ -55,7 +55,7 @@ export function UsageBarPanel({
 						return (
 							<div key={entry.label} className="space-y-1.5">
 								<div className="flex justify-between items-center text-sm">
-									{onEntryClick ? (
+									{onEntryClick && !entry.failoverGroup ? (
 										<button
 											type="button"
 											onClick={() => onEntryClick(entry.label)}

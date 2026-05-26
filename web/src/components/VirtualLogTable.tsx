@@ -4,6 +4,7 @@ import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
 import { Badge } from "./Badge";
+import { LOG_COL_WIDTHS } from "./logTableWidths";
 
 interface VirtualLogTableProps {
 	entries: LogEntry[];
@@ -170,17 +171,9 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				>
 					<table className="w-full table-fixed ui-table ui-table-virtual min-w-250">
 						<colgroup>
-							<col className="w-30" />
-							<col className="w-30.5" />
-							<col className="w-55" />
-							<col className="w-25" />
-							<col className="w-14" />
-							<col className="w-21" />
-							<col className="w-16.25" />
-							<col className="w-18.75" />
-							<col className="w-13.75" />
-							<col className="w-17.5" />
-							<col className="w-17.5" />
+							{LOG_COL_WIDTHS.map((w) => (
+								<col key={w} className={w} />
+							))}
 						</colgroup>
 						<tbody>
 							<tr>
@@ -229,17 +222,9 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					}}
 				>
 					<colgroup>
-						<col className="w-30" />
-						<col className="w-30.5" />
-						<col className="w-55" />
-						<col className="w-25" />
-						<col className="w-14" />
-						<col className="w-21" />
-						<col className="w-16.25" />
-						<col className="w-18.75" />
-						<col className="w-13.75" />
-						<col className="w-17.5" />
-						<col className="w-17.5" />
+						{LOG_COL_WIDTHS.map((w) => (
+							<col key={w} className={w} />
+						))}
 					</colgroup>
 					<thead className="sticky top-0 z-10 bg-(--surface)">
 						<tr>

@@ -127,7 +127,12 @@ export interface UseDashboardReturn {
 		rate_limit_hits: number;
 		avg_ttft_ms: number;
 	}>;
-	byModel: Array<{ label: string; value: number; suffix: string }>;
+	byModel: Array<{
+		label: string;
+		value: number;
+		suffix: string;
+		failoverGroup?: boolean;
+	}>;
 	byProvider: Array<{ label: string; value: number; suffix: string }>;
 	byVK: Array<{
 		label: string;
@@ -562,6 +567,7 @@ export function useDashboard(): UseDashboardReturn {
 					label: k,
 					value: Number(v),
 					suffix: modelsMetric === "tokens" ? " tokens" : " requests",
+					failoverGroup: k.startsWith("hotel/"),
 				}))
 		: [];
 	const byProvider = providersUsageStats

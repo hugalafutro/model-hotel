@@ -70,6 +70,11 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if !prov.AutodiscoveryEnabled {
+		http.Error(w, "autodiscovery is disabled for this provider", http.StatusForbidden)
+		return
+	}
+
 	discovery := newDiscoveryService()
 	// Use a context decoupled from the HTTP request deadline for discovery.
 	// Provider availability tests (especially for slow/unreachable providers)
@@ -292,7 +297,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 	failed := 0
 
 	for _, prov := range providers {
-		if !prov.Enabled {
+		if !prov.Enabled || !prov.AutodiscoveryEnabled {
 			continue
 		}
 

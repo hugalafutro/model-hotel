@@ -818,4 +818,99 @@ describe("VirtualModelTable", () => {
 			expect(screen.queryByText("✕")).not.toBeInTheDocument();
 		});
 	});
+
+	describe("Delete Disabled Button", () => {
+		it("renders delete disabled button when onDeleteDisabled is provided and there are disabled models", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			expect(screen.getByText("Delete 1 disabled")).toBeInTheDocument();
+		});
+
+		it("does not render delete disabled button when all models are enabled", () => {
+			const onDeleteDisabled = vi.fn();
+			const entries = [
+				createModel(),
+				createModel({ id: "model-002", name: "Model 2" }),
+			];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: /delete.*disabled/i }),
+			).not.toBeInTheDocument();
+		});
+
+		it("opens confirm dialog when delete disabled button is clicked", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 1 disabled"));
+
+			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+		});
+
+		it("calls onDeleteDisabled with disabled model IDs on confirm", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 1 disabled"));
+			fireEvent.click(screen.getByText("Delete"));
+
+			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+		});
+
+		it("closes confirm dialog on cancel", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 1 disabled"));
+			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+
+			fireEvent.click(screen.getByText("Cancel"));
+
+			expect(
+				screen.queryByText("Delete Disabled Models"),
+			).not.toBeInTheDocument();
+		});
+	});
 });

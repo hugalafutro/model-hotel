@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownAZ, ArrowUpZA, PlugZap } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Provider } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
@@ -63,7 +63,7 @@ export function Providers() {
 		const map = new Map<string, number>();
 		if (models) {
 			for (const m of models) {
-				if (m.provider_name && m.enabled) {
+				if (m.provider_name) {
 					map.set(m.provider_name, (map.get(m.provider_name) || 0) + 1);
 				}
 			}
@@ -173,6 +173,32 @@ export function Providers() {
 			setDeleteProvider(null);
 		},
 	});
+
+	const handleDeleteDisabledModels = useCallback(
+		async (ids: string[]) => {
+			let failed = 0;
+			await Promise.all(
+				ids.map((id) =>
+					api.models.delete(id).catch(() => {
+						failed++;
+					}),
+				),
+			);
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			if (failed === 0) {
+				toast(
+					`Deleted ${ids.length} disabled model${ids.length === 1 ? "" : "s"}`,
+					"success",
+				);
+			} else {
+				toast(
+					`Deleted ${ids.length - failed} model${ids.length - failed === 1 ? "" : "s"}, ${failed} failed`,
+					"warning",
+				);
+			}
+		},
+		[queryClient, toast],
+	);
 
 	const typeOptions = useMemo(() => {
 		if (!providers) return [];
@@ -386,6 +412,7 @@ export function Providers() {
 					provider={modelsProvider}
 					models={models}
 					onClose={() => setModelsProvider(null)}
+					onDeleteDisabled={handleDeleteDisabledModels}
 				/>
 			)}
 

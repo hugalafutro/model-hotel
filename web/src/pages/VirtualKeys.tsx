@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Pencil } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { VirtualKey } from "../api/types";
@@ -20,29 +20,51 @@ import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
+import { TerminalPreview } from "../components/TerminalPreview";
 import { useToast } from "../context/ToastContext";
 import { countLabel, formatNumber, formatRelativeTime } from "../utils/format";
-import { snippetBash, snippetPowershell } from "../utils/snippets";
+import {
+	snippetBash,
+	snippetBashText,
+	snippetClaudeCode,
+	snippetClaudeCodeText,
+	snippetHermes,
+	snippetHermesText,
+	snippetJS,
+	snippetJSText,
+	snippetLibreChat,
+	snippetLibreChatText,
+	snippetOpenClaw,
+	snippetOpenClawText,
+	snippetOpencodeVK,
+	snippetOpencodeVKText,
+	snippetPowershell,
+	snippetPowershellText,
+	snippetPython,
+	snippetPythonText,
+	snippetZedVK,
+	snippetZedVKText,
+} from "../utils/snippets";
 
-type VKSortField = "name" | "key" | "created" | "tokens" | "last_used";
+type VKSortField =
+	| "name"
+	| "rps"
+	| "burst"
+	| "created"
+	| "tokens"
+	| "last_used";
 
 function CreateKeyModal({
 	onClose,
 	onToast,
-	existingKey,
 }: {
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
-	existingKey?: VirtualKey;
 }) {
 	const queryClient = useQueryClient();
-	const [name, setName] = useState(existingKey?.name ?? "");
-	const [rateLimitRps, setRateLimitRps] = useState<string>(
-		existingKey?.rate_limit_rps?.toString() ?? "",
-	);
-	const [rateLimitBurst, setRateLimitBurst] = useState<string>(
-		existingKey?.rate_limit_burst?.toString() ?? "",
-	);
+	const [name, setName] = useState("");
+	const [rateLimitRps, setRateLimitRps] = useState<string>("");
+	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
 
 	const createMutation = useMutation({
@@ -65,68 +87,24 @@ function CreateKeyModal({
 		},
 	});
 
-	const updateMutation = useMutation({
-		mutationFn: ({
-			name,
-			rate_limit_rps,
-			rate_limit_burst,
-		}: {
-			name: string;
-			rate_limit_rps?: number | null;
-			rate_limit_burst?: number | null;
-		}) => {
-			if (!existingKey) {
-				throw new Error("No key to update");
-			}
-			return api.virtualKeys.update(existingKey.id, {
-				name,
-				rate_limit_rps,
-				rate_limit_burst,
-			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
-			onToast("Virtual key updated", "success");
-			onClose();
-		},
-		onError: (err: Error) => {
-			onToast(`Failed: ${err.message}`, "error");
-		},
-	});
-
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!name.trim()) return;
-		if (existingKey) {
-			updateMutation.mutate({
-				name: name.trim(),
-				rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
-				rate_limit_burst:
-					rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
-			});
-		} else {
-			createMutation.mutate({
-				name: name.trim(),
-				rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
-				rate_limit_burst:
-					rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
-			});
-		}
+		createMutation.mutate({
+			name: name.trim(),
+			rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
+			rate_limit_burst:
+				rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
+		});
 	};
 
 	return (
 		<Modal
-			title={
-				existingKey
-					? "Edit Virtual Key"
-					: createdKey
-						? "Virtual Key Created"
-						: "Create Virtual Key"
-			}
-			closeOnBackdrop={!createdKey || !!existingKey}
+			title={createdKey ? "Virtual Key Created" : "Create Virtual Key"}
+			closeOnBackdrop={!createdKey}
 			onClose={onClose}
 		>
-			{createdKey && !existingKey ? (
+			{createdKey ? (
 				<>
 					<p className="text-sm text-gray-400 mb-3">
 						Copy this key now. It won't be shown again.
@@ -220,20 +198,10 @@ function CreateKeyModal({
 						</button>
 						<button
 							type="submit"
-							disabled={
-								existingKey
-									? updateMutation.isPending
-									: createMutation.isPending
-							}
+							disabled={createMutation.isPending}
 							className="ui-btn ui-btn-primary disabled:opacity-50"
 						>
-							{existingKey
-								? updateMutation.isPending
-									? "Saving…"
-									: "Save Changes"
-								: createMutation.isPending
-									? "Creating…"
-									: "Create Key"}
+							{createMutation.isPending ? "Creating…" : "Create Key"}
 						</button>
 					</div>
 				</form>
@@ -252,6 +220,12 @@ function KeyDetailModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	const [editing, setEditing] = useState(false);
+	const [editName, setEditName] = useState(vk.name);
+	const [editRps, setEditRps] = useState(vk.rate_limit_rps?.toString() ?? "");
+	const [editBurst, setEditBurst] = useState(
+		vk.rate_limit_burst?.toString() ?? "",
+	);
 
 	const deleteMutation = useMutation({
 		mutationFn: () => api.virtualKeys.delete(vk.id),
@@ -265,42 +239,192 @@ function KeyDetailModal({
 		},
 	});
 
+	const updateMutation = useMutation({
+		mutationFn: ({
+			name,
+			rate_limit_rps,
+			rate_limit_burst,
+		}: {
+			name: string;
+			rate_limit_rps?: number | null;
+			rate_limit_burst?: number | null;
+		}) =>
+			api.virtualKeys.update(vk.id, {
+				name,
+				rate_limit_rps,
+				rate_limit_burst,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
+			onToast("Virtual key updated", "success");
+			onClose();
+		},
+		onError: (err: Error) => {
+			onToast(`Failed: ${err.message}`, "error");
+		},
+	});
+
+	const handleSave = () => {
+		if (!editName.trim()) return;
+		updateMutation.mutate({
+			name: editName.trim(),
+			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
+			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
+		});
+	};
+
+	const handleCancelEdit = () => {
+		setEditName(vk.name);
+		setEditRps(vk.rate_limit_rps?.toString() ?? "");
+		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
+		setEditing(false);
+	};
+
+	const hasChanges =
+		editName !== vk.name ||
+		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
+		editBurst !== (vk.rate_limit_burst?.toString() ?? "");
+
+	const handleClose = () => {
+		if (editing && hasChanges) {
+			if (!window.confirm("Discard unsaved changes?")) return;
+		}
+		onClose();
+	};
+
 	return (
-		<Modal title="Virtual Key Details" onClose={onClose}>
+		<Modal title="Virtual Key Details" onClose={handleClose}>
 			<div className="space-y-3 mb-6">
-				<div>
-					<span className="text-sm text-gray-500">Name</span>
-					<p className="text-gray-200">{vk.name}</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Key</span>
-					<p className="text-gray-200 font-mono">{vk.key_preview}</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Created</span>
-					<p className="text-gray-200">
-						{new Date(vk.created_at).toLocaleString()}
-					</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Tokens Consumed</span>
-					<p className="text-gray-200">{formatNumber(vk.tokens_used)}</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Last Used</span>
-					<p className="text-gray-200">
-						{vk.last_used_at
-							? new Date(vk.last_used_at).toLocaleString()
-							: "Never"}
-					</p>
-				</div>
+				{editing ? (
+					<>
+						<div>
+							<label
+								htmlFor="vk-detail-name"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Name
+							</label>
+							<input
+								id="vk-detail-name"
+								type="text"
+								required
+								maxLength={100}
+								value={editName}
+								onChange={(e) => setEditName(e.target.value)}
+								className="ui-input"
+							/>
+						</div>
+						<div>
+							<label
+								htmlFor="vk-detail-rps"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Rate Limit RPS (requests/sec)
+							</label>
+							<input
+								id="vk-detail-rps"
+								type="number"
+								min="0"
+								value={editRps}
+								onChange={(e) => setEditRps(e.target.value)}
+								className="ui-input"
+								placeholder="Use global setting"
+							/>
+						</div>
+						<div>
+							<label
+								htmlFor="vk-detail-burst"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Rate Limit Burst (max concurrent)
+							</label>
+							<input
+								id="vk-detail-burst"
+								type="number"
+								min="0"
+								value={editBurst}
+								onChange={(e) => setEditBurst(e.target.value)}
+								className="ui-input"
+								placeholder="Use global setting"
+							/>
+						</div>
+					</>
+				) : (
+					<>
+						<div>
+							<span className="text-sm text-gray-500">Name</span>
+							<p className="text-gray-200">{vk.name}</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Key</span>
+							<p className="text-gray-200 font-mono">{vk.key_preview}</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">RPS</span>
+							<p className="text-gray-200 font-mono">
+								{vk.rate_limit_rps != null ? vk.rate_limit_rps : "Global"}
+							</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Burst</span>
+							<p className="text-gray-200 font-mono">
+								{vk.rate_limit_burst != null ? vk.rate_limit_burst : "Global"}
+							</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Created</span>
+							<p className="text-gray-200">
+								{new Date(vk.created_at).toLocaleString()}
+							</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Tokens Consumed</span>
+							<p className="text-gray-200">{formatNumber(vk.tokens_used)}</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Last Used</span>
+							<p className="text-gray-200">
+								{vk.last_used_at
+									? new Date(vk.last_used_at).toLocaleString()
+									: "Never"}
+							</p>
+						</div>
+					</>
+				)}
 			</div>
 
-			<div className="flex justify-start items-center">
+			<div className="flex justify-between items-center">
 				<ConfirmDeleteButton
 					onConfirm={() => deleteMutation.mutate()}
 					loading={deleteMutation.isPending}
 				/>
+				{editing ? (
+					<div className="flex space-x-3">
+						<button
+							type="button"
+							onClick={handleCancelEdit}
+							className="ui-btn ui-btn-secondary"
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							onClick={handleSave}
+							disabled={!hasChanges || updateMutation.isPending}
+							className="ui-btn ui-btn-primary disabled:opacity-50"
+						>
+							{updateMutation.isPending ? "Saving..." : "Save Changes"}
+						</button>
+					</div>
+				) : (
+					<button
+						type="button"
+						onClick={() => setEditing(true)}
+						className="ui-btn ui-btn-secondary"
+					>
+						Edit
+					</button>
+				)}
 			</div>
 		</Modal>
 	);
@@ -310,9 +434,6 @@ export function VirtualKeys() {
 	const { toast } = useToast();
 	const [showCreate, setShowCreate] = useState(false);
 	const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null);
-	const [editingKey, setEditingKey] = useState<VirtualKey | undefined>(
-		undefined,
-	);
 	const [sort, setSort] = useState<SortState<VKSortField>>({
 		field: "name",
 		dir: "asc",
@@ -362,6 +483,16 @@ export function VirtualKeys() {
 					const aT = a.last_used_at ? new Date(a.last_used_at).getTime() : 0;
 					const bT = b.last_used_at ? new Date(b.last_used_at).getTime() : 0;
 					return dir * (aT - bT);
+				}
+				case "rps": {
+					const aR = a.rate_limit_rps ?? 0;
+					const bR = b.rate_limit_rps ?? 0;
+					return dir * (aR - bR);
+				}
+				case "burst": {
+					const aB = a.rate_limit_burst ?? 0;
+					const bB = b.rate_limit_burst ?? 0;
+					return dir * (aB - bB);
 				}
 				default:
 					return 0;
@@ -429,11 +560,13 @@ export function VirtualKeys() {
 				<div className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
-							<col className="w-[28%]" />
-							<col className="w-[18%]" />
 							<col className="w-[22%]" />
+							<col className="w-[16%]" />
+							<col className="w-[8%]" />
+							<col className="w-[8%]" />
 							<col className="w-[18%]" />
-							<col className="w-[14%]" />
+							<col className="w-[16%]" />
+							<col className="w-[12%]" />
 						</colgroup>
 						<thead>
 							<tr>
@@ -447,6 +580,20 @@ export function VirtualKeys() {
 								<StaticHeader tooltip="Preview of the API key (full key only shown once on creation)">
 									Key
 								</StaticHeader>
+								<SortableHeader
+									label="RPS"
+									field="rps"
+									sort={sort}
+									onSort={handleSort}
+									tooltip="Requests per second rate limit"
+								/>
+								<SortableHeader
+									label="Burst"
+									field="burst"
+									sort={sort}
+									onSort={handleSort}
+									tooltip="Burst capacity for rate limiting"
+								/>
 								<SortableHeader
 									label="Created"
 									field="created"
@@ -472,32 +619,28 @@ export function VirtualKeys() {
 						</thead>
 						<tbody>
 							{paginatedKeys.map((vk) => (
-								<Row key={vk.id}>
-									<td className="px-4 py-3">
-										<div className="flex items-center gap-2">
-											<button
-												type="button"
-												onClick={() => setSelectedKey(vk)}
-												className="text-gray-200 hover:text-(--accent) transition-colors cursor-pointer text-sm"
-											>
-												{vk.name}
-											</button>
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													setEditingKey(vk);
-												}}
-												className="text-gray-500 hover:text-(--accent) transition-colors"
-												title="Edit"
-												aria-label="Edit"
-											>
-												<Pencil className="w-3.5 h-3.5" />
-											</button>
-										</div>
+								<Row key={vk.id} onClick={() => setSelectedKey(vk)}>
+									<td className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0">
+										{vk.name}
 									</td>
 									<td className="px-4 py-3 text-gray-500 font-mono text-xs">
 										{vk.key_preview}
+									</td>
+									<td className="px-4 py-3 text-sm font-mono">
+										{vk.rate_limit_rps != null ? (
+											<span className="text-gray-200">{vk.rate_limit_rps}</span>
+										) : (
+											<span className="text-gray-500">Global</span>
+										)}
+									</td>
+									<td className="px-4 py-3 text-sm font-mono">
+										{vk.rate_limit_burst != null ? (
+											<span className="text-gray-200">
+												{vk.rate_limit_burst}
+											</span>
+										) : (
+											<span className="text-gray-500">Global</span>
+										)}
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
 										{new Date(vk.created_at).toLocaleString()}
@@ -580,118 +723,148 @@ export function VirtualKeys() {
 								</div>
 							</div>
 
-							<div>
-								<div className="terminal-tab-bar">
-									<button
-										type="button"
-										onClick={() => setTerminalTab("bash")}
-										className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-									>
-										<svg
-											viewBox="0 0 24 24"
-											className="w-3.5 h-3.5"
-											fill="none"
-											stroke="currentColor"
-											strokeWidth="2"
-											strokeLinecap="round"
-											strokeLinejoin="round"
+							<div className="space-y-4">
+								<div>
+									<div className="terminal-tab-bar">
+										<button
+											type="button"
+											onClick={() => setTerminalTab("bash")}
+											className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
 										>
-											<title>Terminal</title>
-											<polyline points="4 17 10 11 4 5" />
-											<line x1="12" y1="19" x2="20" y2="19" />
-										</svg>
-										bash
-									</button>
-									<button
-										type="button"
-										onClick={() => setTerminalTab("powershell")}
-										className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-									>
-										<svg
-											viewBox="0 0 24 24"
-											className="w-3.5 h-3.5"
-											fill="none"
-											stroke="currentColor"
-											strokeWidth="2"
-											strokeLinecap="round"
-											strokeLinejoin="round"
+											<svg
+												viewBox="0 0 24 24"
+												className="w-3.5 h-3.5"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											>
+												<title>Terminal</title>
+												<polyline points="4 17 10 11 4 5" />
+												<line x1="12" y1="19" x2="20" y2="19" />
+											</svg>
+											bash
+										</button>
+										<button
+											type="button"
+											onClick={() => setTerminalTab("powershell")}
+											className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
 										>
-											<title>Monitor</title>
-											<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-											<line x1="8" y1="21" x2="16" y2="21" />
-											<line x1="12" y1="17" x2="12" y2="21" />
-										</svg>
-										PowerShell
-									</button>
-								</div>
-								{terminalTab === "bash" ? (
-									<div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
-										<div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
-											<div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-											<div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-											<div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-											<span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
-												bash
-											</span>
-										</div>
-										<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
-											<code className="terminal-code">
-												{snippetBash({
-													origin:
-														typeof window !== "undefined"
-															? window.location.origin
-															: "http://localhost:8080",
-												})}
-											</code>
-										</pre>
-									</div>
-								) : (
-									<div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] min-h-70">
-										<div className="terminal-win11-titlebar flex items-center justify-between px-3 py-1.5 border-b border-[#333]">
-											<div className="flex items-center gap-2">
-												<svg
-													className="win11-icon"
-													viewBox="0 0 24 24"
-													width="14"
+											<svg
+												viewBox="0 0 24 24"
+												className="w-3.5 h-3.5"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											>
+												<title>Monitor</title>
+												<rect
+													x="2"
+													y="3"
+													width="20"
 													height="14"
-													fill="currentColor"
-												>
-													<title>Windows</title>
-													<path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
-												</svg>
-												<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
-													PowerShell
-												</span>
-											</div>
-											<div className="flex items-center" aria-hidden="true">
-												<span className="inline-flex items-center justify-center w-11.5 h-7.5 text-[#999] hover:text-white hover:bg-[#e81123] transition-colors cursor-default">
-													<svg
-														width="10"
-														height="10"
-														viewBox="0 0 10 10"
-														fill="none"
-														stroke="currentColor"
-														strokeWidth="1.2"
-													>
-														<title>Close</title>
-														<line x1="0" y1="0" x2="10" y2="10" />
-														<line x1="10" y1="0" x2="0" y2="10" />
-													</svg>
-												</span>
-											</div>
-										</div>
-										<pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
-											<code className="terminal-win11-code">
-												{snippetPowershell({
-													origin:
-														typeof window !== "undefined"
-															? window.location.origin
-															: "http://localhost:8080",
-												})}
-											</code>
-										</pre>
+													rx="2"
+													ry="2"
+												/>
+												<line x1="8" y1="21" x2="16" y2="21" />
+												<line x1="12" y1="17" x2="12" y2="21" />
+											</svg>
+											PowerShell
+										</button>
 									</div>
-								)}
+									{terminalTab === "bash" ? (
+										<TerminalPreview
+											variant="bash"
+											copyText={snippetBashText({ origin: proxyOrigin })}
+										>
+											{snippetBash({ origin: proxyOrigin })}
+										</TerminalPreview>
+									) : (
+										<TerminalPreview
+											variant="powershell"
+											copyText={snippetPowershellText({ origin: proxyOrigin })}
+										>
+											{snippetPowershell({ origin: proxyOrigin })}
+										</TerminalPreview>
+									)}
+								</div>
+
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<TerminalPreview
+										variant="code"
+										title="Python"
+										icon="python"
+										copyText={snippetPythonText({ origin: proxyOrigin })}
+									>
+										{snippetPython({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="OpenClaw"
+										icon="openclaw"
+										copyText={snippetOpenClawText({ origin: proxyOrigin })}
+									>
+										{snippetOpenClaw({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="JavaScript"
+										icon="javascript"
+										copyText={snippetJSText({ origin: proxyOrigin })}
+									>
+										{snippetJS({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="LibreChat"
+										icon="librechat"
+										copyText={snippetLibreChatText({ origin: proxyOrigin })}
+									>
+										{snippetLibreChat({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="Claude Code"
+										icon="claude"
+										copyText={snippetClaudeCodeText({ origin: proxyOrigin })}
+									>
+										{snippetClaudeCode({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="ZED"
+										icon="zed"
+										copyText={snippetZedVKText({ origin: proxyOrigin })}
+									>
+										{snippetZedVK({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="Hermes"
+										icon="hermes"
+										copyText={snippetHermesText({ origin: proxyOrigin })}
+									>
+										{snippetHermes({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="OpenCode"
+										icon="opencode"
+										copyText={snippetOpencodeVKText({ origin: proxyOrigin })}
+									>
+										{snippetOpencodeVK({ origin: proxyOrigin })}
+									</TerminalPreview>
+								</div>
 							</div>
 
 							<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
@@ -708,15 +881,8 @@ export function VirtualKeys() {
 				</div>
 			)}
 
-			{(showCreate || editingKey) && (
-				<CreateKeyModal
-					onClose={() => {
-						setShowCreate(false);
-						setEditingKey(undefined);
-					}}
-					onToast={toast}
-					existingKey={editingKey}
-				/>
+			{showCreate && (
+				<CreateKeyModal onClose={() => setShowCreate(false)} onToast={toast} />
 			)}
 
 			{selectedKey && (
