@@ -89,6 +89,7 @@ export function DiscoverySettings({
 							})
 						}
 						disabled={isUpdating}
+						ariaLabel="Discover on Startup"
 					/>
 				</div>
 
@@ -109,6 +110,7 @@ export function DiscoverySettings({
 							})
 						}
 						disabled={isUpdating}
+						ariaLabel="Discover on Provider Creation"
 					/>
 				</div>
 			</div>

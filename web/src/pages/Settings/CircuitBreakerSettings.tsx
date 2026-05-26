@@ -76,6 +76,7 @@ export function CircuitBreakerSettings({
 								circuit_breaker_enabled: v ? "true" : "false",
 							})
 						}
+						ariaLabel="Enable Circuit Breaker"
 					/>
 				</div>
 
@@ -138,6 +139,7 @@ export function CircuitBreakerSettings({
 								failover_on_rate_limit: v ? "true" : "false",
 							})
 						}
+						ariaLabel="Failover on Rate Limit"
 					/>
 				</div>
 			</div>

@@ -743,4 +743,164 @@ describe("LoggingSettings", () => {
 			expect(screen.getByText("Deleted 5 log entries")).toBeInTheDocument();
 		});
 	});
+
+	it("getDeleteOlderThan converts '1d' to '24h'", async () => {
+		const user = userEvent.setup();
+		let capturedBody: Record<string, string> | null = null;
+		server.use(
+			http.delete("/api/logs/purge", async ({ request }) => {
+				capturedBody = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ success: true });
+			}),
+		);
+		renderWithProviders(
+			<LoggingSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /delete requests/i }),
+			).toBeInTheDocument();
+		});
+		const deleteButton = screen.getByRole("button", {
+			name: /delete requests/i,
+		});
+		await user.click(deleteButton);
+
+		const rangeSelect = await waitFor(() => {
+			const selects = screen.getAllByRole("combobox");
+			const rangeSelect = selects.find(
+				(s) =>
+					s.querySelector('option[value=""]')?.textContent ===
+					"Select range...",
+			);
+			if (!rangeSelect) {
+				throw new Error("Range select not found");
+			}
+			return rangeSelect;
+		});
+		await user.selectOptions(rangeSelect, "1d");
+
+		const confirmButton = screen.getByRole("button", {
+			name: /confirm delete/i,
+		});
+		await user.click(confirmButton);
+
+		await waitFor(() => {
+			expect(capturedBody).toEqual({ older_than: "24h" });
+		});
+	});
+
+	it("getDeleteOlderThan converts '1m' to '720h'", async () => {
+		const user = userEvent.setup();
+		let capturedBody: Record<string, string> | null = null;
+		server.use(
+			http.delete("/api/logs/purge", async ({ request }) => {
+				capturedBody = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ success: true });
+			}),
+		);
+		renderWithProviders(
+			<LoggingSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /delete requests/i }),
+			).toBeInTheDocument();
+		});
+		const deleteButton = screen.getByRole("button", {
+			name: /delete requests/i,
+		});
+		await user.click(deleteButton);
+
+		const rangeSelect = await waitFor(() => {
+			const selects = screen.getAllByRole("combobox");
+			const rangeSelect = selects.find(
+				(s) =>
+					s.querySelector('option[value=""]')?.textContent ===
+					"Select range...",
+			);
+			if (!rangeSelect) {
+				throw new Error("Range select not found");
+			}
+			return rangeSelect;
+		});
+		await user.selectOptions(rangeSelect, "1m");
+
+		const confirmButton = screen.getByRole("button", {
+			name: /confirm delete/i,
+		});
+		await user.click(confirmButton);
+
+		await waitFor(() => {
+			expect(capturedBody).toEqual({ older_than: "720h" });
+		});
+	});
+
+	it("getDeleteOlderThan passes 'all' through", async () => {
+		const user = userEvent.setup();
+		let capturedBody: Record<string, string> | null = null;
+		server.use(
+			http.delete("/api/logs/purge", async ({ request }) => {
+				capturedBody = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ success: true });
+			}),
+		);
+		renderWithProviders(
+			<LoggingSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /delete requests/i }),
+			).toBeInTheDocument();
+		});
+		const deleteButton = screen.getByRole("button", {
+			name: /delete requests/i,
+		});
+		await user.click(deleteButton);
+
+		const rangeSelect = await waitFor(() => {
+			const selects = screen.getAllByRole("combobox");
+			const rangeSelect = selects.find(
+				(s) =>
+					s.querySelector('option[value=""]')?.textContent ===
+					"Select range...",
+			);
+			if (!rangeSelect) {
+				throw new Error("Range select not found");
+			}
+			return rangeSelect;
+		});
+		await user.selectOptions(rangeSelect, "all");
+
+		const confirmButton = screen.getByRole("button", {
+			name: /confirm delete/i,
+		});
+		await user.click(confirmButton);
+
+		await waitFor(() => {
+			expect(capturedBody).toEqual({ older_than: "all" });
+		});
+	});
+
+	it("shows normal description when stale request timeout is non-zero", async () => {
+		server.use(
+			http.get("/api/settings", () => {
+				return HttpResponse.json({
+					log_retention: "24h",
+					stale_request_timeout: "15m0s",
+				});
+			}),
+		);
+		renderWithProviders(
+			<LoggingSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByText(/Mark pending\/streaming requests as/i),
+			).toBeInTheDocument();
+		});
+		expect(
+			screen.queryByText(/Stale request detection is disabled/i),
+		).not.toBeInTheDocument();
+	});
 });
