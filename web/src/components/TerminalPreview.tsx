@@ -48,7 +48,7 @@ export function TerminalPreview({
 					</span>
 				</div>
 				<pre
-					className={`p-4 pb-6 text-xs text-gray-400 font-mono overflow-x-auto overflow-y-auto terminal-body${height ? "" : " overflow-y-hidden"}`}
+					className={`p-4 pb-6 text-xs text-gray-400 font-mono overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words terminal-body${height ? "" : " overflow-y-hidden"}`}
 					style={height ? { height: `${height}px` } : undefined}
 				>
 					<code className="terminal-code">{children}</code>
@@ -79,7 +79,7 @@ export function TerminalPreview({
 					</span>
 				</div>
 				<pre
-					className={`p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body${height ? " overflow-y-auto" : ""}`}
+					className={`p-4 text-xs text-gray-400 font-mono overflow-x-auto whitespace-pre-wrap break-words terminal-body${height ? " overflow-y-auto" : ""}`}
 				>
 					<code className="terminal-code">{children}</code>
 				</pre>
@@ -115,7 +115,7 @@ export function TerminalPreview({
 				</span>
 			</div>
 			<pre
-				className={`terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]${height ? " overflow-y-auto" : ""}`}
+				className={`terminal-win11-body p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words text-[#ccc] bg-[#0c0c0c]${height ? " overflow-y-auto" : ""}`}
 			>
 				<code className="terminal-win11-code">{children}</code>
 			</pre>

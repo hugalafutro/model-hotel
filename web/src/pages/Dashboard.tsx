@@ -128,7 +128,7 @@ export function Dashboard() {
 		return <LoadingSpinner />;
 	}
 
-	if (statsError) {
+	if (!stats && statsError) {
 		return (
 			<div className="space-y-6">
 				<div>

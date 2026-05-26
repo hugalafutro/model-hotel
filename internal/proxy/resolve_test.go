@@ -45,6 +45,17 @@ func TestShouldFailover_PureUnit_AuthErrors(t *testing.T) {
 	}
 }
 
+func TestShouldFailover_PureUnit_ClientClosedRequest(t *testing.T) {
+	h := &Handler{
+		cfg:          &config.Config{MasterKey: "test"},
+		settingsRepo: nil, // safe: 499 path returns before touching settingsRepo
+	}
+
+	if !h.shouldFailover(context.Background(), 499) {
+		t.Errorf("status 499 should trigger failover")
+	}
+}
+
 func TestShouldFailover_PureUnit_NoFailoverCodes(t *testing.T) {
 	h := &Handler{
 		cfg:          &config.Config{MasterKey: "test"},

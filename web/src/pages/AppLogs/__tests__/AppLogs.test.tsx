@@ -637,4 +637,243 @@ describe("AppLogs", () => {
 		const errorMessage = screen.getByText("Connection timeout");
 		expect(errorMessage).toHaveClass("text-gray-400");
 	});
+
+	describe("Live toggle resume", () => {
+		it("clicking Live toggle twice resumes updates and shows toast", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: /Toggle live/ }),
+				).toBeInTheDocument();
+			});
+			const liveButton = screen.getByRole("button", {
+				name: /Toggle live/,
+			});
+			// First click: pause
+			await user.click(liveButton);
+			await waitFor(() => {
+				expect(screen.getByText("Live updates paused")).toBeInTheDocument();
+			});
+			expect(liveButton).toHaveClass("bg-gray-700");
+			// Second click: resume
+			await user.click(liveButton);
+			await waitFor(() => {
+				expect(screen.getByText("Live updates resumed")).toBeInTheDocument();
+			});
+			expect(liveButton).toHaveClass("bg-green-500/20");
+		});
+	});
+
+	describe("View mode toggle", () => {
+		it("clicking Scroll button switches to scroll mode", async () => {
+			const user = userEvent.setup();
+			server.use(
+				http.get("/api/logs/app/cursor", () => {
+					return HttpResponse.json({
+						entries: [],
+						total: 0,
+						has_before: false,
+						has_after: false,
+						level_counts: {},
+						source_counts: {},
+					});
+				}),
+			);
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: /Switch to scroll mode/,
+					}),
+				).toBeInTheDocument();
+			});
+			const scrollButton = screen.getByRole("button", {
+				name: /Switch to scroll mode/,
+			});
+			await user.click(scrollButton);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: /Switch to pagination mode/,
+					}),
+				).toBeInTheDocument();
+			});
+			// Paginate table headers should be gone
+			expect(
+				screen.queryByRole("button", { name: /Sort by Time\/Date/ }),
+			).not.toBeInTheDocument();
+		});
+
+		it("persists view mode to localStorage", async () => {
+			const user = userEvent.setup();
+			server.use(
+				http.get("/api/logs/app/cursor", () => {
+					return HttpResponse.json({
+						entries: [],
+						total: 0,
+						has_before: false,
+						has_after: false,
+						level_counts: {},
+						source_counts: {},
+					});
+				}),
+			);
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: /Switch to scroll mode/,
+					}),
+				).toBeInTheDocument();
+			});
+			const scrollButton = screen.getByRole("button", {
+				name: /Switch to scroll mode/,
+			});
+			await user.click(scrollButton);
+			await waitFor(() => {
+				expect(localStorage.getItem("appLogsViewMode")).toBe("scroll");
+			});
+		});
+	});
+
+	describe("Source filter visibility", () => {
+		it("hides Source filter when only one source exists", async () => {
+			server.use(
+				http.get("/api/logs/app", ({ request }) => {
+					const url = new URL(request.url);
+					if (url.searchParams.get("history") === "true") {
+						return HttpResponse.json({
+							entries: [
+								{
+									timestamp: "2026-05-11T10:30:00Z",
+									level: "info",
+									source: "proxy",
+									message: "Single source entry",
+								},
+							],
+							total: 1,
+							page: 1,
+							per_page: 20,
+							level_counts: { info: 1 },
+							source_counts: { proxy: 1 },
+						});
+					}
+					return HttpResponse.json([]);
+				}),
+			);
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(screen.getByText("Single source entry")).toBeInTheDocument();
+			});
+			// Source filter dropdown should NOT be rendered (only 1 source)
+			// FilterDropdown trigger has accessible name "Source" (placeholder text)
+			// SortableHeader has accessible name "Sort by Source" (aria-label)
+			expect(
+				screen.queryByRole("button", { name: /^Source$/ }),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Entry with no source", () => {
+		it("renders dash for entry with empty source", async () => {
+			server.use(
+				http.get("/api/logs/app", ({ request }) => {
+					const url = new URL(request.url);
+					if (url.searchParams.get("history") === "true") {
+						return HttpResponse.json({
+							entries: [
+								{
+									timestamp: "2026-05-11T10:30:00Z",
+									level: "info",
+									source: "proxy",
+									message: "Has source entry",
+								},
+								{
+									timestamp: "2026-05-11T10:25:00Z",
+									level: "warning",
+									source: "",
+									message: "No source entry",
+								},
+							],
+							total: 2,
+							page: 1,
+							per_page: 20,
+							level_counts: { info: 1, warning: 1 },
+							source_counts: { proxy: 1 },
+						});
+					}
+					return HttpResponse.json([]);
+				}),
+			);
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(screen.getByText("No source entry")).toBeInTheDocument();
+			});
+			// Entry with empty source shows dash instead of Badge
+			const dashSpans = screen
+				.getAllByText("-")
+				.filter((el) => el.tagName === "SPAN");
+			expect(dashSpans.length).toBe(1);
+			// Entry with source shows the source badge
+			expect(screen.getByText("proxy")).toBeInTheDocument();
+		});
+	});
+
+	describe("Sort direction indicator", () => {
+		it("shows ↓ for default sort, toggles to ↑ on click, back to ↓ on second click", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: /Sort by Time\/Date/,
+					}),
+				).toBeInTheDocument();
+			});
+			const timeHeader = screen.getByRole("button", {
+				name: /Sort by Time\/Date/,
+			});
+			// Default sort is time desc → shows ↓
+			expect(timeHeader.textContent).toContain("↓");
+			// Click to toggle to asc → shows ↑
+			await user.click(timeHeader);
+			await waitFor(() => {
+				expect(timeHeader.textContent).toContain("↑");
+			});
+			// Click again to toggle back to desc → shows ↓
+			await user.click(timeHeader);
+			await waitFor(() => {
+				expect(timeHeader.textContent).toContain("↓");
+			});
+		});
+
+		it("clicking different column activates that column asc and deactivates previous", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<AppLogs />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: /Sort by Time\/Date/ }),
+				).toBeInTheDocument();
+			});
+			const timeHeader = screen.getByRole("button", {
+				name: /Sort by Time\/Date/,
+			});
+			const levelHeader = screen.getByRole("button", {
+				name: /Sort by Level/,
+			});
+			// Time/Date is active (↓), Level is inactive
+			expect(timeHeader.textContent).toContain("↓");
+			expect(levelHeader.textContent).not.toContain("↑");
+			expect(levelHeader.textContent).not.toContain("↓");
+			// Click Level to activate it asc
+			await user.click(levelHeader);
+			await waitFor(() => {
+				expect(levelHeader.textContent).toContain("↑");
+			});
+			// Time/Date should now be inactive (no arrow)
+			expect(timeHeader.textContent).not.toContain("↑");
+			expect(timeHeader.textContent).not.toContain("↓");
+		});
+	});
 });

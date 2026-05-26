@@ -425,6 +425,18 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the provider was just disabled, sync failover groups to remove
+	// stale entries from auto-created groups (routing already skips them,
+	// but the UI and group membership should reflect the new state).
+	if req.Enabled != nil && !*req.Enabled {
+		if h.dbPool != nil {
+			failoverRepo := failover.NewRepository(h.dbPool.Pool())
+			if _, err := failoverRepo.SyncAllModels(context.WithoutCancel(r.Context())); err != nil {
+				debuglog.Info("admin: failed to sync failover groups after provider disable", "error", err)
+			}
+		}
+	}
+
 	response := provider.ToResponse(p)
 	writeJSON(w, response)
 }

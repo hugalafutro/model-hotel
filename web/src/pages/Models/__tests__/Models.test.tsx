@@ -504,6 +504,7 @@ describe("Models", () => {
 						success: true,
 						ttft_ms: 150,
 						duration_ms: 800,
+						streaming: true,
 						response: "This is a test response from the model",
 					});
 				}),
@@ -546,6 +547,7 @@ describe("Models", () => {
 						success: false,
 						ttft_ms: 0,
 						duration_ms: 0,
+						streaming: false,
 						response: "",
 						error: "Model timeout",
 					});

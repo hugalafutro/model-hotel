@@ -236,6 +236,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 // TestModelResponse is the JSON response for model test requests.
 type TestModelResponse struct {
 	Success    bool   `json:"success"`
+	Streaming  bool   `json:"streaming"`
 	TTFTMs     *int64 `json:"ttft_ms,omitempty"`
 	DurationMs int64  `json:"duration_ms"`
 	Response   string `json:"response"`
@@ -400,9 +401,9 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
 	durationMs := float64(duration)
-	// For a non-streaming test request, TTFT = total duration because there is
-	// no separate streaming phase. Mark ttft_ms = 0 in the log to indicate
-	// this was not a streaming request and TTFT is not meaningful.
+	// For a non-streaming test request, TTFT equals total duration
+	// (no separate streaming phase). The log stores ttft_ms = 0 to
+	// indicate non-streaming, but the API response reports duration as TTFT.
 	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 		m.ProviderID, m.ModelID, reqHash, resp.StatusCode,
 		durationMs, durationMs, 0,
@@ -415,6 +416,8 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, TestModelResponse{
 		Success:    true,
+		Streaming:  false,
+		TTFTMs:     &duration,
 		DurationMs: duration,
 		Response:   content,
 	})

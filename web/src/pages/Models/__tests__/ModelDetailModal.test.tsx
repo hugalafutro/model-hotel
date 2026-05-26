@@ -150,6 +150,7 @@ describe("ModelDetailModal", () => {
 			success: true,
 			ttft_ms: 500,
 			duration_ms: 2000,
+			streaming: true,
 			response: "Test response",
 		});
 
@@ -174,6 +175,7 @@ describe("ModelDetailModal", () => {
 								success: true,
 								ttft_ms: 500,
 								duration_ms: 2000,
+								streaming: true,
 								response: "Test response",
 							}),
 						100,
@@ -197,6 +199,7 @@ describe("ModelDetailModal", () => {
 			success: false,
 			ttft_ms: 0,
 			duration_ms: 0,
+			streaming: false,
 			response: "",
 			error: "Connection failed",
 		});
@@ -209,6 +212,50 @@ describe("ModelDetailModal", () => {
 			expect(onToast).toHaveBeenCalledWith(
 				"Test failed: Connection failed",
 				"error",
+			);
+		});
+	});
+
+	it("shows TTFT in success toast for streaming response", async () => {
+		const user = userEvent.setup();
+		onTest.mockResolvedValue({
+			success: true,
+			ttft_ms: 500,
+			duration_ms: 2000,
+			streaming: true,
+			response: "Hello world",
+		});
+
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		await user.click(screen.getByText("Test"));
+
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith(
+				expect.stringContaining("TTFT: 0.5s"),
+				"success",
+			);
+		});
+	});
+
+	it("omits TTFT from success toast when equal to duration (non-streaming)", async () => {
+		const user = userEvent.setup();
+		onTest.mockResolvedValue({
+			success: true,
+			ttft_ms: 1500,
+			duration_ms: 1500,
+			streaming: false,
+			response: "Hello world",
+		});
+
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		await user.click(screen.getByText("Test"));
+
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith(
+				expect.not.stringContaining("TTFT"),
+				"success",
 			);
 		});
 	});

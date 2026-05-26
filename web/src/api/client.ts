@@ -327,6 +327,7 @@ export const api = {
 			id: string,
 		): Promise<{
 			success: boolean;
+			streaming: boolean;
 			ttft_ms: number;
 			duration_ms: number;
 			response: string;
@@ -334,6 +335,7 @@ export const api = {
 		}> => {
 			return fetchJSON<{
 				success: boolean;
+				streaming: boolean;
 				ttft_ms: number;
 				duration_ms: number;
 				response: string;

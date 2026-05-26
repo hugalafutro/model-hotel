@@ -250,5 +250,10 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode == 404 {
 		return true
 	}
+	// 499 Client Closed Request: the upstream provider reported that the
+	// client disconnected mid-stream. Try the next candidate.
+	if statusCode == 499 {
+		return true
+	}
 	return false
 }
