@@ -232,8 +232,9 @@ export function ModelTable({
 						{(showProviderCol
 							? MODEL_COL_WIDTHS_WITH_PROVIDER
 							: MODEL_COL_WIDTHS_NO_PROVIDER
-						).map((w) => (
-							<col key={w} className={w} />
+						).map((w, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: static col widths array, order never changes
+							<col key={i} className={w} />
 						))}
 					</colgroup>
 					<thead>

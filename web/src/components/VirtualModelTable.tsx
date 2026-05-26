@@ -355,8 +355,9 @@ export function VirtualModelTable({
 						{(showProviderCol
 							? MODEL_COL_WIDTHS_WITH_PROVIDER
 							: MODEL_COL_WIDTHS_NO_PROVIDER
-						).map((w) => (
-							<col key={w} className={w} />
+						).map((w, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: static col widths array, order never changes
+							<col key={i} className={w} />
 						))}
 					</colgroup>
 					<thead className="sticky top-0 z-10 bg-(--surface)">
