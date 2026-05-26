@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VirtualKey } from "../../api/types";
 import { getByDialogName, mockVirtualKeys } from "../../test/helpers";
 import { mockVirtualKey } from "../../test/mocks/data";
@@ -1670,6 +1670,120 @@ describe("VirtualKeys", () => {
 				"title",
 				"Display name for the virtual key",
 			);
+		});
+	});
+
+	describe("KeyDetailModal unsaved-changes guard", () => {
+		it("prompts when closing with unsaved changes and stays open on cancel", async () => {
+			server.use(...mockVirtualKeys());
+
+			const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+
+			// Enter edit mode and make a change
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+			const nameInput = screen.getByLabelText("Name");
+			await user.clear(nameInput);
+			await user.type(nameInput, "Modified Name");
+
+			// Click close (X button)
+			await user.click(screen.getByRole("button", { name: "Close" }));
+
+			// Confirm should have been called
+			expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+
+			// Modal should still be open (user cancelled confirm)
+			expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+
+			confirmSpy.mockRestore();
+		});
+
+		it("closes modal when confirming discard of unsaved changes", async () => {
+			server.use(...mockVirtualKeys());
+
+			const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+
+			// Enter edit mode and make a change
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+			const nameInput = screen.getByLabelText("Name");
+			await user.clear(nameInput);
+			await user.type(nameInput, "Modified Name");
+
+			// Click close (X button)
+			await user.click(screen.getByRole("button", { name: "Close" }));
+
+			// Confirm should have been called
+			expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+
+			// Modal should close (user confirmed)
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("dialog", { name: "Virtual Key Details" }),
+				).not.toBeInTheDocument();
+			});
+
+			confirmSpy.mockRestore();
+		});
+
+		it("does not prompt when closing without unsaved changes", async () => {
+			server.use(...mockVirtualKeys());
+
+			const confirmSpy = vi.spyOn(window, "confirm");
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+
+			// Close without entering edit mode (no changes)
+			await user.click(screen.getByRole("button", { name: "Close" }));
+
+			// Confirm should NOT have been called
+			expect(confirmSpy).not.toHaveBeenCalled();
+
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("dialog", { name: "Virtual Key Details" }),
+				).not.toBeInTheDocument();
+			});
+
+			confirmSpy.mockRestore();
 		});
 	});
 });

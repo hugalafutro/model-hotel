@@ -15,7 +15,7 @@ interface TerminalPreviewProps {
 	copyText: string;
 	/** Syntax-highlighted content rendered inside the terminal */
 	children: ReactNode;
-	/** Fixed height in px — container stays this height regardless of content */
+	/** Fixed height in px — container stays this height regardless of content (applies to all variants) */
 	height?: number;
 }
 
@@ -59,7 +59,10 @@ export function TerminalPreview({
 
 	if (variant === "bash") {
 		return (
-			<div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
+			<div
+				className={`relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden${height ? "" : " min-h-70"}`}
+				style={height ? { height: `${height}px` } : undefined}
+			>
 				<div className="absolute top-2 right-2 z-10">
 					<CopyButton
 						text={copyText}
@@ -75,7 +78,9 @@ export function TerminalPreview({
 						{displayTitle}
 					</span>
 				</div>
-				<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
+				<pre
+					className={`p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body${height ? " overflow-y-auto" : ""}`}
+				>
 					<code className="terminal-code">{children}</code>
 				</pre>
 			</div>
@@ -83,7 +88,10 @@ export function TerminalPreview({
 	}
 
 	return (
-		<div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] min-h-70">
+		<div
+			className={`terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333]${height ? "" : " min-h-70"}`}
+			style={height ? { height: `${height}px` } : undefined}
+		>
 			<div className="absolute top-2 right-2 z-10">
 				<CopyButton
 					text={copyText}
@@ -106,7 +114,9 @@ export function TerminalPreview({
 					{displayTitle}
 				</span>
 			</div>
-			<pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
+			<pre
+				className={`terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]${height ? " overflow-y-auto" : ""}`}
+			>
 				<code className="terminal-win11-code">{children}</code>
 			</pre>
 		</div>

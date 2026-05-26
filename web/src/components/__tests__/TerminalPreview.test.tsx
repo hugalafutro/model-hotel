@@ -45,6 +45,33 @@ describe("TerminalPreview", () => {
 			});
 			expect(copyButton).toBeInTheDocument();
 		});
+
+		it("applies fixed height when height prop is set", () => {
+			const { container } = renderWithProviders(
+				<TerminalPreview {...defaultProps} height={200} />,
+			);
+
+			// Outer container should have explicit height style instead of min-h-70
+			const outerDiv = container.querySelector(".relative");
+			expect(outerDiv).toBeInTheDocument();
+			expect(outerDiv?.style.height).toBe("200px");
+			expect(outerDiv?.className).not.toContain("min-h-70");
+
+			// Pre should have overflow-y-auto for scrollable content
+			const pre = container.querySelector("pre");
+			expect(pre?.className).toContain("overflow-y-auto");
+		});
+
+		it("uses min-h-70 when height prop is not set", () => {
+			const { container } = renderWithProviders(
+				<TerminalPreview {...defaultProps} />,
+			);
+
+			const outerDiv = container.querySelector(".relative");
+			expect(outerDiv).toBeInTheDocument();
+			expect(outerDiv?.style.height).toBe("");
+			expect(outerDiv?.className).toContain("min-h-70");
+		});
 	});
 
 	describe("PowerShell variant", () => {
@@ -84,6 +111,33 @@ describe("TerminalPreview", () => {
 				name: "Copy PowerShell snippet",
 			});
 			expect(copyButton).toBeInTheDocument();
+		});
+
+		it("applies fixed height when height prop is set", () => {
+			const { container } = renderWithProviders(
+				<TerminalPreview {...defaultProps} variant="powershell" height={200} />,
+			);
+
+			// Outer container should have explicit height style instead of min-h-70
+			const outerDiv = container.querySelector(".terminal-win11");
+			expect(outerDiv).toBeInTheDocument();
+			expect(outerDiv?.style.height).toBe("200px");
+			expect(outerDiv?.className).not.toContain("min-h-70");
+
+			// Pre should have overflow-y-auto for scrollable content
+			const pre = container.querySelector("pre");
+			expect(pre?.className).toContain("overflow-y-auto");
+		});
+
+		it("uses min-h-70 when height prop is not set", () => {
+			const { container } = renderWithProviders(
+				<TerminalPreview {...defaultProps} variant="powershell" />,
+			);
+
+			const outerDiv = container.querySelector(".terminal-win11");
+			expect(outerDiv).toBeInTheDocument();
+			expect(outerDiv?.style.height).toBe("");
+			expect(outerDiv?.className).toContain("min-h-70");
 		});
 	});
 

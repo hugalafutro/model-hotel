@@ -285,8 +285,15 @@ function KeyDetailModal({
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "");
 
+	const handleClose = () => {
+		if (editing && hasChanges) {
+			if (!window.confirm("Discard unsaved changes?")) return;
+		}
+		onClose();
+	};
+
 	return (
-		<Modal title="Virtual Key Details" onClose={onClose}>
+		<Modal title="Virtual Key Details" onClose={handleClose}>
 			<div className="space-y-3 mb-6">
 				{editing ? (
 					<>
