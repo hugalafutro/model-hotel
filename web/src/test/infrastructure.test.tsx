@@ -65,7 +65,7 @@ describe("Test infrastructure", () => {
 
 	it("EventSource mock is available globally", () => {
 		const es = new EventSource("/api/events");
-		expect(es.readyState).toBe(EventSource.CONNECTING);
+		expect(es.readyState).toBe(EventSource.OPEN);
 		es.close();
 		expect(es.readyState).toBe(EventSource.CLOSED);
 	});

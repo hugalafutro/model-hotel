@@ -39,12 +39,7 @@ class MockEventSource {
 
 	constructor(url: string) {
 		this.url = url;
-		this.readyState = 0; // CONNECTING
-		// Simulate connection
-		setTimeout(() => {
-			this.readyState = 1; // OPEN
-			this.onopen?.();
-		}, 0);
+		this.readyState = 1; // OPEN (no async transition to avoid act() warnings)
 	}
 
 	addEventListener(
@@ -72,10 +67,12 @@ class MockEventSource {
 
 vi.stubGlobal("EventSource", MockEventSource);
 
-// Mock Element.scrollTo (jsdom doesn't implement it)
+// Mock scrollTo on HTMLElement (jsdom doesn't implement it)
 if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollTo) {
 	HTMLElement.prototype.scrollTo = () => {};
 }
+// Note: window.scrollTo is not mocked here because some tests (Arena) spyOn it.
+// The jsdom "Not implemented" warning is suppressed via _virtualConsole filter below.
 
 // Mock navigator.clipboard (jsdom doesn't implement it)
 const clipboardWriteText = vi.fn().mockResolvedValue(undefined);
@@ -97,7 +94,29 @@ if (
 	Element.prototype.releasePointerCapture = () => {};
 }
 
+// Suppress jsdom "Not implemented" warnings (scrollTo, navigation, etc.)
+// These are emitted through window._virtualConsole which forwards to console
+// We filter them from the virtual console listener directly
+const suppressJsdomNotImplemented = () => {
+	const win = window as unknown as {
+		_virtualConsole?: { emit: (type: string, error: Error) => void };
+	};
+	if (win._virtualConsole) {
+		const originalEmit = win._virtualConsole.emit.bind(win._virtualConsole);
+		win._virtualConsole.emit = (type: string, error: Error) => {
+			if (
+				type === "jsdomError" &&
+				error.message?.startsWith("Not implemented:")
+			) {
+				return;
+			}
+			originalEmit(type, error);
+		};
+	}
+};
+
 beforeAll(() => {
+	suppressJsdomNotImplemented();
 	server.listen({ onUnhandledRequest: "warn" });
 	setAdminToken("test-admin-token");
 });

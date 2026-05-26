@@ -300,7 +300,7 @@ describe("RateLimitSettings", () => {
 	});
 
 	it("hides RPS and Burst selects when rate limiting is disabled", async () => {
-		server.resetHandlers(
+		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
 					rate_limit_enabled: "false",
@@ -333,7 +333,7 @@ describe("RateLimitSettings", () => {
 	});
 
 	it("hides IP RPS and IP Burst selects when IP rate limiting is disabled", async () => {
-		server.resetHandlers(
+		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
 					rate_limit_enabled: "true",
@@ -365,7 +365,7 @@ describe("RateLimitSettings", () => {
 	});
 
 	it("hides backpressure section when both rate limiters are disabled", async () => {
-		server.resetHandlers(
+		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
 					rate_limit_enabled: "false",
@@ -397,7 +397,7 @@ describe("RateLimitSettings", () => {
 	});
 
 	it("shows backpressure section when rate limiting is enabled but IP rate limiting is disabled", async () => {
-		server.resetHandlers(
+		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
 					rate_limit_enabled: "true",
@@ -426,7 +426,7 @@ describe("RateLimitSettings", () => {
 	});
 
 	it("shows backpressure section when IP rate limiting is enabled but rate limiting is disabled", async () => {
-		server.resetHandlers(
+		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
 					rate_limit_enabled: "false",
