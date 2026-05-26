@@ -1198,5 +1198,79 @@ describe("ModelTable", () => {
 				screen.queryByText("Delete Disabled Models"),
 			).not.toBeInTheDocument();
 		});
+
+		it("only includes disabled models from filtered view, not all models", async () => {
+			const onDeleteDisabled = vi.fn();
+			const otherProvider = {
+				...mockProvider,
+				id: "provider-002",
+				name: "Other Provider",
+			};
+			const disabledInScope = {
+				...mockModel,
+				id: "model-disabled-scope",
+				provider_id: "provider-001",
+				enabled: false,
+			};
+			const disabledOutOfScope = {
+				...mockModel,
+				id: "model-disabled-other",
+				provider_id: "provider-002",
+				name: "Other Disabled",
+				provider_name: "Other Provider",
+				enabled: false,
+			};
+			const models = [mockModel, disabledInScope, disabledOutOfScope];
+
+			const { user } = renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider, otherProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+					initialProviderFilter={new Set(["provider-001"])}
+				/>,
+			);
+
+			// Button should show 1 disabled (only the one in filtered view)
+			expect(screen.getByText("Delete 1 disabled")).toBeInTheDocument();
+
+			await user.click(screen.getByText("Delete 1 disabled"));
+			await user.click(screen.getByText("Delete"));
+
+			// Should only pass the in-scope disabled model ID
+			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-scope"]);
+		});
+
+		it("does not show delete button when disabled models are outside filter scope", async () => {
+			const onDeleteDisabled = vi.fn();
+			const otherProvider = {
+				...mockProvider,
+				id: "provider-002",
+				name: "Other Provider",
+			};
+			const disabledOutOfScope = {
+				...mockModel,
+				id: "model-disabled-other",
+				provider_id: "provider-002",
+				name: "Other Disabled",
+				provider_name: "Other Provider",
+				enabled: false,
+			};
+			const models = [mockModel, disabledOutOfScope];
+
+			renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider, otherProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+					initialProviderFilter={new Set(["provider-001"])}
+				/>,
+			);
+
+			// No disabled models in the filtered view, so button should not appear
+			expect(
+				screen.queryByRole("button", { name: /delete.*disabled/i }),
+			).not.toBeInTheDocument();
+		});
 	});
 });

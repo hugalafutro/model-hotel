@@ -56,30 +56,6 @@ export function ModelTable({
 
 	const showProviderCol = providers !== undefined;
 
-	const disabledModelIds = useMemo(
-		() => models?.filter((m) => !m.enabled).map((m) => m.id) ?? [],
-		[models],
-	);
-	const disabledCount = disabledModelIds.length;
-
-	const toggleCapFilter = useCallback((key: CapKey) => {
-		setCapFilter((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			return next;
-		});
-		setCurrentPage(1);
-	}, []);
-
-	const handleSort = (field: SortField) => {
-		setSort((prev) => ({
-			field,
-			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
-		}));
-		setCurrentPage(1);
-	};
-
 	const { sortedAndFiltered, pillAvailability, existingCaps } = useMemo(() => {
 		if (!models) {
 			return {
@@ -174,6 +150,30 @@ export function ModelTable({
 			existingCaps: capsInData,
 		};
 	}, [models, searchQuery, sort, capFilter, selectedProviders]);
+
+	const disabledModelIds = useMemo(
+		() => sortedAndFiltered.filter((m) => !m.enabled).map((m) => m.id),
+		[sortedAndFiltered],
+	);
+	const disabledCount = disabledModelIds.length;
+
+	const toggleCapFilter = useCallback((key: CapKey) => {
+		setCapFilter((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+		setCurrentPage(1);
+	}, []);
+
+	const handleSort = (field: SortField) => {
+		setSort((prev) => ({
+			field,
+			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
+		}));
+		setCurrentPage(1);
+	};
 
 	const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
 	const paginatedModels = sortedAndFiltered.slice(
