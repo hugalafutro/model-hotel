@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { setAdminToken } from "../api/client";
+import { mockAllDefaults } from "../test/helpers";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
 
@@ -396,5 +397,152 @@ describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
 		);
 
 		expect(screen.getByText("Lazy Loaded")).toBeInTheDocument();
+	});
+});
+
+describe("Route navigation", () => {
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		server.resetHandlers();
+		server.use(...mockAllDefaults());
+	});
+
+	it("navigates to Logs page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const logsLink = screen.getByRole("link", { name: /Requests/ });
+		await userEvent.click(logsLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Monitor API requests across all providers and keys"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Settings page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const settingsLink = screen.getByRole("link", { name: "Settings" });
+		await userEvent.click(settingsLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Configure your Model Hotel instance"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Virtual Keys page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const virtualKeysLink = screen.getByRole("link", { name: "Virtual Keys" });
+		await userEvent.click(virtualKeysLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/Issue keys for clients to access the proxy at/),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Chat page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const chatLink = screen.getByRole("link", { name: /Chat/ });
+		await userEvent.click(chatLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Test enabled models in temporary chat"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Arena page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const arenaLink = screen.getByRole("link", { name: /Arena/ });
+		await userEvent.click(arenaLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Bracket tournament - models compete head-to-head"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Dashboard page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		// Navigate away first (to Settings), since Dashboard is the default route
+		const settingsLink = screen.getByRole("link", { name: "Settings" });
+		await userEvent.click(settingsLink);
+		await waitFor(() => {
+			expect(
+				screen.getByText("Configure your Model Hotel instance"),
+			).toBeInTheDocument();
+		});
+
+		// Now click Dashboard to verify navigation back works
+		const dashboardLink = screen.getByRole("link", { name: "Dashboard" });
+		await userEvent.click(dashboardLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Overview of your Model Hotel usage"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Providers page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const providersLink = screen.getByRole("link", { name: "Providers" });
+		await userEvent.click(providersLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Manage your provider configurations"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Models page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const modelsLink = screen.getByRole("link", { name: "Models" });
+		await userEvent.click(modelsLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Discovered models from your providers"),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("navigates to Failover Groups page", async () => {
+		localStorage.setItem("adminToken", "test-token");
+		renderWithProviders(<App />);
+
+		const failoverLink = screen.getByRole("link", { name: "Failover" });
+		await userEvent.click(failoverLink);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(
+					/Route requests through multiple providers in priority order via/,
+				),
+			).toBeInTheDocument();
+		});
 	});
 });
