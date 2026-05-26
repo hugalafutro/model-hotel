@@ -149,6 +149,8 @@ describe("DiscoverySettings", () => {
 	it("toggles Discover on Startup and calls mutation with correct payload", async () => {
 		const user = userEvent.setup();
 
+		let capturedPayload: Record<string, string> | undefined;
+
 		server.use(
 			http.get("/api/settings", ({ request }) => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
@@ -162,8 +164,7 @@ describe("DiscoverySettings", () => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
-				const body = await request.json();
-				expect(body).toEqual({ discovery_on_startup: "false" });
+				capturedPayload = (await request.json()) as Record<string, string>;
 				return HttpResponse.json({ ok: true });
 			}),
 		);
@@ -189,10 +190,13 @@ describe("DiscoverySettings", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
 		});
+		expect(capturedPayload).toEqual({ discovery_on_startup: "false" });
 	});
 
 	it("toggles Discover on Provider Creation and calls mutation with correct payload", async () => {
 		const user = userEvent.setup();
+
+		let capturedPayload: Record<string, string> | undefined;
 
 		server.use(
 			http.get("/api/settings", ({ request }) => {
@@ -207,8 +211,7 @@ describe("DiscoverySettings", () => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
-				const body = await request.json();
-				expect(body).toEqual({ discovery_on_provider_create: "false" });
+				capturedPayload = (await request.json()) as Record<string, string>;
 				return HttpResponse.json({ ok: true });
 			}),
 		);
@@ -234,6 +237,7 @@ describe("DiscoverySettings", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
 		});
+		expect(capturedPayload).toEqual({ discovery_on_provider_create: "false" });
 	});
 
 	it("disables toggles and select while mutation is pending", async () => {
