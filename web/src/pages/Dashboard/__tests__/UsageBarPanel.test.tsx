@@ -241,6 +241,50 @@ describe("UsageBarPanel", () => {
 		expect(deletedLabel).toHaveClass("cursor-pointer");
 	});
 
+	it("renders failover group entries as non-interactive spans even when onEntryClick is provided", () => {
+		const failoverEntries: UsageEntry[] = [
+			{ label: "hotel/my-group", value: 100, failoverGroup: true },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={failoverEntries}
+				onEntryClick={vi.fn()}
+			/>,
+		);
+
+		const label = screen.getByText("hotel/my-group");
+		expect(label.tagName).toBe("SPAN");
+		expect(label).not.toHaveClass("cursor-pointer");
+	});
+
+	it("does not apply hover styles to failover group entries", () => {
+		const failoverEntries: UsageEntry[] = [
+			{ label: "hotel/my-group", value: 100, failoverGroup: true },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={failoverEntries}
+				onEntryClick={vi.fn()}
+			/>,
+		);
+
+		const label = screen.getByText("hotel/my-group");
+		expect(label).not.toHaveClass("hover:drop-shadow-[var(--glow-accent)]");
+	});
+
+	it("applies glow hover style to clickable entries", () => {
+		renderWithProviders(
+			<UsageBarPanel {...defaultProps} onEntryClick={vi.fn()} />,
+		);
+
+		const modelA = screen.getByText("Model A");
+		expect(modelA).toHaveClass("hover:drop-shadow-[var(--glow-accent)]");
+	});
+
 	it("renders multiple entries with progress bars", () => {
 		const variedEntries: UsageEntry[] = [
 			{ label: "Small", value: 10 },

@@ -659,11 +659,13 @@ describe("useDashboard", () => {
 					label: "model-e",
 					value: 300,
 					suffix: " tokens",
+					failoverGroup: false,
 				});
 				expect(result.current.byModel[1]).toEqual({
 					label: "model-b",
 					value: 200,
 					suffix: " tokens",
+					failoverGroup: false,
 				});
 				// model-c with 0 should be filtered out
 			});
