@@ -532,7 +532,7 @@ describe("VirtualKeys", () => {
 			});
 		});
 
-		it("shows error toast when create fails", async () => {
+		it("shows key copy UI after successful creation", async () => {
 			const newKey = {
 				...mockVirtualKey,
 				id: "vk-new",
