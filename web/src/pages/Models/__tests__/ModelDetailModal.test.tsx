@@ -150,6 +150,7 @@ describe("ModelDetailModal", () => {
 			success: true,
 			ttft_ms: 500,
 			duration_ms: 2000,
+			streaming: true,
 			response: "Test response",
 		});
 
@@ -174,6 +175,7 @@ describe("ModelDetailModal", () => {
 								success: true,
 								ttft_ms: 500,
 								duration_ms: 2000,
+								streaming: true,
 								response: "Test response",
 							}),
 						100,
@@ -197,6 +199,7 @@ describe("ModelDetailModal", () => {
 			success: false,
 			ttft_ms: 0,
 			duration_ms: 0,
+			streaming: false,
 			response: "",
 			error: "Connection failed",
 		});
@@ -219,6 +222,7 @@ describe("ModelDetailModal", () => {
 			success: true,
 			ttft_ms: 500,
 			duration_ms: 2000,
+			streaming: true,
 			response: "Hello world",
 		});
 
@@ -240,6 +244,7 @@ describe("ModelDetailModal", () => {
 			success: true,
 			ttft_ms: 1500,
 			duration_ms: 1500,
+			streaming: false,
 			response: "Hello world",
 		});
 

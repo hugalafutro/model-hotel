@@ -1933,6 +1933,7 @@ describe("api.models", () => {
 				success: true,
 				ttft_ms: 150,
 				duration_ms: 500,
+				streaming: true,
 				response: "Hello!",
 			};
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(

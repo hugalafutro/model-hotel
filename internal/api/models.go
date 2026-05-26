@@ -236,6 +236,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 // TestModelResponse is the JSON response for model test requests.
 type TestModelResponse struct {
 	Success    bool   `json:"success"`
+	Streaming  bool   `json:"streaming"`
 	TTFTMs     *int64 `json:"ttft_ms,omitempty"`
 	DurationMs int64  `json:"duration_ms"`
 	Response   string `json:"response"`
@@ -415,6 +416,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, TestModelResponse{
 		Success:    true,
+		Streaming:  false,
 		TTFTMs:     &duration,
 		DurationMs: duration,
 		Response:   content,
