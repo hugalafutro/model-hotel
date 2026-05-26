@@ -852,5 +852,65 @@ describe("VirtualModelTable", () => {
 				screen.queryByRole("button", { name: /delete.*disabled/i }),
 			).not.toBeInTheDocument();
 		});
+
+		it("opens confirm dialog when delete disabled button is clicked", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 1 disabled"));
+
+			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+		});
+
+		it("calls onDeleteDisabled with disabled model IDs on confirm", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 1 disabled"));
+			fireEvent.click(screen.getByText("Delete"));
+
+			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+		});
+
+		it("closes confirm dialog on cancel", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 1 disabled"));
+			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+
+			fireEvent.click(screen.getByText("Cancel"));
+
+			expect(
+				screen.queryByText("Delete Disabled Models"),
+			).not.toBeInTheDocument();
+		});
 	});
 });

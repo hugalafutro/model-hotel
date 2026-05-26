@@ -847,4 +847,115 @@ describe("Models", () => {
 			expect(screen.getByText("Test Model")).toBeInTheDocument();
 		});
 	});
+
+	describe("handleDeleteDisabled", () => {
+		it("deletes all disabled models successfully and shows success toast", async () => {
+			const models = [
+				{ ...mockModel, id: "model-001", enabled: true },
+				{
+					...mockModel,
+					id: "model-disabled-1",
+					enabled: false,
+					disabled_manually: true,
+				},
+				{
+					...mockModel,
+					id: "model-disabled-2",
+					enabled: false,
+					disabled_manually: true,
+				},
+			];
+
+			server.use(
+				...mockAllDefaults({ models }),
+				http.delete("/api/models/:id", () => {
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+
+			const { user } = renderWithProviders(<Models />);
+
+			await waitFor(() => {
+				expect(screen.getByText("3 Models")).toBeInTheDocument();
+			});
+
+			// Click the "Delete 2 disabled" button
+			await user.click(
+				screen.getByRole("button", {
+					name: "Delete 2 disabled models",
+				}),
+			);
+
+			// Click "Delete" in the confirm dialog
+			await user.click(screen.getByRole("button", { name: "Delete" }));
+
+			// Should show success toast
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: /Deleted 2 disabled models/,
+					}),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("shows warning toast when some deletes fail", async () => {
+			const models = [
+				{ ...mockModel, id: "model-001", enabled: true },
+				{
+					...mockModel,
+					id: "model-disabled-1",
+					enabled: false,
+					disabled_manually: true,
+				},
+				{
+					...mockModel,
+					id: "model-disabled-2",
+					enabled: false,
+					disabled_manually: true,
+				},
+			];
+
+			let deleteCount = 0;
+			server.use(
+				...mockAllDefaults({ models }),
+				http.delete("/api/models/:id", () => {
+					deleteCount++;
+					// First delete succeeds, second fails
+					if (deleteCount === 1) {
+						return new HttpResponse(null, { status: 204 });
+					}
+					return HttpResponse.json(
+						{ error: "Database connection failed" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			const { user } = renderWithProviders(<Models />);
+
+			await waitFor(() => {
+				expect(screen.getByText("3 Models")).toBeInTheDocument();
+			});
+
+			// Click the "Delete 2 disabled" button
+			await user.click(
+				screen.getByRole("button", {
+					name: "Delete 2 disabled models",
+				}),
+			);
+
+			// Click "Delete" in the confirm dialog
+			await user.click(screen.getByRole("button", { name: "Delete" }));
+
+			// Should show warning toast with partial failure message
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", {
+						name: /Deleted 1 model, 1 failed/,
+					}),
+				).toBeInTheDocument();
+			});
+		});
+	});
 });

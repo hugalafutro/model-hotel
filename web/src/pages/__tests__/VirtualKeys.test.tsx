@@ -601,6 +601,188 @@ describe("VirtualKeys", () => {
 		});
 	});
 
+	describe("KeyDetailModal edit validation", () => {
+		it("does not call update when name is empty", async () => {
+			let putCalled = false;
+			server.use(
+				...mockVirtualKeys(),
+				http.put("/api/virtual-keys/:id", () => {
+					putCalled = true;
+					return HttpResponse.json(mockVirtualKey);
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			const nameInput = screen.getByLabelText("Name");
+			await user.clear(nameInput);
+
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(putCalled).toBe(false);
+			});
+			expect(putCalled).toBe(false);
+		});
+
+		it("does not call update when name is whitespace only", async () => {
+			let putCalled = false;
+			server.use(
+				...mockVirtualKeys(),
+				http.put("/api/virtual-keys/:id", () => {
+					putCalled = true;
+					return HttpResponse.json(mockVirtualKey);
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			const nameInput = screen.getByLabelText("Name");
+			await user.clear(nameInput);
+			await user.type(nameInput, "   ");
+
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(putCalled).toBe(false);
+			});
+			expect(putCalled).toBe(false);
+		});
+
+		it("sends null for rate_limit_rps when field is cleared", async () => {
+			let capturedBody: unknown;
+			server.use(
+				...mockVirtualKeys(),
+				http.put("/api/virtual-keys/:id", async ({ request }) => {
+					capturedBody = await request.json();
+					return HttpResponse.json(mockVirtualKey);
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			const rpsInput = screen.getByLabelText("Rate Limit RPS (requests/sec)");
+			await user.clear(rpsInput);
+
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual key updated")).toBeInTheDocument();
+			});
+
+			expect(capturedBody).toEqual({
+				name: "Test API Key",
+				rate_limit_rps: null,
+				rate_limit_burst: 60,
+			});
+		});
+
+		it("sends null for rate_limit_burst when field is cleared", async () => {
+			let capturedBody: unknown;
+			server.use(
+				...mockVirtualKeys(),
+				http.put("/api/virtual-keys/:id", async ({ request }) => {
+					capturedBody = await request.json();
+					return HttpResponse.json(mockVirtualKey);
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			const burstInput = screen.getByLabelText(
+				"Rate Limit Burst (max concurrent)",
+			);
+			await user.clear(burstInput);
+
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual key updated")).toBeInTheDocument();
+			});
+
+			expect(capturedBody).toEqual({
+				name: "Test API Key",
+				rate_limit_rps: 30,
+				rate_limit_burst: null,
+			});
+		});
+
+		it("Save Changes button is disabled when no changes made", async () => {
+			server.use(...mockVirtualKeys());
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			expect(
+				screen.getByRole("button", { name: "Save Changes" }),
+			).toBeDisabled();
+		});
+	});
+
 	describe("Key Detail Modal", () => {
 		it("opens detail modal when clicking key name", async () => {
 			server.use(...mockVirtualKeys());

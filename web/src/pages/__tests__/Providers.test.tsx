@@ -1278,4 +1278,190 @@ describe("Providers", () => {
 			});
 		});
 	});
+
+	describe("handleDeleteDisabledModels", () => {
+		it("deletes all disabled models and shows success toast", async () => {
+			const enabledModel = { ...mockModel, id: "model-001", enabled: true };
+			const disabledModel1 = {
+				...mockModel,
+				id: "model-002",
+				enabled: false,
+				name: "Disabled Model 1",
+			};
+			const disabledModel2 = {
+				...mockModel,
+				id: "model-003",
+				enabled: false,
+				name: "Disabled Model 2",
+			};
+
+			let deleteCallCount = 0;
+			const deletedIds: string[] = [];
+
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.get("/api/models", () => {
+					return HttpResponse.json([
+						enabledModel,
+						disabledModel1,
+						disabledModel2,
+					]);
+				}),
+				http.delete("/api/models/:id", ({ params }) => {
+					deleteCallCount++;
+					deletedIds.push(params.id as string);
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			// Wait for providers to load
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			// Click the models count button to open ProviderModelsModal
+			const modelsButton = screen.getByRole("button", {
+				name: "3 models",
+			});
+			await user.click(modelsButton);
+
+			// Wait for modal to open and show models
+			await waitFor(() => {
+				expect(screen.getByText("Disabled Model 1")).toBeInTheDocument();
+			});
+
+			// Click "Delete 2 disabled" button
+			const deleteDisabledBtn = screen.getByRole("button", {
+				name: "Delete 2 disabled models",
+			});
+			await user.click(deleteDisabledBtn);
+
+			// Wait for ConfirmDialog to appear
+			await waitFor(() => {
+				expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+			});
+
+			// Find the ConfirmDialog (it contains "Delete Disabled Models" heading)
+			const dialogs = screen.getAllByRole("dialog");
+			const confirmDialog = dialogs.find((d) =>
+				d.querySelector("h2")?.textContent?.includes("Delete Disabled Models"),
+			);
+			if (!confirmDialog) {
+				throw new Error("ConfirmDialog not found");
+			}
+			const confirmBtn = within(confirmDialog).getByRole("button", {
+				name: "Delete",
+			});
+			await user.click(confirmBtn);
+
+			// Verify all disabled models were deleted
+			await waitFor(() => {
+				expect(deleteCallCount).toBe(2);
+				expect(deletedIds).toContain("model-002");
+				expect(deletedIds).toContain("model-003");
+				expect(
+					screen.getByText("Deleted 2 disabled models"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("shows warning toast when some deletions fail", async () => {
+			const enabledModel = { ...mockModel, id: "model-001", enabled: true };
+			const disabledModel1 = {
+				...mockModel,
+				id: "model-002",
+				enabled: false,
+				name: "Disabled Model 1",
+			};
+			const disabledModel2 = {
+				...mockModel,
+				id: "model-003",
+				enabled: false,
+				name: "Disabled Model 2",
+			};
+			const disabledModel3 = {
+				...mockModel,
+				id: "model-004",
+				enabled: false,
+				name: "Disabled Model 3",
+			};
+
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.get("/api/models", () => {
+					return HttpResponse.json([
+						enabledModel,
+						disabledModel1,
+						disabledModel2,
+						disabledModel3,
+					]);
+				}),
+				http.delete("/api/models/:id", ({ params }) => {
+					// Fail deletion for model-003
+					if (params.id === "model-003") {
+						return HttpResponse.json(
+							{ error: "Failed to delete model" },
+							{ status: 500 },
+						);
+					}
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			// Wait for providers to load
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+
+			// Click the models count button to open ProviderModelsModal
+			const modelsButton = screen.getByRole("button", {
+				name: "4 models",
+			});
+			await user.click(modelsButton);
+
+			// Wait for modal to open and show models
+			await waitFor(() => {
+				expect(screen.getByText("Disabled Model 1")).toBeInTheDocument();
+			});
+
+			// Click "Delete 3 disabled" button
+			const deleteDisabledBtn = screen.getByRole("button", {
+				name: "Delete 3 disabled models",
+			});
+			await user.click(deleteDisabledBtn);
+
+			// Wait for ConfirmDialog to appear
+			await waitFor(() => {
+				expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+			});
+
+			// Find the ConfirmDialog (it contains "Delete Disabled Models" heading)
+			const dialogs = screen.getAllByRole("dialog");
+			const confirmDialog = dialogs.find((d) =>
+				d.querySelector("h2")?.textContent?.includes("Delete Disabled Models"),
+			);
+			if (!confirmDialog) {
+				throw new Error("ConfirmDialog not found");
+			}
+			const confirmBtn = within(confirmDialog).getByRole("button", {
+				name: "Delete",
+			});
+			await user.click(confirmBtn);
+
+			// Verify partial success toast (2 succeeded, 1 failed)
+			await waitFor(() => {
+				expect(
+					screen.getByText("Deleted 2 models, 1 failed"),
+				).toBeInTheDocument();
+			});
+		});
+	});
 });
