@@ -1926,7 +1926,9 @@ describe("Logs", () => {
 			expect(table).not.toBeNull();
 			const headerRow = table!.querySelector("thead tr");
 			expect(headerRow).not.toBeNull();
-			const headers = within(headerRow!).getAllByRole("columnheader");
+			const headers = within(headerRow as HTMLElement).getAllByRole(
+				"columnheader",
+			);
 			const tpsIndex = headers.findIndex((h) => h.textContent?.includes("T/s"));
 			expect(tpsIndex).toBeGreaterThanOrEqual(0);
 
@@ -2717,9 +2719,9 @@ describe("Logs", () => {
 
 			const statusElement = screen.getByText("301");
 			expect(statusElement).toBeInTheDocument();
+			// Find the span containing the status text and check its class directly
 			const badge = statusElement.closest("span");
-			expect(badge).toBeTruthy();
-			expect(badge!.className).toContain("text-gray-400");
+			expect(badge).toHaveClass("text-gray-400");
 		});
 	});
 
@@ -2752,20 +2754,26 @@ describe("Logs", () => {
 
 	describe("Page Size Change", () => {
 		it("changes page size via PaginationBar select", async () => {
+			let capturedUrl = "";
+			const newPageSize = 50;
+
 			server.use(
-				http.get("/api/logs", () =>
-					HttpResponse.json(
+				http.get("/api/logs", ({ request }) => {
+					capturedUrl = request.url;
+					return HttpResponse.json(
 						createMockLogs(
-							Array.from({ length: 25 }, (_, i) =>
+							Array.from({ length: newPageSize }, (_, i) =>
 								createMockLogEntry({
 									id: `log-${i}`,
 									request_hash: `hash${i}`,
 								}),
 							),
-							50,
+							100,
+							1,
+							newPageSize,
 						),
-					),
-				),
+					);
+				}),
 			);
 
 			const { user } = renderWithProviders(<Logs />);
@@ -2783,6 +2791,11 @@ describe("Logs", () => {
 
 			// Select should now show 50
 			expect(screen.getByDisplayValue("50 / page")).toBeInTheDocument();
+
+			// Verify the API was called with the correct per_page parameter
+			await waitFor(() => {
+				expect(capturedUrl).toContain("per_page=50");
+			});
 		});
 	});
 
@@ -2798,9 +2811,8 @@ describe("Logs", () => {
 				expect(screen.getByText("No logs found")).toBeInTheDocument();
 			});
 
-			// No pagination select or page count text
-			expect(screen.queryByDisplayValue(/\/ page/)).not.toBeInTheDocument();
-			expect(screen.queryByText(/entries/)).not.toBeInTheDocument();
+			// When PaginationBar is hidden, the page size select (combobox) should not exist
+			expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 		});
 	});
 

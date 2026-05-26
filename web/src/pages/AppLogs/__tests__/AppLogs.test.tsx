@@ -814,7 +814,7 @@ describe("AppLogs", () => {
 			const dashSpans = screen
 				.getAllByText("-")
 				.filter((el) => el.tagName === "SPAN");
-			expect(dashSpans.length).toBeGreaterThanOrEqual(1);
+			expect(dashSpans.length).toBe(1);
 			// Entry with source shows the source badge
 			expect(screen.getByText("proxy")).toBeInTheDocument();
 		});
