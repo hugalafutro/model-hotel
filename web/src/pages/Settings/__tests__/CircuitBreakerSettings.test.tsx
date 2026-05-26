@@ -12,6 +12,7 @@ describe("CircuitBreakerSettings", () => {
 
 	beforeEach(() => {
 		onToggle.mockClear();
+		server.resetHandlers();
 		localStorage.setItem("adminToken", "test-token");
 	});
 
@@ -457,6 +458,7 @@ describe("CircuitBreakerSettings", () => {
 		let capturedPayload: Record<string, string> | undefined;
 
 		server.use(
+			...mockSettings({ body: {} }),
 			http.put("/api/settings", async ({ request }) => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
