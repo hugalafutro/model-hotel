@@ -641,7 +641,7 @@ export function snippetJSModel({
 			<span className="text-[#9cdcfe]">{".choices"}</span>
 			{"[0]?."}
 			<span className="text-[#9cdcfe]">{"message"}</span>
-			<span className="text-[#9cdcfe]">{".content"}</span>
+			<span className="text-[#9cdcfe]">{"?.content"}</span>
 			{");"}
 		</>
 	);
@@ -786,30 +786,38 @@ export function snippetClaudeCodeModel({
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_DEFAULT_OPUS_MODEL"}</span>
 			{"="}
+			<span className="text-[#ce9178]">{'"'}</span>
 			<span className="text-white font-semibold terminal-highlight">
 				{proxyModelId}
 			</span>
+			<span className="text-[#ce9178]">{'"'}</span>
 			{"\n"}
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_DEFAULT_SONNET_MODEL"}</span>
 			{"="}
+			<span className="text-[#ce9178]">{'"'}</span>
 			<span className="text-white font-semibold terminal-highlight">
 				{proxyModelId}
 			</span>
+			<span className="text-[#ce9178]">{'"'}</span>
 			{"\n"}
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_DEFAULT_HAIKU_MODEL"}</span>
 			{"="}
+			<span className="text-[#ce9178]">{'"'}</span>
 			<span className="text-white font-semibold terminal-highlight">
 				{proxyModelId}
 			</span>
+			<span className="text-[#ce9178]">{'"'}</span>
 			{"\n"}
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"CLAUDE_CODE_SUBAGENT_MODEL"}</span>
 			{"="}
+			<span className="text-[#ce9178]">{'"'}</span>
 			<span className="text-white font-semibold terminal-highlight">
 				{proxyModelId}
 			</span>
+			<span className="text-[#ce9178]">{'"'}</span>
 		</>
 	);
 }
@@ -1223,7 +1231,7 @@ export function snippetJS({ origin }: BashSnippetOpts): ReactNode {
 			<span className="text-[#9cdcfe]">{".choices"}</span>
 			{"[0]?."}
 			<span className="text-[#9cdcfe]">{"message"}</span>
-			<span className="text-[#9cdcfe]">{".content"}</span>
+			<span className="text-[#9cdcfe]">{"?.content"}</span>
 			{");"}
 		</>
 	);
