@@ -213,6 +213,48 @@ describe("ModelDetailModal", () => {
 		});
 	});
 
+	it("shows TTFT in success toast for streaming response", async () => {
+		const user = userEvent.setup();
+		onTest.mockResolvedValue({
+			success: true,
+			ttft_ms: 500,
+			duration_ms: 2000,
+			response: "Hello world",
+		});
+
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		await user.click(screen.getByText("Test"));
+
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith(
+				expect.stringContaining("TTFT: 0.5s"),
+				"success",
+			);
+		});
+	});
+
+	it("omits TTFT from success toast when equal to duration (non-streaming)", async () => {
+		const user = userEvent.setup();
+		onTest.mockResolvedValue({
+			success: true,
+			ttft_ms: 1500,
+			duration_ms: 1500,
+			response: "Hello world",
+		});
+
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		await user.click(screen.getByText("Test"));
+
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith(
+				expect.not.stringContaining("TTFT"),
+				"success",
+			);
+		});
+	});
+
 	it("shows Update info button", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

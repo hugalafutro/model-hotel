@@ -166,8 +166,12 @@ export function ModelDetailModal({
 			const result = await onTest(model.id);
 			if (result.success) {
 				const content = result.response.replace(/\n/g, " ").slice(0, 80);
+				const isStreaming = result.ttft_ms !== result.duration_ms;
+				const ttftPart = isStreaming
+					? ` | TTFT: ${(result.ttft_ms / 1000).toFixed(1)}s`
+					: "";
 				onToast(
-					`Success | Response: ${content} | TTFT: ${(result.ttft_ms / 1000).toFixed(1)}s | Duration: ${(result.duration_ms / 1000).toFixed(1)}s`,
+					`Success | Response: ${content}${ttftPart} | Duration: ${(result.duration_ms / 1000).toFixed(1)}s`,
 					"success",
 				);
 			} else {
