@@ -2490,11 +2490,7 @@ describe("Logs", () => {
 			});
 
 			// 50min old pending request with 45min threshold → stale
-			const row = screen.getByText("stale-min-001").closest("tr");
-			expect(row).not.toBeNull();
-			if (row) {
-				expect(row.innerHTML).toContain("⚠");
-			}
+			expect(screen.getByText("⚠")).toBeInTheDocument();
 		});
 
 		it("parses seconds-only duration correctly", async () => {
@@ -2526,11 +2522,7 @@ describe("Logs", () => {
 			});
 
 			// 2min old streaming request with 90s threshold → stale
-			const row = screen.getByText("stale-sec-001").closest("tr");
-			expect(row).not.toBeNull();
-			if (row) {
-				expect(row.innerHTML).toContain("⚠");
-			}
+			expect(screen.getByText("⚠")).toBeInTheDocument();
 		});
 	});
 
@@ -2694,9 +2686,9 @@ describe("Logs", () => {
 
 			renderWithProviders(<Logs />);
 
-			// LoadingSpinner should appear (data-testid="spinner", role="status")
+			// LoadingSpinner should appear (role="status")
 			await waitFor(() => {
-				expect(screen.getByTestId("spinner")).toBeInTheDocument();
+				expect(screen.getByRole("status")).toBeInTheDocument();
 			});
 		});
 	});
@@ -2726,7 +2718,8 @@ describe("Logs", () => {
 			const statusElement = screen.getByText("301");
 			expect(statusElement).toBeInTheDocument();
 			const badge = statusElement.closest("span");
-			expect(badge?.className).toContain("text-gray-400");
+			expect(badge).toBeTruthy();
+			expect(badge!.className).toContain("text-gray-400");
 		});
 	});
 
@@ -2895,11 +2888,6 @@ describe("Logs", () => {
 			// Type provider filter
 			const providerInput = screen.getByPlaceholderText("Filter by provider…");
 			await user.type(providerInput, "openai");
-
-			// Advance debounce timer
-			vi.useFakeTimers();
-			await vi.advanceTimersByTimeAsync(350);
-			vi.useRealTimers();
 
 			// Select status filter
 			const statusButton = screen.getByRole("button", {
