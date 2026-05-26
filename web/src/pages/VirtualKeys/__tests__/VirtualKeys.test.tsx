@@ -1122,6 +1122,137 @@ describe("VirtualKeys", () => {
 				).toBeInTheDocument();
 			});
 		});
+
+		it("renders JavaScript example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			// JavaScript title appears in card header; verify CopyButton exists
+			expect(
+				screen.getByRole("button", { name: "Copy JavaScript snippet" }),
+			).toBeInTheDocument();
+			// Check title exists (may appear multiple times due to code content)
+			const jsTitles = screen.getAllByText("JavaScript");
+			expect(jsTitles.length).toBeGreaterThan(0);
+		});
+
+		it("renders Python example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			// Python title appears in card header; verify CopyButton exists
+			expect(
+				screen.getByRole("button", { name: "Copy Python snippet" }),
+			).toBeInTheDocument();
+			// Check title exists (may appear multiple times due to code content)
+			const pythonTitles = screen.getAllByText("Python");
+			expect(pythonTitles.length).toBeGreaterThan(0);
+		});
+
+		it("renders Claude Code example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			// Claude Code title appears in card header; verify CopyButton exists
+			expect(
+				screen.getByRole("button", { name: "Copy Claude Code snippet" }),
+			).toBeInTheDocument();
+			// Check title exists (may appear multiple times due to code content)
+			const claudeCodeTitles = screen.getAllByText("Claude Code");
+			expect(claudeCodeTitles.length).toBeGreaterThan(0);
+		});
+
+		it("renders OpenClaw example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			// OpenClaw title appears in card header; verify CopyButton exists
+			expect(
+				screen.getByRole("button", { name: "Copy OpenClaw snippet" }),
+			).toBeInTheDocument();
+			// Check title exists (may appear multiple times due to code content)
+			const openclawTitles = screen.getAllByText("OpenClaw");
+			expect(openclawTitles.length).toBeGreaterThan(0);
+		});
+
+		it("renders Hermes example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			// Hermes title appears in card header; code content has lowercase "hermes"
+			// Verify CopyButton exists
+			expect(
+				screen.getByRole("button", { name: "Copy Hermes snippet" }),
+			).toBeInTheDocument();
+			// Check title exists (may appear multiple times due to code content)
+			const hermesTitles = screen.getAllByText("Hermes");
+			expect(hermesTitles.length).toBeGreaterThan(0);
+		});
+
+		it("renders LibreChat example card", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+			});
+
+			expect(
+				screen.getByRole("button", { name: "Copy LibreChat snippet" }),
+			).toBeInTheDocument();
+			const libreChatTitles = screen.getAllByText("LibreChat");
+			expect(libreChatTitles.length).toBeGreaterThan(0);
+		});
 	});
 
 	describe("CopyablePill in header", () => {

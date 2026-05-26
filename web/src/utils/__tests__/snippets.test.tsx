@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { snippetCurl, snippetOpencode, snippetZed } from "../snippets";
+import {
+	snippetCurl,
+	snippetLibreChatText,
+	snippetOpenClawText,
+	snippetOpencode,
+	snippetZed,
+} from "../snippets";
 
 describe("snippets", () => {
 	describe("snippetCurl", () => {
@@ -300,6 +306,52 @@ describe("snippets", () => {
 			expect(
 				parsed.provider["model-hotel"].models["My Custom Model Name"].id,
 			).toBe("provider/actual-model-id");
+		});
+	});
+
+	describe("snippetOpenClawText", () => {
+		it("uses model-hotel provider name instead of wafer", () => {
+			const result = snippetOpenClawText({ origin: "https://example.com" });
+			expect(result).toContain("models.providers.model-hotel");
+			expect(result).toContain("model-hotel/model_name");
+			expect(result).not.toContain("wafer");
+		});
+
+		it("includes correct origin URL", () => {
+			const result = snippetOpenClawText({ origin: "https://example.com" });
+			expect(result).toContain("https://example.com/v1");
+		});
+	});
+
+	describe("snippetLibreChatText", () => {
+		it("includes Model Hotel as name and modelDisplayLabel", () => {
+			const result = snippetLibreChatText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('name: "Model Hotel"');
+			expect(result).toContain('modelDisplayLabel: "Model Hotel"');
+		});
+
+		it("includes correct origin baseURL", () => {
+			const result = snippetLibreChatText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('baseURL: "https://example.com/v1"');
+		});
+
+		it("includes model_name as default model", () => {
+			const result = snippetLibreChatText({
+				origin: "https://example.com",
+			});
+			expect(result).toContain('- "model_name"');
+		});
+
+		it("includes API_KEY variable reference", () => {
+			const result = snippetLibreChatText({
+				origin: "https://example.com",
+			});
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional YAML variable check
+			expect(result).toContain("${API_KEY}");
 		});
 	});
 });

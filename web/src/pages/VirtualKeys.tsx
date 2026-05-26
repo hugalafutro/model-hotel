@@ -9,7 +9,6 @@ import {
 } from "../components/CollapsibleToggle";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { CopyablePill } from "../components/CopyablePill";
-import { CopyButton } from "../components/CopyButton";
 import type { SortState } from "../components/DataTable";
 import {
 	PaginationBar,
@@ -21,13 +20,26 @@ import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
+import { TerminalPreview } from "../components/TerminalPreview";
 import { useToast } from "../context/ToastContext";
 import { countLabel, formatNumber, formatRelativeTime } from "../utils/format";
 import {
 	snippetBash,
 	snippetBashText,
+	snippetClaudeCode,
+	snippetClaudeCodeText,
+	snippetHermes,
+	snippetHermesText,
+	snippetJS,
+	snippetJSText,
+	snippetLibreChat,
+	snippetLibreChatText,
+	snippetOpenClaw,
+	snippetOpenClawText,
 	snippetPowershell,
 	snippetPowershellText,
+	snippetPython,
+	snippetPythonText,
 } from "../utils/snippets";
 
 type VKSortField =
@@ -700,128 +712,130 @@ export function VirtualKeys() {
 								</div>
 							</div>
 
-							<div>
-								<div className="terminal-tab-bar">
-									<button
-										type="button"
-										onClick={() => setTerminalTab("bash")}
-										className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-									>
-										<svg
-											viewBox="0 0 24 24"
-											className="w-3.5 h-3.5"
-											fill="none"
-											stroke="currentColor"
-											strokeWidth="2"
-											strokeLinecap="round"
-											strokeLinejoin="round"
+							<div className="space-y-4">
+								<div>
+									<div className="terminal-tab-bar">
+										<button
+											type="button"
+											onClick={() => setTerminalTab("bash")}
+											className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
 										>
-											<title>Terminal</title>
-											<polyline points="4 17 10 11 4 5" />
-											<line x1="12" y1="19" x2="20" y2="19" />
-										</svg>
-										bash
-									</button>
-									<button
-										type="button"
-										onClick={() => setTerminalTab("powershell")}
-										className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-									>
-										<svg
-											viewBox="0 0 24 24"
-											className="w-3.5 h-3.5"
-											fill="none"
-											stroke="currentColor"
-											strokeWidth="2"
-											strokeLinecap="round"
-											strokeLinejoin="round"
+											<svg
+												viewBox="0 0 24 24"
+												className="w-3.5 h-3.5"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											>
+												<title>Terminal</title>
+												<polyline points="4 17 10 11 4 5" />
+												<line x1="12" y1="19" x2="20" y2="19" />
+											</svg>
+											bash
+										</button>
+										<button
+											type="button"
+											onClick={() => setTerminalTab("powershell")}
+											className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
 										>
-											<title>Monitor</title>
-											<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-											<line x1="8" y1="21" x2="16" y2="21" />
-											<line x1="12" y1="17" x2="12" y2="21" />
-										</svg>
-										PowerShell
-									</button>
-									<div className="flex-1" />
-									<CopyButton
-										text={
-											terminalTab === "bash"
-												? snippetBashText({ origin: proxyOrigin })
-												: snippetPowershellText({ origin: proxyOrigin })
-										}
-										size={14}
-										title={`Copy ${terminalTab} snippet`}
-									/>
-								</div>
-								{terminalTab === "bash" ? (
-									<div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
-										<div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
-											<div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-											<div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-											<div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-											<span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
-												bash
-											</span>
-										</div>
-										<pre className="p-4 text-xs text-gray-400 font-mono overflow-x-auto terminal-body">
-											<code className="terminal-code">
-												{snippetBash({
-													origin:
-														typeof window !== "undefined"
-															? window.location.origin
-															: "http://localhost:8080",
-												})}
-											</code>
-										</pre>
-									</div>
-								) : (
-									<div className="terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333] min-h-70">
-										<div className="terminal-win11-titlebar flex items-center justify-between px-3 py-1.5 border-b border-[#333]">
-											<div className="flex items-center gap-2">
-												<svg
-													className="win11-icon"
-													viewBox="0 0 24 24"
-													width="14"
+											<svg
+												viewBox="0 0 24 24"
+												className="w-3.5 h-3.5"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											>
+												<title>Monitor</title>
+												<rect
+													x="2"
+													y="3"
+													width="20"
 													height="14"
-													fill="currentColor"
-												>
-													<title>Windows</title>
-													<path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
-												</svg>
-												<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
-													PowerShell
-												</span>
-											</div>
-											<div className="flex items-center" aria-hidden="true">
-												<span className="inline-flex items-center justify-center w-11.5 h-7.5 text-[#999] hover:text-white hover:bg-[#e81123] transition-colors cursor-default">
-													<svg
-														width="10"
-														height="10"
-														viewBox="0 0 10 10"
-														fill="none"
-														stroke="currentColor"
-														strokeWidth="1.2"
-													>
-														<title>Close</title>
-														<line x1="0" y1="0" x2="10" y2="10" />
-														<line x1="10" y1="0" x2="0" y2="10" />
-													</svg>
-												</span>
-											</div>
-										</div>
-										<pre className="terminal-win11-body p-4 text-xs font-mono overflow-x-auto text-[#ccc] bg-[#0c0c0c]">
-											<code className="terminal-win11-code">
-												{snippetPowershell({
-													origin:
-														typeof window !== "undefined"
-															? window.location.origin
-															: "http://localhost:8080",
-												})}
-											</code>
-										</pre>
+													rx="2"
+													ry="2"
+												/>
+												<line x1="8" y1="21" x2="16" y2="21" />
+												<line x1="12" y1="17" x2="12" y2="21" />
+											</svg>
+											PowerShell
+										</button>
 									</div>
-								)}
+									{terminalTab === "bash" ? (
+										<TerminalPreview
+											variant="bash"
+											copyText={snippetBashText({ origin: proxyOrigin })}
+										>
+											{snippetBash({ origin: proxyOrigin })}
+										</TerminalPreview>
+									) : (
+										<TerminalPreview
+											variant="powershell"
+											copyText={snippetPowershellText({ origin: proxyOrigin })}
+										>
+											{snippetPowershell({ origin: proxyOrigin })}
+										</TerminalPreview>
+									)}
+								</div>
+
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<TerminalPreview
+										variant="code"
+										title="Python"
+										icon="python"
+										copyText={snippetPythonText({ origin: proxyOrigin })}
+									>
+										{snippetPython({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="JavaScript"
+										icon="javascript"
+										copyText={snippetJSText({ origin: proxyOrigin })}
+									>
+										{snippetJS({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="OpenClaw"
+										icon="openclaw"
+										copyText={snippetOpenClawText({ origin: proxyOrigin })}
+									>
+										{snippetOpenClaw({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="Hermes"
+										icon="hermes"
+										copyText={snippetHermesText({ origin: proxyOrigin })}
+									>
+										{snippetHermes({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="Claude Code"
+										icon="claude"
+										copyText={snippetClaudeCodeText({ origin: proxyOrigin })}
+									>
+										{snippetClaudeCode({ origin: proxyOrigin })}
+									</TerminalPreview>
+
+									<TerminalPreview
+										variant="code"
+										title="LibreChat"
+										icon="librechat"
+										copyText={snippetLibreChatText({ origin: proxyOrigin })}
+									>
+										{snippetLibreChat({ origin: proxyOrigin })}
+									</TerminalPreview>
+								</div>
 							</div>
 
 							<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
