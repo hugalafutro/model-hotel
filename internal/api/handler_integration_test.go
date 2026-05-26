@@ -981,6 +981,54 @@ func TestUpdateProvider(t *testing.T) {
 	}
 }
 
+func TestUpdateProvider_DisableTriggersFailoverSync(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Create an enabled provider
+	providerData := `{"name": "test-disable-sync", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", rec.Code)
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Disable the provider — this exercises the SyncAllModels path
+	updateData := `{"enabled": false}`
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("PUT", "/providers/"+createResp.ID, strings.NewReader(updateData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify the provider is now disabled
+	var resp struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse update response: %v", err)
+	}
+	if resp.Enabled {
+		t.Errorf("Expected provider to be disabled, got enabled=true")
+	}
+}
+
 // Model Tests
 
 func TestListModels(t *testing.T) {
