@@ -6,12 +6,15 @@ interface ProviderModelsModalProps {
 	provider: Provider;
 	models: Model[];
 	onClose: () => void;
+	/** When provided, shows a "Delete disabled" button for this provider's disabled models. */
+	onDeleteDisabled?: (ids: string[]) => void;
 }
 
 export function ProviderModelsModal({
 	provider,
 	models,
 	onClose,
+	onDeleteDisabled,
 }: ProviderModelsModalProps) {
 	// Filter models to only those belonging to this provider
 	const providerModels = models.filter((m) => m.provider_id === provider.id);
@@ -31,7 +34,7 @@ export function ProviderModelsModal({
 				</div>
 			}
 		>
-			<ModelTable models={providerModels} />
+			<ModelTable models={providerModels} onDeleteDisabled={onDeleteDisabled} />
 		</Modal>
 	);
 }

@@ -421,7 +421,7 @@ func main() {
 		} else {
 			enabledProviders := make([]*provider.Provider, 0, len(providers))
 			for _, p := range providers {
-				if !p.Enabled {
+				if !p.Enabled || !p.AutodiscoveryEnabled {
 					continue
 				}
 				if len(p.EncryptedKey) > 0 {

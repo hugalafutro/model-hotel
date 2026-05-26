@@ -11,6 +11,7 @@ const mockProvider: Provider = {
 	base_url: "https://api.test-provider.com/v1",
 	masked_key: "sk_test_••••••••••••••••••••••••",
 	enabled: true,
+	autodiscovery_enabled: true,
 	last_discovered_at: "2026-05-10T12:00:00Z",
 	last_used_at: "2026-05-11T08:30:00Z",
 	created_at: "2026-01-15T10:00:00Z",
@@ -186,6 +187,111 @@ describe("ProviderCard", () => {
 			const card = screen.getByText("Test Provider").closest(".ui-card");
 			expect(card).toHaveClass("opacity-50");
 		});
+
+		it("applies red tint when enabled but autodiscovery disabled", () => {
+			const providerNoAutodiscovery: Provider = {
+				...mockProvider,
+				enabled: true,
+				autodiscovery_enabled: false,
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={providerNoAutodiscovery} />,
+				{
+					wrapper: AllProviders,
+				},
+			);
+
+			const card = screen.getByText("Test Provider").closest(".ui-card");
+			expect(card).toHaveClass("border-red-500/20");
+			expect(card).toHaveClass("bg-red-500/[0.03]");
+		});
+
+		it("does not apply red tint when autodiscovery is enabled", () => {
+			const providerWithAutodiscovery: Provider = {
+				...mockProvider,
+				enabled: true,
+				autodiscovery_enabled: true,
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={providerWithAutodiscovery} />,
+				{
+					wrapper: AllProviders,
+				},
+			);
+
+			const card = screen.getByText("Test Provider").closest(".ui-card");
+			expect(card).not.toHaveClass("border-red-500/20");
+			expect(card).not.toHaveClass("bg-red-500/[0.03]");
+		});
+
+		it("does not apply red tint when disabled (even if autodiscovery also false)", () => {
+			const providerDisabledNoAuto: Provider = {
+				...mockProvider,
+				enabled: false,
+				autodiscovery_enabled: false,
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={providerDisabledNoAuto} />,
+				{
+					wrapper: AllProviders,
+				},
+			);
+
+			const card = screen.getByText("Test Provider").closest(".ui-card");
+			expect(card).not.toHaveClass("border-red-500/20");
+			expect(card).not.toHaveClass("bg-red-500/[0.03]");
+		});
+
+		it("renders 'Autodiscovery Off' badge when enabled but autodiscovery disabled", () => {
+			const providerNoAutodiscovery: Provider = {
+				...mockProvider,
+				enabled: true,
+				autodiscovery_enabled: false,
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={providerNoAutodiscovery} />,
+				{
+					wrapper: AllProviders,
+				},
+			);
+
+			expect(screen.getByText("Autodiscovery Off")).toBeInTheDocument();
+		});
+
+		it("does not render 'Autodiscovery Off' badge when autodiscovery is enabled", () => {
+			const providerWithAutodiscovery: Provider = {
+				...mockProvider,
+				enabled: true,
+				autodiscovery_enabled: true,
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={providerWithAutodiscovery} />,
+				{
+					wrapper: AllProviders,
+				},
+			);
+
+			expect(screen.queryByText("Autodiscovery Off")).not.toBeInTheDocument();
+		});
+
+		it("does not render 'Autodiscovery Off' badge when provider is disabled", () => {
+			const providerDisabled: Provider = {
+				...mockProvider,
+				enabled: false,
+				autodiscovery_enabled: false,
+			};
+
+			render(<ProviderCard {...defaultProps} provider={providerDisabled} />, {
+				wrapper: AllProviders,
+			});
+
+			expect(screen.queryByText("Autodiscovery Off")).not.toBeInTheDocument();
+		});
 	});
 
 	describe("model count button", () => {
@@ -273,6 +379,48 @@ describe("ProviderCard", () => {
 
 			const discoverButton = screen.getByText("Discover Models");
 			expect(discoverButton).toBeDisabled();
+		});
+
+		it("disables Discover Models when autodiscovery is disabled", () => {
+			const providerNoAutodiscovery: Provider = {
+				...mockProvider,
+				enabled: true,
+				autodiscovery_enabled: false,
+			};
+
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={providerNoAutodiscovery}
+					discoveringId={null}
+					discoverAllIsPending={false}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			const discoverButton = screen.getByText("Discover Models");
+			expect(discoverButton).toBeDisabled();
+		});
+
+		it("enables Discover Models when both enabled and autodiscovery enabled", () => {
+			const providerEnabled: Provider = {
+				...mockProvider,
+				enabled: true,
+				autodiscovery_enabled: true,
+			};
+
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={providerEnabled}
+					discoveringId={null}
+					discoverAllIsPending={false}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			const discoverButton = screen.getByText("Discover Models");
+			expect(discoverButton).not.toBeDisabled();
 		});
 
 		it("shows Discovering when discovering this provider", () => {

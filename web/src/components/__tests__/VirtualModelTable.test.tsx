@@ -818,4 +818,39 @@ describe("VirtualModelTable", () => {
 			expect(screen.queryByText("✕")).not.toBeInTheDocument();
 		});
 	});
+
+	describe("Delete Disabled Button", () => {
+		it("renders delete disabled button when onDeleteDisabled is provided and there are disabled models", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = createModel({
+				id: "model-disabled-1",
+				enabled: false,
+			});
+			const entries = [createModel(), disabledModel];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			expect(screen.getByText("Delete 1 disabled")).toBeInTheDocument();
+		});
+
+		it("does not render delete disabled button when all models are enabled", () => {
+			const onDeleteDisabled = vi.fn();
+			const entries = [
+				createModel(),
+				createModel({ id: "model-002", name: "Model 2" }),
+			];
+			setupWithEntries(entries);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: /delete.*disabled/i }),
+			).not.toBeInTheDocument();
+		});
+	});
 });

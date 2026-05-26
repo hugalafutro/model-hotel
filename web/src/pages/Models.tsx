@@ -115,6 +115,32 @@ export function Models() {
 		},
 	});
 
+	const handleDeleteDisabled = useCallback(
+		async (ids: string[]) => {
+			let failed = 0;
+			await Promise.all(
+				ids.map((id) =>
+					api.models.delete(id).catch(() => {
+						failed++;
+					}),
+				),
+			);
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			if (failed === 0) {
+				toast(
+					`Deleted ${ids.length} disabled model${ids.length === 1 ? "" : "s"}`,
+					"success",
+				);
+			} else {
+				toast(
+					`Deleted ${ids.length - failed} model${ids.length - failed === 1 ? "" : "s"}, ${failed} failed`,
+					"warning",
+				);
+			}
+		},
+		[queryClient, toast],
+	);
+
 	if (isLoading && viewMode === "paginate") {
 		return <LoadingSpinner />;
 	}
@@ -175,12 +201,14 @@ export function Models() {
 					providers={providers}
 					onModelClick={setDetailModel}
 					refreshTrigger={modelRefreshTrigger}
+					onDeleteDisabled={handleDeleteDisabled}
 				/>
 			) : (
 				<ModelTable
 					models={models ?? []}
 					providers={providers}
 					onModelClick={setDetailModel}
+					onDeleteDisabled={handleDeleteDisabled}
 				/>
 			)}
 

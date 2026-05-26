@@ -109,10 +109,12 @@ export function ModelDetailModal({
 	} = useModelEditor({ model, onUpdate });
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const testErrorTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	useEffect(() => {
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
+			for (const t of testErrorTimers.current) clearTimeout(t);
 		};
 	}, []);
 
@@ -151,7 +153,8 @@ export function ModelDetailModal({
 			} else {
 				setTestError(true);
 				onToast(`Test failed: ${result.error || "Unknown error"}`, "error");
-				setTimeout(() => setTestError(false), 3000);
+				const t = setTimeout(() => setTestError(false), 3000);
+				testErrorTimers.current.push(t);
 			}
 		} catch (err) {
 			setTestError(true);
@@ -159,7 +162,8 @@ export function ModelDetailModal({
 				`Test failed: ${err instanceof Error ? err.message : "Unknown error"}`,
 				"error",
 			);
-			setTimeout(() => setTestError(false), 3000);
+			const t = setTimeout(() => setTestError(false), 3000);
+			testErrorTimers.current.push(t);
 		} finally {
 			setTesting(false);
 		}

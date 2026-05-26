@@ -4,6 +4,7 @@ export interface Provider {
 	base_url: string;
 	masked_key: string;
 	enabled: boolean;
+	autodiscovery_enabled: boolean;
 	last_discovered_at: string | null;
 	last_used_at: string | null;
 	created_at: string;
@@ -23,6 +24,7 @@ export interface UpdateProviderRequest {
 	base_url?: string;
 	api_key?: string;
 	enabled?: boolean;
+	autodiscovery_enabled?: boolean;
 }
 
 export interface ModelCapabilities {

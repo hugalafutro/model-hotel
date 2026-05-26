@@ -945,7 +945,7 @@ describe("ModelTable", () => {
 		it("falls back to proxyModelID when model name is missing", () => {
 			const modelWithoutName = {
 				...mockModel,
-				name: undefined,
+				name: "",
 			};
 
 			renderWithProviders(
@@ -1069,6 +1069,134 @@ describe("ModelTable", () => {
 				});
 				expect(paginationText).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe("Delete Disabled Button", () => {
+		it("does not render delete disabled button when onDeleteDisabled is not provided", () => {
+			const disabledModel = {
+				...mockModel,
+				id: "model-disabled-1",
+				enabled: false,
+			};
+			const models = [mockModel, disabledModel];
+
+			renderWithProviders(
+				<ModelTable models={models} providers={[mockProvider]} />,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: /delete.*disabled/i }),
+			).not.toBeInTheDocument();
+		});
+
+		it("does not render delete disabled button when all models are enabled", () => {
+			const onDeleteDisabled = vi.fn();
+			const models = [mockModel, { ...mockModel, id: "model-002" }];
+
+			renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+				/>,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: /delete.*disabled/i }),
+			).not.toBeInTheDocument();
+		});
+
+		it("renders delete disabled button with correct count when there are disabled models", () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = {
+				...mockModel,
+				id: "model-disabled-1",
+				enabled: false,
+			};
+			const models = [mockModel, disabledModel];
+
+			renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+				/>,
+			);
+
+			expect(screen.getByText("Delete 1 disabled")).toBeInTheDocument();
+		});
+
+		it("opens confirm dialog when delete disabled button is clicked", async () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = {
+				...mockModel,
+				id: "model-disabled-1",
+				enabled: false,
+			};
+			const models = [mockModel, disabledModel];
+
+			const { user } = renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+				/>,
+			);
+
+			await user.click(screen.getByText("Delete 1 disabled"));
+
+			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+		});
+
+		it("calls onDeleteDisabled with disabled model IDs on confirm", async () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = {
+				...mockModel,
+				id: "model-disabled-1",
+				enabled: false,
+			};
+			const models = [mockModel, disabledModel];
+
+			const { user } = renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+				/>,
+			);
+
+			await user.click(screen.getByText("Delete 1 disabled"));
+			await user.click(screen.getByText("Delete"));
+
+			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+		});
+
+		it("closes confirm dialog on cancel", async () => {
+			const onDeleteDisabled = vi.fn();
+			const disabledModel = {
+				...mockModel,
+				id: "model-disabled-1",
+				enabled: false,
+			};
+			const models = [mockModel, disabledModel];
+
+			const { user } = renderWithProviders(
+				<ModelTable
+					models={models}
+					providers={[mockProvider]}
+					onDeleteDisabled={onDeleteDisabled}
+				/>,
+			);
+
+			await user.click(screen.getByText("Delete 1 disabled"));
+			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+
+			await user.click(screen.getByText("Cancel"));
+
+			expect(
+				screen.queryByText("Delete Disabled Models"),
+			).not.toBeInTheDocument();
 		});
 	});
 });

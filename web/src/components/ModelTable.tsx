@@ -3,11 +3,16 @@ import type { Model, Provider } from "../api/types";
 import { formatRelativeTime, formatTokens } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { CapBadge } from "./CapBadge";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CopyablePill } from "./CopyablePill";
 import { CAP_META, type CapKey, hasCap, matchesAllCaps } from "./capMeta";
 import type { SortState } from "./DataTable";
 import { EmptyRow, PaginationBar, Row, SortableHeader } from "./DataTable";
 import { FilterInput } from "./FilterInput";
+import {
+	MODEL_COL_WIDTHS_NO_PROVIDER,
+	MODEL_COL_WIDTHS_WITH_PROVIDER,
+} from "./modelTableWidths";
 import { ProviderFilter } from "./ProviderFilter";
 
 export type SortField =
@@ -24,6 +29,8 @@ export interface ModelTableProps {
 	providers?: Provider[];
 	initialProviderFilter?: Set<string>;
 	onModelClick?: (model: Model) => void;
+	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
+	onDeleteDisabled?: (ids: string[]) => void;
 }
 
 export function ModelTable({
@@ -31,6 +38,7 @@ export function ModelTable({
 	providers,
 	initialProviderFilter,
 	onModelClick,
+	onDeleteDisabled,
 }: ModelTableProps) {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedProviders, setSelectedProviders] = useState<Set<string>>(
@@ -41,11 +49,18 @@ export function ModelTable({
 		dir: "asc",
 	});
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
+	const [confirmDeleteDisabled, setConfirmDeleteDisabled] = useState(false);
 
 	const [pageSize, setPageSize] = useState(20);
 	const [currentPage, setCurrentPage] = useState(1);
 
 	const showProviderCol = providers !== undefined;
+
+	const disabledModelIds = useMemo(
+		() => models?.filter((m) => !m.enabled).map((m) => m.id) ?? [],
+		[models],
+	);
+	const disabledCount = disabledModelIds.length;
 
 	const toggleCapFilter = useCallback((key: CapKey) => {
 		setCapFilter((prev) => {
@@ -182,6 +197,16 @@ export function ModelTable({
 						className="w-[320px]"
 						autoFocus
 					/>
+					{onDeleteDisabled && disabledCount > 0 && (
+						<button
+							type="button"
+							onClick={() => setConfirmDeleteDisabled(true)}
+							className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/50 transition-colors cursor-pointer"
+							aria-label={`Delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`}
+						>
+							Delete {disabledCount} disabled
+						</button>
+					)}
 				</div>
 				<div className="flex-1 flex justify-end">
 					{models && models.length > 0 && (
@@ -204,32 +229,12 @@ export function ModelTable({
 			<div className="ui-card overflow-hidden">
 				<table className="min-w-full table-fixed ui-table">
 					<colgroup>
-						{showProviderCol ? (
-							<>
-								<col className="w-[30%]" />
-								<col className="w-[24%]" />
-								<col className="w-[16%]" />
-								<col className="w-[6%]" />
-								<col className="w-[2%]" />
-								<col className="w-[4%]" />
-								<col className="w-[2%]" />
-								<col className="w-[4%]" />
-								<col className="w-[2%]" />
-								<col className="w-[8%]" />
-							</>
-						) : (
-							<>
-								<col className="w-[38%]" />
-								<col className="w-[28%]" />
-								<col className="w-[10%]" />
-								<col className="w-[2%]" />
-								<col className="w-[6%]" />
-								<col className="w-[2%]" />
-								<col className="w-[6%]" />
-								<col className="w-[2%]" />
-								<col className="w-[6%]" />
-							</>
-						)}
+						{(showProviderCol
+							? MODEL_COL_WIDTHS_WITH_PROVIDER
+							: MODEL_COL_WIDTHS_NO_PROVIDER
+						).map((w) => (
+							<col key={w} className={w} />
+						))}
 					</colgroup>
 					<thead>
 						<tr>
@@ -414,6 +419,21 @@ export function ModelTable({
 					</tbody>
 				</table>
 			</div>
+			{confirmDeleteDisabled && onDeleteDisabled && (
+				<ConfirmDialog
+					title="Delete Disabled Models"
+					message={`This will permanently delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.`}
+					fields={[
+						`${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`,
+					]}
+					confirmLabel="Delete"
+					onConfirm={() => {
+						onDeleteDisabled?.(disabledModelIds);
+						setConfirmDeleteDisabled(false);
+					}}
+					onCancel={() => setConfirmDeleteDisabled(false)}
+				/>
+			)}
 		</div>
 	);
 }

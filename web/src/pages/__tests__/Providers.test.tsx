@@ -1176,7 +1176,7 @@ describe("Providers", () => {
 			});
 		});
 
-		it("counts only enabled models in model count badge", async () => {
+		it("counts all models (enabled and disabled) in model count badge", async () => {
 			const enabledModel = { ...mockModel, id: "model-001", enabled: true };
 			const disabledModel = {
 				...mockModel,
@@ -1195,10 +1195,10 @@ describe("Providers", () => {
 
 			renderWithProviders(<Providers />);
 
-			// Should show "1 model" (only the enabled one)
+			// Should show "2 models" (total, not just enabled)
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "1 model" }),
+					screen.getByRole("button", { name: "2 models" }),
 				).toBeInTheDocument();
 			});
 		});

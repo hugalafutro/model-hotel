@@ -13,18 +13,19 @@ import (
 
 // Provider represents an LLM provider configuration.
 type Provider struct {
-	ID               uuid.UUID  `json:"id"`
-	Name             string     `json:"name"`
-	BaseURL          string     `json:"base_url"`
-	EncryptedKey     []byte     `json:"-"`
-	KeyNonce         []byte     `json:"-"`
-	KeySalt          []byte     `json:"-"`
-	MaskedKey        *string    `json:"masked_key"`
-	Enabled          bool       `json:"enabled"`
-	LastDiscoveredAt *time.Time `json:"last_discovered_at"`
-	LastUsedAt       *time.Time `json:"last_used_at"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID                   uuid.UUID  `json:"id"`
+	Name                 string     `json:"name"`
+	BaseURL              string     `json:"base_url"`
+	EncryptedKey         []byte     `json:"-"`
+	KeyNonce             []byte     `json:"-"`
+	KeySalt              []byte     `json:"-"`
+	MaskedKey            *string    `json:"masked_key"`
+	Enabled              bool       `json:"enabled"`
+	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
+	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
+	LastUsedAt           *time.Time `json:"last_used_at"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
 }
 
 // CreateProviderRequest is the request body for creating a provider.
@@ -36,27 +37,29 @@ type CreateProviderRequest struct {
 
 // UpdateProviderRequest is the request body for updating a provider.
 type UpdateProviderRequest struct {
-	Name    *string `json:"name"`
-	BaseURL *string `json:"base_url"`
-	APIKey  *string `json:"api_key"`
-	Enabled *bool   `json:"enabled"`
+	Name                 *string `json:"name"`
+	BaseURL              *string `json:"base_url"`
+	APIKey               *string `json:"api_key"`
+	Enabled              *bool   `json:"enabled"`
+	AutodiscoveryEnabled *bool   `json:"autodiscovery_enabled"`
 }
 
 // ProviderResponse is the response body for provider operations.
 //
 //nolint:revive // stutter is acceptable: ProviderResponse is a domain concept
 type ProviderResponse struct {
-	ID               uuid.UUID  `json:"id"`
-	Name             string     `json:"name"`
-	BaseURL          string     `json:"base_url"`
-	MaskedKey        string     `json:"masked_key"`
-	Enabled          bool       `json:"enabled"`
-	LastDiscoveredAt *time.Time `json:"last_discovered_at"`
-	LastUsedAt       *time.Time `json:"last_used_at"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-	ModelCount       int        `json:"model_count"`
-	TotalTokens      int        `json:"total_tokens"`
+	ID                   uuid.UUID  `json:"id"`
+	Name                 string     `json:"name"`
+	BaseURL              string     `json:"base_url"`
+	MaskedKey            string     `json:"masked_key"`
+	Enabled              bool       `json:"enabled"`
+	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
+	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
+	LastUsedAt           *time.Time `json:"last_used_at"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+	ModelCount           int        `json:"model_count"`
+	TotalTokens          int        `json:"total_tokens"`
 }
 
 // Repository manages provider CRUD operations.
@@ -75,14 +78,13 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	mk := MaskAPIKey(req.APIKey)
 	query := `
-		INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, true)
-		RETURNING id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, last_discovered_at, last_used_at, created_at, updated_at
-	`
+		INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, true, true)
+		RETURNING ` + providerColumns
 
 	var p Provider
 	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, mk).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -94,7 +96,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 	return &p, nil
 }
 
-const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, last_discovered_at, last_used_at, created_at, updated_at`
+const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, last_discovered_at, last_used_at, created_at, updated_at`
 
 // List returns all providers ordered by creation date.
 func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
@@ -111,7 +113,7 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 	for rows.Next() {
 		var p Provider
 		err := rows.Scan(
-			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 			&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 		)
 		if err != nil {
@@ -134,7 +136,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 
 	var p Provider
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -177,7 +179,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	for rows.Next() {
 		var p Provider
 		if err := rows.Scan(
-			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 			&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -199,7 +201,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 
 	var p Provider
 	err := r.pool.QueryRow(ctx, query, name).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == nil {
@@ -210,7 +212,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 	normalized := NormalizeName(name)
 	normalizedQuery := `SELECT ` + providerColumns + ` FROM providers WHERE REPLACE(name, ' ', '-') = $1`
 	err = r.pool.QueryRow(ctx, normalizedQuery, normalized).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -240,13 +242,14 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		    key_salt = COALESCE($5, key_salt),
 		    masked_key = COALESCE($6, masked_key),
 		    enabled = COALESCE($7, enabled),
+		    autodiscovery_enabled = COALESCE($8, autodiscovery_enabled),
 		    updated_at = now()
-		WHERE id = $8
+		WHERE id = $9
 		RETURNING ` + providerColumns
 
 	var p Provider
-	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey, req.Enabled, id).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled,
+	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey, req.Enabled, req.AutodiscoveryEnabled, id).Scan(
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -287,16 +290,17 @@ func ToResponse(p *Provider) ProviderResponse {
 	}
 
 	return ProviderResponse{
-		ID:               p.ID,
-		Name:             p.Name,
-		BaseURL:          p.BaseURL,
-		MaskedKey:        maskedKey,
-		Enabled:          p.Enabled,
-		LastDiscoveredAt: p.LastDiscoveredAt,
-		LastUsedAt:       p.LastUsedAt,
-		CreatedAt:        p.CreatedAt,
-		UpdatedAt:        p.UpdatedAt,
-		ModelCount:       0,
+		ID:                   p.ID,
+		Name:                 p.Name,
+		BaseURL:              p.BaseURL,
+		MaskedKey:            maskedKey,
+		Enabled:              p.Enabled,
+		AutodiscoveryEnabled: p.AutodiscoveryEnabled,
+		LastDiscoveredAt:     p.LastDiscoveredAt,
+		LastUsedAt:           p.LastUsedAt,
+		CreatedAt:            p.CreatedAt,
+		UpdatedAt:            p.UpdatedAt,
+		ModelCount:           0,
 	}
 }
 

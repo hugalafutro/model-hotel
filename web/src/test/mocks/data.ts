@@ -14,6 +14,7 @@ export const mockProvider: Provider = {
 	base_url: "https://api.test-provider.com/v1",
 	masked_key: "sk_test_••••••••••••••••••••••••",
 	enabled: true,
+	autodiscovery_enabled: true,
 	last_discovered_at: "2026-05-10T12:00:00Z",
 	last_used_at: "2026-05-11T08:30:00Z",
 	created_at: "2026-01-15T10:00:00Z",

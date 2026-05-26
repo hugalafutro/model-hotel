@@ -507,14 +507,15 @@ func TestMaskAPIKey_DoesNotRevealMiddle(t *testing.T) {
 func TestToResponse_WithMaskedKey(t *testing.T) {
 	masked := "sk...90"
 	p := &Provider{
-		ID:           uuid.New(),
-		Name:         "test-provider",
-		BaseURL:      "https://api.test.com/v1",
-		EncryptedKey: []byte("encrypted-data"),
-		MaskedKey:    &masked,
-		Enabled:      true,
-		CreatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
-		UpdatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
+		ID:                   uuid.New(),
+		Name:                 "test-provider",
+		BaseURL:              "https://api.test.com/v1",
+		EncryptedKey:         []byte("encrypted-data"),
+		MaskedKey:            &masked,
+		Enabled:              true,
+		AutodiscoveryEnabled: true,
+		CreatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
+		UpdatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
 	}
 
 	resp := ToResponse(p)
@@ -533,78 +534,97 @@ func TestToResponse_WithMaskedKey(t *testing.T) {
 	if resp.Enabled != p.Enabled {
 		t.Errorf("Enabled mismatch: got %v, want %v", resp.Enabled, p.Enabled)
 	}
+	if resp.AutodiscoveryEnabled != p.AutodiscoveryEnabled {
+		t.Errorf("AutodiscoveryEnabled mismatch: got %v, want %v", resp.AutodiscoveryEnabled, p.AutodiscoveryEnabled)
+	}
 }
 
 func TestToResponse_KeylessProvider(t *testing.T) {
 	p := &Provider{
-		ID:           uuid.New(),
-		Name:         "keyless-provider",
-		BaseURL:      "https://opencode.ai/zen",
-		EncryptedKey: nil,
-		MaskedKey:    nil,
-		Enabled:      true,
-		CreatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
-		UpdatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
+		ID:                   uuid.New(),
+		Name:                 "keyless-provider",
+		BaseURL:              "https://opencode.ai/zen",
+		EncryptedKey:         nil,
+		MaskedKey:            nil,
+		Enabled:              true,
+		AutodiscoveryEnabled: true,
+		CreatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
+		UpdatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
 	}
 
 	resp := ToResponse(p)
 	if resp.MaskedKey != "N/A" {
 		t.Errorf("keyless provider MaskedKey should be 'N/A', got %q", resp.MaskedKey)
 	}
+	if resp.AutodiscoveryEnabled != p.AutodiscoveryEnabled {
+		t.Errorf("AutodiscoveryEnabled mismatch: got %v, want %v", resp.AutodiscoveryEnabled, p.AutodiscoveryEnabled)
+	}
 }
 
 func TestToResponse_KeylessWithEmptyEncryptedKey(t *testing.T) {
 	p := &Provider{
-		ID:           uuid.New(),
-		Name:         "keyless-provider",
-		BaseURL:      "https://opencode.ai/zen",
-		EncryptedKey: []byte{},
-		MaskedKey:    nil,
-		Enabled:      true,
-		CreatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
-		UpdatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
+		ID:                   uuid.New(),
+		Name:                 "keyless-provider",
+		BaseURL:              "https://opencode.ai/zen",
+		EncryptedKey:         []byte{},
+		MaskedKey:            nil,
+		Enabled:              true,
+		AutodiscoveryEnabled: true,
+		CreatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
+		UpdatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
 	}
 
 	resp := ToResponse(p)
 	if resp.MaskedKey != "N/A" {
 		t.Errorf("keyless provider with empty EncryptedKey should have MaskedKey 'N/A', got %q", resp.MaskedKey)
 	}
+	if resp.AutodiscoveryEnabled != p.AutodiscoveryEnabled {
+		t.Errorf("AutodiscoveryEnabled mismatch: got %v, want %v", resp.AutodiscoveryEnabled, p.AutodiscoveryEnabled)
+	}
 }
 
 func TestToResponse_NilMaskedKeyButHasEncryptedKey(t *testing.T) {
 	p := &Provider{
-		ID:           uuid.New(),
-		Name:         "test-provider",
-		BaseURL:      "https://api.test.com/v1",
-		EncryptedKey: []byte("some-encrypted-data"),
-		MaskedKey:    nil,
-		Enabled:      true,
-		CreatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
-		UpdatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
+		ID:                   uuid.New(),
+		Name:                 "test-provider",
+		BaseURL:              "https://api.test.com/v1",
+		EncryptedKey:         []byte("some-encrypted-data"),
+		MaskedKey:            nil,
+		Enabled:              true,
+		AutodiscoveryEnabled: true,
+		CreatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
+		UpdatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
 	}
 
 	resp := ToResponse(p)
 	if resp.MaskedKey != "***" {
 		t.Errorf("encrypted key with nil MaskedKey should show '***', got %q", resp.MaskedKey)
 	}
+	if resp.AutodiscoveryEnabled != p.AutodiscoveryEnabled {
+		t.Errorf("AutodiscoveryEnabled mismatch: got %v, want %v", resp.AutodiscoveryEnabled, p.AutodiscoveryEnabled)
+	}
 }
 
 func TestToResponse_EmptyStringMaskedKey(t *testing.T) {
 	emptyMasked := ""
 	p := &Provider{
-		ID:           uuid.New(),
-		Name:         "test-provider",
-		BaseURL:      "https://api.test.com/v1",
-		EncryptedKey: []byte("encrypted"),
-		MaskedKey:    &emptyMasked,
-		Enabled:      true,
-		CreatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
-		UpdatedAt:    mustParseTime("2024-01-01T00:00:00Z"),
+		ID:                   uuid.New(),
+		Name:                 "test-provider",
+		BaseURL:              "https://api.test.com/v1",
+		EncryptedKey:         []byte("encrypted"),
+		MaskedKey:            &emptyMasked,
+		Enabled:              true,
+		AutodiscoveryEnabled: true,
+		CreatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
+		UpdatedAt:            mustParseTime("2024-01-01T00:00:00Z"),
 	}
 
 	resp := ToResponse(p)
 	if resp.MaskedKey != "***" {
 		t.Errorf("empty MaskedKey with encrypted key should show '***', got %q", resp.MaskedKey)
+	}
+	if resp.AutodiscoveryEnabled != p.AutodiscoveryEnabled {
+		t.Errorf("AutodiscoveryEnabled mismatch: got %v, want %v", resp.AutodiscoveryEnabled, p.AutodiscoveryEnabled)
 	}
 }
 

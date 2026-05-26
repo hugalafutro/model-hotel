@@ -16,8 +16,13 @@ import {
 	formatRelativeTime,
 } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CAP_META, type CapKey, hasCap } from "./capMeta";
 import { FilterInput } from "./FilterInput";
+import {
+	MODEL_COL_WIDTHS_NO_PROVIDER,
+	MODEL_COL_WIDTHS_WITH_PROVIDER,
+} from "./modelTableWidths";
 import { ProviderFilter } from "./ProviderFilter";
 
 interface VirtualModelTableProps {
@@ -25,6 +30,8 @@ interface VirtualModelTableProps {
 	initialProviderFilter?: Set<string>;
 	onModelClick?: (model: Model) => void;
 	refreshTrigger?: number;
+	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
+	onDeleteDisabled?: (ids: string[]) => void;
 }
 
 interface SortState {
@@ -42,6 +49,7 @@ export function VirtualModelTable({
 	initialProviderFilter,
 	onModelClick,
 	refreshTrigger,
+	onDeleteDisabled,
 }: VirtualModelTableProps) {
 	"use no memo";
 	const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +61,7 @@ export function VirtualModelTable({
 		field: "name",
 		dir: "asc",
 	});
+	const [confirmDeleteDisabled, setConfirmDeleteDisabled] = useState(false);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -197,6 +206,12 @@ export function VirtualModelTable({
 		return caps;
 	}, [entries]);
 
+	const disabledModelIds = useMemo(
+		() => entries.filter((m) => !m.enabled).map((m) => m.id),
+		[entries],
+	);
+	const disabledCount = disabledModelIds.length;
+
 	// Re-fetch when parent signals data changed (e.g. after model update)
 	const prevRefreshRef = useRef(refreshTrigger);
 	useEffect(() => {
@@ -307,6 +322,16 @@ export function VirtualModelTable({
 						className="w-[320px]"
 						autoFocus
 					/>
+					{onDeleteDisabled && disabledCount > 0 && (
+						<button
+							type="button"
+							onClick={() => setConfirmDeleteDisabled(true)}
+							className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/50 transition-colors cursor-pointer"
+							aria-label={`Delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`}
+						>
+							Delete {disabledCount} disabled
+						</button>
+					)}
 				</div>
 			</div>
 			<div
@@ -327,32 +352,12 @@ export function VirtualModelTable({
 					}}
 				>
 					<colgroup>
-						{showProviderCol ? (
-							<>
-								<col className="w-[30%]" />
-								<col className="w-[24%]" />
-								<col className="w-[16%]" />
-								<col className="w-[6%]" />
-								<col className="w-[2%]" />
-								<col className="w-[4%]" />
-								<col className="w-[2%]" />
-								<col className="w-[4%]" />
-								<col className="w-[2%]" />
-								<col className="w-[8%]" />
-							</>
-						) : (
-							<>
-								<col className="w-[38%]" />
-								<col className="w-[28%]" />
-								<col className="w-[10%]" />
-								<col className="w-[2%]" />
-								<col className="w-[6%]" />
-								<col className="w-[2%]" />
-								<col className="w-[6%]" />
-								<col className="w-[2%]" />
-								<col className="w-[6%]" />
-							</>
-						)}
+						{(showProviderCol
+							? MODEL_COL_WIDTHS_WITH_PROVIDER
+							: MODEL_COL_WIDTHS_NO_PROVIDER
+						).map((w) => (
+							<col key={w} className={w} />
+						))}
 					</colgroup>
 					<thead className="sticky top-0 z-10 bg-(--surface)">
 						<tr>
@@ -638,6 +643,21 @@ export function VirtualModelTable({
 					)}
 				</span>
 			</div>
+			{confirmDeleteDisabled && onDeleteDisabled && (
+				<ConfirmDialog
+					title="Delete Disabled Models"
+					message={`This will permanently delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.`}
+					fields={[
+						`${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`,
+					]}
+					confirmLabel="Delete"
+					onConfirm={() => {
+						onDeleteDisabled?.(disabledModelIds);
+						setConfirmDeleteDisabled(false);
+					}}
+					onCancel={() => setConfirmDeleteDisabled(false)}
+				/>
+			)}
 		</div>
 	);
 }
