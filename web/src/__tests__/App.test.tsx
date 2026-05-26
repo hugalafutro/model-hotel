@@ -412,12 +412,13 @@ describe("Route navigation", () => {
 		localStorage.setItem("adminToken", "test-token");
 		renderWithProviders(<App />);
 
-		// Default sub-mode is "request", so link shows "Requests / Logs"
 		const logsLink = screen.getByRole("link", { name: /Requests/ });
 		await userEvent.click(logsLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Requests")).toBeInTheDocument();
+			expect(
+				screen.getByText("Monitor API requests across all providers and keys"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -429,7 +430,9 @@ describe("Route navigation", () => {
 		await userEvent.click(settingsLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			expect(
+				screen.getByText("Configure your Model Hotel instance"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -441,7 +444,9 @@ describe("Route navigation", () => {
 		await userEvent.click(virtualKeysLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
+			expect(
+				screen.getByText(/Issue keys for clients to access the proxy at/),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -449,12 +454,13 @@ describe("Route navigation", () => {
 		localStorage.setItem("adminToken", "test-token");
 		renderWithProviders(<App />);
 
-		// Default sub-mode is "chat", so link shows "Chat / Conversation"
 		const chatLink = screen.getByRole("link", { name: /Chat/ });
 		await userEvent.click(chatLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Chat")).toBeInTheDocument();
+			expect(
+				screen.getByText("Test enabled models in temporary chat"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -462,12 +468,13 @@ describe("Route navigation", () => {
 		localStorage.setItem("adminToken", "test-token");
 		renderWithProviders(<App />);
 
-		// Default sub-mode is "competition", so link shows "Arena / Compare"
 		const arenaLink = screen.getByRole("link", { name: /Arena/ });
 		await userEvent.click(arenaLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Arena")).toBeInTheDocument();
+			expect(
+				screen.getByText("Bracket tournament - models compete head-to-head"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -476,21 +483,19 @@ describe("Route navigation", () => {
 		renderWithProviders(<App />);
 
 		// Navigate away first (to Settings), since Dashboard is the default route
-		// and "Dashboard" heading is already present from initial render
 		const settingsLink = screen.getByRole("link", { name: "Settings" });
 		await userEvent.click(settingsLink);
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			expect(
+				screen.getByText("Configure your Model Hotel instance"),
+			).toBeInTheDocument();
 		});
 
 		// Now click Dashboard to verify navigation back works
 		const dashboardLink = screen.getByRole("link", { name: "Dashboard" });
 		await userEvent.click(dashboardLink);
 
-		// Verify navigation by checking URL and a unique Dashboard element
-		// (the header description is unique to Dashboard)
 		await waitFor(() => {
-			// MemoryRouter doesn't update window.location; verify by unique page content
 			expect(
 				screen.getByText("Overview of your Model Hotel usage"),
 			).toBeInTheDocument();
@@ -505,7 +510,9 @@ describe("Route navigation", () => {
 		await userEvent.click(providersLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Providers")).toBeInTheDocument();
+			expect(
+				screen.getByText("Manage your provider configurations"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -517,7 +524,9 @@ describe("Route navigation", () => {
 		await userEvent.click(modelsLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Models")).toBeInTheDocument();
+			expect(
+				screen.getByText("Discovered models from your providers"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -529,7 +538,11 @@ describe("Route navigation", () => {
 		await userEvent.click(failoverLink);
 
 		await waitFor(() => {
-			expect(screen.getByText("Failover Groups")).toBeInTheDocument();
+			expect(
+				screen.getByText(
+					/Route requests through multiple providers in priority order via/,
+				),
+			).toBeInTheDocument();
 		});
 	});
 });
