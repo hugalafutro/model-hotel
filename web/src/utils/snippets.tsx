@@ -182,6 +182,35 @@ export interface PowershellSnippetOpts {
 	origin: string;
 }
 
+export function snippetBashText({ origin }: BashSnippetOpts): string {
+	return `curl -X POST ${origin}/v1/chat/completions \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "model",
+    "messages": [
+      { "role": "user", "content": "Hello!" }
+    ]
+  }'`;
+}
+
+export function snippetPowershellText({
+	origin,
+}: PowershellSnippetOpts): string {
+	return `Invoke-RestMethod -Uri "${origin}/v1/chat/completions"
+  -Method Post
+  -Headers @{
+    "Authorization" = "Bearer YOUR_API_KEY"
+    "Content-Type" = "application/json"
+  }
+  -Body (ConvertTo-Json @{
+    model = "model"
+    messages = @(
+      @{ role = "user"; content = "Hello!" }
+    )
+  })`;
+}
+
 export function snippetPowershell({
 	origin,
 }: PowershellSnippetOpts): ReactNode {

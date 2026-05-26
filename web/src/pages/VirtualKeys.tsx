@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Pencil } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { VirtualKey } from "../api/types";
@@ -9,6 +9,7 @@ import {
 } from "../components/CollapsibleToggle";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { CopyablePill } from "../components/CopyablePill";
+import { CopyButton } from "../components/CopyButton";
 import type { SortState } from "../components/DataTable";
 import {
 	PaginationBar,
@@ -22,27 +23,32 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../context/ToastContext";
 import { countLabel, formatNumber, formatRelativeTime } from "../utils/format";
-import { snippetBash, snippetPowershell } from "../utils/snippets";
+import {
+	snippetBash,
+	snippetBashText,
+	snippetPowershell,
+	snippetPowershellText,
+} from "../utils/snippets";
 
-type VKSortField = "name" | "key" | "created" | "tokens" | "last_used";
+type VKSortField =
+	| "name"
+	| "rps"
+	| "burst"
+	| "created"
+	| "tokens"
+	| "last_used";
 
 function CreateKeyModal({
 	onClose,
 	onToast,
-	existingKey,
 }: {
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
-	existingKey?: VirtualKey;
 }) {
 	const queryClient = useQueryClient();
-	const [name, setName] = useState(existingKey?.name ?? "");
-	const [rateLimitRps, setRateLimitRps] = useState<string>(
-		existingKey?.rate_limit_rps?.toString() ?? "",
-	);
-	const [rateLimitBurst, setRateLimitBurst] = useState<string>(
-		existingKey?.rate_limit_burst?.toString() ?? "",
-	);
+	const [name, setName] = useState("");
+	const [rateLimitRps, setRateLimitRps] = useState<string>("");
+	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
 
 	const createMutation = useMutation({
@@ -65,68 +71,24 @@ function CreateKeyModal({
 		},
 	});
 
-	const updateMutation = useMutation({
-		mutationFn: ({
-			name,
-			rate_limit_rps,
-			rate_limit_burst,
-		}: {
-			name: string;
-			rate_limit_rps?: number | null;
-			rate_limit_burst?: number | null;
-		}) => {
-			if (!existingKey) {
-				throw new Error("No key to update");
-			}
-			return api.virtualKeys.update(existingKey.id, {
-				name,
-				rate_limit_rps,
-				rate_limit_burst,
-			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
-			onToast("Virtual key updated", "success");
-			onClose();
-		},
-		onError: (err: Error) => {
-			onToast(`Failed: ${err.message}`, "error");
-		},
-	});
-
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!name.trim()) return;
-		if (existingKey) {
-			updateMutation.mutate({
-				name: name.trim(),
-				rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
-				rate_limit_burst:
-					rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
-			});
-		} else {
-			createMutation.mutate({
-				name: name.trim(),
-				rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
-				rate_limit_burst:
-					rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
-			});
-		}
+		createMutation.mutate({
+			name: name.trim(),
+			rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
+			rate_limit_burst:
+				rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
+		});
 	};
 
 	return (
 		<Modal
-			title={
-				existingKey
-					? "Edit Virtual Key"
-					: createdKey
-						? "Virtual Key Created"
-						: "Create Virtual Key"
-			}
-			closeOnBackdrop={!createdKey || !!existingKey}
+			title={createdKey ? "Virtual Key Created" : "Create Virtual Key"}
+			closeOnBackdrop={!createdKey}
 			onClose={onClose}
 		>
-			{createdKey && !existingKey ? (
+			{createdKey ? (
 				<>
 					<p className="text-sm text-gray-400 mb-3">
 						Copy this key now. It won't be shown again.
@@ -220,20 +182,10 @@ function CreateKeyModal({
 						</button>
 						<button
 							type="submit"
-							disabled={
-								existingKey
-									? updateMutation.isPending
-									: createMutation.isPending
-							}
+							disabled={createMutation.isPending}
 							className="ui-btn ui-btn-primary disabled:opacity-50"
 						>
-							{existingKey
-								? updateMutation.isPending
-									? "Saving…"
-									: "Save Changes"
-								: createMutation.isPending
-									? "Creating…"
-									: "Create Key"}
+							{createMutation.isPending ? "Creating…" : "Create Key"}
 						</button>
 					</div>
 				</form>
@@ -252,6 +204,12 @@ function KeyDetailModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	const [editing, setEditing] = useState(false);
+	const [editName, setEditName] = useState(vk.name);
+	const [editRps, setEditRps] = useState(vk.rate_limit_rps?.toString() ?? "");
+	const [editBurst, setEditBurst] = useState(
+		vk.rate_limit_burst?.toString() ?? "",
+	);
 
 	const deleteMutation = useMutation({
 		mutationFn: () => api.virtualKeys.delete(vk.id),
@@ -265,42 +223,185 @@ function KeyDetailModal({
 		},
 	});
 
+	const updateMutation = useMutation({
+		mutationFn: ({
+			name,
+			rate_limit_rps,
+			rate_limit_burst,
+		}: {
+			name: string;
+			rate_limit_rps?: number | null;
+			rate_limit_burst?: number | null;
+		}) =>
+			api.virtualKeys.update(vk.id, {
+				name,
+				rate_limit_rps,
+				rate_limit_burst,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
+			onToast("Virtual key updated", "success");
+			onClose();
+		},
+		onError: (err: Error) => {
+			onToast(`Failed: ${err.message}`, "error");
+		},
+	});
+
+	const handleSave = () => {
+		if (!editName.trim()) return;
+		updateMutation.mutate({
+			name: editName.trim(),
+			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
+			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
+		});
+	};
+
+	const handleCancelEdit = () => {
+		setEditName(vk.name);
+		setEditRps(vk.rate_limit_rps?.toString() ?? "");
+		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
+		setEditing(false);
+	};
+
+	const hasChanges =
+		editName !== vk.name ||
+		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
+		editBurst !== (vk.rate_limit_burst?.toString() ?? "");
+
 	return (
 		<Modal title="Virtual Key Details" onClose={onClose}>
 			<div className="space-y-3 mb-6">
-				<div>
-					<span className="text-sm text-gray-500">Name</span>
-					<p className="text-gray-200">{vk.name}</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Key</span>
-					<p className="text-gray-200 font-mono">{vk.key_preview}</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Created</span>
-					<p className="text-gray-200">
-						{new Date(vk.created_at).toLocaleString()}
-					</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Tokens Consumed</span>
-					<p className="text-gray-200">{formatNumber(vk.tokens_used)}</p>
-				</div>
-				<div>
-					<span className="text-sm text-gray-500">Last Used</span>
-					<p className="text-gray-200">
-						{vk.last_used_at
-							? new Date(vk.last_used_at).toLocaleString()
-							: "Never"}
-					</p>
-				</div>
+				{editing ? (
+					<>
+						<div>
+							<label
+								htmlFor="vk-detail-name"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Name
+							</label>
+							<input
+								id="vk-detail-name"
+								type="text"
+								required
+								maxLength={100}
+								value={editName}
+								onChange={(e) => setEditName(e.target.value)}
+								className="ui-input"
+							/>
+						</div>
+						<div>
+							<label
+								htmlFor="vk-detail-rps"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Rate Limit RPS (requests/sec)
+							</label>
+							<input
+								id="vk-detail-rps"
+								type="number"
+								min="0"
+								value={editRps}
+								onChange={(e) => setEditRps(e.target.value)}
+								className="ui-input"
+								placeholder="Use global setting"
+							/>
+						</div>
+						<div>
+							<label
+								htmlFor="vk-detail-burst"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								Rate Limit Burst (max concurrent)
+							</label>
+							<input
+								id="vk-detail-burst"
+								type="number"
+								min="0"
+								value={editBurst}
+								onChange={(e) => setEditBurst(e.target.value)}
+								className="ui-input"
+								placeholder="Use global setting"
+							/>
+						</div>
+					</>
+				) : (
+					<>
+						<div>
+							<span className="text-sm text-gray-500">Name</span>
+							<p className="text-gray-200">{vk.name}</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Key</span>
+							<p className="text-gray-200 font-mono">{vk.key_preview}</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">RPS</span>
+							<p className="text-gray-200 font-mono">
+								{vk.rate_limit_rps != null ? vk.rate_limit_rps : "Global"}
+							</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Burst</span>
+							<p className="text-gray-200 font-mono">
+								{vk.rate_limit_burst != null ? vk.rate_limit_burst : "Global"}
+							</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Created</span>
+							<p className="text-gray-200">
+								{new Date(vk.created_at).toLocaleString()}
+							</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Tokens Consumed</span>
+							<p className="text-gray-200">{formatNumber(vk.tokens_used)}</p>
+						</div>
+						<div>
+							<span className="text-sm text-gray-500">Last Used</span>
+							<p className="text-gray-200">
+								{vk.last_used_at
+									? new Date(vk.last_used_at).toLocaleString()
+									: "Never"}
+							</p>
+						</div>
+					</>
+				)}
 			</div>
 
-			<div className="flex justify-start items-center">
+			<div className="flex justify-between items-center">
 				<ConfirmDeleteButton
 					onConfirm={() => deleteMutation.mutate()}
 					loading={deleteMutation.isPending}
 				/>
+				{editing ? (
+					<div className="flex space-x-3">
+						<button
+							type="button"
+							onClick={handleCancelEdit}
+							className="ui-btn ui-btn-secondary"
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							onClick={handleSave}
+							disabled={!hasChanges || updateMutation.isPending}
+							className="ui-btn ui-btn-primary disabled:opacity-50"
+						>
+							{updateMutation.isPending ? "Saving..." : "Save Changes"}
+						</button>
+					</div>
+				) : (
+					<button
+						type="button"
+						onClick={() => setEditing(true)}
+						className="ui-btn ui-btn-secondary"
+					>
+						Edit
+					</button>
+				)}
 			</div>
 		</Modal>
 	);
@@ -310,9 +411,6 @@ export function VirtualKeys() {
 	const { toast } = useToast();
 	const [showCreate, setShowCreate] = useState(false);
 	const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null);
-	const [editingKey, setEditingKey] = useState<VirtualKey | undefined>(
-		undefined,
-	);
 	const [sort, setSort] = useState<SortState<VKSortField>>({
 		field: "name",
 		dir: "asc",
@@ -362,6 +460,16 @@ export function VirtualKeys() {
 					const aT = a.last_used_at ? new Date(a.last_used_at).getTime() : 0;
 					const bT = b.last_used_at ? new Date(b.last_used_at).getTime() : 0;
 					return dir * (aT - bT);
+				}
+				case "rps": {
+					const aR = a.rate_limit_rps ?? 0;
+					const bR = b.rate_limit_rps ?? 0;
+					return dir * (aR - bR);
+				}
+				case "burst": {
+					const aB = a.rate_limit_burst ?? 0;
+					const bB = b.rate_limit_burst ?? 0;
+					return dir * (aB - bB);
 				}
 				default:
 					return 0;
@@ -429,11 +537,13 @@ export function VirtualKeys() {
 				<div className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
-							<col className="w-[28%]" />
-							<col className="w-[18%]" />
 							<col className="w-[22%]" />
+							<col className="w-[16%]" />
+							<col className="w-[8%]" />
+							<col className="w-[8%]" />
 							<col className="w-[18%]" />
-							<col className="w-[14%]" />
+							<col className="w-[16%]" />
+							<col className="w-[12%]" />
 						</colgroup>
 						<thead>
 							<tr>
@@ -447,6 +557,20 @@ export function VirtualKeys() {
 								<StaticHeader tooltip="Preview of the API key (full key only shown once on creation)">
 									Key
 								</StaticHeader>
+								<SortableHeader
+									label="RPS"
+									field="rps"
+									sort={sort}
+									onSort={handleSort}
+									tooltip="Requests per second rate limit"
+								/>
+								<SortableHeader
+									label="Burst"
+									field="burst"
+									sort={sort}
+									onSort={handleSort}
+									tooltip="Burst capacity for rate limiting"
+								/>
 								<SortableHeader
 									label="Created"
 									field="created"
@@ -472,32 +596,28 @@ export function VirtualKeys() {
 						</thead>
 						<tbody>
 							{paginatedKeys.map((vk) => (
-								<Row key={vk.id}>
-									<td className="px-4 py-3">
-										<div className="flex items-center gap-2">
-											<button
-												type="button"
-												onClick={() => setSelectedKey(vk)}
-												className="text-gray-200 hover:text-(--accent) transition-colors cursor-pointer text-sm"
-											>
-												{vk.name}
-											</button>
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													setEditingKey(vk);
-												}}
-												className="text-gray-500 hover:text-(--accent) transition-colors"
-												title="Edit"
-												aria-label="Edit"
-											>
-												<Pencil className="w-3.5 h-3.5" />
-											</button>
-										</div>
+								<Row key={vk.id} onClick={() => setSelectedKey(vk)}>
+									<td className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0">
+										{vk.name}
 									</td>
 									<td className="px-4 py-3 text-gray-500 font-mono text-xs">
 										{vk.key_preview}
+									</td>
+									<td className="px-4 py-3 text-sm font-mono">
+										{vk.rate_limit_rps != null ? (
+											<span className="text-gray-200">{vk.rate_limit_rps}</span>
+										) : (
+											<span className="text-gray-500">Global</span>
+										)}
+									</td>
+									<td className="px-4 py-3 text-sm font-mono">
+										{vk.rate_limit_burst != null ? (
+											<span className="text-gray-200">
+												{vk.rate_limit_burst}
+											</span>
+										) : (
+											<span className="text-gray-500">Global</span>
+										)}
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
 										{new Date(vk.created_at).toLocaleString()}
@@ -623,6 +743,16 @@ export function VirtualKeys() {
 										</svg>
 										PowerShell
 									</button>
+									<div className="flex-1" />
+									<CopyButton
+										text={
+											terminalTab === "bash"
+												? snippetBashText({ origin: proxyOrigin })
+												: snippetPowershellText({ origin: proxyOrigin })
+										}
+										size={14}
+										title={`Copy ${terminalTab} snippet`}
+									/>
 								</div>
 								{terminalTab === "bash" ? (
 									<div className="relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden min-h-70">
@@ -708,15 +838,8 @@ export function VirtualKeys() {
 				</div>
 			)}
 
-			{(showCreate || editingKey) && (
-				<CreateKeyModal
-					onClose={() => {
-						setShowCreate(false);
-						setEditingKey(undefined);
-					}}
-					onToast={toast}
-					existingKey={editingKey}
-				/>
+			{showCreate && (
+				<CreateKeyModal onClose={() => setShowCreate(false)} onToast={toast} />
 			)}
 
 			{selectedKey && (

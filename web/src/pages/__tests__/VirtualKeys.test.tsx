@@ -371,7 +371,7 @@ describe("VirtualKeys", () => {
 	});
 
 	describe("Edit Key Modal", () => {
-		it("opens edit modal when clicking edit pencil icon", async () => {
+		it("opens edit mode from detail modal", async () => {
 			server.use(...mockVirtualKeys());
 
 			const { user } = renderWithProviders(<VirtualKeys />);
@@ -380,10 +380,19 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]);
+			// Click the row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			expect(row).toBeInTheDocument();
+			await user.click(row as HTMLElement);
 
-			expect(getByDialogName("Edit Virtual Key")).toBeInTheDocument();
+			// Wait for detail modal and click Edit button
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			// Should be in edit mode with Name input
 			expect(screen.getByLabelText("Name")).toHaveValue("Test API Key");
 		});
 
@@ -405,8 +414,16 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			// Wait for detail modal and click Edit
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
 
 			const nameInput = screen.getByLabelText("Name");
 			await user.clear(nameInput);
@@ -438,8 +455,16 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			// Wait for detail modal and click Edit
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
 
 			await user.clear(screen.getByLabelText("Rate Limit RPS (requests/sec)"));
 			await user.type(
@@ -479,13 +504,19 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Test API Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			// Wait for detail modal and click Edit
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
 
 			await user.type(screen.getByLabelText("Name"), " Updated");
 
@@ -513,14 +544,26 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
+
+			// Wait for detail modal and click Edit
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+
+			// Make a change to enable the Save button
+			await user.type(screen.getByLabelText("Name"), " Updated");
 
 			await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
+			// Modal should close on successful update
 			await waitFor(() => {
 				expect(
-					screen.queryByRole("dialog", { name: "Edit Virtual Key" }),
+					screen.queryByRole("dialog", { name: "Virtual Key Details" }),
 				).not.toBeInTheDocument();
 			});
 		});
@@ -534,17 +577,26 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			await user.click(editButtons[0]);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
-			expect(getByDialogName("Edit Virtual Key")).toBeInTheDocument();
+			// Wait for detail modal and click Edit
+			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
 
+			// Click Cancel - should return to view mode (modal stays open)
 			await user.click(screen.getByRole("button", { name: "Cancel" }));
 
+			// Should still have modal open but in view mode
 			await waitFor(() => {
+				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 				expect(
-					screen.queryByRole("dialog", { name: "Edit Virtual Key" }),
-				).not.toBeInTheDocument();
+					screen.getByRole("button", { name: "Edit" }),
+				).toBeInTheDocument();
 			});
 		});
 	});
@@ -556,14 +608,14 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Test API Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			// Key name is a button inside the table row
-			const keyButton = screen.getByRole("button", { name: "Test API Key" });
-			await user.click(keyButton);
+			// Click the row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			expect(row).toBeInTheDocument();
+			await user.click(row as HTMLElement);
 
 			await waitFor(() => {
 				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
@@ -581,14 +633,13 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Test API Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			// Key name is a button
-			const keyButton = screen.getByRole("button", { name: "Test API Key" });
-			await user.click(keyButton);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
 			await waitFor(() => {
 				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
@@ -616,14 +667,13 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Test API Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			// Key name is a button
-			const keyButton = screen.getByRole("button", { name: "Test API Key" });
-			await user.click(keyButton);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
 			await waitFor(() => {
 				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
@@ -644,12 +694,13 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Test API Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Test API Key" }));
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
 			// Click delete button
 			const dialog = getByDialogName("Virtual Key Details");
@@ -682,7 +733,10 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Test API Key" }));
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
 			// Click delete button
 			const dialog = getByDialogName("Virtual Key Details");
@@ -723,14 +777,13 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Test API Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			// Key name is a button
-			const keyButton = screen.getByRole("button", { name: "Test API Key" });
-			await user.click(keyButton);
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
 			await waitFor(() => {
 				expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
@@ -760,7 +813,10 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Test API Key" }));
+			// Click row to open detail modal
+			const table = screen.getByRole("table");
+			const row = table.querySelector("tbody tr");
+			await user.click(row as HTMLElement);
 
 			expect(getByDialogName("Virtual Key Details")).toBeInTheDocument();
 
@@ -792,9 +848,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Zebra Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Zebra Key")).toBeInTheDocument();
 			});
 
 			// Initial sort is name ascending, so data is already sorted
@@ -803,15 +857,14 @@ describe("VirtualKeys", () => {
 			await user.click(screen.getByRole("button", { name: /Sort by Name/i }));
 
 			// Should be sorted ascending: Alpha, Beta, Zebra
-			// Get all key name buttons in the table body
-			const keyButtons = screen.getAllByRole("button", {
-				name: /^(Alpha|Beta|Zebra) Key$/,
-			});
-			expect(keyButtons).toHaveLength(3);
+			// Get all key names in the table body
+			const table = screen.getByRole("table");
+			const rows = table.querySelectorAll("tbody tr");
+			expect(rows).toHaveLength(3);
 			// First should be Alpha, second Beta, third Zebra
-			expect(keyButtons[0].textContent).toBe("Alpha Key");
-			expect(keyButtons[1].textContent).toBe("Beta Key");
-			expect(keyButtons[2].textContent).toBe("Zebra Key");
+			expect(rows[0].querySelector("td")?.textContent).toBe("Alpha Key");
+			expect(rows[1].querySelector("td")?.textContent).toBe("Beta Key");
+			expect(rows[2].querySelector("td")?.textContent).toBe("Zebra Key");
 		});
 
 		it("sorts by name descending", async () => {
@@ -829,22 +882,19 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Alpha Key" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Alpha Key")).toBeInTheDocument();
 			});
 
 			// Default sort is name ascending, click once for descending
 			await user.click(screen.getByRole("button", { name: /Sort by Name/i }));
 
 			// Should be sorted descending: Beta, Alpha
-			const keyButtons = screen.getAllByRole("button", {
-				name: /^(Alpha|Beta) Key$/,
-			});
-			expect(keyButtons).toHaveLength(2);
+			const table = screen.getByRole("table");
+			const rows = table.querySelectorAll("tbody tr");
+			expect(rows).toHaveLength(2);
 			// First should be Beta, second Alpha (descending)
-			expect(keyButtons[0].textContent).toBe("Beta Key");
-			expect(keyButtons[1].textContent).toBe("Alpha Key");
+			expect(rows[0].querySelector("td")?.textContent).toBe("Beta Key");
+			expect(rows[1].querySelector("td")?.textContent).toBe("Alpha Key");
 		});
 
 		it("sorts by created date", async () => {
@@ -880,8 +930,9 @@ describe("VirtualKeys", () => {
 			);
 
 			// Old key should be first (ascending by date)
-			const rows = screen.getAllByRole("row");
-			expect(rows[1]).toContainElement(screen.getByText("Old Key"));
+			const table = screen.getByRole("table");
+			const rows = table.querySelectorAll("tbody tr");
+			expect(rows[0].querySelector("td")?.textContent).toBe("Old Key");
 		});
 
 		it("sorts by tokens used", async () => {
@@ -914,8 +965,9 @@ describe("VirtualKeys", () => {
 
 			await user.click(screen.getByRole("button", { name: /Sort by Tokens/i }));
 
-			const rows = screen.getAllByRole("row");
-			expect(rows[1]).toContainElement(screen.getByText("Low Usage"));
+			const table = screen.getByRole("table");
+			const rows = table.querySelectorAll("tbody tr");
+			expect(rows[0].querySelector("td")?.textContent).toBe("Low Usage");
 		});
 
 		it("sorts by last used", async () => {
@@ -950,8 +1002,9 @@ describe("VirtualKeys", () => {
 				screen.getByRole("button", { name: /Sort by Last Used/i }),
 			);
 
-			const rows = screen.getAllByRole("row");
-			expect(rows[1]).toContainElement(screen.getByText("Old"));
+			const table = screen.getByRole("table");
+			const rows = table.querySelectorAll("tbody tr");
+			expect(rows[0].querySelector("td")?.textContent).toBe("Old");
 		});
 	});
 
@@ -1044,9 +1097,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Key 1" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
 			// Verify pagination controls exist
@@ -1077,9 +1128,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Key 1" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
 			// Prev should be disabled on first page
@@ -1118,9 +1167,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Key 1" }),
-				).toBeInTheDocument();
+				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
 			// Verify pagination controls exist with 30 items (3 pages of 10)
@@ -1411,7 +1458,7 @@ describe("VirtualKeys", () => {
 			).toBeInTheDocument();
 		});
 
-		it("has accessible edit buttons", async () => {
+		it("has accessible row buttons", async () => {
 			server.use(...mockVirtualKeys());
 
 			renderWithProviders(<VirtualKeys />);
@@ -1420,9 +1467,11 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Test API Key")).toBeInTheDocument();
 			});
 
-			// Edit button should be accessible by role
-			const editButtons = screen.getAllByRole("button", { name: "Edit" });
-			expect(editButtons).toHaveLength(1);
+			// Each row should be clickable with role="button"
+			const table = screen.getByRole("table");
+			const rows = table.querySelectorAll("tbody tr");
+			expect(rows).toHaveLength(1);
+			expect(rows[0]).toHaveAttribute("role", "button");
 		});
 
 		it("has accessible sort buttons with tooltips", async () => {
