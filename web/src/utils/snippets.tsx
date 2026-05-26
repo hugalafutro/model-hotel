@@ -620,7 +620,7 @@ export function snippetJSModel({
 			{",\n"}
 			{"  "}
 			<span className="text-[#9cdcfe]">{"messages"}</span>
-			{"[{"}
+			{": [{"}
 			<span className="text-[#9cdcfe]">{"role"}</span>
 			{": "}
 			<span className="text-[#ce9178]">{'"user"'}</span>
@@ -1202,7 +1202,7 @@ export function snippetJS({ origin }: BashSnippetOpts): ReactNode {
 			{",\n"}
 			{"  "}
 			<span className="text-[#9cdcfe]">{"messages"}</span>
-			{"[{"}
+			{": [{"}
 			<span className="text-[#9cdcfe]">{"role"}</span>
 			{": "}
 			<span className="text-[#ce9178]">{'"user"'}</span>
