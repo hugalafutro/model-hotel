@@ -448,4 +448,31 @@ describe("ProxySettings", () => {
 			expect(capturedPayload).toEqual({ key_cache_ttl: "30m0s" });
 		});
 	});
+
+	it("calls onToggle when SettingsSection toggle button is clicked with collapsed=false", async () => {
+		const user = userEvent.setup();
+		const onToggleMock = vi.fn();
+
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={onToggleMock} />,
+		);
+
+		const toggleButton = screen.getByRole("button", {
+			name: /Collapse/i,
+		});
+		expect(toggleButton).toBeInTheDocument();
+
+		await user.click(toggleButton);
+		expect(onToggleMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("renders proxy description text", () => {
+		renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		expect(
+			screen.getByText(/Configure proxy request behavior and timeouts/i),
+		).toBeInTheDocument();
+	});
 });

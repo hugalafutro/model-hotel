@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { RateLimitSettings } from "../RateLimitSettings";
@@ -9,29 +9,9 @@ import { RateLimitSettings } from "../RateLimitSettings";
 describe("RateLimitSettings", () => {
 	const onToggle = vi.fn();
 
-	beforeAll(() => {
-		// Setup MSW handler for settings endpoint
-		server.use(
-			http.get("/api/settings", () => {
-				return HttpResponse.json({
-					rate_limit_enabled: "true",
-					rate_limit_rps: "10",
-					rate_limit_burst: "20",
-					rate_limit_ip_enabled: "true",
-					rate_limit_ip_rps: "30",
-					rate_limit_ip_burst: "60",
-					rate_limit_max_wait_ms: "200",
-				});
-			}),
-			http.put("/api/settings", async ({ request }) => {
-				const body = await request.json();
-				return HttpResponse.json(body as Record<string, string>);
-			}),
-		);
-	});
-
 	beforeEach(() => {
 		onToggle.mockClear();
+		server.resetHandlers();
 	});
 
 	it("renders section title with Gauge icon", async () => {
@@ -317,5 +297,160 @@ describe("RateLimitSettings", () => {
 				/Shared wait behavior for both per-key and IP rate limiters/i,
 			),
 		).toBeInTheDocument();
+	});
+
+	it("hides RPS and Burst selects when rate limiting is disabled", async () => {
+		server.resetHandlers(
+			http.get("/api/settings", () => {
+				return HttpResponse.json({
+					rate_limit_enabled: "false",
+					rate_limit_rps: "10",
+					rate_limit_burst: "20",
+					rate_limit_ip_enabled: "true",
+					rate_limit_ip_rps: "30",
+					rate_limit_ip_burst: "60",
+					rate_limit_max_wait_ms: "200",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				const body = await request.json();
+				return HttpResponse.json(body as Record<string, string>);
+			}),
+		);
+		renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+		);
+		// Wait for settings to load (toggle text appears)
+		await waitFor(() => {
+			expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
+		});
+		await waitFor(() => {
+			expect(
+				screen.queryByLabelText("Requests per Second"),
+			).not.toBeInTheDocument();
+		});
+		expect(screen.queryByLabelText("Burst Size")).not.toBeInTheDocument();
+	});
+
+	it("hides IP RPS and IP Burst selects when IP rate limiting is disabled", async () => {
+		server.resetHandlers(
+			http.get("/api/settings", () => {
+				return HttpResponse.json({
+					rate_limit_enabled: "true",
+					rate_limit_rps: "10",
+					rate_limit_burst: "20",
+					rate_limit_ip_enabled: "false",
+					rate_limit_ip_rps: "30",
+					rate_limit_ip_burst: "60",
+					rate_limit_max_wait_ms: "200",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				const body = await request.json();
+				return HttpResponse.json(body as Record<string, string>);
+			}),
+		);
+		renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("IP Rate Limiting")).toBeInTheDocument();
+		});
+		await waitFor(() => {
+			expect(
+				screen.queryByLabelText("IP Requests per Second"),
+			).not.toBeInTheDocument();
+		});
+		expect(screen.queryByLabelText("IP Burst Size")).not.toBeInTheDocument();
+	});
+
+	it("hides backpressure section when both rate limiters are disabled", async () => {
+		server.resetHandlers(
+			http.get("/api/settings", () => {
+				return HttpResponse.json({
+					rate_limit_enabled: "false",
+					rate_limit_rps: "10",
+					rate_limit_burst: "20",
+					rate_limit_ip_enabled: "false",
+					rate_limit_ip_rps: "30",
+					rate_limit_ip_burst: "60",
+					rate_limit_max_wait_ms: "200",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				const body = await request.json();
+				return HttpResponse.json(body as Record<string, string>);
+			}),
+		);
+		renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
+		});
+		await waitFor(() => {
+			expect(
+				screen.queryByText("Rate Limit Backpressure"),
+			).not.toBeInTheDocument();
+		});
+		expect(screen.queryByLabelText("Max Wait (ms)")).not.toBeInTheDocument();
+	});
+
+	it("shows backpressure section when rate limiting is enabled but IP rate limiting is disabled", async () => {
+		server.resetHandlers(
+			http.get("/api/settings", () => {
+				return HttpResponse.json({
+					rate_limit_enabled: "true",
+					rate_limit_rps: "10",
+					rate_limit_burst: "20",
+					rate_limit_ip_enabled: "false",
+					rate_limit_ip_rps: "30",
+					rate_limit_ip_burst: "60",
+					rate_limit_max_wait_ms: "200",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				const body = await request.json();
+				return HttpResponse.json(body as Record<string, string>);
+			}),
+		);
+		renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Rate Limit Backpressure")).toBeInTheDocument();
+		});
+		await waitFor(() => {
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
+		});
+	});
+
+	it("shows backpressure section when IP rate limiting is enabled but rate limiting is disabled", async () => {
+		server.resetHandlers(
+			http.get("/api/settings", () => {
+				return HttpResponse.json({
+					rate_limit_enabled: "false",
+					rate_limit_rps: "10",
+					rate_limit_burst: "20",
+					rate_limit_ip_enabled: "true",
+					rate_limit_ip_rps: "30",
+					rate_limit_ip_burst: "60",
+					rate_limit_max_wait_ms: "200",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				const body = await request.json();
+				return HttpResponse.json(body as Record<string, string>);
+			}),
+		);
+		renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Rate Limit Backpressure")).toBeInTheDocument();
+		});
+		await waitFor(() => {
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
+		});
 	});
 });

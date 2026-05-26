@@ -12,6 +12,7 @@ describe("CircuitBreakerSettings", () => {
 
 	beforeEach(() => {
 		onToggle.mockClear();
+		server.resetHandlers();
 		localStorage.setItem("adminToken", "test-token");
 	});
 
@@ -221,99 +222,6 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
-	it("calls mutation when circuit breaker toggle is clicked", async () => {
-		const user = userEvent.setup();
-		let mutationCalled = false;
-
-		server.use(
-			...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
-			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
-					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-				}
-				const body = await request.json();
-				if (
-					typeof body === "object" &&
-					body !== null &&
-					"circuit_breaker_enabled" in body
-				) {
-					mutationCalled = true;
-				}
-				return HttpResponse.json({ ok: true });
-			}),
-		);
-
-		renderWithProviders(
-			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		await waitFor(() => {
-			const container = screen
-				.getByText("Enable Circuit Breaker")
-				.closest(".flex.items-center.justify-between");
-			expect(
-				container?.querySelector("button[role='switch']"),
-			).toBeInTheDocument();
-		});
-
-		const container = screen
-			.getByText("Enable Circuit Breaker")
-			.closest(".flex.items-center.justify-between");
-		const toggle = container?.querySelector("button[role='switch']");
-		if (!toggle) throw new Error("Circuit breaker toggle not found");
-		await user.click(toggle);
-
-		await waitFor(() => {
-			expect(mutationCalled).toBe(true);
-		});
-	});
-
-	it("calls mutation when failover on rate limit toggle is clicked", async () => {
-		const user = userEvent.setup();
-		let mutationCalled = false;
-
-		server.use(
-			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
-					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-				}
-				const body = await request.json();
-				if (
-					typeof body === "object" &&
-					body !== null &&
-					"failover_on_rate_limit" in body
-				) {
-					mutationCalled = true;
-				}
-				return HttpResponse.json({ ok: true });
-			}),
-		);
-
-		renderWithProviders(
-			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		await waitFor(() => {
-			const container = screen
-				.getByText("Failover on Rate Limit")
-				.closest(".flex.items-center.justify-between");
-			expect(
-				container?.querySelector("button[role='switch']"),
-			).toBeInTheDocument();
-		});
-
-		const container = screen
-			.getByText("Failover on Rate Limit")
-			.closest(".flex.items-center.justify-between");
-		const toggle = container?.querySelector("button[role='switch']");
-		if (!toggle) throw new Error("Failover toggle not found");
-		await user.click(toggle);
-
-		await waitFor(() => {
-			expect(mutationCalled).toBe(true);
-		});
-	});
-
 	it("calls mutation when threshold input changes", async () => {
 		const user = userEvent.setup();
 		let mutationCalled = false;
@@ -512,6 +420,129 @@ describe("CircuitBreakerSettings", () => {
 			expect(select.options[2].value).toBe("2m0s");
 			expect(select.options[3].value).toBe("5m0s");
 			expect(select.options[4].value).toBe("10m0s");
+		});
+	});
+
+	it("toggles circuit breaker enabled and calls mutation", async () => {
+		const user = userEvent.setup();
+		let capturedPayload: Record<string, string> | undefined;
+
+		server.use(
+			...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = screen.getByRole("switch", {
+			name: /enable circuit breaker/i,
+		});
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ circuit_breaker_enabled: "false" });
+			expect(screen.getByText("Settings saved")).toBeInTheDocument();
+		});
+	});
+
+	it("toggles failover on rate limit and calls mutation", async () => {
+		const user = userEvent.setup();
+		let capturedPayload: Record<string, string> | undefined;
+
+		server.use(
+			...mockSettings({ body: {} }),
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = screen.getByRole("switch", {
+			name: /failover on rate limit/i,
+		});
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ failover_on_rate_limit: "true" });
+			expect(screen.getByText("Settings saved")).toBeInTheDocument();
+		});
+	});
+
+	it("shows error toast when toggle mutation fails", async () => {
+		const user = userEvent.setup();
+
+		server.use(
+			...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
+			http.put("/api/settings", () =>
+				HttpResponse.json({ error: "Internal Server Error" }, { status: 500 }),
+			),
+		);
+
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = screen.getByRole("switch", {
+			name: /enable circuit breaker/i,
+		});
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();
+		});
+	});
+
+	it("toggles circuit breaker from OFF to ON and calls mutation", async () => {
+		const user = userEvent.setup();
+		let capturedPayload: Record<string, string> | undefined;
+
+		server.use(
+			...mockSettings({ body: { circuit_breaker_enabled: "false" } }),
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.queryByLabelText("Failure Threshold"),
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByLabelText("Cooldown Period"),
+			).not.toBeInTheDocument();
+		});
+
+		const toggle = screen.getByRole("switch", {
+			name: /enable circuit breaker/i,
+		});
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ circuit_breaker_enabled: "true" });
+			expect(screen.getByText("Settings saved")).toBeInTheDocument();
 		});
 	});
 });
