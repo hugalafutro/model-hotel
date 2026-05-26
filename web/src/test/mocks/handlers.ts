@@ -621,7 +621,10 @@ export const handlers: RequestHandler[] = [
 	}),
 
 	// ── Version check ────────────────────────────────────────────────────
-	http.get("/api/version/latest", () => {
+	http.get("/api/version/latest", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
 		return HttpResponse.json({ tag_name: "v0.0.0" });
 	}),
 
