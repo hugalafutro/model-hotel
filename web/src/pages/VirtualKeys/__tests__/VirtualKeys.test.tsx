@@ -1317,6 +1317,115 @@ describe("VirtualKeys", () => {
 	});
 });
 
+describe("Rate Limit RPS = 0", () => {
+	it("renders '0' not 'Global' when rate_limit_rps is 0", async () => {
+		const keyWithZeroRps = {
+			...mockVirtualKey,
+			id: "vk-zero-rps",
+			name: "Zero RPS Key",
+			rate_limit_rps: 0,
+			rate_limit_burst: 0,
+		};
+		server.use(
+			http.get("/api/virtual-keys", () => HttpResponse.json([keyWithZeroRps])),
+		);
+
+		renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Zero RPS Key")).toBeInTheDocument();
+		});
+
+		// Table should show "0" for RPS and Burst, not "Global"
+		const table = screen.getByRole("table");
+		// Both RPS and Burst are 0
+		expect(within(table).getAllByText("0")).toHaveLength(2);
+		// "Global" should not appear (null → "Global", but 0 → "0")
+		expect(within(table).queryByText("Global")).not.toBeInTheDocument();
+	});
+});
+
+describe("hasChanges revert", () => {
+	it("disables Save after editing name back to original", async () => {
+		server.use(
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Test API Key")).toBeInTheDocument();
+		});
+
+		// Open detail modal
+		await user.click(screen.getByText("Test API Key"));
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		// Enter edit mode
+		await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+
+		// Edit name to something new
+		const nameInput = within(dialog).getByLabelText("Name");
+		await user.clear(nameInput);
+		await user.type(nameInput, "Changed Name");
+
+		// Save should be enabled
+		const saveButton = within(dialog).getByRole("button", {
+			name: "Save Changes",
+		});
+		expect(saveButton).not.toBeDisabled();
+
+		// Revert name back to original
+		await user.clear(nameInput);
+		await user.type(nameInput, "Test API Key");
+
+		// Save should be disabled again (no changes)
+		expect(saveButton).toBeDisabled();
+	});
+});
+
+describe("Sort resets page", () => {
+	it("resets to page 1 when sorting from page 2", async () => {
+		const keys = Array.from({ length: 25 }, (_, i) => ({
+			...mockVirtualKey,
+			id: `vk-${String(i + 1).padStart(3, "0")}`,
+			name: `Key ${String(i + 1).padStart(2, "0")}`,
+		}));
+		server.use(http.get("/api/virtual-keys", () => HttpResponse.json(keys)));
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("25 Virtual Keys")).toBeInTheDocument();
+		});
+
+		// Navigate to page 2
+		await user.click(screen.getByRole("button", { name: "Next" }));
+		await waitFor(() => {
+			expect(screen.getByText("11 to 20 of 25 keys")).toBeInTheDocument();
+		});
+
+		// Sort by tokens (different column than default name sort)
+		const tokensHeader = screen.getByRole("button", {
+			name: "Sort by Tokens",
+		});
+		await user.click(tokensHeader);
+
+		// Should reset to page 1
+		await waitFor(() => {
+			expect(screen.getByText("1 to 10 of 25 keys")).toBeInTheDocument();
+		});
+	});
+});
+
 describe("VirtualKeys edge cases", () => {
 	beforeEach(() => {
 		server.resetHandlers();
