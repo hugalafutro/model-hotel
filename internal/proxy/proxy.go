@@ -26,7 +26,7 @@ import (
 // newRequestWithContext is injectable for testing request creation errors.
 var newRequestWithContext = http.NewRequestWithContext
 
-func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
+func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int, cancelOrigin string) {
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
 		// Skip drain if the client already disconnected: the upstream body
@@ -628,7 +628,25 @@ logUpdate:
 
 	errMsg := lastErrMsg
 	if errMsg == "" && scanner.Err() != nil {
-		errMsg = scanner.Err().Error()
+		scannerErr := scanner.Err()
+		switch {
+		case errors.Is(scannerErr, context.Canceled):
+			// The scanner caught the cancellation before the select between
+			// iterations could. This is always a client disconnect — the
+			// parent request context was cancelled.
+			clientDisconnected = true
+		case errors.Is(scannerErr, context.DeadlineExceeded):
+			// A derived context's deadline expired (failover or retry timeout).
+			// Use cancelOrigin to produce a human-readable message.
+			switch cancelOrigin {
+			case "retry_timeout":
+				errMsg = "stream interrupted: param-strip retry timed out"
+			default:
+				errMsg = "stream interrupted: upstream request timed out"
+			}
+		default:
+			errMsg = scannerErr.Error()
+		}
 	}
 	if clientDisconnected {
 		errMsg = "client disconnected"
@@ -909,6 +927,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			bodyBytes, err = io.ReadAll(r.Body)
 			if err != nil {
 				debuglog.Warn("proxy: failed to read request body", "error", err)
+				h.failRequest(&requestLogData{state: "pending"}, 400, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, 0)
 				writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 				return
 			}
@@ -918,6 +937,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		var req ChatCompletionRequest
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
 			debuglog.Warn("proxy: failed to parse request body", "error", err)
+			h.failRequest(&requestLogData{state: "pending"}, 400, "invalid request body", 0, startTime, parseMs, resolveTimings{}, 0)
 			writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
@@ -933,6 +953,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if reqModel == "" {
+		h.failRequest(&requestLogData{state: "pending"}, 400, "model is required", 0, startTime, parseMs, resolveTimings{}, 0)
 		writeOpenAIError(w, "model is required", http.StatusBadRequest)
 		return
 	}
@@ -1169,6 +1190,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var retryCancel context.CancelFunc
+		streamCancelOrigin := "failover_timeout"
 		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), failoverTimeout)
 		failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 		proxyReq, err := newRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
@@ -1219,7 +1241,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				lastErr = fmt.Sprintf("attempt %d: %s: %v", attempt, cancelOrigin, err)
+				lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(cancelOrigin))
 				debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err)
 			} else {
 				lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
@@ -1295,6 +1317,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
 							retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
 							retryCancel = rc
+							streamCancelOrigin = "retry_timeout"
 							retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 							if retryErr != nil {
 								retryCancel()
@@ -1308,7 +1331,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							if retryErr != nil {
 								retryCancel() // no body to consume on retry error
 								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-								lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
+								retryCtxErr := errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded)
+								if retryCtxErr {
+									lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin("retry_timeout"))
+								} else {
+									lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
+								}
 								continue
 							}
 							failoverCancel() // original 400 body already consumed, original context no longer needed
@@ -1389,7 +1417,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		if isStreaming {
-			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt)
+			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt, streamCancelOrigin)
 			failoverCancel() // body consumed by handleStreamingResponse
 			if retryCancel != nil {
 				retryCancel()
@@ -1448,4 +1476,22 @@ func mapKeys(m map[string]bool) []string {
 // SillyTavern parse responses as JSON and crash on plain text error messages.
 func writeOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 	util.WriteOpenAIError(w, message, statusCode)
+}
+
+// humanReadableCancelOrigin maps internal cancel origin identifiers to
+// human-readable descriptions for error messages and request logs.
+// Raw Go errors like "context canceled" and "context deadline exceeded" are
+// opaque — callers need to know whether the client disconnected, the failover
+// timeout expired, or a param-strip retry timed out.
+func humanReadableCancelOrigin(origin string) string {
+	switch origin {
+	case "client_disconnect":
+		return "client disconnected"
+	case "failover_timeout":
+		return "upstream request timed out"
+	case "retry_timeout":
+		return "param-strip retry timed out"
+	default:
+		return origin
+	}
 }

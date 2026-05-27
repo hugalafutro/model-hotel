@@ -442,7 +442,7 @@ func TestHandleStreamingResponse_ClientWriteFailureMarksDisconnected(t *testing.
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond) // wait for async DB insert
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -541,7 +541,7 @@ func TestHandleStreamingResponse_EmptyStream(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	// Should complete without error even with empty stream
 	if logData.state != "failed" {
@@ -595,7 +595,7 @@ func TestHandleStreamingResponse_ErrorChunk(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	// Should complete but track error chunks
 	if logData.state != "failed" {
@@ -799,7 +799,7 @@ func TestHandleStreamingResponse_DoneSentinelWriteFailure(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -853,7 +853,7 @@ func TestHandleStreamingResponse_ReasoningNormWriteFailure(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -897,7 +897,7 @@ func TestHandleStreamingResponse_ReasoningNormPayloadWriteFailure(t *testing.T) 
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -941,7 +941,7 @@ func TestHandleStreamingResponse_ReasoningNormNewlineWriteFailure(t *testing.T) 
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -990,7 +990,7 @@ func TestHandleStreamingResponse_FinishReasonNormWriteFailure(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleStreamingResponse(failWriter, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -1042,7 +1042,7 @@ func TestHandleStreamingResponse_TPSFallbackWhenTTFTExceedsDuration(t *testing.T
 	startTime := time.Now()
 	time.Sleep(2 * time.Millisecond)
 	// ttft will be set to totalDuration, making generationDuration = 0
-	h.handleStreamingResponse(inner, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 999999.0, "test-hash", 1)
+	h.handleStreamingResponse(inner, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 999999.0, "test-hash", 1, "failover_timeout")
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=completed, got %q", logData.state)

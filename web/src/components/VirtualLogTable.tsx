@@ -26,7 +26,7 @@ const isCancelled = (errorMessage?: string): boolean => {
 	return (
 		msg.includes("cancel") ||
 		msg.includes("disconnect") ||
-		msg.includes("context canceled")
+		msg.includes("timed out")
 	);
 };
 

@@ -1144,8 +1144,28 @@ describe("VirtualLogTable", () => {
 			expect(screen.getByText("Interrupted")).toBeInTheDocument();
 		});
 
-		it('detects "context canceled" as cancelled error', () => {
-			const entries = [createLogEntry({ error_message: "context canceled" })];
+		it('detects "client disconnected" as cancelled error', () => {
+			const entries = [
+				createLogEntry({ error_message: "client disconnected" }),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+
+		it('detects "timed out" as cancelled error', () => {
+			const entries = [
+				createLogEntry({
+					error_message: "all providers failed: upstream request timed out",
+				}),
+			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);

@@ -1872,14 +1872,14 @@ describe("Logs", () => {
 			expect(screen.getByText("Interrupted")).toBeInTheDocument();
 		});
 
-		it("detects context canceled error as cancelled", async () => {
+		it("detects client disconnected error as cancelled", async () => {
 			server.use(
 				http.get("/api/logs", () =>
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
 								request_hash: "cancel-002",
-								error_message: "context canceled",
+								error_message: "client disconnected",
 								state: "completed",
 								status_code: 0,
 							}),
@@ -1892,6 +1892,32 @@ describe("Logs", () => {
 
 			await waitFor(() => {
 				expect(screen.getByText("cancel-002")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+		});
+
+		it("detects timed out error as cancelled", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "timeout-001",
+								error_message:
+									"all providers failed: upstream request timed out",
+								state: "completed",
+								status_code: 502,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("timeout-001")).toBeInTheDocument();
 			});
 
 			expect(screen.getByText("Interrupted")).toBeInTheDocument();
