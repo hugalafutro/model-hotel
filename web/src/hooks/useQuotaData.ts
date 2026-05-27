@@ -366,9 +366,14 @@ export function useQuotaData(
 	const nanoWeeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
 	const nanoWeeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
 
+	const isNanoCancelled =
+		nanogptUsage?.providerStatus === "canceled" ||
+		nanogptUsage?.providerStatus === "cancelled";
+
 	const showNanoBadge =
 		Boolean(nanogptProviderId) &&
 		Boolean(nanogptUsage) &&
+		!isNanoCancelled &&
 		nanoWeeklyUsed != null &&
 		Boolean(nanoWeeklyLimit);
 
@@ -377,15 +382,23 @@ export function useQuotaData(
 		Boolean(zaiCodingUsage?.success) &&
 		Boolean(zaiCodingFiveHour || zaiCodingWeekly);
 
-	const showDsBadge = Boolean(deepseekProviderId) && Boolean(deepseekBalance);
+	const showDsBadge =
+		Boolean(deepseekProviderId) &&
+		Boolean(deepseekBalance) &&
+		Boolean(deepseekBalance?.is_available);
 
 	const showOrBadge =
 		Boolean(openrouterProviderId) &&
 		Boolean(openrouterBalance) &&
 		openrouterBalance?.credits_remaining != null;
 
+	const isOllamaCloudSuspended =
+		ollamaCloudAccount?.suspended_at?.valid === true;
+
 	const showOllamaCloudBadge =
-		Boolean(ollamaCloudProviderId) && Boolean(ollamaCloudAccount);
+		Boolean(ollamaCloudProviderId) &&
+		Boolean(ollamaCloudAccount) &&
+		!isOllamaCloudSuspended;
 
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||

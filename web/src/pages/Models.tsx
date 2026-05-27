@@ -17,6 +17,7 @@ export function Models() {
 	const queryClient = useQueryClient();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
+	const [scrollTotal, setScrollTotal] = useState<number | undefined>(undefined);
 	const [viewMode, setViewMode] = useLocalStorage<"scroll" | "paginate">(
 		"modelsViewMode",
 		"scroll",
@@ -165,7 +166,7 @@ export function Models() {
 				title={
 					viewMode === "paginate"
 						? countLabel(models?.length, "Model", "Models")
-						: "Models"
+						: countLabel(scrollTotal, "Model", "Models")
 				}
 				description="Discovered models from your providers"
 				badge={modelBadge}
@@ -202,6 +203,7 @@ export function Models() {
 					onModelClick={setDetailModel}
 					refreshTrigger={modelRefreshTrigger}
 					onDeleteDisabled={handleDeleteDisabled}
+					onTotalChange={setScrollTotal}
 				/>
 			) : (
 				<ModelTable
