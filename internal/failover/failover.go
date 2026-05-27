@@ -134,6 +134,8 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 				"remaining", len(validPriority))
 		} else {
 			// Group still viable — update with pruned entries.
+			// Preserve the group's existing enabled state so we don't
+			// silently re-enable a manually-disabled group.
 			validEntryEnabled := make(map[string]bool)
 			for _, id := range validPriority {
 				if enabled, ok := g.EntryEnabled[id.String()]; ok {
@@ -142,7 +144,7 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 					validEntryEnabled[id.String()] = true
 				}
 			}
-			_, err := r.Update(ctx, g.ID, validPriority, validEntryEnabled, nil, nil, nil)
+			_, err := r.Update(ctx, g.ID, validPriority, validEntryEnabled, &g.GroupEnabled, nil, nil)
 			if err != nil {
 				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
 			} else {
