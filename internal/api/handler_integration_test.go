@@ -6165,7 +6165,7 @@ func TestGetStats_WithQueryParams_Integration(t *testing.T) {
 			INSERT INTO request_logs (
 				provider_id, model_id, status_code, duration_ms, 
 				tokens_prompt, tokens_completion, created_at, 
-				proxy_overhead_ms, ttft_ms
+				proxy_overhead_ms, response_header_ms
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9
 			)`,

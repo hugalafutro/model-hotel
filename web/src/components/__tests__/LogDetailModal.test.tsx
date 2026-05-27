@@ -16,7 +16,8 @@ describe("LogDetailModal", () => {
 		status_code: 200,
 		latency_ms: 1500,
 		duration_ms: 1450,
-		ttft_ms: 250,
+		ttft_ms: 280,
+		response_header_ms: 250,
 		proxy_overhead_ms: 50,
 		parse_ms: 5,
 		failover_lookup_ms: 3,
@@ -188,6 +189,8 @@ describe("LogDetailModal", () => {
 			);
 
 			expect(screen.getByText("250ms")).toBeInTheDocument();
+			expect(screen.getByText("Headers")).toBeInTheDocument();
+			expect(screen.getByText("280ms")).toBeInTheDocument();
 			expect(screen.getByText("TTFT")).toBeInTheDocument();
 		});
 

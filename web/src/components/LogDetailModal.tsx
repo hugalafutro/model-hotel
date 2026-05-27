@@ -208,6 +208,17 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 						<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 						<div className="text-lg font-bold text-(--text-primary)">
+							{requestLog.response_header_ms > 0
+								? formatDuration(requestLog.response_header_ms)
+								: "-"}
+						</div>
+						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+							Headers
+						</div>
+					</div>
+					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
+						<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
+						<div className="text-lg font-bold text-(--text-primary)">
 							{requestLog.ttft_ms > 0
 								? formatDuration(requestLog.ttft_ms)
 								: "-"}

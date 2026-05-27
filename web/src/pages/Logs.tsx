@@ -47,6 +47,7 @@ function RequestLogs() {
 		| "status"
 		| "tokens"
 		| "tps"
+		| "response_header_ms"
 		| "ttft"
 		| "duration"
 		| "overhead"
@@ -646,6 +647,13 @@ function RequestLogs() {
 										tooltip="Tokens generated per second"
 									/>
 									<SortableHeader
+										label="Headers"
+										field="response_header_ms"
+										sort={sort}
+										onSort={handleSort}
+										tooltip="Time to response headers"
+									/>
+									<SortableHeader
 										label="TTFT"
 										field="ttft"
 										sort={sort}
@@ -772,6 +780,11 @@ function RequestLogs() {
 													{isCancelled(log.error_message)
 														? "-"
 														: formatTPS(log.tokens_per_second)}
+												</td>
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+													{log.response_header_ms > 0
+														? formatMs(log.response_header_ms, 1)
+														: "-"}
 												</td>
 												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{log.ttft_ms > 0 ? formatMs(log.ttft_ms, 1) : "-"}

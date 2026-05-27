@@ -38,6 +38,7 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
 		latency_ms: 150,
 		duration_ms: 200,
 		ttft_ms: 50,
+		response_header_ms: 50,
 		proxy_overhead_ms: 5,
 		parse_ms: 1,
 		failover_lookup_ms: 0,

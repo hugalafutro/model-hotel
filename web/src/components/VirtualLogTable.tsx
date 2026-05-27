@@ -231,6 +231,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							<th className={HEADER_BASE}>Status</th>
 							<th className={HEADER_BASE}>Tokens</th>
 							<th className={HEADER_BASE}>T/s</th>
+							<th className={HEADER_BASE}>Headers</th>
 							<th className={HEADER_BASE}>TTFT</th>
 							<th className={HEADER_BASE}>Duration</th>
 							<th className={HEADER_BASE}>Overhead</th>
@@ -311,6 +312,13 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										{isCancelled(log.error_message)
 											? "-"
 											: formatTPS(log.tokens_per_second)}
+									</td>
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+										{isCancelled(log.error_message)
+											? "-"
+											: log.response_header_ms > 0
+												? formatMs(log.response_header_ms, 1)
+												: "-"}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{isCancelled(log.error_message)

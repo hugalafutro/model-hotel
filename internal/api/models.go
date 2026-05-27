@@ -269,12 +269,13 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 
 // TestModelResponse is the JSON response for model test requests.
 type TestModelResponse struct {
-	Success    bool   `json:"success"`
-	Streaming  bool   `json:"streaming"`
-	TTFTMs     *int64 `json:"ttft_ms,omitempty"`
-	DurationMs int64  `json:"duration_ms"`
-	Response   string `json:"response"`
-	Error      string `json:"error,omitempty"`
+	Success          bool   `json:"success"`
+	Streaming        bool   `json:"streaming"`
+	TTFTMs           *int64 `json:"ttft_ms,omitempty"`
+	ResponseHeaderMs *int64 `json:"response_header_ms,omitempty"`
+	DurationMs       int64  `json:"duration_ms"`
+	Response         string `json:"response"`
+	Error            string `json:"error,omitempty"`
 }
 
 // TestModel tests a model by making a test request and returning latency metrics.
@@ -348,11 +349,11 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		logQuery := `
 			INSERT INTO request_logs (
 				provider_id, model_id, request_hash, status_code,
-				latency_ms, duration_ms, ttft_ms,
+				latency_ms, duration_ms, response_header_ms, ttft_ms,
 				proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
 				error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		`
 		durationMs := float64(time.Since(start).Milliseconds())
 		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
@@ -379,11 +380,11 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		logQuery := `
 			INSERT INTO request_logs (
 				provider_id, model_id, request_hash, status_code,
-				latency_ms, duration_ms, ttft_ms,
+				latency_ms, duration_ms, response_header_ms, ttft_ms,
 				proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
 				error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 		`
 		durationMs := float64(duration)
 		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
@@ -428,16 +429,16 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	logQuery := `
 		INSERT INTO request_logs (
 			provider_id, model_id, request_hash, status_code,
-			latency_ms, duration_ms, ttft_ms,
+			latency_ms, duration_ms, response_header_ms, ttft_ms,
 			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
 			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 	`
 	durationMs := float64(duration)
-	// For a non-streaming test request, TTFT equals total duration
+	// For a non-streaming test request, response_header_ms equals total duration
 	// (no separate streaming phase). The log stores ttft_ms = 0 to
-	// indicate non-streaming, but the API response reports duration as TTFT.
+	// indicate non-streaming. The API response reports duration as response_header_ms.
 	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 		m.ProviderID, m.ModelID, reqHash, resp.StatusCode,
 		durationMs, durationMs, 0,
@@ -449,11 +450,11 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, TestModelResponse{
-		Success:    true,
-		Streaming:  false,
-		TTFTMs:     &duration,
-		DurationMs: duration,
-		Response:   content,
+		Success:          true,
+		Streaming:        false,
+		ResponseHeaderMs: &duration,
+		DurationMs:       duration,
+		Response:         content,
 	})
 }
 

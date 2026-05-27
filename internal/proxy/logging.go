@@ -149,7 +149,8 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 			key_decrypt_ms = $11,
 			dial_ms = $22,
 			settings_read_ms = $23,
-			ttft_ms = $12,
+			response_header_ms = $12,
+			ttft_ms = $25,
 			tokens_per_second = $13,
 			tokens_prompt = $14,
 			tokens_completion = $15,
@@ -162,10 +163,10 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 		WHERE id = $1`,
 		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
 		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
-		logEntry.keyDecryptMs, logEntry.ttftMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
+		logEntry.keyDecryptMs, logEntry.responseHeaderMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
-		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning,
+		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
 	)
 	if err != nil {
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)

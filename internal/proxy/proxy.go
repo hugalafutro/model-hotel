@@ -26,7 +26,7 @@ import (
 // newRequestWithContext is injectable for testing request creation errors.
 var newRequestWithContext = http.NewRequestWithContext
 
-func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int, cancelOrigin string) {
+func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int, cancelOrigin string) {
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
 		// Skip drain if the client already disconnected: the upstream body
@@ -36,7 +36,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		_ = resp.Body.Close()
 	}()
-	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
+	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "response_header_ms", responseHeaderMs)
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -54,7 +54,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	logData.keyDecryptMs = keyDecryptMs
 	logData.dialMs = dialMs
 	logData.settingsReadMs = settingsReadMs
-	logData.ttftMs = ttft
+	logData.responseHeaderMs = responseHeaderMs
 	logData.failoverAttempt = attempt
 	logData.state = "streaming"
 	h.updateRequestLog(logData)
@@ -619,7 +619,7 @@ logUpdate:
 	// and generation time (duration minus TTFT) as denominator.
 	// TTFT includes thinking/reasoning time which isn't generation throughput.
 	totalOutputTokens := completionTokens + reasoningTokens
-	generationDuration := totalDuration - ttft
+	generationDuration := totalDuration - responseHeaderMs
 	if totalOutputTokens > 0 && generationDuration > 0 {
 		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 	} else if totalOutputTokens > 0 && totalDuration > 0 {
@@ -684,7 +684,7 @@ logUpdate:
 	logData.providerLookupMs = providerLookupMs
 	logData.keyDecryptMs = keyDecryptMs
 	logData.dialMs = dialMs
-	logData.ttftMs = ttft
+	logData.responseHeaderMs = responseHeaderMs
 	logData.tokensPerSecond = tps
 	logData.tokensPrompt = promptTokens
 	logData.tokensCompletion = completionTokens
@@ -701,11 +701,11 @@ logUpdate:
 	}
 	h.updateRequestLog(logData)
 
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
+	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "response_header_ms", responseHeaderMs, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {
 		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", attempt, "duration_ms", totalDuration)
 	} else {
-		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
+		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "response_header_ms", responseHeaderMs, "duration_ms", totalDuration)
 	}
 
 	if vkHash != "" && !clientDisconnected {
@@ -728,14 +728,14 @@ logUpdate:
 	}
 }
 
-func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
+func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
 	defer func() {
 		if r.Context().Err() == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
 		}
 		_ = resp.Body.Close()
 	}()
-	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
+	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "response_header_ms", responseHeaderMs)
 
 	w.Header().Set("Content-Type", "application/json")
 	var chatResp ChatCompletionResponse
@@ -747,7 +747,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
 		}
 		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
-		generationDuration := totalDuration - ttft
+		generationDuration := totalDuration - responseHeaderMs
 		if totalOutputTokens > 0 && generationDuration > 0 {
 			tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 		} else if totalOutputTokens > 0 && totalDuration > 0 {
@@ -764,7 +764,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverLookupMs = failoverLookupMs
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
-		logData.ttftMs = ttft
+		logData.responseHeaderMs = responseHeaderMs
 		logData.tokensPerSecond = tps
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
 		logData.tokensCompletion = chatResp.Usage.CompletionTokens
@@ -861,7 +861,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverLookupMs = failoverLookupMs
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
-		logData.ttftMs = ttft
+		logData.responseHeaderMs = responseHeaderMs
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
@@ -1376,7 +1376,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+		responseHeaderMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
@@ -1420,7 +1420,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			errMsg := util.SanitizeLogBody(string(body), 2000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
-			logData.ttftMs = ttft
+			logData.responseHeaderMs = responseHeaderMs
 			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			// Forward the upstream error to the client. If the upstream returned
 			// valid JSON (most OpenAI-compatible providers do), pass it through
@@ -1439,7 +1439,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		if isStreaming {
-			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt, streamCancelOrigin)
+			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, responseHeaderMs, vkHash, attempt, streamCancelOrigin)
 			failoverCancel() // body consumed by handleStreamingResponse
 			if retryCancel != nil {
 				retryCancel()
@@ -1447,7 +1447,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt)
+		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, responseHeaderMs, vkHash, attempt)
 		failoverCancel() // body consumed by handleNonStreamingResponse
 		if retryCancel != nil {
 			retryCancel()
