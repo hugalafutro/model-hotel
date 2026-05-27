@@ -13,10 +13,14 @@ import (
 )
 
 // insertRequestLogAsync pre-generates the log ID and fires off the DB
-// insert + SSE event in a goroutine so the handler is not blocked by the
-// write. The ID is assigned synchronously so updateRequestLog can reference
-// it later. If the insert fails, the error is logged but does not fail the
-// request — the update will simply be a no-op.
+// insert in a goroutine so the handler is not blocked by the write. The ID
+// is assigned synchronously so updateRequestLog can reference it later. If
+// the insert fails, the error is logged but does not fail the request —
+// the update will simply be a no-op.
+//
+// Note: The SSE "request.started" event is NOT published here because
+// modelID may be empty when this is called (before body parsing). Call
+// publishRequestStartedEvent after modelID is resolved.
 func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	logEntry.id = uuid.New().String()
 	logEntry.requestHash = generateRequestHash()
@@ -62,21 +66,27 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		)
 		if err != nil {
 			debuglog.Error("proxy: failed to insert initial request log", "request_id", id, "error", err)
-			return
 		}
-		events.Publish(events.Event{
-			Type:     "request.started",
-			Severity: "info",
-			Source:   "proxy",
-			Message:  fmt.Sprintf("Request started: %s", modelID),
-			Metadata: map[string]interface{}{
-				"request_id": id,
-				"model_id":   modelID,
-				"streaming":  streaming,
-				"state":      state,
-			},
-		})
 	}()
+}
+
+// publishRequestStartedEvent emits the SSE "request.started" event.
+// Call this after modelID is resolved so the event always carries the
+// correct model (previously this was embedded in insertRequestLogAsync,
+// which could fire before body parsing had set modelID).
+func publishRequestStartedEvent(logEntry *requestLogData) {
+	events.Publish(events.Event{
+		Type:     "request.started",
+		Severity: "info",
+		Source:   "proxy",
+		Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
+		Metadata: map[string]interface{}{
+			"request_id": logEntry.id,
+			"model_id":   logEntry.modelID,
+			"streaming":  logEntry.streaming,
+			"state":      logEntry.state,
+		},
+	})
 }
 
 // WaitForInsert blocks until the async INSERT goroutine has completed (or

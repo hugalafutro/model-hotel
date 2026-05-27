@@ -32,6 +32,7 @@ import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { encodeCursor, formatNumber } from "../utils/format";
+import { isCancelled } from "../utils/logHelpers";
 import { AppLogs } from "./AppLogs";
 import { formatMs, formatTPS } from "./Logs/utils";
 
@@ -282,17 +283,6 @@ function RequestLogs() {
 	// during refetch, so we only need to check if data has arrived.
 	const displayEntries = logsData?.entries ?? [];
 	const displayTotal = logsData?.total ?? 0;
-
-	const isCancelled = (errorMessage?: string) => {
-		if (!errorMessage) return false;
-		const msg = errorMessage.toLowerCase();
-		return (
-			msg.includes("cancel") ||
-			msg.includes("disconnect") ||
-			msg.includes("upstream request timed out") ||
-			msg.includes("param-strip retry timed out")
-		);
-	};
 
 	const getStatusBadgeVariant = (
 		statusCode: number,

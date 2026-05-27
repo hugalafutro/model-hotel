@@ -957,6 +957,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			bodyBytes, err = io.ReadAll(r.Body)
 			if err != nil {
 				debuglog.Warn("proxy: failed to read request body", "error", err)
+				publishRequestStartedEvent(logData)
 				h.failRequest(logData, 400, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, 0)
 				writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 				return
@@ -967,6 +968,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		var req ChatCompletionRequest
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
 			debuglog.Warn("proxy: failed to parse request body", "error", err)
+			publishRequestStartedEvent(logData)
 			h.failRequest(logData, 400, "invalid request body", 0, startTime, parseMs, resolveTimings{}, 0)
 			writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 			return
@@ -985,6 +987,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Update log entry with model resolved from body parsing (if not set by middleware).
 	logData.modelID = reqModel
 	logData.streaming = isStreaming
+
+	// Publish the SSE "request.started" event after modelID is resolved
+	// so subscribers always see the correct model (not an empty string).
+	publishRequestStartedEvent(logData)
 
 	if reqModel == "" {
 		h.failRequest(logData, 400, "model is required", 0, startTime, parseMs, resolveTimings{}, 0)

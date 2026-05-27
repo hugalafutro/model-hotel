@@ -3,6 +3,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
+import { isCancelled } from "../utils/logHelpers";
 import { Badge } from "./Badge";
 import { LOG_COL_WIDTHS } from "./logTableWidths";
 
@@ -19,17 +20,6 @@ interface VirtualLogTableProps {
 	sortDir: string; // "asc" or "desc"
 	onSortToggle: () => void; // toggle sort direction
 }
-
-const isCancelled = (errorMessage?: string) => {
-	if (!errorMessage) return false;
-	const msg = errorMessage.toLowerCase();
-	return (
-		msg.includes("cancel") ||
-		msg.includes("disconnect") ||
-		msg.includes("upstream request timed out") ||
-		msg.includes("param-strip retry timed out")
-	);
-};
 
 const getStatusBadgeVariant = (
 	statusCode: number,
