@@ -1552,11 +1552,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				}
 				opts.preReadBuf = probeBuf
 				opts.trueTtftMs = trueTtftMs
-			} else {
+			} else if circuitBreakerEnabled {
 				// Disabled — immediate commit (backward compat).
-				if circuitBreakerEnabled {
-					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-				}
+				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 			}
 
 			h.handleStreamingResponse(w, r, logData, resp, startTime, opts)
@@ -1647,7 +1645,7 @@ func (h *Handler) probeFirstToken(
 		if probeCtx.Err() == context.DeadlineExceeded {
 			return nil, 0, fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
 		}
-		if scanErr == io.EOF {
+		if errors.Is(scanErr, io.EOF) {
 			return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
 		}
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)

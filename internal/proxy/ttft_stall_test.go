@@ -207,7 +207,7 @@ func TestStallWatchdog_Timeout(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	logData := &requestLogData{
 		id:              uuid.New().String(),
 		modelID:         "test-model",
@@ -267,7 +267,7 @@ func TestStallWatchdog_Reset(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	logData := &requestLogData{
 		id:              uuid.New().String(),
 		modelID:         "test-model",
@@ -317,7 +317,7 @@ func TestStallWatchdog_Disabled(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	logData := &requestLogData{
 		id:              uuid.New().String(),
 		modelID:         "test-model",
@@ -446,7 +446,7 @@ func TestStallWatchdog_CircuitBreakerOnStall(t *testing.T) {
 	providerName := "stall-test-provider"
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	logData := &requestLogData{
 		id:              uuid.New().String(),
 		providerID:      providerID,
@@ -517,7 +517,7 @@ func TestStallWatchdog_NoStallWhenCircuitBreakerOff(t *testing.T) {
 	providerName := "stall-no-cb-provider"
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	logData := &requestLogData{
 		id:              uuid.New().String(),
 		providerID:      providerID,
