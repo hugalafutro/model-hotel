@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
 // ---------------------------------------------------------------------------
@@ -253,17 +255,23 @@ func TestStallWatchdog_Reset(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
-	// Body sends two chunks with a small delay between them, both less than
-	// the stall timeout, so the watchdog should keep resetting and never fire
-	var buf bytes.Buffer
-	buf.WriteString("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n")
-	buf.WriteString("data: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}\n\n")
-	buf.WriteString("data: [DONE]\n\n")
-	body := io.NopCloser(&buf)
+	// Use io.Pipe with timed writes to verify watchdog timer resets.
+	// Stall timeout is 200ms. We send chunks at 0ms, 50ms, 100ms — all
+	// within the timeout window — so the watchdog should keep resetting
+	// and never fire. Stream completes at ~150ms.
+	pr, pw := io.Pipe()
+	go func() {
+		pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n"))
+		time.Sleep(50 * time.Millisecond)
+		pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}\n\n"))
+		time.Sleep(50 * time.Millisecond)
+		pw.Write([]byte("data: [DONE]\n\n"))
+		pw.Close()
+	}()
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       body,
+		Body:       pr,
 	}
 
 	w := httptest.NewRecorder()
@@ -284,7 +292,7 @@ func TestStallWatchdog_Reset(t *testing.T) {
 	startTime := time.Now()
 	opts := streamOptions{
 		responseHeaderMs:   10.0,
-		streamStallTimeout: 5 * time.Second, // very generous timeout
+		streamStallTimeout: 200 * time.Millisecond,
 		vkHash:             "test-hash",
 		attempt:            1,
 		cancelOrigin:       "failover_timeout",
@@ -292,7 +300,8 @@ func TestStallWatchdog_Reset(t *testing.T) {
 
 	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
 
-	// Stream should complete normally without stall
+	// Stream should complete normally without stall — watchdog was reset
+	// by each chunk and never fired.
 	if logData.state != "completed" {
 		t.Errorf("expected state=completed, got %q (error: %s)", logData.state, logData.errorMessage)
 	}
@@ -424,6 +433,15 @@ func TestStallWatchdog_CircuitBreakerOnStall(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
+	// Set circuit breaker threshold to 1 so a single failure opens the circuit.
+	if err := h.settingsRepo.Set(context.Background(), "circuit_breaker_threshold", "1"); err != nil {
+		t.Fatalf("failed to set circuit_breaker_threshold: %v", err)
+	}
+	defer func() {
+		_ = h.settingsRepo.Set(context.Background(), "circuit_breaker_threshold", "5")
+	}()
+	h.settingsRepo.InvalidateCache("circuit_breaker_threshold")
+
 	// Body sends one chunk then blocks — stall should fire before second write
 	closeCh := make(chan struct{})
 	pr, pw := io.Pipe()
@@ -487,6 +505,12 @@ func TestStallWatchdog_CircuitBreakerOnStall(t *testing.T) {
 	// Duration should be much less than 200ms since watchdog fires at ~50ms
 	if logData.durationMs > 150 {
 		t.Errorf("expected duration < 150ms (stall fired early), got %.1fms", logData.durationMs)
+	}
+	// Verify circuit breaker was actually called: with threshold=1, a
+	// single RecordFailure should transition the provider to StateOpen.
+	cbState := h.circuitBreaker.GetState(providerID)
+	if cbState != failover.StateOpen {
+		t.Errorf("expected circuit breaker StateOpen after stall, got %s", cbState)
 	}
 }
 

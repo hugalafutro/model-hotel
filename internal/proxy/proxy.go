@@ -666,9 +666,14 @@ logUpdate:
 	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 	var tps float64
 	// Use total output tokens (text + reasoning) for TPS numerator,
-	// and generation time (duration minus true TTFT or response headers) as denominator.
+	// and generation time as denominator. Prefer true TTFT (first token)
+	// when the probe measured it; fall back to response header time.
 	totalOutputTokens := completionTokens + reasoningTokens
-	generationDuration := totalDuration - opts.responseHeaderMs
+	ttftForTPS := opts.responseHeaderMs
+	if opts.trueTtftMs > 0 {
+		ttftForTPS = opts.trueTtftMs
+	}
+	generationDuration := totalDuration - ttftForTPS
 	if totalOutputTokens > 0 && generationDuration > 0 {
 		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 	} else if totalOutputTokens > 0 && totalDuration > 0 {
