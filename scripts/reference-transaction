@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# reference-transaction: run tokensave branch add on new branch creation
+set -uo pipefail
+
+state="$1"
+
+if [ "$state" = "committed" ]; then
+	while read -r old_rev new_rev ref_name; do
+		zero="0000000000000000000000000000000000000000"
+		if [ "$old_rev" = "$zero" ]; then
+			branch="${ref_name#refs/heads/}"
+			if [ "$ref_name" != "$branch" ]; then
+				tokensave branch add || true
+			fi
+		fi
+	done
+fi
