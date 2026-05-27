@@ -708,8 +708,10 @@ logUpdate:
 		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
 	}
 	// Stall detection takes precedence over missing [DONE] since the body
-	// was force-closed by the watchdog.
-	if stalled && errMsg == "" {
+	// was force-closed by the watchdog. Only flag a stall when we did NOT
+	// see [DONE] — if the stream completed normally, a late timer fire
+	// is a false positive.
+	if stalled && errMsg == "" && !sawDone {
 		errMsg = fmt.Sprintf("stream stalled: no data for %s", opts.streamStallTimeout)
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", opts.streamStallTimeout, "chunks", chunkCount)
 	}
@@ -1533,7 +1535,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 				// TTFT probe: read until first real data chunk.
 				probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, startTime)
 				if probeErr != nil {
-					// Timeout or read error — failover.
+					// Timeout or read error — failover. probeFirstToken may
+					// or may not have closed the body (only on DeadlineExceeded);
+					// close it unconditionally to release the connection.
+					_ = resp.Body.Close()
 					if circuitBreakerEnabled {
 						h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 					}
